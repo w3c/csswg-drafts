@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.3 1997-07-30 17:37:15 lehors Exp $
+# $Id: Makefile,v 1.4 1997-08-01 14:20:05 lehors Exp $
 
 ROOT = .
 
@@ -97,7 +97,7 @@ HMKDEPEND= $(PERL) ./bin/hmkdep
 # make property anchor database
 MKANCHDB= $(PERL) ./bin/mkanchdb
 # add heading anchors
-ADDHANCH= $(PERL) ./bin/addhanch
+ADDHANCH= $(PERL) ./bin/addhanch -n
 # add index anchors and generate related index database
 ADDIDXANCH= $(PERL) ./bin/addianch
 # add navigation bars
@@ -128,7 +128,7 @@ LN= ln
 	@if [ ! -d build/index ]; then mkdir -p build/index;fi
 	$(HIPP) $(INCLUDES) $< - | $(ADDHANCH) -r $< - - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
-	$(ADDNAVBAR) - "cover.html#toc" index.html $@
+	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" index index.html
 
 all: $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES)
 
@@ -184,7 +184,8 @@ build/index.srb: $(SPECOBJS)
 	$(MKIDX) $@ build/index/*
 
 cover.html: cover.src build/contents.srb
-	$(HIPP) $(INCLUDES) $< $@
+	$(HIPP) $(INCLUDES) $< - | \
+ $(ADDNAVBAR) -bottom -hr -next -r $@ - $@ "Go to the table of contents" "#toc"
 
 build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS)
 	$(MKTOC) $@ $(HEADINGDB) $(MAINSRCS) $(INDEXSRCS) $(APPSRCS)
@@ -193,7 +194,7 @@ $(HEADINGDB): build/contents.srb
 # simpler rules for special pages
 index.html: index.src
 	$(HIPP) $(INCLUDES) $< - | \
-	$(ADDNAVBAR) -r $@ - "cover.html#toc" index.html $@
+	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" index index.html
 
 clean:
 	$(RM) $(SPECOBJS) $(SPECIALOBJS) $(INDEXES) build/* css20.*
