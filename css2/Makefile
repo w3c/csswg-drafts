@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.67 1998-01-15 15:12:04 ijacobs Exp $
+# $Id: Makefile,v 1.68 1998-01-16 08:37:45 ijacobs Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9801/WD-css2-980116
@@ -234,7 +234,8 @@ install: all css2.tgz
 	-(cd $(CSSGROUPDIR); rm -f issues.html; \
 	    $(RM) css2-issues.html; \
             $(LN) -s $(INSTALLDIR)/issues.html css2-issues.html)
-	$(CP) Overview.html html2psrc $(INSTALLDIR)
+#	$(CP) html2psrc $(INSTALLDIR)
+	(cd $(INSTALLDIR); $(LN) -s cover.html Overview.html)
 
 install-all: install css2.zip css2.ps css2.txt
 	$(CP) css2.zip css2.ps css2.txt $(INSTALLDIR)
