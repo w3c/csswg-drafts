@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.43 1998-05-11 16:11:49 ijacobs Exp $
+# $Id: Makefile,v 2.44 1998-05-11 22:29:06 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -415,44 +415,45 @@ build/indexlist.srb: $(MAINSRCS) $(APPSRCS) $(INDEXDB)
 $(INDEXDB): $(SPECSRCS:.src=.html)
 	touch $(INDEXDB)
 
-indexlist.srd: indexlist.src build/blocks.ok
-	@echo "=========== making" $@
-	$(CP) $< $@
+indexlist.srd:: build/indexlist.srb #indexlist.src build/blocks.ok
+#	@echo "=========== making" $@
+#	$(CP) $< $@
 
-indexlist.html: indexlist.srd build/indexlist.srb Project.cfg
-	@echo "=========== making" $@
-	$(HIPP) $(INCLUDES) $< |\
-	$(ADDHANCH) -r $*.html $(HEADINGDB) |\
-	$(ADDNAVBAR) -r $@ |\
-	$(MKCHAIN) -r $@ - $@
+#indexlist.html: indexlist.srd build/indexlist.srb Project.cfg
+#	@echo "=========== making" $@
+#	$(HIPP) $(INCLUDES) $< |\
+#	$(ADDHANCH) -r $*.html $(HEADINGDB) |\
+#	$(ADDNAVBAR) -r $@ |\
+#	$(MKCHAIN) -r $@ - $@
 
 build/propidx.srb: $(PROPSRC)
 	@echo "=========== making" $@
 	$(MKPROPIDX) -r $@ $@ $(PROPSRC)
 
-propidx.srd: propidx.src build/propidx.srb
-	$(HIPP) $(INCLUDES) $< $@
+propidx.srd:: build/propidx.srb #propidx.src
+#	@echo "=========== making" $@
+#	$(HIPP) $(INCLUDES) $< $@
 
-propidx.html: propidx.srd Project.cfg
-	@echo "=========== making" $@
-	$(ADDHANCH) -r $*.html $(HEADINGDB) $*.srd |\
-	$(ADDLINKS) -x $(VALUEDB) - propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
-	$(ADDNAVBAR) -r $@ |\
-	$(MKCHAIN) -r $@ - $@
+#propidx.html: propidx.srd Project.cfg
+#	@echo "=========== making" $@
+#	$(ADDHANCH) -r $*.html $(HEADINGDB) $*.srd |\
+#	$(ADDLINKS) -x $(VALUEDB) - propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
+#	$(ADDNAVBAR) -r $@ |\
+#	$(MKCHAIN) -r $@ - $@
 
 build/descidx.srb: $(MAINSRCS) $(APPSRCS)
 	@echo "=========== making" $@
 	$(MKDESCIDX) -r $@ $@ $(DESCSRC)
 
-descidx.srd: descidx.src build/descidx.srb
-	$(HIPP) $(INCLUDES) $< $@
+descidx.srd:: build/descidx.srb #descidx.src
+#	$(HIPP) $(INCLUDES) $< $@
 
-descidx.html: descidx.srd Project.cfg
-	@echo "=========== making" $@
-	$(ADDHANCH) -r $*.html $(HEADINGDB) $*.srd |\
-	$(ADDLINKS) -x $(VALUEDB) - propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
-	$(ADDNAVBAR) -r $@ |\
-	$(MKCHAIN) -r $@ - $@
+#descidx.html: descidx.srd Project.cfg
+#	@echo "=========== making" $@
+#	$(ADDHANCH) -r $*.html $(HEADINGDB) $*.srd |\
+#	$(ADDLINKS) -x $(VALUEDB) - propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
+#	$(ADDNAVBAR) -r $@ |\
+#	$(MKCHAIN) -r $@ - $@
 
 # Issues and todo lists.
 issues.html: issues.src build/issues.srb
