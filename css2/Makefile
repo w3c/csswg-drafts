@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.63 2002-11-18 20:36:16 bbos Exp $
+# $Id: Makefile,v 2.64 2002-11-18 22:59:56 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -203,10 +203,12 @@ HTML2PS= $(PERL) bin/html2ps -d -f html2psrc2
 #PSTOPNM = ./bin/mypstopnm -r 75
 PSTOPNM = ./bin/mypstopnm -r 150
 #PNMTOGIF_PIPE = ppmquant 256 | ppmtogif
-PNMTOGIF_PIPE = pnmscale 0.5 | pnmgamma 1.7 | ppmquant -fs 256 | ppmtogif
+#PNMTOGIF_PIPE = pnmscale 0.5 | pnmgamma 1.7 | ppmquant -fs 256 | ppmtogif
+PNMTOGIF_PIPE = pnmscale 0.5 | ppmquant -fs 256 | ppmtogif
 
 # idraw -> png
-PNMTOPNG_PIPE = pnmscale 0.5 | pnmgamma 1.7 | pnmtopng -gamma 1.7
+#PNMTOPNG_PIPE = pnmscale 0.5 | pnmgamma 1.7 | pnmtopng -gamma 1.7
+PNMTOPNG_PIPE = pnmscale 0.5 | pnmtopng
 
 # include paths
 INCLUDES= -Ibuild -I.
@@ -217,7 +219,7 @@ TAR= tar
 ZIP= zip -y
 LN= ln
 
-.SUFFIXES: .src .html .srd .idraw .gif .ps .subtoc .png
+.SUFFIXES: .src .html .srd .idraw .gif .ps .subtoc .png .fig
 
 %.subtoc: %.srd Project.cfg
 	@echo "=========== making" $@
@@ -258,6 +260,10 @@ LN= ln
 	$(RM) $@
 	$(PSTOPNM) $< | $(PNMTOPNG_PIPE) >$@
 
+.fig.png:
+	$(RM) $@
+	fig2dev -L ps $< | $(PSTOPNM) | $(PNMTOPNG_PIPE) >$@
+
 all: build/blocks.ok $(SPECOBJS) $(INDEXES) images/pngs.ok \
 	$(IMAGES)
 #	$(IMAGES) issues.html errata-issues.html DOC/TODO.html
@@ -295,9 +301,11 @@ install-pdf: install css2.pdf
 install-all: install install-ps install-pdf css2.zip css2.txt
 	$(CP) css2.zip css2.txt $(INSTALLDIR)
 
-images/pngs.ok: images/*.idraw
+images/pngs.ok: images/*.idraw images/*.fig
 	-@for f in images/*.idraw; do make images/`basename $$f .idraw`.gif; done
 	-@for f in images/*.idraw; do make images/`basename $$f .idraw`.png; done
+	-@for f in images/*.fig; do make images/`basename $$f .fig`.gif; done
+	-@for f in images/*.fig; do make images/`basename $$f .fig`.png; done
 	touch images/pngs.ok
 
 translations.html : translations.src
