@@ -1,14 +1,12 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.27 1997-09-23 02:34:26 ian Exp $
+# $Id: Makefile,v 1.28 1997-09-23 14:05:35 ian Exp $
 
 ROOT = .
 
 # the following files are part of the CSS specification
 SRCS0 = \
 $(ROOT)/cover.src
-
-# $(ROOT)/cover-short.src
 
 SRCS1 = \
 about.src\
@@ -76,7 +74,7 @@ INDEXES= \
 index.html
 
 SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
-SPECOBJS= $(MAINOBJS) cover-short.html $(APPENDIXES)
+SPECOBJS= $(MAINOBJS) $(APPENDIXES) $(REFS)
 
 IMAGES= images/*.gif
 STYLESHEETS= style/*.css
@@ -239,18 +237,10 @@ cover.html: cover.src cover-info.src build/contents.srb
 	$(HIPP) $(INCLUDES) $< - | \
  $(ADDNAVBAR) -bottom -hr -r $@ - $@ "go to the table of contents" "#toc"
 
-cover-short.html: cover-short.src cover-info.src build/contents-short.srb
-	$(HIPP) $(INCLUDES) $< - | \
- $(ADDNAVBAR) -bottom -hr -r $@ - $@ "go to the table of contents" "#toc"
-
 build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
 	$(MKTOC) -ml 5 $@ $(HEADINGDB) $(MAINSRCS) -ul -roman $(APPSRCS) \
 		-ol -none $(REFSRCS) $(INDEXSRCS) 
 $(HEADINGDB): build/contents.srb
-
-build/contents-short.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
-	$(MKTOC) -ml 3 $@ $(HEADINGDB) $(MAINSRCS) -ul -roman $(APPSRCS) \
-		-ol -none $(REFSRCS) $(INDEXSRCS) 
 
 # special rule with different numbering
 sample.html: sample.src
