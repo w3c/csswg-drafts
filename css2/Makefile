@@ -1,15 +1,15 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.6 1998-02-11 20:57:19 ijacobs Exp $
+# $Id: Makefile,v 2.7 1998-02-17 00:23:30 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
 THE_DATE = 13-Feb-1998
 THE_ID = WD-css2-19980213
-THIS_VERSION = http://www.w3.org/TR/1998/$(THE_ID)
+THIS_VERSION = http://www.w3.org/Style/Group/1998/02/$(THE_ID)
 THE_PREVIOUS_VERSION = http://www.w3.org/TR/WD-css2-19980128
 PERMANENT_NAME = WD-css2
-THE_LATEST_VERSION = http://www.w3.org/TR/$(PERMANENT_NAME)
+THE_LATEST_VERSION = http://www.w3.org/Style/Group/1998/02/$(THE_ID)
 TR_DIR = /afs/w3.org/pub/WWW/TR
 CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group
 INSTALLDIR = $(CSSGROUPDIR)/1998/02/WD-css2-19980213
