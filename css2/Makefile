@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.51 1997-12-09 17:32:19 ian Exp $
+# $Id: Makefile,v 1.52 1997-12-11 00:00:38 ijacobs Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9712/WD-css2-971209
@@ -48,6 +48,8 @@ REFSRCS = \
 refs.src
 
 INDEXSRCS= \
+propidx.src \
+descidx.src \
 indexlist.src
 
 MAINSRCS = $(SRCS1)
@@ -83,6 +85,8 @@ REFS= \
 refs.html
 
 INDEXES= \
+propidx.html \
+descidx.html \
 indexlist.html
 
 SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
@@ -129,6 +133,10 @@ ADDIDXANCH= $(PERL) ./bin/addianch
 ADDNAVBAR= $(PERL) ./bin/addnavbar
 # make CSS Index
 MKIDX= $(PERL) ./bin/mkidx
+# make property index
+MKPROPIDX= $(PERL) ./bin/mkpropidx
+# make descriptor index
+MKDESCIDX= $(PERL) ./bin/mkdescidx
 # make table of contents and heading database
 MKTOC= $(PERL) ./bin/mktoc
 # HTML concate utility
@@ -188,7 +196,7 @@ LN= ln
 	$(HIPP) $(INCLUDES) $< | $(ADDHANCH) -n -ml 3 -r $< $(HEADINGDB) | \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
 
@@ -271,7 +279,7 @@ cover.html: cover.src build/contents.srb
 	       -e 's|_THE_DATE_|$(THE_DATE)|g' \
 	       -e 's|_THE_ID_|$(THE_ID)|g' $< | \
 	$(HIPP) $(INCLUDES) | \
- $(ADDNAVBAR) -hr -r $@ - $@ "table of contents" "#toc" index indexlist.html
+ $(ADDNAVBAR) -hr -r $@ - $@ "table of contents" "#toc" properties propidx.html descriptors descidx.html index indexlist.html
 
 build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
 	$(MKTOC) -ml 5 $@ $(HEADINGDB) $(MAINSRCS) -ul -roman $(APPSRCS) \
@@ -286,7 +294,7 @@ about.html: about.src
 	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $< | \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html >$@
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html >$@
 
 # special rule with different numbering
 sample.html: sample.src
@@ -298,7 +306,7 @@ sample.html: sample.src
 	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
 
@@ -311,7 +319,7 @@ changes.html: changes.src
 	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
 
@@ -324,7 +332,7 @@ notes.html: notes.src
 	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
 
@@ -337,7 +345,7 @@ grammar.html: grammar.src
 	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
 
@@ -350,7 +358,7 @@ refs.html: refs.src
 	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
 
@@ -361,8 +369,27 @@ build/indexlist.srb: $(SPECOBJS)
 
 indexlist.html: indexlist.src
 	$(HIPP) $(INCLUDES) $< | \
-	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" 
+	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" properties propidx.html descriptors descidx.html
 
+propidx.html: build/propidx.srb
+build/propidx.srb: $(SPECOBJS)
+	$(MKPROPIDX) -r $@ $@ properties/properties.db
+
+propidx.html: propidx.src
+	$(HIPP) $(INCLUDES) $< | \
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
+	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" descriptors descidx.html index indexlist.html
+
+descidx.html: build/descidx.srb
+build/descidx.srb: $(SPECOBJS)
+	$(MKDESCIDX) -r $@ $@ properties/descriptors.db
+
+descidx.html: descidx.src
+	$(HIPP) $(INCLUDES) $< | \
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
+	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" properties "propidx.html" index "indexlist.html"
+
+# Issues and todo lists.
 issues.html: issues.src build/issues.srb
 	$(HIPP) $(INCLUDES) $< $@
 
