@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.67 2003-01-21 14:26:50 bbos Exp $
+# $Id: Makefile,v 2.68 2003-01-21 17:15:48 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -143,6 +143,7 @@ DIFF = diff
 GREP = grep
 LS = ls
 HTML2TXT = lynx -cfg lynx.cfg -dump -nolist
+DISTILL = ps2pdf
 
 # HTML include preprocessor (for includes)
 HIPP= $(PERL) ./bin/hipp
@@ -345,9 +346,9 @@ css2.ps ps: build/blocks.ok $(SPECOBJS) $(INDEXES) images/pngs.ok $(IMAGES)
 css2.ps.gz: css2.ps
 	gzip <$< >$@
 
-# This requires Acrobat Distiller
+# This requires Acrobat Distiller or equivalent
 css2.pdf: css2.ps
-	distill css2.ps
+	$(DISTILL) css2.ps
 
 css2.html html: $(SPECOBJS) $(INDEXES)
 	$(HTMLCAT) - $(SPECOBJS) $(INDEXES) | \
