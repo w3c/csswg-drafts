@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.36 1998-05-01 00:05:27 ijacobs Exp $
+# $Id: Makefile,v 2.37 1998-05-01 23:50:32 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -457,7 +457,7 @@ FILES= $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES)
 
 checkdoc: all
 	-@echo "# Begin checking sgml."
-	@for i in $(FILES); \
+	@for i in $(FILES) $(LONGDESCS); \
 	do echo checking $$i...; \
            $(NSGMLS) -s -c sgml/HTML4.cat $$i; done;
 	-@echo "# End checking sgml."
@@ -477,7 +477,7 @@ build/refs.db : $(SPECSRCS) $(REFSRCS)
 
 checkspell: 
 	-@echo "# Begin spell checking."
-	-@for i in $(SPECSRCS); \
+	-@for i in $(SPECSRCS) $(LONGDESCS); \
 	   do\
 		echo "Checking spelling in $$i.";\
 		cat $$i | $(SPELL) css.dico;\
