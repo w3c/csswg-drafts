@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.52 1997-12-11 00:00:38 ijacobs Exp $
+# $Id: Makefile,v 1.53 1997-12-11 18:46:18 bbos Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9712/WD-css2-971209
@@ -27,6 +27,7 @@ cascade.src\
 media.src\
 flowobj.src\
 flowobj2.src\
+generate.src\
 page.src\
 colors.src\
 fonts.src\
@@ -65,6 +66,7 @@ cascade.html\
 media.html\
 flowobj.html\
 flowobj2.html\
+generate.html\
 page.html\
 colors.html\
 fonts.html\
