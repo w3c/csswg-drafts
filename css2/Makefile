@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.46 1997-11-24 14:12:37 bbos Exp $
+# $Id: Makefile,v 1.47 1997-11-25 22:11:37 ian Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9711/WD-css2-971128
@@ -22,11 +22,9 @@ about.src\
 intro.src\
 convent.src\
 syndata.src\
-process.src\
 selector.src\
 cascade.src\
 media.src\
-box.src\
 flowobj.src\
 flowobj2.src\
 page.src\
@@ -60,11 +58,9 @@ about.html\
 intro.html\
 convent.html\
 syndata.html\
-process.html\
 selector.html\
 cascade.html\
 media.html\
-box.html\
 flowobj.html\
 flowobj2.html\
 page.html\
@@ -152,6 +148,8 @@ DEXTR= $(PERL) ./bin/dextr
 ISSUES= bin/issues
 # extract issues from todo db.
 TODO= bin/todo
+# check validity of sample style sheet
+CHKSAMPLE= $(PERL) ./bin/chksample
 # make database of references (reference.src)
 MKREFDB = $(PERL) ./bin/mkrefdb
 # check references.
@@ -379,7 +377,7 @@ build/todo.srb: DOC/todo.db
 
 ### check on the document to see if it's valid
 
-check: checkdoc checkrefs checklnx
+check: checkdoc checkrefs checksample checklnx
 
 FILES= $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES)
 
@@ -397,6 +395,11 @@ checkrefs: build/refs.db
 build/refs.db : $(SPECSRCS) $(REFSRCS)
 	-@$(RM) -f build/refs.db
 	-@$(MKREFDB) $(REFSRCS) build/refs.db
+
+### check the sample style sheet.
+
+checksample: sample.src $(PROPSRC)
+	@$(CHKSAMPLE) sample.src $(PROPSRC)
 
 ### check links
 
