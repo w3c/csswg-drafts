@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.29 1998-03-24 18:32:41 bbos Exp $
+# $Id: Makefile,v 2.30 1998-03-25 14:10:23 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -131,6 +131,7 @@ SPELL = ispell -l -p
 DIFF = diff
 GREP = grep
 LS = ls
+HTML2TXT = lynx -cfg lynx.cfg -dump -nolist
 
 # HTML include preprocessor (for includes)
 HIPP= $(PERL) ./bin/hipp
@@ -227,6 +228,9 @@ LN= ln
 	echo "</div>" >>$@
 	if [ `cat $@ | wc -l` = 3 ]; then $(RM) $@; touch $@; fi
 
+# Use the shorter line to avoid regenerating all .html if one .src changed,
+# at the cost of possibly incorrect xrefs in the other .html files
+#
 #%.html: %.subtoc Project.cfg
 %.html: %.subtoc $(SPECSRCS:.src=.srd) Project.cfg
 	@echo "=========== making" $@
@@ -280,8 +284,12 @@ install: all css2.tgz
 	-$(RM) -f $(TR_DIR)/$(PERMANENT_NAME)
 	$(LN) -s $(INSTALLDIR) $(TR_DIR)/$(PERMANENT_NAME)
 
-install-all: install css2.zip css2.ps css2.txt
-	$(CP) css2.zip css2.ps css2.txt $(INSTALLDIR)
+install-ps: install css2.ps
+	$(CP) css2.ps $(INSTALLDIR)
+
+# install all, except ps, which takes too long.
+install-all: install css2.zip css2.txt
+	$(CP) css2.zip css2.txt $(INSTALLDIR)
 
 images/gifs.ok: images/*.idraw
 	-@for f in images/*.idraw; do make images/`basename $$f .idraw`.gif; done
@@ -303,9 +311,13 @@ css2.html html: all
 	$(HTMLTRIM) div navbar - $@
 
 # the following requires to be on unix and have Netscape running...
+#css2.txt txt: css2.html
+#	$(RM) css2.txt; \
+#        netscape -remote "openFile(`pwd`/css2.html)" -remote "saveAs(`pwd`/css2.txt,Text)"
+
+# The following requires Lynx
 css2.txt txt: css2.html
-	$(RM) css2.txt; \
-        netscape -remote "openFile(`pwd`/css2.html)" -remote "saveAs(`pwd`/css2.txt,Text)"
+	$(HTML2TXT) css2.html >$@
 
 ####
 
@@ -368,9 +380,12 @@ build/minicontents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.sr
 	$(MKTOC) -h 1 $(HEADINGDB) $@
 
 ### general index related rules
-build/indexlist.srb: $(MAINSRCS) $(APPSRCS)
+build/indexlist.srb: $(MAINSRCS) $(APPSRCS) $(INDEXDB)
 	@echo "=========== making" $@
 	$(MKIDX) $(INDEXDB) $@
+
+$(INDEXDB): $(SPECSRCS:.src=.html)
+	touch $(INDEXDB)
 
 indexlist.srd: indexlist.src build/blocks.ok
 	@echo "=========== making" $@
