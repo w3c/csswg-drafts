@@ -1,13 +1,14 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.10 1997-08-14 00:32:48 ian Exp $
+# $Id: Makefile,v 1.11 1997-08-14 03:42:54 ian Exp $
 
 ROOT = .
 
 # the following files are part of the CSS specification
 SRCS0 = \
-$(ROOT)/cover.src\
-$(ROOT)/cover-short.src
+$(ROOT)/cover.src
+
+# $(ROOT)/cover-short.src
 
 SRCS1 = \
 about.src\
@@ -43,7 +44,6 @@ MAINSRCS = $(SRCS1)
 
 MAINOBJS = \
 cover.html\
-cover-short.html\
 about.html\
 tutorial.html\
 cssdesgn.html\
@@ -74,7 +74,7 @@ INDEXES= \
 index.html
 
 SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
-SPECOBJS= $(MAINOBJS) $(APPENDIXES)
+SPECOBJS= $(MAINOBJS) cover-short.html $(APPENDIXES)
 
 IMAGES= images/*.gif
 STYLESHEETS= style/*.css
@@ -150,11 +150,14 @@ LN= ln
 
 all: $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES)
 
-install: all css20.tgz css20.zip $(PSDIR)/css20.ps $(PSDIR)/css20.txt
+install: all css20.tgz 
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
-	$(CP) css20.tgz css20.zip $(PSDIR)/css20.ps $(PSDIR)/css20.txt \
-	       Overview.html $(INSTALLDIR)
+	$(CP) css20.tgz $(INSTALLDIR)
 	(cd $(INSTALLDIR); $(TAR) xvzf css20.tgz)
+
+install-all: install css20.zip $(PSDIR)/css20.ps $(PSDIR)/css20.txt
+	$(CP) css20.zip $(PSDIR)/css20.ps $(PSDIR)/css20.txt \
+	       Overview.html $(INSTALLDIR)
 
 #### Special section to build PS file and single plain text file
 
