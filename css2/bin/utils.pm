@@ -1,13 +1,13 @@
 # A few common routines						 -*-perl-*-
 #
 # Bert Bos <bert@w3.org>
-# $Id: utils.pm,v 2.2 1998-04-30 18:52:04 bbos Exp $
+# $Id: utils.pm,v 2.3 2002-08-02 18:59:42 bbos Exp $
 
 package utils;
 require Exporter;
 @ISA = qw(Exporter);
-@EXPORT = qw(readfile writefile read_config $contents $stylesheet
-	$styletype @chapter @resetnumber @format %lookup $chapno @relations
+@EXPORT = qw(readfile writefile read_config $contents @stylesheet
+	@styletype @chapter @resetnumber @format %lookup $chapno @relations
 	@links @tonavbar $src_ext);
 
 # @EXPORT_OK = qw(parsewords);
@@ -15,8 +15,8 @@ require Exporter;
 
 
 $contents = '';			# File containing ToC
-$stylesheet = '';		# URL of style sheet
-$styletype = '';		# MIME type of style sheet
+@stylesheet = ();		# URLs of style sheets
+@styletype = ();		# MIME types of style sheets
 @chapter = ();			# Array of chapter files
 @resetnumber = ();		# For each chapter: the chapter number - 1
 @format = ();			# For each chapter: list of number formats
@@ -65,8 +65,8 @@ sub read_config {
 		last;
 	    };
 	    /^\@stylesheet$/o and do { # URL (and type) of style sheet
-		$stylesheet = $words[1];
-		if (defined $words[2]) {$styletype = $words[2];}
+		push(@stylesheet, ($words[1]));
+		if (defined $words[2]) {push(@styletype, ($words[2]));}
 		last;
 	    };
 	    /^\@format$/o and do { # Set numbering style for next chapters
