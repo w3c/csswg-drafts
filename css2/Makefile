@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.41 1997-11-05 01:10:25 bbos Exp $
+# $Id: Makefile,v 1.42 1997-11-05 14:43:46 ian Exp $
 
 ROOT = .
 
@@ -267,6 +267,14 @@ build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
 	$(ADDLINKS) -r $< $(HEADINGDB) $(HEADINGDB) propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) 
 	$(ADDLINKS) -r $< $@ $@ propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) 
 $(HEADINGDB): build/contents.srb
+
+# special rule with different numbering
+about.html: about.src
+	@if [ ! -d build/index ]; then mkdir -p build/index; fi
+	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
+	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html >$@
 
 # special rule with different numbering
 sample.html: sample.src
