@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.49 1998-05-13 11:02:16 bbos Exp $
+# $Id: Makefile,v 2.50 1998-09-28 23:04:15 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -176,6 +176,8 @@ PEXTR= $(PERL) ./bin/pextr
 DEXTR= $(PERL) ./bin/dextr
 # extract issues from issues db.
 ISSUES= bin/issues
+# extract issues from errata-issues db.
+ERRATA= bin/errata
 # extract issues from todo db.
 TODO= bin/todo
 # check validity of sample style sheet
@@ -207,7 +209,7 @@ ADDLONGDESC = $(PERL) ./bin/addlongdesc
 
 # utility to generate the PostScript version
 #
-HTML2PS= $(PERL) bin/html2ps -d -f html2psrc
+HTML2PS= $(PERL) bin/html2ps -d -f html2psrc2
 
 # IDRAW -> PS -> GIF tools
 #PSTOPNM = ./bin/mypstopnm -r 75
@@ -271,7 +273,7 @@ LN= ln
 	$(PSTOPNM) $< | $(PNMTOPNG_PIPE) >$@
 
 all: build/blocks.ok $(SPECOBJS) $(INDEXES) images/gifs.ok \
-	$(IMAGES) issues.html DOC/TODO.html $(UPDATEOBJS)
+	$(IMAGES) issues.html errata-issues.html DOC/TODO.html $(UPDATEOBJS)
 
 
 #images/links.ok : $(IMAGES)
@@ -464,6 +466,15 @@ issues.html: issues.src build/issues.srb
 build/issues.srb: issues.db
 	@echo "=========== making" $@
 	$(ISSUES) -g >$@
+
+# Errata-Issues
+errata-issues.html: errata-issues.src build/errata-issues.srb
+	@echo "=========== making" $@
+	$(HIPP) $(INCLUDES) $< $@
+
+build/errata-issues.srb: errata-issues.db
+	@echo "=========== making" $@
+	$(ERRATA) -g >$@
 
 DOC/TODO.html: DOC/TODO.src build/todo.srb
 	@echo "=========== making" $@
