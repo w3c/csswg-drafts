@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.7 1998-02-17 00:23:30 ijacobs Exp $
+# $Id: Makefile,v 2.8 1998-02-17 23:44:39 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -97,7 +97,7 @@ indexlist.html
 SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
 SPECOBJS= $(MAINOBJS) $(APPENDIXES) $(REFS)
 
-IMAGES = images/*.gif  
+IMAGES = images/*.gif images/*.png
 STYLESHEETS= style/*.css
 
 ALLOBJS= $(SPECOBJS) $(INDEXES) $(IMAGES) $(STYLESHEETS) translations.html
@@ -187,6 +187,8 @@ MKHEADINGDB = $(PERL) ./bin/mkheadingdb
 MKCHAIN = $(PERL) ./bin/mkchain
 # Expand [[cite]] to link to bibliography
 ADDCITE = $(PERL) ./bin/addcite
+# Remove extensions (.gif, .png,...) from IMG links
+RMIMGEXT = $(PERL) ./bin/rmimgext
 
 # utility to generate the PostScript version
 #
@@ -196,7 +198,10 @@ HTML2PS= $(PERL) bin/html2ps -d -f html2psrc
 #PSTOPNM = ./bin/mypstopnm -r 75
 PSTOPNM = ./bin/mypstopnm -r 150
 #PNMTOGIF_PIPE = ppmquant 256 | ppmtogif
-PNMTOGIF_PIPE = pnmscale 0.5 | pnmgamma 1.8 | ppmquant 256 | ppmtogif
+PNMTOGIF_PIPE = pnmscale 0.5 | pnmgamma 1.8 | ppmquant -fs 256 | ppmtogif
+
+# idraw -> png
+PNMTOPNG_PIPE = pnmscale 0.5 | pnmgamma 1.8 | pnmtopng -gamma 1.8
 
 # include paths
 INCLUDES= -Ibuild -I.
@@ -207,7 +212,7 @@ TAR= tar
 ZIP= zip
 LN= ln
 
-.SUFFIXES: .src .html .srd .idraw .gif .ps .subtoc
+.SUFFIXES: .src .html .srd .idraw .gif .ps .subtoc .png
 
 %.subtoc: %.srd Project.cfg
 	@echo "=========== making" $@
@@ -222,6 +227,7 @@ LN= ln
 	$(ADDIDXANCH) -r $@ $(INDEXDB) - |\
 	$(ADDNAVBAR) -r $@ |\
 	$(INSAFTER) - $*.subtoc /H1 - |\
+	$(RMIMGEXT) |\
 	$(MKCHAIN) -r $@ - $@
 
 %.srd: %.src build/blocks.ok $(REFSRC:.src=.srd)
@@ -238,10 +244,14 @@ LN= ln
 #	$(PSTOPNM) $< | $(PPMQUANT) | $(PPMTOGIF) >$@
 	$(PSTOPNM) $< | $(PNMTOGIF_PIPE) >$@
 
+.idraw.png:
+	$(RM) $@
+	$(PSTOPNM) $< | $(PNMTOPNG_PIPE) >$@
+
 all: build/blocks.ok $(SPECOBJS) $(INDEXES) \
 	$(IMAGES) issues.html DOC/TODO.html
 
-install: all css20.tgz 
+install: all css2.tgz 
 	@if [ -z "$(INSTALLDIR)" ]; then\
 	  echo >&2;\
 	  echo "*** No target directory specified" >&2;\
@@ -249,8 +259,8 @@ install: all css20.tgz
 	  exit 1;\
 	fi
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
-	$(CP) css20.tgz $(INSTALLDIR)
-	(cd $(INSTALLDIR); zcat css20.tgz | $(TAR) xvf -)
+	$(CP) css2.tgz $(INSTALLDIR)
+	(cd $(INSTALLDIR); zcat css2.tgz | $(TAR) xvf -)
 	-$(RM) -f $(CSSGROUPDIR)/issues.html
 	-$(RM) $(CSSGROUPDIR)/css2-issues.html
 	$(LN) -s $(INSTALLDIR)/issues.html $(CSSGROUPDIR)/css2-issues.html
@@ -258,34 +268,35 @@ install: all css20.tgz
 	-$(RM) -f $(TR_DIR)/$(PERMANENT_NAME)
 	$(LN) -s $(INSTALLDIR) $(TR_DIR)/$(PERMANENT_NAME)
 
-install-all: install css20.zip css20.ps css20.txt
-	$(CP) css20.zip css20.ps css20.txt $(INSTALLDIR)
+install-all: install css2.zip css2.ps css2.txt
+	$(CP) css2.zip css2.ps css2.txt $(INSTALLDIR)
 
 #### Special section to build PS file and single plain text file
 
-css20.ps ps: all
+css2.ps ps: all
 # Because of memory limitations in html2ps, use the
 # automagic feature that any *.gif files are not
 # converted to ps if there's a *.ps file in the same
 # directory.
 	-@(cd images; for i in *.idraw; do $(LN) -s $$i "`basename $$i .idraw`.ps"; done)
+	-@(cd images; for i in *.gif; do $(LN) -s $$i "`basename $$i .gif`"; done)
 	$(HTML2PS) $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) > $@
 
-css20.html html: all
+css2.html html: all
 	$(HTMLCAT) - $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) | \
 	$(HTMLTRIM) div navbar - $@
 
 # the following requires to be on unix and have Netscape running...
-css20.txt txt: css20.html
-	$(RM) css20.txt; \
-        netscape -remote "openFile(`pwd`/css20.html)" -remote "saveAs(`pwd`/css20.txt,Text)"
+css2.txt txt: css2.html
+	$(RM) css2.txt; \
+        netscape -remote "openFile(`pwd`/css2.html)" -remote "saveAs(`pwd`/css2.txt,Text)"
 
 ####
 
-css20.tgz: $(ALLOBJS)
+css2.tgz: $(ALLOBJS)
 	$(TAR) cf - $(ALLOBJS) | gzip >$@
 
-css20.zip: $(ALLOBJS)
+css2.zip: $(ALLOBJS)
 	$(ZIP) $@ $(ALLOBJS)
 
 #### Section generate property/descriptor tables from property database.
@@ -497,7 +508,7 @@ log:
 clean:
 	$(RM) $(SPECOBJS) $(INDEXES) $(PROPBLKSDIR)/* \
 	$(SPECOBJS:.html=.srd) $(SPECOBJS:.html=.subtoc) \
-        $(DESCBLKSDIR)/* build/* css20.* linklint
+        $(DESCBLKSDIR)/* build/* css2.* linklint
 
 realclean: clean
 
