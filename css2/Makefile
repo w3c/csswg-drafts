@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.34 1998-04-30 06:05:58 ijacobs Exp $
+# $Id: Makefile,v 2.35 1998-04-30 22:00:15 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -195,6 +195,8 @@ ADDCITE = $(PERL) ./bin/addcite
 RMIMGEXT = $(PERL) ./bin/rmimgext
 # Add special markup (e.g., keyword "Example")
 ADDMARKUP = $(PERL) ./bin/addmarkup
+# Add longdesc descriptions to images
+ADDLONGDESC = $(PERL) ./bin/addlongdesc
 
 # utility to generate the PostScript version
 #
@@ -237,6 +239,7 @@ LN= ln
 	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
 	$(ADDIDXANCH) -r $@ $(INDEXDB) - |\
 	$(ADDMARKUP) - |\
+	$(ADDLONGDESC) - |\
 	$(ADDNAVBAR) -r $@ |\
 	$(INSAFTER) - $*.subtoc /H1 - |\
 	$(MKCHAIN) -r $@ - $@
