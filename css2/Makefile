@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.57 1997-12-12 17:12:13 bbos Exp $
+# $Id: Makefile,v 1.58 1997-12-12 18:44:16 ijacobs Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9712/WD-css2-971211
@@ -112,6 +112,7 @@ DESCRIPTORDB= build/descriptor.db
 VALUEDB= build/value.db
 # dbase for heading dbase
 HEADINGDB= build/headings.db
+MINIHEADINGDB= build/miniheadings.db
 
 SED = sed
 PERL= perl5
@@ -293,7 +294,7 @@ build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
 	   descinst $(DESCRIPTORDB) value-inst $(VALUEDB) 
 
 build/minicontents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
-	$(MKTOC) -ml 1 $@ $(HEADINGDB) \
+	$(MKTOC) -ml 1 $@ $(MINIHEADINGDB) \
 	   -ol $(MAINSRCS)\
 	   -ol -roman $(APPSRCS) -ol -none $(REFSRCS) $(INDEXSRCS) 
 	$(ADDLINKS) -r $< $@ $@ propinst $(PROPERTYDB) \
