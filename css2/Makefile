@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.0 1998-02-02 18:42:55 bbos Exp $
+# $Id: Makefile,v 2.1 1998-02-02 23:18:20 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -207,16 +207,17 @@ LN= ln
 
 .SUFFIXES: .src .html .srd .idraw .gif .ps .subtoc
 
-%.subtoc: %.srd # build/headings.db.ok
+%.subtoc: %.srd Project.cfg
 	@echo "=========== making" $@
 	echo "<div class=\"subtoc\">" >$@
 	echo "<p><strong>Contents</strong>" >>$@
 	$(MKTOC) -l 2 -r $*.html $(HEADINGDB) >>$@
 	echo "</div>" >>$@
 
-%.html: %.subtoc %.srd build/value.db.ok # build/headings.db.ok
+%.html: %.subtoc $(SPECSRCS:.src=.srd) Project.cfg
 	@echo "=========== making" $@
-	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
+	$(ADDIDXANCH) -r $@ $(INDEXDB) $*.srd |\
+	$(ADDLINKS) $(VALUEDB) - propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
 	$(ADDNAVBAR) -r $@ |\
 	$(INSAFTER) - $*.subtoc /H1 - |\
 	$(MKCHAIN) -r $@ - $@
@@ -224,16 +225,27 @@ LN= ln
 %.srd: %.src build/blocks.ok
 	@echo "=========== making" $@
 	$(HIPP) $(INCLUDES) $< |\
-	$(ADDIDXANCH) -r $*.html $(INDEXDB) | \
-	$(ADDHANCH) -r $*.html $(HEADINGDB) >$@
+	$(ADDHANCH) -r $*.html $(HEADINGDB) - $@
+	$(MKANCHDB) -r $*.html value-def- $(VALUEDB) $@
+	$(MKANCHDB) -r $*.html propdef- $(VALUEDB) $@
+	$(MKANCHDB) -r $*.html descdef- $(VALUEDB) $@
+
+#%.srd: %.src build/blocks.ok
+#	@echo "=========== making" $@
+#	$(HIPP) $(INCLUDES) $< |\
+#	$(MKANCHDB) -r $@ value-def- $(VALUEDB) |\
+#	$(MKANCHDB) -r $@ propdef- $(VALUEDB) |\
+#	$(MKANCHDB) -r $@ descdef- $(VALUEDB) |\
+#	$(ADDIDXANCH) -r $*.html $(INDEXDB) | \
+#	$(ADDHANCH) -r $*.html $(HEADINGDB) >$@
 
 .idraw.gif:
 	$(RM) $@
 #	$(PSTOPNM) $< | $(PPMQUANT) | $(PPMTOGIF) >$@
 	$(PSTOPNM) $< | $(PNMTOGIF_PIPE) >$@
 
-all: build/blocks.ok build/value.db.ok $(SPECOBJS) $(INDEXES) \
-	$(IMAGES) issues.html DOC/TODO.html $(SPECSRCS:.src=.subtoc) # build/headings.db.ok
+all: build/blocks.ok $(SPECOBJS) $(INDEXES) \
+	$(IMAGES) issues.html DOC/TODO.html
 
 install: all css20.tgz 
 	@if [ -z "$(INSTALLDIR)" ]; then\
@@ -298,21 +310,21 @@ $(DESCBLKSDIR)/blocks.ok: $(DESCSRC)
 	touch $@
 
 
-build/value.db.ok: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) # $(SPECSRCS:.src=.srd)
-	@echo "=========== making" $@
-	$(MKANCHDB) value-def- $(VALUEDB) $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd)
-	# $(SPECSRCS:.src=.srd)
-	$(MKANCHDB) propdef- $(VALUEDB) $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd)
-	# $(SPECSRCS:.src=.srd)
-	$(MKANCHDB) descdef- $(VALUEDB) $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd)
-	# $(SPECSRCS:.src=.srd)
-	touch $@
+#build/value.db.ok: $(MAINSRCS) $(APPSRCS)
+#	@echo "=========== making" $@
+#	$(MKANCHDB) value-def- $(VALUEDB) $(MAINSRCS) $(APPSRCS:.src=.srd)
+#	# $(SPECSRCS:.src=.srd)
+#	$(MKANCHDB) propdef- $(VALUEDB) $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd)
+#	# $(SPECSRCS:.src=.srd)
+#	$(MKANCHDB) descdef- $(VALUEDB) $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd)
+#	# $(SPECSRCS:.src=.srd)
+#	touch $@
 
-cover.srd: build/contents.srb build/minicontents.srb
+cover.srd: cover.src build/contents.srb build/minicontents.srb
 	@echo "=========== making" $@
-	$(HIPP) $(INCLUDES) $*.src >$@
+	$(HIPP) $(INCLUDES) $< $@
 
-cover.html: cover.srd
+cover.html: cover.srd Project.cfg
 	@echo "=========== making" $@
 	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
 	       -e 's|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g' \
@@ -322,11 +334,11 @@ cover.html: cover.srd
 	$(ADDNAVBAR) -r $@ |\
 	$(MKCHAIN) -r $@ - $@
 
-build/contents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.src=.srd) $(INDEXSRCS:.src=.srd)
+build/contents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.src=.srd) $(INDEXSRCS:.src=.srd) Project.cfg
 	@echo "=========== making" $@
 	$(MKTOC) -h 5 $(HEADINGDB) $@
 
-build/minicontents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.src=.srd) $(INDEXSRCS:.src=.srd)
+build/minicontents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.src=.srd) $(INDEXSRCS:.src=.srd) Project.cfg
 	@echo "=========== making" $@
 	$(MKTOC) -h 1 $(HEADINGDB) $@
 
@@ -337,47 +349,41 @@ build/minicontents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.sr
 
 
 ### general index related rules
-build/indexlist.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) # $(SPECOBJS)
+build/indexlist.srb: $(MAINSRCS) $(APPSRCS)
 	@echo "=========== making" $@
 	$(MKIDX) $(INDEXDB) $@
 
-indexlist.srd: build/indexlist.srb indexlist.src
+indexlist.html: indexlist.srd Project.cfg
 	@echo "=========== making" $@
-	$(HIPP) $(INCLUDES) $*.src |\
-	$(ADDHANCH) -r $*.html $(HEADINGDB) >$@
-
-indexlist.html: indexlist.srd
-	@echo "=========== making" $@
-	$(ADDNAVBAR) -r $@ $*.srd |\
+	$(ADDHANCH) -r $*.html $(HEADINGDB) $*.srd |\
+	$(ADDNAVBAR) -r $@ |\
 	$(MKCHAIN) -r $@ - $@
 
-build/propidx.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) # $(PROPSRC)
+build/propidx.srb: $(PROPSRC)
 	@echo "=========== making" $@
 	$(MKPROPIDX) -r $@ $@ $(PROPSRC)
 
 propidx.srd: propidx.src build/propidx.srb
-	@echo "=========== making" $@
-	$(HIPP) $(INCLUDES) $*.src |\
-	$(ADDHANCH) -r $*.html $(HEADINGDB) >$@
+	$(HIPP) $(INCLUDES) $< $@
 
-propidx.html: propidx.srd build/value.db.ok
+propidx.html: propidx.srd Project.cfg
 	@echo "=========== making" $@
-	$(ADDLINKS) $(VALUEDB) $< propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
+	$(ADDHANCH) -r $*.html $(HEADINGDB) $*.srd |\
+	$(ADDLINKS) $(VALUEDB) - propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
 	$(ADDNAVBAR) -r $@ |\
 	$(MKCHAIN) -r $@ - $@
 
-build/descidx.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) # $(SPECOBJS)
+build/descidx.srb: $(MAINSRCS) $(APPSRCS)
 	@echo "=========== making" $@
 	$(MKDESCIDX) -r $@ $@ $(DESCSRC)
 
-descidx.srd : descidx.src build/descidx.srb descidx.src build/value.db.ok
-	@echo "=========== making" $@
-	$(HIPP) $(INCLUDES) $*.src |\
-	$(ADDHANCH) -r $*.html $(HEADINGDB) >$@
+descidx.srd: descidx.src build/descidx.srb
+	$(HIPP) $(INCLUDES) $< $@
 
-descidx.html: descidx.srd
+descidx.html: descidx.srd Project.cfg
 	@echo "=========== making" $@
-	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
+	$(ADDHANCH) -r $*.html $(HEADINGDB) $*.srd |\
+	$(ADDLINKS) $(VALUEDB) - propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
 	$(ADDNAVBAR) -r $@ |\
 	$(MKCHAIN) -r $@ - $@
 
