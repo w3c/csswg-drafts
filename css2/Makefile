@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.80 1998-01-29 18:55:51 bbos Exp $
+# $Id: Makefile,v 1.81 1998-01-29 20:11:17 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -200,7 +200,7 @@ LN= ln
 
 .SUFFIXES: .src .html .srb .idraw .gif .ps
 
-%.html: %.src $(HEADINGDB) $(PROPERTYDB) $(DESCRIPTORDB) $(VALUEDB) blocks
+%.html: %.src $(HEADINGDB) $(PROPERTYDB) $(DESCRIPTORDB) $(VALUEDB) build/blocks.ok
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
 	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
 		> build/subtoc.$$$$; \
@@ -219,7 +219,7 @@ LN= ln
 #	$(PSTOPNM) $< | $(PPMQUANT) | $(PPMTOGIF) >$@
 	$(PSTOPNM) $< | $(PNMTOGIF_PIPE) >$@
 
-all: blocks $(PROPERTYDB) $(DESCRIPTORDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES) \
+all: build/blocks.ok $(PROPERTYDB) $(DESCRIPTORDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES) \
 	$(IMAGES) issues.html DOC/TODO.html
 
 install: all css20.tgz 
@@ -271,7 +271,8 @@ css20.zip: $(ALLOBJS)
 
 #### Section generate property/descriptor tables from property database.
 
-blocks: $(PROPBLKSDIR)/blocks.ok $(DESCBLKSDIR)/blocks.ok
+build/blocks.ok: $(PROPBLKSDIR)/blocks.ok $(DESCBLKSDIR)/blocks.ok
+	touch $@
 
 $(PROPBLKSDIR)/blocks.ok: $(PROPSRC)
 	@if [ ! -d $(PROPBLKSDIR) ]; then mkdir -p $(PROPBLKSDIR);fi
@@ -521,12 +522,12 @@ log:
 	done; rm /tmp/log
 
 clean:
-	$(RM) $(SPECOBJS) $(SPECIALOBJS) $(INDEXES) $(PROPBLKSDIR)/* \
+	$(RM) $(SPECOBJS) $(INDEXES) $(PROPBLKSDIR)/* \
         $(DESCBLKSDIR)/* build/* css20.* linklint
 
 realclean: clean
 
 depend:
-	$(HMKDEPEND) $(SPECOBJS) $(SPECIALOBJS) 
+	$(HMKDEPEND) $(SPECOBJS) 
 
 ##### The following is automatically generated. Do not edit!! ####
