@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.28 1998-03-24 15:09:23 ijacobs Exp $
+# $Id: Makefile,v 2.29 1998-03-24 18:32:41 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -271,7 +271,7 @@ install: all css2.tgz
 	fi
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
 	$(CP) css2.tgz $(INSTALLDIR)
-	(cd $(INSTALLDIR); zcat css2.tgz | $(TAR) xvf -)
+	zcat css2.tgz | (cd $(INSTALLDIR); $(TAR) xvf -)
 	-$(RM) -f $(CSSGROUPDIR)/issues.html
 	-$(RM) $(CSSGROUPDIR)/css2-issues.html
 	$(LN) -s $(INSTALLDIR)/issues.html $(CSSGROUPDIR)/css2-issues.html
@@ -310,7 +310,8 @@ css2.txt txt: css2.html
 ####
 
 css2.tgz: $(ALLOBJS) # images/links.ok
-	$(TAR) cf - $(ALLOBJS) `$(LS) -d images/* | $(GREP) -v "\."` | gzip >$@
+#	$(TAR) cf - $(ALLOBJS) `$(LS) -d images/* | $(GREP) -v "\."` | gzip >$@
+	$(TAR) cf - $(ALLOBJS) | gzip >$@
 
 css2.zip: $(ALLOBJS)
 	$(ZIP) $@ $(ALLOBJS) `$(LS) -d images/* | $(GREP) -v "\."` 
