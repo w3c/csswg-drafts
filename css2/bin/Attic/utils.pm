@@ -1,7 +1,7 @@
 # A few common routines						 -*-perl-*-
 #
 # Bert Bos <bert@w3.org>
-# $Id: utils.pm,v 2.1 1998-03-17 17:06:59 bbos Exp $
+# $Id: utils.pm,v 2.2 1998-04-30 18:52:04 bbos Exp $
 
 package utils;
 require Exporter;
@@ -60,25 +60,25 @@ sub read_config {
 	my @words = parsewords($_);
 	if (!defined $words[0]) {next;} # Empty line
 	for ($words[0]) {
-	    /\@contents$/o and do { # URL of ToC
+	    /^\@contents$/o and do { # URL of ToC
 		$contents = $words[1];
 		last;
 	    };
-	    /\@stylesheet$/o and do { # URL (and type) of style sheet
+	    /^\@stylesheet$/o and do { # URL (and type) of style sheet
 		$stylesheet = $words[1];
 		if (defined $words[2]) {$styletype = $words[2];}
 		last;
 	    };
-	    /\@format$/o and do { # Set numbering style for next chapters
+	    /^\@format$/o and do { # Set numbering style for next chapters
 		@curformat = @words;
 		$reset = 0;
 		last;
 	    };
-	    /\@restart$/o and do { # Reset the chapter number
+	    /^\@restart$/o and do { # Reset the chapter number
 		$reset = int($words[1]) - 1;
 		next;
 	    };
-	    /\@chapter$/o and do { # File with next chapter
+	    /^\@chapter$/o and do { # File with next chapter
 		push(@chapter, ($words[1]));
 		push(@format, ([@curformat]));
 		push(@resetnumber, ($reset));
@@ -86,13 +86,13 @@ sub read_config {
 		$lookup{$words[1]} = $#chapter;
 		last;
 	    };
-	    /\@link$/o and do {	# Additional <LINK> tags
+	    /^\@link$/o and do {	# Additional <LINK> tags
 		push(@relations, ($words[1]));
 		push(@links, ($words[2]));
 		push(@tonavbar, (defined $words[3] ? $words[3] : ""));
 		last;
 	    };
-	    /\@source-extension$/o and do { # Extension of sources
+	    /^\@source-extension$/o and do { # Extension of sources
 		$src_ext = $words[1];
 		last;
 	    };
