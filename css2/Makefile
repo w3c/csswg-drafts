@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.50 1998-09-28 23:04:15 ijacobs Exp $
+# $Id: Makefile,v 2.51 2002-04-23 18:38:39 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -129,7 +129,7 @@ INDEXDB = build/index.db
 
 SED = sed
 #PERL= perl5 -Ibin
-PERL= perl5
+PERL= perl
 NSGMLS=nsgmls
 LINKLINT=$(PERL) bin/linklint
 SPELL = ispell -l -p
