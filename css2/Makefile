@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.24 1997-09-19 16:04:55 lehors Exp $
+# $Id: Makefile,v 1.25 1997-09-19 21:05:31 bbos Exp $
 
 ROOT = .
 
@@ -132,6 +132,8 @@ ADDLINKS= $(PERL) ./bin/addlinks
 PEXTR= $(PERL) ./bin/pextr
 # extract descriptors from db.
 DEXTR= $(PERL) ./bin/dextr
+# extract issues from issues db.
+ISSUES= bin/issues
 
 # utility to generate the PostScript version
 # -R seems broken for this spec.
@@ -171,7 +173,7 @@ LN= ln
 
 
 all: blocks $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES) \
-	$(IMAGES)
+	$(IMAGES) issues.html
 
 install: all css20.tgz 
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
@@ -313,9 +315,16 @@ refs.html: refs.src
 	$(RM) build/subtoc.$$$$
 
 # simpler rules for special pages
+
 index.html: index.src
 	$(HIPP) $(INCLUDES) $< - | \
 	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" 
+
+issues.html: issues.src issues.srb
+	$(HIPP) $(INCLUDES) issues.src $@
+
+issues.srb: issues.db
+	$(ISSUES) -g >$@
 
 ### check on the document to see if it's valid
 
