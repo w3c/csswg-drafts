@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.58 2002-07-31 18:07:54 bbos Exp $
+# $Id: Makefile,v 2.59 2002-07-31 18:48:03 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -312,7 +312,7 @@ errata.html : errata.src
 
 #### Special section to build PS file and single plain text file
 
-css2.ps ps: all
+css2.ps ps: build/blocks.ok $(SPECOBJS) $(INDEXES) images/pngs.ok $(IMAGES)
 # Because of memory limitations in html2ps, use the
 # automagic feature that any *.gif files are not
 # converted to ps if there's a *.ps file in the same
@@ -544,5 +544,7 @@ realclean: clean
 
 depend:
 	$(HMKDEPEND) $(SPECOBJS) 
+
+.PHONY: all install install-all clean realclean checkx
 
 ##### The following is automatically generated. Do not edit!! ####
