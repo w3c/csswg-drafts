@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.85 2004-02-25 16:12:01 bbos Exp $
+# $Id: Makefile,v 2.86 2004-03-08 18:33:57 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -11,10 +11,10 @@ THE_DAY = 25
 THE_STATUS = CR
 THE_STATUSNAME = Candidate Recommendation
 
-PREV_YEAR = 2003
-PREV_MONTH = 09
-PREV_DAY = 15
-PREV_STATUS = WD
+PREV_YEAR = 2004
+PREV_MONTH = 02
+PREV_DAY = 25
+PREV_STATUS = CR
 
 PERMANENT_NAME = CSS21
 
@@ -585,9 +585,9 @@ HTMLDIFF = htmldiff -i -w '<del>' -x '</del>' -y '<ins>' -z '</ins>'
 
 diffs: $(SPECOBJS) $(INDEXES)
 	-(cd diffs-rec;\
-	 make PREV=../$(PREVREC) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS))
+	 make PREV=../$(PREVREC) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS) $(INDEXES))
 	-(cd diffs-wd;\
-	 make PREV=../$(PREVWD) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS))
+	 make PREV=../$(PREVWD) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS) $(INDEXES))
 
 
 .PHONY: all install install-all clean realclean checkx diffs
