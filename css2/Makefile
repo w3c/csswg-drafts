@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.4 1998-02-03 16:39:41 ijacobs Exp $
+# $Id: Makefile,v 2.5 1998-02-10 18:01:11 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -185,6 +185,8 @@ ADDREFCLASS= $(PERL) ./bin/addrefclass
 MKHEADINGDB = $(PERL) ./bin/mkheadingdb
 # Add prev/next/toc/stylesheet and other links to document
 MKCHAIN = $(PERL) ./bin/mkchain
+# Expand [[cite]] to link to bibliography
+ADDCITE = $(PERL) ./bin/addcite
 
 # utility to generate the PostScript version
 #
@@ -222,22 +224,14 @@ LN= ln
 	$(INSAFTER) - $*.subtoc /H1 - |\
 	$(MKCHAIN) -r $@ - $@
 
-%.srd: %.src build/blocks.ok
+%.srd: %.src build/blocks.ok $(REFSRC:.src=.srd)
 	@echo "=========== making" $@
 	$(HIPP) $(INCLUDES) $< |\
+	$(ADDCITE) -r $(REFS) $(REFSRCS) |\
 	$(ADDHANCH) -r $*.html $(HEADINGDB) - $@
 	$(MKANCHDB) -r $*.html value-def- $(VALUEDB) $@
 	$(MKANCHDB) -r $*.html propdef- $(VALUEDB) $@
 	$(MKANCHDB) -r $*.html descdef- $(VALUEDB) $@
-
-#%.srd: %.src build/blocks.ok
-#	@echo "=========== making" $@
-#	$(HIPP) $(INCLUDES) $< |\
-#	$(MKANCHDB) -r $@ value-def- $(VALUEDB) |\
-#	$(MKANCHDB) -r $@ propdef- $(VALUEDB) |\
-#	$(MKANCHDB) -r $@ descdef- $(VALUEDB) |\
-#	$(ADDIDXANCH) -r $*.html $(INDEXDB) | \
-#	$(ADDHANCH) -r $*.html $(HEADINGDB) >$@
 
 .idraw.gif:
 	$(RM) $@
@@ -342,12 +336,6 @@ build/minicontents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.sr
 	@echo "=========== making" $@
 	$(MKTOC) -h 1 $(HEADINGDB) $@
 
-#build/headings.db.ok: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
-#	@echo "=========== making" $@
-#	$(MKHEADINGDB) $(HEADINGDB)
-#	touch $@
-
-
 ### general index related rules
 build/indexlist.srb: $(MAINSRCS) $(APPSRCS)
 	@echo "=========== making" $@
@@ -424,9 +412,9 @@ checkdoc: all
 
 ### check on the validity references in the document
 
-checkrefs: build/refs.db
+checkrefs: build/refs.db $(SPECOBJS)
 	-@echo "# Begin checking references."
-	-@$(CHKREFS) build/refs.db $(SPECSRCS)
+	-@$(CHKREFS) build/refs.db $(SPECOBJS)
 	-@echo "# End checking references."
 
 build/refs.db : $(SPECSRCS) $(REFSRCS)
