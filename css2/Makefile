@@ -1,18 +1,20 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.39 1998-05-06 02:14:34 ijacobs Exp $
+# $Id: Makefile,v 2.40 1998-05-11 15:02:38 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
-THE_DATE = 7-May-1998
-THE_ID = REC-css2-19980507
+THE_DATE = 12-May-1998
+THE_ID = REC-css2-19980512
 THIS_VERSION = http://www.w3.org/TR/1998/$(THE_ID)
 THE_PREVIOUS_VERSION = http://www.w3.org/TR/1998/PR-CSS2-19980324
-PERMANENT_NAME = REC-CSS2
+PERMANENT_NAME = REC-css2
 THE_LATEST_VERSION = http://www.w3.org/TR/$(PERMANENT_NAME)
 CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group
 TR_DIR = /afs/w3.org/pub/WWW/TR
 INSTALLDIR = $(TR_DIR)/1998/$(THE_ID)
+THE_UPDATE_DIR = http://www.w3.org/Style/css2-updates
+UPDATESDIR= /afs/w3.org/pub/WWW/Style/html40-updates
 
 ROOT = .
 
@@ -96,6 +98,10 @@ indexlist.html
 
 SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
 SPECOBJS= $(MAINOBJS) $(APPENDIXES) $(REFS)
+
+UPDATEOBJS = \
+translations.html\
+errata.html
 
 #IMAGES = images/*.gif images/*.png
 IMAGES = images/*.gif
@@ -265,7 +271,7 @@ LN= ln
 	$(PSTOPNM) $< | $(PNMTOPNG_PIPE) >$@
 
 all: build/blocks.ok $(SPECOBJS) $(INDEXES) images/gifs.ok \
-	$(IMAGES) issues.html DOC/TODO.html # images/links.ok
+	$(IMAGES) issues.html DOC/TODO.html $(UPDATEOBJS)
 
 
 #images/links.ok : $(IMAGES)
@@ -301,6 +307,21 @@ images/gifs.ok: images/*.idraw
 	-@for f in images/*.idraw; do make images/`basename $$f .idraw`.gif; done
 	-@for f in images/*.idraw; do make images/`basename $$f .idraw`.png; done
 	touch images/gifs.ok
+
+translations.html : translations.src
+	$(SED) -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
+	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' $< > $@
+
+errata.html : errata.src
+	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
+	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
+	       -e 's|_THE_ID_|$(THE_ID)|g' \
+	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' $< > $@
+
+install_updates: $(UPDATEOBJS)
+	@if [ ! -d $(UPDATESDIR) ]; then mkdir -p $(UPDATESDIR);fi
+	$(CP) errata.html $(UPDATESDIR)/$(THE_ID)-errata.html
+	$(CP) translations.html $(UPDATESDIR)
 
 #### Special section to build PS file and single plain text file
 
@@ -373,6 +394,7 @@ cover.html: cover.srd Project.cfg
 	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
 	       -e 's|_THE_DATE_|$(THE_DATE)|g' \
 	       -e 's|_THE_ID_|$(THE_ID)|g' $*.srd | \
+	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' $*.srd | \
 	$(ADDNAVBAR) -r $@ |\
 	$(MKCHAIN) -r $@ - $@
 
@@ -453,7 +475,7 @@ build/todo.srb: DOC/todo.db
 
 check: checkdoc checkspaces checkprops checkrefs checkspell checksample checklnx checkx
 
-FILES= $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES)
+FILES= $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) $(UPDATEOBJS)
 
 checkdoc: all
 	-@echo "# Begin checking sgml."
@@ -551,7 +573,7 @@ log:
 clean:
 	$(RM) $(SPECOBJS) $(INDEXES) $(PROPBLKSDIR)/* \
 	$(SPECOBJS:.html=.srd) $(SPECOBJS:.html=.subtoc) \
-        $(INDEXES:.html=.srd) \
+        $(INDEXES:.html=.srd) $(UPDATEOBJS)\
         $(DESCBLKSDIR)/* build/* css2.* linklint images/links.ok images/gifs.ok
 
 realclean: clean
