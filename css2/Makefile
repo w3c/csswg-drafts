@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.15 1998-03-10 18:43:58 bbos Exp $
+# $Id: Makefile,v 2.16 1998-03-13 23:01:02 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -517,6 +517,7 @@ log:
 clean:
 	$(RM) $(SPECOBJS) $(INDEXES) $(PROPBLKSDIR)/* \
 	$(SPECOBJS:.html=.srd) $(SPECOBJS:.html=.subtoc) \
+        $(INDEXES:.html=.srd) \
         $(DESCBLKSDIR)/* build/* css2.* linklint images/links.ok
 
 realclean: clean
