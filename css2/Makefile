@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.59 2002-07-31 18:48:03 bbos Exp $
+# $Id: Makefile,v 2.60 2002-08-02 14:54:02 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -469,7 +469,7 @@ checkspell:
 	-@for i in $(SPECSRCS) $(LONGDESCS); \
 	   do\
 		echo "Checking spelling in $$i.";\
-		cat $$i | $(SPELL) css.dico;\
+		cat $$i | $(SPELL) css.dico | sort -u;\
 	   done;
 	-@echo "# End spell checking."
 
