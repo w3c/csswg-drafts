@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.48 1998-05-12 16:38:53 ijacobs Exp $
+# $Id: Makefile,v 2.49 1998-05-13 11:02:16 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -296,8 +296,8 @@ install: all css2.tgz
 	-$(RM) -f $(TR_DIR)/$(PERMANENT_NAME)
 	$(LN) -s $(INSTALLDIR) $(TR_DIR)/$(PERMANENT_NAME)
 
-install-ps: install css2.ps
-	$(CP) css2.ps $(INSTALLDIR)
+install-ps: install css2.ps.gz
+	$(CP) css2.ps.gz $(INSTALLDIR)
 
 # install all, except ps, which takes too long.
 install-all: install css2.zip css2.txt
@@ -332,6 +332,9 @@ css2.ps ps: all
 # directory.
 	-@(cd images; for i in *.idraw; do $(LN) -s $$i "`basename $$i .idraw`.ps"; done)
 	$(HTML2PS) $(SPECOBJS) $(INDEXES) > $@
+
+css2.ps.gz: css2.ps
+	gzip <$< >$@
 
 css2.html html: $(SPECOBJS) $(INDEXES)
 	$(HTMLCAT) - $(SPECOBJS) $(INDEXES) | \
