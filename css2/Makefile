@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.64 1998-01-08 13:53:14 ijacobs Exp $
+# $Id: Makefile,v 1.65 1998-01-09 08:04:32 ijacobs Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9712/WD-css2-971211
@@ -178,7 +178,7 @@ ADDREFCLASS= $(PERL) ./bin/addrefclass
 
 # utility to generate the PostScript version
 #
-HTML2PS= $(PERL) bin/html2ps -f html2psrc
+HTML2PS= $(PERL) bin/html2ps -d -f html2psrc
 
 # IDRAW -> PS -> GIF tools
 #PSTOPNM = ./bin/mypstopnm -r 75
