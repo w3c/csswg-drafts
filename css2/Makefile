@@ -1,14 +1,14 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.66 1998-01-12 12:18:25 ijacobs Exp $
+# $Id: Makefile,v 1.67 1998-01-15 15:12:04 ijacobs Exp $
 
 # what needs to be set for every new release:
-THIS_VERSION= http://www.w3.org/Style/Group/9712/WD-css2-971211
-THE_PREVIOUS_VERSION= http://www.w3.org/TR/WD-CSS2/
-THE_LATEST_VERSION= http://www.w3.org/Style/Group/9711/WD-css2-971211
-THE_DATE= 11-Dec-1997
-THE_ID= WD-CSS20-971211
-INSTALLDIR= /afs/w3.org/pub/WWW/Style/Group/9712/WD-css2-971211
+THIS_VERSION= http://www.w3.org/Style/Group/9801/WD-css2-980116
+THE_PREVIOUS_VERSION= http://www.w3.org/Style/Group/9712/WD-css2-971211
+THE_LATEST_VERSION= http://www.w3.org/Style/Group/9801/WD-css2-980116
+THE_DATE= 16-Jan-1998
+THE_ID= WD-CSS20-980116
+INSTALLDIR= /afs/w3.org/pub/WWW/Style/Group/9801/WD-css2-980116
 CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group/
 
 ROOT = .
@@ -242,6 +242,11 @@ install-all: install css2.zip css2.ps css2.txt
 #### Special section to build PS file and single plain text file
 
 css2.ps ps: all
+# Because of memory limitations in html2ps, use the
+# automagic feature that any *.gif files are not
+# converted to ps if there's a *.ps file in the same
+# directory.
+	-@(cd images; for i in *.idraw; do $(LN) -s $$i "`basename $$i .idraw`.ps"; done)
 	$(HTML2PS) $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) > $@
 
 css2.html html: all
