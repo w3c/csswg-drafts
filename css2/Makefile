@@ -1,11 +1,11 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.52 2002-04-23 22:38:20 bbos Exp $
+# $Id: Makefile,v 2.53 2002-07-05 19:58:04 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
-THE_DATE = ??-May-2002
-THE_ID = WD-CSS2-200205XX
+THE_DATE = ?? July 2002
+THE_ID = WD-CSS21-200207??
 THIS_VERSION = http://www.w3.org/TR/2002/$(THE_ID)
 THE_PREVIOUS_VERSION = http://www.w3.org/TR/1998/REC-CSS2-19980512
 PERMANENT_NAME = CSS2
@@ -47,7 +47,6 @@ aural.src
 APPSRCS = \
 sample.src\
 changes.src\
-notes.src\
 grammar.src
 
 REFSRCS = \
@@ -55,7 +54,6 @@ refs.src
 
 INDEXSRCS= \
 propidx.src \
-descidx.src \
 indexlist.src
 
 MAINSRCS = $(SRCS1)
@@ -85,7 +83,6 @@ aural.html
 APPENDIXES= \
 sample.html\
 changes.html\
-notes.html\
 grammar.html
 
 REFS= \
@@ -93,7 +90,6 @@ refs.html
 
 INDEXES= \
 propidx.html \
-descidx.html \
 indexlist.html
 
 SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
@@ -209,7 +205,7 @@ ADDLONGDESC = $(PERL) ./bin/addlongdesc
 
 # utility to generate the PostScript version
 #
-HTML2PS= $(PERL) bin/html2ps -d -f html2psrc2
+HTML2PS= $(PERL) -w bin/html2ps -d -f html2psrc2
 
 # IDRAW -> PS -> GIF tools
 #PSTOPNM = ./bin/mypstopnm -r 75
