@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.7 1997-08-06 14:03:15 ijacobs Exp $
+# $Id: Makefile,v 1.8 1997-08-07 08:04:07 ijacobs Exp $
 
 ROOT = .
 
@@ -28,14 +28,14 @@ ui.src\
 conform.src \
 refs.src
 
-INDEXSRCS= \
-index.src
-
 APPSRCS = \
 sample.src\
 changes.src\
 notes.src\
 grammar.src
+
+INDEXSRCS= \
+index.src
 
 MAINSRCS = $(SRCS1)
 
@@ -60,14 +60,14 @@ ui.html\
 conform.html\
 refs.html
 
-INDEXES= \
-index.html
-
 APPENDIXES= \
 sample.html\
 changes.html\
 notes.html\
 grammar.html
+
+INDEXES= \
+index.html
 
 SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
 SPECOBJS= $(MAINOBJS) $(APPENDIXES)
@@ -165,13 +165,13 @@ $(PSDIR):
 	   (cd $(PSDIR); $(MAKE) clean); fi
 
 css20.ps: $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES)
-	$(HTML2PS) $(HTML2PSARGS) $(MAINOBJS) $(INDEXES) $(APPENDIXES) > $@
+	$(HTML2PS) $(HTML2PSARGS) $(MAINOBJS) $(APPENDIXES) $(INDEXES) > $@
 
 txt $(PSDIR)/css20.txt: $(PSDIR)
 	(cd $(PSDIR); $(MAKE) css20.txt ADDNAVBAR="$(PERL) ./bin/fakenavbar")
 
 css20.html: $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES) 
-	$(HTMLCAT) $@ $(MAINOBJS) $(INDEXES) $(APPENDIXES)
+	$(HTMLCAT) $@ $(MAINOBJS) $(APPENDIXES) $(INDEXES) 
 
 # the following requires to be on unix and have Netscape running...
 css20.txt: css20.html
@@ -202,13 +202,13 @@ cover.html: cover.src build/contents.srb
  $(ADDNAVBAR) -bottom -hr -next -r $@ - $@ "Go to the table of contents" "#toc"
 
 build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS)
-	$(MKTOC) $@ $(HEADINGDB) $(MAINSRCS) $(INDEXSRCS) $(APPSRCS)
+	$(MKTOC) $@ $(HEADINGDB) $(MAINSRCS) $(APPSRCS) $(INDEXSRCS) 
 $(HEADINGDB): build/contents.srb
 
 # simpler rules for special pages
 index.html: index.src
 	$(HIPP) $(INCLUDES) $< - | \
-	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" index index.html
+	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" 
 
 clean:
 	$(RM) $(SPECOBJS) $(SPECIALOBJS) $(INDEXES) build/* css20.*
