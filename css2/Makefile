@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.19 1997-09-09 01:21:42 ian Exp $
+# $Id: Makefile,v 1.20 1997-09-10 13:21:38 lehors Exp $
 
 ROOT = .
 
@@ -123,9 +123,9 @@ INSAFTER= $(PERL) ./bin/insafter
 # add link
 ADDLINKS= $(PERL) ./bin/addlinks
 # extract properties from db.
-PEXTR= ./bin/pextr
+PEXTR= $(PERL) ./bin/pextr
 # extract descriptors from db.
-DEXTR= ./bin/dextr
+DEXTR= $(PERL) ./bin/dextr
 
 # utility to generate the PostScript version
 # -R seems broken for this spec.
