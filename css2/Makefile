@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.53 1997-12-11 18:46:18 bbos Exp $
+# $Id: Makefile,v 1.54 1997-12-11 21:39:39 ijacobs Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9712/WD-css2-971209
@@ -193,13 +193,14 @@ LN= ln
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
 	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
 		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -l 2  $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	$(MKSUBTOC) -l 2  $(HEADINGDB) $< |\
+	$(ADDLINKS) -r $< - build/subtoc.$$$$ propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB);\
 	echo "</div>" >> build/subtoc.$$$$; \
 	$(HIPP) $(INCLUDES) $< | $(ADDHANCH) -n -ml 3 -r $< $(HEADINGDB) | \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
-	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
+	$(INSAFTER) - build/subtoc.$$$$ /H1 $@;\
 	$(RM) build/subtoc.$$$$
 
 .idraw.gif:
@@ -284,10 +285,13 @@ cover.html: cover.src build/contents.srb
  $(ADDNAVBAR) -hr -r $@ - $@ "table of contents" "#toc" properties propidx.html descriptors descidx.html index indexlist.html
 
 build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
-	$(MKTOC) -ml 5 $@ $(HEADINGDB) $(MAINSRCS) -ul -roman $(APPSRCS) \
-		-ol -none $(REFSRCS) $(INDEXSRCS) 
-	$(ADDLINKS) -r $< $(HEADINGDB) $(HEADINGDB) propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) 
-	$(ADDLINKS) -r $< $@ $@ propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) 
+	$(MKTOC) -ml 5 $@ build/minicontents.srb $(HEADINGDB) $(MAINSRCS)\
+	   -ul -roman $(APPSRCS) -ol -none $(REFSRCS) $(INDEXSRCS) 
+	$(ADDLINKS) -r $< $@ $@ propinst $(PROPERTYDB) \
+	   descinst $(DESCRIPTORDB) value-inst $(VALUEDB) 
+	$(ADDLINKS) -r $< build/minicontents.srb build/minicontents.srb \
+	   propinst $(PROPERTYDB) \
+	   descinst $(DESCRIPTORDB) value-inst $(VALUEDB) 
 $(HEADINGDB): build/contents.srb
 
 # special rule with different numbering
@@ -309,7 +313,7 @@ sample.html: sample.src
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
-	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
+	$(INSAFTER) - build/subtoc.$$$$ /H1 $@;\
 	$(RM) build/subtoc.$$$$
 
 changes.html: changes.src
@@ -322,7 +326,7 @@ changes.html: changes.src
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
-	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
+	$(INSAFTER) - build/subtoc.$$$$ /H1 $@;\
 	$(RM) build/subtoc.$$$$
 
 notes.html: notes.src
@@ -335,7 +339,7 @@ notes.html: notes.src
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
-	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
+	$(INSAFTER) - build/subtoc.$$$$ /H1 $@;\
 	$(RM) build/subtoc.$$$$
 
 grammar.html: grammar.src
@@ -348,7 +352,7 @@ grammar.html: grammar.src
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
-	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
+	$(INSAFTER) - build/subtoc.$$$$ /H1 $@;\
 	$(RM) build/subtoc.$$$$
 
 refs.html: refs.src
@@ -361,7 +365,8 @@ refs.html: refs.src
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
-	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
+	$(INSAFTER) - build/subtoc.$$$$ /H1 - | \
+	$(ADDLINKS) -r $< - $@ propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB);\
 	$(RM) build/subtoc.$$$$
 
 ### general index related rules
