@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.2 1998-02-03 02:49:55 ijacobs Exp $
+# $Id: Makefile,v 2.3 1998-02-03 14:00:38 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -352,6 +352,14 @@ build/minicontents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.sr
 build/indexlist.srb: $(MAINSRCS) $(APPSRCS)
 	@echo "=========== making" $@
 	$(MKIDX) $(INDEXDB) $@
+
+indexlist.srd : indexlist.src build/indexlist.srb build/blocks.ok
+	@echo "=========== making" $@
+	$(HIPP) $(INCLUDES) $< |\
+	$(ADDHANCH) -r $*.html $(HEADINGDB) - $@
+	$(MKANCHDB) -r $*.html value-def- $(VALUEDB) $@
+	$(MKANCHDB) -r $*.html propdef- $(VALUEDB) $@
+	$(MKANCHDB) -r $*.html descdef- $(VALUEDB) $@
 
 indexlist.html: indexlist.srd Project.cfg
 	@echo "=========== making" $@
