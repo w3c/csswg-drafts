@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.34 1997-10-03 22:09:37 ian Exp $
+# $Id: Makefile,v 1.35 1997-10-29 04:34:31 ian Exp $
 
 ROOT = .
 
@@ -12,10 +12,12 @@ SRCS1 = \
 about.src\
 intro.src\
 convent.src\
+process.src\
 syndata.src\
 selector.src\
 cascade.src\
 media.src\
+box.src\
 flowobj.src\
 flowobj2.src\
 page.src\
@@ -47,10 +49,12 @@ cover.html\
 about.html\
 intro.html\
 convent.html\
+process.html\
 syndata.html\
 selector.html\
 cascade.html\
 media.html\
+box.html\
 flowobj.html\
 flowobj2.html\
 page.html\
@@ -249,7 +253,7 @@ build/index.srb: $(SPECOBJS)
 
 cover.html: cover.src cover-info.src build/contents.srb
 	$(HIPP) $(INCLUDES) $< - | \
- $(ADDNAVBAR) -bottom -hr -r $@ - $@ "go to the table of contents" "#toc"
+ $(ADDNAVBAR) -bottom -hr -r $@ - $@ "go to the table of contents" "#toc" index index.html
 
 build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
 	$(MKTOC) -ml 5 $@ $(HEADINGDB) $(MAINSRCS) -ul -roman $(APPSRCS) \
