@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.65 1998-01-09 08:04:32 ijacobs Exp $
+# $Id: Makefile,v 1.66 1998-01-12 12:18:25 ijacobs Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9712/WD-css2-971211
@@ -20,13 +20,14 @@ $(ROOT)/cover.src
 SRCS1 = \
 about.src\
 intro.src\
-convent.src\
+conform.src\
 syndata.src\
 selector.src\
 cascade.src\
 media.src\
-flowobj.src\
-flowobj2.src\
+visuren.src\
+visudet.src\
+visufx.src\
 generate.src\
 page.src\
 colors.src\
@@ -59,13 +60,14 @@ MAINOBJS = \
 cover.html\
 about.html\
 intro.html\
-convent.html\
+conform.html\
 syndata.html\
 selector.html\
 cascade.html\
 media.html\
-flowobj.html\
-flowobj2.html\
+visuren.html\
+visudet.html\
+visufx.html\
 generate.html\
 page.html\
 colors.html\
