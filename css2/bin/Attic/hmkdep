@@ -1,0 +1,98 @@
+#!/usr/local/bin/perl
+# make depend utility for html source documents
+#
+# determine dependencies list based on the tag <include src=file ...>
+# and update Makefile accordingly
+#
+# Arnaud Le Hors - lehors@w3.org
+# $Id: hmkdep,v 1.1 1997-07-29 17:14:44 ijacobs Exp $
+
+$PROGNAME = substr($0, rindex($0, "/") + 1);
+
+if (!$ARGV[0]) {
+    print "Usage: $PROGNAME file1 file2 ...\n";
+    exit 1;
+}
+
+# dependencies section markup line
+# It's important that this stay the same we heavily depend on it!
+$markup = "##### The following is automatically generated. Do not edit!! ####";
+
+$curfile = "Makefile";
+$newfile = "Makefile.new.$$";
+# create new file
+open(output, "> $newfile");
+
+# truncate existing dependency lines
+sub parsemkf {
+    if (!open(input, $_[0])) {
+	print STDERR "$PROGNAME Error: Cannot open file: $_[0]\n";
+	exit 1;
+    }
+    while (<input>) {
+	last if (/$markup/);
+	print output $_;
+    }
+    close(input);
+}
+
+# regexp
+$inctag = "<!--[ \t\n]*#include[ \t\n]*src=\"?([^ \t\n-\"]*).*?-->";
+
+# recursive sub routine returning the list of included files
+sub rfdepend {
+    # copy file in memory
+    if (!open(input, $_[0])) {
+	print STDERR "$PROGNAME Warning: Cannot open file: $_[0]\n";
+	return "";
+    }
+    my $buf = "";
+    while (<input>) {
+	$buf .= $_;
+    }
+    close(input);
+
+    # then look recursively for the list of files included
+    my $list = "";
+    $_ = $buf;
+    while (/$inctag(.*)/sio) {
+	$list .= "$1\n";
+	my $rest = $2;
+	$list .= rfdepend($1);
+	$_ = $rest;
+    }
+    return $list;
+}
+
+# look for included files and print out dependency lines
+sub fdepend {
+    $objfile = $_[0];		# this should be foo.html
+    $file = $objfile;
+    $file =~ s/(.*).html/$1.src/; # change it to foo.src
+    # get files list
+    $list = rfdepend($file);
+    # sort list
+    chop($list);
+    # make sure we use sh here so it works on windows as well
+    open(input, "sh -c \"echo '$list'\" | sort -u |");
+    while (<input>) {
+	if (!/^$/) {
+	    print output "$objfile: $_";
+	}
+    }
+}
+
+
+# copy every line of Makefile up to the markup line
+parsemkf($curfile);
+
+# then for each given html file add corresponding dependencies
+print output "$markup\n";
+foreach $file (@ARGV) {
+    fdepend($file);
+}
+
+close(output);
+
+system "mv $curfile $curfile.orig";
+system "mv $newfile $curfile";

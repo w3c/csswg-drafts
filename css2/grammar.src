@@ -1,0 +1,206 @@
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<TITLE>Appendix D: The grammar of CSS2</TITLE>
+<LINK rel="previous" href="notes.html">
+<LINK rel="STYLESHEET" href="style/default.css" type="text/css">
+</HEAD>
+<BODY>
+<H1 align="center">Appendix D: The grammar of CSS2</H1>
+<P><em>This appendix is normative.</em>
+
+<P> The minimal CSS (i.e., any version of CSS) grammar that all
+implementations need to support is defined in <A
+HREF="#forward-grammar">section 7</A>. The grammar below defines a
+much smaller language, a language that defines the syntax of CSS1.
+
+<P> It is in some sense, however, still a superset of CSS1: there are
+additional semantic constraints not expressed in this grammar. A
+conforming UA must also adhere to the forward-compatible parsing rules
+(section 7.1), the property and value notation (section 5) and the
+unit notation (section 6). In addition, HTML imposes restrictions,
+e.g., on the possible values of the CLASS attribute.
+
+
+<P> The grammar below is LL(1) (but note that most UA's should not use
+it directly, since it doesn't express the parsing conventions, only
+the CSS1 syntax).  The format of the productions is optimized for
+human consumption and some shorthand notation beyond yacc <A
+HREF="#ref15">[15]</A> is used: 
+
+<PRE> * : 0 or more + : 1 or more ?  :
+0 or 1 | : separates alternatives [] : grouping
+</PRE>
+
+<P>The productions are:
+
+  <PRE>
+stylesheet
+ : [CDO|CDC]* [ import [CDO|CDC]* ]* [ ruleset [CDO|CDC]* ]*
+ ;
+import
+ : IMPORT_SYM [STRING|URL] ';'		/* E.g., @import url(fun.css); */
+ ;
+unary_operator
+ : '-' | '+'
+ ;
+operator
+ : '/' | ',' | /* empty */
+ ;
+property
+ : IDENT
+ ;
+ruleset
+ : selector [ ',' selector ]*
+   '{' declaration [ ';' declaration ]* '}'
+ ;
+selector
+ : simple_selector+ [ pseudo_element | solitary_pseudo_element ]?
+ | solitary_pseudo_element
+ ;
+	/* An "id" is an ID that is attached to an element type
+	** on its left, as in: P#p007
+	** A "solitary_id" is an ID that is not so attached,
+	** as in: #p007
+	** Analogously for classes and pseudo-classes.
+	*/
+simple_selector
+ : element_name id? class? pseudo_class?	/* eg: H1.subject */
+ | solitary_id class? pseudo_class?		/* eg: #xyz33 */
+ | solitary_class pseudo_class?			/* eg: .author */
+ | solitary_pseudo_class			/* eg: :link */
+ ;
+element_name
+ : IDENT
+ ;
+pseudo_class					/* as in:  A:link */
+ : LINK_PSCLASS_AFTER_IDENT
+ | VISITED_PSCLASS_AFTER_IDENT
+ | ACTIVE_PSCLASS_AFTER_IDENT
+ ;
+solitary_pseudo_class				/* as in:  :link */
+ : LINK_PSCLASS
+ | VISITED_PSCLASS
+ | ACTIVE_PSCLASS
+ ;
+class						/* as in:  P.note */
+ : CLASS_AFTER_IDENT
+ ;
+solitary_class					/* as in:  .note */
+ : CLASS
+ ;
+pseudo_element					/* as in:  P:first-line */
+ : FIRST_LETTER_AFTER_IDENT
+ | FIRST_LINE_AFTER_IDENT
+ ;
+solitary_pseudo_element				/* as in:  :first-line */
+ : FIRST_LETTER
+ | FIRST_LINE
+ ;
+	/* There is a constraint on the id and solitary_id that the
+	** part after the "#" must be a valid HTML ID value;
+	** e.g., "#x77" is OK, but "#77" is not.
+	*/
+id
+ : HASH_AFTER_IDENT
+ ;
+solitary_id
+ : HASH
+ ;
+declaration
+ : property ':' expr prio? 
+ | /* empty */				/* Prevents syntax errors... */
+ ;
+prio
+ : IMPORTANT_SYM	 		/* !important */
+ ;
+expr
+ : term [ operator term ]*
+ ;
+term
+ : unary_operator?
+   [ NUMBER | STRING | PERCENTAGE | LENGTH | EMS | EXS
+   | IDENT | hexcolor | URL | RGB ]
+ ;
+	/* There is a constraint on the color that it must
+	** have either 3 or 6 hex-digits (i.e., [0-9a-fA-F])
+	** after the "#"; e.g., "#000" is OK, but "#abcd" is not.
+	*/
+hexcolor
+ : HASH | HASH_AFTER_IDENT
+ ;
+</PRE>
+
+<P> The following is the tokenizer, written in flex <A
+HREF="#ref16">[16]</A> notation. Note that this assumes an 8-bit
+implementation of flex. The tokenizer is case-insensitive (flex
+command line option -i).
+
+  <PRE>
+unicode		\\[0-9a-f]{1,4}
+latin1		[&#161;-&yuml;]
+escape		{unicode}|\\[ -~&#161;-&yuml;]
+stringchar	{escape}|{latin1}|[ !#$%&amp;(-~]
+nmstrt		[a-z]|{latin1}|{escape}
+nmchar		[-a-z0-9]|{latin1}|{escape}
+ident		{nmstrt}{nmchar}*
+name		{nmchar}+
+d		[0-9]
+notnm		[^-a-z0-9\\]|{latin1}
+w		[ \t\n]*
+num		{d}+|{d}*\.{d}+
+string		\"({stringchar}|\')*\"|\'({stringchar}|\")*\'
+
+%x COMMENT
+%s AFTER_IDENT
+
+%%
+"/*"				{BEGIN(COMMENT);}
+&lt;COMMENT&gt;"*/"			{BEGIN(0);}
+&lt;COMMENT&gt;\n			{/* ignore */}
+&lt;COMMENT&gt;.			{/* ignore */}
+@import				{BEGIN(0); return IMPORT_SYM;}
+"!"{w}important			{BEGIN(0); return IMPORTANT_SYM;}
+{ident}				{BEGIN(AFTER_IDENT); return IDENT;}
+{string}			{BEGIN(0); return STRING;}
+
+{num}				{BEGIN(0); return NUMBER;}
+{num}"%"			{BEGIN(0); return PERCENTAGE;}
+{num}pt/{notnm}			{BEGIN(0); return LENGTH;}
+{num}mm/{notnm}			{BEGIN(0); return LENGTH;}
+{num}cm/{notnm}			{BEGIN(0); return LENGTH;}
+{num}pc/{notnm}			{BEGIN(0); return LENGTH;}
+{num}in/{notnm}			{BEGIN(0); return LENGTH;}
+{num}px/{notnm}			{BEGIN(0); return LENGTH;}
+{num}em/{notnm}			{BEGIN(0); return EMS;}
+{num}ex/{notnm}			{BEGIN(0); return EXS;}
+
+&lt;AFTER_IDENT&gt;":"link		{return LINK_PSCLASS_AFTER_IDENT;}
+&lt;AFTER_IDENT&gt;":"visited	{return VISITED_PSCLASS_AFTER_IDENT;}
+&lt;AFTER_IDENT&gt;":"active	{return ACTIVE_PSCLASS_AFTER_IDENT;}
+&lt;AFTER_IDENT&gt;":"first-line	{return FIRST_LINE_AFTER_IDENT;}
+&lt;AFTER_IDENT&gt;":"first-letter	{return FIRST_LETTER_AFTER_IDENT;}
+&lt;AFTER_IDENT&gt;"#"{name}		{return HASH_AFTER_IDENT;}
+&lt;AFTER_IDENT&gt;"."{name}		{return CLASS_AFTER_IDENT;}
+
+":"link				{BEGIN(AFTER_IDENT); return LINK_PSCLASS;}
+":"visited			{BEGIN(AFTER_IDENT); return VISITED_PSCLASS;}
+":"active			{BEGIN(AFTER_IDENT); return ACTIVE_PSCLASS;}
+":"first-line			{BEGIN(AFTER_IDENT); return FIRST_LINE;}
+":"first-letter			{BEGIN(AFTER_IDENT); return FIRST_LETTER;}
+"#"{name}			{BEGIN(AFTER_IDENT); return HASH;}
+"."{name}			{BEGIN(AFTER_IDENT); return CLASS;}
+
+url\({w}{string}{w}\)					|
+url\({w}([^ \n\'\")]|\\\ |\\\'|\\\"|\\\))+{w}\)		{BEGIN(0); return URL;}
+rgb\({w}{num}%?{w}\,{w}{num}%?{w}\,{w}{num}%?{w}\)	{BEGIN(0); return RGB;}
+
+[-/+{};,#:]			{BEGIN(0); return *yytext;}
+[ \t]+				{BEGIN(0); /* ignore whitespace */}
+\n				{BEGIN(0); /* ignore whitespace */}
+\&lt;\!\-\-			{BEGIN(0); return CDO;}
+\-\-\&gt;				{BEGIN(0); return CDC;}
+.				{fprintf(stderr, "%d: Illegal character (%d)\n",
+				 lineno, *yytext);}
+</PRE>
+</BODY>
+</HTML>

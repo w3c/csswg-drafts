@@ -1,0 +1,137 @@
+#!/usr/local/bin/perl
+# Add navigation "bars" containing a link for each LINK element
+#
+# Arnaud Le Hors - lehors@w3.org
+# $Id: addnavbar,v 1.1 1997-07-29 17:14:32 ijacobs Exp $
+
+if (($_ = $ARGV[0], /^-r/) && $ARGV[0]) {
+    shift;
+    $realpath = $ARGV[0];
+    shift;
+} else {
+    $realpath = ();
+}
+
+$PROGNAME = substr($0, rindex($0, "/") + 1);
+
+if ($#ARGV < 3) {
+    print "Usage: $PROGNAME [-r realpath] src toc index trgt\n";
+    exit 1;
+} else {
+    $input = $ARGV[0];
+    shift;
+    if (! $realpath) {
+	$realpath = $input;
+    }
+    $tocf = $ARGV[0];
+    $eindxf = $ARGV[1];
+    $output = $ARGV[2];
+}
+
+
+### main
+
+# copy file in memory
+$buf = "";
+if (!open(INPUT, $input)) {
+    print STDERR "$PROGNAME Error: Cannot open file: $input\n";
+    exit 1;
+}
+while (<INPUT>) {
+    $buf .= $_;
+}
+close(INPUT);
+
+# compute relative path from 1 to 2
+sub rpath {
+    @path1 = split("/", $_[0]);
+    @path2 = split("/", $_[1]);
+
+    pop(@path1);
+    while ($path1[0] eq $path2[0]) {
+	shift(@path1);
+	shift(@path2);
+    }
+
+    $root = "";
+    foreach $el (@path1) {
+	$root .= "../";
+    }
+    $path = join("/", @path2);
+    return "$root$path";
+}
+
+# args: tag 
+sub addnavbar {
+    ($tag, $revsrc, $relsrc, $tocsrc, $eindxsrc) = @_;
+
+    if ($revsrc) {
+	$navbar = "<a href=\"$revsrc\">previous</a>";
+	if ($relsrc) {
+	    $navbar .= " &nbsp; <a href=\"$relsrc\">next</a>";
+	}
+	$path = rpath($realpath, $tocsrc);
+	$navbar .= " &nbsp; <a href=\"$path\">contents</a>";
+	$path = rpath($realpath, $eindxsrc);
+	$navbar .= " &nbsp; <a href=\"$path\">index</a>";
+	if (lc($tag) eq "body") {
+	    $navbar = "<body>
+<div class=\"navbar\">
+<center>$navbar\n</center><hr>\n</div>\n";
+	} else {
+	    $navbar = "<div class=\"navbar\">
+<hr><center>$navbar\n</center></div>
+</body>";
+	}
+    } else {			# special case for first page (== no revsrc)
+	if (lc($tag) eq "body") {
+	    $path = rpath($realpath, $tocsrc);
+	    $navbar = "<body>
+<div class=\"navbar\">
+<center><a href=\"$path\">Go to the table of contents</a>\n</center></div>";
+	} else {
+	    $path = rpath($realpath, $tocsrc);
+	    $navbar = "<div class=\"navbar\">
+<center><a href=\"$path\">Go to the table of contents</a>\n</center></div>
+</body>";
+	}
+    }
+    return $navbar;
+}
+
+$sreltag="<link[ \t\n]+rel=(next|\"next\")[ \t\n]+href=(.*?)>";
+$srevtag="<link[ \t\n]+rel=(prev|\"prev\"|previous|\"previous\")[ \t\n]+href=(.*?)>";
+
+$_ = $buf;
+if (/$sreltag/sio) {
+    # we don't want the quotes
+    $relsrc = $2;
+    $relsrc =~ s/\"//go;
+} else {
+    $relsrc = ();
+}
+
+$_ = $buf;
+if (/$srevtag/sio) {
+    # we don't want the quotes
+    $revsrc = $2;
+    $revsrc =~ s/\"//go;
+} else {
+    $revsrc = ();
+}
+
+if ($relsrc || $revsrc) {
+    # insert navigation bar after <body>
+    $buf =~ s/<(body).*?>/
+	addnavbar($1, $revsrc, $relsrc, $tocf, $eindxf)/sgieo;
+}
+if ($relsrc || $revsrc) {
+    # insert navigation bar before </body>
+    $buf =~ s/<(\/body)>/
+	addnavbar($1, $revsrc, $relsrc, $tocf, $eindxf)/sgieo;
+}
+
+# print out result
+open(OUTPUT, "> $output");
+print OUTPUT $buf;
+close(OUTPUT);
