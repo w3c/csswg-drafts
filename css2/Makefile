@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.40 1997-11-04 15:38:06 bbos Exp $
+# $Id: Makefile,v 1.41 1997-11-05 01:10:25 bbos Exp $
 
 ROOT = .
 
@@ -83,7 +83,7 @@ indexlist.html
 SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
 SPECOBJS= $(MAINOBJS) $(APPENDIXES) $(REFS)
 
-IMAGES= images/*.gif
+IMAGES = images/*.gif  
 STYLESHEETS= style/*.css
 
 ALLOBJS= $(SPECOBJS) $(INDEXES) $(IMAGES) $(STYLESHEETS) translations.html
@@ -151,7 +151,7 @@ TODO= bin/todo
 # -R seems broken for this spec.
 HTML2PS= $(PERL) ./bin/html2ps -d -f html2psrc
 
-# PS -> GIF tools
+# IDRAW -> PS -> GIF tools
 #PSTOPNM = ./bin/mypstopnm -r 75
 PSTOPNM = ./bin/mypstopnm -r 150
 #PNMTOGIF_PIPE = ppmquant 256 | ppmtogif
@@ -166,7 +166,7 @@ TAR= tar
 ZIP= zip
 LN= ln
 
-.SUFFIXES: .src .html .srb .idraw .gif
+.SUFFIXES: .src .html .srb .idraw .gif .ps
 
 .src.html:
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
@@ -184,9 +184,7 @@ LN= ln
 .idraw.gif:
 	$(RM) $@
 #	$(PSTOPNM) $< | $(PPMQUANT) | $(PPMTOGIF) >$@
-	$(PSTOPNM) $< \
-	  | $(PNMTOGIF_PIPE) >$@
-
+	$(PSTOPNM) $< | $(PNMTOGIF_PIPE) >$@
 
 all: blocks $(PROPERTYDB) $(DESCRIPTORDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES) \
 	$(IMAGES) issues.html DOC/TODO.html
