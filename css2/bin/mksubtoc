@@ -1,0 +1,137 @@
+#!/usr/local/bin/perl
+# sub TOC builder
+#
+# Arnaud Le Hors - lehors@w3.org
+# $Id: mksubtoc,v 1.1 1997-08-05 17:31:59 ijacobs Exp $
+
+if (($_ = $ARGV[0], /^-r/) && $ARGV[0]) {
+    shift;
+    $realpath = $ARGV[0];
+    shift;
+} else {
+    $realpath = ();
+}
+
+if (($_ = $ARGV[0], /^-l/) && $ARGV[0]) {
+    shift;
+    $startlvl = $ARGV[0] - 1;
+    shift;
+} else {
+    $startlvl = 0;
+}
+
+$PROGNAME = substr($0, rindex($0, "/") + 1);
+
+if ($#ARGV < 2) {
+    print STDERR "Usage: $PROGNAME [ -r realpath ] [ -l startlvl ] subtoc headingdb src1 src2 ...\n";
+    exit 1;
+} else {
+    $tocf = $ARGV[0];
+    shift;
+    if (! $realpath) {
+	$realpath = $tocf;
+    }
+    $hdbasef = $ARGV[0];
+    shift;
+}
+
+# compute relative path from 1 to 2
+sub rpath {
+    @path1 = split("/", $_[0]);
+    @path2 = split("/", $_[1]);
+
+    pop(@path1);
+    while ($path1[0] eq $path2[0]) {
+	shift(@path1);
+	shift(@path2);
+    }
+
+    $root = "";
+    foreach $el (@path1) {
+	$root .= "../";
+    }
+    $path = join("/", @path2);
+    return "$root$path";
+}
+
+# copy file in memory
+sub readfile {
+    $buf = "";
+    if (!open(INPUT, $_[0])) {
+	print STDERR "$PROGNAME Error: Cannot open file: $_[0]\n";
+	return;
+    }
+    while (<INPUT>) {
+	$buf .= $_;
+    }
+    close(INPUT);
+}
+
+sub olinit {
+    @ol = ();
+    $ol[0] = 0;
+}
+
+sub ol {
+# args: $h
+    $hn = $_[0] - 1;
+    for ($i = $#n; $i > $hn; $i--) {
+	if ($ol[$i] != 0) {
+	    print OUTPUT "</ol>\n";
+	    $ol[$i] = 0;
+	}
+	$n[$i] = 0;
+    }
+    if ($hn >= 0) {
+	if ($ol[$hn] == 0) {
+	    print OUTPUT "<ol>\n";
+	    $ol[$hn] = 1;
+	}
+	$n[$hn]++;
+    }
+}
+
+# remove every possible anchor
+sub cleanup {
+    $text = $_[0];
+    $text =~ s/<a(.*?)>//sgi;
+    $text =~ s/<\/a>//sgi;
+    return $text;
+}
+
+
+### main
+
+# read heading database
+readfile($hdbasef);
+
+# search for all the headings related to the given files and build the toc
+open(OUTPUT, "> $tocf");
+olinit();
+foreach $file (@ARGV) {
+    # change extension
+    $hfil = $file;
+    $hfil =~ s/\.src/\.html/;
+    $rpath = rpath($realpath, $hfil);
+    $_ = $buf;
+    while (/$file;(.*?);([0-9]*);([1-9].*?)\n/si) {
+	$t = $1;
+	$h = int($2);
+	if ($h > $startlvl && $h < 4) {
+	    $num = $3;
+	    ol($h);
+	    if ($h == 1) {	# if H1 go to the top of the page and set rel
+		$url = "$rpath";
+		$rel= " rel=\"section\"";
+	    } else {
+		$url = "$rpath#h-$num";
+		$rel = "";
+	    }
+	    $txt = cleanup($t);
+	    print OUTPUT "<li><a href=\"$url\"$rel>$txt</a>\n";
+	}
+	$_ = $';
+    }
+}
+ol(0);				# close all open lists
+close(OUTPUT);

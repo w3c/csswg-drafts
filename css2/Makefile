@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.5 1997-08-01 17:02:09 ijacobs Exp $
+# $Id: Makefile,v 1.6 1997-08-05 17:30:45 ijacobs Exp $
 
 ROOT = .
 
@@ -20,10 +20,10 @@ selector.src\
 cascade.src\
 media.src\
 flowobj.src\
+flowobj2.src\
 colors.src\
 fonts.src\
 text.src\
-boxmodel.src\
 ui.src\
 conform.src \
 refs.src
@@ -52,10 +52,10 @@ selector.html\
 cascade.html\
 media.html\
 flowobj.html\
+flowobj2.html\
 colors.html\
 fonts.html\
 text.html\
-boxmodel.html\
 ui.html\
 conform.html\
 refs.html
@@ -108,6 +108,10 @@ MKIDX= $(PERL) ./bin/mkidx
 MKTOC= $(PERL) ./bin/mktoc
 # HTML concate utility
 HTMLCAT= $(PERL) ./bin/htmlcat
+# make sub table of contents
+MKSUBTOC= $(PERL) ./bin/mksubtoc
+# insert subtoc
+INSAFTER= $(PERL) ./bin/insafter
 
 # utility to generate the PostScript version
 HTML2PSARGS= -n -D -R
@@ -125,10 +129,17 @@ LN= ln
 .SUFFIXES: .src .html .srb 
 
 .src.html:
-	@if [ ! -d build/index ]; then mkdir -p build/index;fi
+	@if [ ! -d build/index ]; then mkdir -p build/index; fi
+	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
+		> build/subtoc.$$$$; \
+	$(MKSUBTOC) -r $@ -l 2 - $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	echo "</div>" >> build/subtoc.$$$$; \
 	$(HIPP) $(INCLUDES) $< - | $(ADDHANCH) -r $< - - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
-	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" index index.html
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
+	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
+	$(RM) build/subtoc.$$$$
+
 
 all: $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES)
 
