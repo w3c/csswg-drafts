@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.36 1997-10-30 08:25:50 ian Exp $
+# $Id: Makefile,v 1.37 1997-10-31 03:23:34 clilley Exp $
 
 ROOT = .
 
@@ -34,7 +34,8 @@ APPSRCS = \
 sample.src\
 changes.src\
 notes.src\
-grammar.src
+grammar.src\
+fontstuff.src
 
 REFSRCS = \
 refs.src
@@ -70,7 +71,8 @@ APPENDIXES= \
 sample.html\
 changes.html\
 notes.html\
-grammar.html
+grammar.html\
+fontstuff.html
 
 REFS= \
 refs.html
@@ -94,7 +96,7 @@ DESCBLKSDIR= build/descriptors
 CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group/
 #Sample install dir
 #INSTALLDIR= /afs/w3.org/pub/WWW/Style/Group/9709/css2-970908
-INSTALLDIR=
+INSTALLDIR=/0/w3c/clilley/w3.org/pub/WWW/Style/Group/css2
 
 # dbase for property name anchors
 PROPERTYDB= build/property.db
