@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.21 1997-09-12 14:37:41 bbos Exp $
+# $Id: Makefile,v 1.22 1997-09-15 15:49:25 ian Exp $
 
 ROOT = .
 
@@ -132,7 +132,7 @@ DEXTR= $(PERL) ./bin/dextr
 HTML2PS= $(PERL) ./bin/html2ps -f html2psrc
 
 # PS -> GIF tools
-MYPSTOPNM = ./bin/mypstopnm -r 75
+PSTOPNM = ./bin/mypstopnm -r 75
 PPMQUANT = ppmquant 256
 PPMTOGIF = ppmtogif -trans rgb:ffff/ffff/ffff
 
@@ -161,7 +161,7 @@ LN= ln
 	$(RM) build/subtoc.$$$$
 
 .idraw.gif:
-	$(MYPSTOPNM) $< | $(PPMQUANT) | $(PPMTOGIF) >$@
+	$(PSTOPNM) $< | $(PPMQUANT) | $(PPMTOGIF) >$@
 
 
 all: blocks $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES) \
