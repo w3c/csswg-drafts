@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.2 1997-07-30 17:33:33 lehors Exp $
+# $Id: Makefile,v 1.3 1997-07-30 17:37:15 lehors Exp $
 
 ROOT = .
 
@@ -180,7 +180,7 @@ $(VALUEDB): $(SPECSRCS)
 	$(MKANCHDB) value-def - $(SPECSRCS) | sed 's/\.src/\.html/' > $@
 
 index.html: build/index.srb
-build/index.srb: $(SPECOBJS) build/index/*
+build/index.srb: $(SPECOBJS)
 	$(MKIDX) $@ build/index/*
 
 cover.html: cover.src build/contents.srb
