@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.62 2002-08-21 11:43:32 bbos Exp $
+# $Id: Makefile,v 2.63 2002-11-18 20:36:16 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -356,8 +356,9 @@ build/blocks.ok: $(PROPBLKSDIR)/blocks.ok
 	touch $@
 
 $(PROPBLKSDIR)/blocks.ok: $(PROPSRC)
-	@if [ ! -d $(PROPBLKSDIR) ]; then mkdir -p $(PROPBLKSDIR);fi
-	$(PEXTR) -l 2.1 $(PROPSRC) $(PROPBLKSDIR)
+	@rm -rf $(PROPBLKSDIR)
+	@mkdir -p $(PROPBLKSDIR)
+	$(PEXTR) $(PROPSRC) $(PROPBLKSDIR)
 	touch $@
 
 
@@ -405,7 +406,7 @@ indexlist.html: indexlist.srd build/indexlist.srb Project.cfg
 
 build/propidx.srb: $(PROPSRC)
 	@echo "=========== making" $@
-	$(MKPROPIDX) -l 2.1 -r $@ $@ $(PROPSRC)
+	$(MKPROPIDX) -r $@ $@ $(PROPSRC)
 
 propidx.srd:: build/propidx.srb #propidx.src
 #	@echo "=========== making" $@
