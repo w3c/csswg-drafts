@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.56 2002-07-25 20:28:24 bbos Exp $
+# $Id: Makefile,v 2.57 2002-07-25 21:15:37 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -8,7 +8,7 @@ THE_DATE = ?? July 2002
 THE_ID = WD-CSS21-200207??
 THIS_VERSION = http://www.w3.org/TR/2002/$(THE_ID)
 THE_PREVIOUS_VERSION = http://www.w3.org/TR/1998/REC-CSS2-19980512
-PERMANENT_NAME = CSS2
+PERMANENT_NAME = CSS21
 THE_LATEST_VERSION = http://www.w3.org/TR/$(PERMANENT_NAME)
 CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group
 TR_DIR = /afs/w3.org/pub/WWW/TR
