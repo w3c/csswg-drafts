@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.56 1997-12-11 23:43:32 ijacobs Exp $
+# $Id: Makefile,v 1.57 1997-12-12 17:12:13 bbos Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9712/WD-css2-971211
@@ -170,7 +170,7 @@ ADDREFCLASS= $(PERL) ./bin/addrefclass
 
 # utility to generate the PostScript version
 #
-HTML2PS= $(PERL) html2ps -f html2psrc
+HTML2PS= $(PERL) bin/html2ps -f html2psrc
 
 # IDRAW -> PS -> GIF tools
 #PSTOPNM = ./bin/mypstopnm -r 75
@@ -222,6 +222,7 @@ install: all css2.tgz
 	$(CP) css2.tgz $(INSTALLDIR)
 	(cd $(INSTALLDIR); zcat css2.tgz | $(TAR) xvf -)
 	-(cd $(CSSGROUPDIR); rm -f issues.html; \
+	    $(RM) css2-issues.html; \
             $(LN) -s $(INSTALLDIR)/issues.html css2-issues.html)
 	$(CP) Overview.html html2psrc $(INSTALLDIR)
 
@@ -275,7 +276,7 @@ $(DESCRIPTORDB): $(SPECSRCS)
 $(VALUEDB): $(SPECSRCS)
 	$(MKANCHDB) value-def - $(SPECSRCS) | $(SED) 's/\.src/\.html/' > $@
 
-cover.html: cover.src build/contents.srb
+cover.html: cover.src build/contents.srb build/minicontents.srb
 	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
 	       -e 's|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g' \
 	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
@@ -285,13 +286,19 @@ cover.html: cover.src build/contents.srb
  $(ADDNAVBAR) -hr -r $@ - $@ "table of contents" "#toc" properties propidx.html descriptors descidx.html index indexlist.html
 
 build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
-	$(MKTOC) -ml 5 $@ build/minicontents.srb $(HEADINGDB) $(MAINSRCS)\
-	   -ul -roman $(APPSRCS) -ol -none $(REFSRCS) $(INDEXSRCS) 
+	$(MKTOC) -ml 5 $@ $(HEADINGDB) \
+	   -ul -none $(MAINSRCS)\
+	   -ul -none $(APPSRCS) -ol -none $(REFSRCS) $(INDEXSRCS) 
 	$(ADDLINKS) -r $< $@ $@ propinst $(PROPERTYDB) \
 	   descinst $(DESCRIPTORDB) value-inst $(VALUEDB) 
-	$(ADDLINKS) -r $< build/minicontents.srb build/minicontents.srb \
-	   propinst $(PROPERTYDB) \
+
+build/minicontents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
+	$(MKTOC) -ml 1 $@ $(HEADINGDB) \
+	   -ol $(MAINSRCS)\
+	   -ol -roman $(APPSRCS) -ol -none $(REFSRCS) $(INDEXSRCS) 
+	$(ADDLINKS) -r $< $@ $@ propinst $(PROPERTYDB) \
 	   descinst $(DESCRIPTORDB) value-inst $(VALUEDB) 
+
 $(HEADINGDB): build/contents.srb
 
 # special rule with different numbering
