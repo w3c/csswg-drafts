@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.38 1997-10-31 10:20:31 bbos Exp $
+# $Id: Makefile,v 1.39 1997-11-04 14:34:50 bbos Exp $
 
 ROOT = .
 
@@ -149,7 +149,7 @@ TODO= bin/todo
 
 # utility to generate the PostScript version
 # -R seems broken for this spec.
-HTML2PS= $(PERL) ./bin/html2ps -f html2psrc
+HTML2PS= $(PERL) ./bin/html2ps -d -f html2psrc
 
 # PS -> GIF tools
 #PSTOPNM = ./bin/mypstopnm -r 75
