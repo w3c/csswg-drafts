@@ -1,16 +1,18 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.78 1998-01-29 01:29:31 ijacobs Exp $
+# $Id: Makefile,v 1.79 1998-01-29 18:52:58 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
-THIS_VERSION= http://www.w3.org/TR/WD-css2-19980128
-THE_PREVIOUS_VERSION= http://www.w3.org/TR/WD-CSS2-971104
-THE_LATEST_VERSION= http://www.w3.org/TR/WD-css2
-THE_DATE= 28-Jan-1998
-THE_ID= WD-css2-19980128
-INSTALLDIR= /afs/w3.org/pub/WWW/TR/WD-css2-19980128
-CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group/
+THE_DATE = 28-Jan-1998
+THE_ID = WD-css2-19980128
+THIS_VERSION = http://www.w3.org/TR/1998/$(THE_ID)
+THE_PREVIOUS_VERSION = http://www.w3.org/TR/WD-CSS2-971104
+PERMANENT_NAME = WD-css2
+THE_LATEST_VERSION = http://www.w3.org/TR/$(PERMANENT_NAME)
+TR_DIR = /afs/w3.org/pub/WWW/TR
+INSTALLDIR = $(TR_DIR)/1998/WD-css2-19980128
+CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group
 
 ROOT = .
 
@@ -230,10 +232,12 @@ install: all css20.tgz
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
 	$(CP) css20.tgz $(INSTALLDIR)
 	(cd $(INSTALLDIR); zcat css20.tgz | $(TAR) xvf -)
-	-(cd $(CSSGROUPDIR); rm -f issues.html; \
-	    $(RM) css2-issues.html; \
-            $(LN) -s $(INSTALLDIR)/issues.html css2-issues.html)
-	(cd $(INSTALLDIR); $(LN) -s cover.html Overview.html)
+	-$(RM) -f $(CSSGROUPDIR)/issues.html
+	-$(RM) $(CSSGROUPDIR)/css2-issues.html
+        $(LN) -s $(INSTALLDIR)/issues.html $(CSSGROUPDIR)/css2-issues.html
+	$(LN) -s $(INSTALLDIR)/cover.html $(INSTALLDIR)Overview.html
+	-$(RM) -f $(TR_DIR)/$(PERMANENT_NAME)
+	$(LN) -s $(INSTALLDIR) $(TR_DIR)/$(PERMANENT_NAME)
 
 install-all: install css20.zip css20.ps css20.txt
 	$(CP) css20.zip css20.ps css20.txt $(INSTALLDIR)
