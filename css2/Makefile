@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.31 1997-09-29 13:51:28 ian Exp $
+# $Id: Makefile,v 1.32 1997-10-02 23:21:57 ian Exp $
 
 ROOT = .
 
@@ -122,7 +122,7 @@ HTMLCAT= $(PERL) ./bin/htmlcat
 # trim utility to get rid of navbar sections
 HTMLTRIM= $(PERL) ./bin/htmltrim
 # make sub table of contents
-MKSUBTOC= $(PERL) ./bin/mksubtoc
+MKSUBTOC=$(PERL) ./bin/mksubtoc
 # insert subtoc
 INSAFTER= $(PERL) ./bin/insafter
 # add link
@@ -163,7 +163,7 @@ LN= ln
 		> build/subtoc.$$$$; \
 	$(MKSUBTOC) -r $@ -l 2 - $(HEADINGDB) $< >> build/subtoc.$$$$; \
 	echo "</div>" >> build/subtoc.$$$$; \
-	$(HIPP) $(INCLUDES) $< - | $(ADDHANCH) -n -ml 4 -r $< - - $(HEADINGDB) | \
+	$(HIPP) $(INCLUDES) $< - | $(ADDHANCH) -n -ml 3 -r $< - - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) value-inst $(VALUEDB) | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
