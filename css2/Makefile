@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.1 1998-02-02 23:18:20 bbos Exp $
+# $Id: Makefile,v 2.2 1998-02-03 02:49:55 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -216,8 +216,8 @@ LN= ln
 
 %.html: %.subtoc $(SPECSRCS:.src=.srd) Project.cfg
 	@echo "=========== making" $@
-	$(ADDIDXANCH) -r $@ $(INDEXDB) $*.srd |\
-	$(ADDLINKS) $(VALUEDB) - propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
+	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
+	$(ADDIDXANCH) -r $@ $(INDEXDB) - |\
 	$(ADDNAVBAR) -r $@ |\
 	$(INSAFTER) - $*.subtoc /H1 - |\
 	$(MKCHAIN) -r $@ - $@
