@@ -1,25 +1,37 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.65 2003-01-10 23:08:25 bbos Exp $
+# $Id: Makefile,v 2.66 2003-01-21 13:25:00 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
-PREV_YEAR = 2002
-PREV_DATE = 20020802
-PERMANENT_NAME = CSS21
-THE_PREVIOUS_VERSION = http://www.w3.org/TR/$(PREV_YEAR)/WD-$(PERMANENT_NAME)-$(PREV_DATE)
 THE_YEAR = 200?
-THE_DATE = ?? ???? $(THE_YEAR)
-THE_ID = WD-$(PERMANENT_NAME)-$(THE_YEAR)????
+THE_MONTH = ??
+THE_MONTHNAME = ???
+THE_DAY = ??
+THE_STATUS = WD
+THE_STATUSNAME = "Working Draft"
 
+PREV_YEAR = 2002
+PREV_MONTH = 08
+PREV_DAY = 02
+PREV_STATUS = WD
+
+PERMANENT_NAME = CSS21
+
+CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group
+UPDATES = /Style/css2-updates
+
+THE_UPDATE_DIR = http://www.w3.org$(UPDATES)
+UPDATESDIR= /afs/w3.org/pub/WWW$(UPDATES)
+TR_DIR = /afs/w3.org/pub/WWW/TR
+INSTALLDIR = $(TR_DIR)/$(THE_LOC)
+THE_DATE = $(THE_DAY) $(THE_MONTHNAME) $(THE_YEAR)
+THE_ID = $(THE_STATUS)-$(PERMANENT_NAME)-$(THE_YEAR)
+PREV_DATE = $(PREV_YEAR)$(PREV_MONTH)$(PREV_DAY)
+THE_PREVIOUS_VERSION = http://www.w3.org/TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PERMANENT_NAME)-$(PREV_DATE)
 THE_LOC = $(THE_YEAR)/$(THE_ID)
 THIS_VERSION = http://www.w3.org/TR/$(THE_LOC)
 THE_LATEST_VERSION = http://www.w3.org/TR/$(PERMANENT_NAME)
-CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group
-TR_DIR = /afs/w3.org/pub/WWW/TR
-INSTALLDIR = $(TR_DIR)/$(THE_LOC)
-THE_UPDATE_DIR = http://www.w3.org/Style/css2-updates
-UPDATESDIR= /afs/w3.org/pub/WWW/Style/css2-updates
 
 ROOT = .
 
@@ -382,6 +394,7 @@ cover.html: cover.srd Project.cfg
 	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
 	       -e 's|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g' \
 	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
+	       -e 's|_THE_STATUS_|$(THE_STATUSNAME)|g' \
 	       -e 's|_THE_DATE_|$(THE_DATE)|g' \
 	       -e 's|_THE_ID_|$(THE_ID)|g' \
 	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' $*.srd | \
