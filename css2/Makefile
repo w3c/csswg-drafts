@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.68 2003-01-21 17:15:48 bbos Exp $
+# $Id: Makefile,v 2.69 2003-01-22 14:39:50 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -576,7 +576,7 @@ PREVREC = ../../../TR/1998/REC-CSS2-19980512
 PREVWD = ../../../TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PERMANENT_NAME)-$(PREV_DATE)
 HTMLDIFF = htmldiff -i -w '<del>' -x '</del>' -y '<ins>' -z '</ins>'
 
-diffs:
+diffs: $(SPECOBJS)
 	(cd diffs-rec;\
 	 make PREV=../$(PREVREC) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS))
 	(cd diffs-wd;\
