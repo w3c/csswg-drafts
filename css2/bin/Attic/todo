@@ -1,0 +1,416 @@
+#!/bin/sh
+#
+# Script to make entering and progressing "todo" items easier.
+#
+# The issues are contained in a todo.db file, as a sequence of lines of
+# tab-separated fields:
+#
+#   - number
+#   - priority (a number)
+#   - one-line description
+#   - reference (preferrably a URL)
+#   - owned by
+#   - raised on (date)
+#   - resolved on (date)
+#   - comments
+#   - resolution (describe what was done)
+#
+
+OWNERS="HL CL IJ BB"
+ISSUES=`dirname $0`/../DOC/todo.db
+HTML=`dirname $0`/../DOC/todo.srb
+DATEFRM="+%d %b %Y"
+ARCH=`uname`
+
+pr ()
+{
+  if [ $ARCH = "Linux" ]; then
+    echo -e "$*"
+  else
+    echo "$*"
+  fi
+}
+
+quick_help ()
+{
+  pr
+  pr "\tThis program updates todo.db and todo.srb"
+  pr
+  pr "\tTo see the issues (plain text):    todo -l"
+  pr "\tTo see the issues (HTML table):    todo -g"
+  pr "\tTo see the unresolved issues:      todo -t"
+  pr "\tTo enter a new issue:              todo -a [reference [description]]"
+  pr "\tTo add a comment to an issue:      todo -c [number [comment]]"
+  pr "\tTo assign an issue to somebody:    todo -o [number [name]]"
+  pr "\tTo release ownership of an issue:  todo +o [number]"
+  pr "\tTo raise the priority of an issue: todo +1 [number]"
+  pr "\tTo lower the priority of an issue: todo -1 [number]"
+  pr "\tTo resolve an issue:               todo -r [number [resolution-text]]"
+  pr "\tTo be prompted for all arguments:  todo"
+  pr "\tTo get quick help:                 todo -?"
+  pr
+  pr "\tYou'll be prompted for all missing arguments"
+  pr
+}
+
+list_issues ()
+{
+  (
+    IFS='	'
+    while read num prio desc ref own date1 date2 comment res; do
+      pr "Number          : $num"
+      pr "Priority        : $prio"
+      pr "Description     : $desc"
+      pr "Reference       : $ref"
+      pr "Owner           : $own"
+      pr "Archived on     : $date1"
+      pr "Resolved on     : $date2"
+      pr "Comments        : $comment"
+      pr "Resolution      : $res"
+      pr
+    done
+  ) < $ISSUES
+}
+
+list_unresolved ()
+{
+  (
+    IFS='	'
+    while read num prio desc ref own date1 date2 comment res; do
+      if [ "$res" = "-" ]; then
+	pr "Number          : $num"
+	pr "Priority        : $prio"
+	pr "Description     : $desc"
+	pr "Reference       : $ref"
+	pr "Owner           : $own"
+	pr "Archived on     : $date1"
+	pr "Resolved on     : $date2"
+	pr "Comments        : $comments"
+	pr "Resolution      : $res"
+	pr
+      fi
+    done
+  ) < $ISSUES
+}
+
+generate_html ()
+{
+  echo "<table cellpadding=0 cellspacing=0 border=0>"
+  echo "<tr style='color:#44a'><th align=left>&nbsp;prio <th>#"
+  echo "  <th align=left>&nbsp;Owner"
+  echo "  <th align=left>&nbsp;Entered <th align=left>&nbsp;Resolved"
+  echo "<tr><td colspan=5>&nbsp;"
+  (
+    IFS='	'
+    while read num prio desc ref own date1 date2 comment res; do
+      echo "<tr valign=center bgcolor='#ffffbb'>"
+      pr "  <td style='background:#44a'>&nbsp;<span style='color:red'>\c"
+      i=0;
+      while [ $i -lt $prio ]; do
+	pr "*\c"
+	i=`expr $i + 1`
+      done
+      echo "</span>"
+      echo "  <td align=right style='background:#44a'><strong style='color:white;font-size:larger'>$num</strong>&nbsp;"
+      echo "  <td>&nbsp;$own"
+      echo "  <td>&nbsp;$date1"
+      echo "  <td>&nbsp;$date2"
+      echo "<tr valign=baseline>"
+      echo "  <th colspan=2 align=right>Description:&nbsp;<td colspan=3>$desc"
+      echo "<tr valign=baseline>"
+      echo "  <th colspan=2 align=right>Reference:&nbsp;<td colspan=3>\c"
+      case "$ref" in
+	http:* | ftp:*) echo "<a href='$ref'>here</a>";;
+	*) echo "$ref";;
+      esac
+      echo "<tr valign=baseline>"
+      echo "  <th colspan=2 align=right>Comment:&nbsp;<td colspan=3>$comment"
+      echo "<tr valign=baseline>"
+      echo "  <th colspan=2 align=right>Resolution:&nbsp;<td colspan=3>$res"
+      #echo "<tr><td colspan=5>&nbsp;"
+    done <$ISSUES
+  )
+  echo "</table>"
+  echo "<p>Last update: "`ls -l $ISSUES | cut -c 42-47`\
+   " (HTML version generated: "`date "$DATEFRM"`")"
+  return
+
+  echo "<table border>"
+  echo "<tr>"
+  echo "  <th>#"
+  echo "  <th>Prio"
+  echo "  <th>Description"
+  echo "  <th>Reference"
+  echo "  <th>Owner"
+  echo "  <th>Archived&nbsp;on"
+  echo "  <th>Resolved&nbsp;on"
+  echo "  <th>Comments"
+  echo "  <th>Resolution"
+  (
+    IFS='	'
+    while read num prio desc ref own date1 date2 comment res; do
+      echo "<tr valign=baseline>"
+      echo "  <td>$num"
+      echo "  <td>$prio"
+      echo "  <td>$desc"
+      case "$ref" in
+	http:* | ftp:*) echo "  <td><a href='$ref'>here</a>";;
+	*)      echo "  <td>$ref";;
+      esac
+      echo "  <td>$own"
+      echo "  <td>$date1"
+      echo "  <td>$date2"
+      echo "  <td>$comment"
+      echo "  <td>$res"
+    done < $ISSUES
+  )
+  pr "</table>"
+  pr "<p>Last update: "`ls -l $ISSUES | cut -c 42-47`\
+   " (HTML version generated: "`date "$DATEFRM"`")"
+}
+
+add_issue ()
+{
+  if [ -z "$ref" ]; then
+    pr "Reference (URL): \c"
+    read ref
+  fi
+  if [ -z "$desc" ]; then
+    pr "Description: \c"
+    read desc
+  fi
+  ref=`echo $ref | tr "&	" "  "`
+  desc=`echo $desc | tr "&	" "  "`
+  num=`wc -l $ISSUES | cut -c1-9`
+  num=`expr $num + 1`
+  date=`date "$DATEFRM"`
+  cp $ISSUES $ISSUES.bak
+  (
+    cat $ISSUES.bak
+    pr "$num\t0\t$desc\t$ref\t-\t$date\t-\t-\t-"
+  ) | sort -k 2nr,3 -k 1n,2 >$ISSUES
+  #generate_html >$HTML
+}
+
+resolve_issue ()
+{
+  if [ -z "$num" ]; then
+    pr "Number: \c"
+    read num
+  fi
+  case "$num" in
+    [0-9] | [0-9][0-9] | [0-9][0-9][0-9] | [0-9][0-9][0-9][0-9]) ;;
+    *) pr "Error: not a valid issue number: $num" >&2; return 2;;
+  esac
+  if [ -z "$res" ]; then
+    pr "Resolution: \c"
+    read res
+  fi
+  res=`echo $res | tr "&	" "  "`
+  date=`date "$DATEFRM"`
+  cp $ISSUES $ISSUES.bak
+  (
+    IFS='	'
+    while read num1 prio desc ref own date1 date2 comment res1; do
+      if [ "$num1" != "$num" ]; then
+	pr "$num1\t$prio\t$desc\t$ref\t$own\t$date1\t$date2\t$comment\t$res1"
+      elif [ "$res1" = "-" ]; then
+	pr "$num1\t$prio\t$desc\t$ref\t$own\t$date1\t$date\t$comment\t$res"
+      else
+	pr "Error: Issue was already resolved. Not changed." >&2
+      fi
+    done < $ISSUES.bak >$ISSUES
+  )
+  #generate_html >$HTML
+}
+
+add_comment ()
+{
+  if [ -z "$num" ]; then
+    pr "Number: \c"
+    read num
+  fi
+  case "$num" in
+    [0-9] | [0-9][0-9] | [0-9][0-9][0-9] | [0-9][0-9][0-9][0-9]) ;;
+    *) pr "Error: not a valid issue number: $num" >&2; return 2;;
+  esac
+  if [ -z "$comment" ]; then
+    pr "Comment: \c"
+    read comment
+  fi
+  comment=`echo $comment | tr "&	" "  "`
+  date=`date "$DATEFRM"`
+  cp $ISSUES $ISSUES.bak
+  (
+    IFS='	'
+    while read num1 prio desc ref own date1 date2 comment1 res; do
+      if [ "$num1" = "$num" ]; then
+	if [ "$comment1" = "-" ]; then comment1=; fi
+	pr "$num1\t$prio\t$desc\t$ref\t$own\t$date1\t$date2\t$comment1 $comment ($date).\t$res"
+      else
+	pr "$num1\t$prio\t$desc\t$ref\t$own\t$date1\t$date2\t$comment1\t$res"
+      fi
+    done < $ISSUES.bak >$ISSUES
+  )
+  #generate_html >$HTML
+}
+
+add_owner ()
+{
+  if [ -z "$num" ]; then
+    pr "Number: \c"
+    read num
+  fi
+  case "$num" in
+    [0-9] | [0-9][0-9] | [0-9][0-9][0-9] | [0-9][0-9][0-9][0-9]) ;;
+    *) pr "Error: not a valid issue number: $num" >&2; return 2;;
+  esac
+  if [ -z "$own" ]; then
+    pr "Owner: \c"
+    read own
+  fi
+  own=`echo $own | tr "&	" "  "`
+  cp $ISSUES $ISSUES.bak
+  (
+    IFS='	'
+    while read num1 prio desc ref own1 date1 date2 comment res; do
+      if [ "$num1" = "$num" ]; then
+	pr "$num1\t$prio\t$desc\t$ref\t$own\t$date1\t$date2\t$comment\t$res"
+      else
+	pr "$num1\t$prio\t$desc\t$ref\t$own1\t$date1\t$date2\t$comment\t$res"
+      fi
+    done < $ISSUES.bak >$ISSUES
+  )
+  #generate_html >$HTML
+}
+
+remove_owner ()
+{
+  if [ -z "$num" ]; then
+    pr "Number: \c"
+    read num
+  fi
+  case "$num" in
+    [0-9] | [0-9][0-9] | [0-9][0-9][0-9] | [0-9][0-9][0-9][0-9]) ;;
+    *) pr "Error: not a valid issue number: $num" >&2; return 2;;
+  esac
+  cp $ISSUES $ISSUES.bak
+  (
+    IFS='	'
+    while read num1 prio desc ref own1 date1 date2 comment res; do
+      if [ "$num1" = "$num" ]; then
+	pr "$num1\t$prio\t$desc\t$ref\t-\t$date1\t$date2\t$comment\t$res"
+      else
+	pr "$num1\t$prio\t$desc\t$ref\t$own1\t$date1\t$date2\t$comment\t$res"
+      fi
+    done < $ISSUES.bak >$ISSUES
+  )
+  #generate_html >$HTML
+}
+
+inc_prio ()
+{
+  if [ -z "$num" ]; then
+    pr "Number: \c"
+    read num
+  fi
+  case "$num" in
+    [0-9] | [0-9][0-9] | [0-9][0-9][0-9] | [0-9][0-9][0-9][0-9]) ;;
+    *) pr "Error: not a valid issue number: $num" >&2; return 2;;
+  esac
+  cp $ISSUES $ISSUES.bak
+  (
+    IFS='	'
+    while read num1 prio desc ref own1 date1 date2 comment res; do
+      if [ "$num1" = "$num" ]; then
+	prio=`expr $prio + 1`
+	pr "$num1\t$prio\t$desc\t$ref\t$own1\t$date1\t$date2\t$comment\t$res"
+      else
+	pr "$num1\t$prio\t$desc\t$ref\t$own1\t$date1\t$date2\t$comment\t$res"
+      fi
+    done < $ISSUES.bak | sort -k 2nr,3 -k 1n,2 >$ISSUES
+  )
+  #generate_html >$HTML
+}
+
+dec_prio ()
+{
+  if [ -z "$num" ]; then
+    pr "Number: \c"
+    read num
+  fi
+  case "$num" in
+    [0-9] | [0-9][0-9] | [0-9][0-9][0-9] | [0-9][0-9][0-9][0-9]) ;;
+    *) pr "Error: not a valid issue number: $num" >&2; return 2;;
+  esac
+  cp $ISSUES $ISSUES.bak
+  (
+    IFS='	'
+    while read num1 prio desc ref own1 date1 date2 comment res; do
+      if [ "$num1" = "$num" ]; then
+	prio=`expr $prio - 1`
+	pr "$num1\t$prio\t$desc\t$ref\t$own1\t$date1\t$date2\t$comment\t$res"
+      else
+	pr "$num1\t$prio\t$desc\t$ref\t$own1\t$date1\t$date2\t$comment\t$res"
+      fi
+    done < $ISSUES.bak | sort -k 2nr,3 -k 1n,2 >$ISSUES
+  )
+  #generate_html >$HTML
+}
+
+interactive ()
+{
+  while [ "$reply" != 'q' ]; do
+    reply=
+    pr
+    pr "Choose one of:"
+    while [ "$reply" = "" ]; do
+      pr "	l	list the issues"
+      pr "	t	list only unresolved issues"
+      pr "	a	add an issue"
+      pr "	c	add a comment to an issue"
+      pr "	o	assign an owner to an issue"
+      pr "	+	raise the priority of an issue"
+      pr "	-	lower the priority of an issue"
+      pr "	r	mark an issue as resolved"
+      pr "	q	quit"
+      pr "? \c"
+      read reply
+      case "$reply" in
+	l) list_issues;;
+	a) ref=; desc=; add_issue;;
+	c) num=; comment=; add_comment;;
+	o) num=; own=; add_owner;;
+	+) num=; inc_prio;;
+	-) num=; dec_prio;;
+	r) num=; res=; resolve_issue;;
+	t) list_unresolved;;
+	q) ;;
+	*) pr "Not understood, please try again"; reply=;;
+      esac
+    done
+  done
+}  
+
+if [ ! -f $ISSUES ]; then
+  touch $ISSUES
+fi
+if [ $# = 0 ]; then
+  interactive
+else
+  case "$1" in
+    -l) list_issues;;
+    -a) ref=$2; shift 2; desc="$*"; add_issue;;
+    -c) num=$2; shift 2; comment="$*"; add_comment;;
+    -o) num=$2; shift 2; own="$*"; add_owner;;
+    +o) num=$2; remove_owner;;
+    +1) num=$2; inc_prio;;
+    -1) num=$2; dec_prio;;
+    -r) num=$2; shift 2; res="$*"; resolve_issue;;
+    -g) generate_html;;
+    -t) list_unresolved;;
+    -?) quick_help;;
+    *) quick_help; exit 1;;
+  esac
+fi
+
