@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.30 1997-09-27 01:22:23 bbos Exp $
+# $Id: Makefile,v 1.31 1997-09-29 13:51:28 ian Exp $
 
 ROOT = .
 
@@ -325,10 +325,10 @@ issues.html: issues.src build/issues.srb
 build/issues.srb: issues.db
 	$(ISSUES) -g >$@
 
-DOC/TODO.html: DOC/TODO.src DOC/todo.srb
+DOC/TODO.html: DOC/TODO.src build/todo.srb
 	$(HIPP) $(INCLUDES) DOC/TODO.src $@
 
-DOC/todo.srb: DOC/todo.db
+build/todo.srb: DOC/todo.db
 	$(TODO) -g >$@
 
 ### check on the document to see if it's valid
