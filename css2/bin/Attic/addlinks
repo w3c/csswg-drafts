@@ -1,0 +1,110 @@
+#!/usr/local/bin/perl
+# Add links from instances to definitions
+#
+# Arnaud Le Hors - lehors@w3.org
+# $Id: addlinks,v 1.1 1997-08-06 14:02:46 ijacobs Exp $
+
+if (($_ = $ARGV[0], /^-r/) && $ARGV[0]) {
+    shift;
+    $realpath = $ARGV[0];
+    shift;
+} else {
+    $realpath = ();
+}
+
+$PROGNAME = substr($0, rindex($0, "/") + 1);
+
+if ($#ARGV < 4) {
+    print STDERR "Usage: $PROGNAME [-r realpath] src trgt class anchordb class2 anchordb2 ...\n";
+    exit 1;
+} else {
+    $input = $ARGV[0];
+    shift;
+    if (! $realpath) {
+	$realpath = $input;
+    }
+    $output = $ARGV[0];
+    shift;
+}
+
+
+# compute relative path from 1 to 2
+sub rpath {
+    @path1 = split("/", $_[0]);
+    @path2 = split("/", $_[1]);
+
+    pop(@path1);
+    while ($path1[0] eq $path2[0]) {
+	shift(@path1);
+	shift(@path2);
+    }
+
+    $root = "";
+    foreach $el (@path1) {
+	$root .= "../";
+    }
+    $path = join("/", @path2);
+    return "$root$path";
+}
+
+# copy file in memory
+sub readfile {
+    $buf = "";
+    if (!open(INPUT, $_[0])) {
+	print STDERR "$PROGNAME Error: Cannot open file: $_[0]\n";
+	exit 1;
+    }
+    while (<INPUT>) {
+	$buf .= $_;
+    }
+    close(INPUT);
+}
+
+# given the regexp either both elem1 and elem2 are empty strings
+# or one or the other is, but in no case both are non empty
+# so we can concatenate them both together
+# args: start_tag key contents end_tag
+sub addlink {
+    if (($link = $adbase{lc("$_[1]")})) {
+	$rlink = rpath($realpath, $link);
+	return "<a href=\"$rlink\">$_[0]$_[2]$_[3]</a>";
+    } else {			# no anchor found, leave it unchanged
+	return "$_[0]$_[2]$_[3]";
+    }
+}
+
+# read anchor database
+sub readadb {
+    $adbasef = $_[0];
+    %adbase = ();
+    if (!open(DBASE, $adbasef)) {
+	print STDERR "$PROGNAME Error: Cannot open anchordb: $adbasef\n";
+    } else {
+	while (<DBASE>) {
+	    chop;
+	    ($key, $data) = split(";", $_, 2);
+	    $adbase{lc($key)} = $data;
+	}
+	close(DBASE);
+    }
+}
+
+
+### main
+$wd = "[^ \t\n]+";		# word
+$etag="</span>";
+
+readfile($input);
+while ($class = $ARGV[0]) {
+    shift;
+    readadb($ARGV[0]);
+    shift;
+    # insert appropriate links
+    $stag="<span[ \t\n]*class=$class-($wd)>|<span[ \t\n]*class=\"$class-($wd)\">";
+    $buf =~ s/($stag)(.*?)($etag)/addlink($1, "$2$3", $4, $5)/sgie;
+}
+
+# print out result
+open(OUTPUT, "> $output");
+print OUTPUT $buf;
+close(OUTPUT);

@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.6 1997-08-05 17:30:45 ijacobs Exp $
+# $Id: Makefile,v 1.7 1997-08-06 14:03:15 ijacobs Exp $
 
 ROOT = .
 
@@ -97,7 +97,7 @@ HMKDEPEND= $(PERL) ./bin/hmkdep
 # make property anchor database
 MKANCHDB= $(PERL) ./bin/mkanchdb
 # add heading anchors
-ADDHANCH= $(PERL) ./bin/addhanch -n -ml 3
+ADDHANCH= $(PERL) ./bin/addhanch -n -ml 4
 # add index anchors and generate related index database
 ADDIDXANCH= $(PERL) ./bin/addianch
 # add navigation bars
@@ -112,6 +112,8 @@ HTMLCAT= $(PERL) ./bin/htmlcat
 MKSUBTOC= $(PERL) ./bin/mksubtoc
 # insert subtoc
 INSAFTER= $(PERL) ./bin/insafter
+# add link
+ADDLINKS= $(PERL) ./bin/addlinks
 
 # utility to generate the PostScript version
 HTML2PSARGS= -n -D -R
@@ -136,6 +138,7 @@ LN= ln
 	echo "</div>" >> build/subtoc.$$$$; \
 	$(HIPP) $(INCLUDES) $< - | $(ADDHANCH) -r $< - - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) value-inst $(VALUEDB) | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
@@ -185,7 +188,7 @@ css20.zip:
 
 $(PROPERTYDB): $(SPECSRCS)
 	@if [ ! -d build ]; then mkdir build;fi
-	$(MKANCHDB) index-def - $(SPECSRCS) | sed 's/\.src/\.html/' > $@
+	$(MKANCHDB) propdef - $(SPECSRCS) | sed 's/\.src/\.html/' > $@
 
 $(VALUEDB): $(SPECSRCS)
 	$(MKANCHDB) value-def - $(SPECSRCS) | sed 's/\.src/\.html/' > $@
