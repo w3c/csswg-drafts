@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.45 1997-11-24 04:13:55 ian Exp $
+# $Id: Makefile,v 1.46 1997-11-24 14:12:37 bbos Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9711/WD-css2-971128
@@ -114,7 +114,7 @@ HEADINGDB= build/headings.db
 SED = sed
 PERL= perl5
 NSGMLS=nsgmls
-LINKLINT=linklint
+LINKLINT=$(PERL) bin/linklint
 
 # HTML include preprocessor (for includes)
 HIPP= $(PERL) ./bin/hipp
