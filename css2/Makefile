@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.75 2003-01-27 21:46:49 bbos Exp $
+# $Id: Makefile,v 2.76 2003-08-20 16:38:44 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -58,6 +58,7 @@ fonts.src\
 text.src\
 tables.src\
 ui.src\
+zindex.src\
 aural.src
 
 
@@ -277,7 +278,7 @@ LN= ln
 
 .fig.png:
 	$(RM) $@
-	fig2dev -L ps $< | $(PSTOPNM) | $(PNMTOPNG_PIPE) >$@
+	fig2dev -L eps $< | $(PSTOPNM) | $(PNMTOPNG_PIPE) >$@
 
 all: build/blocks.ok $(SPECOBJS) $(INDEXES) images/pngs.ok \
 	$(IMAGES)
