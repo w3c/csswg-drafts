@@ -108,80 +108,6 @@ list_to_be_updated ()
   ) < $ISSUES
 }
 
-add_issue ()
-{
-  if [ -z "$ref" ]; then
-    pr "Reference (URL): \c"
-    read ref
-  fi
-  if [ -z "$desc" ]; then
-    pr "Description: \c"
-    read desc
-  fi
-  ref=`echo $ref | tr "&	" "  "`
-  desc=`echo $desc | tr "&	" "  "`
-  pr "$desc	-	$ref	"`date "$DATEFRM"`"	-	no" >>$ISSUES
-}
-
-resolve_issue ()
-{
-  if [ -z "$num" ]; then
-    pr "Number: \c"
-    read num
-  fi
-  if [ -z "$res" ]; then
-    pr "Resolution: \c"
-    read res
-  fi
-  case "$num" in
-    [0-9] | [0-9][0-9] | [0-9][0-9][0-9] | [0-9][0-9][0-9][0-9]) ;;
-    *) pr "Error: not a valid issue number: $num" >&2; exit 2;;
-  esac
-  res=`echo $res | tr "&	" "  "`
-  date=`date "$DATEFRM"`
-  (
-    IFS='	'
-    i=0
-    while read desc h1 ref date1 h2 spec; do
-      i=`expr $i + 1`
-      if [ $i = "$num" ]; then
-	echo "$desc	$res	$ref	$date1	$date	$spec"
-      else
-	echo "$desc	$h1	$ref	$date1	$h2	$spec"
-      fi
-    done < $ISSUES >$TMP
-  )
-  mv $TMP $ISSUES
-}
-
-update_issue ()
-{
-  if [ -z "$num" ]; then
-    pr "Number: \c"
-    read num
-  fi
-  case "$num" in
-    [0-9] | [0-9][0-9] | [0-9][0-9][0-9] | [0-9][0-9][0-9][0-9]) ;;
-    *) pr "Error: not a valid issue number: $num" >&2; exit 2;;
-  esac
-  (
-    IFS='	'
-    i=0
-    while read desc res ref date1 date2 spec; do
-      i=`expr $i + 1`
-      if [ $i != "$num" ]; then
-	echo "$desc	$res	$ref	$date1	$date2	$spec"
-      elif [ "$ref" = "-" ]; then
-	pr "Error: cannot update; the issue must be resolved first" >&2
-	echo "$desc	$res	$ref	$date1	$date2	$spec"
-      else
-	echo "$desc	$res	$ref	$date1	$date2	yes"
-      fi
-    done < $ISSUES >$TMP
-  )
-  mv $TMP $ISSUES
-}
-
 generate_html ()
 {
   pr "<table border=1>"
@@ -218,31 +144,111 @@ generate_html ()
 
 }
 
+add_issue ()
+{
+  if [ -z "$ref" ]; then
+    pr "Reference (URL): \c"
+    read ref
+  fi
+  if [ -z "$desc" ]; then
+    pr "Description: \c"
+    read desc
+  fi
+  ref=`echo $ref | tr "&	" "  "`
+  desc=`echo $desc | tr "&	" "  "`
+  pr "$desc	-	$ref	"`date "$DATEFRM"`"	-	no" >>$ISSUES
+  generate_html >$HTML
+}
+
+resolve_issue ()
+{
+  if [ -z "$num" ]; then
+    pr "Number: \c"
+    read num
+  fi
+  case "$num" in
+    [0-9] | [0-9][0-9] | [0-9][0-9][0-9] | [0-9][0-9][0-9][0-9]) ;;
+    *) pr "Error: not a valid issue number: $num" >&2; return 2;;
+  esac
+  if [ -z "$res" ]; then
+    pr "Resolution: \c"
+    read res
+  fi
+  res=`echo $res | tr "&	" "  "`
+  date=`date "$DATEFRM"`
+  (
+    IFS='	'
+    i=0
+    while read desc h1 ref date1 h2 spec; do
+      i=`expr $i + 1`
+      if [ $i = "$num" ]; then
+	echo "$desc	$res	$ref	$date1	$date	$spec"
+      else
+	echo "$desc	$h1	$ref	$date1	$h2	$spec"
+      fi
+    done < $ISSUES >$TMP
+  )
+  mv $TMP $ISSUES
+  generate_html >$HTML
+}
+
+update_issue ()
+{
+  if [ -z "$num" ]; then
+    pr "Number: \c"
+    read num
+  fi
+  case "$num" in
+    [0-9] | [0-9][0-9] | [0-9][0-9][0-9] | [0-9][0-9][0-9][0-9]) ;;
+    *) pr "Error: not a valid issue number: $num" >&2; return 2;;
+  esac
+  (
+    IFS='	'
+    i=0
+    while read desc res ref date1 date2 spec; do
+      i=`expr $i + 1`
+      if [ $i != "$num" ]; then
+	echo "$desc	$res	$ref	$date1	$date2	$spec"
+      elif [ "$ref" = "-" ]; then
+	pr "Error: cannot update; the issue must be resolved first" >&2
+	echo "$desc	$res	$ref	$date1	$date2	$spec"
+      else
+	echo "$desc	$res	$ref	$date1	$date2	yes"
+      fi
+    done < $ISSUES >$TMP
+  )
+  mv $TMP $ISSUES
+  generate_html >$HTML
+}
+
 interactive ()
 {
-  pr "Choose one of:"
-  while [ "$reply" = "" ]; do
-    pr "	l	list the issues"
-    pr "	t	list only unresolved issues"
-    pr "	y	list issues to be updated in the spec"
-    pr "	a	add an issue"
-    pr "	r	mark an issue as resolved"
-    pr "	u	mark the spec as up-to-date w.r.t. an issue"
-    pr "	g	generate HTML page with the issues"
-    pr "	q	quit"
-    pr "? \c"
-    read reply
-    case "$reply" in
-      l) list_issues;;
-      a) add_issue; generate_html >$HTML;;
-      r) resolve_issue; generate_html >$HTML;;
-      u) update_issue; generate_html >$HTML;;
-      g) generate_html;;
-      t) list_unresolved;;
-      y) list_to_be_updated;;
-      q) ;;
-      *) pr "Not understood, please try again"; reply=;;
-    esac
+  while [ "$reply" != 'q' ]; do
+    reply=
+    pr "Choose one of:"
+    while [ "$reply" = "" ]; do
+      pr "	l	list the issues"
+      pr "	t	list only unresolved issues"
+      pr "	y	list issues to be updated in the spec"
+      pr "	a	add an issue"
+      pr "	r	mark an issue as resolved"
+      pr "	u	mark the spec as up-to-date w.r.t. an issue"
+      pr "	g	generate HTML page with the issues"
+      pr "	q	quit"
+      pr "? \c"
+      read reply
+      case "$reply" in
+	l) list_issues;;
+	a) add_issue; generate_html >$HTML;;
+	r) resolve_issue; generate_html >$HTML;;
+	u) update_issue; generate_html >$HTML;;
+	g) generate_html;;
+	t) list_unresolved;;
+	y) list_to_be_updated;;
+	q) ;;
+	*) pr "Not understood, please try again"; reply=;;
+      esac
+    done
   done
 }  
 
@@ -251,12 +257,13 @@ if [ $# = 0 ]; then
 else
   case "$1" in
     -l) list_issues;;
-    -a) ref=$2; shift 2; desc="$*"; add_issue; generate_html >$HTML;;
-    -r) num=$2; shift 2; res="$*"; resolve_issue; generate_html >$HTML;;
-    -u) num=$2; update_issue; generate_html >$HTML;;
+    -a) ref=$2; shift 2; desc="$*"; add_issue;;
+    -r) num=$2; shift 2; res="$*"; resolve_issue;;
+    -u) num=$2; update_issue;;
     -g) generate_html;;
     -t) list_unresolved;;
     -y) list_to_be_updated;;
+    -?) quick_help;;
     *) quick_help; exit 1;;
   esac
 fi
