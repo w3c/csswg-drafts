@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.23 1998-03-23 02:37:02 bbos Exp $
+# $Id: Makefile,v 2.24 1998-03-23 19:53:46 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -254,13 +254,13 @@ LN= ln
 	$(RM) $@
 	$(PSTOPNM) $< | $(PNMTOPNG_PIPE) >$@
 
-all: build/blocks.ok $(SPECOBJS) $(INDEXES) \
-	$(IMAGES) images/links.ok issues.html DOC/TODO.html
+all: build/blocks.ok $(SPECOBJS) $(INDEXES) images/gifs.ok \
+	$(IMAGES) issues.html DOC/TODO.html # images/links.ok
 
 
-images/links.ok : $(IMAGES)
-	-@(cd images; for i in *.gif; do $(LN) -s $$i "`basename $$i .gif`" 2>//dev/null; done)
-	touch images/links.ok
+#images/links.ok : $(IMAGES)
+#	-@(cd images; for i in *.gif; do $(LN) -s $$i "`basename $$i .gif`" 2>//dev/null; done)
+#	touch images/links.ok
 
 install: all css2.tgz 
 	@if [ -z "$(INSTALLDIR)" ]; then\
@@ -281,6 +281,11 @@ install: all css2.tgz
 
 install-all: install css2.zip css2.ps css2.txt
 	$(CP) css2.zip css2.ps css2.txt $(INSTALLDIR)
+
+images/gifs.ok: images/*.idraw
+	-@for f in images/*.idraw; do make images/`basename $$f .idraw`.gif; done
+	-@for f in images/*.idraw; do make images/`basename $$f .idraw`.png; done
+	touch images/gifs.ok
 
 #### Special section to build PS file and single plain text file
 
@@ -303,7 +308,7 @@ css2.txt txt: css2.html
 
 ####
 
-css2.tgz: $(ALLOBJS) images/links.ok
+css2.tgz: $(ALLOBJS) # images/links.ok
 	$(TAR) cf - $(ALLOBJS) `$(LS) -d images/* | $(GREP) -v "\."` | gzip >$@
 
 css2.zip: $(ALLOBJS)
@@ -524,7 +529,7 @@ clean:
 	$(RM) $(SPECOBJS) $(INDEXES) $(PROPBLKSDIR)/* \
 	$(SPECOBJS:.html=.srd) $(SPECOBJS:.html=.subtoc) \
         $(INDEXES:.html=.srd) \
-        $(DESCBLKSDIR)/* build/* css2.* linklint images/links.ok
+        $(DESCBLKSDIR)/* build/* css2.* linklint images/links.ok images/gifs.ok
 
 realclean: clean
 
