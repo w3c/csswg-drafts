@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.29 1997-09-25 19:42:51 ian Exp $
+# $Id: Makefile,v 1.30 1997-09-27 01:22:23 bbos Exp $
 
 ROOT = .
 
@@ -133,15 +133,18 @@ PEXTR= $(PERL) ./bin/pextr
 DEXTR= $(PERL) ./bin/dextr
 # extract issues from issues db.
 ISSUES= bin/issues
+# extract issues from todo db.
+TODO= bin/todo
 
 # utility to generate the PostScript version
 # -R seems broken for this spec.
 HTML2PS= $(PERL) ./bin/html2ps -f html2psrc
 
 # PS -> GIF tools
-PSTOPNM = ./bin/mypstopnm -r 75
-PPMQUANT = ppmquant 256
-PPMTOGIF = ppmtogif -trans rgb:ffff/ffff/ffff
+#PSTOPNM = ./bin/mypstopnm -r 75
+PSTOPNM = ./bin/mypstopnm -r 150
+#PNMTOGIF_PIPE = ppmquant 256 | ppmtogif
+PNMTOGIF_PIPE = pnmscale 0.5 | pnmgamma 1.8 | ppmquant 256 | ppmtogif
 
 # include paths
 INCLUDES= -Ibuild -I.
@@ -169,11 +172,13 @@ LN= ln
 
 .idraw.gif:
 	$(RM) $@
-	$(PSTOPNM) $< | $(PPMQUANT) | $(PPMTOGIF) >$@
+#	$(PSTOPNM) $< | $(PPMQUANT) | $(PPMTOGIF) >$@
+	$(PSTOPNM) $< \
+	  | $(PNMTOGIF_PIPE) >$@
 
 
 all: blocks $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES) \
-	$(IMAGES) issues.html
+	$(IMAGES) issues.html DOC/TODO.html
 
 install: all css20.tgz 
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
@@ -319,6 +324,12 @@ issues.html: issues.src build/issues.srb
 
 build/issues.srb: issues.db
 	$(ISSUES) -g >$@
+
+DOC/TODO.html: DOC/TODO.src DOC/todo.srb
+	$(HIPP) $(INCLUDES) DOC/TODO.src $@
+
+DOC/todo.srb: DOC/todo.db
+	$(TODO) -g >$@
 
 ### check on the document to see if it's valid
 
