@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.13 1997-08-15 14:00:16 ian Exp $
+# $Id: Makefile,v 1.14 1997-08-21 20:39:45 ian Exp $
 
 ROOT = .
 
@@ -15,8 +15,8 @@ about.src\
 tutorial.src\
 cssdesgn.src\
 convent.src\
-syndata.src\
 doctree.src\
+syndata.src\
 selector.src\
 cascade.src\
 media.src\
@@ -48,8 +48,8 @@ about.html\
 tutorial.html\
 cssdesgn.html\
 convent.html\
-syndata.html\
 doctree.html\
+syndata.html\
 selector.html\
 cascade.html\
 media.html\
@@ -121,8 +121,8 @@ ADDLINKS= $(PERL) ./bin/addlinks
 
 # utility to generate the PostScript version
 # -R seems broken for this spec.
-# HTML2PSARGS= -n -D -R
-HTML2PSARGS= -n -D 
+HTML2PSARGS= -n -D -R
+#HTML2PSARGS= -n -D 
 HTML2PS= $(PERL) html2ps
 HTML2PS= html2ps
 
