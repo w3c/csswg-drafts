@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.79 1998-01-29 18:52:58 bbos Exp $
+# $Id: Makefile,v 1.80 1998-01-29 18:55:51 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -234,7 +234,7 @@ install: all css20.tgz
 	(cd $(INSTALLDIR); zcat css20.tgz | $(TAR) xvf -)
 	-$(RM) -f $(CSSGROUPDIR)/issues.html
 	-$(RM) $(CSSGROUPDIR)/css2-issues.html
-        $(LN) -s $(INSTALLDIR)/issues.html $(CSSGROUPDIR)/css2-issues.html
+	$(LN) -s $(INSTALLDIR)/issues.html $(CSSGROUPDIR)/css2-issues.html
 	$(LN) -s $(INSTALLDIR)/cover.html $(INSTALLDIR)Overview.html
 	-$(RM) -f $(TR_DIR)/$(PERMANENT_NAME)
 	$(LN) -s $(INSTALLDIR) $(TR_DIR)/$(PERMANENT_NAME)
