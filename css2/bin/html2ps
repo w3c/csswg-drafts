@@ -2,7 +2,17 @@
 eval 'exec perl -S $0 "$@"'
   if $running_under_some_shell;
 
+
+# Patched again by Bert Bos, 8 Jun 2000
+# - perl5 apparently didn't accept 99999 on line 4333, changed to 32766
 #
+# This version has been patched by Bert Bos, 6 Aug 1999 - bert@w3.org
+# Changes:
+# - added check for ETag: different URL but same ETag means the document
+#   is not printed again.
+# - Now remembers username/password after the first time.
+#
+
 # This is version has been patched by Arnaud Le Hors 1997 - lehors@w3.org
 # Changes are:
 # - fixed bug in cross references (some weren't generated)
@@ -2011,6 +2021,7 @@ $toc.="($toc{'heading'})WB\n" if(!$tocdoc);
 $fl1="";
 $fl2="";
 $np="NP RC ZF";
+my %etags;			# Initially empty set of etags seen (BB)
 open(P3,"+>$scr.p3");
 foreach $html (@docs) {		# MAIN LOOP
   $ndoc++;
@@ -2030,7 +2041,7 @@ foreach $html (@docs) {		# MAIN LOOP
     } else {
       @docs=(@links,@docs);
     }
-    $rem=$#docs+1;
+    $rem=$#docs-$nrem;
     if($rem && $opt_W) {
       &dbg("At least $rem document".($rem>1?"s":"")." remaining\n");
     }
@@ -2193,7 +2204,6 @@ if(($first || $opt_R) && $xref{'passes'}) {
   for $i (1..$xref{'passes'}) {&dbg(" pass #$i...") if($opt_d); &ref};
   &dbg("\n") if($opt_d);
 }
-
 &fin;
 ### End of Main proc
 
@@ -2218,9 +2228,15 @@ sub h2p {			# Convert HTML to PS
       return 0 unless($ans=~/y/i);
     }
     &geturl($html,$_) || return;
+    #&dbg("ETag = $etag\n");	# BB 19990806
     $nrem++;
     if($contyp!~m|text/html|i) {$_=" <plaintext>\n$_"};
     unless(($ba2)=$html=~m|(.*://.*/)|) {$ba2=$html."/"};
+    if ($etag && $etags{$etag}) { # Already seen this file
+      $_="";			# Remove content
+      &dbg("Already seen this document, skipping.\n");
+    }
+    $etags{$etag}=1;		# Add etag to list of seen etags
   } else {
     if(open(FILE,$html)) {
       &dbg("Reading $html\n") if($opt_W || $opt_d);
@@ -2288,8 +2304,8 @@ sub h2p {			# Convert HTML to PS
   if(!defined $B2) {$B2=$b2};
   $levl{$b2.$html}=$levl{$html};
 
-  while($link && $head=~/<link\s+[^>]*?rel\s*=\s*["']?next$R/goi) {
-    if(($lnk)=$&=~/href\s*=\s*["']?\s*([^"' >]*)/goi) {
+  while($link && $head=~/<link\s+[^>]*?rel\s*=\s*["']?next\b/gois) {
+    if(($lnk)=$&=~/href\s*=\s*["']?\s*([^"' >]*)/gois) {
       if($lnk=~m|.+//[^/]+$|) {$lnk=$&."/"}
       if($lnk=~m|://|) {
         $rlnk=0;
@@ -2684,7 +2700,7 @@ sub Subst{
       $rlnk=0;
     } else {
       $rlnk=1;
-      if($lnk=~m|^/|) {$lnk=$b1.$lnk} elsif($lnk!~m|^\w+:|) {$lnk=$b2.$lnk};
+      if($lnk=~m|^/|) {$lnk=$b1.$lnk} elsif($lnk!~m|^\w+:|) {$lnk=$b2.$lnk}
     }
     while($lnk!~m|^\.\./| && $lnk=~m|[^/]*/\.\./|) {$lnk=$`.$'};
     $lnk=~s"(^|/)\./"$1"g;
@@ -2692,7 +2708,7 @@ sub Subst{
     ($doctit{$doc})=$tag=~/title\s*=['"]([^'"]*)['"]/i;
     $T=0;
     $anch=2;
-    if($loc || grep(/^$doc$/,(@docs,@links))
+    if($loc || grep('^$doc$',(@docs,@links))
      || $opt_W && !$link && $level<=$maxlev && &follow){
       $refs{$lnk}=$nref++ unless(defined $refs{$lnk});
       $anch="$refs{$lnk} 1";
@@ -3489,15 +3505,27 @@ sub run {
   &dbg("@_\n") if($opt_d);
   $pm=`@_`;
 }
+
+my %users;
+my %passwords;
+
 sub geturl {
   local($url)=@_;
   &dbg("Retrieving $url");
   if($package{'libwww-perl'} || $package{'jfriedl'}) {
     warn "\n";
     &gu();
+    if($code==401) {		# See if we have a stored password already
+      $domain=$url=~m|://([^/]+)|;
+      $user=$users{"$domain/$realm"};
+      $pass=$passwords{"$domain/$realm"};
+      if (defined $user) {&gu($user,$pass);}
+    }
     if($code==401) {
       &prompt("\nDocument requires username and password\n\nUsername: ",$user);
+      $users{"$domain/$realm"}=$user;
       &prompt("Password: ",$pass);
+      $passwords{"$domain/$realm"}=$pass;
       &gu($user,$pass);
     }
     $_[1]=$cont;
@@ -3532,6 +3560,9 @@ sub gu {
     $code=$res->code;
     $contyp=$res->header('content-type');
     $cont=$res->content;
+    $etag=$res->header('ETag');	# BB 19990806
+    #&dbg("WWW-Authenticate: ".$res->header('WWW-Authenticate')."\n");
+    ($realm)=($res->header('WWW-Authenticate'))=~m/\s*basic\s*realm=(.*)/io;
   } else {
     require "www.pl";
     @opts=@_?("authorization=$_[0]:$_[1]"):();
@@ -3541,6 +3572,8 @@ sub gu {
     $code=$info{'CODE'};
     ($contyp)=$info{'HEADER'}=~/Content-type:\s+(.*)/i;
     $cont=<FILE>;
+    $etag=0;			# ?? BB 19990806
+    ($realm)=$info{'HEADER'}=~m/WWW-Authenticate:\s*basic\s*realm=(.*)/io;
   }
 }
 sub pictops {
@@ -4301,7 +4334,10 @@ sub img {
               push(@IT,1);
               $nli=99999;
               $n=1;
-              $npr=$ps=~s|(.*\n){$nli}|sprintf("$&} D\n/P$nimg\_%d {",$n++)|eg;
+              #$npr=$ps=~s|(.*\n){$nli}|sprintf("$&} D\n/P$nimg\_%d {",$n++)|eg;
+              # Replaced prev line by next one. BB, 9 Jun 2000
+              $npr=0;
+
               if($npr) {
                 $proc=" (";
                 for $i (0..$npr) {
