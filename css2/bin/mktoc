@@ -5,7 +5,7 @@
 #   1. Some header - and its related comment
 #
 # Arnaud Le Hors - lehors@w3.org
-# $Id: mktoc,v 1.12 1997-11-20 23:47:32 ian Exp $
+# $Id: mktoc,v 1.13 1997-12-09 00:08:46 ijacobs Exp $
 
 if (($_ = $ARGV[0], /^-l/) && $ARGV[0]) {
     shift;
@@ -107,8 +107,6 @@ sub hnum {
 # remove every possible anchor
 sub cleanup {
     $text = $_[0];
-    $text =~ s/<a(.*?)>//sgi;
-    $text =~ s/<\/a>//sgi;
     $text =~ s/[ \t]*$//sgi;
     return $text;
 }
@@ -117,7 +115,7 @@ sub cleanup {
 ### main
 
 # search for all the headings
-$headingp = "<h([1-6]).*?>(.*?)(:[^a-zA-Z].*?)?(?:<!--(.*?)-->)?</h[1-6]>";
+$headingp = "<h([1-6]).*?>(.*?)(?:<!--(.*?)-->)?</h[1-6]>";
 
 open(DBASE, "> $tocdb");
 open(OUTPUT, "> $tocf");
@@ -149,49 +147,76 @@ LOOP: foreach $file (@ARGV) {
     # change extension
     $hfil = $file;
     $hfil =~ s/\.src$/\.html/;
-#  This doesn't work, but this is the idea!
-#    # remove commented headings
-#    $buf =~ s/<!--\s*<h[1-6].*?>.*?<\/h[1-6]>.*?-->//sgi;
     # seek headings
     $_ = $buf;
     while (/$headingp/sio) {
 	$h = int($1);
+	$t = "$2";
+	$txt = cleanup($t);
+	$cmt = $3;
 	if ($h >= $startlvl && (($maxlvl == 0) || ($h <= $maxlvl))) {
-	    #Only one or the other of text
-	    $t = "$2$4";
-	    $cmt = $5;
 	    # compute section number
 	    $num = hnum($h);
-	    if ($h == 1) {	# if H1 go to the top of the page and set rel
-		$url = "$hfil";
-		$rel= " rel=\"chapter\"";
+	    # Reuse first anchor in header.
+	    $hasanchor = ();
+	    if ($t =~ /<a[^>]+>/si) {
+		$hasanchor = t;
+		# let's reuse it
+		$anch = $&;
+		if ($anch =~ /name=(?:\"([^\"]+)\"|([^ \n\t>]+))/sig) {
+		    $anchor = "$1$2";
+		    $txt =~ s/name=\"?$anchor\"?/href=\"$hfil#$anchor\"/isg;
+		}
 	    } else {
-		$url = "$hfil#h-$num";
-		$rel = "";
+		$anchor = "h-$num";
+		if ($h == 1) {	# if H1 go to the top of the page and set rel
+		    $url = "$hfil";
+		    $rel= " rel=\"chapter\"";
+		} else {
+		    $url = "$hfil#$anchor";
+		    $rel = "";
+		}
 	    }
-	    $txt = cleanup($t);
 	    if ($list eq "ol" && $listtype ne " class=\"toc\"") {
 		$tnum = "$num ";
 	    } else {
 		$tnum ="";
 	    }
 	    if ($h == 1) {
-		print OUTPUT "<P CLASS=\"tocline\"><a href=\"$url\"$rel><strong>$tnum$txt</strong></a>$3\n"; 
+		if ($hasanchor) {
+		    print OUTPUT "<P CLASS=\"tocline\"><strong>$tnum$txt</strong>\n"; 
+		} else {
+		    print OUTPUT "<P CLASS=\"tocline\"><strong>$tnum</strong><a href=\"$url\"$rel><strong>$txt</strong></a>\n"; 
+		}
 	    } elsif ($h == 2) {
-		print OUTPUT "<BR><a href=\"$url\"$rel>$tnum$txt</a>$3\n";
+		if ($hasanchor) {
+		    print OUTPUT "<BR>$tnum$txt\n";
+		} else {
+		    print OUTPUT "<BR>$tnum<a href=\"$url\"$rel>$txt</a>\n";
+		}
 	    } elsif ($h == 3) {
-		print OUTPUT 
-		    "<BR>&nbsp;&nbsp;&nbsp;<a href=\"$url\"$rel>$tnum$txt</a>$3\n";
+		if ($hasanchor) {
+		    print OUTPUT 
+			"<BR>&nbsp;&nbsp;&nbsp;$tnum$txt\n";
+		} else {
+		    print OUTPUT 
+			"<BR>&nbsp;&nbsp;&nbsp;$tnum<a href=\"$url\"$rel>$txt</a>\n";
+		}
 	    } else {
-		print OUTPUT
-		    "<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href=\"$url\"$rel>$txt</a>$3\n";
+		if ($hasanchor) {
+		    print OUTPUT
+			"<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$txt\n";
+		} else {
+		    print OUTPUT
+			"<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href=\"$url\"$rel>$txt</a>\n";
+		}
 	    }
 	    if ($cmt) {
 		print OUTPUT " <em>-$cmt</em>";
 	    }
 
 	    # dbase format: file;headingtext;h;hnum
-	    print DBASE "$file;$t$3;$h;$num\n";
+	    print DBASE "$file;$t;$h;$num;$anchor\n";
 	}
 	$_ = $';
     }

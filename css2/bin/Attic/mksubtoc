@@ -2,82 +2,51 @@
 # sub TOC builder
 #
 # Arnaud Le Hors - lehors@w3.org
-# $Id: mksubtoc,v 1.3 1997-10-03 20:54:17 ian Exp $
+# $Id: mksubtoc,v 1.4 1997-12-09 00:08:44 ijacobs Exp $
 
-if (($_ = $ARGV[0], /^-r/) && $ARGV[0]) {
-    shift;
-    $realpath = $ARGV[0];
-    shift;
-} else {
-    $realpath = ();
-}
+$startlvl = 0;
+$maxlvl = 0;
 
-if (($_ = $ARGV[0], /^-l/) && $ARGV[0]) {
+while ($_ = $ARGV[0], /^-/) {
+    if (/^-l/) {
+	shift;
+	$startlvl = $ARGV[0] - 1;
+    } elsif (/^-ml/) {
+	shift;
+	$maxlvl = $ARGV[0];
+    } else {
+	last;
+    }
     shift;
-    $startlvl = $ARGV[0] - 1;
-    shift;
-} else {
-    $startlvl = 0;
-}
-
-if (($_ = $ARGV[0], /^-ml/) && $ARGV[0]) {
-    shift;
-    $maxlvl = $ARGV[0];
-    shift;
-} else {
-    $maxlvl = 0;
 }
 
 $PROGNAME = substr($0, rindex($0, "/") + 1);
 
-if ($#ARGV < 2) {
-    print STDERR "Usage: $PROGNAME [-r realpath] [-l startlvl] [-ml maxlvl] subtoc tocdb src1 ...\n";
-    exit 1;
-} else {
-    $tocf = $ARGV[0];
-    shift;
-    if (! $realpath) {
-	$realpath = $tocf;
-    }
-    $hdbasef = $ARGV[0];
-    shift;
+if ($#ARGV < 1) {
+    die "Usage: $PROGNAME [-l startlvl] [-ml maxlvl] tocdb src [output]
+\twrites to stdout when output not specified.\n";
 }
-
-# compute relative path from 1 to 2
-sub rpath {
-    @path1 = split("/", $_[0]);
-    @path2 = split("/", $_[1]);
-
-    pop(@path1);
-    while ($path1[0] eq $path2[0]) {
-	shift(@path1);
-	shift(@path2);
-    }
-
-    $root = "";
-    foreach $el (@path1) {
-	$root .= "../";
-    }
-    $path = join("/", @path2);
-    return "$root$path";
+$hdbasef = $ARGV[0];
+shift;
+$file = $ARGV[0];
+shift;
+if ($ARGV[0]) {
+    $tocf = $ARGV[0];
+} else {
+    $tocf = "-";
 }
 
 # copy file in memory
 sub readfile {
-    $buf = "";
-    if (!open(INPUT, $_[0])) {
-	print STDERR "$PROGNAME Error: Cannot open file: $_[0]\n";
-	return;
-    }
-    while (<INPUT>) {
-	$buf .= $_;
-    }
+    open(INPUT, $_[0]) || die "$PROGNAME Error: Cannot open file: $_[0]\n";
+    undef $/;			# read file as a single block
+    $buf = <INPUT>;
+    $/ = "\n";			# reset input record separator
     close(INPUT);
 }
 
 sub olinit {
-    @ol = ();
-    $ol[0] = 0;
+    @ol = (0, 0, 0, 0, 0, 0);
 }
 
 sub ol {
@@ -91,7 +60,7 @@ sub ol {
 	$n[$i] = 0;
     }
     if ($hn >= 0) {
-	if ($ol[$hn] == 0) {
+	if ($hn > $#ol || $ol[$hn] == 0) {
 	    print OUTPUT "<ol>\n";
 	    $ol[$hn] = 1;
 	}
@@ -102,11 +71,9 @@ sub ol {
 # remove every possible anchor
 sub cleanup {
     $text = $_[0];
-    $text =~ s/<a(.*?)>//sgi;
-    $text =~ s/<\/a>//sgi;
+    $text =~ s/[ \t]*$//sgi;
     return $text;
 }
-
 
 ### main
 
@@ -116,31 +83,31 @@ readfile($hdbasef);
 # search for all the headings related to the given files and build the toc
 open(OUTPUT, "> $tocf");
 olinit();
-foreach $file (@ARGV) {
-    # change extension
-    $hfil = $file;
-    $hfil =~ s/\.src/\.html/;
-    $rpath = rpath($realpath, $hfil);
-    $_ = $buf;
-    # Allow anchors after ":" in header text.
-    while (/$file;(.*?)(:[^a-zA-Z].*?)?;([0-9]*);([1-9A-Z].*?)\n/si) {
-	$t = $1;
-	$h = int($3);
-	if ($h > $startlvl && ($maxlvl == 0 || $h <= $maxlvl)) {
-	    $num = $4;
+# change extension
+$hfil = $file;
+$hfil =~ s/\.src/\.html/;
+$_ = $buf;
+while (/$file;(.*?);([0-9]*);([1-9A-Z].*?);(.*?)\n/sig) {
+    $t = $1;
+    $h = int($2);
+    $anchor = $4;
+    if ($h > $startlvl && ($maxlvl == 0 || $h <= $maxlvl)) {
+	# If there's an anchor, reuse it.
+	if ($t =~ /<a[^>]+>/si) {
+	    $t =~ s/name=\"?.*?$anchor\"?/href=\"#$anchor\"/isg;
+	    print OUTPUT "<li>$t\n";
+	} else {
+	    $num = $3;
 	    ol($h);
-	    if ($h == 1) {	# if H1 go to the top of the page and set rel
-		$url = "$rpath";
-		$rel= " rel=\"section\"";
-	    } else {
-		$url = "$rpath#h-$num";
+	    if ($h > 1) {
+		$url = "#$anchor";
 		$rel = "";
 	    }
 	    $txt = cleanup($t);
-	    print OUTPUT "<li><a href=\"$url\"$rel>$txt</a>$2\n";
+	    print OUTPUT "<li><a href=\"$url\"$rel>$txt</a>\n";
 	}
-	$_ = $';
     }
+    $_ = $';
 }
 ol(0);				# close all open lists
 close(OUTPUT);

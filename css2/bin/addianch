@@ -1,7 +1,7 @@
 #!/usr/local/bin/perl
 # Add index anchors to source file _and_ generate index database
 # Arnaud Le Hors - lehors@w3.org
-# $Id: addianch,v 1.7 1997-11-20 23:46:24 ian Exp $
+# $Id: addianch,v 1.8 1997-12-09 00:08:36 ijacobs Exp $
 
 if (($_ = $ARGV[0], /^-r/) && $ARGV[0]) {
     shift;
@@ -13,35 +13,36 @@ if (($_ = $ARGV[0], /^-r/) && $ARGV[0]) {
 
 $PROGNAME = substr($0, rindex($0, "/") + 1);
 
-if ($#ARGV < 2) {
-    print STDERR "Usage: $PROGNAME [ -r realpath ] src trgt indexdb\n";
-    exit 1;
-} else {
-    $input = $ARGV[0];
-    if ($realpath) {
-	$file = $realpath;
-    } else {
-	$file = $input;
-    }
-    # change file extension
-    $file =~ s/src$/html/;
-    shift;
-    $output = $ARGV[0];
-    shift;
-    $dbasef = $ARGV[0];
-    shift;
+if (!$ARGV[0]) {
+    die "Usage: $PROGNAME [ -r realpath ] indexdb [src] [output]\n";
 }
+$dbasef = $ARGV[0];
+shift;
+if ($ARGV[0]) {
+    $input = $ARGV[0];
+    shift;
+} else {
+    $input = "-";
+}
+if ($ARGV[0]) {
+    $output = $ARGV[0];
+} else {
+    $output = "-";
+}
+if ($realpath) {
+    $file = $realpath;
+} else {
+    $file = $input;
+}
+# change file extension
+$file =~ s/src$/html/;
 
 # copy file in memory
 sub readfile {
-    $buf = "";
-    if (!open(INPUT, $_[0])) {
-	print STDERR "$PROGNAME Error: Cannot open file: $_[0]\n";
-	exit 1;
-    }
-    while (<INPUT>) {
-	$buf .= $_;
-    }
+    open(INPUT, $_[0]) || die "$PROGNAME Error: Cannot open file: $_[0]\n";
+    undef $/;			# read file as a single block
+    $buf = <INPUT>;
+    $/ = "\n";			# reset input record separator
     close(INPUT);
 }
 
@@ -84,41 +85,56 @@ $sep = "[ \t\n]+";		# word separator
 sub addanchor {
     ($prefix, $st, $content, $et) = @_;
 
+    $anchor = ();
+    # let's see if there is already an anchor in the content
+    if ($content =~ /<a[^>]+>/si) {
+	$hasanchor = t;
+	# let's reuse it
+	$anch = $&;
+	if ($anch =~ /name=(?:$qwd|($wd))[\n \t>]+/si) {
+	    # only $1 or $2 will actually be non null
+	    $anchor = "$1$2";
+	    $hasname = t;
+	} else {
+	    $hasname = ();
+	}
+    } else {
+	$hasanchor = ();
+    }
+
     # see if a title is specified
-    $_ = $st;
-    if (/${sep}title=(?:$qwd|($wd))/sgio) {
-        $anchor = ();
+    if ($st =~ /${sep}title=(?:$qwd|($wd))/sgio) {
         # only $1 or $2 will actually be non null
-        foreach $idxentry (split(/[\n \t]*\|[\n \t]*/, "$1$2", 2)) {
-	    ($index, $cmt) = split(/, */, "$idxentry", 2);
+        foreach $idxentry (split(/[\n \t]*\|[\n \t]*/g, "$1$2")) {
+	    ($index, $cmt) = split(/::[ \n\t]*/, "$idxentry", 2);
 	    # New lines -> spaces in keys (title OR content)
 	    # And compress extra space
 	    $index =~ s/[\n \t]+/ /g;
 	    $cmt =~ s/[\n \t]+/ /g;
-	    #Remove initial white space
+	    # Remove initial white space
 	    $index =~ s/^[\n \t]+//;
 	    $cmt =~ s/^[\n \t]+//;
 	    $anchor = storeindex($prefix, $index, $cmt, $anchor);
 	}
     } else {
 	$index = $content;
-	$cmt = ();
 	# New lines -> spaces in keys (title OR content)
 	# And compress extra space
 	$index =~ s/[\n \t]+/ /g;
-	$cmt =~ s/[\n \t]+/ /g;
-	#Remove initial white space
+	# Remove initial white space
 	$index =~ s/^[\n \t]+//;
-	$cmt =~ s/^[\n \t]+//;
-	$anchor = storeindex($prefix, $index, $cmt, ());
+	$anchor = storeindex($prefix, $index, "", $anchor);
     }
 
-    # HACK!!!
-    # add a non breakable space in the anchor to workaround
-    # broken browsers which don't support correctly empty anchors
-    return "$st$content<a name=\"" . $anchor . "\">&nbsp;</a>$et";
-# if the span tags are to be removed use the following two lines instead
-#    return "<a name=\"" . $anchor . "\">&nbsp;</a>$content";
+    # let's see if there is already an anchor in the content
+    if ($hasanchor) {
+	if (!$hasname) {		# insert name attribute
+	    $content =~ s/<a[\n \t]+/$&name=\"$anchor\" /si;
+	}
+    } else {			# insert anchor
+	$content = "<a name=\"$anchor\">$content</a>";
+    }
+    return "$st$content$et";
 }
 
 ### main
@@ -147,13 +163,12 @@ close(OUTPUT);
 # Don't separate fields with ";" because keys may contain markup
 # With entities.
 
-if (!open(DBASE, "> $dbasef")) {
-    print STDERR "$PROGNAME Error: Cannot open dbfile: $dbasef\n";
-} else {
-    foreach $index (sort(keys %indexes)) {
-	foreach $item (@{$indexes{$index}}) {
-	    print DBASE "$index|$item\n";
-	}
+open(DBASE, "> $dbasef") ||
+    die "$PROGNAME Error: Cannot create dbfile: $dbasef\n";
+
+foreach $index (sort(keys %indexes)) {
+    foreach $item (@{$indexes{$index}}) {
+	print DBASE "$index|$item\n";
     }
-    close(DBASE);
 }
+close(DBASE);

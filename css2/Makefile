@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.49 1997-11-27 03:08:44 ian Exp $
+# $Id: Makefile,v 1.50 1997-12-09 00:07:22 ijacobs Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9711/WD-css2-971127
@@ -159,8 +159,8 @@ CHKREFS= $(PERL) ./bin/chkrefs
 ADDREFCLASS= $(PERL) ./bin/addrefclass
 
 # utility to generate the PostScript version
-# -R seems broken for this spec.
-HTML2PS= $(PERL) ./bin/html2ps -d -f html2psrc
+#
+HTML2PS= $(PERL) html2ps -f html2psrc
 
 # IDRAW -> PS -> GIF tools
 #PSTOPNM = ./bin/mypstopnm -r 75
@@ -183,11 +183,11 @@ LN= ln
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
 	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
 		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -r $@ -l 2 - $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	$(MKSUBTOC) -l 2  $(HEADINGDB) $< >> build/subtoc.$$$$; \
 	echo "</div>" >> build/subtoc.$$$$; \
-	$(HIPP) $(INCLUDES) $< - | $(ADDHANCH) -n -ml 3 -r $< - - $(HEADINGDB) | \
-	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
+	$(HIPP) $(INCLUDES) $< | $(ADDHANCH) -n -ml 3 -r $< $(HEADINGDB) | \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
+	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
@@ -264,17 +264,13 @@ $(DESCRIPTORDB): $(SPECSRCS)
 $(VALUEDB): $(SPECSRCS)
 	$(MKANCHDB) value-def - $(SPECSRCS) | $(SED) 's/\.src/\.html/' > $@
 
-indexlist.html: build/indexlist.srb
-build/indexlist.srb: $(SPECOBJS)
-	$(MKIDX) $@ build/index/*
-
 cover.html: cover.src build/contents.srb
 	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
 	       -e 's|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g' \
 	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
 	       -e 's|_THE_DATE_|$(THE_DATE)|g' \
 	       -e 's|_THE_ID_|$(THE_ID)|g' $< | \
-	$(HIPP) $(INCLUDES) - - | \
+	$(HIPP) $(INCLUDES) | \
  $(ADDNAVBAR) -hr -r $@ - $@ "table of contents" "#toc" index indexlist.html
 
 build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
@@ -287,9 +283,9 @@ $(HEADINGDB): build/contents.srb
 # special rule with different numbering
 about.html: about.src
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
-	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
-	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
+	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $< | \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
+	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html >$@
 
 # special rule with different numbering
@@ -297,11 +293,11 @@ sample.html: sample.src
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
 	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
 		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -r $@ -l 2 - $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	$(MKSUBTOC) -l 2  $(HEADINGDB) $< >> build/subtoc.$$$$; \
 	echo "</div>" >> build/subtoc.$$$$; \
-	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
-	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
+	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
+	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
@@ -310,11 +306,11 @@ changes.html: changes.src
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
 	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
 		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -r $@ -l 2 - $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	$(MKSUBTOC) -l 2  $(HEADINGDB) $< >> build/subtoc.$$$$; \
 	echo "</div>" >> build/subtoc.$$$$; \
-	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
-	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
+	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
+	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
@@ -323,11 +319,11 @@ notes.html: notes.src
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
 	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
 		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -r $@ -l 2 - $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	$(MKSUBTOC) -l 2  $(HEADINGDB) $< >> build/subtoc.$$$$; \
 	echo "</div>" >> build/subtoc.$$$$; \
-	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
-	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
+	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
+	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
@@ -336,11 +332,11 @@ grammar.html: grammar.src
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
 	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
 		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -r $@ -l 2 - $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	$(MKSUBTOC) -l 2  $(HEADINGDB) $< >> build/subtoc.$$$$; \
 	echo "</div>" >> build/subtoc.$$$$; \
-	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
-	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
+	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
+	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
@@ -349,29 +345,32 @@ refs.html: refs.src
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
 	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
 		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -r $@ -l 2 - $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	$(MKSUBTOC) -l 2  $(HEADINGDB) $< >> build/subtoc.$$$$; \
 	echo "</div>" >> build/subtoc.$$$$; \
-	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
-	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
+	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
+	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
 
-# simpler rules for special pages
+### general index related rules
+indexlist.html: build/indexlist.srb
+build/indexlist.srb: $(SPECOBJS)
+	$(MKIDX) -r indexlist.html $@ build/index/*
 
 indexlist.html: indexlist.src
-	$(HIPP) $(INCLUDES) $< - | \
+	$(HIPP) $(INCLUDES) $< | \
 	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" 
 
 issues.html: issues.src build/issues.srb
-	$(HIPP) $(INCLUDES) issues.src $@
+	$(HIPP) $(INCLUDES) $< $@
 
 build/issues.srb: issues.db
 	$(ISSUES) -g >$@
 
 DOC/TODO.html: DOC/TODO.src build/todo.srb
-	$(HIPP) $(INCLUDES) DOC/TODO.src $@
+	$(HIPP) $(INCLUDES) $< $@
 
 build/todo.srb: DOC/todo.db
 	$(TODO) -g >$@

@@ -1,7 +1,7 @@
 #!/usr/local/bin/perl
 # Add heading anchors
 # Arnaud Le Hors - lehors@w3.org
-# $Id: addhanch,v 1.4 1997-09-25 15:40:43 ian Exp $
+# $Id: addhanch,v 1.5 1997-12-09 00:08:34 ijacobs Exp $
 
 if (($_ = $ARGV[0], /^-n$/)) {
     $addnums = true;
@@ -44,23 +44,29 @@ if (($_ = $ARGV[0], /^-r/) && $ARGV[1]) {
 
 $PROGNAME = substr($0, rindex($0, "/") + 1);
 
-if ($#ARGV < 2) {
-    print STDERR "Usage: $PROGNAME [-n] [-l startlvl] [-ml level] [-h1p prefix] [-r realpath] src trgt headingdb
+if (!$ARGV[0]) {
+    die "Usage: $PROGNAME [-n] [-l startlvl] [-ml level] [-h1p prefix] [-r realpath] headingdb src trgt 
 \t-n   to have numbers added on the headings
 \t-l   to give the level from which headings anchors should be added
 \t-ml  to give the maximum heading level on which to add numbers
 \t-r   to give the real path to the source file\n";
-    exit 1;
-} else {
+}
+
+$hdbasef = $ARGV[0];
+shift;
+if ($ARGV[0]) {
     $input = $ARGV[0];
-    if (! $realpath) {
-	$realpath = $input;
-    }
     shift;
+} else {
+    $input = "-";
+}
+if ($ARGV[0]) {
     $output = $ARGV[0];
-    shift;
-    $hdbasef = $ARGV[0];
-    shift;
+} else {
+    $output = "-";
+}
+if (! $realpath) {
+    $realpath = $input;
 }
 
 # copy file in memory
@@ -83,7 +89,8 @@ sub addanchor {
 	$n++;
 	$data = $hdbase{$key};
 	if ($data) {
-	    ($h, $hnum, $heading) = split(";", $data, 3);
+	    $content = $_[2];
+	    ($h, $hnum, $heading, $anchor) = split(";", $data, 4);
 	    if ($h == $_[1]) {
 		if ($addnums && ($maxlvl == 0) || ($h <= $maxlvl)) {
 		    if ($h == 1 && $h1prefix ne "") {
@@ -91,15 +98,35 @@ sub addanchor {
 		    } else {
 			$num = "$hnum";
 		    }
-		    return "$_[0]<a name=\"h-$hnum\">$num</a> $_[2]$_[3]";
+		    #Insert anchor from heading database.
+		    if ($content =~ /<a[^>]+>/si) {
+			# let's reuse it
+			$anch = $&;
+			unless ($anch =~ /name=\"?\S+\"?/si) {
+			    $content =~ s/<a[\n \t]+/$&name=\"$anchor\" /si;
+			}
+			$content = "$num $content";
+		    } else {
+			$content = "<a name=\"$anchor\">$num</a> $content";
+		    }
 		} else {
 		    # HACK!!!
 		    # add a non breakable space in the anchor to work around
 		    # broken browsers which don't support correctly empty
 		    # anchors
-		    return "$_[0]$_[2]<a name=\"h-$hnum\">&nbsp;</a>$_[3]";
+		    #Insert anchor from heading database.
+		    if ($content =~ /<a[^>]+>/si) {
+			# let's reuse it
+			$anch = $&;
+			unless ($anch =~ /name=\"?\S+\"?/si) {
+			    $content =~ s/<a[\n \t]+/$&name=\"$anchor\" /si;
+			}
+		    } else {
+			$content = "$content <a name=\"$anchor\">&nbsp;</a>";
+		    }
 		}
 	    }
+	    return "$_[0]$content$_[3]";
 	}
 	print STDERR "Heading database out of date, could not find entry!
                   : $key\n";
@@ -115,15 +142,16 @@ readfile($hdbasef);
 $_ = $buf;
 $prevf = "";
 $dbmaxlvl = 0;
-while (/(.*?);(.*?);([0-9]*);([1-9A-Z].*?)\n/sio) {
+while (/(.*?);(.*?);([0-9]*);([1-9A-Z].*?);(.*?)\n/sio) {
     $file = $1;
     $heading = $2;
     $h = int($3);
+    $hnum = $4;
+    $anchor = $5;
     if ($h > $dbmaxlvl) {
 	$dbmaxlvl = $h;
     }
     if ($h >= $startlvl) {
-	$hnum = $4;
 	if ($file ne $prevf) {
 	    $n = 0;
 	    $prevf = $file;
@@ -131,7 +159,7 @@ while (/(.*?);(.*?);([0-9]*);([1-9A-Z].*?)\n/sio) {
 	    $n++;
 	}
 	$key = "$file$n";
-	$hdbase{$key} = "$h;$hnum;$heading";
+	$hdbase{$key} = "$h;$hnum;$heading;$anchor";
     }
     $_ = $';
 }
