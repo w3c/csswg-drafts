@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.44 1997-11-20 23:37:22 ian Exp $
+# $Id: Makefile,v 1.45 1997-11-24 04:13:55 ian Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9711/WD-css2-971128
@@ -111,6 +111,7 @@ VALUEDB= build/value.db
 # dbase for heading dbase
 HEADINGDB= build/headings.db
 
+SED = sed
 PERL= perl5
 NSGMLS=nsgmls
 LINKLINT=linklint
@@ -255,22 +256,27 @@ $(DESCBLKSDIR)/blocks.ok: $(DESCSRC)
 
 $(PROPERTYDB): $(SPECSRCS)
 	@if [ ! -d build ]; then mkdir build;fi
-	$(MKPANCHDB) properties propdef - $(SPECSRCS) | sed 's/\.src/\.html/' > $@
+	$(MKPANCHDB) properties propdef - $(SPECSRCS) | $(SED) 's/\.src/\.html/' > $@
 
 $(DESCRIPTORDB): $(SPECSRCS)
 	@if [ ! -d build ]; then mkdir build;fi
-	$(MKPANCHDB) descriptors descdef - $(SPECSRCS) | sed 's/\.src/\.html/' > $@
+	$(MKPANCHDB) descriptors descdef - $(SPECSRCS) | $(SED) 's/\.src/\.html/' > $@
 
 $(VALUEDB): $(SPECSRCS)
-	$(MKANCHDB) value-def - $(SPECSRCS) | sed 's/\.src/\.html/' > $@
+	$(MKANCHDB) value-def - $(SPECSRCS) | $(SED) 's/\.src/\.html/' > $@
 
 indexlist.html: build/indexlist.srb
 build/indexlist.srb: $(SPECOBJS)
 	$(MKIDX) $@ build/index/*
 
 cover.html: cover.src build/contents.srb
-	$(HIPP) $(INCLUDES) $< - | \
- $(ADDNAVBAR) -bottom -hr -r $@ - $@ "go to the table of contents" "#toc" index indexlist.html
+	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
+	       -e 's|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g' \
+	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
+	       -e 's|_THE_DATE_|$(THE_DATE)|g' \
+	       -e 's|_THE_ID_|$(THE_ID)|g' $< | \
+	$(HIPP) $(INCLUDES) - - | \
+ $(ADDNAVBAR) -hr -r $@ - $@ "table of contents" "#toc" index indexlist.html
 
 build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
 	$(MKTOC) -ml 5 $@ $(HEADINGDB) $(MAINSRCS) -ul -roman $(APPSRCS) \
