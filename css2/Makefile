@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.25 1997-09-19 21:05:31 bbos Exp $
+# $Id: Makefile,v 1.26 1997-09-22 16:13:18 ian Exp $
 
 ROOT = .
 
@@ -169,6 +169,7 @@ LN= ln
 	$(RM) build/subtoc.$$$$
 
 .idraw.gif:
+	$(RM) $@
 	$(PSTOPNM) $< | $(PPMQUANT) | $(PPMTOGIF) >$@
 
 
