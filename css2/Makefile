@@ -1,11 +1,11 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.38 1998-05-01 23:56:41 ijacobs Exp $
+# $Id: Makefile,v 2.39 1998-05-06 02:14:34 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
-THE_DATE = 5-May-1998
-THE_ID = REC-css2-19980505
+THE_DATE = 7-May-1998
+THE_ID = REC-css2-19980507
 THIS_VERSION = http://www.w3.org/TR/1998/$(THE_ID)
 THE_PREVIOUS_VERSION = http://www.w3.org/TR/1998/PR-CSS2-19980324
 PERMANENT_NAME = REC-CSS2
