@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.72 2003-01-24 15:51:34 bbos Exp $
+# $Id: Makefile,v 2.73 2003-01-24 15:52:32 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -25,7 +25,7 @@ THE_UPDATE_DIR = http://www.w3.org$(UPDATES)
 UPDATESDIR= /afs/w3.org/pub/WWW$(UPDATES)
 TR_DIR = /afs/w3.org/pub/WWW/TR
 THE_DATE = $(THE_DAY) $(THE_MONTHNAME) $(THE_YEAR)
-THE_ID = $(THE_STATUS)-$(PERMANENT_NAME)-$(THE_YEAR)$(THE_MONTH)$(THE_DATE)
+THE_ID = $(THE_STATUS)-$(PERMANENT_NAME)-$(THE_YEAR)$(THE_MONTH)$(THE_DAY)
 PREV_DATE = $(PREV_YEAR)$(PREV_MONTH)$(PREV_DAY)
 THE_PREVIOUS_VERSION = http://www.w3.org/TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PERMANENT_NAME)-$(PREV_DATE)
 THE_LOC = $(THE_YEAR)/$(THE_ID)
