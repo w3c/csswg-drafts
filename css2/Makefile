@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.18 1997-09-09 01:05:20 ian Exp $
+# $Id: Makefile,v 1.19 1997-09-09 01:21:42 ian Exp $
 
 ROOT = .
 
@@ -162,17 +162,17 @@ install: all css20.tgz
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
 	$(CP) css20.tgz $(INSTALLDIR)
 	(cd $(INSTALLDIR); $(TAR) xvzf css20.tgz)
+	$(CP) Overview.html html2psrc $(INSTALLDIR)
 
-install-all: install css20.tgz css20.zip css20.ps css20.txt
-	$(CP) css20.zip css20.ps css20.txt \
-	       Overview.html html2psrc $(INSTALLDIR)
+install-all: install css20.zip css20.ps css20.txt
+	$(CP) css20.zip css20.ps css20.txt $(INSTALLDIR)
 
 #### Special section to build PS file and single plain text file
 
-css20.ps ps: $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES)
+css20.ps ps: all
 	$(HTML2PS) $(MAINOBJS) $(APPENDIXES) $(INDEXES) > $@
 
-css20.html html: $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES) 
+css20.html html: all
 	$(HTMLCAT) $@ $(MAINOBJS) $(APPENDIXES) $(INDEXES) 
 
 # the following requires to be on unix and have Netscape running...
@@ -182,10 +182,10 @@ css20.txt txt: css20.html
 
 ####
 
-css20.tgz:
+css20.tgz: all
 	$(TAR) czf $@ $(ALLOBJS)
 
-css20.zip:
+css20.zip: all
 	$(ZIP) $@ $(ALLOBJS)
 
 #### Section generate property/descriptor tables from property database.
