@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.77 1998-01-29 00:36:40 bbos Exp $
+# $Id: Makefile,v 1.78 1998-01-29 01:29:31 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -21,6 +21,7 @@ $(ROOT)/cover.src
 SRCS1 = \
 about.src\
 intro.src\
+conform.src\
 syndata.src\
 selector.src\
 cascade.src\
