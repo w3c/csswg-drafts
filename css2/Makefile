@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.55 1997-12-11 21:42:45 ijacobs Exp $
+# $Id: Makefile,v 1.56 1997-12-11 23:43:32 ijacobs Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9712/WD-css2-971211
@@ -194,7 +194,7 @@ LN= ln
 	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
 		> build/subtoc.$$$$; \
 	$(MKSUBTOC) -l 2  $(HEADINGDB) $< |\
-	$(ADDLINKS) -r $< - build/subtoc.$$$$ propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB);\
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) >> build/subtoc.$$$$;\
 	echo "</div>" >> build/subtoc.$$$$; \
 	$(HIPP) $(INCLUDES) $< | $(ADDHANCH) -n -ml 3 -r $< $(HEADINGDB) | \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
@@ -307,7 +307,8 @@ sample.html: sample.src
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
 	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
 		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -l 2  $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	$(MKSUBTOC) -l 2  $(HEADINGDB) $< |\
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) >> build/subtoc.$$$$;\
 	echo "</div>" >> build/subtoc.$$$$; \
 	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
@@ -320,7 +321,8 @@ changes.html: changes.src
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
 	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
 		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -l 2  $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	$(MKSUBTOC) -l 2  $(HEADINGDB) $< |\
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) >> build/subtoc.$$$$;\
 	echo "</div>" >> build/subtoc.$$$$; \
 	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
@@ -333,7 +335,8 @@ notes.html: notes.src
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
 	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
 		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -l 2  $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	$(MKSUBTOC) -l 2  $(HEADINGDB) $< |\
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) >> build/subtoc.$$$$;\
 	echo "</div>" >> build/subtoc.$$$$; \
 	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
@@ -346,7 +349,8 @@ grammar.html: grammar.src
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
 	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
 		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -l 2  $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	$(MKSUBTOC) -l 2  $(HEADINGDB) $< |\
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) >> build/subtoc.$$$$;\
 	echo "</div>" >> build/subtoc.$$$$; \
 	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
@@ -359,7 +363,8 @@ refs.html: refs.src
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
 	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
 		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -l 2  $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	$(MKSUBTOC) -l 2  $(HEADINGDB) $< |\
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) >> build/subtoc.$$$$;\
 	echo "</div>" >> build/subtoc.$$$$; \
 	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
