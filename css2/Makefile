@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.1 1997-07-29 17:12:20 ijacobs Exp $
+# $Id: Makefile,v 1.2 1997-07-30 17:33:33 lehors Exp $
 
 ROOT = .
 
@@ -96,8 +96,10 @@ HIPP= $(PERL) ./bin/hipp
 HMKDEPEND= $(PERL) ./bin/hmkdep
 # make property anchor database
 MKANCHDB= $(PERL) ./bin/mkanchdb
-# add link
-ADDLINK= $(PERL) ./bin/addlink
+# add heading anchors
+ADDHANCH= $(PERL) ./bin/addhanch
+# add index anchors and generate related index database
+ADDIDXANCH= $(PERL) ./bin/addianch
 # add navigation bars
 ADDNAVBAR= $(PERL) ./bin/addnavbar
 # make CSS Index
@@ -123,8 +125,9 @@ LN= ln
 .SUFFIXES: .src .html .srb 
 
 .src.html:
-	$(HIPP) $(INCLUDES) $< - | \
-	$(ADDLINK) -r $< - - $(HEADINGDB) index-inst $(PROPERTYDB) value-inst $(VALUEDB)| \
+	@if [ ! -d build/index ]; then mkdir -p build/index;fi
+	$(HIPP) $(INCLUDES) $< - | $(ADDHANCH) -r $< - - $(HEADINGDB) | \
+	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
 	$(ADDNAVBAR) - "cover.html#toc" index.html $@
 
 all: $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES)
@@ -170,14 +173,15 @@ css20.zip:
 	$(ZIP) $@ $(ALLOBJS)
 
 $(PROPERTYDB): $(SPECSRCS)
+	@if [ ! -d build ]; then mkdir build;fi
 	$(MKANCHDB) index-def - $(SPECSRCS) | sed 's/\.src/\.html/' > $@
 
 $(VALUEDB): $(SPECSRCS)
 	$(MKANCHDB) value-def - $(SPECSRCS) | sed 's/\.src/\.html/' > $@
 
 index.html: build/index.srb
-build/index.srb: $(PROPERTYDB) $(VALUEDB) $(SPECOBJS)
-	$(MKIDX) $@ $(PROPERTYDB) $(VALUEDB)
+build/index.srb: $(SPECOBJS) build/index/*
+	$(MKIDX) $@ build/index/*
 
 cover.html: cover.src build/contents.srb
 	$(HIPP) $(INCLUDES) $< $@
