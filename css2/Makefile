@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.42 1997-11-05 14:43:46 ian Exp $
+# $Id: Makefile,v 1.43 1997-11-07 16:46:04 bbos Exp $
 
 ROOT = .
 
@@ -189,7 +189,7 @@ LN= ln
 all: blocks $(PROPERTYDB) $(DESCRIPTORDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES) \
 	$(IMAGES) issues.html DOC/TODO.html
 
-install: all css20.tgz 
+install: all css2.tgz 
 	@if [ -z "$(INSTALLDIR)" ]; then\
 	  echo >&2;\
 	  echo "*** No target directory specified" >&2;\
@@ -197,35 +197,35 @@ install: all css20.tgz
 	  exit 1;\
 	fi
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
-	$(CP) css20.tgz $(INSTALLDIR)
-	(cd $(INSTALLDIR); zcat css20.tgz | $(TAR) xvf -)
+	$(CP) css2.tgz $(INSTALLDIR)
+	(cd $(INSTALLDIR); zcat css2.tgz | $(TAR) xvf -)
 	-(cd $(CSSGROUPDIR); rm -f issues.html; \
             $(LN) -s $(INSTALLDIR)/issues.html css2-issues.html)
 	$(CP) Overview.html html2psrc $(INSTALLDIR)
 
-install-all: install css20.zip css20.ps css20.txt
-	$(CP) css20.zip css20.ps css20.txt $(INSTALLDIR)
+install-all: install css2.zip css2.ps css2.txt
+	$(CP) css2.zip css2.ps css2.txt $(INSTALLDIR)
 
 #### Special section to build PS file and single plain text file
 
-css20.ps ps: all
+css2.ps ps: all
 	$(HTML2PS) $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) > $@
 
-css20.html html: all
+css2.html html: all
 	$(HTMLCAT) - $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) | \
 	$(HTMLTRIM) div navbar - $@
 
 # the following requires to be on unix and have Netscape running...
-css20.txt txt: css20.html
-	$(RM) css20.txt; \
-        netscape -remote "openFile(`pwd`/css20.html)" -remote "saveAs(`pwd`/css20.txt,Text)"
+css2.txt txt: css2.html
+	$(RM) css2.txt; \
+        netscape -remote "openFile(`pwd`/css2.html)" -remote "saveAs(`pwd`/css2.txt,Text)"
 
 ####
 
-css20.tgz: $(ALLOBJS)
+css2.tgz: $(ALLOBJS)
 	$(TAR) cf - $(ALLOBJS) | gzip >$@
 
-css20.zip: $(ALLOBJS)
+css2.zip: $(ALLOBJS)
 	$(ZIP) $@ $(ALLOBJS)
 
 #### Section generate property/descriptor tables from property database.
@@ -378,7 +378,7 @@ log:
 
 clean:
 	$(RM) $(SPECOBJS) $(SPECIALOBJS) $(INDEXES) $(PROPBLKSDIR)/* \
-        $(DESCBLKSDIR)/* build/* css20.*
+        $(DESCBLKSDIR)/* build/* css2.*
 
 realclean: clean
 
