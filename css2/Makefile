@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.58 1997-12-12 18:44:16 ijacobs Exp $
+# $Id: Makefile,v 1.59 1997-12-16 20:42:06 ijacobs Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9712/WD-css2-971211
@@ -287,16 +287,14 @@ cover.html: cover.src build/contents.srb build/minicontents.srb
  $(ADDNAVBAR) -hr -r $@ - $@ "table of contents" "#toc" properties propidx.html descriptors descidx.html index indexlist.html
 
 build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
-	$(MKTOC) -ml 5 $@ $(HEADINGDB) \
-	   -ul -none $(MAINSRCS)\
-	   -ul -none $(APPSRCS) -ol -none $(REFSRCS) $(INDEXSRCS) 
+	$(MKTOC) -ml 5 $@ $(HEADINGDB) $(MAINSRCS)\
+	   -ol -roman $(APPSRCS) -ul -none $(REFSRCS) $(INDEXSRCS) 
 	$(ADDLINKS) -r $< $@ $@ propinst $(PROPERTYDB) \
 	   descinst $(DESCRIPTORDB) value-inst $(VALUEDB) 
 
 build/minicontents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
-	$(MKTOC) -ml 1 $@ $(MINIHEADINGDB) \
-	   -ol $(MAINSRCS)\
-	   -ol -roman $(APPSRCS) -ol -none $(REFSRCS) $(INDEXSRCS) 
+	$(MKTOC) -ml 1 $@ $(MINIHEADINGDB) $(MAINSRCS)\
+	   -ol -roman $(APPSRCS) -ul -none $(REFSRCS) $(INDEXSRCS) 
 	$(ADDLINKS) -r $< $@ $@ propinst $(PROPERTYDB) \
 	   descinst $(DESCRIPTORDB) value-inst $(VALUEDB) 
 
