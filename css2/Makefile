@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.54 2002-07-05 22:19:35 bbos Exp $
+# $Id: Makefile,v 2.55 2002-07-08 14:57:49 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -104,14 +104,10 @@ ALLOBJS= $(SPECOBJS) $(INDEXES) $(IMAGES) $(LONGDESCS) $(STYLESHEETS)
 
 PROPSRC= properties/properties.db
 PROPSAMPLE= properties/sample.db
-DESCSRC= properties/descriptors.db
 PROPBLKSDIR= build/properties
-DESCBLKSDIR= build/descriptors
 
 # dbase for property name anchors
 PROPERTYDB= build/property.db
-# dbase for descriptor name anchors
-DESCRIPTORDB= build/descriptor.db
 # dbase for value types
 VALUEDB= build/value.db
 # dbase for headings
@@ -123,6 +119,7 @@ SED = sed
 #PERL= perl5 -Ibin
 PERL= perl
 NSGMLS=nsgmls
+HTMLDECL = sgml/HTML4.decl
 LINKLINT=$(PERL) bin/linklint
 SPELL = ispell -l -p
 DIFF = diff
@@ -136,7 +133,7 @@ HIPP= $(PERL) ./bin/hipp
 HMKDEPEND= $(PERL) ./bin/hmkdep
 # make value anchor database
 MKANCHDB= $(PERL) ./bin/mkanchdb
-# make property and descriptor anchor database
+# make property anchor database
 MKPANCHDB= $(PERL) ./bin/mkpanchdb
 # add heading anchors
 ADDHANCH= $(PERL) ./bin/addhanch
@@ -148,8 +145,6 @@ ADDNAVBAR= $(PERL) ./bin/addnavbar
 MKIDX= $(PERL) ./bin/mkidx
 # make property index
 MKPROPIDX= $(PERL) ./bin/mkpropidx
-# make descriptor index
-MKDESCIDX= $(PERL) ./bin/mkdescidx
 # make table of contents and heading database
 MKTOC= $(PERL) ./bin/mktoc
 # HTML concate utility
@@ -164,8 +159,6 @@ INSAFTER= $(PERL) ./bin/insafter
 ADDLINKS= $(PERL) ./bin/addlinks
 # extract properties from db.
 PEXTR= $(PERL) ./bin/pextr
-# extract descriptors from db.
-DEXTR= $(PERL) ./bin/dextr
 # extract issues from issues db.
 ISSUES= bin/issues
 # extract issues from errata-issues db.
@@ -178,7 +171,7 @@ CHKSAMPLE= $(PERL) ./bin/chksample
 MKREFDB = $(PERL) ./bin/mkrefdb
 # check references.
 CHKREFS= $(PERL) ./bin/chkrefs
-# check property/descriptor defs and instances
+# check property defs and instances
 CHKPROPS= $(PERL) ./bin/chkprops
 # add reference normative/informative class info.
 CHKSPACES= $(PERL) ./bin/chkspaces
@@ -237,7 +230,7 @@ LN= ln
 #%.html: %.subtoc Project.cfg
 %.html: %.subtoc $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) Project.cfg #$(SPECSRCS:.src=.srd)
 	@echo "=========== making" $@
-	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
+	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- value-inst-/value-def- |\
 	$(ADDIDXANCH) -r $@ $(INDEXDB) - |\
 	$(ADDMARKUP) - |\
 	$(ADDLONGDESC) - |\
@@ -252,8 +245,6 @@ LN= ln
 	$(ADDHANCH) -r $*.html $(HEADINGDB) - $@
 	$(MKANCHDB) -r $*.html value-def- $(VALUEDB) $@
 	$(MKANCHDB) -r $*.html propdef- $(VALUEDB) $@
-	$(MKANCHDB) -r $*.html descdef- $(VALUEDB) $@
-	$(MKANCHDB) -r $*.html descdef- $(VALUEDB) $@
 
 .idraw.gif:
 	$(RM) $@
@@ -348,9 +339,9 @@ css2.zip: $(ALLOBJS)
 	$(ZIP) $@ $(ALLOBJS) images/*.png
 #	$(ZIP) $@ $(ALLOBJS) `$(LS) -d images/*.png | $(GREP) -v "\."` 
 
-#### Section generate property/descriptor tables from property database.
+#### Section generate property tables from property database.
 
-build/blocks.ok: $(PROPBLKSDIR)/blocks.ok $(DESCBLKSDIR)/blocks.ok
+build/blocks.ok: $(PROPBLKSDIR)/blocks.ok
 	touch $@
 
 $(PROPBLKSDIR)/blocks.ok: $(PROPSRC)
@@ -359,21 +350,6 @@ $(PROPBLKSDIR)/blocks.ok: $(PROPSRC)
 	$(PEXTR) -n $(PROPSAMPLE) $(PROPBLKSDIR)
 	touch $@
 
-$(DESCBLKSDIR)/blocks.ok: $(DESCSRC)
-	@if [ ! -d $(DESCBLKSDIR) ]; then mkdir -p $(DESCBLKSDIR);fi
-	$(DEXTR) $(DESCSRC) $(DESCBLKSDIR)
-	touch $@
-
-
-#build/value.db.ok: $(MAINSRCS) $(APPSRCS)
-#	@echo "=========== making" $@
-#	$(MKANCHDB) value-def- $(VALUEDB) $(MAINSRCS) $(APPSRCS:.src=.srd)
-#	# $(SPECSRCS:.src=.srd)
-#	$(MKANCHDB) propdef- $(VALUEDB) $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd)
-#	# $(SPECSRCS:.src=.srd)
-#	$(MKANCHDB) descdef- $(VALUEDB) $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd)
-#	# $(SPECSRCS:.src=.srd)
-#	touch $@
 
 cover.srd: cover.src build/contents.srb build/minicontents.srb
 	@echo "=========== making" $@
@@ -425,27 +401,6 @@ propidx.srd:: build/propidx.srb #propidx.src
 #	@echo "=========== making" $@
 #	$(HIPP) $(INCLUDES) $< $@
 
-#propidx.html: propidx.srd Project.cfg
-#	@echo "=========== making" $@
-#	$(ADDHANCH) -r $*.html $(HEADINGDB) $*.srd |\
-#	$(ADDLINKS) -x $(VALUEDB) - propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
-#	$(ADDNAVBAR) -r $@ |\
-#	$(MKCHAIN) -r $@ - $@
-
-build/descidx.srb: $(MAINSRCS) $(APPSRCS)
-	@echo "=========== making" $@
-	$(MKDESCIDX) -r $@ $@ $(DESCSRC)
-
-descidx.srd:: build/descidx.srb #descidx.src
-#	$(HIPP) $(INCLUDES) $< $@
-
-#descidx.html: descidx.srd Project.cfg
-#	@echo "=========== making" $@
-#	$(ADDHANCH) -r $*.html $(HEADINGDB) $*.srd |\
-#	$(ADDLINKS) -x $(VALUEDB) - propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
-#	$(ADDNAVBAR) -r $@ |\
-#	$(MKCHAIN) -r $@ - $@
-
 # Issues and todo lists.
 issues.html: issues.src build/issues.srb
 	@echo "=========== making" $@
@@ -482,7 +437,7 @@ checkdoc: all
 	-@echo "# Begin checking sgml."
 	@for i in $(FILES) $(LONGDESCS); \
 	do echo checking $$i...; \
-           $(NSGMLS) -s -c sgml/HTML4.cat $$i; done;
+           $(NSGMLS) -s -c sgml/HTML4.cat $(HTMLDECL) $$i; done;
 	-@echo "# End checking sgml."
 
 ### check on the validity references in the document
@@ -524,13 +479,10 @@ checklnx: all
 
 ### check property instances
 
-checkprops: $(SPECSRCS) $(PROPSRC) $(DESCSRC)
+checkprops: $(SPECSRCS) $(PROPSRC)
 	-@echo "# Begin checking properties."
 	-@$(CHKPROPS) $(PROPSRC) propinst $(SPECSRCS)
 	-@echo "# End checking properties."
-	-@echo "# Begin checking descriptors."
-	-@$(CHKPROPS) $(DESCSRC) descinst $(SPECSRCS)
-	-@echo "# End checking descriptors."
 
 # Check spaces
 
@@ -551,7 +503,7 @@ build/checkx.out: build/xamples.ok
 	-@echo Begin checking HTML examples.
 	-@for i in build/?*xampl*.html ; \
 	do echo checking $$i...; \
-	   $(NSGMLS) -s -c sgml/HTML4.cat sgml/HTML4.decl $$i >> build/checkx.out 2>&1; \
+	   $(NSGMLS) -s -c sgml/HTML4.cat $(HTMLDECL) $$i >> build/checkx.out 2>&1; \
 	done;
 	-@echo Begin checking CSS examples.
 	$(CHKCSS) build/?*xampl*.css >> build/checkx.out 2>&1
@@ -575,7 +527,7 @@ clean:
 	$(RM) $(SPECOBJS) $(INDEXES) $(PROPBLKSDIR)/* \
 	$(SPECOBJS:.html=.srd) $(SPECOBJS:.html=.subtoc) \
         $(INDEXES:.html=.srd) \
-        $(DESCBLKSDIR)/* build/* css2.* linklint images/links.ok images/pngs.ok
+        build/* css2.* linklint images/links.ok images/pngs.ok
 
 realclean: clean
 
