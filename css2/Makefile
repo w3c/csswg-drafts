@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.28 1997-09-23 14:05:35 ian Exp $
+# $Id: Makefile,v 1.29 1997-09-25 19:42:51 ian Exp $
 
 ROOT = .
 
@@ -314,10 +314,10 @@ index.html: index.src
 	$(HIPP) $(INCLUDES) $< - | \
 	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" 
 
-issues.html: issues.src issues.srb
+issues.html: issues.src build/issues.srb
 	$(HIPP) $(INCLUDES) issues.src $@
 
-issues.srb: issues.db
+build/issues.srb: issues.db
 	$(ISSUES) -g >$@
 
 ### check on the document to see if it's valid
