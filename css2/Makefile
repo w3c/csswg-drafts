@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.60 1997-12-28 23:17:43 ijacobs Exp $
+# $Id: Makefile,v 1.61 1997-12-28 23:38:10 ijacobs Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9712/WD-css2-971211
@@ -424,20 +424,23 @@ build/todo.srb: DOC/todo.db
 
 ### check on the document to see if it's valid
 
-check: checkdoc checkrefs checkspell checksample checklnx
+check: checkdoc checkprops checkrefs checkspell checksample checklnx
 
 FILES= $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES)
 
 checkdoc: all
+	-@echo "# Begin checking sgml."
 	@for i in $(FILES); \
 	do echo checking $$i...; \
-           $(NSGMLS) -s -c sgml/HTML4.cat $$i; done; \
-	echo checking done.
+           $(NSGMLS) -s -c sgml/HTML4.cat $$i; done;
+	-@echo "# End checking sgml."
 
 ### check on the validity references in the document
 
 checkrefs: build/refs.db
+	-@echo "# Begin checking references."
 	-@$(CHKREFS) build/refs.db $(SPECSRCS)
+	-@echo "# End checking references."
 
 build/refs.db : $(SPECSRCS) $(REFSRCS)
 	-@$(RM) -f build/refs.db
@@ -446,31 +449,38 @@ build/refs.db : $(SPECSRCS) $(REFSRCS)
 ### Spell check, using a "CSS" personal dictionary.
 
 checkspell: 
+	-@echo "# Begin spell checking."
 	-@for i in $(SPECSRCS); \
 	   do\
 		echo "Checking spelling in $$i.";\
 		cat $$i | $(SPELL) css.dico;\
 	   done;
+	-@echo "# End spell checking."
 
 ### check the sample style sheet.
 
 checksample: sample.src $(PROPSRC)
+	-@echo "# Begin checking sample."
 	@$(CHKSAMPLE) sample.src $(PROPSRC)
+	-@echo "# End checking sample."
 
 ### check links
 
 checklnx: all
+	-@echo "# Begin checking links."
 	-@$(RM) linklint
 	$(LINKLINT) -doc linklint $(FILES)
+	-@echo "# End checking links."
 
 ### check property instances
 
 checkprops: $(SPECSRCS) $(PROPSRC) $(DESCSRC)
-	-@echo "Checking property instances and defs."
+	-@echo "# Begin checking properties."
 	-@$(CHKPROPS) $(PROPSRC) propinst $(SPECSRCS)
-	-@echo
-	-@echo "Checking descriptor instances and defs."
+	-@echo "# End checking properties."
+	-@echo "# Begin checking descriptors."
 	-@$(CHKPROPS) $(DESCSRC) descinst $(SPECSRCS)
+	-@echo "# End checking descriptors."
 
 # get cvs logs
 
