@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.11 1998-02-23 16:55:53 ijacobs Exp $
+# $Id: Makefile,v 2.12 1998-02-24 02:06:01 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -380,7 +380,7 @@ propidx.srd: propidx.src build/propidx.srb
 propidx.html: propidx.srd Project.cfg
 	@echo "=========== making" $@
 	$(ADDHANCH) -r $*.html $(HEADINGDB) $*.srd |\
-	$(ADDLINKS) $(VALUEDB) - propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
+	$(ADDLINKS) -x $(VALUEDB) - propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
 	$(ADDNAVBAR) -r $@ |\
 	$(MKCHAIN) -r $@ - $@
 
@@ -394,7 +394,7 @@ descidx.srd: descidx.src build/descidx.srb
 descidx.html: descidx.srd Project.cfg
 	@echo "=========== making" $@
 	$(ADDHANCH) -r $*.html $(HEADINGDB) $*.srd |\
-	$(ADDLINKS) $(VALUEDB) - propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
+	$(ADDLINKS) -x $(VALUEDB) - propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
 	$(ADDNAVBAR) -r $@ |\
 	$(MKCHAIN) -r $@ - $@
 

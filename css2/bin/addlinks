@@ -2,14 +2,23 @@
 # Add links from instances to definitions
 # Write to stdout
 #
+# -x			allow html2ps to add crossrefs (page numbers)
+# dbase			DBM file created by mkanchdb
+# file			input file
+# ins-class/def-class	links will be created from every occurrence
+#			of ins-class to occurrence of def-class (as found
+#			in dbase)
+#
 # Arnaud Le Hors - lehors@w3.org
-# $Id: addlinks,v 2.2 1998-02-16 23:40:26 bbos Exp $
+# Modifications by Bert Bos <bert@w3.org>
+# $Id: addlinks,v 2.3 1998-02-24 02:07:43 bbos Exp $
 
+use Getopt::Std;
 use lib 'bin';
 use utils;
 
 $PROG = substr($0, rindex($0, "/") + 1);
-$USAGE = "Usage: $PROG dbase file [ins-class/def-class [ins-class/def-class...]]\n";
+$USAGE = "Usage: $PROG [-x] dbase file [ins-class/def-class [ins-class/def-class...]]\n";
 
 # $1=starttag, $2=class excl. prefix, $3=contents, $4=endtag
 $pre = '(<span\s+[^>]*?class\s*=\s*[\"\']?';
@@ -37,8 +46,9 @@ sub rpath {
 
 # Find the URL for $_[0] in %anchors, create <A> around/in element
 sub gen_anch {
-    my ($key, $stag, $content, $etag) = @_;
+    my ($key, $stag, $content, $etag, $xrefon) = @_;
     my $anch = $anchors{$key};
+    if ($xrefon) {$class = "";} else {$class = " class=\"noxref\"";}
     if (! defined $anch) {
 	warn "$PROG: index $_[0] not found\n";
 	$anch = "";
@@ -51,22 +61,25 @@ sub gen_anch {
 	return "$stag$content$etag";
     } elsif ($content =~ /^<a\b/sio) {
 	# An A, but without HREF, at the start, add HREF to existing <A>
-	return "$stag<a href=\"$anch\" class=\"noxref\"$'$etag";
+	return "$stag<a href=\"$anch\"$class$'$etag";
     } elsif ($content =~ /<a\b/sio) {
 	# An A not at the start, add <A> before the existing one
-	return "$stag<a href=\"$anch\" class=\"noxref\">$`</a>$&$'$etag";
+	return "$stag<a href=\"$anch\"$class>$`</a>$&$'$etag";
     } else {
 	# No <A> in content, enclose whole element
-	return "<a href=\"$anch\" class=\"noxref\">$stag$content$etag</a>";
+	return "<a href=\"$anch\"$class>$stag$content$etag</a>";
     }
 }
 
 ### main
 
+getopts('x') or die $USAGE;
 ($dbase = $ARGV[0]) || die $USAGE;
 shift;
 ($file = $ARGV[0]) || die $USAGE;
 shift;
+
+my $xrefon = defined $opt_x;
 
 dbmopen(%anchors, $dbase, 0666) || die "$PROG: cannot open database $dbase\n";
 
@@ -76,7 +89,7 @@ $buf = readfile($file);
 # Loop over class/dbase pairs
 while (($class1, $class2) = split(/\//, $ARGV[0])) {
     shift;
-    $buf =~ s/$pre$class1$post/gen_anch("$class2$2", $1, $3, $4)/sieg;
+    $buf =~ s/$pre$class1$post/gen_anch("$class2$2", $1, $3, $4, $xrefon)/sieg;
 }
 dbmclose(%anchors);
 
