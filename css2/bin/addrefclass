@@ -1,0 +1,97 @@
+#!/usr/local/bin/perl -w
+# sub TOC builder
+#
+# Ian Jacobs/Renaud Marlet
+# $Id: addrefclass,v 1.1 1997-11-20 23:35:15 ian Exp $
+
+# To use long names like $INPUT_RECORD_SEPARATOR.
+use English;
+
+$PROGNAME = substr($0, rindex($0, "/") + 1);
+
+if ($#ARGV < 1) {
+    warn "Usage: $PROGNAME refdb file1 file2 ...\n";
+    exit 1;
+} else {
+    $refdb = $ARGV[0];
+    shift;
+}
+
+# copy file in memory
+sub readdb {
+    # Keys in rdbase{} are reference keys (e.g., HTML40).
+    $rdbase = {};
+    $buf = "";
+    if (!open(DBASE, $_[0])) {
+	warn "$PROGNAME Error: Cannot open file: $_[0]\n";
+	return;
+    }
+    while (<DBASE>) {
+	chop;
+	($key, $data) = split(";", $_, 2);
+	$rdbase{$key} = $data;
+    }
+    close(DBASE);
+}
+
+$hp = "[^#]*#ref-";
+
+readdb($refdb);
+foreach $file (@ARGV) {
+    unless (-f $file) {
+	warn "File $file does not exist.\n";
+	next;
+    }
+    $newfile = "$file.new";
+    unless (open(FILE, $file)) {
+	warn "$PROGNAME Error: Cannot open $file\n";
+	next;
+    }
+    unless (open(OUTPUT, "> $newfile")) {
+	warn "$PROGNAME Error: Cannot output to $newfile\n";
+	next;
+    }
+    print STDOUT "Adding class info to $file\n";
+    $INPUT_RECORD_SEPARATOR="<";
+    $buf = "";
+    while ($buf = <FILE>) {
+	print OUTPUT $buf;
+	$INPUT_RECORD_SEPARATOR=">";
+	unless (eof(FILE)) {
+	    $anchor=<FILE>;
+	    # Remove final ">"
+	    chop($anchor);
+	    $INPUT_RECORD_SEPARATOR="<";
+	    if ($anchor =~ /^A\b.*\bhref\s*=\s*(?:"$hp([^\"]*)"|$hp([^\s]*))/is) {
+		# Optional quotes => two patterns
+		# Only one can match, so $1$2.
+		$key = "$1$2";
+		# Get out the class information.
+		if ($rdbase{$key} !~ /^(?:[^;]*;){2}(.*)/) {
+		    warn "Warning: $key not in database";
+		} else {
+		    $dbclass = $1;
+		    # If class information appears, compare db with match
+		    if ($anchor =~ /\bclass\s*=\s*(?:"([^\"]*)"|([^\s]*))/is) {
+			$currentclass = "$1$2";
+			if ($currentclass ne $dbclass) {
+			    warn "Warning: Class not same as $key in db.\n";
+			}
+		    } else {
+			$anchor .= " class=\"$dbclass\"";
+		    }
+		}
+	    }
+	    # Put back chopped ">"
+	    print OUTPUT "$anchor>";
+	}
+    }
+    close(FILE);
+    close(OUTPUT);
+    unless (rename($newfile,$file)) {
+	warn "Cannot create $file.\n";
+    }
+}
+
+
+
