@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.8 1997-08-07 08:04:07 ijacobs Exp $
+# $Id: Makefile,v 1.9 1997-08-11 23:49:32 ian Exp $
 
 ROOT = .
 
@@ -24,6 +24,7 @@ flowobj2.src\
 colors.src\
 fonts.src\
 text.src\
+lists.src\
 ui.src\
 conform.src \
 refs.src
@@ -56,6 +57,7 @@ flowobj2.html\
 colors.html\
 fonts.html\
 text.html\
+lists.html\
 ui.html\
 conform.html\
 refs.html
