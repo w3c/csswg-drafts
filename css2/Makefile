@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.53 2002-07-05 19:58:04 bbos Exp $
+# $Id: Makefile,v 2.54 2002-07-05 22:19:35 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -95,16 +95,12 @@ indexlist.html
 SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
 SPECOBJS= $(MAINOBJS) $(APPENDIXES) $(REFS)
 
-UPDATEOBJS = \
-translations.html\
-errata.html
-
 #IMAGES = images/*.gif images/*.png
-IMAGES = images/*.gif images/*.jpg
+IMAGES = images/*.png images/*.jpg
 LONGDESCS = images/longdesc/*.html
 STYLESHEETS= style/*.css
 
-ALLOBJS= $(SPECOBJS) $(INDEXES) $(IMAGES) $(LONGDESCS) $(STYLESHEETS) translations.html
+ALLOBJS= $(SPECOBJS) $(INDEXES) $(IMAGES) $(LONGDESCS) $(STYLESHEETS)
 
 PROPSRC= properties/properties.db
 PROPSAMPLE= properties/sample.db
@@ -205,7 +201,7 @@ ADDLONGDESC = $(PERL) ./bin/addlongdesc
 
 # utility to generate the PostScript version
 #
-HTML2PS= $(PERL) -w bin/html2ps -d -f html2psrc2
+HTML2PS= $(PERL) bin/html2ps -d -f html2psrc2
 
 # IDRAW -> PS -> GIF tools
 #PSTOPNM = ./bin/mypstopnm -r 75
@@ -268,8 +264,8 @@ LN= ln
 	$(RM) $@
 	$(PSTOPNM) $< | $(PNMTOPNG_PIPE) >$@
 
-all: build/blocks.ok $(SPECOBJS) $(INDEXES) images/gifs.ok \
-	$(IMAGES) issues.html errata-issues.html DOC/TODO.html $(UPDATEOBJS)
+all: build/blocks.ok $(SPECOBJS) $(INDEXES) images/pngs.ok \
+	$(IMAGES) issues.html errata-issues.html DOC/TODO.html
 
 
 #images/links.ok : $(IMAGES)
@@ -301,10 +297,10 @@ install-ps: install css2.ps.gz
 install-all: install css2.zip css2.txt
 	$(CP) css2.zip css2.txt $(INSTALLDIR)
 
-images/gifs.ok: images/*.idraw
+images/pngs.ok: images/*.idraw
 	-@for f in images/*.idraw; do make images/`basename $$f .idraw`.gif; done
 	-@for f in images/*.idraw; do make images/`basename $$f .idraw`.png; done
-	touch images/gifs.ok
+	touch images/pngs.ok
 
 translations.html : translations.src
 	$(SED) -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
@@ -315,11 +311,6 @@ errata.html : errata.src
 	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
 	       -e 's|_THE_ID_|$(THE_ID)|g' \
 	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' $< > $@
-
-install_updates: $(UPDATEOBJS)
-	@if [ ! -d $(UPDATESDIR) ]; then mkdir -p $(UPDATESDIR);fi
-	$(CP) errata.html $(UPDATESDIR)/$(THE_ID)-errata.html
-	$(CP) translations.html $(UPDATESDIR)
 
 #### Special section to build PS file and single plain text file
 
@@ -350,11 +341,12 @@ css2.txt txt: css2.html
 ####
 
 css2.tgz: $(ALLOBJS) # images/links.ok
-#	$(TAR) cf - $(ALLOBJS) `$(LS) -d images/* | $(GREP) -v "\."` | gzip >$@
+#	$(TAR) cf - $(ALLOBJS) `$(LS) -d images/*.png | $(GREP) -v "\."` | gzip >$@
 	$(TAR) cf - $(ALLOBJS) | gzip >$@
 
 css2.zip: $(ALLOBJS)
-	$(ZIP) $@ $(ALLOBJS) `$(LS) -d images/* | $(GREP) -v "\."` 
+	$(ZIP) $@ $(ALLOBJS) images/*.png
+#	$(ZIP) $@ $(ALLOBJS) `$(LS) -d images/*.png | $(GREP) -v "\."` 
 
 #### Section generate property/descriptor tables from property database.
 
@@ -484,7 +476,7 @@ build/todo.srb: DOC/todo.db
 
 check: checkdoc checkspaces checkprops checkrefs checkspell checksample checklnx checkx
 
-FILES= $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) $(UPDATEOBJS)
+FILES= $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES)
 
 checkdoc: all
 	-@echo "# Begin checking sgml."
@@ -582,8 +574,8 @@ log:
 clean:
 	$(RM) $(SPECOBJS) $(INDEXES) $(PROPBLKSDIR)/* \
 	$(SPECOBJS:.html=.srd) $(SPECOBJS:.html=.subtoc) \
-        $(INDEXES:.html=.srd) $(UPDATEOBJS)\
-        $(DESCBLKSDIR)/* build/* css2.* linklint images/links.ok images/gifs.ok
+        $(INDEXES:.html=.srd) \
+        $(DESCBLKSDIR)/* build/* css2.* linklint images/links.ok images/pngs.ok
 
 realclean: clean
 
