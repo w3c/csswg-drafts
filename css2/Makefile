@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.79 2003-09-03 12:58:42 bbos Exp $
+# $Id: Makefile,v 2.80 2003-09-05 16:32:13 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -97,6 +97,8 @@ fonts.html\
 text.html\
 tables.html\
 ui.html\
+zindex.html\
+leftblank.html\
 aural.html
 
 APPENDIXES= \
