@@ -1,13 +1,13 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.80 2003-09-05 16:32:13 bbos Exp $
+# $Id: Makefile,v 2.81 2003-09-15 18:40:07 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
 THE_YEAR = 2003
 THE_MONTH = 09
 THE_MONTHNAME = September
-THE_DAY = 05
+THE_DAY = 15
 THE_STATUS = WD
 THE_STATUSNAME = Working Draft
 
@@ -584,9 +584,9 @@ PREVWD = ../../../TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PERMANENT_NAME)-$(PREV_DATE)
 HTMLDIFF = htmldiff -i -w '<del>' -x '</del>' -y '<ins>' -z '</ins>'
 
 diffs: $(SPECOBJS) $(INDEXES)
-	(cd diffs-rec;\
+	-(cd diffs-rec;\
 	 make PREV=../$(PREVREC) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS))
-	(cd diffs-wd;\
+	-(cd diffs-wd;\
 	 make PREV=../$(PREVWD) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS))
 
 
