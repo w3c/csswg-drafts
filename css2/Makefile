@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.63 1997-12-30 14:34:51 ijacobs Exp $
+# $Id: Makefile,v 1.64 1998-01-08 13:53:14 ijacobs Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9712/WD-css2-971211
@@ -171,6 +171,8 @@ CHKREFS= $(PERL) ./bin/chkrefs
 CHKPROPS= $(PERL) ./bin/chkprops
 # add reference normative/informative class info.
 CHKSPACES= $(PERL) ./bin/chkspaces
+# check CSS examples
+CHKCSS= ./bin/chkcss
 # add reference normative/informative class info.
 ADDREFCLASS= $(PERL) ./bin/addrefclass
 
@@ -504,8 +506,10 @@ build/checkx.out: build/xamples.ok
 	-@echo Begin checking HTML examples.
 	-@for i in build/?*xampl*.html ; \
 	do echo checking $$i...; \
-	   $(NSGMLS) -s -c	 sgml/HTML4.cat sgml/HTML4.decl $$i >> build/checkx.out 2>&1; \
+	   $(NSGMLS) -s -c sgml/HTML4.cat sgml/HTML4.decl $$i >> build/checkx.out 2>&1; \
 	done;
+	-@echo Begin checking CSS examples.
+	$(CHKCSS) build/?*xampl*.css >> build/checkx.out 2>&1; \
 
 checkx: build/checkx.out
 	@$(DIFF) checkx.out build/checkx.out >build/checkx.diff \
