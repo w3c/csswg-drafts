@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.16 1997-09-08 02:51:07 ian Exp $
+# $Id: Makefile,v 1.17 1997-09-08 23:52:45 ian Exp $
 
 ROOT = .
 
@@ -79,6 +79,11 @@ STYLESHEETS= style/*.css
 
 ALLOBJS= $(SPECOBJS) $(INDEXES) $(IMAGES) $(STYLESHEETS) translations.html
 
+PROPSRC= properties/properties.db
+DESCSRC= properties/descriptors.db
+PROPBLKSDIR= build/properties
+DESCBLKSDIR= build/descriptors
+
 INSTALLDIR= /afs/w3.org/pub/WWW/Style/Group/css2
 
 # dbase for property name anchors
@@ -89,6 +94,7 @@ VALUEDB= build/value.db
 HEADINGDB= build/headings.db
 
 PERL= perl5
+NSGMLS=nsgmls
 
 # HTML include preprocessor (for includes)
 HIPP= $(PERL) ./bin/hipp
@@ -114,6 +120,10 @@ MKSUBTOC= $(PERL) ./bin/mksubtoc
 INSAFTER= $(PERL) ./bin/insafter
 # add link
 ADDLINKS= $(PERL) ./bin/addlinks
+# extract properties from db.
+PEXTR= ./bin/pextr
+# extract descriptors from db.
+DEXTR= ./bin/dextr
 
 # utility to generate the PostScript version
 # -R seems broken for this spec.
@@ -144,7 +154,7 @@ LN= ln
 	$(RM) build/subtoc.$$$$
 
 
-all: $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES)
+all: blocks $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES)
 
 install: all css20.tgz 
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
@@ -175,6 +185,20 @@ css20.tgz:
 
 css20.zip:
 	$(ZIP) $@ $(ALLOBJS)
+
+#### Section generate property/descriptor tables from property database.
+
+blocks: $(PROPBLKSDIR)/blocks.ok $(DESCBLKSDIR)/blocks.ok
+
+$(PROPBLKSDIR)/blocks.ok: $(PROPSRC)
+	@if [ ! -d $(PROPBLKSDIR) ]; then mkdir -p $(PROPBLKSDIR);fi
+	$(PEXTR) $(PROPSRC) $(PROPBLKSDIR)
+	touch $@
+
+$(DESCBLKSDIR)/blocks.ok: $(DESCSRC)
+	@if [ ! -d $(DESCBLKSDIR) ]; then mkdir -p $(DESCBLKSDIR);fi
+	$(DEXTR) $(DESCSRC) $(DESCBLKSDIR)
+	touch $@
 
 $(PROPERTYDB): $(SPECSRCS)
 	@if [ ! -d build ]; then mkdir build;fi
@@ -208,8 +232,16 @@ index.html: index.src
 	$(HIPP) $(INCLUDES) $< - | \
 	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" 
 
+### check on the document to see if it's valid
+
+check: all
+	@for i in $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) ; \
+	do echo checking $$i...; $(NSGMLS) -s -c sgml/HTML4.cat $$i; done; \
+	echo checking done.
+
 clean:
-	$(RM) $(SPECOBJS) $(SPECIALOBJS) $(INDEXES) build/* css20.*
+	$(RM) $(SPECOBJS) $(SPECIALOBJS) $(INDEXES) $(PROPBLKSDIR)/* \
+        $(DESCBLKSDIR)/* build/* css20.*
 
 realclean: clean
 
