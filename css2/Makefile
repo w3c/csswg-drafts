@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.76 1998-01-29 00:17:15 ijacobs Exp $
+# $Id: Makefile,v 1.77 1998-01-29 00:36:40 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -21,7 +21,6 @@ $(ROOT)/cover.src
 SRCS1 = \
 about.src\
 intro.src\
-conform.src\
 syndata.src\
 selector.src\
 cascade.src\
@@ -198,7 +197,7 @@ LN= ln
 
 .SUFFIXES: .src .html .srb .idraw .gif .ps
 
-.src.html:
+%.html: %.src $(HEADINGDB) $(PROPERTYDB) $(DESCRIPTORDB) $(VALUEDB) blocks
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
 	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
 		> build/subtoc.$$$$; \
@@ -299,7 +298,7 @@ cover.html: cover.src build/contents.srb build/minicontents.srb
 	$(HIPP) $(INCLUDES) | \
  $(ADDNAVBAR) -r $@ - $@ "table of contents" "#toc" properties propidx.html descriptors descidx.html index indexlist.html
 
-build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
+build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS) $(PROPERTYDB) $(DESCRIPTORDB) $(VALUEDB)
 	$(MKTOC) -ml 5 $@ $(HEADINGDB) $(MAINSRCS)\
 	   -ol -roman $(APPSRCS) -ul -none $(REFSRCS) $(INDEXSRCS) 
 	$(ADDLINKS) -r $< $@ $@ propinst $(PROPERTYDB) \
@@ -390,7 +389,7 @@ indexlist.html: indexlist.src
 
 propidx.html: build/propidx.srb
 build/propidx.srb: $(SPECOBJS)
-	$(MKPROPIDX) -r $@ $@ properties/properties.db
+	$(MKPROPIDX) -r $@ $@ $(PROPSRC)
 
 propidx.html: propidx.src
 	$(HIPP) $(INCLUDES) $< | \
@@ -399,7 +398,7 @@ propidx.html: propidx.src
 
 descidx.html: build/descidx.srb
 build/descidx.srb: $(SPECOBJS)
-	$(MKDESCIDX) -r $@ $@ properties/descriptors.db
+	$(MKDESCIDX) -r $@ $@ $(DESCSRC)
 
 descidx.html: descidx.src
 	$(HIPP) $(INCLUDES) $< | \
