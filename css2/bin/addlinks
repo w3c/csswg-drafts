@@ -3,7 +3,7 @@
 # Write to stdout
 #
 # Arnaud Le Hors - lehors@w3.org
-# $Id: addlinks,v 2.0 1998-02-02 18:52:35 bbos Exp $
+# $Id: addlinks,v 2.1 1998-02-10 17:49:23 bbos Exp $
 
 use lib 'bin';
 use utils;
@@ -11,9 +11,9 @@ use utils;
 $PROG = substr($0, rindex($0, "/") + 1);
 $USAGE = "Usage: $PROG dbase file [ins-class/def-class [ins-class/def-class...]]\n";
 
-# $1 contains class excl. prefix
-$pre = '<span\s+[^>]*?class\s*=\s*[\"\']?';
-$post = '([^\s\"\'>]+)[\"\']?.*?</span\s*>';
+# $1=starttag, $2=class excl. prefix, $3=contents, $4=endtag
+$pre = '(<span\s+[^>]*?class\s*=\s*[\"\']?';
+$post = '([^\s\"\'>]+)[\"\']?.*?>)(.*?)(</span\s*>)';
 
 # compute relative path from 1 to 2
 sub rpath {
@@ -35,14 +35,29 @@ sub rpath {
 }
 
 
-# Find the URL for $_[0] in %anchors, create <A> around $_[1]
+# Find the URL for $_[0] in %anchors, create <A> around/in element
 sub gen_anch {
-    my $anch = $anchors{$_[0]};
+    my ($key, $stag, $content, $etag) = @_;
+    my $anch = $anchors{$key};
     if (! defined $anch) {
 	warn "$PROG: index $_[0] not found\n";
 	$anch = "";
     }
-    return '<a href="' . $anch . '">' . $_[1] . '</a>';
+    if ($content =~ /^<a\s[^>]*?href\s*=/sio) {
+	# An A with an HREF at the start, give up...
+	warn "$PROG: cannot add link to \"$anch\", there is a link already:
+\t$content\n";
+	return "$stag$content$etag";
+    } elsif ($content =~ /^<a\b/sio) {
+	# An A, but without HREF, at the start, add HREF to existing <A>
+	return "$stag<a href=\"$anch\"$'$etag";
+    } elsif ($content =~ /<a\b/sio) {
+	# An A not at the start, add <A> before the existing one
+	return "$stag<a href=\"$anch\">$`</a>$&$'$etag";
+    } else {
+	# No <A> in content, enclose whole element
+	return "<a href=\"$anch\">$stag$content$etag</a>";
+    }
 }
 
 ### main
@@ -60,7 +75,7 @@ $buf = readfile($file);
 # Loop over class/dbase pairs
 while (($class1, $class2) = split(/\//, $ARGV[0])) {
     shift;
-    $buf =~ s/$pre$class1$post/gen_anch("$class2$1", $&)/sieg;
+    $buf =~ s/$pre$class1$post/gen_anch("$class2$2", $1, $3, $4)/sieg;
 }
 dbmclose(%anchors);
 
