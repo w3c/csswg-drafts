@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.44 1998-05-11 22:29:06 bbos Exp $
+# $Id: Makefile,v 2.45 1998-05-11 23:18:00 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -241,7 +241,7 @@ LN= ln
 # at the cost of possibly incorrect xrefs in the other .html files
 #
 #%.html: %.subtoc Project.cfg
-%.html: %.subtoc $(SPECSRCS:.src=.srd) Project.cfg
+%.html: %.subtoc $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) Project.cfg #$(SPECSRCS:.src=.srd)
 	@echo "=========== making" $@
 	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
 	$(ADDIDXANCH) -r $@ $(INDEXDB) - |\
@@ -412,19 +412,17 @@ build/indexlist.srb: $(MAINSRCS) $(APPSRCS) $(INDEXDB)
 	@echo "=========== making" $@
 	$(MKIDX) $(INDEXDB) $@
 
-$(INDEXDB): $(SPECSRCS:.src=.html)
+$(INDEXDB): $(MAINSRCS:.src=.html) $(APPSRCS:.src=.html) #$(SPECSRCS:.src=.html)
 	touch $(INDEXDB)
 
 indexlist.srd:: build/indexlist.srb #indexlist.src build/blocks.ok
 #	@echo "=========== making" $@
 #	$(CP) $< $@
 
-#indexlist.html: indexlist.srd build/indexlist.srb Project.cfg
-#	@echo "=========== making" $@
-#	$(HIPP) $(INCLUDES) $< |\
-#	$(ADDHANCH) -r $*.html $(HEADINGDB) |\
-#	$(ADDNAVBAR) -r $@ |\
-#	$(MKCHAIN) -r $@ - $@
+indexlist.html: indexlist.srd build/indexlist.srb Project.cfg
+	@echo "=========== making" $@
+	$(ADDNAVBAR) -r $@ $< |\
+	$(MKCHAIN) -r $@ - $@
 
 build/propidx.srb: $(PROPSRC)
 	@echo "=========== making" $@
