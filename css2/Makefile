@@ -1,18 +1,21 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.57 2002-07-25 21:15:37 bbos Exp $
+# $Id: Makefile,v 2.58 2002-07-31 18:07:54 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
-THE_DATE = ?? July 2002
-THE_ID = WD-CSS21-200207??
-THIS_VERSION = http://www.w3.org/TR/2002/$(THE_ID)
 THE_PREVIOUS_VERSION = http://www.w3.org/TR/1998/REC-CSS2-19980512
 PERMANENT_NAME = CSS21
+THE_YEAR = 2002
+THE_DATE = 2 August $(THE_YEAR)
+THE_ID = WD-$(PERMANENT_NAME)-$(THE_YEAR)0802
+
+THE_LOC = $(THE_YEAR)/$(THE_ID)
+THIS_VERSION = http://www.w3.org/TR/$(THE_LOC)
 THE_LATEST_VERSION = http://www.w3.org/TR/$(PERMANENT_NAME)
 CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group
 TR_DIR = /afs/w3.org/pub/WWW/TR
-INSTALLDIR = $(TR_DIR)/2002/$(THE_ID)
+INSTALLDIR = $(TR_DIR)/$(THE_LOC)
 THE_UPDATE_DIR = http://www.w3.org/Style/css2-updates
 UPDATESDIR= /afs/w3.org/pub/WWW/Style/css2-updates
 
@@ -256,7 +259,8 @@ LN= ln
 	$(PSTOPNM) $< | $(PNMTOPNG_PIPE) >$@
 
 all: build/blocks.ok $(SPECOBJS) $(INDEXES) images/pngs.ok \
-	$(IMAGES) issues.html errata-issues.html DOC/TODO.html
+	$(IMAGES)
+#	$(IMAGES) issues.html errata-issues.html DOC/TODO.html
 
 
 #images/links.ok : $(IMAGES)
@@ -273,19 +277,22 @@ install: all css2.tgz
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
 	$(CP) css2.tgz $(INSTALLDIR)
 	zcat css2.tgz | (cd $(INSTALLDIR); $(TAR) xvf -)
-	-$(RM) -f $(CSSGROUPDIR)/issues.html
-	-$(RM) $(CSSGROUPDIR)/css2-issues.html
-	$(LN) -s $(INSTALLDIR)/issues.html $(CSSGROUPDIR)/css2-issues.html
+#	-$(RM) -f $(CSSGROUPDIR)/issues.html
+#	-$(RM) $(CSSGROUPDIR)/css2-issues.html
+#	$(LN) -s $(INSTALLDIR)/issues.html $(CSSGROUPDIR)/css2-issues.html
 	-$(RM) $(INSTALLDIR)/Overview.html
-	$(LN) -s $(INSTALLDIR)/cover.html $(INSTALLDIR)/Overview.html
+	(cd $(INSTALLDIR); $(LN) -s cover.html Overview.html)
 	-$(RM) -f $(TR_DIR)/$(PERMANENT_NAME)
-	$(LN) -s $(INSTALLDIR) $(TR_DIR)/$(PERMANENT_NAME)
+	(cd $(TR_DIR); $(LN) -s $(THE_LOC) $(PERMANENT_NAME))
 
 install-ps: install css2.ps.gz
 	$(CP) css2.ps.gz $(INSTALLDIR)
 
-# install all, except ps, which takes too long.
-install-all: install css2.zip css2.txt
+install-pdf: install css2.pdf
+	$(CP) css2.pdf $(INSTALLDIR)
+
+# install all
+install-all: install install-ps install-pdf css2.zip css2.txt
 	$(CP) css2.zip css2.txt $(INSTALLDIR)
 
 images/pngs.ok: images/*.idraw
@@ -315,6 +322,10 @@ css2.ps ps: all
 
 css2.ps.gz: css2.ps
 	gzip <$< >$@
+
+# This requires Acrobat Distiller
+css2.pdf: css2.ps
+	distill css2.ps
 
 css2.html html: $(SPECOBJS) $(INDEXES)
 	$(HTMLCAT) - $(SPECOBJS) $(INDEXES) | \
@@ -402,30 +413,30 @@ propidx.srd:: build/propidx.srb #propidx.src
 #	$(HIPP) $(INCLUDES) $< $@
 
 # Issues and todo lists.
-issues.html: issues.src build/issues.srb
-	@echo "=========== making" $@
-	$(HIPP) $(INCLUDES) $< $@
+#issues.html: issues.src build/issues.srb
+#	@echo "=========== making" $@
+#	$(HIPP) $(INCLUDES) $< $@
 
-build/issues.srb: issues.db
-	@echo "=========== making" $@
-	$(ISSUES) -g >$@
+#build/issues.srb: issues.db
+#	@echo "=========== making" $@
+#	$(ISSUES) -g >$@
 
 # Errata-Issues
-errata-issues.html: errata-issues.src build/errata-issues.srb
-	@echo "=========== making" $@
-	$(HIPP) $(INCLUDES) $< $@
+#errata-issues.html: errata-issues.src build/errata-issues.srb
+#	@echo "=========== making" $@
+#	$(HIPP) $(INCLUDES) $< $@
 
-build/errata-issues.srb: errata-issues.db
-	@echo "=========== making" $@
-	$(ERRATA) -g >$@
+#build/errata-issues.srb: errata-issues.db
+#	@echo "=========== making" $@
+#	$(ERRATA) -g >$@
 
-DOC/TODO.html: DOC/TODO.src build/todo.srb
-	@echo "=========== making" $@
-	$(HIPP) $(INCLUDES) $< $@
+#DOC/TODO.html: DOC/TODO.src build/todo.srb
+#	@echo "=========== making" $@
+#	$(HIPP) $(INCLUDES) $< $@
 
-build/todo.srb: DOC/todo.db
-	@echo "=========== making" $@
-	$(TODO) -g >$@
+#build/todo.srb: DOC/todo.db
+#	@echo "=========== making" $@
+#	$(TODO) -g >$@
 
 ### check on the document to see if it's valid
 
