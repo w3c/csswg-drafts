@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.75 1998-01-28 06:30:30 ijacobs Exp $
+# $Id: Makefile,v 1.76 1998-01-29 00:17:15 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -233,7 +233,6 @@ install: all css20.tgz
 	-(cd $(CSSGROUPDIR); rm -f issues.html; \
 	    $(RM) css2-issues.html; \
             $(LN) -s $(INSTALLDIR)/issues.html css2-issues.html)
-#	$(CP) html2psrc $(INSTALLDIR)
 	(cd $(INSTALLDIR); $(LN) -s cover.html Overview.html)
 
 install-all: install css20.zip css20.ps css20.txt
@@ -422,7 +421,7 @@ build/todo.srb: DOC/todo.db
 
 ### check on the document to see if it's valid
 
-check: checkdoc checkspaces checkprops checkrefs checkspell checksample checklnx
+check: checkdoc checkspaces checkprops checkrefs checkspell checksample checklnx checkx
 
 FILES= $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES)
 
