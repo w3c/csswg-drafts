@@ -7,39 +7,83 @@
 # Table headers can be specified through the '-th' option.
 #
 # Arnaud Le Hors - lehors@w3.org
-# $Id: mkidx,v 1.1 1997-07-29 17:14:57 ijacobs Exp $
+# $Id: mkidx,v 1.2 1997-07-30 17:32:31 lehors Exp $
 
 $PROGNAME = substr($0, rindex($0, "/") + 1);
 
 if (!$ARGV[1]) {
-    print "Usage: $PROGNAME indexfile anchordb\n";
+    print "Usage: $PROGNAME indexfile idxdb1 idxdb2 ...\n";
     exit 1;
 } else {
     $indexf = $ARGV[0];
-    $dbasef = $ARGV[1];
+    shift;
 }
 
-# copy file in memory
-sub readfile {
-    $buf = "";
-    if (!open(INPUT, $_[0])) {
-	print STDERR "$PROGNAME Error: Cannot open file: $_[0]\n";
+sub readdbfile {
+    $dbasef = $_[0];
+    if (!open(DBASE, $dbasef)) {
+	print STDERR "$PROGNAME Error: Cannot open dbfile: $dbasef\n";
 	return;
     }
-    while (<INPUT>) {
-	$buf .= $_;
+    while (<DBASE>)  {
+	chop;
+	($index, $url, $cmt) = split(/;/, $_, 3);
+	$key = "$index$cmt";
+	if ($indexes{$key}) {
+	    push(@{$indexes{$key}}, "$_");
+	} else {
+	    @{$indexes{$key}} = ("$_");
+	}
     }
-    close(INPUT);
+    close(DBASE);
 }
 
 
 ### main
+@indexes = ();
+foreach $file (@ARGV) {
+    readdbfile($file);
+}
 
 # print out index document
-if (!open(DBASE, $dbasef)) {
-    print STDERR "$PROGNAME Error: Cannot open dbfile: $dbasef\n";
-    exit;
-}
 open(OUTPUT, "> $indexf");
+$curindex = ();
+$curletter = ();
+foreach $key (sort(keys %indexes)) {
+    foreach $item (@{$indexes{$key}}) {
+	$cmt = ();
+	($index, $url, $cmt) = split(/;/, $item, 3);
+
+	if (($curindex) && ($curindex ne $index)) {
+	    print OUTPUT "</dl>\n";
+	}
+	if ($curletter ne ($letter = lc(substr($index, 0, 1)))) {
+	    $curletter = $letter;
+	    print OUTPUT "<h2><a name=\"$letter\">" .
+		uc($letter) . "</a></h2>\n";
+	}
+	if ($curindex ne $index) {
+	    print OUTPUT "<dl><dt>$index";
+	    $curindex = $index;
+	    $n = 1;
+	}
+
+	if ($cmt ne "") {
+	    $pre = "\n<dd>";
+	    $content = $cmt;
+	    $post = "</dd>\n";
+	} else {
+	    $pre = ",\n";
+	    $content = $n;
+	    $post = "";
+	    $n++;
+	}
+	$_ = $url;
+	if (/\#didx-/) {
+	    $content = "<em>$content</em>";
+	}
+	print OUTPUT "$pre<a href=\"$url\">$content</a>$post";
+    }
+}
+print OUTPUT "</dl>\n";
 close(OUTPUT);
-close(DBASE);
