@@ -1,4 +1,7 @@
-# -*-perl-*-
+# A few common routines						 -*-perl-*-
+#
+# Bert Bos <bert@w3.org>
+# $Id: utils.pm,v 2.0 1998-02-02 19:19:15 bbos Exp $
 
 package utils;
 require Exporter;
@@ -7,10 +10,9 @@ require Exporter;
 	$styletype @chapter @resetnumber @format %lookup $chapno @relations
 	@links @tonavbar $src_ext);
 
-# @EXPORT_OK = qw();
+# @EXPORT_OK = qw(parsewords);
 
 
-# use Text::ParseWords;
 
 $contents = '';			# File containing ToC
 $stylesheet = '';		# URL of style sheet
