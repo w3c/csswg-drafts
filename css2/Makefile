@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.4 1997-08-01 14:20:05 lehors Exp $
+# $Id: Makefile,v 1.5 1997-08-01 17:02:09 ijacobs Exp $
 
 ROOT = .
 
@@ -97,7 +97,7 @@ HMKDEPEND= $(PERL) ./bin/hmkdep
 # make property anchor database
 MKANCHDB= $(PERL) ./bin/mkanchdb
 # add heading anchors
-ADDHANCH= $(PERL) ./bin/addhanch -n
+ADDHANCH= $(PERL) ./bin/addhanch -n -ml 3
 # add index anchors and generate related index database
 ADDIDXANCH= $(PERL) ./bin/addianch
 # add navigation bars

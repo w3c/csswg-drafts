@@ -1,7 +1,7 @@
 #!/usr/local/bin/perl
 # Add index anchors to source file _and_ generate index database
 # Arnaud Le Hors - lehors@w3.org
-# $Id: addianch,v 1.4 1997-08-01 13:29:09 ijacobs Exp $
+# $Id: addianch,v 1.5 1997-08-01 17:03:03 ijacobs Exp $
 
 if (($_ = $ARGV[0], /^-r/) && $ARGV[0]) {
     shift;
@@ -45,20 +45,33 @@ sub readfile {
     close(INPUT);
 }
 
-# store index and return unique anchor
+# store index and return an anchor.
+# Since each index markup can define several 
+# links to the same anchor, create a unique
+# anchor the first time this function is
+# called (per markup) and reuse it thereafter
+
 sub storeindex {
-    ($prefix, $index, $cmt) = @_;
+    ($prefix, $index, $cmt, $anchor) = @_;
     if ($indexes{$index}) {
-	$n = $#{$indexes{$index}} + 1;
-	$anchor = "$prefix-$index-$n";
-	# change possible spaces to underscores
-	$anchor =~ s/ /_/g;
-	push(@{$indexes{$index}}, "$file#$anchor;$cmt");
+	if (!$anchor) {
+	    $n = $#{$indexes{$index}} + 1;
+	    $anchor = "$prefix-$index-$n";
+	    # change possible spaces to underscores
+	    $anchor =~ s/ /_/g;
+	    # leave only alphanumeric characters 
+	    $anchor =~ s/[^a-zA-Z0-9_-]//g;
+	}
+	push(@{$indexes{$index}}, "$file#$anchor|$cmt");
     } else {
-	$anchor = "$prefix-$index";
-	# change possible spaces to underscores
-	$anchor =~ s/ /_/g;
-	@{$indexes{$index}} = ("$file#$anchor;$cmt");
+	if (!$anchor) {
+	    $anchor = "$prefix-$index";
+	    # change possible spaces to underscores
+	    $anchor =~ s/ /_/g;
+	    # leave only alphanumeric characters 
+	    $anchor =~ s/[^a-zA-Z0-9_-]//g;
+	}
+	@{$indexes{$index}} = ("$file#$anchor|$cmt");
     }
 
     return $anchor;
@@ -74,28 +87,38 @@ sub addanchor {
     # see if a title is specified
     $_ = $st;
     if (/${sep}title=(?:$qwd|($wd))/sgio) {
-         # only $1 or $2 will actually be non null
-         ($index, $cmt) = split(/, */, "$1$2", 2);
+        $anchor = ();
+        # only $1 or $2 will actually be non null
+        foreach $idxentry (split(/[\n \t]*\|[\n \t]*/, "$1$2", 2)) {
+	    ($index, $cmt) = split(/, */, "$idxentry", 2);
+	    # New lines -> spaces in keys (title OR content)
+	    # And compress extra space
+	    $index =~ s/[\n \t]+/ /g;
+	    $cmt =~ s/[\n \t]+/ /g;
+	    #Remove initial white space
+	    $index =~ s/^[\n \t]+//;
+	    $cmt =~ s/^[\n \t]+//;
+	    $anchor = storeindex($prefix, $index, $cmt, $anchor);
+	}
     } else {
-         $index = $content;
-         $cmt = ();
+	$index = $content;
+	$cmt = ();
+	# New lines -> spaces in keys (title OR content)
+	# And compress extra space
+	$index =~ s/[\n \t]+/ /g;
+	$cmt =~ s/[\n \t]+/ /g;
+	#Remove initial white space
+	$index =~ s/^[\n \t]+//;
+	$cmt =~ s/^[\n \t]+//;
+	$anchor = storeindex($prefix, $index, $cmt, ());
     }
-    # New lines -> spaces in keys (title OR content)
-    # And compress extra space
-    $index =~ s/[\n \t]+/ /g;
-    $cmt =~ s/[\n \t]+/ /g;
-    #Remove initial white space
-    $index =~ s/^[\n \t]+//;
-    $cmt =~ s/^[\n \t]+//;
 
     # HACK!!!
     # add a non breakable space in the anchor to workaround
     # broken browsers which don't support correctly empty anchors
-    return "$st<a name=\"" .
-           storeindex($prefix, $index, $cmt) . "\">&nbsp;</a>$content$et";
+    return "$st<a name=\"" . $anchor . "\">&nbsp;</a>$content$et";
 # if the span tags are to be removed use the following two lines instead
-#    return "<a name=\"" .
-#           storeindex($prefix, $index, $cmt) . "\">&nbsp;</a>$content";
+#    return "<a name=\"" . $anchor . "\">&nbsp;</a>$content";
 }
 
 ### main
@@ -118,12 +141,15 @@ print OUTPUT $buf;
 close(OUTPUT);
 
 # print out index database
+# Don't separate fields with ";" because keys may contain markup
+# With entities.
+
 if (!open(DBASE, "> $dbasef")) {
     print STDERR "$PROGNAME Error: Cannot open dbfile: $dbasef\n";
 } else {
     foreach $index (sort(keys %indexes)) {
 	foreach $item (@{$indexes{$index}}) {
-	    print DBASE "$index;$item\n";
+	    print DBASE "$index|$item\n";
 	}
     }
     close(DBASE);
