@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.69 1998-01-19 13:27:54 ijacobs Exp $
+# $Id: Makefile,v 1.70 1998-01-20 23:18:15 ijacobs Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9801/WD-css2-980116
@@ -299,7 +299,7 @@ cover.html: cover.src build/contents.srb build/minicontents.srb
 	       -e 's|_THE_DATE_|$(THE_DATE)|g' \
 	       -e 's|_THE_ID_|$(THE_ID)|g' $< | \
 	$(HIPP) $(INCLUDES) | \
- $(ADDNAVBAR) -hr -r $@ - $@ "table of contents" "#toc" properties propidx.html descriptors descidx.html index indexlist.html
+ $(ADDNAVBAR) -r $@ - $@ "table of contents" "#toc" properties propidx.html descriptors descidx.html index indexlist.html
 
 build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
 	$(MKTOC) -ml 5 $@ $(HEADINGDB) $(MAINSRCS)\
