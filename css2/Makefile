@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.12 1998-02-24 02:06:01 bbos Exp $
+# $Id: Makefile,v 2.13 1998-02-24 07:57:55 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -334,7 +334,8 @@ $(DESCBLKSDIR)/blocks.ok: $(DESCSRC)
 
 cover.srd: cover.src build/contents.srb build/minicontents.srb
 	@echo "=========== making" $@
-	$(HIPP) $(INCLUDES) $< $@
+	$(HIPP) $(INCLUDES) $<  |\
+	$(ADDCITE) -r $(REFS) $(REFSRCS) >$@
 
 cover.html: cover.srd Project.cfg
 	@echo "=========== making" $@
