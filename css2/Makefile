@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.72 1998-01-23 23:10:29 ijacobs Exp $
+# $Id: Makefile,v 1.73 1998-01-27 16:30:25 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -44,8 +44,7 @@ APPSRCS = \
 sample.src\
 changes.src\
 notes.src\
-grammar.src\
-fontstuff.src
+grammar.src
 
 REFSRCS = \
 refs.src
@@ -83,8 +82,7 @@ APPENDIXES= \
 sample.html\
 changes.html\
 notes.html\
-grammar.html\
-fontstuff.html
+grammar.html
 
 REFS= \
 refs.html
