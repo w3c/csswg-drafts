@@ -5,16 +5,44 @@
 #   1. Some header - and its related comment
 #
 # Arnaud Le Hors - lehors@w3.org
-# $Id: mktoc,v 1.9 1997-09-16 01:59:34 ian Exp $
+# $Id: mktoc,v 1.10 1997-09-19 16:02:42 lehors Exp $
+
+if (($_ = $ARGV[0], /^-l/) && $ARGV[0]) {
+    shift;
+    $startlvl = $ARGV[0];
+    shift;
+} else {
+    $startlvl = 1;
+}
+
+if (($_ = $ARGV[0], /^-ml/) && $ARGV[0]) {
+    shift;
+    $maxlvl = $ARGV[0];
+    shift;
+} else {
+    $maxlvl = 0;
+}
+
+if (($_ = $ARGV[0], /^-mol/) && $ARGV[0]) {
+    shift;
+    $maxollvl = $ARGV[0];
+    shift;
+} else {
+    $maxollvl = 0;
+}
 
 $PROGNAME = substr($0, rindex($0, "/") + 1);
 
 if ($#ARGV < 2) {
-    print STDERR "Usage: $PROGNAME depth toc tocdb src1 src2 ...\n";
+    print STDERR "Usage: $PROGNAME [-l startlvl] [-ml level] [-mol level] toc tocdb src1 src2 ...
+\t-l   to give the level from which headings should be put into the toc
+\t-ml  set the maximum level to be put into the toc
+\t-mol set the level from which to use an unordered list
+The default is to use an ordered list but this can be changed anytime, by
+inserting the flags -ul and -ol, possibly followed by -none for non bulleted
+unordered lists and -roman for roman ordered lists\n";
     exit 1;
 } else {
-    $tocdepth = $ARGV[0];
-    shift;
     $tocf = $ARGV[0];
     shift;
     $tocdb = $ARGV[0];
@@ -37,25 +65,43 @@ sub readfile {
 sub hnuminit {
     @n = ();
     @ol = ();
-    $ol[0] = 0;
+    $ol[0] = "";
 }
 
 sub hnum {
-# args: $n, $l
-    $hn = $_[0] + $_[1] - 1;
+    $h = $_[0];
+    if ($h == 0 && $#n < 0) {
+	return;
+    }
+
+    $hn = $h - $startlvl;
     for ($i = $#n; $i > $hn; $i--) {
-	if ($ol[$i] != 0) {
-#	    print OUTPUT "</ul>\n";
-	    $ol[$i] = 0;
+	if ($ol[$i] ne "") {
+#	    print OUTPUT "</$ol[$i]>\n";
+	    $ol[$i] = "";
 	}
 	$n[$i] = 0;
     }
-    if ($hn >= 0 && $ol[$hn] == 0) {
-#	print OUTPUT "<ul compact type=square>\n";
-	$ol[$hn] = 1;
+    if ((($maxlvl == 0) || ($h <= $maxlvl)) && $hn >= 0 && $ol[$hn] eq "") {
+	if ($maxollvl == 0 || $h <= $maxollvl) {
+	    if ($h == $startlvl) {
+#		print OUTPUT "<$list$listtype>\n";
+		$ol[$hn] = "$list";
+	    } else {
+#		print OUTPUT "<ol>\n";
+		$ol[$hn] = "ol";
+	    }
+	} else {
+#	    print OUTPUT "<ul>\n";
+	    $ol[$hn] = "ul";
+	}
     }
     $n[$hn]++;
-    $num = "$n[0]";
+    if (($_ = $listtype, /A/)) {
+	$num = chr(65 + $n[0] - 1);
+    } else {
+	$num = "$n[0]";
+    }
     for ($i = 1; $i <= $hn; $i++) {
 	$num .= ".$n[$i]";
     }
@@ -80,54 +126,77 @@ $headingp = "<h([1-6]).*?>(.*?)(?:<!--(.*?)-->)?</h[1-6]>";
 open(DBASE, "> $tocdb");
 open(OUTPUT, "> $tocf");
 hnuminit();
+$list = "ol";
+$listtype = "";
 print OUTPUT "<DIV CLASS=\"toc\">";
-foreach $file (@ARGV) {
+LOOP: foreach $file (@ARGV) {
+    if ($file eq "-ul") {	# start a new unordered list
+	$list = "ul";
+	$listtype = "";
+	hnum(0);
+	hnuminit();
+	next LOOP;
+    } elsif ($file eq "-ol") { # start a new ordered list
+	$list = "ol";
+	$listtype = "";
+	hnum(0);
+	hnuminit();
+	next LOOP;
+    } elsif ($file eq "-roman") { # make ordered list roman
+	$listtype = " type=\"A\"";
+	next LOOP;
+    } elsif ($file eq "-none") { # make unordered list with no bullets
+	$listtype = " class=\"toc\""; # we must rely on CSS for this one
+	next LOOP;
+    }
     readfile($file);
-    # compute correct level based on path depth and filename
-    @lvls = split("/", $file);
-    $l = $#lvls;
-    $_ = $file;
     # change extension
     $hfil = $file;
-    $hfil =~ s/\.src/\.html/;
+    $hfil =~ s/\.src$/\.html/;
     # seek headings
     $_ = $buf;
     while (/$headingp/sio) {
 	$h = int($1);
-	$t = $2;
-	# compute section number
-	$num = hnum($h, $l);
-	if ($h == 1) {	# if H1 go to the top of the page and set rel
-	    $url = "$hfil";
-	    $rel= " rel=\"chapter\"";
-	} else {
-	    $url = "$hfil#h-$num";
-	    $rel = "";
-	}
-	$txt = cleanup($t);
-	if ($h lt $tocdepth) {
+	if ($h >= $startlvl && (($maxlvl == 0) || ($h <= $maxlvl))) {
+	    $t = $2;
+	    $cmt = $3;
+	    # compute section number
+	    $num = hnum($h);
+	    if ($h == 1) {	# if H1 go to the top of the page and set rel
+		$url = "$hfil";
+		$rel= " rel=\"chapter\"";
+	    } else {
+		$url = "$hfil#h-$num";
+		$rel = "";
+	    }
+	    $txt = cleanup($t);
+	    if ($list eq "ol" && $listtype ne " class=\"toc\"") {
+		$tnum = "$num ";
+	    } else {
+		$tnum ="";
+	    }
 	    if ($h == 1) {
-		print OUTPUT "<P CLASS=\"tocline\"><a href=\"$url\"$rel><strong>$num $txt</strong></a>\n"; 
+		print OUTPUT "<P CLASS=\"tocline\"><a href=\"$url\"$rel><strong>$tnum$txt</strong></a>\n"; 
 	    } elsif ($h == 2) {
-		print OUTPUT "<BR><a href=\"$url\"$rel>$num $txt</a>\n";
+		print OUTPUT "<BR><a href=\"$url\"$rel>$tnum$txt</a>\n";
 	    } elsif ($h == 3) {
 		print OUTPUT 
-		    "<BR>&nbsp;&nbsp;&nbsp;<a href=\"$url\"$rel>$num $txt</a>\n";
+		    "<BR>&nbsp;&nbsp;&nbsp;<a href=\"$url\"$rel>$tnum$txt</a>\n";
 	    } else {
 		print OUTPUT
 		    "<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href=\"$url\"$rel>$txt</a>\n";
 	    }
-	    #Print comment about section contents.
-	    if ($3) {
-		print OUTPUT " <em>-$3</em>";
+	    if ($cmt) {
+		print OUTPUT " <em>-$cmt</em>";
 	    }
+
 	    # dbase format: file;headingtext;h;hnum
+	    print DBASE "$file;$t;$h;$num\n";
 	}
-	print DBASE "$file;$t;$h;$num\n";
 	$_ = $';
     }
 }
 print OUTPUT "</DIV>";
-hnum(0, 0);			# close all open lists
+hnum(0);			# close all open lists
 close(OUTPUT);
 close(DBASE);
