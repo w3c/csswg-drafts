@@ -1,18 +1,18 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.20 1998-03-20 22:34:28 bbos Exp $
+# $Id: Makefile,v 2.21 1998-03-21 21:18:05 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
-THE_DATE = 16-Mar-1998
-THE_ID = WD-css2-19980316
-THIS_VERSION = http://www.w3.org/Style/Group/1998/03/$(THE_ID)
-THE_PREVIOUS_VERSION = http://www.w3.org/Style/Group/1998/02/WD-css2-19980220
-PERMANENT_NAME = WD-css2
-THE_LATEST_VERSION = http://www.w3.org/Style/Group/1998/03/$(THE_ID)
-TR_DIR = /afs/w3.org/pub/WWW/TR
+THE_DATE = 24-Mar-1998
+THE_ID = PR-CSS2-19980324
+THIS_VERSION = http://www.w3.org/TR/1998/$(THE_ID)
+THE_PREVIOUS_VERSION = http://www.w3.org/Style/Group/1998/03/WD-css2-19980316
+PERMANENT_NAME = PR-CSS2
+THE_LATEST_VERSION = http://www.w3.org/TR/1998/$(PERMANENT_NAME)
 CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group
-INSTALLDIR = $(CSSGROUPDIR)/1998/03/WD-css2-19980316
+TR_DIR = /afs/w3.org/pub/WWW/TR
+INSTALLDIR = $(TR_DIR)/1998/$(THE_ID)
 
 ROOT = .
 
@@ -106,6 +106,7 @@ STYLESHEETS= style/*.css
 ALLOBJS= $(SPECOBJS) $(INDEXES) $(IMAGES) $(STYLESHEETS) translations.html
 
 PROPSRC= properties/properties.db
+PROPSAMPLE= properties/sample.db
 DESCSRC= properties/descriptors.db
 PROPBLKSDIR= build/properties
 DESCBLKSDIR= build/descriptors
@@ -320,6 +321,7 @@ build/blocks.ok: $(PROPBLKSDIR)/blocks.ok $(DESCBLKSDIR)/blocks.ok
 $(PROPBLKSDIR)/blocks.ok: $(PROPSRC)
 	@if [ ! -d $(PROPBLKSDIR) ]; then mkdir -p $(PROPBLKSDIR);fi
 	$(PEXTR) $(PROPSRC) $(PROPBLKSDIR)
+	$(PEXTR) -n $(PROPSAMPLE) $(PROPBLKSDIR)
 	touch $@
 
 $(DESCBLKSDIR)/blocks.ok: $(DESCSRC)
