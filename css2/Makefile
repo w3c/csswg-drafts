@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.8 1998-02-17 23:44:39 bbos Exp $
+# $Id: Makefile,v 2.9 1998-02-18 23:34:39 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -97,7 +97,8 @@ indexlist.html
 SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
 SPECOBJS= $(MAINOBJS) $(APPENDIXES) $(REFS)
 
-IMAGES = images/*.gif images/*.png
+#IMAGES = images/*.gif images/*.png
+IMAGES = images/*.gif
 STYLESHEETS= style/*.css
 
 ALLOBJS= $(SPECOBJS) $(INDEXES) $(IMAGES) $(STYLESHEETS) translations.html
