@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.21 1998-03-21 21:18:05 ijacobs Exp $
+# $Id: Makefile,v 2.22 1998-03-22 18:43:28 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -119,7 +119,6 @@ DESCRIPTORDB= build/descriptor.db
 VALUEDB= build/value.db
 # dbase for headings
 HEADINGDB= build/headings.db
-#MINIHEADINGDB= build/miniheadings.db
 # dbase for index terms
 INDEXDB = build/index.db
 
@@ -189,8 +188,6 @@ CHKCSS= ./bin/chkcss
 CHKXML= ./bin/chkxml
 # add reference normative/informative class info.
 ADDREFCLASS= $(PERL) ./bin/addrefclass
-# create the database with all headings and their anchors and numbers
-MKHEADINGDB = $(PERL) ./bin/mkheadingdb
 # Add prev/next/toc/stylesheet and other links to document
 MKCHAIN = $(PERL) ./bin/mkchain
 # Expand [[cite]] to link to bibliography
@@ -358,6 +355,7 @@ cover.html: cover.srd Project.cfg
 build/contents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.src=.srd) $(INDEXSRCS:.src=.srd) Project.cfg
 	@echo "=========== making" $@
 	$(MKTOC) -h 5 $(HEADINGDB) $@
+
 
 build/minicontents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.src=.srd) $(INDEXSRCS:.src=.srd) Project.cfg
 	@echo "=========== making" $@
