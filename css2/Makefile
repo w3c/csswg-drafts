@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.23 1997-09-18 15:55:07 ian Exp $
+# $Id: Makefile,v 1.24 1997-09-19 16:04:55 lehors Exp $
 
 ROOT = .
 
@@ -33,7 +33,9 @@ APPSRCS = \
 sample.src\
 changes.src\
 notes.src\
-grammar.src\
+grammar.src
+
+REFSRCS = \
 refs.src
 
 INDEXSRCS= \
@@ -65,7 +67,9 @@ APPENDIXES= \
 sample.html\
 changes.html\
 notes.html\
-grammar.html\
+grammar.html
+
+REFS= \
 refs.html
 
 INDEXES= \
@@ -105,7 +109,7 @@ HMKDEPEND= $(PERL) ./bin/hmkdep
 # make property anchor database
 MKANCHDB= $(PERL) ./bin/mkanchdb
 # add heading anchors
-ADDHANCH= $(PERL) ./bin/addhanch -n -ml 4
+ADDHANCH= $(PERL) ./bin/addhanch
 # add index anchors and generate related index database
 ADDIDXANCH= $(PERL) ./bin/addianch
 # add navigation bars
@@ -116,6 +120,8 @@ MKIDX= $(PERL) ./bin/mkidx
 MKTOC= $(PERL) ./bin/mktoc
 # HTML concate utility
 HTMLCAT= $(PERL) ./bin/htmlcat
+# trim utility to get rid of navbar sections
+HTMLTRIM= $(PERL) ./bin/htmltrim
 # make sub table of contents
 MKSUBTOC= $(PERL) ./bin/mksubtoc
 # insert subtoc
@@ -153,7 +159,7 @@ LN= ln
 		> build/subtoc.$$$$; \
 	$(MKSUBTOC) -r $@ -l 2 - $(HEADINGDB) $< >> build/subtoc.$$$$; \
 	echo "</div>" >> build/subtoc.$$$$; \
-	$(HIPP) $(INCLUDES) $< - | $(ADDHANCH) -r $< - - $(HEADINGDB) | \
+	$(HIPP) $(INCLUDES) $< - | $(ADDHANCH) -n -ml 4 -r $< - - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) value-inst $(VALUEDB) | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
@@ -179,10 +185,11 @@ install-all: install css20.zip css20.ps css20.txt
 #### Special section to build PS file and single plain text file
 
 css20.ps ps: all
-	$(HTML2PS) $(MAINOBJS) $(APPENDIXES) $(INDEXES) > $@
+	$(HTML2PS) $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) > $@
 
 css20.html html: all
-	$(HTMLCAT) $@ $(MAINOBJS) $(APPENDIXES) $(INDEXES) 
+	$(HTMLCAT) - $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) | \
+	$(HTMLTRIM) div navbar - $@
 
 # the following requires to be on unix and have Netscape running...
 css20.txt txt: css20.html
@@ -230,13 +237,80 @@ cover-short.html: cover-short.src cover-info.src build/contents-short.srb
 	$(HIPP) $(INCLUDES) $< - | \
  $(ADDNAVBAR) -bottom -hr -r $@ - $@ "go to the table of contents" "#toc"
 
-build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS)
-	$(MKTOC) 5 $@ $(HEADINGDB) $(MAINSRCS) $(APPSRCS) $(INDEXSRCS) 
+build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
+	$(MKTOC) -ml 5 $@ $(HEADINGDB) $(MAINSRCS) -ul -roman $(APPSRCS) \
+		-ol -none $(REFSRCS) $(INDEXSRCS) 
 $(HEADINGDB): build/contents.srb
 
-build/contents-short.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS)
-	$(MKTOC) 4 $@ $(HEADINGDB) $(MAINSRCS) $(APPSRCS) $(INDEXSRCS) 
+build/contents-short.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
+	$(MKTOC) -ml 3 $@ $(HEADINGDB) $(MAINSRCS) -ul -roman $(APPSRCS) \
+		-ol -none $(REFSRCS) $(INDEXSRCS) 
 
+# special rule with different numbering
+sample.html: sample.src
+	@if [ ! -d build/index ]; then mkdir -p build/index; fi
+	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
+		> build/subtoc.$$$$; \
+	$(MKSUBTOC) -r $@ -l 2 - $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	echo "</div>" >> build/subtoc.$$$$; \
+	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
+	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) value-inst $(VALUEDB) | \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
+	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
+	$(RM) build/subtoc.$$$$
+
+changes.html: changes.src
+	@if [ ! -d build/index ]; then mkdir -p build/index; fi
+	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
+		> build/subtoc.$$$$; \
+	$(MKSUBTOC) -r $@ -l 2 - $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	echo "</div>" >> build/subtoc.$$$$; \
+	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
+	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) value-inst $(VALUEDB) | \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
+	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
+	$(RM) build/subtoc.$$$$
+
+notes.html: notes.src
+	@if [ ! -d build/index ]; then mkdir -p build/index; fi
+	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
+		> build/subtoc.$$$$; \
+	$(MKSUBTOC) -r $@ -l 2 - $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	echo "</div>" >> build/subtoc.$$$$; \
+	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
+	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) value-inst $(VALUEDB) | \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
+	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
+	$(RM) build/subtoc.$$$$
+
+grammar.html: grammar.src
+	@if [ ! -d build/index ]; then mkdir -p build/index; fi
+	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
+		> build/subtoc.$$$$; \
+	$(MKSUBTOC) -r $@ -l 2 - $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	echo "</div>" >> build/subtoc.$$$$; \
+	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
+	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) value-inst $(VALUEDB) | \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
+	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
+	$(RM) build/subtoc.$$$$
+
+refs.html: refs.src
+	@if [ ! -d build/index ]; then mkdir -p build/index; fi
+	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
+		> build/subtoc.$$$$; \
+	$(MKSUBTOC) -r $@ -l 2 - $(HEADINGDB) $< >> build/subtoc.$$$$; \
+	echo "</div>" >> build/subtoc.$$$$; \
+	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
+	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) value-inst $(VALUEDB) | \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
+	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
+	$(RM) build/subtoc.$$$$
 
 # simpler rules for special pages
 index.html: index.src
