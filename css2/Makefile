@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.39 1997-11-04 14:34:50 bbos Exp $
+# $Id: Makefile,v 1.40 1997-11-04 15:38:06 bbos Exp $
 
 ROOT = .
 
@@ -41,7 +41,7 @@ REFSRCS = \
 refs.src
 
 INDEXSRCS= \
-index.src
+indexlist.src
 
 MAINSRCS = $(SRCS1)
 
@@ -78,7 +78,7 @@ REFS= \
 refs.html
 
 INDEXES= \
-index.html
+indexlist.html
 
 SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
 SPECOBJS= $(MAINOBJS) $(APPENDIXES) $(REFS)
@@ -177,7 +177,7 @@ LN= ln
 	$(HIPP) $(INCLUDES) $< - | $(ADDHANCH) -n -ml 3 -r $< - - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
 
@@ -192,7 +192,7 @@ all: blocks $(PROPERTYDB) $(DESCRIPTORDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(
 	$(IMAGES) issues.html DOC/TODO.html
 
 install: all css20.tgz 
-	if [ -z "$(INSTALLDIR)" ]; then\
+	@if [ -z "$(INSTALLDIR)" ]; then\
 	  echo >&2;\
 	  echo "*** No target directory specified" >&2;\
 	  echo "*** Please use: make install INSTALLDIR=<target-dir>" >&2;\
@@ -201,7 +201,7 @@ install: all css20.tgz
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
 	$(CP) css20.tgz $(INSTALLDIR)
 	(cd $(INSTALLDIR); zcat css20.tgz | $(TAR) xvf -)
-	(cd $(CSSGROUPDIR); rm -f issues.html; \
+	-(cd $(CSSGROUPDIR); rm -f issues.html; \
             $(LN) -s $(INSTALLDIR)/issues.html css2-issues.html)
 	$(CP) Overview.html html2psrc $(INSTALLDIR)
 
@@ -255,13 +255,13 @@ $(DESCRIPTORDB): $(SPECSRCS)
 $(VALUEDB): $(SPECSRCS)
 	$(MKANCHDB) value-def - $(SPECSRCS) | sed 's/\.src/\.html/' > $@
 
-index.html: build/index.srb
-build/index.srb: $(SPECOBJS)
+indexlist.html: build/indexlist.srb
+build/indexlist.srb: $(SPECOBJS)
 	$(MKIDX) $@ build/index/*
 
 cover.html: cover.src cover-info.src build/contents.srb
 	$(HIPP) $(INCLUDES) $< - | \
- $(ADDNAVBAR) -bottom -hr -r $@ - $@ "go to the table of contents" "#toc" index index.html
+ $(ADDNAVBAR) -bottom -hr -r $@ - $@ "go to the table of contents" "#toc" index indexlist.html
 
 build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
 	$(MKTOC) -ml 5 $@ $(HEADINGDB) $(MAINSRCS) -ul -roman $(APPSRCS) \
@@ -280,7 +280,7 @@ sample.html: sample.src
 	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
 
@@ -293,7 +293,7 @@ changes.html: changes.src
 	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
 
@@ -306,7 +306,7 @@ notes.html: notes.src
 	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
 
@@ -319,7 +319,7 @@ grammar.html: grammar.src
 	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
 
@@ -332,13 +332,13 @@ refs.html: refs.src
 	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
 
 # simpler rules for special pages
 
-index.html: index.src
+indexlist.html: indexlist.src
 	$(HIPP) $(INCLUDES) $< - | \
 	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" 
 
