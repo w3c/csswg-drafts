@@ -1,0 +1,61 @@
+#!/bin/ksh
+
+#set -vx
+
+USAGE="$0 [-r <resolution>] [-landscape] [psfile]"
+
+res=72
+outfile=-
+
+if [ $# = 0 ]; then
+  echo $USAGE >&2; exit 1
+fi
+
+while [ $# != 0 ]; do
+  case "$1" in
+    -l*)
+      landscape=true
+      shift;;
+    -r)
+      res=$2
+      shift 2;;
+    *)
+      if [ "$infile" = "" ]; then
+	infile="$1"
+      elif [ "$outfile" = "-" ]; then
+	outfile="$1"
+      else
+	echo $USAGE >&2; exit 1
+      fi
+      shift;;
+  esac
+done
+
+if [ -z "$infile" ]; then
+  infile=/tmp/mypstopnm$$
+  trap "rm $infile" 0
+  cat >$infile
+fi
+
+set -A bb `grep "%%BoundingBox" "$infile"`
+
+if [ ${#bb[*]} != 5 ]; then
+  echo "No BoundingBox found in EPS file" >&2; exit 2
+fi
+
+if [ "$landscape" = "true" ]; then
+  trans="270 rotate ${bb[3]} neg ${bb[2]} neg translate"
+  xsize=`expr \( ${bb[4]} - ${bb[2]} \) \* $res / 72`
+  ysize=`expr \( ${bb[3]} - ${bb[1]} \) \* $res / 72`
+else
+  trans="${bb[1]} neg ${bb[2]} neg translate"
+  xsize=`expr \( ${bb[3]} - ${bb[1]} \) \* $res / 72`
+  ysize=`expr \( ${bb[4]} - ${bb[2]} \) \* $res / 72`
+fi
+
+echo $trans | gs \
+ -sDEVICE=ppmraw \
+ -sOutputFile="$outfile" \
+ -r${res} \
+ -g${xsize}x${ysize} \
+ -dNOPAUSE -dQUIET -dSAFER -q - "$infile" -c showpage -c quit
