@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.42 1998-05-11 16:10:37 ijacobs Exp $
+# $Id: Makefile,v 2.43 1998-05-11 16:11:49 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -14,7 +14,7 @@ CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group
 TR_DIR = /afs/w3.org/pub/WWW/TR
 INSTALLDIR = $(TR_DIR)/1998/$(THE_ID)
 THE_UPDATE_DIR = http://www.w3.org/Style/css2-updates
-UPDATESDIR= /afs/w3.org/pub/WWW/Style/html40-updates
+UPDATESDIR= /afs/w3.org/pub/WWW/Style/css2-updates
 
 ROOT = .
 
