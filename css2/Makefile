@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.47 1997-11-25 22:11:37 ian Exp $
+# $Id: Makefile,v 1.48 1997-11-25 23:31:55 ian Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9711/WD-css2-971128
@@ -111,6 +111,7 @@ SED = sed
 PERL= perl5
 NSGMLS=nsgmls
 LINKLINT=$(PERL) bin/linklint
+SPELL = ispell -l -p
 
 # HTML include preprocessor (for includes)
 HIPP= $(PERL) ./bin/hipp
@@ -377,7 +378,7 @@ build/todo.srb: DOC/todo.db
 
 ### check on the document to see if it's valid
 
-check: checkdoc checkrefs checksample checklnx
+check: checkdoc checkrefs checkspell checksample checklnx
 
 FILES= $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES)
 
@@ -395,6 +396,15 @@ checkrefs: build/refs.db
 build/refs.db : $(SPECSRCS) $(REFSRCS)
 	-@$(RM) -f build/refs.db
 	-@$(MKREFDB) $(REFSRCS) build/refs.db
+
+### Spell check, using a "CSS" personal dictionary.
+
+checkspell: 
+	-@for i in $(SPECSRCS); \
+	   do\
+		echo "Checking spelling in $$i.";\
+		cat $$i | $(SPELL) css.dico;\
+	   done;
 
 ### check the sample style sheet.
 
