@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.61 1997-12-28 23:38:10 ijacobs Exp $
+# $Id: Makefile,v 1.62 1997-12-29 21:10:41 ijacobs Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9712/WD-css2-971211
@@ -119,6 +119,7 @@ PERL= perl5
 NSGMLS=nsgmls
 LINKLINT=$(PERL) bin/linklint
 SPELL = ispell -l -p
+DIFF = diff
 
 # HTML include preprocessor (for includes)
 HIPP= $(PERL) ./bin/hipp
@@ -481,6 +482,25 @@ checkprops: $(SPECSRCS) $(PROPSRC) $(DESCSRC)
 	-@echo "# Begin checking descriptors."
 	-@$(CHKPROPS) $(DESCSRC) descinst $(SPECSRCS)
 	-@echo "# End checking descriptors."
+
+# Check examples (CSS, HTML, XML, etc.)
+
+build/xamples.ok: $(SPECSRCS)
+	@for i in $(SPECSRCS) ; \
+	do $(PERL) bin/xextr $$i build; done;
+	@touch build/xamples.ok
+
+build/checkx.out: build/xamples.ok
+	$(RM) build/checkx.out
+	-@echo Begin checking HTML examples.
+	-@for i in build/?*xampl*.html ; \
+	do echo checking $$i...; \
+	   $(NSGMLS) -s -c	 sgml/HTML4.cat sgml/HTML4.decl $$i >> build/checkx.out 2>&1; \
+	done;
+
+checkx: build/checkx.out
+	@$(DIFF) checkx.out build/checkx.out >build/checkx.diff \
+		|| echo output differs, see build/checkx.diff for details.
 
 # get cvs logs
 
