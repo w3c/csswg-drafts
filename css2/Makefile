@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.35 1997-10-29 04:34:31 ian Exp $
+# $Id: Makefile,v 1.36 1997-10-30 08:25:50 ian Exp $
 
 ROOT = .
 
@@ -12,8 +12,8 @@ SRCS1 = \
 about.src\
 intro.src\
 convent.src\
-process.src\
 syndata.src\
+process.src\
 selector.src\
 cascade.src\
 media.src\
@@ -49,8 +49,8 @@ cover.html\
 about.html\
 intro.html\
 convent.html\
-process.html\
 syndata.html\
+process.html\
 selector.html\
 cascade.html\
 media.html\
