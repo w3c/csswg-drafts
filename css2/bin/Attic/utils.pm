@@ -1,7 +1,7 @@
 # A few common routines						 -*-perl-*-
 #
 # Bert Bos <bert@w3.org>
-# $Id: utils.pm,v 2.0 1998-02-02 19:19:15 bbos Exp $
+# $Id: utils.pm,v 2.1 1998-03-17 17:06:59 bbos Exp $
 
 package utils;
 require Exporter;
@@ -27,6 +27,9 @@ $chapno = -1;			# Number of the chapter under consideration
 @tonavbar = ();			# Whether the link goes into the navbar
 $src_ext = undef;		# Extension of source files
 
+# Parse a string into an array of "words".
+# Words are whitespace-separated sequences of non-whitespace characters,
+# or quoted strings ("" or ''), with the quotes removed.
 sub parsewords {
     my $line = $_[0];
     my @words = ();
