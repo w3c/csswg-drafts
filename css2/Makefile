@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.59 1997-12-16 20:42:06 ijacobs Exp $
+# $Id: Makefile,v 1.60 1997-12-28 23:17:43 ijacobs Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9712/WD-css2-971211
@@ -166,6 +166,8 @@ CHKSAMPLE= $(PERL) ./bin/chksample
 MKREFDB = $(PERL) ./bin/mkrefdb
 # check references.
 CHKREFS= $(PERL) ./bin/chkrefs
+# check property/descriptor defs and instances
+CHKPROPS= $(PERL) ./bin/chkprops
 # add reference normative/informative class info.
 ADDREFCLASS= $(PERL) ./bin/addrefclass
 
@@ -460,6 +462,15 @@ checksample: sample.src $(PROPSRC)
 checklnx: all
 	-@$(RM) linklint
 	$(LINKLINT) -doc linklint $(FILES)
+
+### check property instances
+
+checkprops: $(SPECSRCS) $(PROPSRC) $(DESCSRC)
+	-@echo "Checking property instances and defs."
+	-@$(CHKPROPS) $(PROPSRC) propinst $(SPECSRCS)
+	-@echo
+	-@echo "Checking descriptor instances and defs."
+	-@$(CHKPROPS) $(DESCSRC) descinst $(SPECSRCS)
 
 # get cvs logs
 
