@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.45 1998-05-11 23:18:00 bbos Exp $
+# $Id: Makefile,v 2.46 1998-05-11 23:31:50 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -331,10 +331,10 @@ css2.ps ps: all
 # converted to ps if there's a *.ps file in the same
 # directory.
 	-@(cd images; for i in *.idraw; do $(LN) -s $$i "`basename $$i .idraw`.ps"; done)
-	$(HTML2PS) $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) > $@
+	$(HTML2PS) $(SPECOBJS) $(INDEXES) > $@
 
-css2.html html: all
-	$(HTMLCAT) - $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) | \
+css2.html html: $(SPECOBJS) $(INDEXES)
+	$(HTMLCAT) - $(SPECOBJS) $(INDEXES) | \
 	$(HTMLTRIM) div navbar - $@
 
 # the following requires to be on unix and have Netscape running...
