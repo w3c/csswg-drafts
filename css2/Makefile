@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.68 1998-01-16 08:37:45 ijacobs Exp $
+# $Id: Makefile,v 1.69 1998-01-19 13:27:54 ijacobs Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9801/WD-css2-980116
@@ -221,7 +221,7 @@ LN= ln
 all: blocks $(PROPERTYDB) $(DESCRIPTORDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES) \
 	$(IMAGES) issues.html DOC/TODO.html
 
-install: all css2.tgz 
+install: all css20.tgz 
 	@if [ -z "$(INSTALLDIR)" ]; then\
 	  echo >&2;\
 	  echo "*** No target directory specified" >&2;\
@@ -229,20 +229,20 @@ install: all css2.tgz
 	  exit 1;\
 	fi
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
-	$(CP) css2.tgz $(INSTALLDIR)
-	(cd $(INSTALLDIR); zcat css2.tgz | $(TAR) xvf -)
+	$(CP) css20.tgz $(INSTALLDIR)
+	(cd $(INSTALLDIR); zcat css20.tgz | $(TAR) xvf -)
 	-(cd $(CSSGROUPDIR); rm -f issues.html; \
 	    $(RM) css2-issues.html; \
             $(LN) -s $(INSTALLDIR)/issues.html css2-issues.html)
 #	$(CP) html2psrc $(INSTALLDIR)
 	(cd $(INSTALLDIR); $(LN) -s cover.html Overview.html)
 
-install-all: install css2.zip css2.ps css2.txt
-	$(CP) css2.zip css2.ps css2.txt $(INSTALLDIR)
+install-all: install css20.zip css20.ps css20.txt
+	$(CP) css20.zip css20.ps css20.txt $(INSTALLDIR)
 
 #### Special section to build PS file and single plain text file
 
-css2.ps ps: all
+css20.ps ps: all
 # Because of memory limitations in html2ps, use the
 # automagic feature that any *.gif files are not
 # converted to ps if there's a *.ps file in the same
@@ -250,21 +250,21 @@ css2.ps ps: all
 	-@(cd images; for i in *.idraw; do $(LN) -s $$i "`basename $$i .idraw`.ps"; done)
 	$(HTML2PS) $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) > $@
 
-css2.html html: all
+css20.html html: all
 	$(HTMLCAT) - $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) | \
 	$(HTMLTRIM) div navbar - $@
 
 # the following requires to be on unix and have Netscape running...
-css2.txt txt: css2.html
-	$(RM) css2.txt; \
-        netscape -remote "openFile(`pwd`/css2.html)" -remote "saveAs(`pwd`/css2.txt,Text)"
+css20.txt txt: css20.html
+	$(RM) css20.txt; \
+        netscape -remote "openFile(`pwd`/css20.html)" -remote "saveAs(`pwd`/css20.txt,Text)"
 
 ####
 
-css2.tgz: $(ALLOBJS)
+css20.tgz: $(ALLOBJS)
 	$(TAR) cf - $(ALLOBJS) | gzip >$@
 
-css2.zip: $(ALLOBJS)
+css20.zip: $(ALLOBJS)
 	$(ZIP) $@ $(ALLOBJS)
 
 #### Section generate property/descriptor tables from property database.
@@ -534,7 +534,7 @@ log:
 
 clean:
 	$(RM) $(SPECOBJS) $(SPECIALOBJS) $(INDEXES) $(PROPBLKSDIR)/* \
-        $(DESCBLKSDIR)/* build/* css2.* linklint
+        $(DESCBLKSDIR)/* build/* css20.* linklint
 
 realclean: clean
 
