@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.37 1997-10-31 03:23:34 clilley Exp $
+# $Id: Makefile,v 1.38 1997-10-31 10:20:31 bbos Exp $
 
 ROOT = .
 
@@ -96,7 +96,7 @@ DESCBLKSDIR= build/descriptors
 CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group/
 #Sample install dir
 #INSTALLDIR= /afs/w3.org/pub/WWW/Style/Group/9709/css2-970908
-INSTALLDIR=/0/w3c/clilley/w3.org/pub/WWW/Style/Group/css2
+INSTALLDIR=
 
 # dbase for property name anchors
 PROPERTYDB= build/property.db
@@ -192,11 +192,17 @@ all: blocks $(PROPERTYDB) $(DESCRIPTORDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(
 	$(IMAGES) issues.html DOC/TODO.html
 
 install: all css20.tgz 
+	if [ -z "$(INSTALLDIR)" ]; then\
+	  echo >&2;\
+	  echo "*** No target directory specified" >&2;\
+	  echo "*** Please use: make install INSTALLDIR=<target-dir>" >&2;\
+	  exit 1;\
+	fi
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
 	$(CP) css20.tgz $(INSTALLDIR)
-	(cd $(INSTALLDIR); $(TAR) xvzf css20.tgz)
+	(cd $(INSTALLDIR); zcat css20.tgz | $(TAR) xvf -)
 	(cd $(CSSGROUPDIR); rm -f issues.html; \
-            $(LN) $(INSTALLDIR)/issues.html css2-issues.html)
+            $(LN) -s $(INSTALLDIR)/issues.html css2-issues.html)
 	$(CP) Overview.html html2psrc $(INSTALLDIR)
 
 install-all: install css20.zip css20.ps css20.txt
@@ -218,10 +224,10 @@ css20.txt txt: css20.html
 
 ####
 
-css20.tgz: all
-	$(TAR) czf $@ $(ALLOBJS)
+css20.tgz: $(ALLOBJS)
+	$(TAR) cf - $(ALLOBJS) | gzip >$@
 
-css20.zip: all
+css20.zip: $(ALLOBJS)
 	$(ZIP) $@ $(ALLOBJS)
 
 #### Section generate property/descriptor tables from property database.
