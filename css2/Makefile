@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.66 2003-01-21 13:25:00 bbos Exp $
+# $Id: Makefile,v 2.67 2003-01-21 14:26:50 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -568,17 +568,19 @@ realclean: clean
 depend:
 	$(HMKDEPEND) $(SPECOBJS) 
 
-# Rules to make diff files relative to previous REC.
+# Rules to make diff files relative to previous REC and WD.
 # htmldiff returns >0 if there are differences, so we ignore the exit code.
 
 PREVREC = ../../../TR/1998/REC-CSS2-19980512
-DIFFS = $(SPECOBJS:.html=-diff.html)
+PREVWD = ../../../TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PERMANENT_NAME)-$(PREV_DATE)
 HTMLDIFF = htmldiff -i -w '<del>' -x '</del>' -y '<ins>' -z '</ins>'
 
-%-diff.html: %.html $(PREVREC)/%.html
-	-$(HTMLDIFF) $(PREVREC)/$< $< >$@
+diffs:
+	(cd diffs-rec;\
+	 make PREV=../$(PREVREC) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS))
+	(cd diffs-wd;\
+	 make PREV=../$(PREVWD) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS))
 
-diffs: $(DIFFS)
 
 .PHONY: all install install-all clean realclean checkx diffs
 
