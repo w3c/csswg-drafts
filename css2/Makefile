@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.14 1997-08-21 20:39:45 ian Exp $
+# $Id: Makefile,v 1.15 1997-09-07 00:30:20 ian Exp $
 
 ROOT = .
 
@@ -28,14 +28,15 @@ text.src\
 lists.src\
 tables.src\
 ui.src\
-conform.src\
-refs.src
+aural.src\
+print.src
 
 APPSRCS = \
 sample.src\
 changes.src\
 notes.src\
-grammar.src
+grammar.src\
+refs.src
 
 INDEXSRCS= \
 index.src
@@ -61,14 +62,15 @@ text.html\
 lists.html\
 tables.html\
 ui.html\
-conform.html\
-refs.html
+aural.html\
+print.html
 
 APPENDIXES= \
 sample.html\
 changes.html\
 notes.html\
-grammar.html
+grammar.html\
+refs.html
 
 INDEXES= \
 index.html
@@ -80,8 +82,6 @@ IMAGES= images/*.gif
 STYLESHEETS= style/*.css
 
 ALLOBJS= $(SPECOBJS) $(INDEXES) $(IMAGES) $(STYLESHEETS) translations.html
-
-PSDIR=../css2-ps
 
 INSTALLDIR= /afs/w3.org/pub/WWW/Style/Group/css2
 
@@ -121,10 +121,7 @@ ADDLINKS= $(PERL) ./bin/addlinks
 
 # utility to generate the PostScript version
 # -R seems broken for this spec.
-HTML2PSARGS= -n -D -R
-#HTML2PSARGS= -n -D 
-HTML2PS= $(PERL) html2ps
-HTML2PS= html2ps
+HTML2PS= $(PERL) html2ps -f html2psrc
 
 # include paths
 INCLUDES= -Ibuild -I.
@@ -158,33 +155,20 @@ install: all css20.tgz
 	$(CP) css20.tgz $(INSTALLDIR)
 	(cd $(INSTALLDIR); $(TAR) xvzf css20.tgz)
 
-install-all: install css20.zip $(PSDIR)/css20.ps $(PSDIR)/css20.txt
-	$(CP) css20.zip $(PSDIR)/css20.ps $(PSDIR)/css20.txt \
+install-all: install css20.zip css20.ps css20.txt
+	$(CP) css20.zip css20.ps css20.txt \
 	       Overview.html $(INSTALLDIR)
 
 #### Special section to build PS file and single plain text file
 
-ps $(PSDIR)/css20.ps: $(PSDIR)
-	(cd $(PSDIR); \
-          $(MAKE) css20.ps PERL="$(PERL)" \
-            HTML2PS="$(HTML2PS)" ADDNAVBAR="$(PERL) ./bin/fakenavbar")
+css20.ps ps: $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES)
+	$(HTML2PS) $(MAINOBJS) $(APPENDIXES) $(INDEXES) > $@
 
-$(PSDIR):
-	if [ ! -d $(PSDIR) ]; then \
-	   mkshadowdir . $(PSDIR); \
-	   (cd $(PSDIR); $(MAKE) clean); fi
-
-css20.ps: $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES)
-	$(HTML2PS) $(HTML2PSARGS) $(MAINOBJS) $(APPENDIXES) $(INDEXES) > $@
-
-txt $(PSDIR)/css20.txt: $(PSDIR)
-	(cd $(PSDIR); $(MAKE) css20.txt ADDNAVBAR="$(PERL) ./bin/fakenavbar")
-
-css20.html: $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES) 
+css20.html html: $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES) 
 	$(HTMLCAT) $@ $(MAINOBJS) $(APPENDIXES) $(INDEXES) 
 
 # the following requires to be on unix and have Netscape running...
-css20.txt: css20.html
+css20.txt txt: css20.html
 	$(RM) css20.txt; \
         netscape -remote "openFile(`pwd`/css20.html)" -remote "saveAs(`pwd`/css20.txt,Text)"
 
@@ -209,11 +193,11 @@ build/index.srb: $(SPECOBJS)
 
 cover.html: cover.src cover-info.src build/contents.srb
 	$(HIPP) $(INCLUDES) $< - | \
- $(ADDNAVBAR) -bottom -hr -next -r $@ - $@ "Go to the table of contents" "#toc"
+ $(ADDNAVBAR) -bottom -hr -r $@ - $@ "go to the table of contents" "#toc"
 
 cover-short.html: cover-short.src cover-info.src build/contents-short.srb
 	$(HIPP) $(INCLUDES) $< - | \
- $(ADDNAVBAR) -bottom -hr -next -r $@ - $@ "Go to the table of contents" "#toc"
+ $(ADDNAVBAR) -bottom -hr -r $@ - $@ "go to the table of contents" "#toc"
 
 build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS)
 	$(MKTOC) 5 $@ $(HEADINGDB) $(MAINSRCS) $(APPSRCS) $(INDEXSRCS) 
@@ -232,7 +216,6 @@ clean:
 	$(RM) $(SPECOBJS) $(SPECIALOBJS) $(INDEXES) build/* css20.*
 
 realclean: clean
-	$(RM) -rf $(PSDIR)
 
 depend:
 	$(HMKDEPEND) $(SPECOBJS) $(SPECIALOBJS) 
