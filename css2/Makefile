@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.62 1997-12-29 21:10:41 ijacobs Exp $
+# $Id: Makefile,v 1.63 1997-12-30 14:34:51 ijacobs Exp $
 
 # what needs to be set for every new release:
 THIS_VERSION= http://www.w3.org/Style/Group/9712/WD-css2-971211
@@ -169,6 +169,8 @@ MKREFDB = $(PERL) ./bin/mkrefdb
 CHKREFS= $(PERL) ./bin/chkrefs
 # check property/descriptor defs and instances
 CHKPROPS= $(PERL) ./bin/chkprops
+# add reference normative/informative class info.
+CHKSPACES= $(PERL) ./bin/chkspaces
 # add reference normative/informative class info.
 ADDREFCLASS= $(PERL) ./bin/addrefclass
 
@@ -425,7 +427,7 @@ build/todo.srb: DOC/todo.db
 
 ### check on the document to see if it's valid
 
-check: checkdoc checkprops checkrefs checkspell checksample checklnx
+check: checkdoc checkspaces checkprops checkrefs checkspell checksample checklnx
 
 FILES= $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES)
 
@@ -482,6 +484,13 @@ checkprops: $(SPECSRCS) $(PROPSRC) $(DESCSRC)
 	-@echo "# Begin checking descriptors."
 	-@$(CHKPROPS) $(DESCSRC) descinst $(SPECSRCS)
 	-@echo "# End checking descriptors."
+
+# Check spaces
+
+checkspaces: $(SPECSRCS) 
+	-@echo "# Begin checking spaces."
+	-@$(CHKSPACES) $(SPECSRCS)
+	-@echo "# End checking spaces."
 
 # Check examples (CSS, HTML, XML, etc.)
 
