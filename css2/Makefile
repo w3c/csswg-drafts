@@ -1,16 +1,16 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.9 1997-08-11 23:49:32 ian Exp $
+# $Id: Makefile,v 1.10 1997-08-14 00:32:48 ian Exp $
 
 ROOT = .
 
 # the following files are part of the CSS specification
 SRCS0 = \
-$(ROOT)/cover.src
+$(ROOT)/cover.src\
+$(ROOT)/cover-short.src
 
 SRCS1 = \
 about.src\
-introtop.src\
 tutorial.src\
 cssdesgn.src\
 convent.src\
@@ -25,6 +25,7 @@ colors.src\
 fonts.src\
 text.src\
 lists.src\
+tables.src\
 ui.src\
 conform.src \
 refs.src
@@ -42,8 +43,8 @@ MAINSRCS = $(SRCS1)
 
 MAINOBJS = \
 cover.html\
+cover-short.html\
 about.html\
-introtop.html\
 tutorial.html\
 cssdesgn.html\
 convent.html\
@@ -58,6 +59,7 @@ colors.html\
 fonts.html\
 text.html\
 lists.html\
+tables.html\
 ui.html\
 conform.html\
 refs.html
@@ -122,7 +124,7 @@ HTML2PSARGS= -n -D -R
 HTML2PS= $(PERL) html2ps
 
 # include paths
-INCLUDES= -Ibuild
+INCLUDES= -Ibuild -I.
 
 RM= rm -fr
 CP= cp
@@ -199,13 +201,21 @@ index.html: build/index.srb
 build/index.srb: $(SPECOBJS)
 	$(MKIDX) $@ build/index/*
 
-cover.html: cover.src build/contents.srb
+cover.html: cover.src cover-info.src build/contents.srb
+	$(HIPP) $(INCLUDES) $< - | \
+ $(ADDNAVBAR) -bottom -hr -next -r $@ - $@ "Go to the table of contents" "#toc"
+
+cover-short.html: cover-short.src cover-info.src build/contents-short.srb
 	$(HIPP) $(INCLUDES) $< - | \
  $(ADDNAVBAR) -bottom -hr -next -r $@ - $@ "Go to the table of contents" "#toc"
 
 build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS)
-	$(MKTOC) $@ $(HEADINGDB) $(MAINSRCS) $(APPSRCS) $(INDEXSRCS) 
+	$(MKTOC) 5 $@ $(HEADINGDB) $(MAINSRCS) $(APPSRCS) $(INDEXSRCS) 
 $(HEADINGDB): build/contents.srb
+
+build/contents-short.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS)
+	$(MKTOC) 4 $@ $(HEADINGDB) $(MAINSRCS) $(APPSRCS) $(INDEXSRCS) 
+
 
 # simpler rules for special pages
 index.html: index.src
