@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.32 1997-10-02 23:21:57 ian Exp $
+# $Id: Makefile,v 1.33 1997-10-03 20:35:54 ian Exp $
 
 ROOT = .
 
@@ -93,6 +93,8 @@ INSTALLDIR=
 
 # dbase for property name anchors
 PROPERTYDB= build/property.db
+# dbase for descriptor name anchors
+DESCRIPTORDB= build/descriptor.db
 # dbase for value types
 VALUEDB= build/value.db
 # dbase for heading dbase
@@ -105,8 +107,10 @@ NSGMLS=nsgmls
 HIPP= $(PERL) ./bin/hipp
 # make depend utility for CSS source documents
 HMKDEPEND= $(PERL) ./bin/hmkdep
-# make property anchor database
+# make value anchor database
 MKANCHDB= $(PERL) ./bin/mkanchdb
+# make property and descriptor anchor database
+MKPANCHDB= $(PERL) ./bin/mkpanchdb
 # add heading anchors
 ADDHANCH= $(PERL) ./bin/addhanch
 # add index anchors and generate related index database
@@ -165,7 +169,7 @@ LN= ln
 	echo "</div>" >> build/subtoc.$$$$; \
 	$(HIPP) $(INCLUDES) $< - | $(ADDHANCH) -n -ml 3 -r $< - - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) value-inst $(VALUEDB) | \
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
@@ -177,7 +181,7 @@ LN= ln
 	  | $(PNMTOGIF_PIPE) >$@
 
 
-all: blocks $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES) \
+all: blocks $(PROPERTYDB) $(DESCRIPTORDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES) \
 	$(IMAGES) issues.html DOC/TODO.html
 
 install: all css20.tgz 
@@ -229,7 +233,11 @@ $(DESCBLKSDIR)/blocks.ok: $(DESCSRC)
 
 $(PROPERTYDB): $(SPECSRCS)
 	@if [ ! -d build ]; then mkdir build;fi
-	$(MKANCHDB) propdef - $(SPECSRCS) | sed 's/\.src/\.html/' > $@
+	$(MKPANCHDB) properties propdef - $(SPECSRCS) | sed 's/\.src/\.html/' > $@
+
+$(DESCRIPTORDB): $(SPECSRCS)
+	@if [ ! -d build ]; then mkdir build;fi
+	$(MKPANCHDB) descriptors descdef - $(SPECSRCS) | sed 's/\.src/\.html/' > $@
 
 $(VALUEDB): $(SPECSRCS)
 	$(MKANCHDB) value-def - $(SPECSRCS) | sed 's/\.src/\.html/' > $@
@@ -245,6 +253,8 @@ cover.html: cover.src cover-info.src build/contents.srb
 build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
 	$(MKTOC) -ml 5 $@ $(HEADINGDB) $(MAINSRCS) -ul -roman $(APPSRCS) \
 		-ol -none $(REFSRCS) $(INDEXSRCS) 
+	$(ADDLINKS) -r $< $(HEADINGDB) $(HEADINGDB) propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) 
+	$(ADDLINKS) -r $< $@ $@ propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) 
 $(HEADINGDB): build/contents.srb
 
 # special rule with different numbering
@@ -256,7 +266,7 @@ sample.html: sample.src
 	echo "</div>" >> build/subtoc.$$$$; \
 	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) value-inst $(VALUEDB) | \
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
@@ -269,7 +279,7 @@ changes.html: changes.src
 	echo "</div>" >> build/subtoc.$$$$; \
 	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) value-inst $(VALUEDB) | \
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
@@ -282,7 +292,7 @@ notes.html: notes.src
 	echo "</div>" >> build/subtoc.$$$$; \
 	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) value-inst $(VALUEDB) | \
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
@@ -295,7 +305,7 @@ grammar.html: grammar.src
 	echo "</div>" >> build/subtoc.$$$$; \
 	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) value-inst $(VALUEDB) | \
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
@@ -308,7 +318,7 @@ refs.html: refs.src
 	echo "</div>" >> build/subtoc.$$$$; \
 	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) value-inst $(VALUEDB) | \
+	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html| \
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
