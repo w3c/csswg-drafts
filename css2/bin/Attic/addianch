@@ -1,0 +1,123 @@
+#!/usr/local/bin/perl
+# Add index anchors to source file _and_ generate index database
+# Arnaud Le Hors - lehors@w3.org
+# $Id: addianch,v 1.1 1997-07-30 17:32:04 lehors Exp $
+
+if (($_ = $ARGV[0], /^-r/) && $ARGV[0]) {
+    shift;
+    $realpath = $ARGV[0];
+    shift;
+} else {
+    $realpath = ();
+}
+
+$PROGNAME = substr($0, rindex($0, "/") + 1);
+
+if ($#ARGV < 2) {
+    print STDERR "Usage: $PROGNAME [ -r realpath ] src trgt indexdb\n";
+    exit 1;
+} else {
+    $input = $ARGV[0];
+    if ($realpath) {
+	$file = $realpath;
+    } else {
+	$file = $input;
+    }
+    # change file extension
+    $file =~ s/src$/html/;
+    shift;
+    $output = $ARGV[0];
+    shift;
+    $dbasef = $ARGV[0];
+    shift;
+}
+
+# copy file in memory
+sub readfile {
+    $buf = "";
+    if (!open(INPUT, $_[0])) {
+	print STDERR "$PROGNAME Error: Cannot open file: $_[0]\n";
+	exit 1;
+    }
+    while (<INPUT>) {
+	$buf .= $_;
+    }
+    close(INPUT);
+}
+
+# store index and return unique anchor
+sub storeindex {
+    ($prefix, $index, $cmt) = @_;
+
+    if ($indexes{$index}) {
+	$n = $#{$indexes{$index}} + 1;
+	$anchor = "$prefix-$index-$n";
+	# change possible spaces to underscores
+	$anchor =~ s/ /_/g;
+	push(@{$indexes{$index}}, "$file#$anchor;$cmt");
+    } else {
+	$anchor = "$prefix-$index";
+	# change possible spaces to underscores
+	$anchor =~ s/ /_/g;
+	@{$indexes{$index}} = ("$file#$anchor;$cmt");
+    }
+
+    return $anchor;
+}
+
+$wd = "[^ \t\n>]+";		# word
+$qwd = "\"([^\"]*)\"";		# quoted word
+$sep = "[ \t\n]+";		# word separator
+
+sub addanchor {
+    ($prefix, $st, $content, $et) = @_;
+
+    # see if a title is specified
+    $_ = $st;
+    if (/${sep}title=(?:$qwd|($wd))/sgio) {
+	# only $1 or $2 will actually be non null
+	($index, $cmt) = split(/, */, "$1$2", 2);
+    } else {
+	$index = $content;
+	$cmt = ();
+    }
+    # HACK!!!
+    # add a non breakable space in the anchor to workaround
+    # broken browsers which don't support correctly empty anchors
+    return "$st<a name=\"" .
+           storeindex($prefix, $index, $cmt) . "\">&nbsp;</a>$content$et";
+# if the span tags are to be removed use the following two lines instead
+#    return "<a name=\"" .
+#           storeindex($prefix, $index, $cmt) . "\">&nbsp;</a>$content";
+}
+
+### main
+
+# index patterns
+$eindexp = "</span>";
+
+readfile($input);
+@indexes = ();
+# add index anchors - definitions
+$sindexp = "<span[ \t\n]+class=(?:index-def|\"index-def\").*?>";
+$buf =~ s/($sindexp)(.*?)($eindexp)/addanchor("didx", $1, $2, $3)/sgieo;
+# add index anchors - instances
+$sindexp = "<span[ \t\n]+class=(?:index-inst|\"index-inst\").*?>";
+$buf =~ s/($sindexp)(.*?)($eindexp)/addanchor("idx", $1, $2, $3)/sgieo;
+
+# print out result
+open(OUTPUT, "> $output");
+print OUTPUT $buf;
+close(OUTPUT);
+
+# print out index database
+if (!open(DBASE, "> $dbasef")) {
+    print STDERR "$PROGNAME Error: Cannot open dbfile: $dbasef\n";
+} else {
+    foreach $index (sort(keys %indexes)) {
+	foreach $item (@{$indexes{$index}}) {
+	    print DBASE "$index;$item\n";
+	}
+    }
+    close(DBASE);
+}
