@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.33 1997-10-03 20:35:54 ian Exp $
+# $Id: Makefile,v 1.34 1997-10-03 22:09:37 ian Exp $
 
 ROOT = .
 
@@ -18,14 +18,15 @@ cascade.src\
 media.src\
 flowobj.src\
 flowobj2.src\
+page.src\
 colors.src\
 fonts.src\
 text.src\
 lists.src\
 tables.src\
 ui.src\
-aural.src\
-print.src
+aural.src
+
 
 APPSRCS = \
 sample.src\
@@ -52,14 +53,14 @@ cascade.html\
 media.html\
 flowobj.html\
 flowobj2.html\
+page.html\
 colors.html\
 fonts.html\
 text.html\
 lists.html\
 tables.html\
 ui.html\
-aural.html\
-print.html
+aural.html
 
 APPENDIXES= \
 sample.html\
