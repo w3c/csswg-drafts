@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.14 1998-03-09 12:39:11 bbos Exp $
+# $Id: Makefile,v 2.15 1998-03-10 18:43:58 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -201,10 +201,10 @@ HTML2PS= $(PERL) bin/html2ps -d -f html2psrc
 #PSTOPNM = ./bin/mypstopnm -r 75
 PSTOPNM = ./bin/mypstopnm -r 150
 #PNMTOGIF_PIPE = ppmquant 256 | ppmtogif
-PNMTOGIF_PIPE = pnmscale 0.5 | pnmgamma 1.8 | ppmquant -fs 256 | ppmtogif
+PNMTOGIF_PIPE = pnmscale 0.5 | pnmgamma 1.7 | ppmquant -fs 256 | ppmtogif
 
 # idraw -> png
-PNMTOPNG_PIPE = pnmscale 0.5 | pnmgamma 1.8 | pnmtopng -gamma 1.8
+PNMTOPNG_PIPE = pnmscale 0.5 | pnmgamma 1.7 | pnmtopng -gamma 1.7
 
 # include paths
 INCLUDES= -Ibuild -I.
@@ -257,7 +257,7 @@ all: build/blocks.ok $(SPECOBJS) $(INDEXES) \
 
 
 images/links.ok : $(IMAGES)
-	-@(cd images; for i in *.gif; do $(LN) -s $$i "`basename $$i .gif`" 2&> /dev/null; done)
+	-@(cd images; for i in *.gif; do $(LN) -s $$i "`basename $$i .gif`" 2>//dev/null; done)
 	touch images/links.ok
 
 install: all css2.tgz 
