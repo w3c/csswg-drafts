@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.81 2003-09-15 18:40:07 bbos Exp $
+# $Id: Makefile,v 2.82 2004-02-02 14:52:02 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -228,7 +228,7 @@ PNMTOGIF_PIPE = pnmscale 0.5 | ppmquant -fs 256 | ppmtogif
 
 # idraw -> png
 #PNMTOPNG_PIPE = pnmscale 0.5 | pnmgamma 1.7 | pnmtopng -gamma 1.7
-PNMTOPNG_PIPE = pnmscale 0.5 | pnmtopng
+PNMTOPNG_PIPE = pnmscale 0.5 | pnmtopng -gamma 1.45455
 
 # include paths
 INCLUDES= -Ibuild -I.
