@@ -1,172 +1,93 @@
 #!/usr/local/bin/perl
-# Index maker:
-#
-# Build an index table of all the anchors that have a name of the form:
-# "<prefix>-<name>". In addition when a database is given with the '-db' option,
-# information related to elements searched by names is added to the table.
-# Table headers can be specified through the '-th' option.
-#
-# Arnaud Le Hors - lehors@w3.org
-# $Id: mkidx,v 1.12 1998-01-28 18:12:01 bbos Exp $
 
-if (($_ = $ARGV[0], /^-r/) && $ARGV[0]) {
-    shift;
-    $realpath = $ARGV[0];
-    shift;
-} else {
-    $realpath = ();
+#use Getopt::Std;
+
+$PROG = substr($0, rindex($0, "/") + 1);
+$USAGE = "Usage: $PROG indexdb [output]\n";
+
+@indent = ('  ','    ','      ','        ');
+
+
+sub cmp_entry {
+    $terms_a = lc($a);
+    $terms_b = lc($b);
+    $terms_a =~ s/\&[a-z#0-9]+;?//sio;
+    $terms_b =~ s/\&[a-z#0-9]+;?//sio;
+    $terms_a =~ s/^[^a-z0-9\@:]+//sio;
+    $terms_b =~ s/^[^a-z0-9\@:]+//sio;
+    return $terms_a cmp $terms_b;
 }
 
-$PROGNAME = substr($0, rindex($0, "/") + 1);
+if ($#ARGV >= 0) {$db = $ARGV[0]; shift;} else {die $USAGE;}
+if ($#ARGV >= 0) {$output = $ARGV[0]; shift;} else {$output = '-';}
+if ($#ARGV >= 0) {die $USAGE;}
 
-if (!$ARGV[1]) {
-    die "Usage: $PROGNAME indexfile idxdb1 idxdb2 ...\n";
-}
-$indexf = $ARGV[0];
-shift;
-if (!$realpath) {
-    $realpath = $indexf;
-}
+dbmopen(%index, $db, 0666) || die "$PROG: cannot open database $db\n;";
+open(OUTPUT, ">$output") || die "$PROG: cannot create file $output\n";
 
-# compute relative path from 1 to 2
-sub rpath {
-    @path1 = split("/", $_[0]);
-    @path2 = split("/", $_[1]);
+# Slurp it all into memory, and sort...
+@sorted = sort cmp_entry (values %index);
 
-    pop(@path1);
-    while ($path1[0] eq $path2[0]) {
-        shift(@path1);
-        shift(@path2);
+# Write it out
+@prev = ('', '', '', '', '', '');
+$prevletter = ' ';
+print OUTPUT "<ul class=\"index\">";
+$lvl = 0;
+$seqno = 1;			# Number within an entry
+foreach $e (@sorted) {
+    ($entry, $prefix, $class, $anchor) = split(/\t/, $e);
+    @subs = split(/::/, $entry);
+
+    # Check to what level this entry is the same as the last one
+    $i = 0;
+    while (($i <= $#subs) && ($subs[$i] eq $prev[$i])) {$i++;}
+
+    # If not completely the same, reset $seqno, else increment
+    if ($i <= $lvl) {$seqno = 1;} else {$seqno++;}
+
+    # Close lists to the required level
+    while ($lvl > $i) {
+	$lvl--;
+	print OUTPUT "\n$indent[$lvl]</ul>";
     }
 
-    $root = "";
-    foreach $el (@path1) {
-        $root .= "../";
+    # If new first letter, insert an anchor
+    if ($lvl == 0) {
+	$letter = $subs[0];
+	$letter =~ s/\&[a-z\#0-9]+;?//sio;
+	$letter =~ s/^[^a-z0-9\@:]+//sio;
+	$letter = lc(substr($letter, 0, 1));
+	if ($letter ne $prevletter) {
+	    print OUTPUT "\n</ul>";
+	    print OUTPUT "\n<p><a name=\"index-$letter\">&nbsp;</a>";
+	}
     }
-    $path = join("/", @path2);
-    return "$root$path";
-}
-
-sub readdbfile {
-    $dbasef = $_[0];
-    if (!open(DBASE, $dbasef)) {
-	print STDERR "$PROGNAME Error: Cannot open dbfile: $dbasef\n";
-	return;
-    }
-    while (<DBASE>)  {
-	chop;
-	($index, $url, $cmt) = split(/\|/, $_, 3);
-	# Remove entity markup first (e.g. $lt;)
-	$index =~ s/^&[^;]+;//;
-	# Sort on certain chars only.
-	$index =~ s/^[^a-zA-Z0-9\@:]*//;
-	# Case-insensitive
-	$index = lc($index);
-	# NB: must have a non-space characer
-        # between index and cmt for proper sortin.
-	$key = "$index     $cmt";
-	if ($indexes{$key}) {
-	    push(@{$indexes{$key}}, "$_");
-	} else {
-	    @{$indexes{$key}} = ("$_");
     # Write the subterms that are different
     # class="tocline*" directs our patched html2ps to omit the bullet
-    close(DBASE);
-}
-
-
-### main
-@indexes = ();
-foreach $file (@ARGV) {
-    readdbfile($file);
-}
     for ($j = $i; $j <= $#subs; $j++) {
-# print out index document
-$buf = "";
-@letters = ();
-$curindex = ();
-$curletter = ();
-foreach $key (sort(keys %indexes)) {
-    $lastcmt = ();
-    $first = t;
-    foreach $item (@{$indexes{$key}}) {
-	$cmt = ();
-	if ($first) {
-	    $first = ();
-	    $pre = "";
-	} else {
-	    $pre = ",\n";
+	if ($lvl <= $j) {
+	    $lvl++;
+	print OUTPUT "\n$indent[$j]<li>$subs[$j]";
+	if ($j < $#subs) {
+	    print OUTPUT "\n$indent[$j]<ul class=\"index\">";
+	print OUTPUT "\n$indent[$j]<li class=\"tocline0\">$subs[$j]";
 
-	($index, $url, $cmt) = split(/\|/, $item, 3);
+    print OUTPUT ", <a href=\"$prefix#$anchor\" ";
     if ($class eq 'index-def') {
-	$rurl = rpath($realpath, $url);	# relative URL
+	print OUTPUT "class=\"index-def\"><strong>$seqno</strong>";
+	print OUTPUT "class=\"index-inst\"><span>$seqno</span>";
+	print OUTPUT ", <a href=\"$prefix#$anchor\"><strong class=\"def\">";
+	print OUTPUT "$seqno</strong></a>";
+    print OUTPUT "</a>";
+	print OUTPUT ", <a href=\"$prefix#$anchor\"><span class=\"inst\">";
+	print OUTPUT "$seqno</span></a>";
+    for ($j = 0; $j <= $#subs; $j++) {$prev[$j] = $subs[$j];}
 }
-	if ($curletter ne ($letter = lc(substr($key, 0, 1)))) {
-	    if ($curletter) {
-		$buf .= "</dl>\n";
-	    }
-	    $buf .= "\n<dl>";
-	    $curletter = $letter;
-	    $setanchor = t;
-	    push(@letters, $letter);
-	} else {
-	    $setanchor = ();
-	}
-	if ($curindex ne $index) {
-	    if ($setanchor) {
-		$buf .= "\n  <dt><a name=\"$letter\">$index</a>";
-	    } else {
-		$buf .= "\n  <dt>$index";
-	    }
-	    $n = 1;
-	    $curindex = $index;
-	}
-	if ($url =~ /\#didx-/i) {
-	    $class="index-def";
-	} else {
-	    $class="index-inst";
-	}
-	if ($cmt ne "") {
-	    # If there is an index subkey
-	    if ($lastcmt ne $cmt) {
-		# If the subkey is not the same
-		# as the previous one, start
-		# a new subkey list.
-		$buf .= "\n    <dd>$cmt";
-		$pre .= " <a href=\"$rurl\" class=\"$class\">";
-		$content = "1";
-		$post = "</a>";
-		$n = 2;
-		$lastcmt = $cmt;
-	    } else {
-		# Add number to current subkey list.
-		$pre .= " <a href=\"$rurl\" class=\"$class\">";
-		$content = $n;
-		$post = "</a>";
-		$n++;
-	    }
-	} else {
-	    # Add number to current index line.
-	    $pre .= " <a href=\"$rurl\" class=\"$class\">";
-	    $content = $n;
-	    $post = "</a>";
-	    $n++;
-	}
-	if ($url =~ /\#didx-/) {
-	    $content = "<em><strong>$content</strong></em>";
-	}
-	$buf .= "$pre$content$post";
-    }
+while ($lvl > 0) {
+    print OUTPUT "\n</ul>";
     $lvl--;
-$buf .= "</dl>\n";
+}
+print OUTPUT "\n</ul>\n";
 
-# Print out the full buffer
-open(OUTPUT, "> $indexf");
-print OUTPUT "<DIV class=\"noprint\"> ";
-foreach $letter (@letters) {
-    print OUTPUT " <a href=\"#$letter\">" . uc($letter) . "</a> ";
 close(OUTPUT);
-print OUTPUT "</DIV>";
-print OUTPUT $buf;
-
 

@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.81 1998-01-29 20:11:17 ijacobs Exp $
+# $Id: Makefile,v 2.0 1998-02-02 18:42:55 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -18,7 +18,7 @@ ROOT = .
 
 # the following files are part of the CSS specification
 SRCS0 = \
-$(ROOT)/cover.src
+cover.src
 
 SRCS1 = \
 about.src\
@@ -113,11 +113,14 @@ PROPERTYDB= build/property.db
 DESCRIPTORDB= build/descriptor.db
 # dbase for value types
 VALUEDB= build/value.db
-# dbase for heading dbase
+# dbase for headings
 HEADINGDB= build/headings.db
-MINIHEADINGDB= build/miniheadings.db
+#MINIHEADINGDB= build/miniheadings.db
+# dbase for index terms
+INDEXDB = build/index.db
 
 SED = sed
+#PERL= perl5 -Ibin
 PERL= perl5
 NSGMLS=nsgmls
 LINKLINT=$(PERL) bin/linklint
@@ -178,6 +181,10 @@ CHKSPACES= $(PERL) ./bin/chkspaces
 CHKCSS= ./bin/chkcss
 # add reference normative/informative class info.
 ADDREFCLASS= $(PERL) ./bin/addrefclass
+# create the database with all headings and their anchors and numbers
+MKHEADINGDB = $(PERL) ./bin/mkheadingdb
+# Add prev/next/toc/stylesheet and other links to document
+MKCHAIN = $(PERL) ./bin/mkchain
 
 # utility to generate the PostScript version
 #
@@ -198,29 +205,35 @@ TAR= tar
 ZIP= zip
 LN= ln
 
-.SUFFIXES: .src .html .srb .idraw .gif .ps
+.SUFFIXES: .src .html .srd .idraw .gif .ps .subtoc
 
-%.html: %.src $(HEADINGDB) $(PROPERTYDB) $(DESCRIPTORDB) $(VALUEDB) build/blocks.ok
-	@if [ ! -d build/index ]; then mkdir -p build/index; fi
-	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
-		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -l 2  $(HEADINGDB) $< |\
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) >> build/subtoc.$$$$;\
-	echo "</div>" >> build/subtoc.$$$$; \
-	$(HIPP) $(INCLUDES) $< | $(ADDHANCH) -n -ml 3 -r $< $(HEADINGDB) | \
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
-	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
-	$(INSAFTER) - build/subtoc.$$$$ /H1 $@;\
-	$(RM) build/subtoc.$$$$
+%.subtoc: %.srd # build/headings.db.ok
+	@echo "=========== making" $@
+	echo "<div class=\"subtoc\">" >$@
+	echo "<p><strong>Contents</strong>" >>$@
+	$(MKTOC) -l 2 -r $*.html $(HEADINGDB) >>$@
+	echo "</div>" >>$@
+
+%.html: %.subtoc %.srd build/value.db.ok # build/headings.db.ok
+	@echo "=========== making" $@
+	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
+	$(ADDNAVBAR) -r $@ |\
+	$(INSAFTER) - $*.subtoc /H1 - |\
+	$(MKCHAIN) -r $@ - $@
+
+%.srd: %.src build/blocks.ok
+	@echo "=========== making" $@
+	$(HIPP) $(INCLUDES) $< |\
+	$(ADDIDXANCH) -r $*.html $(INDEXDB) | \
+	$(ADDHANCH) -r $*.html $(HEADINGDB) >$@
 
 .idraw.gif:
 	$(RM) $@
 #	$(PSTOPNM) $< | $(PPMQUANT) | $(PPMTOGIF) >$@
 	$(PSTOPNM) $< | $(PNMTOGIF_PIPE) >$@
 
-all: build/blocks.ok $(PROPERTYDB) $(DESCRIPTORDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES) \
-	$(IMAGES) issues.html DOC/TODO.html
+all: build/blocks.ok build/value.db.ok $(SPECOBJS) $(INDEXES) \
+	$(IMAGES) issues.html DOC/TODO.html $(SPECSRCS:.src=.subtoc) # build/headings.db.ok
 
 install: all css20.tgz 
 	@if [ -z "$(INSTALLDIR)" ]; then\
@@ -284,144 +297,105 @@ $(DESCBLKSDIR)/blocks.ok: $(DESCSRC)
 	$(DEXTR) $(DESCSRC) $(DESCBLKSDIR)
 	touch $@
 
-$(PROPERTYDB): $(SPECSRCS)
-	@if [ ! -d build ]; then mkdir build;fi
-	$(MKPANCHDB) properties propdef - $(SPECSRCS) | $(SED) 's/\.src/\.html/' > $@
 
-$(DESCRIPTORDB): $(SPECSRCS)
-	@if [ ! -d build ]; then mkdir build;fi
-	$(MKPANCHDB) descriptors descdef - $(SPECSRCS) | $(SED) 's/\.src/\.html/' > $@
+build/value.db.ok: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) # $(SPECSRCS:.src=.srd)
+	@echo "=========== making" $@
+	$(MKANCHDB) value-def- $(VALUEDB) $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd)
+	# $(SPECSRCS:.src=.srd)
+	$(MKANCHDB) propdef- $(VALUEDB) $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd)
+	# $(SPECSRCS:.src=.srd)
+	$(MKANCHDB) descdef- $(VALUEDB) $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd)
+	# $(SPECSRCS:.src=.srd)
+	touch $@
 
-$(VALUEDB): $(SPECSRCS)
-	$(MKANCHDB) value-def - $(SPECSRCS) | $(SED) 's/\.src/\.html/' > $@
+cover.srd: build/contents.srb build/minicontents.srb
+	@echo "=========== making" $@
+	$(HIPP) $(INCLUDES) $*.src >$@
 
-cover.html: cover.src build/contents.srb build/minicontents.srb
+cover.html: cover.srd
+	@echo "=========== making" $@
 	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
 	       -e 's|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g' \
 	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
 	       -e 's|_THE_DATE_|$(THE_DATE)|g' \
-	       -e 's|_THE_ID_|$(THE_ID)|g' $< | \
-	$(HIPP) $(INCLUDES) | \
- $(ADDNAVBAR) -r $@ - $@ "table of contents" "#toc" properties propidx.html descriptors descidx.html index indexlist.html
+	       -e 's|_THE_ID_|$(THE_ID)|g' $*.srd | \
+	$(ADDNAVBAR) -r $@ |\
+	$(MKCHAIN) -r $@ - $@
 
-build/contents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS) $(PROPERTYDB) $(DESCRIPTORDB) $(VALUEDB)
-	$(MKTOC) -ml 5 $@ $(HEADINGDB) $(MAINSRCS)\
-	   -ol -roman $(APPSRCS) -ul -none $(REFSRCS) $(INDEXSRCS) 
-	$(ADDLINKS) -r $< $@ $@ propinst $(PROPERTYDB) \
-	   descinst $(DESCRIPTORDB) value-inst $(VALUEDB) 
+build/contents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.src=.srd) $(INDEXSRCS:.src=.srd)
+	@echo "=========== making" $@
+	$(MKTOC) -h 5 $(HEADINGDB) $@
 
-build/minicontents.srb: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
-	$(MKTOC) -ml 1 $@ $(MINIHEADINGDB) $(MAINSRCS)\
-	   -ol -roman $(APPSRCS) -ul -none $(REFSRCS) $(INDEXSRCS) 
-	$(ADDLINKS) -r $< $@ $@ propinst $(PROPERTYDB) \
-	   descinst $(DESCRIPTORDB) value-inst $(VALUEDB) 
+build/minicontents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.src=.srd) $(INDEXSRCS:.src=.srd)
+	@echo "=========== making" $@
+	$(MKTOC) -h 1 $(HEADINGDB) $@
 
-$(HEADINGDB): build/contents.srb
+#build/headings.db.ok: $(MAINSRCS) $(INDEXSRCS) $(APPSRCS) $(REFSRCS)
+#	@echo "=========== making" $@
+#	$(MKHEADINGDB) $(HEADINGDB)
+#	touch $@
 
-# special rule with different numbering
-about.html: about.src
-	@if [ ! -d build/index ]; then mkdir -p build/index; fi
-	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $< | \
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
-	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html >$@
-
-# special rule with different numbering
-sample.html: sample.src
-	@if [ ! -d build/index ]; then mkdir -p build/index; fi
-	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
-	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html > $@
-
-changes.html: changes.src
-	@if [ ! -d build/index ]; then mkdir -p build/index; fi
-	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
-		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -l 2  $(HEADINGDB) $< |\
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) >> build/subtoc.$$$$;\
-	echo "</div>" >> build/subtoc.$$$$; \
-	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
-	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
-	$(INSAFTER) - build/subtoc.$$$$ /H1 $@;\
-	$(RM) build/subtoc.$$$$
-
-notes.html: notes.src
-	@if [ ! -d build/index ]; then mkdir -p build/index; fi
-	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
-		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -l 2  $(HEADINGDB) $< |\
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) >> build/subtoc.$$$$;\
-	echo "</div>" >> build/subtoc.$$$$; \
-	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
-	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
-	$(INSAFTER) - build/subtoc.$$$$ /H1 $@;\
-	$(RM) build/subtoc.$$$$
-
-grammar.html: grammar.src
-	@if [ ! -d build/index ]; then mkdir -p build/index; fi
-	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
-	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html > $@
-
-refs.html: refs.src
-	@if [ ! -d build/index ]; then mkdir -p build/index; fi
-	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
-		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -l 2  $(HEADINGDB) $< |\
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) >> build/subtoc.$$$$;\
-	echo "</div>" >> build/subtoc.$$$$; \
-	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
-	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
-	$(INSAFTER) - build/subtoc.$$$$ /H1 - | \
-	$(ADDLINKS) -r $< - $@ propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB);\
-	$(RM) build/subtoc.$$$$
 
 ### general index related rules
-indexlist.html: build/indexlist.srb
-build/indexlist.srb: $(SPECOBJS)
-	$(MKIDX) -r indexlist.html $@ build/index/*
+build/indexlist.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) # $(SPECOBJS)
+	@echo "=========== making" $@
+	$(MKIDX) $(INDEXDB) $@
 
-indexlist.html: indexlist.src
-	$(HIPP) $(INCLUDES) $< | \
-	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" properties propidx.html descriptors descidx.html
+indexlist.srd: build/indexlist.srb indexlist.src
+	@echo "=========== making" $@
+	$(HIPP) $(INCLUDES) $*.src |\
+	$(ADDHANCH) -r $*.html $(HEADINGDB) >$@
 
-propidx.html: build/propidx.srb
-build/propidx.srb: $(SPECOBJS)
+indexlist.html: indexlist.srd
+	@echo "=========== making" $@
+	$(ADDNAVBAR) -r $@ $*.srd |\
+	$(MKCHAIN) -r $@ - $@
+
+build/propidx.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) # $(PROPSRC)
+	@echo "=========== making" $@
 	$(MKPROPIDX) -r $@ $@ $(PROPSRC)
 
-propidx.html: propidx.src
-	$(HIPP) $(INCLUDES) $< | \
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
-	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" descriptors descidx.html index indexlist.html
+propidx.srd: propidx.src build/propidx.srb
+	@echo "=========== making" $@
+	$(HIPP) $(INCLUDES) $*.src |\
+	$(ADDHANCH) -r $*.html $(HEADINGDB) >$@
 
-descidx.html: build/descidx.srb
-build/descidx.srb: $(SPECOBJS)
+propidx.html: propidx.srd build/value.db.ok
+	@echo "=========== making" $@
+	$(ADDLINKS) $(VALUEDB) $< propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
+	$(ADDNAVBAR) -r $@ |\
+	$(MKCHAIN) -r $@ - $@
+
+build/descidx.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) # $(SPECOBJS)
+	@echo "=========== making" $@
 	$(MKDESCIDX) -r $@ $@ $(DESCSRC)
 
-descidx.html: descidx.src
-	$(HIPP) $(INCLUDES) $< | \
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
-	$(ADDNAVBAR) -r $@ - $@ contents "cover.html#toc" properties "propidx.html" index "indexlist.html"
+descidx.srd : descidx.src build/descidx.srb descidx.src build/value.db.ok
+	@echo "=========== making" $@
+	$(HIPP) $(INCLUDES) $*.src |\
+	$(ADDHANCH) -r $*.html $(HEADINGDB) >$@
+
+descidx.html: descidx.srd
+	@echo "=========== making" $@
+	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
+	$(ADDNAVBAR) -r $@ |\
+	$(MKCHAIN) -r $@ - $@
 
 # Issues and todo lists.
 issues.html: issues.src build/issues.srb
+	@echo "=========== making" $@
 	$(HIPP) $(INCLUDES) $< $@
 
 build/issues.srb: issues.db
+	@echo "=========== making" $@
 	$(ISSUES) -g >$@
 
 DOC/TODO.html: DOC/TODO.src build/todo.srb
+	@echo "=========== making" $@
 	$(HIPP) $(INCLUDES) $< $@
 
 build/todo.srb: DOC/todo.db
+	@echo "=========== making" $@
 	$(TODO) -g >$@
 
 ### check on the document to see if it's valid
@@ -523,6 +497,7 @@ log:
 
 clean:
 	$(RM) $(SPECOBJS) $(INDEXES) $(PROPBLKSDIR)/* \
+	$(SPECOBJS:.html=.srd) $(SPECOBJS:.html=.subtoc) \
         $(DESCBLKSDIR)/* build/* css20.* linklint
 
 realclean: clean

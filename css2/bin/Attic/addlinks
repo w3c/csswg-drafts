@@ -1,31 +1,19 @@
 #!/usr/local/bin/perl
 # Add links from instances to definitions
+# Write to stdout
 #
 # Arnaud Le Hors - lehors@w3.org
-# $Id: addlinks,v 1.6 1998-01-15 15:14:56 ijacobs Exp $
+# $Id: addlinks,v 2.0 1998-02-02 18:52:35 bbos Exp $
 
-if (($_ = $ARGV[0], /^-r/) && $ARGV[0]) {
-    shift;
-    $realpath = $ARGV[0];
-    shift;
-} else {
-    $realpath = ();
-}
+use lib 'bin';
+use utils;
 
-$PROGNAME = substr($0, rindex($0, "/") + 1);
+$PROG = substr($0, rindex($0, "/") + 1);
+$USAGE = "Usage: $PROG dbase file [ins-class/def-class [ins-class/def-class...]]\n";
 
-if ($#ARGV < 4) {
-    print STDERR "Usage: $PROGNAME [-r realpath] src trgt class anchordb class2 anchordb2 ...\n";
-    exit 1;
-} else {
-    $input = $ARGV[0];
-    shift;
-    if (! $realpath) {
-	$realpath = $input;
-    }
-    $output = $ARGV[0];
-    shift;
-}
+# $1 contains class excl. prefix
+$pre = '<span\s+[^>]*?class\s*=\s*[\"\']?';
+$post = '([^\s\"\'>]+)[\"\']?.*?</span\s*>';
 
 # compute relative path from 1 to 2
 sub rpath {
@@ -46,74 +34,35 @@ sub rpath {
     return "$root$path";
 }
 
-# copy file in memory
-sub readfile {
-    $buf = "";
-    if (!open(INPUT, $_[0])) {
-	print STDERR "$PROGNAME Error: Cannot open file: $_[0]\n";
-	exit 1;
-    }
-    while (<INPUT>) {
-	$buf .= $_;
-    }
-    close(INPUT);
-}
 
-# given the regexp either both elem1 and elem2 are empty strings
-# or one or the other is, but in no case both are non empty
-# so we can concatenate them both together
-# args: start_tag key contents end_tag class xref?
-sub addlink {
-    $start = $_[0];
-    $content = $_[2];
-    $end = $_[3];
-    $theclass = $_[4];
-    $key = $_[1];
-    $ref = $_[5];
-    if (($link = $adbase{lc("$key")})) {
-	$rlink = rpath($realpath, $link);
-	if ( $ref =~ /xref/ ) {
-	    return "<a href=\"$rlink\" class=\"$theclass\">$start$content$end</a>";
-	} else {
-	    return "<a href=\"$rlink\" class=\"noxref\">$start$content$end</a>";
-	}
-    } else {			# no anchor found, leave it unchanged
-	warn "WARNING: No definition of $key for class = $theclass in $realpath\n";
-	return "$start$content$end";
+# Find the URL for $_[0] in %anchors, create <A> around $_[1]
+sub gen_anch {
+    my $anch = $anchors{$_[0]};
+    if (! defined $anch) {
+	warn "$PROG: index $_[0] not found\n";
+	$anch = "";
     }
+    return '<a href="' . $anch . '">' . $_[1] . '</a>';
 }
-
-# read anchor database
-sub readadb {
-    $adbasef = $_[0];
-    %adbase = ();
-    if (!open(DBASE, $adbasef)) {
-	print STDERR "$PROGNAME Error: Cannot open anchordb: $adbasef\n";
-    } else {
-	while (<DBASE>) {
-	    chop;
-	    ($key, $data) = split(";", $_, 2);
-	    $adbase{lc($key)} = $data;
-	}
-	close(DBASE);
-    }
-}
-
 
 ### main
 
-readfile($input);
-$etag="</span>";
-while ($class = $ARGV[0]) {
-    shift;
-    readadb($ARGV[0]);
-    shift;
-    # insert appropriate links
-#(,\\s*xref)?
-    $buf =~ s/(<span\s+class\s*=\s*(?:$class-([^\s>]+)|\"$class-([^\",]+)(,\s*xref)?)\"[^>]*?>)\s*(.*?)\s*($etag)/addlink($1, "$2$3", $5, $6, $class, $4)/sgie;
-}
+($dbase = $ARGV[0]) || die $USAGE;
+shift;
+($file = $ARGV[0]) || die $USAGE;
+shift;
 
-# print out result
-open(OUTPUT, "> $output");
-print OUTPUT $buf;
-close(OUTPUT);
+dbmopen(%anchors, $dbase, 0666) || die "$PROG: cannot open database $dbase\n";
+
+# Load file
+$buf = readfile($file);
+
+# Loop over class/dbase pairs
+while (($class1, $class2) = split(/\//, $ARGV[0])) {
+    shift;
+    $buf =~ s/$pre$class1$post/gen_anch("$class2$1", $&)/sieg;
+}
+dbmclose(%anchors);
+
+# Write result
+print $buf;

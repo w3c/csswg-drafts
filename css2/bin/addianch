@@ -1,174 +1,86 @@
 #!/usr/local/bin/perl
 # Add index anchors to source file _and_ generate index database
 # Arnaud Le Hors - lehors@w3.org
-# $Id: addianch,v 1.8 1997-12-09 00:08:36 ijacobs Exp $
+# $Id: addianch,v 2.0 1998-02-02 18:52:27 bbos Exp $
 
-if (($_ = $ARGV[0], /^-r/) && $ARGV[0]) {
-    shift;
-    $realpath = $ARGV[0];
-    shift;
-} else {
-    $realpath = ();
+use Getopt::Std;
+use lib 'bin';
+use utils;
+
+$PROG = substr($0, rindex($0, "/") + 1);
+$USAGE = "Usage: $PROG [-r url-prefix] dbase [file [output]]\n";
+
+# Remove A tags, initial and trailing ws, collapse all ws to single space
+sub cleanup {
+    my $h = $_[0];
+    $h =~ tr/\n\t/ /s;		# newline & tab -> spaces, and collapse
+    $h =~ s/<\/?a\b.*?>//gio;	# remove A tags
+    $h =~ s/^ +//o;		# remove initial space
+    $h =~ s/ +$//o;		# remove trailing space
+    return $h;
 }
 
-$PROGNAME = substr($0, rindex($0, "/") + 1);
-
-if (!$ARGV[0]) {
-    die "Usage: $PROGNAME [ -r realpath ] indexdb [src] [output]\n";
-}
-$dbasef = $ARGV[0];
-shift;
-if ($ARGV[0]) {
-    $input = $ARGV[0];
-    shift;
-} else {
-    $input = "-";
-}
-if ($ARGV[0]) {
-    $output = $ARGV[0];
-} else {
-    $output = "-";
-}
-if ($realpath) {
-    $file = $realpath;
-} else {
-    $file = $input;
-}
-# change file extension
-$file =~ s/src$/html/;
-
-# copy file in memory
-sub readfile {
-    open(INPUT, $_[0]) || die "$PROGNAME Error: Cannot open file: $_[0]\n";
-    undef $/;			# read file as a single block
-    $buf = <INPUT>;
-    $/ = "\n";			# reset input record separator
-    close(INPUT);
-}
-
-# store index and return an anchor.
-# Since each index markup can define several 
-# links to the same anchor, create a unique
-# anchor the first time this function is
-# called (per markup) and reuse it thereafter
-
-sub storeindex {
-    ($prefix, $index, $cmt, $anchor) = @_;
-    if ($indexes{$index}) {
-	if (!$anchor) {
-	    $n = $#{$indexes{$index}} + 1;
-	    $anchor = "$prefix-$index-$n";
-	    # change possible spaces to underscores
-	    $anchor =~ s/ /_/g;
-	    # leave only alphanumeric characters 
-	    $anchor =~ s/[^a-zA-Z0-9_-]//g;
-	}
-	push(@{$indexes{$index}}, "$file#$anchor|$cmt");
-    } else {
-	if (!$anchor) {
-	    $anchor = "$prefix-$index";
-	    # change possible spaces to underscores
-	    $anchor =~ s/ /_/g;
-	    # leave only alphanumeric characters 
-	    $anchor =~ s/[^a-zA-Z0-9_-]//g;
-	}
-	@{$indexes{$index}} = ("$file#$anchor|$cmt");
-    }
-
-    return $anchor;
-}
-
-$wd = "[^ \t\n>]+";		# word
-$qwd = "\"([^\"]*)\"";		# quoted word
-$sep = "[ \t\n]+";		# word separator
-
-sub addanchor {
-    ($prefix, $st, $content, $et) = @_;
-
-    $anchor = ();
-    # let's see if there is already an anchor in the content
-    if ($content =~ /<a[^>]+>/si) {
-	$hasanchor = t;
-	# let's reuse it
-	$anch = $&;
-	if ($anch =~ /name=(?:$qwd|($wd))[\n \t>]+/si) {
-	    # only $1 or $2 will actually be non null
-	    $anchor = "$1$2";
-	    $hasname = t;
-	} else {
-	    $hasname = ();
-	}
-    } else {
-	$hasanchor = ();
-    }
-
-    # see if a title is specified
-    if ($st =~ /${sep}title=(?:$qwd|($wd))/sgio) {
-        # only $1 or $2 will actually be non null
-        foreach $idxentry (split(/[\n \t]*\|[\n \t]*/g, "$1$2")) {
-	    ($index, $cmt) = split(/::[ \n\t]*/, "$idxentry", 2);
-	    # New lines -> spaces in keys (title OR content)
-	    # And compress extra space
-	    $index =~ s/[\n \t]+/ /g;
-	    $cmt =~ s/[\n \t]+/ /g;
-	    # Remove initial white space
-	    $index =~ s/^[\n \t]+//;
-	    $cmt =~ s/^[\n \t]+//;
-	    $anchor = storeindex($prefix, $index, $cmt, $anchor);
-	}
-    } else {
-	$index = $content;
-	# New lines -> spaces in keys (title OR content)
-	# And compress extra space
-	$index =~ s/[\n \t]+/ /g;
-	# Remove initial white space
-	$index =~ s/^[\n \t]+//;
-	$anchor = storeindex($prefix, $index, "", $anchor);
-    }
-
-    # let's see if there is already an anchor in the content
-    if ($hasanchor) {
-	if (!$hasname) {		# insert name attribute
-	    $content =~ s/<a[\n \t]+/$&name=\"$anchor\" /si;
-	}
-    } else {			# insert anchor
-	$content = "<a name=\"$anchor\">$content</a>";
-    }
-    return "$st$content$et";
-}
+# After matching, $1.$3=part of start tag w/o class, $4=content, $2=class
+$pre = '<span\s+([^>]*?)class\s*=\s*[\"\']?';
+$post = '[\"\']?([^>]*)>(.*?)</span\s*>';
+$defp = $pre.'(index-def|index-inst)'.$post;
 
 ### main
 
-# index patterns
-$eindexp = "</span>";
+getopts('r:') || die $USAGE;
+if ($#ARGV >= 0) {$db = $ARGV[0]; shift;} else {die $USAGE;}
+if ($#ARGV >= 0) {$file = $ARGV[0]; shift;} else {$file = '-';}
+if ($#ARGV >= 0) {$output = $ARGV[0]; shift;} else {$output = '-';}
+if ($#ARGV >= 0) {die $USAGE;}
 
-readfile($input);
-@indexes = ();
-# Remove any comments from the buffer, which may contain index
-# entries.
-$buf =~ s/<!--.*?-->//sgio;
-# add index anchors - definitions
-$sindexp = "<span[ \t\n]+class=(?:index-def|\"index-def\").*?>";
-$buf =~ s/($sindexp)(.*?)($eindexp)/addanchor("didx", $1, $2, $3)/sgieo;
-# add index anchors - instances
-$sindexp = "<span[ \t\n]+class=(?:index-inst|\"index-inst\").*?>";
-$buf =~ s/($sindexp)(.*?)($eindexp)/addanchor("idx", $1, $2, $3)/sgieo;
+$prefix = defined $opt_r ? $opt_r : $file; # URL prefix
 
-# print out result
-open(OUTPUT, "> $output");
-print OUTPUT $buf;
-close(OUTPUT);
+dbmopen(%anchors, $db, 0666) || die "$PROG: cannot open database $db\n";
 
-# print out index database
-# Don't separate fields with ";" because keys may contain markup
-# With entities.
+$buf = readfile($file);		# Load file
+$buf =~ s/<!--.*?-->//gio;	# Remove comments
 
-open(DBASE, "> $dbasef") ||
-    die "$PROGNAME Error: Cannot create dbfile: $dbasef\n";
+open(OUTPUT, ">$output") || die "$PROG: cannot create file $output\n";
 
-foreach $index (sort(keys %indexes)) {
-    foreach $item (@{$indexes{$index}}) {
-	print DBASE "$index|$item\n";
+$seqno = 0;
+
+while ($buf =~ /$defp/sio) {
+    print OUTPUT $`;
+    $buf = $';
+    $elem = $&;
+    $content = $3;
+    $class = $2;
+
+    # Check if there is a title attribute, otherwise use content
+    $h = $1.$3;
+    if ($h =~ /title\s*=\s*(?:\"([^\"]*)\"|\'([^\']*)\'|([^\s>]*))/sio) {
+	$entry = $1.$2.$3;	# Only one of the three is non-empty
+    } else {
+	$entry = $content;	# Assume content is index term
+    }
+    # Split entry in case there are several
+    @entries = split(/\|/o, cleanup($entry));
+
+    # Create an anchor
+    if ($content =~ /<a\b[^>]*?name\s*=\s*[\"\']?([^\s\"\'>]*?)[\"\']?/sio) {
+	# Already a name in the content, re-use it
+	$anchor = $1;
+	print OUTPUT $elem;
+    } else {
+	# Create a unique anchor
+	$anchor = "x$seqno";
+	print OUTPUT "<a name=\"$anchor\">$elem</a>";
+    }
+
+    # Put URL in database: url-prefix class anchor entry
+    foreach $e (@entries) {
+	$key = "$prefix\t$seqno";
+	$h = "$e\t$prefix\t$class\t$anchor";
+	$anchors{$key} = $h;
+	$seqno++;
     }
 }
-close(DBASE);
+print OUTPUT $buf;		# Print final part of file
+
+close(OUTPUT);
+dbmclose(%anchors);

@@ -2,178 +2,109 @@
 # Add navigation "bars" containing a link for next and previous LINKs
 # plus one for any url given in argument
 #
+# ToDo: compare URLs to find shortest relative path
+#
 # Arnaud Le Hors - lehors@w3.org
-# $Id: addnavbar,v 1.6 1998-01-20 22:54:48 ijacobs Exp $
+# Modified by Bert Bos <bert@w3.org>
+# $Id: addnavbar,v 2.0 1998-02-02 18:52:42 bbos Exp $
 
-if ($ARGV[0] eq "-top") {
-    $addtop = ();
-    shift;
-} else {
-    $addtop = true;
-}
+use Getopt::Long;
+use lib 'bin';
+use utils;
 
-if ($ARGV[0] eq "-bottom") {
-    $addbottom = ();
-    shift;
-} else {
-    $addbottom = true;
-}
-
-if ($ARGV[0] eq "-hr") {
-    $hr = "";
-    shift;
-} else {
-    $hr = "<hr title=\"navigation bar separator\">";
-}
-
-if ($ARGV[0] eq "-prev") {
-    $addprev = ();
-    shift;
-} else {
-    $addprev = true;
-}
-
-if ($ARGV[0] eq "-next") {
-    $addnext = ();
-    shift;
-} else {
-    $addnext = true;
-}
-
-if (($ARGV[0] eq "-r") && $ARGV[1]) {
-    shift;
-    $realpath = $ARGV[0];
-    shift;
-} else {
-    $realpath = ();
-}
-
-$PROGNAME = substr($0, rindex($0, "/") + 1);
-
-if ($#ARGV < 1) {
-    print "Usage: $PROGNAME [-top] [-bottom] [-hr] [-prev] [-next] [-r realpath] src trgt [name1 url1] [name2 url2] ...
-\t-top    to suppress navigation bar at the top of the page
-\t-bottom to suppress navigation bar at the bottom of the page
-\t-hr     to suppress horinzontal rules
-\t-prev   to suppress link to previous page
-\t-next   to suppress link to next page\n";
-    exit 1;
-} else {
-    $input = $ARGV[0];
-    shift;
-    if (! $realpath) {
-	$realpath = $input;
-    }
-    $output = $ARGV[0];
-    shift;
-    while ($ARGV[0] && $ARGV[1]) {
-	$names[++$#names] = $ARGV[0];
-	$urls[++$#urls] = $ARGV[1];
-	shift; shift;
-    }
-}
+my $PROG = substr($0, rindex($0, "/") + 1);
+my $USAGE = "Usage: $PROG [options] [file [output]]
+\t-c=config   to give configuration file (default Project.cfg)
+\t-r=realpath to give real name of file (default is file itself)
+\t-top        to suppress navigation bar at the top of the page
+\t-bottom     to suppress navigation bar at the bottom of the page
+\t-hr         to suppress horizontal rules
+\t-prev       to suppress link to previous page
+\t-next       to suppress link to next page
+\t-toc        to suppress link to table of contents
+\t-omit=rel   to omit other relations in config file (can be repeated)\n";
 
 
 ### main
 
-# copy file in memory
-$buf = "";
-if (!open(INPUT, $input)) {
-    print STDERR "$PROGNAME Error: Cannot open file: $input\n";
-    exit 1;
+my %options;
+
+GetOptions(\%options, 'top', 'bottom', 'hr', 'prev', 'next', 'toc',
+	   'omit=s@', 'r=s', 'c=s') or die $USAGE;
+if ($#ARGV >= 0) {$input = $ARGV[0]; shift;} else {$input = '-';}
+if ($#ARGV >= 0) {$output = $ARGV[0]; shift;} else {$output = '-';}
+if ($#ARGV >= 0) {die $USAGE;}
+
+my $name = defined $options{'r'} ? $options{'r'} : $input;
+my $configfile = defined $options{'c'} ? $options{'c'} : 'Project.cfg';
+
+# Read configuration and find info about current file
+read_config($configfile);
+defined $lookup{$name} or die "$PROG: file $name not found in config file\n";
+$chapno = $lookup{$name};
+
+open(IN, $input) or die "$PROG: cannot read file $input\n";
+open(OUT, ">$output") or die "$PROG: cannot write to file $output\n";
+my $done = 0;
+my $i;
+
+# Build the navigation bar
+my $navbar = "\n<div class=\"navbar\" align=\"center\">\n<p>";
+$navbar .= "<a href=\"$chapter[$chapno-1]\">previous</a> &nbsp;\n"
+    unless $chapno < 1 or defined $options{'prev'};
+$navbar .= "<a href=\"$chapter[$chapno+1]\">next</a> &nbsp;\n"
+    unless $chapno >= $#chapter or defined $options{'next'};
+$navbar .= "<a href=\"$contents\">contents</a> &nbsp;\n"
+    unless !defined $contents or defined $options{'toc'};
+for ($i = 0; $i <= $#links; $i++) {
+    $navbar .= "<a href=\"$links[$i]\">$tonavbar[$i]</a> &nbsp;\n"
+	unless $tonavbar[$i] eq '' or grep(/$relations[$i]/, $options{'omit'});
 }
-while (<INPUT>) {
-    $buf .= $_;
-}
-close(INPUT);
+$navbar .= "</div>\n";
 
-# compute relative path from 1 to 2
-sub rpath {
-    @path1 = split("/", $_[0]);
-    @path2 = split("/", $_[1]);
-
-    pop(@path1);
-    while ($path1[0] eq $path2[0]) {
-	shift(@path1);
-	shift(@path2);
-    }
-
-    $root = "";
-    foreach $el (@path1) {
-	$root .= "../";
-    }
-    $path = join("/", @path2);
-    return "$root$path";
-}
-
-# args: tag 
-sub addnavbar {
-    ($elem, $tag, $prev, $next) = @_;
-
-    if ($prev && $addprev) {
-	$navbar = "<a href=\"$prev\">previous</a>";
-    } else {
-	$navbar = "";
-    }
-    if ($next && $addnext) {
-	if ($prev && $addprev) {
-	    $navbar .= " &nbsp; ";
-	}
-	$navbar .= "<a href=\"$next\">next</a>";
-    }
-    for ($i = 0; $i <= $#names; $i++) {
-	$path = rpath($realpath, $urls[$i]);
-	$navbar .= " &nbsp; <a href=\"$path\">$names[$i]</a>";
-    }
-    if (lc($tag) eq "body") {
-	if ($addtop) {
-	    return
-		"$elem\n<div class=\"navbar\" title=\"Navigation bar\">\n<center>&nbsp;$navbar\n</center>" . $hr . "\n</div>\n";
-	} else {
-	    return "$elem";
-	}
-    } else {
-	if ($addbottom) {
-	    return "<div class=\"navbar\" title=\"Navigation bar\">\n" . $hr . "<center>$navbar\n</center></div>\n$elem";
-	} else {
-	    return "$elem";
-	}
+# Insert the navigation bar after the <BODY> tag. (There better be one!)
+if (! defined $options{'top'}) {
+    while (<IN>) {
+	/<body[^>]*>/io and do {
+	    print OUT $`;
+	    print OUT $&;
+	    print OUT $navbar;
+	    print OUT "<hr class=\"navbar\">\n" unless defined $options{'hr'};
+	    print OUT $';
+	    $done++;
+	    last;
+	};
+	print OUT;
     }
 }
 
-$nexttag="<link[ \t\n]+rel=(next|\"next\")[ \t\n]+href=(.*?)>";
-$prevtag="<link[ \t\n]+rel=(prev|\"prev\"|previous|\"previous\")[ \t\n]+href=(.*?)>";
-
-$_ = $buf;
-if (/$nexttag/sio) {
-    # we don't want the quotes
-    $next = $2;
-    $next =~ s/\"//go;
-} else {
-    $next = ();
+# Insert the navigation bar before the </BODY> tag
+if (! defined $options{'bottom'}) {
+    while (<IN>) {
+	/<\/body[^>]*>/io and do {
+	    print OUT $`;
+	    print OUT "<hr class=>\"navbar\"\n" unless defined $options{'hr'};
+	    print OUT $navbar;
+	    print OUT $&;
+	    print OUT $';
+	    $done++;
+	    last;
+	};
+	print OUT;
+    }
 }
 
-$_ = $buf;
-if (/$prevtag/sio) {
-    # we don't want the quotes
-    $prev = $2;
-    $prev =~ s/\"//go;
-} else {
-    $prev = ();
+# Copy the rest of the file
+while (<IN>) {
+    print OUT;
 }
 
-if ($next || $prev) {
-    # insert navigation bar after <body>
-    $buf =~ s/(<(body).*?>)/
-	addnavbar($1, $2, $prev, $next)/sgieo;
-}
-if ($next || $prev) {
-    # insert navigation bar before </body>
-    $buf =~ s/(<(\/body)>)/
-	addnavbar($1, $2, $prev, $next)/sgieo;
+if (!defined $options{'top'}) {$done--;}
+if (!defined $options{'bottom'}) {$done--;}
+if ($done < 0) {
+    warn "$PROG: $input had no <BODY>/</BODY> tags; no navbar inserted\n";
 }
 
-# print out result
-open(OUTPUT, "> $output");
-print OUTPUT $buf;
-close(OUTPUT);
+# Finalize
+close(IN);
+close(OUT);

@@ -7,222 +7,78 @@
 # the comment.
 #
 # Arnaud Le Hors - lehors@w3.org
-# $Id: mktoc,v 1.20 1998-01-28 22:38:15 bbos Exp $
+# $Id: mktoc,v 2.0 1998-02-02 18:53:22 bbos Exp $
 
-$startlvl = 1;
-$maxlvl = 0;
-$maxollvl = 0;
+use Getopt::Std;
+use lib 'bin';
+use utils;
 
-while ($_ = $ARGV[0], /^-/) {
-    if (/^-l/) {
-	shift;
-	$startlvl = $ARGV[0];
-    } elsif (/^-ml/) {
-	shift;
-	$maxlvl = $ARGV[0];
-    } elsif (/^-mol/) {
-	shift;
-	$maxollvl = $ARGV[0];
-    } else {
-	last;
-    }
-    shift;
-}
+$PROG = substr($0, rindex($0, "/") + 1);
+$USAGE = "Usage: $PROG [-l startlvl] [-h maxlvl] [-c config] [-r chapter] headingdb [output]
+\t-r  to generate a ToC only for that chapter (default all chapters)
+\t-c  to choose a different configuration file (default Project.cfg)
+\t-l  to generate only entries for header level startlvl and above
+\t-h  to generate only entries for header level maxlvl and below\n";
+@indent = ("","  ","    ","      ","        ","          ","            ");
 
-$PROGNAME = substr($0, rindex($0, "/") + 1);
-
-if ($#ARGV < 2) {
-    die "Usage: $PROGNAME [-l startlvl] [-ml level] [-mol level] toc tocdb src1 src2 ...
-\t-l   to give the level from which headings should be put into the toc
-\t-ml  set the maximum level to be put into the toc
-\t-mol set the level from which to use an unordered list
-The default is to use an ordered list but this can be changed anytime, by
-inserting the flags -ul and -ol, possibly followed by -none for non bulleted
-unordered lists and -roman for roman ordered lists\n";
-}
-$tocf = $ARGV[0];
-shift;
-$tocdb = $ARGV[0];
-shift;
-
-# copy file in memory
-sub readfile {
-    open(INPUT, $_[0]) || die "$PROGNAME Error: Cannot open file: $_[0]\n";
-    undef $/;			# read file as a single block
-    $buf = <INPUT>;
-    $/ = "\n";			# reset input record separator
-    close(INPUT);
-}
-
-sub hnuminit {
-    @n = ();
-    @ol = ();
-    $ol[0] = "";
-}
-
-sub hnum {
-    $h = $_[0];
-    if ($h == 0 && $#n < 0) {
-	return;
-    }
-
-    $hn = $h - $startlvl;
-    for ($i = $#n; $i > $hn; $i--) {
-	if ($ol[$i] ne "") {
-	    $ol[$i] = "";
-	}
-	$n[$i] = 0;
-    }
-    if ((($maxlvl == 0) || ($h <= $maxlvl)) && $hn >= 0 && $ol[$hn] eq "") {
-	if ($maxollvl == 0 || $h <= $maxollvl) {
-	    if ($h == $startlvl) {
-		$ol[$hn] = "$list";
-	    } else {
-		$ol[$hn] = "ol";
-	    }
-	} else {
-	    $ol[$hn] = "ul";
-	}
-    }
-    $n[$hn]++;
-    if (($_ = $listtype, /A/) && $h == 1) {
-	$num = chr(65 + $n[0] - 1);
-    } elsif (($_ = $listtype, /toc/) && $h == 1) {
-	$num = "$n[0]";
-    } else {
-	$num = "$n[0]";
-	# Use alphabet entries at first level only (i.e., A.1, not A.A)
-	$listtype = "";
-    }
-    for ($i = 1; $i <= $hn; $i++) {
-	$num .= ".$n[$i]";
-    }
-    return $num;
-}
-
-sub cleanup {
-    $text = $_[0];
-    $text =~ s/[ \t]*$//sgi;
-    return $text;
-}
 
 
 ### main
 
-# search for all the headings
-$headingp = "<h([1-6]).*?(?:title\s*=\s*\"(.*?)\".*?)?>(.*?)(?:<!--(.*?)-->)?</h[1-6]>";
+getopts('l:h:r:c:') || die $USAGE;
+if ($#ARGV >= 0) {$tocdb = $ARGV[0]; shift;} else {$output = '-';}
+if ($#ARGV >= 0) {$output = $ARGV[0]; shift;} else {$output = '-';}
+if ($#ARGV >= 0) {die $USAGE;}
 
-open(DBASE, "> $tocdb");
-open(OUTPUT, "> $tocf");
-hnuminit();
-$list = "ol";
-$listtype = "";
-$prevh = 0;
-print OUTPUT "<DIV CLASS=\"toc\">\n";
-LOOP: foreach $file (@ARGV) {
-    if ($file eq "-ul") {	# start a new unordered list
-	while ($prevh > 0) {
-	    print OUTPUT "</$list>\n";
-	    $prevh -= 1;
-	}
-	$list = "ul";
-	$listtype = "";
-	hnum(0);
-	hnuminit();
-	next LOOP;
-    } elsif ($file eq "-ol") { # start a new ordered list
-	while ($prevh > 0) {
-	    print OUTPUT "</$list>\n";
-	    $prevh -= 1;
-	}
-	$list = "ol";
-	$listtype = "";
-	hnum(0);
-	hnuminit();
-	next LOOP;
-    } elsif ($file eq "-roman") { # make ordered list roman
-	$listtype = " type=\"A\"";
-	next LOOP;
-    } elsif ($file eq "-none") { # make unordered list with no bullets
-	$listtype = " class=\"toc\""; # we must rely on CSS for this one
-	next LOOP;
-    }
-    readfile($file);
-    # change extension
-    $hfil = $file;
-    $hfil =~ s/\.src$/\.html/;
-    # Remove all comments, except those followed by </H[1-6]
-    $cmthdr = "(<!--.*?-->\s*<\/h[1-6])|<!--.*?-->";
-    $buf =~ s/$cmthdr/$1/sgio;
-    # seek headings
-    $_ = $buf;
-    while (/$headingp/sio) {
-	$h = int($1);		# Header level
-	$title = "$2";		# Optional TITLE attribute
-	$t = "$3";		# Content
-	$txt = cleanup($t);	# Remove trailing whitespace
-	$cmt = $4;		# Optional comment
-	if ($title) {		# TITLE takes precedence over comment
-	    $cmt = "$title";
-	}
-	if ($h >= $startlvl && (($maxlvl == 0) || ($h <= $maxlvl))) {
-	    # compute section number
-	    $num = hnum($h);
-	    # Reuse first anchor in header.
-	    $hasanchor = ();
-	    if ($t =~ /<a[^>]+>/si) {
-		$hasanchor = t;
-		# let's reuse it
-		$anch = $&;
-		if ($anch =~ /name\s*=\s*(?:([^\s>\"]+)|\"([^\">]+)\")/sig) {
-		    #Only one of two will match.
-		    $anchor = "$1$2";
-		    $txt =~ s/name\s*=\s*$anchor/href=\"$hfil#$anchor\"/isg;
-		    $txt =~ s/name\s*=\s*\"$anchor\"/href=\"$hfil#$anchor\"/isg;
-		}
-	    } else {
-		$anchor = "h-$num";
-		if ($h == 1) {	# if H1 go to the top of the page and set rel
-		    $url = "$hfil";
-		    $rel= " rel=\"chapter\"";
-		} else {
-		    $url = "$hfil#$anchor";
-		    $rel = "";
-		}
-	    }
-	    if ($list eq "ol" && $listtype eq " class=\"toc\"") {
-		$tnum = "$num&nbsp; ";
-	    } else {
-		$tnum ="";
-	    }
-	    while ($h > $prevh) {
-		print OUTPUT "<$list$listtype>\n";
-		$prevh += 1;
-	    }
-	    while ($h < $prevh) {
-		print OUTPUT "</$list>\n";
-		$prevh -= 1;
-	    }
-	    if ($hasanchor) {
-		print OUTPUT "<li class=tocline$h>$tnum$txt\n";
-	    } else {
-		print OUTPUT "<li class=tocline$h>$tnum<a href=\"$url\"$rel>$txt</a>\n";
-	    }
-	    if ($cmt) {
-		print OUTPUT " <em>-$cmt</em>\n";
-	    }
+dbmopen(%anchors, $tocdb, 0666) || die "$PROG: cannot open database $tocdb\n";
 
-	    # dbase format: file;headingtext;h;hnum
-	    print DBASE "$file;$t;$h;$num;$anchor\n";
+my $lo = defined $opt_l ? int($opt_l) : 1;
+my $hi = defined $opt_h ? int($opt_h) : 6;
+my $config = defined $opt_c ? $opt_c : 'Project.cfg';
+
+read_config($config);
+
+open(OUT, ">$output") || die "$PROG: cannot write to $output\n";
+
+my ($start, $end, $i, $chap, $prev, $file);
+
+if (defined $opt_r) {		# For one file only
+    if (! defined $lookup{$opt_r}) {die "$PROG: $opt_r not found in config\n";}
+    $start = $end = $lookup{$opt_r};
+} else {			# For all files
+    $start = 0;
+    $end = $#chapter;
+}
+
+$prev = $lo - 1;
+for ($chap = $start; $chap <= $end; $chap++) {
+    $file = $chapter[$chap];
+    $i = 0;
+    my $key = "$file\t$i";
+    while (($entry = $anchors{$key})) {
+	my ($fn, $j, $txt, $lvl, $hnum, $anchor, $cmt) = split(/\t/, $entry);
+	if ($lo <= $lvl && $lvl <= $hi) {
+	    while ($prev < $lvl) {
+		print OUT "$indent[$prev]<ul class=\"toc\">\n";
+		$prev++;
+	    }
+	    while ($prev > $lvl) {
+		$prev--;
+		print OUT "$indent[$prev]</ul>\n";
+	    }
+	    print OUT "$indent[$lvl]<li class=\"tocline$lvl\">";
+	    print OUT "<a href=\"$file$anchor\">$hnum $txt</a>";
+	    if ($cmt && $cmt ne "") {print OUT " - <em>$cmt</em>";}
+	    print OUT "\n";
 	}
-	$_ = $';
+	$i++;
+	$key = "$file\t$i";
     }
 }
-while ($prevh > 0) {
-    print OUTPUT "</$list>\n";
-    $prevh -= 1;
+while ($prev >= $lo) {
+    $prev--;
+    print OUT "$indent[$prev]</ul>\n";
 }
-print OUTPUT "</DIV>\n";
-hnum(0);			# close all open lists
-close(OUTPUT);
-close(DBASE);
+
+dbmclose(%anchors);
+close(OUT);

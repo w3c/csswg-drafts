@@ -3,82 +3,38 @@
 # and build a database for it.
 #
 # Arnaud Le Hors - lehors@w3.org
-# $Id: mkanchdb,v 1.2 1997-11-20 23:56:46 ian Exp $
+# Modified by Bert Bos <bert@w3.org>
+# $Id: mkanchdb,v 2.0 1998-02-02 18:52:51 bbos Exp $
 
-$PROGNAME = substr($0, rindex($0, "/") + 1);
+use lib 'bin';
+use utils;
 
-if (!$ARGV[0] || !$ARGV[1]) {
-    print "Usage: $PROGNAME prefix dbase src1 src2 ...\n";
-    exit 1;
-} else {
-    $prefix = $ARGV[0];
-    shift;
-    $dbasef = $ARGV[0];
-    shift;
-}
-
-# copy file in memory
-sub readfile {
-    $buf = "";
-    if (!open(INPUT, $_[0])) {
-	print STDERR "$PROGNAME Error: Cannot open file: $_[0]\n";
-	return;
-    }
-    while (<INPUT>) {
-	$buf .= $_;
-    }
-    close(INPUT);
-}
-
-# store anchor
-sub addanchor {
-    if ($anchors{$_[0]}) {
-	print STDERR "$PROGNAME Warning: duplicated index: \"$_[0]\" found both @\n";
-	print STDERR "\t    $anchors{$_[0]}\n";
-	print STDERR "\tand $_[1]\n";
-    } else {
-	$anchors{$_[0]} = $_[1];
-    }
-}
-
-$sp = "[ \t\n]*";               # space
-$ws = "[ \t\n]+";               # word separator
-# look for index anchors
-$banchorp = "<a(?:$ws)name=$sp";
-$eanchorp = ".*?>";
-# non quoted name
-$namep = "$prefix-([^\"][^ \t\n>]+)";
-# quoted name
-$qnamep = "\"$prefix-([^\"]+)\"";
-sub seekanchors {
-    $_ = $buf;
-    while (/$banchorp$namep$eanchorp/sio) {
-	addanchor($1, "$file#$prefix-$1");
-	$_ = $';
-    }
-    $_ = $buf;
-    while (/$banchorp$qnamep$eanchorp/sio) {
-	addanchor($1, "$file#$prefix-$1");
-	$_ = $';
-    }
-}
+$PROG = substr($0, rindex($0, "/") + 1);
+$USAGE = "Usage: $PROG prefix dbase file [file...]\n";
 
 
 ### main
 
-# search for all the anchors
-@anchors = ();
-foreach $file (@ARGV) {
-    readfile($file);
-    seekanchors();
-}
+($prefix = $ARGV[0]) || die $USAGE;
+shift;
+($dbase = $ARGV[0]) || die $USAGE;
+shift;
 
-# print out database
-if (!open(DBASE, "> $dbasef")) {
-    print STDERR "$PROGNAME Error: Cannot open dbfile: $dbasef\n";
-} else {
-    foreach $key (sort(keys %anchors)) {
-	print DBASE "$key;$anchors{$key}\n";
+dbmopen(%anchors, $dbase, 0666) || die "$PROG: cannot open database $dbase\n";
+
+foreach $file (@ARGV) {
+    my $buf = readfile($file);	# Read file
+    $buf =~ s/<!--.*?-->//sgio;	# Remove comments
+    my $hfil = $file;		# Change extension
+    $hfil =~ s/\.sr.$/.html/io;
+    # Loop over all anchors, store them in database, prefixed with filename
+    while ($buf =~ /<a\s+[^>]*?name\s*=\s*[\"\']?($prefix[^\s\"\'>]+)[\"\']?.*?>/sio) {
+	$buf = $';
+	$anch = "$hfil#$1";
+	if (($anchors{$1} ne "") && ($anchors{$1} ne $anch)) {
+	    warn "$PROG: duplicated index \"$1\":
+\t\"$anchors{$1}\" and \"$anch\"";
+	}
+	$anchors{$1} = $anch;
     }
-    close(DBASE);
 }
