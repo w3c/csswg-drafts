@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.22 1997-09-15 15:49:25 ian Exp $
+# $Id: Makefile,v 1.23 1997-09-18 15:55:07 ian Exp $
 
 ROOT = .
 
@@ -249,6 +249,15 @@ check: all
 	@for i in $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) ; \
 	do echo checking $$i...; $(NSGMLS) -s -c sgml/HTML4.cat $$i; done; \
 	echo checking done.
+
+# get cvs logs
+
+FROMDATE=1 week ago
+log:
+	@for i in `cat DOC/FILES` ; \
+	do cvs log -d ">$(FROMDATE)" $$i >/tmp/log; \
+	   grep "selected revisions: 0" /tmp/log >/dev/null || cat /tmp/log; \
+	done; rm /tmp/log
 
 clean:
 	$(RM) $(SPECOBJS) $(SPECIALOBJS) $(INDEXES) $(PROPBLKSDIR)/* \
