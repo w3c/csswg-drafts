@@ -1,10 +1,46 @@
 #!/usr/local/bin/perl
-# Add navigation "bars" containing a link for each LINK element
+# Add navigation "bars" containing a link for next and previous LINKs
+# plus one for any url given in argument
 #
 # Arnaud Le Hors - lehors@w3.org
-# $Id: addnavbar,v 1.1 1997-07-29 17:14:32 ijacobs Exp $
+# $Id: addnavbar,v 1.2 1997-08-01 14:19:31 lehors Exp $
 
-if (($_ = $ARGV[0], /^-r/) && $ARGV[0]) {
+if ($ARGV[0] eq "-top") {
+    $addtop = ();
+    shift;
+} else {
+    $addtop = true;
+}
+
+if ($ARGV[0] eq "-bottom") {
+    $addbottom = ();
+    shift;
+} else {
+    $addbottom = true;
+}
+
+if ($ARGV[0] eq "-hr") {
+    $hr = "";
+    shift;
+} else {
+    $hr = "<hr>";
+}
+
+if ($ARGV[0] eq "-prev") {
+    $addprev = ();
+    shift;
+} else {
+    $addprev = true;
+}
+
+if ($ARGV[0] eq "-next") {
+    $addnext = ();
+    shift;
+} else {
+    $addnext = true;
+}
+
+if (($ARGV[0] eq "-r") && $ARGV[1]) {
     shift;
     $realpath = $ARGV[0];
     shift;
@@ -14,8 +50,13 @@ if (($_ = $ARGV[0], /^-r/) && $ARGV[0]) {
 
 $PROGNAME = substr($0, rindex($0, "/") + 1);
 
-if ($#ARGV < 3) {
-    print "Usage: $PROGNAME [-r realpath] src toc index trgt\n";
+if ($#ARGV < 1) {
+    print "Usage: $PROGNAME [-top] [-bottom] [-hr] [-prev] [-next] [-r realpath] src trgt [name1 url1] [name2 url2] ...
+\t-top    to suppress navigation bar at the top of the page
+\t-bottom to suppress navigation bar at the bottom of the page
+\t-hr     to suppress horinzontal rules
+\t-prev   to suppress link to previous page
+\t-next   to suppress link to next page\n";
     exit 1;
 } else {
     $input = $ARGV[0];
@@ -23,9 +64,13 @@ if ($#ARGV < 3) {
     if (! $realpath) {
 	$realpath = $input;
     }
-    $tocf = $ARGV[0];
-    $eindxf = $ARGV[1];
-    $output = $ARGV[2];
+    $output = $ARGV[0];
+    shift;
+    while ($ARGV[0] && $ARGV[1]) {
+	$names[++$#names] = $ARGV[0];
+	$urls[++$#urls] = $ARGV[1];
+	shift; shift;
+    }
 }
 
 
@@ -63,72 +108,71 @@ sub rpath {
 
 # args: tag 
 sub addnavbar {
-    ($tag, $revsrc, $relsrc, $tocsrc, $eindxsrc) = @_;
+    ($tag, $prev, $next) = @_;
 
-    if ($revsrc) {
-	$navbar = "<a href=\"$revsrc\">previous</a>";
-	if ($relsrc) {
-	    $navbar .= " &nbsp; <a href=\"$relsrc\">next</a>";
+    if ($prev && $addprev) {
+	$navbar = "<a href=\"$prev\">previous</a>";
+    } else {
+	$navbar = "";
+    }
+    if ($next && $addnext) {
+	if ($prev && $addprev) {
+	    $navbar .= " &nbsp; ";
 	}
-	$path = rpath($realpath, $tocsrc);
-	$navbar .= " &nbsp; <a href=\"$path\">contents</a>";
-	$path = rpath($realpath, $eindxsrc);
-	$navbar .= " &nbsp; <a href=\"$path\">index</a>";
-	if (lc($tag) eq "body") {
-	    $navbar = "<body>
-<div class=\"navbar\">
-<center>$navbar\n</center><hr>\n</div>\n";
+	$navbar .= "<a href=\"$next\">next</a>";
+    }
+    for ($i = 0; $i <= $#names; $i++) {
+	$path = rpath($realpath, $urls[$i]);
+	$navbar .= " &nbsp; <a href=\"$path\">$names[$i]</a>";
+    }
+    if (lc($tag) eq "body") {
+	if ($addtop) {
+	    return
+		"<body>\n<div class=\"navbar\">\n<center>$navbar\n</center>"
+		    . $hr . "\n</div>\n";
 	} else {
-	    $navbar = "<div class=\"navbar\">
-<hr><center>$navbar\n</center></div>
-</body>";
+	    return "";
 	}
-    } else {			# special case for first page (== no revsrc)
-	if (lc($tag) eq "body") {
-	    $path = rpath($realpath, $tocsrc);
-	    $navbar = "<body>
-<div class=\"navbar\">
-<center><a href=\"$path\">Go to the table of contents</a>\n</center></div>";
+    } else {
+	if ($addbottom) {
+	    return "<div class=\"navbar\">\n" . $hr .
+		"<center>$navbar\n</center></div>\n</body>";
 	} else {
-	    $path = rpath($realpath, $tocsrc);
-	    $navbar = "<div class=\"navbar\">
-<center><a href=\"$path\">Go to the table of contents</a>\n</center></div>
-</body>";
+	    return "";
 	}
     }
-    return $navbar;
 }
 
-$sreltag="<link[ \t\n]+rel=(next|\"next\")[ \t\n]+href=(.*?)>";
-$srevtag="<link[ \t\n]+rel=(prev|\"prev\"|previous|\"previous\")[ \t\n]+href=(.*?)>";
+$nexttag="<link[ \t\n]+rel=(next|\"next\")[ \t\n]+href=(.*?)>";
+$prevtag="<link[ \t\n]+rel=(prev|\"prev\"|previous|\"previous\")[ \t\n]+href=(.*?)>";
 
 $_ = $buf;
-if (/$sreltag/sio) {
+if (/$nexttag/sio) {
     # we don't want the quotes
-    $relsrc = $2;
-    $relsrc =~ s/\"//go;
+    $next = $2;
+    $next =~ s/\"//go;
 } else {
-    $relsrc = ();
+    $next = ();
 }
 
 $_ = $buf;
-if (/$srevtag/sio) {
+if (/$prevtag/sio) {
     # we don't want the quotes
-    $revsrc = $2;
-    $revsrc =~ s/\"//go;
+    $prev = $2;
+    $prev =~ s/\"//go;
 } else {
-    $revsrc = ();
+    $prev = ();
 }
 
-if ($relsrc || $revsrc) {
+if ($next || $prev) {
     # insert navigation bar after <body>
     $buf =~ s/<(body).*?>/
-	addnavbar($1, $revsrc, $relsrc, $tocf, $eindxf)/sgieo;
+	addnavbar($1, $prev, $next)/sgieo;
 }
-if ($relsrc || $revsrc) {
+if ($next || $prev) {
     # insert navigation bar before </body>
     $buf =~ s/<(\/body)>/
-	addnavbar($1, $revsrc, $relsrc, $tocf, $eindxf)/sgieo;
+	addnavbar($1, $prev, $next)/sgieo;
 }
 
 # print out result
