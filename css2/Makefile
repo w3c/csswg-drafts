@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.26 1997-09-22 16:13:18 ian Exp $
+# $Id: Makefile,v 1.27 1997-09-23 02:34:26 ian Exp $
 
 ROOT = .
 
@@ -88,6 +88,7 @@ DESCSRC= properties/descriptors.db
 PROPBLKSDIR= build/properties
 DESCBLKSDIR= build/descriptors
 
+CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group/
 #Sample install dir
 #INSTALLDIR= /afs/w3.org/pub/WWW/Style/Group/9709/css2-970908
 INSTALLDIR=
@@ -180,6 +181,8 @@ install: all css20.tgz
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
 	$(CP) css20.tgz $(INSTALLDIR)
 	(cd $(INSTALLDIR); $(TAR) xvzf css20.tgz)
+	(cd $(CSSGROUPDIR); rm -f issues.html; \
+            $(LN) $(INSTALLDIR)/issues.html css2-issues.html)
 	$(CP) Overview.html html2psrc $(INSTALLDIR)
 
 install-all: install css20.zip css20.ps css20.txt
