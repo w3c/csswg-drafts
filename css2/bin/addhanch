@@ -1,13 +1,21 @@
 #!/usr/local/bin/perl
 # Add heading anchors
 # Arnaud Le Hors - lehors@w3.org
-# $Id: addhanch,v 1.2 1997-08-01 14:19:47 lehors Exp $
+# $Id: addhanch,v 1.3 1997-09-19 16:01:17 lehors Exp $
 
 if (($_ = $ARGV[0], /^-n$/)) {
     $addnums = true;
     shift;
 } else {
     $addnums = ();
+}
+
+if (($_ = $ARGV[0], /^-l/) && $ARGV[0]) {
+    shift;
+    $startlvl = $ARGV[0];
+    shift;
+} else {
+    $startlvl = 1;
 }
 
 if (($_ = $ARGV[0], /^-ml$/) && $ARGV[1]) {
@@ -18,11 +26,12 @@ if (($_ = $ARGV[0], /^-ml$/) && $ARGV[1]) {
     $maxlvl = 0;
 }
 
-if (($_ = $ARGV[0], /^-top$/)) {
-    $top = true;
+if (($_ = $ARGV[0], /^-h1p$/) && $ARGV[1]) {
+    shift;
+    $h1prefix = $ARGV[0];
     shift;
 } else {
-    $top = ();
+    $h1prefix = "";
 }
 
 if (($_ = $ARGV[0], /^-r/) && $ARGV[1]) {
@@ -36,20 +45,16 @@ if (($_ = $ARGV[0], /^-r/) && $ARGV[1]) {
 $PROGNAME = substr($0, rindex($0, "/") + 1);
 
 if ($#ARGV < 2) {
-    print STDERR "Usage: $PROGNAME [-n] [-ml level] [-top] [-r realpath] src trgt headingdb
+    print STDERR "Usage: $PROGNAME [-n] [-l startlvl] [-ml level] [-h1p prefix] [-r realpath] src trgt headingdb
 \t-n   to have numbers added on the headings
+\t-l   to give the level from which headings anchors should be added
 \t-ml  to give the maximum heading level on which to add numbers
-\t-top to avoid numbers on subheadings (H2-6) in \"*top.src\" files
 \t-r   to give the real path to the source file\n";
     exit 1;
 } else {
     $input = $ARGV[0];
     if (! $realpath) {
 	$realpath = $input;
-    }
-    $_ = $realpath;
-    if ($top && !/.*top\.src/) { # "*top.src" files moved one level up
-	$top = ();
     }
     shift;
     $output = $ARGV[0];
@@ -73,26 +78,32 @@ sub readfile {
 
 # args: stag hnum heading etag
 sub addanchor {
-    $key = "$realpath$n";
-    $n++;
-    $data = $hdbase{$key};
-    if ($data) {
-	($h, $hnum, $heading) = split(";", $data, 3);
-	if ($h == $_[1]) {
-	    if ($addnums && (!$top || $h == 1) &&
-		(($maxlvl == 0) || ($h < $maxlvl))) {
-		$num = "$hnum ";
-		return "$_[0]<a name=\"h-$hnum\">$hnum</a> $_[2]$_[3]";
-	    } else {
-		# HACK!!!
-		# add a non breakable space in the anchor to workaround
-		# broken browsers which don't support correctly empty anchors
-		return "$_[0]$_[2]<a name=\"h-$hnum\">&nbsp;</a>$_[3]";
+    if ($_[1] >= $startlvl) {
+	$key = "$realpath$n";
+	$n++;
+	$data = $hdbase{$key};
+	if ($data) {
+	    ($h, $hnum, $heading) = split(";", $data, 3);
+	    if ($h == $_[1]) {
+		if ($addnums && ($maxlvl == 0) || ($h <= $maxlvl)) {
+		    if ($h == 1 && $h1prefix ne "") {
+			$num = "$h1prefix $hnum:";
+		    } else {
+			$num = "$hnum";
+		    }
+		    return "$_[0]<a name=\"h-$hnum\">$num</a> $_[2]$_[3]";
+		} else {
+		    # HACK!!!
+		    # add a non breakable space in the anchor to work around
+		    # broken browsers which don't support correctly empty
+		    # anchors
+		    return "$_[0]$_[2]<a name=\"h-$hnum\">&nbsp;</a>$_[3]";
+		}
 	    }
 	}
-    }
-    print STDERR "Heading database out of date, could not find entry!
+	print STDERR "Heading database out of date, could not find entry!
                   : $key\n";
+    }
     return "$_[0]$_[2]$_[3]";
 }
 
@@ -103,19 +114,21 @@ sub addanchor {
 readfile($hdbasef);
 $_ = $buf;
 $prevf = "";
-while (/(.*?);(.*?);([0-9]*);([1-9].*?)\n/sio) {
+while (/(.*?);(.*?);([0-9]*);([1-9A-Z].*?)\n/sio) {
     $file = $1;
     $heading = $2;
     $h = int($3);
-    $hnum = $4;
-    if ($file ne $prevf) {
-	$n = 0;
-	$prevf = $file;
-    } else {
-	$n++;
+    if ($h >= $startlvl) {
+	$hnum = $4;
+	if ($file ne $prevf) {
+	    $n = 0;
+	    $prevf = $file;
+	} else {
+	    $n++;
+	}
+	$key = "$file$n";
+	$hdbase{$key} = "$h;$hnum;$heading";
     }
-    $key = "$file$n";
-    $hdbase{$key} = "$h;$hnum;$heading";
     $_ = $';
 }
 
