@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.10 1998-02-20 23:48:13 ijacobs Exp $
+# $Id: Makefile,v 2.11 1998-02-23 16:55:53 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -127,6 +127,8 @@ NSGMLS=nsgmls
 LINKLINT=$(PERL) bin/linklint
 SPELL = ispell -l -p
 DIFF = diff
+GREP = grep
+LS = ls
 
 # HTML include preprocessor (for includes)
 HIPP= $(PERL) ./bin/hipp
@@ -210,7 +212,7 @@ INCLUDES= -Ibuild -I.
 RM= rm -fr
 CP= cp
 TAR= tar
-ZIP= zip
+ZIP= zip -y
 LN= ln
 
 .SUFFIXES: .src .html .srd .idraw .gif .ps .subtoc .png
@@ -250,7 +252,12 @@ LN= ln
 	$(PSTOPNM) $< | $(PNMTOPNG_PIPE) >$@
 
 all: build/blocks.ok $(SPECOBJS) $(INDEXES) \
-	$(IMAGES) issues.html DOC/TODO.html
+	$(IMAGES) images/links.ok issues.html DOC/TODO.html
+
+
+images/links.ok : $(IMAGES)
+	-@(cd images; for i in *.gif; do $(LN) -s $$i "`basename $$i .gif`" 2&> /dev/null; done)
+	touch images/links.ok
 
 install: all css2.tgz 
 	@if [ -z "$(INSTALLDIR)" ]; then\
@@ -280,7 +287,6 @@ css2.ps ps: all
 # converted to ps if there's a *.ps file in the same
 # directory.
 	-@(cd images; for i in *.idraw; do $(LN) -s $$i "`basename $$i .idraw`.ps"; done)
-	-@(cd images; for i in *.gif; do $(LN) -s $$i "`basename $$i .gif`"; done)
 	$(HTML2PS) $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) > $@
 
 css2.html html: all
@@ -294,11 +300,11 @@ css2.txt txt: css2.html
 
 ####
 
-css2.tgz: $(ALLOBJS)
-	$(TAR) cf - $(ALLOBJS) | gzip >$@
+css2.tgz: $(ALLOBJS) images/links.ok
+	$(TAR) cf - $(ALLOBJS) `$(LS) -d images/* | $(GREP) -v "\."` | gzip >$@
 
 css2.zip: $(ALLOBJS)
-	$(ZIP) $@ $(ALLOBJS)
+	$(ZIP) $@ $(ALLOBJS) `$(LS) -d images/* | $(GREP) -v "\."` 
 
 #### Section generate property/descriptor tables from property database.
 
@@ -503,13 +509,13 @@ FROMDATE=1 week ago
 log:
 	@for i in `cat DOC/FILES` ; \
 	do cvs log -d ">$(FROMDATE)" $$i >/tmp/log; \
-	   grep "selected revisions: 0" /tmp/log >/dev/null || cat /tmp/log; \
+	   $(GREP) "selected revisions: 0" /tmp/log >/dev/null || cat /tmp/log; \
 	done; rm /tmp/log
 
 clean:
 	$(RM) $(SPECOBJS) $(INDEXES) $(PROPBLKSDIR)/* \
 	$(SPECOBJS:.html=.srd) $(SPECOBJS:.html=.subtoc) \
-        $(DESCBLKSDIR)/* build/* css2.* linklint
+        $(DESCBLKSDIR)/* build/* css2.* linklint images/links.ok
 
 realclean: clean
 
