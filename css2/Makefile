@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.30 1998-03-25 14:10:23 bbos Exp $
+# $Id: Makefile,v 2.31 1998-04-07 19:32:34 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -195,6 +195,8 @@ MKCHAIN = $(PERL) ./bin/mkchain
 ADDCITE = $(PERL) ./bin/addcite
 # Remove extensions (.gif, .png,...) from IMG links
 RMIMGEXT = $(PERL) ./bin/rmimgext
+# Add special markup (e.g., keyword "Example")
+ADDMARKUP = $(PERL) ./bin/addmarkup
 
 # utility to generate the PostScript version
 #
@@ -236,6 +238,7 @@ LN= ln
 	@echo "=========== making" $@
 	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- descinst-/descdef- value-inst-/value-def- |\
 	$(ADDIDXANCH) -r $@ $(INDEXDB) - |\
+	$(ADDMARKUP) - |\
 	$(ADDNAVBAR) -r $@ |\
 	$(INSAFTER) - $*.subtoc /H1 - |\
 	$(MKCHAIN) -r $@ - $@
@@ -247,6 +250,7 @@ LN= ln
 	$(ADDHANCH) -r $*.html $(HEADINGDB) - $@
 	$(MKANCHDB) -r $*.html value-def- $(VALUEDB) $@
 	$(MKANCHDB) -r $*.html propdef- $(VALUEDB) $@
+	$(MKANCHDB) -r $*.html descdef- $(VALUEDB) $@
 	$(MKANCHDB) -r $*.html descdef- $(VALUEDB) $@
 
 .idraw.gif:
