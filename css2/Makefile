@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.74 1998-01-27 22:45:22 ijacobs Exp $
+# $Id: Makefile,v 1.75 1998-01-28 06:30:30 ijacobs Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -325,17 +325,10 @@ about.html: about.src
 # special rule with different numbering
 sample.html: sample.src
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
-	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
-		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -l 2  $(HEADINGDB) $< |\
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) >> build/subtoc.$$$$;\
-	echo "</div>" >> build/subtoc.$$$$; \
 	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
-	$(INSAFTER) - build/subtoc.$$$$ /H1 $@;\
-	$(RM) build/subtoc.$$$$
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html > $@
 
 changes.html: changes.src
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
@@ -367,17 +360,10 @@ notes.html: notes.src
 
 grammar.html: grammar.src
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
-	echo "<div class=\"subtoc\"><p><strong>Contents</strong>" \
-		> build/subtoc.$$$$; \
-	$(MKSUBTOC) -l 2  $(HEADINGDB) $< |\
-	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) >> build/subtoc.$$$$;\
-	echo "</div>" >> build/subtoc.$$$$; \
 	$(ADDHANCH) -n -l 2 -ml 4 $(HEADINGDB) $<| \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
 	$(ADDIDXANCH) -r $< build/index/`echo $<|tr / _`.db | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html| \
-	$(INSAFTER) - build/subtoc.$$$$ /H1 $@;\
-	$(RM) build/subtoc.$$$$
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" properties propidx.html descriptors descidx.html index indexlist.html > $@
 
 refs.html: refs.src
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
