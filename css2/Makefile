@@ -1,6 +1,15 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.43 1997-11-07 16:46:04 bbos Exp $
+# $Id: Makefile,v 1.44 1997-11-20 23:37:22 ian Exp $
+
+# what needs to be set for every new release:
+THIS_VERSION= http://www.w3.org/Style/Group/9711/WD-css2-971128
+THE_PREVIOUS_VERSION= http://www.w3.org/TR/WD-CSS2/
+THE_LATEST_VERSION= http://www.w3.org/Style/Group/9711/WD-css2-971128
+THE_DATE= 28-Nov-1997
+THE_ID= WD-CSS20-971128
+INSTALLDIR= /afs/w3.org/pub/WWW/Style/Group/9711/WD-css2-971128
+CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group/
 
 ROOT = .
 
@@ -93,11 +102,6 @@ DESCSRC= properties/descriptors.db
 PROPBLKSDIR= build/properties
 DESCBLKSDIR= build/descriptors
 
-CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group/
-#Sample install dir
-#INSTALLDIR= /afs/w3.org/pub/WWW/Style/Group/9709/css2-970908
-INSTALLDIR=
-
 # dbase for property name anchors
 PROPERTYDB= build/property.db
 # dbase for descriptor name anchors
@@ -109,6 +113,7 @@ HEADINGDB= build/headings.db
 
 PERL= perl5
 NSGMLS=nsgmls
+LINKLINT=linklint
 
 # HTML include preprocessor (for includes)
 HIPP= $(PERL) ./bin/hipp
@@ -146,6 +151,12 @@ DEXTR= $(PERL) ./bin/dextr
 ISSUES= bin/issues
 # extract issues from todo db.
 TODO= bin/todo
+# make database of references (reference.src)
+MKREFDB = $(PERL) ./bin/mkrefdb
+# check references.
+CHKREFS= $(PERL) ./bin/chkrefs
+# add reference normative/informative class info.
+ADDREFCLASS= $(PERL) ./bin/addrefclass
 
 # utility to generate the PostScript version
 # -R seems broken for this spec.
@@ -257,7 +268,7 @@ indexlist.html: build/indexlist.srb
 build/indexlist.srb: $(SPECOBJS)
 	$(MKIDX) $@ build/index/*
 
-cover.html: cover.src cover-info.src build/contents.srb
+cover.html: cover.src build/contents.srb
 	$(HIPP) $(INCLUDES) $< - | \
  $(ADDNAVBAR) -bottom -hr -r $@ - $@ "go to the table of contents" "#toc" index indexlist.html
 
@@ -274,7 +285,7 @@ about.html: about.src
 	$(ADDHANCH) -n -l 2 -ml 4 $< - $(HEADINGDB) | \
 	$(ADDIDXANCH) -r $< - - build/index/$<.db | \
 	$(ADDLINKS) -r $< - - propinst $(PROPERTYDB) descinst $(DESCRIPTORDB) value-inst $(VALUEDB) | \
-	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index index.html >$@
+	$(ADDNAVBAR) -r $@ - - contents "cover.html#toc" index indexlist.html >$@
 
 # special rule with different numbering
 sample.html: sample.src
@@ -362,10 +373,30 @@ build/todo.srb: DOC/todo.db
 
 ### check on the document to see if it's valid
 
-check: all
-	@for i in $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES) ; \
-	do echo checking $$i...; $(NSGMLS) -s -c sgml/HTML4.cat $$i; done; \
+check: checkdoc checkrefs checklnx
+
+FILES= $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES)
+
+checkdoc: all
+	@for i in $(FILES); \
+	do echo checking $$i...; \
+           $(NSGMLS) -s -c sgml/HTML4.cat $$i; done; \
 	echo checking done.
+
+### check on the validity references in the document
+
+checkrefs: build/refs.db
+	-@$(CHKREFS) build/refs.db $(SPECSRCS)
+
+build/refs.db : $(SPECSRCS) $(REFSRCS)
+	-@$(RM) -f build/refs.db
+	-@$(MKREFDB) $(REFSRCS) build/refs.db
+
+### check links
+
+checklnx: all
+	-@$(RM) linklint
+	$(LINKLINT) -doc linklint $(FILES)
 
 # get cvs logs
 
@@ -378,7 +409,7 @@ log:
 
 clean:
 	$(RM) $(SPECOBJS) $(SPECIALOBJS) $(INDEXES) $(PROPBLKSDIR)/* \
-        $(DESCBLKSDIR)/* build/* css2.*
+        $(DESCBLKSDIR)/* build/* css2.* linklint
 
 realclean: clean
 
