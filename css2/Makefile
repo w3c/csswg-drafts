@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 1.20 1997-09-10 13:21:38 lehors Exp $
+# $Id: Makefile,v 1.21 1997-09-12 14:37:41 bbos Exp $
 
 ROOT = .
 
@@ -129,7 +129,12 @@ DEXTR= $(PERL) ./bin/dextr
 
 # utility to generate the PostScript version
 # -R seems broken for this spec.
-HTML2PS= $(PERL) html2ps -f html2psrc
+HTML2PS= $(PERL) ./bin/html2ps -f html2psrc
+
+# PS -> GIF tools
+MYPSTOPNM = ./bin/mypstopnm -r 75
+PPMQUANT = ppmquant 256
+PPMTOGIF = ppmtogif -trans rgb:ffff/ffff/ffff
 
 # include paths
 INCLUDES= -Ibuild -I.
@@ -140,7 +145,7 @@ TAR= tar
 ZIP= zip
 LN= ln
 
-.SUFFIXES: .src .html .srb 
+.SUFFIXES: .src .html .srb .idraw .gif
 
 .src.html:
 	@if [ ! -d build/index ]; then mkdir -p build/index; fi
@@ -155,8 +160,12 @@ LN= ln
 	$(INSAFTER) - build/subtoc.$$$$ /H1 $@; \
 	$(RM) build/subtoc.$$$$
 
+.idraw.gif:
+	$(MYPSTOPNM) $< | $(PPMQUANT) | $(PPMTOGIF) >$@
 
-all: blocks $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES)
+
+all: blocks $(PROPERTYDB) $(VALUEDB) $(HEADINGDB) $(SPECOBJS) $(INDEXES) \
+	$(IMAGES)
 
 install: all css20.tgz 
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
