@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.86 2004-03-08 18:33:57 bbos Exp $
+# $Id: Makefile,v 2.87 2005-04-25 16:38:53 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -147,7 +147,8 @@ SPELL = ispell -l -p
 DIFF = diff
 GREP = grep
 LS = ls
-HTML2TXT = lynx -cfg lynx.cfg -dump -nolist
+#HTML2TXT = lynx -cfg lynx.cfg -dump -nolist
+HTML2TXT = lynx -dump -nolist
 DISTILL = ps2pdf
 
 # HTML include preprocessor (for includes)
