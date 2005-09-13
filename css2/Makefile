@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.89 2005-06-08 13:42:42 bbos Exp $
+# $Id: Makefile,v 2.90 2005-09-13 19:29:12 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -272,18 +272,23 @@ LN= ln
 	$(MKANCHDB) -r $*.html value-def- $(VALUEDB) $@
 	$(MKANCHDB) -r $*.html propdef- $(VALUEDB) $@
 
-.idraw.gif:
-	$(RM) $@
-#	$(PSTOPNM) $< | $(PPMQUANT) | $(PPMTOGIF) >$@
-	$(PSTOPNM) $< | $(PNMTOGIF_PIPE) >$@
+%.png: %.eps; convert -density 96x96 $< $@
+%.png: %.ps; convert -density 96x96 $< $@
+%.png: %.idraw; convert -density 96x96 $< $@
+%.eps: %.fig; fig2dev -L eps -F -c $< $@
 
-.idraw.png:
-	$(RM) $@
-	$(PSTOPNM) $< | $(PNMTOPNG_PIPE) >$@
-
-.fig.png:
-	$(RM) $@
-	fig2dev -L eps $< | $(PSTOPNM) | $(PNMTOPNG_PIPE) >$@
+#.idraw.gif:
+#	$(RM) $@
+##	$(PSTOPNM) $< | $(PPMQUANT) | $(PPMTOGIF) >$@
+#	$(PSTOPNM) $< | $(PNMTOGIF_PIPE) >$@
+#
+#.idraw.png:
+#	$(RM) $@
+#	$(PSTOPNM) $< | $(PNMTOPNG_PIPE) >$@
+#
+#.fig.png:
+#	$(RM) $@
+#	fig2dev -L eps $< | $(PSTOPNM) | $(PNMTOPNG_PIPE) >$@
 
 all: build/blocks.ok $(SPECOBJS) $(INDEXES) images/pngs.ok \
 	$(IMAGES)
