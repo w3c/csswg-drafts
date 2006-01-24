@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.90 2005-09-13 19:29:12 bbos Exp $
+# $Id: Makefile,v 2.91 2006-01-24 06:52:08 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -58,14 +58,14 @@ fonts.src\
 text.src\
 tables.src\
 ui.src\
+aural.src\
 zindex.src\
-leftblank.src\
-aural.src
+leftblank.src
 
 
 APPSRCS = \
-sample.src\
 changes.src\
+sample.src\
 grammar.src
 
 REFSRCS = \
@@ -77,7 +77,12 @@ indexlist.src
 
 MAINSRCS = $(SRCS1)
 
-MAINOBJS = \
+REFS= \
+refs.html
+
+SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
+
+SPECOBJS= \
 cover.html\
 about.html\
 intro.html\
@@ -97,32 +102,22 @@ fonts.html\
 text.html\
 tables.html\
 ui.html\
-zindex.html\
-leftblank.html\
-aural.html
-
-APPENDIXES= \
-sample.html\
+aural.html\
+refs.html\
 changes.html\
+sample.html\
+zindex.html\
+propidx.html\
+grammar.html\
 leftblank.html\
-grammar.html
-
-REFS= \
-refs.html
-
-INDEXES= \
-propidx.html \
 indexlist.html
-
-SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
-SPECOBJS= $(MAINOBJS) $(APPENDIXES) $(REFS)
 
 #IMAGES = images/*.gif images/*.png
 IMAGES = images/*.png images/*.jpg
 LONGDESCS = images/longdesc/*.html
 STYLESHEETS= style/*.css
 
-ALLOBJS= $(SPECOBJS) $(INDEXES) $(IMAGES) $(LONGDESCS) $(STYLESHEETS)
+ALLOBJS= $(SPECOBJS) $(IMAGES) $(LONGDESCS) $(STYLESHEETS)
 
 PROPSRC= properties/properties.db
 PROPSAMPLE= properties/sample.db
@@ -290,7 +285,7 @@ LN= ln
 #	$(RM) $@
 #	fig2dev -L eps $< | $(PSTOPNM) | $(PNMTOPNG_PIPE) >$@
 
-all: build/blocks.ok $(SPECOBJS) $(INDEXES) images/pngs.ok \
+all: build/blocks.ok $(SPECOBJS) images/pngs.ok \
 	$(IMAGES)
 #	$(IMAGES) issues.html errata-issues.html DOC/TODO.html
 
@@ -348,13 +343,13 @@ errata.html : errata.src
 
 #### Special section to build PS file and single plain text file
 
-css2.ps ps: build/blocks.ok $(SPECOBJS) $(INDEXES) images/pngs.ok $(IMAGES)
+css2.ps ps: build/blocks.ok $(SPECOBJS) images/pngs.ok $(IMAGES)
 # Because of memory limitations in html2ps, use the
 # automagic feature that any *.gif files are not
 # converted to ps if there's a *.ps file in the same
 # directory.
 	-@(cd images; for i in *.idraw; do $(LN) -s $$i "`basename $$i .idraw`.ps"; done)
-	$(HTML2PS) $(SPECOBJS) $(INDEXES) > $@
+	$(HTML2PS) $(SPECOBJS) > $@
 
 css2.ps.gz: css2.ps
 	gzip <$< >$@
@@ -363,8 +358,8 @@ css2.ps.gz: css2.ps
 css2.pdf: css2.ps
 	$(DISTILL) css2.ps
 
-css2.html html: $(SPECOBJS) $(INDEXES)
-	$(HTMLCAT) - $(SPECOBJS) $(INDEXES) | \
+css2.html html: $(SPECOBJS)
+	$(HTMLCAT) - $(SPECOBJS) | \
 	$(HTMLTRIM) div navbar - $@
 
 # the following requires to be on unix and have Netscape running...
@@ -479,11 +474,9 @@ propidx.srd:: build/propidx.srb #propidx.src
 
 check: checkdoc checkspaces checkprops checkrefs checkspell checksample checklnx checkx
 
-FILES= $(MAINOBJS) $(APPENDIXES) $(REFS) $(INDEXES)
-
 checkdoc: all
 	-@echo "# Begin checking sgml."
-	@for i in $(FILES) $(LONGDESCS); \
+	@for i in $(SPECOBJS) $(LONGDESCS); \
 	do echo checking $$i...; \
            $(NSGMLS) -s -c sgml/HTML4.cat $(HTMLDECL) $$i; done;
 	-@echo "# End checking sgml."
@@ -522,7 +515,7 @@ checksample: sample.src $(PROPSRC)
 checklnx: all
 	-@echo "# Begin checking links."
 	-@$(RM) linklint
-	$(LINKLINT) -doc linklint $(FILES)
+	$(LINKLINT) -doc linklint $(SPECOBJS)
 	-@echo "# End checking links."
 
 ### check property instances
@@ -572,9 +565,8 @@ log:
 	done; rm /tmp/log
 
 clean:
-	$(RM) $(SPECOBJS) $(INDEXES) $(PROPBLKSDIR)/* \
+	$(RM) $(SPECOBJS) $(PROPBLKSDIR)/* \
 	$(SPECOBJS:.html=.srd) $(SPECOBJS:.html=.subtoc) \
-        $(INDEXES:.html=.srd) \
         build/* css2.* linklint images/links.ok images/pngs.ok
 
 realclean: clean
@@ -589,11 +581,11 @@ PREVREC = ../../../TR/1998/REC-CSS2-19980512
 PREVWD = ../../../TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PERMANENT_NAME)-$(PREV_DATE)
 HTMLDIFF = htmldiff -i -w '<del>' -x '</del>' -y '<ins>' -z '</ins>'
 
-diffs: $(SPECOBJS) $(INDEXES)
+diffs: $(SPECOBJS)
 	-(cd diffs-rec;\
-	 make PREV=../$(PREVREC) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS) $(INDEXES))
+	 make PREV=../$(PREVREC) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS)
 	-(cd diffs-wd;\
-	 make PREV=../$(PREVWD) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS) $(INDEXES))
+	 make PREV=../$(PREVWD) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS)
 
 
 .PHONY: all install install-all clean realclean checkx diffs
