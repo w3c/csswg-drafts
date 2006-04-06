@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.93 2006-04-06 22:07:00 bbos Exp $
+# $Id: Makefile,v 2.94 2006-04-06 23:26:09 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -214,6 +214,8 @@ ADDLONGDESC = $(PERL) ./bin/addlongdesc
 # utility to generate the PostScript version
 #
 HTML2PS= $(PERL) bin/html2ps -d -f html2psrc2
+PDF2PS=pdftops
+HTML2PDF=prince
 
 # IDRAW -> PS -> GIF tools
 #PSTOPNM = ./bin/mypstopnm -r 75
@@ -343,20 +345,28 @@ errata.html : errata.src
 
 #### Special section to build PS file and single plain text file
 
-css2.ps ps: build/blocks.ok $(SPECOBJS) images/pngs.ok $(IMAGES)
+extras: css2.ps.gz css2.pdf css2.txt css2.zip css2.tgz
+
+#css2.ps ps: build/blocks.ok $(SPECOBJS) images/pngs.ok $(IMAGES)
 # Because of memory limitations in html2ps, use the
 # automagic feature that any *.gif files are not
 # converted to ps if there's a *.ps file in the same
 # directory.
-	-@(cd images; for i in *.idraw; do $(LN) -s $$i "`basename $$i .idraw`.ps"; done)
-	$(HTML2PS) $(SPECOBJS) > $@
+#	-@(cd images; for i in *.idraw; do $(LN) -s $$i "`basename $$i .idraw`.ps"; done)
+#	$(HTML2PS) $(SPECOBJS) > $@
+
+css2.ps: css2.pdf
+	$(PDF2PS) $< $@
 
 css2.ps.gz: css2.ps
 	gzip <$< >$@
 
 # This requires Acrobat Distiller or equivalent
-css2.pdf: css2.ps
-	$(DISTILL) css2.ps
+#css2.pdf pdf: css2.ps
+#	$(DISTILL) css2.ps
+
+css2.pdf: css2.html
+	$(HTML2PDF) $< $@
 
 css2.html html: $(SPECOBJS)
 	$(HTMLCAT) - $(SPECOBJS) | \
