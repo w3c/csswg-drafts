@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.94 2006-04-06 23:26:09 bbos Exp $
+# $Id: Makefile,v 2.95 2006-04-06 23:27:27 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -215,7 +215,7 @@ ADDLONGDESC = $(PERL) ./bin/addlongdesc
 #
 HTML2PS= $(PERL) bin/html2ps -d -f html2psrc2
 PDF2PS=pdftops
-HTML2PDF=prince
+HTML2PDF=prince -i html
 
 # IDRAW -> PS -> GIF tools
 #PSTOPNM = ./bin/mypstopnm -r 75
