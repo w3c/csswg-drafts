@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.92 2006-04-06 21:47:46 bbos Exp $
+# $Id: Makefile,v 2.93 2006-04-06 22:07:00 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -583,9 +583,9 @@ HTMLDIFF = htmldiff -i -w '<del>' -x '</del>' -y '<ins>' -z '</ins>'
 
 diffs: $(SPECOBJS)
 	-(cd diffs-rec;\
-	 make PREV=../$(PREVREC) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS)
+	 make PREV=../$(PREVREC) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS))
 	-(cd diffs-wd;\
-	 make PREV=../$(PREVWD) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS)
+	 make PREV=../$(PREVWD) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS))
 
 
 .PHONY: all install install-all clean realclean checkx diffs
