@@ -1,19 +1,19 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.98 2006-11-03 15:30:47 bbos Exp $
+# $Id: Makefile,v 2.99 2007-04-16 12:58:45 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
-THE_YEAR = 2006
-THE_MONTH = 11
-THE_MONTHNAME = November
-THE_DAY = 06
-THE_STATUS = WD
-THE_STATUSNAME = Working Draft
+THE_YEAR = 2007
+THE_MONTH = 04
+THE_MONTHNAME = April
+THE_DAY = XX
+THE_STATUS = CR
+THE_STATUSNAME = Candidate Recommendation
 
 PREV_YEAR = 2006
-PREV_MONTH = 04
-PREV_DAY = 11
+PREV_MONTH = 11
+PREV_DAY = 06
 PREV_STATUS = WD
 
 PERMANENT_NAME = CSS21
@@ -135,7 +135,7 @@ INDEXDB = build/index.db
 SED = sed
 #PERL= perl5 -Ibin
 PERL= perl
-NSGMLS=nsgmls
+NSGMLS=onsgmls
 HTMLDECL = sgml/HTML4.decl
 LINKLINT=$(PERL) bin/linklint
 SPELL = ispell -l -p
