@@ -1,20 +1,21 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.102 2007-07-17 16:28:47 bbos Exp $
+# $Id: Makefile,v 2.103 2007-12-12 20:17:28 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
-THE_YEAR = 2007
-THE_MONTH = 07
-THE_MONTHNAME = July
-THE_DAY = 19
+THE_YEAR = YYYY
+THE_MONTH = MM
+THE_MONTHNAME = MMMMM
+THE_DAY = DD
 THE_STATUS = CR
 THE_STATUSNAME = Candidate Recommendation
 
-PREV_YEAR = 2006
-PREV_MONTH = 11
-PREV_DAY = 06
-PREV_STATUS = WD
+PREV_YEAR = 2007
+PREV_MONTH = 07
+PREV_DAY = 19
+PREV_STATUS = CR
+PREV_NAME = CSS21
 
 PERMANENT_NAME = CSS21
 
@@ -27,7 +28,7 @@ TR_DIR = /afs/w3.org/pub/WWW/TR
 THE_DATE = $(THE_DAY) $(THE_MONTHNAME) $(THE_YEAR)
 THE_ID = $(THE_STATUS)-$(PERMANENT_NAME)-$(THE_YEAR)$(THE_MONTH)$(THE_DAY)
 PREV_DATE = $(PREV_YEAR)$(PREV_MONTH)$(PREV_DAY)
-THE_PREVIOUS_VERSION = http://www.w3.org/TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PERMANENT_NAME)-$(PREV_DATE)
+THE_PREVIOUS_VERSION = http://www.w3.org/TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PREV_NAME)-$(PREV_DATE)
 THE_LOC = $(THE_YEAR)/$(THE_ID)
 INSTALLDIR = $(TR_DIR)/$(THE_LOC)
 THIS_VERSION = http://www.w3.org/TR/$(THE_LOC)
