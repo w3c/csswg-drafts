@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.104 2008-03-28 19:41:43 bbos Exp $
+# $Id: Makefile,v 2.105 2008-03-28 19:43:50 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -17,7 +17,7 @@ PREV_DAY = 19
 PREV_STATUS = CR
 PREV_NAME = CSS21
 
-PERMANENT_NAME = CSS21
+PERMANENT_NAME = CSS2
 
 CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group
 UPDATES = /Style/css2-updates
