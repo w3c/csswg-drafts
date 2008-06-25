@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.105 2008-03-28 19:43:50 bbos Exp $
+# $Id: Makefile,v 2.106 2008-06-25 16:18:14 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -139,7 +139,8 @@ PERL= perl
 NSGMLS=onsgmls
 HTMLDECL = sgml/HTML4.decl
 LINKLINT=$(PERL) bin/linklint
-SPELL = ispell -l -p
+# SPELL = ispell -l -p css.dico
+SPELL = aspell -H -p css.dico list
 DIFF = diff
 GREP = grep
 LS = ls
@@ -510,7 +511,7 @@ checkspell:
 	-@for i in $(SPECSRCS) $(LONGDESCS); \
 	   do\
 		echo "Checking spelling in $$i.";\
-		cat $$i | $(SPELL) css.dico | sort -u;\
+		cat $$i | $(SPELL) | sort -u;\
 	   done;
 	-@echo "# End spell checking."
 
