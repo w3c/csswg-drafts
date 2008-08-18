@@ -27,7 +27,15 @@ check: Overview.err
 
 # A handy shortcut:
 
-commit:; cvs commit -m 'Generated. Do not edit!' Overview.html
+commit: update clean all
+	cvs commit -m 'Generated. Do not edit!' Overview.html
+
+update:
+	cvs update
+
+clean:
+	rm Overview.html
 
 
-.PHONY: check commit
+
+.PHONY: check commit update clean
