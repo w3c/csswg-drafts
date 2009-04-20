@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.108 2009-04-16 16:45:11 bbos Exp $
+# $Id: Makefile,v 2.109 2009-04-20 13:40:49 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -351,7 +351,7 @@ errata.html : errata.src
 
 #### Special section to build PS file and single plain text file
 
-extras: css2.ps.gz css2.pdf css2.txt css2.zip css2.tgz
+extras: css2.tgz
 
 css2.ps: build/blocks.ok $(SPECOBJS) images/pngs.ok $(IMAGES)
 # Because of memory limitations in html2ps, use the
@@ -389,9 +389,9 @@ css2.txt txt: css2.html
 
 ####
 
-css2.tgz: $(ALLOBJS) # images/links.ok
+css2.tgz: $(ALLOBJS) css2.txt css2.zip css2.ps.gz css2.pdf # images/links.ok
 #	$(TAR) cf - $(ALLOBJS) `$(LS) -d images/*.png | $(GREP) -v "\."` | gzip >$@
-	$(TAR) cf - $(ALLOBJS) | gzip >$@
+	$(TAR) cf - $^ | gzip >$@
 
 css2.zip: $(ALLOBJS)
 	$(ZIP) $@ $(ALLOBJS) images/*.png
