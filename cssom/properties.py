@@ -137,9 +137,12 @@ def property_from_attribute(attribute):
 
 if "idl" in sys.argv:
     for attribute in input.split("\n"):
-        sys.stdout.write("           attribute DOMString <span title=\"cssstyledeclaration-" + attribute.lower() + "\">" + attribute + "</span>;\n")
+        sys.stdout.write("           attribute DOMString <span title=\"dom-CSSStyleDeclaration-" + attribute + "\">" + attribute + "</span>;\n")
 elif "table" in sys.argv:
     for attribute in input.split("\n"):
-        identifier = "cssstyledeclaration-" + attribute.lower()
-        sys.stdout.write("    <tr>\n     <td><dfn id=\"" + identifier + "\" title=\"" + identifier + "\"><code>" + attribute + "</code></dfn></td>\n     <td>\"<code>" + property_from_attribute(attribute) + "</code>\"</td>\n")
+        identifier = "dom-CSSStyleDeclaration-" + attribute
+        sys.stdout.write("    <tr>\n     <td><dfn id=\"" + identifier.lower() + "\" title=\"" + identifier + "\"><code>" + attribute + "</code></dfn></td>\n     <td>\"<code>" + property_from_attribute(attribute) + "</code>\"</td>\n")
+elif "resolved" in sys.argv:
+    for attribute in input.split("\n"):
+        sys.stdout.write("    <tr>\n     <td>'<code>" + property_from_attribute(attribute) + "</code>'</td>\n     <td></td>\n")
 
