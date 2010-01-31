@@ -137,7 +137,7 @@ def property_from_attribute(attribute):
 
 if "idl" in sys.argv:
     for attribute in input.split("\n"):
-        sys.stdout.write("           attribute DOMString <span title=\"dom-CSSStyleDeclaration-" + attribute + "\">" + attribute + "</span>;\n")
+        sys.stdout.write("           attribute DOMString? <span title=\"dom-CSSStyleDeclaration-" + attribute + "\">" + attribute + "</span>;\n")
 elif "table" in sys.argv:
     for attribute in input.split("\n"):
         identifier = "dom-CSSStyleDeclaration-" + attribute
