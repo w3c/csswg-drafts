@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.110 2009-04-23 14:52:10 bbos Exp $
+# $Id: Makefile,v 2.111 2010-02-11 15:59:15 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -12,19 +12,22 @@ THE_STATUS = MO
 THE_STATUSNAME = Member-only Draft
 
 PREV_YEAR = 2009
-PREV_MONTH = 04
-PREV_DAY = 23
+PREV_MONTH = 09
+PREV_DAY = 08
 PREV_STATUS = CR
 PREV_NAME = CSS2
 
 PERMANENT_NAME = CSS2
 
-CSSGROUPDIR = /afs/w3.org/pub/WWW/Style/Group
+# WEBROOT = /afs/w3.org/WWW
+WEBROOT = $(HOME)/WWW
+
+CSSGROUPDIR = $(WEBROOT)/Style/Group
 UPDATES = /Style/css2-updates
 
 THE_UPDATE_DIR = http://www.w3.org$(UPDATES)
-UPDATESDIR= /afs/w3.org/pub/WWW$(UPDATES)
-TR_DIR = /afs/w3.org/pub/WWW/TR
+UPDATESDIR= $(WEBROOT)$(UPDATES)
+TR_DIR = $(WEBROOT)/TR
 THE_DATE = $(THE_DAY) $(THE_MONTHNAME) $(THE_YEAR)
 THE_ID = $(THE_STATUS)-$(PERMANENT_NAME)-$(THE_YEAR)$(THE_MONTH)$(THE_DAY)
 PREV_DATE = $(PREV_YEAR)$(PREV_MONTH)$(PREV_DAY)
@@ -261,7 +264,15 @@ LN= ln
 	$(ADDLONGDESC) - |\
 	$(ADDNAVBAR) -r $@ |\
 	$(INSAFTER) - $*.subtoc /H1 - |\
-	$(MKCHAIN) -r $@ - $@
+	$(MKCHAIN) -r $@ - |\
+	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
+	       -e 's|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g' \
+	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
+	       -e 's|_THE_STATUS_|$(THE_STATUS)|g' \
+	       -e 's|_THE_STATUSNAME_|$(THE_STATUSNAME)|g' \
+	       -e 's|_THE_DATE_|$(THE_DATE)|g' \
+	       -e 's|_THE_ID_|$(THE_ID)|g' \
+	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' >$@
 
 %.srd: %.src build/blocks.ok $(REFSRC:.src=.srd)
 	@echo "=========== making" $@
@@ -298,7 +309,7 @@ all: build/blocks.ok $(SPECOBJS) images/pngs.ok \
 #	-@(cd images; for i in *.gif; do $(LN) -s $$i "`basename $$i .gif`" 2>//dev/null; done)
 #	touch images/links.ok
 
-install: all css2.tgz 
+install: all css2.tgz $(INSTALLDIR)/.htaccess
 	@if [ -z "$(INSTALLDIR)" ]; then\
 	  echo >&2;\
 	  echo "*** No target directory specified" >&2;\
@@ -313,6 +324,16 @@ install: all css2.tgz
 #	$(LN) -s $(INSTALLDIR)/issues.html $(CSSGROUPDIR)/css2-issues.html
 	-$(RM) $(INSTALLDIR)/Overview.html
 	(cd $(INSTALLDIR); $(LN) -s cover.html Overview.html)
+
+$(INSTALLDIR)/.htaccess:
+	mkdir -p $(INSTALLDIR)
+	echo "DirectoryIndex cover.html" >$@
+	echo "<Files ~ \"\.html\">" >>$@
+	echo "ForceType 'text/html; charset=iso-8859-1'" >>$@
+	echo "</Files>" >>$@
+	echo "<Files ~ \"\.txt\">" >>$@
+	echo "ForceType 'text/plain; charset=iso-8859-1'" >>$@
+	echo "</Files>" >>$@
 
 link: install
 	-$(RM) -f $(TR_DIR)/$(PERMANENT_NAME)
@@ -412,15 +433,16 @@ cover.srd: cover.src build/contents.srb build/minicontents.srb
 
 cover.html: cover.srd Project.cfg
 	@echo "=========== making" $@
+	$(ADDNAVBAR) -r $@ $< |\
+	$(MKCHAIN) -r $@ - |\
 	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
 	       -e 's|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g' \
 	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
-	       -e 's|_THE_STATUS_|$(THE_STATUSNAME)|g' \
+	       -e 's|_THE_STATUS_|$(THE_STATUS)|g' \
+	       -e 's|_THE_STATUSNAME_|$(THE_STATUSNAME)|g' \
 	       -e 's|_THE_DATE_|$(THE_DATE)|g' \
 	       -e 's|_THE_ID_|$(THE_ID)|g' \
-	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' $*.srd | \
-	$(ADDNAVBAR) -r $@ |\
-	$(MKCHAIN) -r $@ - $@
+	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' >$@
 
 build/contents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.src=.srd) $(INDEXSRCS:.src=.srd) Project.cfg
 	@echo "=========== making" $@
@@ -446,7 +468,15 @@ indexlist.srd:: build/indexlist.srb #indexlist.src build/blocks.ok
 indexlist.html: indexlist.srd build/indexlist.srb Project.cfg
 	@echo "=========== making" $@
 	$(ADDNAVBAR) -r $@ $< |\
-	$(MKCHAIN) -r $@ - $@
+	$(MKCHAIN) -r $@ - |\
+	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
+	       -e 's|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g' \
+	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
+	       -e 's|_THE_STATUS_|$(THE_STATUS)|g' \
+	       -e 's|_THE_STATUSNAME_|$(THE_STATUSNAME)|g' \
+	       -e 's|_THE_DATE_|$(THE_DATE)|g' \
+	       -e 's|_THE_ID_|$(THE_ID)|g' \
+	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' >$@
 
 build/propidx.srb: $(PROPSRC)
 	@echo "=========== making" $@
