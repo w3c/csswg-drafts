@@ -1,21 +1,21 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.114 2011-03-15 23:03:07 bbos Exp $
+# $Id: Makefile,v 2.115 2011-04-01 22:05:11 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
-THE_YEAR = YYYY
-#THE_YEAR = 2010
-THE_MONTH = MM
-#THE_MONTH = 12
-THE_MONTHNAME = MMMMM
-#THE_MONTHNAME = December
-THE_DAY = DD
-#THE_DAY = 07
-THE_STATUS = ED
-#THE_STATUS = WD
-THE_STATUSNAME = Editors Draft
-#THE_STATUSNAME = Working Draft
+#THE_YEAR = YYYY
+THE_YEAR = 2011
+#THE_MONTH = MM
+THE_MONTH = 04
+#THE_MONTHNAME = MMMMM
+THE_MONTHNAME = April
+#THE_DAY = DD
+THE_DAY = 12
+#THE_STATUS = ED
+THE_STATUS = PR
+#THE_STATUSNAME = Editors Draft
+THE_STATUSNAME = Proposed Recommendation
 
 PREV_YEAR = 2010
 PREV_MONTH = 12
