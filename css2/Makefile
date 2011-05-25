@@ -1,26 +1,26 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.115 2011-04-01 22:05:11 bbos Exp $
+# $Id: Makefile,v 2.116 2011-05-25 23:15:16 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
-#THE_YEAR = YYYY
-THE_YEAR = 2011
-#THE_MONTH = MM
-THE_MONTH = 04
-#THE_MONTHNAME = MMMMM
-THE_MONTHNAME = April
-#THE_DAY = DD
-THE_DAY = 12
-#THE_STATUS = ED
-THE_STATUS = PR
-#THE_STATUSNAME = Editors Draft
-THE_STATUSNAME = Proposed Recommendation
+THE_YEAR = YYYY
+#THE_YEAR = 2011
+THE_MONTH = MM
+#THE_MONTH = 04
+THE_MONTHNAME = MMMMM
+#THE_MONTHNAME = April
+THE_DAY = DD
+#THE_DAY = 12
+THE_STATUS = ED
+#THE_STATUS = PR
+THE_STATUSNAME = Editors Draft
+#THE_STATUSNAME = Proposed Recommendation
 
-PREV_YEAR = 2010
-PREV_MONTH = 12
-PREV_DAY = 07
-PREV_STATUS = WD
+PREV_YEAR = 2011
+PREV_MONTH = 04
+PREV_DAY = 12
+PREV_STATUS = PR
 PREV_NAME = CSS2
 
 PERMANENT_NAME = CSS2
@@ -126,8 +126,9 @@ indexlist.html
 IMAGES = images/*.png images/*.jpg
 LONGDESCS = images/longdesc/*.html
 STYLESHEETS= style/*.css
+SCRIPTS = annotate.js
 
-ALLOBJS= $(SPECOBJS) $(IMAGES) $(LONGDESCS) $(STYLESHEETS)
+ALLOBJS= $(SPECOBJS) $(IMAGES) $(LONGDESCS) $(STYLESHEETS) $(SCRIPTS)
 
 PROPSRC= properties/properties.db
 PROPSAMPLE= properties/sample.db
