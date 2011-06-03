@@ -18,20 +18,25 @@
 /**
   Data returned from server:
   
+  response.testURI;
+  response.resultsURI;
+  response.detailsURI;
+  response.rewriteURIs;
   response.clientEngineName;
+  response.engines[];
   response.sections[];
   
   section.anchorName;
+  section.section;
   section.testCount;
-  section.needCount;  // (bool) results needed from client engine
-  section.testURI;
   section.engines[];
 
-  engine.title;       // human readable title
-  engine.name;        // string key for harness
+  engineInfo.title;       // human readable title
+  engineInfo.name;        // string key for harness
+  
+  engine.index;
   engine.passCount;
   engine.failCount;
-  engine.detailsURI;
 
 **/
 
@@ -43,6 +48,18 @@ var annotator = {
 
   mResponse: null,
   mClosed: false,
+  
+  buildURI: function(base, section) {
+    if (section) {
+      if (this.mResponse.rewriteURIs) {
+        return base + 'section/' + section + '/';
+      }
+      else {
+        return base + '&sec=' + section;
+      }
+    }
+    return base;
+  },
   
   removeAnnotation: function(anchorName) {
     try {
@@ -84,13 +101,22 @@ var annotator = {
         targetElement = targetElement.parentNode;
       }
       if (targetElement && (Node.ELEMENT_NODE == targetElement.nodeType)) {
+        var needCount = section.testCount;
+        for (index in section.engines) {
+          var engine = section.engines[index];
+          if (this.mResponse.engines[engine.index].name == this.mResponse.clientEngineName) {
+            needCount = section.testCount - (engine.passCount + engine.failCount);
+            break;
+          }
+        }
+
         var annotation = document.createElement('div');
         annotation.setAttribute('id', 'annotation_' + ((0 == section.anchorName.length) ? 'root_' : section.anchorName));
         var annotationClass = 'annotation';
         if (first) {
           annotationClass += ' first';
         }
-        if (0 < section.needCount) {
+        if (0 < needCount) {
           annotationClass += ' need';
         }
         if (this.mClosed) {
@@ -98,7 +124,7 @@ var annotator = {
         }
         annotation.setAttribute('class', annotationClass);
         annotation.setAttribute('testCount', section.testCount);
-        annotation.setAttribute('needCount', section.needCount);
+        annotation.setAttribute('needCount', needCount);
 
         if (first) {
           var disclosure = document.createElement('div');
@@ -121,7 +147,7 @@ var annotator = {
         heading.setAttribute('class', 'heading');
         
         var testLink = document.createElement('a');
-        testLink.setAttribute('href', section.testURI);
+        testLink.setAttribute('href', this.buildURI(this.mResponse.testURI, section.section));
 
         if (1 == section.testCount) {
           testLink.appendChild(document.createTextNode('1 Test'));
@@ -129,20 +155,20 @@ var annotator = {
         else {
           testLink.appendChild(document.createTextNode(section.testCount + ' Tests'));
         }
-        if ((! this.mClosed) && (0 < section.needCount)) {
+        if ((! this.mClosed) && (0 < needCount)) {
           var image = document.createElement('img');
           image.setAttribute('src', this.NEED_TEST_ICON_URI);
           image.setAttribute('class', 'need');
           testLink.appendChild(image);
 
-          if (1 == section.needCount) {
+          if (1 == needCount) {
             testLink.setAttribute('title', '1 test needs results from your client, please click here to run test');
           }
           else {
-            testLink.setAttribute('title', section.needCount + ' tests need results from your client, please click here to run tests');
+            testLink.setAttribute('title', needCount + ' tests need results from your client, please click here to run tests');
           }
           var untested = document.createElement('span');
-          untested.appendChild(document.createTextNode(' ' + section.needCount + '\u00A0untested, please\u00A0test'));
+          untested.appendChild(document.createTextNode(' ' + needCount + '\u00A0untested, please\u00A0test'));
           testLink.appendChild(untested);
         }
         heading.appendChild(testLink);
@@ -200,23 +226,23 @@ var annotator = {
             if (0 < resultCount) {
               var engineNode = document.createElement('span');
               engineNode.setAttribute('title', toolTip);
-              if (engine.name == this.mResponse.clientEngineName) {
+              if (this.mResponse.engines[engine.index].name == this.mResponse.clientEngineName) {
                 engineClass += ' active';
               }
-              engineNode.setAttribute('class', engine.name + ' ' + engineClass);
+              engineNode.setAttribute('class', this.mResponse.engines[engine.index].name + ' ' + engineClass);
               engineNode.setAttribute('passCount', engine.passCount);
               engineNode.setAttribute('failCount', engine.failCount);
               engineNode.setAttribute('needCount', section.testCount - resultCount);
 
               if (0 < resultCount) {
                 var detailsLink = document.createElement('a');
-                detailsLink.setAttribute('href', engine.detailsURI);
+                detailsLink.setAttribute('href', this.buildURI(this.mResponse.resultsURI, section.section));
                 
-                detailsLink.appendChild(document.createTextNode(engine.title));
+                detailsLink.appendChild(document.createTextNode(this.mResponse.engines[engine.index].title));
                 engineNode.appendChild(detailsLink);
               }
               else {
-                engineNode.appendChild(document.createTextNode(engine.title));
+                engineNode.appendChild(document.createTextNode(this.mResponse.engines[engine.index].title));
               }
               
               engines.appendChild(engineNode);
@@ -329,8 +355,7 @@ var annotator = {
         styleSheet.setAttribute('href', this.STYLESHEET_URI);
         document.getElementsByTagName('head')[0].appendChild(styleSheet)
 
-	// var statusURI = this.QUERY_URI + '?s=' + encodeURIComponent(testSuiteName) + '&x=' + encodeURIComponent(document.URL);
-        var statusURI = this.QUERY_URI + '?s=' + encodeURIComponent(testSuiteName) + '&x=' + encodeURIComponent(document.baseURI);
+        var statusURI = this.QUERY_URI + '?s=' + encodeURIComponent(testSuiteName) + '&x=' + encodeURIComponent(document.URL);
         
         if (window.XDomainRequest) {  // The IE way...
           var xdr = new XDomainRequest();
