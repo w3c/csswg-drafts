@@ -43,7 +43,7 @@
 
 var annotator = {
   // QUERY_URI:          "http://test.csswg.org/harness/status.php",
-  QUERY_URI:          "/Style/CSS/teststatus",
+  QUERY_URI:          "/Style/CSS/Test/status",
   STYLESHEET_URI:     "style/annotate.css",
   NEED_TEST_ICON_URI: "images/please_help_32.png",
 
