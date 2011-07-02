@@ -1,6 +1,6 @@
-import sys
+# GENERATE CSSOM
 
-input = """azimuth
+cssidlattributes = """azimuth
 background
 backgroundAttachment
 backgroundColor
@@ -135,14 +135,29 @@ def property_from_attribute(attribute):
             output += char
     return output
 
-if "idl" in sys.argv:
-    for attribute in input.split("\n"):
-        sys.stdout.write("           attribute DOMString? <span title=\"dom-CSSStyleDeclaration-" + attribute + "\">" + attribute + "</span>;\n")
-elif "table" in sys.argv:
-    for attribute in input.split("\n"):
-        identifier = "dom-CSSStyleDeclaration-" + attribute
-        sys.stdout.write("    <tr>\n     <td><dfn id=\"" + identifier.lower() + "\" title=\"" + identifier + "\"><code>" + attribute + "</code></dfn></td>\n     <td>\"<code>" + property_from_attribute(attribute) + "</code>\"</td>\n")
-elif "resolved" in sys.argv:
-    for attribute in input.split("\n"):
-        sys.stdout.write("    <tr>\n     <td>'<code>" + property_from_attribute(attribute) + "</code>'</td>\n     <td></td>\n")
+def generate_propertyidl():
+    value = ""
+    for attribute in cssidlattributes.split("\n"):
+        value += "           attribute DOMString? <span title=\"dom-CSSStyleDeclaration-" + attribute + "\">" + attribute + "</span>;\n"
+    return value
 
+def generate_propertytable():
+    value = ""
+    for attribute in cssidlattributes.split("\n"):
+        identifier = "dom-CSSStyleDeclaration-" + attribute
+        value += "    <tr>\n     <td><dfn title=\"" + identifier + "\"><code>" + attribute + "</code></dfn></td>\n     <td>\"<code>" + property_from_attribute(attribute) + "</code>\"</td>\n"
+    return value
+
+
+def generate_spec():
+    source = open("./cssom-source", "r").read()
+
+    source = source.replace("<!--CSSOM-DECLARATIONIDL-->\n", generate_propertyidl())
+    source = source.replace("<!--CSSOM-DECLARATIONTABLE-->\n", generate_propertytable())
+
+    file = open("./Overview.src.html", "w")
+    file.write(source)
+    file.close()
+
+if __name__ == '__main__':
+    generate_spec()
