@@ -138,7 +138,7 @@ def property_from_attribute(attribute):
 def generate_propertyidl():
     value = ""
     for attribute in cssidlattributes.split("\n"):
-        value += "           attribute DOMString? <span title=\"dom-CSSStyleDeclaration-" + attribute + "\">" + attribute + "</span>;\n"
+        value += "           attribute DOMString <span title=\"dom-CSSStyleDeclaration-" + attribute + "\">" + attribute + "</span>;\n"
     return value
 
 def generate_propertytable():
