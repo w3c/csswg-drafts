@@ -1,6 +1,6 @@
 # Makefile to generate the CSS2 document based on its "source files"
 # Arnaud Le Hors - lehors@w3.org
-# $Id: Makefile,v 2.118 2011-06-06 09:59:21 bbos Exp $
+# $Id: Makefile,v 2.119 2011-10-18 19:41:44 bbos Exp $
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
@@ -248,7 +248,7 @@ TAR= tar
 ZIP= zip -y
 LN= ln
 
-.SUFFIXES: .src .html .srd .idraw .gif .ps .subtoc .png .fig
+.SUFFIXES: .src .html .srd .idraw .gif .ps .subtoc .png .fig .pdf
 
 %.subtoc: %.srd Project.cfg
 	@echo "=========== making" $@
@@ -376,13 +376,19 @@ errata.html : errata.src
 
 extras: css2.tgz
 
-css2.ps: build/blocks.ok $(SPECOBJS) images/pngs.ok $(IMAGES)
-# Because of memory limitations in html2ps, use the
-# automagic feature that any *.gif files are not
-# converted to ps if there's a *.ps file in the same
-# directory.
-	-@(cd images; for i in *.idraw; do $(LN) -s $$i "`basename $$i .idraw`.ps"; done)
-	$(HTML2PS) $(SPECOBJS) > $@
+%.pdf: %.html style/default.css; prince -o $@ $<
+%.ps: %.pdf; $(PDF2PS) $< $@
+
+css2.pdf: $(SPECOBJS:.html=.pdf)
+	pdftk $+ cat output $@
+
+# css2.ps: build/blocks.ok $(SPECOBJS) images/pngs.ok $(IMAGES)
+# # Because of memory limitations in html2ps, use the
+# # automagic feature that any *.gif files are not
+# # converted to ps if there's a *.ps file in the same
+# # directory.
+# 	-@(cd images; for i in *.idraw; do $(LN) -s $$i "`basename $$i .idraw`.ps"; done)
+# 	$(HTML2PS) $(SPECOBJS) > $@
 
 #css2.ps: css2.pdf
 #	$(PDF2PS) $< $@
@@ -390,9 +396,9 @@ css2.ps: build/blocks.ok $(SPECOBJS) images/pngs.ok $(IMAGES)
 css2.ps.gz: css2.ps
 	gzip <$< >$@
 
-# This requires Acrobat Distiller or equivalent
-css2.pdf: css2.ps
-	$(DISTILL) css2.ps
+# # This requires Acrobat Distiller or equivalent
+# css2.pdf: css2.ps
+# 	$(DISTILL) css2.ps
 
 #css2.pdf: css2.html
 #	$(HTML2PDF) $< $@
