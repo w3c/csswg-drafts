@@ -7,7 +7,7 @@
     function toggleStyle() {
         var st = document.getElementById('st');
 
-        if (st.getAttribute('disabled') === 'true') {
+        if (st.hasAttribute('disabled') === true) {
             st.removeAttribute('disabled');
             toggle.textContent = defaultStyleText;
         } else {
@@ -17,15 +17,23 @@
     }
 
     window.onload = function() {
+        var st = document.getElementById('st');
         var divHead = document.getElementById('div-head');
+        var defaultText = additionalStyleText;
+        
+        if (st.hasAttribute('disabled') === false) {
+            defaultText = defaultStyleText;
+        }
+        
         toggle = document.createElement('a');
 
 		divHead.insertBefore(toggle, divHead.firstChild);
-        toggle.textContent = additionalStyleText;
+        toggle.textContent = defaultText;
         toggle.setAttribute('class', 'toggle');
         toggle.setAttribute('href', '#');
         toggle.addEventListener("click", toggleStyle, false);
     };
     
 })();
+
 
