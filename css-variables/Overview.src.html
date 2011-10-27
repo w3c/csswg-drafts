@@ -61,12 +61,12 @@ Introduction</h2>
 
 	<p>Large documents or applications (and even small ones) can contain quite a bit of CSS.  Many of the values in the CSS file will be duplicate data; for example, a site may establish a color scheme and reuse three or four colors throughout the site.  Altering this data can be difficult and error-prone, since it's scattered throughout the CSS file (and possibly across multiple files), and may not be amenable to Find-and-Replace.</p>
 
-	<p>This module introduces a family of custom user-defined properties known collectively as <b>Variables</b>, which allow an author to assign values to a property with an author-chosen name, and then use those values in other properties elsewhere in the document.  This makes it easier to read large files, as seemingly-arbitrary values now have informative names, and makes editting such files much easier and less error-prone, as one only has to change the value once, at the variable definition site, and the change will propagate to all uses of that variable automatically.</p>
+	<p>This module introduces a family of custom user-defined properties known collectively as <i>data properties</i>, which allow an author to assign arbitrary values to a property with an author-chosen name, and then use those values in other properties elsewhere in the document.  This makes it easier to read large files, as seemingly-arbitrary values now have informative names, and makes editting such files much easier and less error-prone, as one only has to change the value once, at the variable definition site, and the change will propagate to all uses of that variable automatically.</p>
 
 <h3 id="placement">
 Module Interactions</h3>
 
-	<p>This module defines a new type of primitive value, the <b>Variable</b>, which is accepted by all properties.</p>
+	<p>This module defines a new type of primitive value, the <i>variable</i>, which is accepted by all properties.</p>
 
 <h3 id="values">
 Values</h3>
@@ -109,7 +109,7 @@ Defining Variables</h2>
 	</table>
 
 	<div class=example>
-		<p>This variables declaration:</p>
+		<p>This style rule:</p>
 
 		<pre>
 :root {
@@ -123,41 +123,66 @@ Defining Variables</h2>
 		<p>The preceding rule is equivalent to writing ''background-color: #06c;'', except that the variable name makes the origin of the color clearer, and if ''data(header-color)'' is used elsewhere in the stylesheet, all of the uses can be updated at once by changing the variable declaration.</p>
 	</div>
 
-	<p class='issue'>Finish replacing the rest of this section.</p>
-
-	<p>Defined variables are available to all stylesheets in the document.  Thus, using ''@import'' to include a stylesheet also includes all variables defined in the stylesheet (and makes all variables declared outside available within the stylesheet, if applicable).  ''@var'' rules present in disabled or alternate stylesheets do not define variables.  Scoped stylesheets are an exception to this: variables defined in the global scope are available within a scoped stylesheet, but variables defined or imported within scoped stylesheets are only available within the scoped stylesheet and any imported stylesheets.</p>
-
-	<p>A ''@var'' rule is <dfn id='inactive-var-rule'>inactive</dfn> if it's present in a disabled or alternate stylesheet, a stylesheet with a media query that evaluates to false, or is present within a conditional rule group [[CSS3CONDITIONAL]] whose condition evaluates to false.  <i>Inactive</i> ''@var'' rules do not define variables.  All other ''@var'' rules are <dfn id='active-var-rule'>active</dfn>.</p>
-
-	<p>If new ''@var'' rules are added to the document through any means, such as direct CSSOM manipulation or new stylesheets being added to the document, or if an <i>inactive</i> ''@var'' rule becomes <i>active</i>, they define variables.  Similarly, if ''@var'' rules are removed from the document or become <i>inactive</i>, they no longer define variables.</p>
-
-	<p>If multiple <i>active</i> ''@var'' rules attempt to define variables with the same name, the last one defined wins; the preceding ''@var'' rules do not define a variable.  For this purpose, user-agent defined variable rules come before author-defined variable rules, which come before user-defined variable rules, which come before override variable rules.  Within each of the preceding groups, the ordering is document order.</p>
+	<p>There is no restriction on the possible names for <i>data properties</i>, except that they must start with "data-" and be a valid identifier like any other property name.  Data properties are ordinary properties, so they can be declared on any element, are resolved with the normal inheritance and cascade rules, can be made conditional with ''@media'' and other conditional rules, can be used in HTML's <code>style</code> attribute, can be read or set using the CSSOM, etc..</p>
 
 	<div class='example'>
-		<p>Earlier declarations of the same variable have no effect, even if uses of the variable come between the earlier and final attempts to define the variable:</p>
+		<p>If a variable is declared multiple times, the standard cascade rules help resolve it:</p>
 
 		<pre>
-@var $var red;
-p { color: $var; }
-@var $var blue;</pre>
+:root { data-color: blue; }
+div { data-color: green; }
+#alert { data-color: red; }
+* { color: data(color); }
 
-		<p>In this example, the color of &lt;p> elements is blue, because the second declaration wins over the first declaration in all uses.</p>
+&lt;p>I'm blue!&lt;/p>
+&lt;div>I'm green!&lt;/div>
+&lt;div id='alert'>
+  And I'm red!
+  &lt;p>So am I, because of inheritance!&lt;/p>
+&lt;/div></pre>
+	</div>
+
+	<p><i>Data properties</i> may use variables in their own values to build up composite variables.  This can create cyclic dependencies where two or more variables attempt to use each other's value; doing so makes all the data properties involved in the cycle define <i>invalid variables</i> instead of the values they had intended to define.</p>
+
+	<div class='example'>
+		<p>This example shows a variable safely depending on another:</p>
+
+		<pre>
+:root {
+	data-main-color: #c06;
+	data-accent-background: linear-gradient(to top, data(main-color), white);
+}</pre>
+
+		<p>The 'data-accent-background' property will automatically update when the 'data-main-color' property is changed.</p>
+	</div>
+
+	<div class='example invalid-example'>
+		<p>On the other hand, this example shows an invalid instance of variables depending on each other:</p>
+
+		<pre>
+:root {
+	data-one: calc(data(two) + 20px);
+	data-two: calc(data(one) - 20px);
+}</pre>
+
+		<p>Both 'data-one' and 'data-two' now define <i>invalid variables</i> rather than lengths.</p>
+	</div>
+
+	<div class='issue'>
+		<p>Is it possible to do a "cyclic" dependency safely?</p>
+
+		<pre>
+&lt;one>&lt;two>&lt;three />&lt;/two>&lt;/one>
+one   { data-foo: 10px; }
+two   { data-bar: calc(data(foo) + 10px); }
+three { data-foo: calc(data(bar) + 10px); }</pre>
+
+		<p>If I'm thinking correctly, one and two would get the value ''10px'' for ''data(foo)'', but three overrides 'data-foo' with a new definition.  It gets the *inherited* value of 'data-bar', which is ''calc(10px + 10px)'' (or maybe just ''20px'' - ''calc()'' computed values aren't well defined yet), so it seems like it validly sets 'data-foo' to ''30px''.  Right?</p>
 	</div>
 
 	<p>Variables can refer to other variables in their value.  If a dependency cycle is created, all the declarations that directly contribute to the cycle define <i>invalid variables</i>.</p>
 
-	<div class='example'>
-		<p>For example, the following set of variable declarations create a dependency cycle:</p>
-
-		<pre>
-@var $foo red;
-@var $bar linear-gradient(transparent, $foo);
-@var $foo $bar;</pre>
-
-		<p>The last two declarations create the cycle, and so they define ''$bar'' and ''$foo'', respectively, as <i>invalid variables</i> instead of as the values in the declarations.  If the last rule were removed, however, there would be no problem - ''$foo'' would be defined as ''red'', while ''$bar'' would be defined as ''linear-gradient(transparent, red)''.</p>
-	</div>
-
-	<p>Before they are defined, all variables are <i>invalid variables</i>.</p>
+	<p>Before they are defined by a <i>data property</i>, all variables are <i>invalid variables</i>.</p>
 
 <h2 id='using-variables'>
 Using Variables</h2>
