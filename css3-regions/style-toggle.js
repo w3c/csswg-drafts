@@ -20,7 +20,7 @@
     window.onload = function() {
         var st = document.getElementById('st');
         var divHead = document.getElementById('div-head');
-        var defaultText = additionalStyleText;
+        var defaultText = defaultStyleText;
         
         toggle = document.createElement('a');
 
