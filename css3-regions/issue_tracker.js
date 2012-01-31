@@ -173,13 +173,13 @@
     function getAllBugLinks(){
         var issueMarkers = document.querySelectorAll(".issue-marker");
         
-        // container for links to bugs in Bugzilla
+        // container for links to bugs in <span class="note-prefixNote
         var issueLinks = [];
         
         // convert NodeList to Array
         issueMarkers = arrayify(issueMarkers);
         
-        // extract links to bugs in Bugzilla
+        // extract links to bugs in <span class="note-prefixNote
         issueMarkers.forEach(function(item, index){
             
             // get all anchors from this issue maker
@@ -199,21 +199,28 @@
     
     document.addEventListener("DOMContentLoaded", function(){ 
         
-        addStylesheet("issue_details.css");
+        // addStylesheet("issue_details.css");
 
         // template for issue details
         var issueTemplateString = '<div class="issue-details"> \
              <span class="status" title="Bug status in Bugzilla">{{bug_status}}</span> \
              <p>{{short_desc}}</p> \
          </div>';
+         
+        // <div class="issue-marker"><a href="https://www.w3.org/Bugs/Public/show_bug.cgi?id=15191">Bug-15191</a></div>
+        var issueTemplateString =   '<div class="issue-marker"><a href="https://www.w3.org/Bugs/Public/show_bug.cgi?{{bug_id}}">Bug-{{bug_id}}</a> \
+              <div class="issue-details"> \
+              <p class="short-desc">{{short_desc}}</p> \
+          </div>\
+          </div>';
         
         var issueTemplate = TemplateManager.compile(issueTemplateString);
         
-        // get anchors with links to bugs in Bugzilla
+        // get anchors with links to bugs in <span class="note-prefixNote
         var issueLinks = getAllBugLinks();   
         
         // run through bug links and request details
-        issueLinks.forEach(function(item, index){
+        /* issueLinks.forEach(function(item, index){
             if (!item.href){
                 return
             }     
@@ -227,15 +234,59 @@
                 // validate response from the service       
                 if (data && data.query && data.query.results && data.query.results.bugzilla && data.query.results.bugzilla.bug){
                                  
-                    var bugData = data.query.results.bugzilla.bug;
+                    var bugData = data.query.results.<span class="note-prefixNote.bug;
                      
                     var node = issueTemplate(bugData);
                     
                     item.parentNode.insertBefore(node, item.nextSibling);
+                    
+                    // console.log(JSON.stringify(data));
                 }    
                      
             }); 
-        })
+        }); */
+        
+        // Get all the bugs on regions.
+        var bugList = [15679,
+                    ,14749
+                    ,14948
+                    ,15009
+                    ,15010
+                    ,15116
+                    ,15741
+                    ,15131
+                    ,15159
+                    ,15186
+                    ,15187
+                    ,15188
+                    ,15189
+                    ,15190
+                    ,15191
+                    ,15713
+                    ,15733
+                    ,15734]
+                    
+        var bugsURL = "https://www.w3.org/Bugs/Public/show_bug.cgi?ctype=xml";
+        
+        bugList.forEach(function (item, index) {
+           bugsURL += "&id=" + item; 
+        });
+        
+        // Compare the bugs in Bugzilla with the ones found in the specification.
+                
+        // var openBugsURL = "https://www.w3.org/Bugs/Public/buglist.cgi?product=CSS&component=CSS%20Regions&resolution=---&ctype=xml";
+        /* var insertHere = document.getElementById('issues-place-holder');
+        
+        getXMLAsObject(bugsURL, function (data) {
+            // validate response from the service       
+            if (data && data.query && data.query.results && data.query.results.bugzilla && data.query.results.bugzilla.bug){
+                // console.log(JSON.stringify(data));
+                data.query.results.bugzilla.bug.forEach(function (item, index) {
+                    var node = issueTemplate(item);
+                    insertHere.appendChild(node);
+                });
+            }
+        });*/
          
     }, false)
     
