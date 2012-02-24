@@ -1,17 +1,34 @@
+
 ANOLIS = anolis
+CP = cp
 
-all: Overview.html data/xrefs/css/cssom-view.json
+XREFS  = data/xrefs/css/cssom-view.json
+EDFILE = Overview.html
+TRFILE = TR/Overview.html
 
-Overview.html: Overview.src.html data Makefile
-	$(ANOLIS) --output-encoding=ascii --omit-optional-tags --quote-attr-values \
+all: $(EDFILE)
+
+Overview.src.html: cssom-view-source
+	$(CP) $< $@
+
+$(XREFS): Overview.src.html Makefile
+	$(ANOLIS) --dump-xrefs=$@ $< /tmp/spec; $(RM) /tmp/spec
+
+$(EDFILE): Overview.src.html $(XREFS) Makefile
+	$(ANOLIS) --output-encoding=utf-8 --omit-optional-tags --quote-attr-values \
 	--w3c-compat --enable=xspecxref --enable=refs --w3c-shortname="cssom-view" \
-	--filter=".publish" $< $@
+	--force-html4-id --filter=".publish" $< $@
 
-data/xrefs/css/cssom-view.json: Overview.src.html Makefile
-	$(ANOLIS) --dump-xrefs=$@ $< /tmp/spec
+draft: $(EDFILE)
 
-publish: Overview.src.html data Makefile
-	$(ANOLIS) --output-encoding=ascii --omit-optional-tags --quote-attr-values \
+$(TRFILE): Overview.src.html $(XREFS) Makefile
+	$(ANOLIS) --output-encoding=utf-8 --omit-optional-tags --quote-attr-values \
 	--w3c-compat --enable=xspecxref --enable=refs --w3c-shortname="cssom-view" \
-	--filter=".dontpublish" --pubdate="$(PUBDATE)" --w3c-status=WD \
-	$< Overview.html
+	--force-html4-id --filter=".dontpublish" --pubdate="$(PUBDATE)" --w3c-status=WD $< $@
+
+publish: $(TRFILE)
+
+clean::
+	$(RM) $(EDFILE)
+	$(RM) Overview.src.html
+	echo '{ "definitions": {}, "url": "http://dvcs.w3.org/hg/cssom-view/raw-file/tip/Overview.html#" }' > $(XREFS)
