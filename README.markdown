@@ -1,7 +1,63 @@
-This repo holds content managed by the [CSS Working Group][1].
+### [CSS Working Group](http://www.w3.org/Style/CSS/) Specifications
 
-   [1]: http://www.w3.org/Style/CSS/
+To download a copy of all specifications:
 
-![Bert Boss][2]
+        hg clone http://dvcs.w3.org/hg/csswg
 
-   [2]: http://www.w3.org/People/Bos/bert3-small.jpg
+For help setting up mercurial see instructions (here)[http://wiki.csswg.org/tools/hg/install].  Specification issues are discussed on the
+public [www-style mailing list](http://lists.w3.org/Archives/Public/www-style/).
+
+* [CSS Snapshot 2007](http://dev.w3.org/csswg/css-2007/)
+* [CSS Snapshot 2010](http://dev.w3.org/csswg/css-2010/)
+* [CSS Color Correction](http://dev.w3.org/csswg/css-color-correction/)
+* [CSS Predefined Additional Counter Styles](http://dev.w3.org/csswg/css-counter-styles/)
+* [CSS Device Adaptation](http://dev.w3.org/csswg/css-device-adapt/)
+* [CSS Line Grid](http://dev.w3.org/csswg/css-line-grid/)
+* [CSS Module Template](http://dev.w3.org/csswg/css-module/)
+* [CSS Style Attributes](http://dev.w3.org/csswg/css-style-attr/)
+* [CSS Variables](http://dev.w3.org/csswg/css-variables/)
+* [CSS 2D Transforms](http://dev.w3.org/csswg/css3-2d-transforms/)
+* [CSS 3D Transforms](http://dev.w3.org/csswg/css3-3d-transforms/)
+* [CSS Animations](http://dev.w3.org/csswg/css3-animations/)
+* [CSS3 Background and Borders](http://dev.w3.org/csswg/css3-background/)
+* [CSS3 Basic Box Model](http://dev.w3.org/csswg/css3-box/)
+* [CSS3 Fragmentation](http://dev.w3.org/csswg/css3-break/)
+* [CSS3 Cascading and Inheritance](http://dev.w3.org/csswg/css3-cascade/)
+* [CSS3 Color](http://dev.w3.org/csswg/css3-color/)
+* [CSS3 Conditional Rules](http://dev.w3.org/csswg/css3-conditional/)
+* [CSS3 Generated Content](http://dev.w3.org/csswg/css3-content/)
+* [CSS3 Exclusions and Shapes](http://dev.w3.org/csswg/css3-exclusions/)
+* [CSS3 Flexible Box Layout](http://dev.w3.org/csswg/css3-flexbox/)
+* [CSS3 Fonts](http://dev.w3.org/csswg/css3-fonts/)
+* [CSS3 Generated Content for Paged Media](http://dev.w3.org/csswg/css3-gcpm/)
+* [CSS3 Grid Layout](http://dev.w3.org/csswg/css3-grid-align/)
+* [CSS3 Grid Positioning](http://dev.w3.org/csswg/css3-grid/)
+* [CSS Hierarchies](http://dev.w3.org/csswg/css3-hierarchies/)
+* [CSS3 Image Values and Replaced Content](http://dev.w3.org/csswg/css3-images/)
+* [CSS Template Layout](http://dev.w3.org/csswg/css3-layout/)
+* [CSS3 Line Layout](http://dev.w3.org/csswg/css3-linebox/)
+* [CSS3 Lists and Counters](http://dev.w3.org/csswg/css3-lists/)
+* [CSS Media Queries](http://dev.w3.org/csswg/css3-mediaqueries/)
+* [CSS3 Multi-column Layout](http://dev.w3.org/csswg/css3-multicol/)
+* [CSS Namespaces](http://dev.w3.org/csswg/css3-namespace/)
+* [CSS3 Page Templates](http://dev.w3.org/csswg/css3-page-template/)
+* [CSS3 Paged Media](http://dev.w3.org/csswg/css3-page/)
+* [CSS3 Positioned Layout](http://dev.w3.org/csswg/css3-positioning/)
+* [CSS3 Presentation Levels](http://dev.w3.org/csswg/css3-preslev/)
+* [CSS3 Regions](http://dev.w3.org/csswg/css3-regions/)
+* [CSS3 Ruby](http://dev.w3.org/csswg/css3-ruby/)
+* [CSS3 Speech](http://dev.w3.org/csswg/css3-speech/)
+* [CSS3 Syntax](http://dev.w3.org/csswg/css3-syntax/)
+* [CSS3 Text](http://dev.w3.org/csswg/css3-text/)
+* [CSS Transforms](http://dev.w3.org/csswg/css3-transforms/)
+* [CSS Transitions](http://dev.w3.org/csswg/css3-transitions/)
+* [CSS3 User Interface](http://dev.w3.org/csswg/css3-ui/)
+* [CSS3 Values and Units](http://dev.w3.org/csswg/css3-values/)
+* [CSS3 Writing Modes](http://dev.w3.org/csswg/css3-writing-modes/)
+* [CSS4 Backgrounds and Borders](http://dev.w3.org/csswg/css4-background/)
+* [CSS4 Images](http://dev.w3.org/csswg/css4-images/)
+* [CSS4 Text](http://dev.w3.org/csswg/css4-text/)
+* [CSSOM View](http://dev.w3.org/csswg/cssom-view/)
+* [CSSOM](http://dev.w3.org/csswg/cssom/)
+* [Selectors Level 3](http://dev.w3.org/csswg/selectors3/)
+* [Selectors Level 4](http://dev.w3.org/csswg/selectors4/)
