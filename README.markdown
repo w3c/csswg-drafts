@@ -2,9 +2,9 @@
 
 To download a copy of all specifications:
 
-        hg clone http://dvcs.w3.org/hg/csswg
+        hg clone https://dvcs.w3.org/hg/csswg
 
-For help setting up mercurial see instructions [here](http://wiki.csswg.org/tools/hg/install).  Specification issues are discussed on the
+For help using or setting up Mercurial see instructions [here](http://wiki.csswg.org/tools/hg).  Specification issues are discussed on the
 public [www-style mailing list](http://lists.w3.org/Archives/Public/www-style/).
 
 * [CSS Snapshot 2007](http://dev.w3.org/csswg/css-2007/)
