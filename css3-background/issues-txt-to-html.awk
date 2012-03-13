@@ -125,11 +125,11 @@ function generate(	command, title, date, class, nobjections, i)
   print "<dt>URL <dd><a href=\"" draft "\">" draft "</a>";
   print "</dl>\n";
   if (length(obj) == 0)
-    print "<p>There were no objections.\n";
+    print "<p>There are no objections.\n";
   else if (length(obj) == 1)
-    print "<p class=objection>There was 1 objection.\n";
+    print "<p class=objection>There is 1 objection.\n";
   else
-    print "<p class=objection>There were " length(obj) " objections.\n";
+    print "<p class=objection>There are " length(obj) " objections.\n";
   print "<table>";
   print "<thead>";
   print "<tr><th>#<th>Author<th>Summary and discussion<th>Result\n";
