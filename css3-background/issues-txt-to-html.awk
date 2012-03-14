@@ -2,9 +2,10 @@
 #
 # Takes a compact issues list in plain text and expands it to an HTML
 # document. The issues list is line-based. Lines that start neither
-# with "Issue" nor with a keyword and a colon are ignored. The lines
-# are grouped into issues: each occurrence of "Issue:" starts a new
-# issue. The following keywords are recognized:
+# with "Issue" nor with a keyword and a colon are ignored, unless they
+# are continuation lines (see below). The lines are grouped into issues: each
+# occurrence of "Issue:" starts a new issue. The following keywords
+# are recognized:
 #
 # Draft
 #   Must only occur once. The draft that these issues apply to. The
@@ -24,8 +25,9 @@
 #   issue.
 #
 # Comment
-#   A URL pointing to (a part of) the comment. May occur multiple
-#   times per issue. (Usually a pointer to a message on www-style.)
+#   Typically a URL pointing to (a part of) the comment. May occur
+#   multiple times per issue. (Usually a pointer to a message on
+#   www-style.)
 #
 # Proposal
 #   A proposed answer for the WG to discuss. May occur multiple times
@@ -33,11 +35,11 @@
 #   (i.e., has no "Closed" field.)
 #
 # Response
-#   A URL pointing to an answer that the WG sent to the commenter.
-#   (Usually a pointer to a message on www-style.) May occur multiple
-#   times per issue. Comment and Response lines should occur in date
-#   order: for each issue, older comments and responses should be
-#   listed before newer ones.
+#   Typically a URL pointing to an answer that the WG sent to the
+#   commenter. (Usually a pointer to a message on www-style.) May
+#   occur multiple times per issue. Comment and Response lines should
+#   occur in date order: for each issue, older comments and responses
+#   should be listed before newer ones.
 #
 # Closed
 #   The WG's resolution. Can be "Accepted," "Rejected," "OutOfScope,"
@@ -53,33 +55,137 @@
 #   resolution. Should only occur multiple times if there are
 #   multiple From lines.
 #
+# "Summary:", "Comment:", "Response:", "From:" and "Proposal:" may
+# have continuation lines (in the case of Comment and Response only if
+# the first line contains text and not a URL), which are lines that
+# start with white space.
+#
 # Author: Bert Bos <bert@w3.org>
 # Created: 13 March 2012
 # Copyright: © 2012 World Wide Web Consortium
 # See http://www.w3.org/Consortium/Legal/2002/copyright-software-20021231
 
 
-BEGIN {nerrors = 0; n = 0; IGNORECASE = 1}
+BEGIN {nerrors = 0; n = 0; prev = ""; IGNORECASE = 1}
 
-/^draft[ \t]*:/ {draft = val($0); next}
-/^issue\>/ {h = val($0); if (h in id) err("Duplicate issue number: " h); id[++n] = h; next}
-n && /^summary[ \t]*:/ {summary[n] = summary[n] "<p>" val($0); next}
-n && /^comment[ \t]*:[ \t]*http:/ {link[n] = link[n] "<li><a href=\"" val($0) "\">comment</a>\n"; next}
-n && /^comment[ \t]*:/ {link[n] = link[n] "<li>" val($0) "\n"; next}
-n && /^response[ \t]*:[ \t]*http:/ {link[n] = link[n] "<li><a href=\"" val($0) "\">reply</a>\n"; next}
-n && /^response[ \t]*:/ {link[n] = link[n] "<li>" val($0) "\n"; next}
-n && /^from[ \t]*:/ {from[n] = (from[n] ? from[n] "<br>" : "") val($0); next}
-n && /^proposal[ \t]*:/ {proposal[n] = proposal[n] "<p class=proposal>" val($0); next}
-n && /^closed[ \t]*:[ \t]* accepted\>/ {status[n] = "accepted"; next}
-n && /^closed[ \t]*:[ \t]* outofscope\>/ {status[n] = "outofscope"; next}
-n && /^closed[ \t]*:[ \t]* invalid\>/ {status[n] = "invalid"; next}
-n && /^closed[ \t]*:[ \t]* rejected\>/ {status[n] = "rejected"; next}
-n && /^closed[ \t]*:[ \t]* retracted\>/ {status[n] = "retracted"; next}
-n && /^closed[ \t]*:/ {err("Unrecognized resolution \"" val($0) "\"."); next}
-n && /^verified[ \t]*:/ {verif[n] = verif[n] "<a href=\"" val($0) "\">verified</a> "; next}
-n && /^objection[ \t]*:/ {obj[n] = obj[n] "<a href=\"" val($0) "\">objection</a> "; next}
+/* Lines that start with a field name: */
+
+/^draft[ \t]*:/ {
+  draft = val($0);
+  prev = "";
+  next;
+}
+/^issue\>/ {
+  h = val($0);
+  if (h in id) err("Duplicate issue number: " h);
+  id[++n] = h;
+  prev = "";
+  next;
+}
+n && /^summary[ \t]*:/ {
+  summary[n] = summary[n] "<p>" val($0);
+  prev = "summary";
+  next;
+}
+n && /^comment[ \t]*:[ \t]*http:/ {
+  link[n] = link[n] "<li><a href=\"" val($0) "\">comment</a>\n";
+  prev = "";
+  next;
+}
+n && /^comment[ \t]*:/ {
+  link[n] = link[n] "<li>" val($0) "\n";
+  prev = "comment";
+  next;
+}
+n && /^response[ \t]*:[ \t]*http:/ {
+  link[n] = link[n] "<li><a href=\"" val($0) "\">reply</a>\n";
+  prev = "";
+  next;
+}
+n && /^response[ \t]*:/ {
+  link[n] = link[n] "<li>" val($0) "\n";
+  prev = "response";
+  next;
+}
+n && /^from[ \t]*:/ {
+  from[n] = (from[n] ? from[n] "<br>" : "") val($0);
+  prev = "from";
+  next;
+}
+n && /^proposal[ \t]*:/ {
+  proposal[n] = proposal[n] "<p class=proposal>" val($0);
+  prev = "proposal";
+  next;
+}
+n && /^closed[ \t]*:[ \t]* accepted\>/ {
+  status[n] = "accepted";
+  prev = "";
+  next;
+}
+n && /^closed[ \t]*:[ \t]* outofscope\>/ {
+  status[n] = "outofscope";
+  prev = "";
+  next;
+}
+n && /^closed[ \t]*:[ \t]* invalid\>/ {
+  status[n] = "invalid";
+  prev = "";
+  next;
+}
+n && /^closed[ \t]*:[ \t]* rejected\>/ {
+  status[n] = "rejected";
+  prev = "";
+  next;
+}
+n && /^closed[ \t]*:[ \t]* retracted\>/ {
+  status[n] = "retracted";
+  prev = "";
+  next;
+}
+n && /^closed[ \t]*:/ {
+  err("Unrecognized resolution \"" val($0) "\".");
+  prev = "";
+  next;
+}
+n && /^verified[ \t]*:/ {
+  verif[n] = verif[n] "<a href=\"" val($0) "\">verified</a> ";
+  prev = "";
+  next;
+}
+n && /^objection[ \t]*:/ {
+  obj[n] = obj[n] "<a href=\"" val($0) "\">objection</a> ";
+  prev = "";
+  next;
+}
+
+/* Continuation lines start with white space: */
+
+/^[ \t]+[^ \t]/ && prev == "summary" {
+  summary[n] = summary[n] val2($0);
+  next;
+}
+/^[ \t]+[^ \t]/ && prev == "comment" {
+  link[n] = link[n] val2($0);
+  next;
+}
+/^[ \t]+[^ \t]/ && prev == "response" {
+  link[n] = link[n] val2($0);
+  next;
+}
+/^[ \t]+[^ \t]/ && prev == "from" {
+  from[n] = from[n] val2($0);
+  next;
+}
+/^[ \t]+[^ \t]/ && prev == "proposal" {
+  proposal[n] = proposal[n] val2($0);
+  next;
+}
+
+/* Any other line is ignored, any other field name is an error: */
+
+{prev = ""}
 n && /^[a-z]+[ \t]*:/ {err("Unrecognized keyword \"" $1 "\"."); next}
-/^[a-z]+[ \t]*:/ {err("Incorrect keyword \"" $1 "\" before first issue.")}
+/^[a-z]+[ \t]*:/ {err("Incorrect keyword \"" $1 "\" before first issue."); next}
 
 END {generate(); exit nerrors}
 
@@ -202,8 +308,14 @@ function esc(s)
 # val -- return the value part of the line s, as an HTML string
 function val(s)
 {
-  return \
-    esc(gensub("[ \t]+$", "", 1, gensub("^[a-z]+[ \t]*(:[ \t]*)?", "", 1, s)))
+  return esc(gensub("^[a-z]+[ \t]*(:[ \t]*)?", "", 1, s));
+}
+
+
+# val2 -- return the line s with initial white space collapsed
+function val2(s)
+{
+  return esc(gensub("^[ \t]*", " ", 1, s));
 }
 
 
