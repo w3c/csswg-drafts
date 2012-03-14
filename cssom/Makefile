@@ -8,7 +8,7 @@ TRFILE = TR/Overview.html
 
 all: $(EDFILE)
 
-Overview.src.html: cssom-source
+Overview.src.html: cssom-source cssom-generate.py
 	$(PYTHON) cssom-generate.py
 
 $(XREFS): Overview.src.html Makefile
@@ -31,6 +31,6 @@ publish: $(TRFILE)
 clean::
 	$(RM) $(EDFILE)
 	$(RM) Overview.src.html
-	echo '{ "definitions": {}, "url": "http://dvcs.w3.org/hg/cssom/raw-file/tip/Overview.html#" }' > $(XREFS)
+	echo '{ "definitions": {}, "url": "http://dvcs.w3.org/hg/csswg/raw-file/tip/cssom/Overview.html#" }' > $(XREFS)
 
 
