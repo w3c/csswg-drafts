@@ -1,5 +1,5 @@
 # Calling the post-processor with file-upload. Assumes the username
-# and password are in ~/.curl-w3.org
+# and password are in ~/.curl-w3.org (user = USER:PASS)
 #
 # To set a date other than today, use: make cdate=YYYYMMDD
 #
