@@ -43,7 +43,7 @@ check: Overview.err
 # A handy shortcut:
 
 commit: update clean all
-	hg commit -m 'Generated. Do not edit!' Overview.html
+	-hg commit -m 'Generated. Do not edit!' Overview.html
 	hg push
 
 update:
