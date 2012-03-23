@@ -68,7 +68,7 @@
 
 BEGIN {nerrors = 0; n = 0; prev = ""; IGNORECASE = 1}
 
-/* Lines that start with a field name: */
+# Lines that start with a field name:
 
 /^draft[ \t]*:/ {
   draft = val($0);
@@ -163,7 +163,7 @@ n && /^objection[ \t]*:/ {
   next;
 }
 
-/* Continuation lines start with white space: */
+# Continuation lines start with white space:
 
 /^[ \t]+[^ \t]/ && prev == "summary" {
   summary[n] = summary[n] val2($0);
@@ -186,7 +186,7 @@ n && /^objection[ \t]*:/ {
   next;
 }
 
-/* Any other line is ignored, any other field name is an error: */
+# Any other line is ignored, any other field name is an error:
 
 {prev = ""}
 n && /^[a-z]+[ \t]*:/ {err("Unrecognized keyword \"" $1 "\"."); next}
