@@ -147,8 +147,13 @@ n && /^closed[ \t]*:/ {
   prev = "";
   next;
 }
-n && /^verified[ \t]*:/ {
+n && /^verified[ \t]*:[ \t]*http:/ {
   verif[n] = verif[n] "<a href=\"" val($0) "\">verified</a> ";
+  prev = "";
+  next;
+}
+n && /^verified[ \t]*:/ {
+  verif[n] = verif[n] val($0) " ";
   prev = "";
   next;
 }
