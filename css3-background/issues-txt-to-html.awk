@@ -118,27 +118,27 @@ n && /^proposal[ \t]*:/ {
   next;
 }
 n && /^closed[ \t]*:[ \t]* accepted\>/ {
-  status[n] = "accepted";
+  status[n] = "Accepted";
   prev = "";
   next;
 }
 n && /^closed[ \t]*:[ \t]* outofscope\>/ {
-  status[n] = "outofscope";
+  status[n] = "Out of scope";
   prev = "";
   next;
 }
 n && /^closed[ \t]*:[ \t]* invalid\>/ {
-  status[n] = "invalid";
+  status[n] = "Invalid";
   prev = "";
   next;
 }
 n && /^closed[ \t]*:[ \t]* rejected\>/ {
-  status[n] = "rejected";
+  status[n] = "Rejected";
   prev = "";
   next;
 }
 n && /^closed[ \t]*:[ \t]* retracted\>/ {
-  status[n] = "retracted";
+  status[n] = "Retracted";
   prev = "";
   next;
 }
@@ -195,6 +195,15 @@ n && /^[a-z]+[ \t]*:/ {err("Unrecognized keyword \"" $1 "\"."); next}
 END {generate(); exit nerrors}
 
 
+# arraylength -- return length of an array
+function arraylength(x,		i, n)
+{
+  n = 0;
+  for (i in x) n++;
+  return n;
+}
+
+
 # generate -- generate the HTML file with all the issues
 function generate(	command, title, date, class, nobjections, i)
 {
@@ -235,12 +244,13 @@ function generate(	command, title, date, class, nobjections, i)
   print "<dt>Date <dd>" date;
   print "<dt>URL <dd><a href=\"" draft "\">" draft "</a>";
   print "</dl>\n";
-  if (length(obj) == 0)
+  i = arraylength(obj);
+  if (i == 0)
     print "<p>There are no objections.\n";
-  else if (length(obj) == 1)
+  else if (i == 1)
     print "<p class=objection>There is 1 objection.\n";
   else
-    print "<p class=objection>There are " length(obj) " objections.\n";
+    print "<p class=objection>There are " i " objections.\n";
   print "<table>";
   print "<thead>";
   print "<tr><th>#<th>Author<th>Summary and discussion<th>Result\n";
@@ -249,7 +259,7 @@ function generate(	command, title, date, class, nobjections, i)
   for (i = 1; i <= n; i++) {
     printf "\n<tr class=";
     if (obj[i]) print "objection>";
-    else if (verif[i] || status[i] ~ "accepted|retracted") print "ok>";
+    else if (verif[i] || status[i] ~ "Accepted|Retracted") print "ok>";
     else if (status[i]) print "unverified>";
     else print "incomplete>";
     print "<td id=x" i "><a href=\"#x" i "\">" id[i] "</a>";
@@ -261,7 +271,7 @@ function generate(	command, title, date, class, nobjections, i)
     else printf "<td><strong>[OPEN]</strong>";
     if (obj[i]) printf " but %s", obj[i];
     else if (verif[i]) printf " and %s", verif[i];
-    else if (status[i] && status[i] !~ "accepted|retracted") printf " but unverified";
+    else if (status[i] && status[i] !~ "Accepted|Retracted") printf " but unverified";
     printf "\n";
   }
   print "</table>\n";
@@ -270,27 +280,27 @@ function generate(	command, title, date, class, nobjections, i)
   print "<thead>";
   print "<tr><th>Status<th>Meaning";
   print "<tbody>";
-  print "<tr>\n<td class=ok>retracted";
+  print "<tr>\n<td class=ok>Retracted";
   print "<td>Commenter has withdrawn the comment.";
-  print "<tr>\n<td class=ok>accepted";
+  print "<tr>\n<td class=ok>Accepted";
   print "<td>The WG accepted and applied the comment.";
-  print "<tr>\n<td class=ok>out of scope and verified";
+  print "<tr>\n<td class=ok>Out of scope and verified";
   print "<td>Commenter accepts that the comment is out of scope.";
-  print "<tr>\n<td class=ok>invalid and verified";
+  print "<tr>\n<td class=ok>Invalid and verified";
   print "<td>Commenter accepts that the comment is invalid.";
-  print "<tr>\n<td class=ok>rejected and verified";
+  print "<tr>\n<td class=ok>Rejected and verified";
   print "<td>Commenter accepts that the WG did not apply the comment.";
-  print "<tr>\n<td class=unverified>out of scope but unverified";
+  print "<tr>\n<td class=unverified>Out of scope but unverified";
   print "<td>Comment out of scope, but commenter did not yet react."
-  print "<tr>\n<td class=unverified>invalid but unverified";
+  print "<tr>\n<td class=unverified>Invalid but unverified";
   print "<td>Comment invalid, but commenter did not yet react.";
-  print "<tr>\n<td class=unverified>rejected but unverified";
+  print "<tr>\n<td class=unverified>Rejected but unverified";
   print "<td>Comment rejected, but commenter did not yet react.";
-  print "<tr>\n<td class=objection>out of scope with objection";
+  print "<tr>\n<td class=objection>Out of scope with objection";
   print "<td>Comment out of scope, but commenter disagrees.";
-  print "<tr>\n<td class=objection>invalid with objection";
+  print "<tr>\n<td class=objection>Invalid with objection";
   print "<td>Comment invalid, but commenter disagrees.";
-  print "<tr>\n<td class=objection>rejected with objection";
+  print "<tr>\n<td class=objection>Rejected with objection";
   print "<td>Comment rejected, but commenter objects.";
   print "</table>\n";
   print "<p>This file was generated from";
