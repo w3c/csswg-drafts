@@ -32,9 +32,7 @@ CURLFLAGS=
 # invoke make like this: "make PUBDATE=2008-03-19"
 PUBMSG=
 PUBDATE=
-USER=dschulze
-
-W3C_CSS_DIR=~/work/W3C/cvs/dev.w3.org/csswg/css3-exclusions
+USER=
 
 all: $(OUTPUTFILE) 
 
