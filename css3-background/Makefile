@@ -1,5 +1,5 @@
 # Calling the post-processor with file-upload. Assumes the username
-# and password are in ~/.curl-w3.org
+# and password are in ~/.curl-w3.org (user = USER:PASS)
 #
 # To set a date other than today, use: make cdate=YYYYMMDD
 #
@@ -43,14 +43,14 @@ check: Overview.err
 # A handy shortcut:
 
 commit: update clean all
-	hg commit -m 'Generated. Do not edit!' Overview.html
+	-hg commit -m 'Generated. Do not edit!' Overview.html
 	hg push
 
 update:
 	hg pull -u
 
 clean:
-	rm Overview.html
+	-rm Overview.html
 
 
 
