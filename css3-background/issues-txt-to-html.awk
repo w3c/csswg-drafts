@@ -12,6 +12,11 @@
 #   value must be a URL that ends with <status>-<shortname>-<YYYYMMDD>
 #   and an optional slash.
 #
+# Audience
+#   Must occur at most once. Set to "WG" (the default) for an HTML
+#   output with the "Edit" fields included, or to "Director" for an
+#   HTML output without those fields.
+#
 # Issue
 #   The issue number. The colon is optional after "Issue". Typically a
 #   number, but may be anything. Must be unique.
@@ -28,11 +33,6 @@
 #   Typically a URL pointing to (a part of) the comment. May occur
 #   multiple times per issue. (Usually a pointer to a message on
 #   www-style.)
-#
-# Proposal
-#   A proposed answer for the WG to discuss. May occur multiple times
-#   per issue. This field is only printed if the issue is still open
-#   (i.e., has no "Closed" field.)
 #
 # Response
 #   Typically a URL pointing to an answer that the WG sent to the
@@ -55,10 +55,14 @@
 #   resolution. Should only occur multiple times if there are
 #   multiple From lines.
 #
-# "Summary:", "Comment:", "Response:", "From:" and "Proposal:" may
-# have continuation lines (in the case of Comment and Response only if
-# the first line contains text and not a URL), which are lines that
-# start with white space.
+# Edit
+#   Any text destined at the working group: edits to do or done,
+#   actions for people or for the WG, other comments...
+#
+# "Summary:", "Comment:", "Response:", "From:" and "Edit:" may have
+# continuation lines (in the case of Comment and Response only if the
+# first line contains text and not a URL), which are lines that start
+# with white space.
 #
 # Author: Bert Bos <bert@w3.org>
 # Created: 13 March 2012
@@ -73,6 +77,17 @@ BEGIN {nerrors = 0; n = 0; prev = ""; IGNORECASE = 1}
 /^draft[ \t]*:/ {
   draft = val($0);
   prev = "";
+  next;
+}
+/^audience[ \t]*:[ \t]*wg\>/ {
+  next;
+}
+/^audience[ \t]*:[ \t]*director\>/ {
+  audience = "Director";
+  next;
+}
+/^audience[ \t]*:/ {
+  err("Audience must be \"WG\" (default) or \"Director\".");
   next;
 }
 /^issue\>/ {
@@ -110,11 +125,6 @@ n && /^response[ \t]*:/ {
 n && /^from[ \t]*:/ {
   from[n] = (from[n] ? from[n] "<br>" : "") val($0);
   prev = "from";
-  next;
-}
-n && /^proposal[ \t]*:/ {
-  proposal[n] = proposal[n] "<p class=proposal>" val($0);
-  prev = "proposal";
   next;
 }
 n && /^closed[ \t]*:[ \t]* accepted\>/ {
@@ -162,6 +172,11 @@ n && /^objection[ \t]*:/ {
   prev = "";
   next;
 }
+n && /^edit[ \t]*:/ {
+  edit[n] = edit[n] "<p>" val($0);
+  prev = "edit";
+  next;
+}
 
 # Continuation lines start with white space:
 
@@ -181,8 +196,8 @@ n && /^objection[ \t]*:/ {
   from[n] = from[n] val2($0);
   next;
 }
-/^[ \t]+[^ \t]/ && prev == "proposal" {
-  proposal[n] = proposal[n] val2($0);
+/^[ \t]+[^ \t]/ && prev == "edit" {
+  edit[n] = edit[n] val2($0);
   next;
 }
 
@@ -225,7 +240,6 @@ function generate(	command, title, date, class, nobjections, i)
   print "<style type=\"text/css\">";
   print "body {background: white; color: black}";
   print ".incomplete {background: lavender}";
-  print ".proposal {font-style: italic}";
   print ".proposal:before {content: \"Proposal: \"; font-weight: bold}";
   print "table {border-collapse: collapse}";
   print "thead {background: gray; color: white}";
@@ -234,9 +248,10 @@ function generate(	command, title, date, class, nobjections, i)
   print "td > *:first-child {margin-top: 0}";
   print "td > *:last-child {margin-bottom: 0}";
   print ".legend {font-size: smaller}";
-  print ".ok {background: lightgreen}";
-  print ".objection {background: red}";
-  print ".unverified {background: orange}";
+  print ".ok {background: hsl(120,100%,85%)}";
+  print ".objection {background: hsl(0,100%,40%); color: white}";
+  print ".unverified {background: hsl(39,100%,70%)}";
+  print ".edit {background: white; border-bottom: solid thin gray}";
   print "</style>\n";
   print "<h1>Disposition of comments</h1>\n";
   print "<dl>";
@@ -253,7 +268,12 @@ function generate(	command, title, date, class, nobjections, i)
     print "<p class=objection>There are " i " objections.\n";
   print "<table>";
   print "<thead>";
-  print "<tr><th>#<th>Author<th>Summary and discussion<th>Result\n";
+  print "<tr>";
+  print "<th>#"
+  print "<th>Author";
+  print "<th>Summary and discussion";
+  if (audience != "Director") print "<th>Actions for WG";
+  print "<th>Result";
   print "<tbody>";
 
   for (i = 1; i <= n; i++) {
@@ -266,8 +286,8 @@ function generate(	command, title, date, class, nobjections, i)
     print "<td>" from[i];
     print "<td>" summary[i];
     if (link[i]) printf "<ol>\n%s</ol>\n", link[i];
+    if (audience != "Director") printf "<td class=edit>%s\n", edit[i];
     if (status[i]) printf "<td>%s", status[i];
-    else if (proposal[i]) printf "<td>%s", proposal[i];
     else printf "<td><strong>[OPEN]</strong>";
     if (obj[i]) printf " but %s", obj[i];
     else if (verif[i]) printf " and %s", verif[i];
