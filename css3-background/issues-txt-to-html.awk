@@ -163,7 +163,7 @@ n && /^verified[ \t]*:[ \t]*http:/ {
   next;
 }
 n && /^verified[ \t]*:/ {
-  verif[n] = verif[n] val($0) " ";
+  verif[n] = verif[n] "<span title=\"" val($0) "\">verified</span> ";
   prev = "";
   next;
 }
