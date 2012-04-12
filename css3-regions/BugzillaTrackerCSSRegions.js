@@ -158,7 +158,7 @@
        BugzillaTracker.sync(
            {
                product: "CSS",
-               component: "CSS Regions",
+               component: "Regions",
            }, 
            renderIssues); 
            

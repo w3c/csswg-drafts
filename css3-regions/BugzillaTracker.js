@@ -92,7 +92,7 @@
             },
             _queryParams = {
                 product: "CSS",
-                component: "CSS Regions",
+                component: "Regions",
                 ctype: "js"
             };
         
@@ -242,7 +242,7 @@
                 @example      
                 {        
                     product: "CSS",
-                    component: "CSS Regions"
+                    component: "Regions"
                 }
             */
             sync: function(queryParams, callbackFn){
