@@ -48,6 +48,9 @@
                 if ( (documentIssue.bug_status !== serverIssue.bug_status) || 
                     (documentIssue.short_desc !== serverIssue.short_desc) ){  
                                                                                 
+                    // changes from NEW->ASSIGNED aren't noteworthy
+                    if ( ! (documentIssue.bug_status == "NEW" &&
+                         serverIssue.bug_status == "ASSIGNED") )
                     serverIssue.issue_state = "updated"; 
                 }  
             }
@@ -55,7 +58,10 @@
                 // not found in the document. it's a new issue if the bug_status
                 // is not RESOLVED
                 if (serverIssue.bug_status === "RESOLVED") {
-                    serverIssue.issue_state = 'resolved';
+                    //why do we want to show resolved issues that
+                    //have already been removed from the spec?
+
+                    //serverIssue.issue_state = 'resolved';
                 } else {
                     serverIssue.issue_state = "new";
                 }
@@ -82,22 +88,23 @@
         
         for (var issueId in issueList){
             
-            // bind the bug data to the bug template
-            var issueFragment = this.renderIssue(issueList[issueId]);
-            
-            var wrapper = document.createElement("div"); 
-            var trigger = document.createElement("a");
-            trigger.className = "issue-markup-trigger";
-            trigger.href = "#";          
-            trigger.innerHTML = "toggle markup"
-            
             if (issueList[issueId]["issue_state"]){
+
+                // bind the bug data to the bug template
+                var issueFragment = this.renderIssue(issueList[issueId]);
+                
+                var wrapper = document.createElement("div"); 
+                var trigger = document.createElement("a");
+                trigger.className = "issue-markup-trigger";
+                trigger.href = "#";          
+                trigger.innerHTML = "toggle markup"
+                
                 wrapper.setAttribute("data-issue_state", issueList[issueId]["issue_state"]);
+                
+                wrapper.appendChild(trigger);
+                wrapper.appendChild(issueFragment);
+                fragment.appendChild(wrapper); 
             }     
-            
-            wrapper.appendChild(trigger);
-            wrapper.appendChild(issueFragment);
-            fragment.appendChild(wrapper); 
         }
        
         var issueListContainer = document.querySelector("#issue-list"); 
