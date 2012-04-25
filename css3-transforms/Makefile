@@ -38,9 +38,9 @@ all: $(OUTPUTFILE)
 
 $(OUTPUTFILE): $(SOURCEFILE)
 ifeq (,$(PUBDATE))
-	$(CURL) $(CURLFLAGS) --user $(USER) -F file="@$<" -o "$@" -F group=CSS -F output=html -F method=file $(PROCESSCGI)
+	$(CURL) $(CURLFLAGS) --user $(USER) -F file="@$<" -o "$@" -F group=FX -F output=html -F method=file $(PROCESSCGI)
 else
-	$(CURL) $(CURLFLAGS) --user $(USER) -F file="@$<" -o "$@" -F group=CSS -F output=html -F method=file $(PROCESSCGI) -F date=$(PUBDATE)
+	$(CURL) $(CURLFLAGS) --user $(USER) -F file="@$<" -o "$@" -F group=FX -F output=html -F method=file $(PROCESSCGI) -F date=$(PUBDATE)
 endif
 
 
