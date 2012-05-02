@@ -14,7 +14,7 @@
 #   http://gnuwin32.sourceforge.net/downlinks/make.php
 #   http://curl.haxx.se/dlwiz/?type=bin&os=Win32&flav=-&ver=2000/XP
 #
-# You also need to install either a .curlrc (*NIX/*BSD) or _curlrc
+# You also need to install either a .curl-w3.org (*NIX/*BSD) or _curlrc
 # (MS-DOS ) file in your HOME directory, with at minimum the
 # following contents:
 #
@@ -38,9 +38,9 @@ all: $(OUTPUTFILE)
 
 $(OUTPUTFILE): $(SOURCEFILE)
 ifeq (,$(PUBDATE))
-	$(CURL) $(CURLFLAGS) --user $(USER) -F file="@$<" -o "$@" -F group=FX -F output=html -F method=file $(PROCESSCGI)
+	$(CURL) $(CURLFLAGS) -K ~/.curl-w3.org -F file="@$<" -o "$@" -F group=FX -F output=html -F method=file $(PROCESSCGI)
 else
-	$(CURL) $(CURLFLAGS) --user $(USER) -F file="@$<" -o "$@" -F group=FX -F output=html -F method=file $(PROCESSCGI) -F date=$(PUBDATE)
+	$(CURL) $(CURLFLAGS) -K ~/.curl-w3.org -F file="@$<" -o "$@" -F group=FX -F output=html -F method=file $(PROCESSCGI) -F date=$(PUBDATE)
 endif
 
 
