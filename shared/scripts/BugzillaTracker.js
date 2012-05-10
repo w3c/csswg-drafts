@@ -53,7 +53,7 @@
 
         _header.href = "#"
         _header.className = "issue-dashboard-header"
-        _header.textContent = "Bug Dashboard"
+        _header.textContent = "Issues Dashboard"
         _header.appendChild(_message)
 
         _header.addEventListener("click", toggleDashboard, false)
