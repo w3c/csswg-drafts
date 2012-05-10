@@ -1,5 +1,6 @@
 (function () {
-
+    
+    // helper methods for filling gaps less capable browsers
     var util = {
         getOuterHTML: function(el){
 
@@ -16,9 +17,32 @@
             temp = null
 
             return outerHTML
+        },
+        
+        getDataAttr: function(el, attr){ 
+            return (el.dataset) ? el.dataset[attr] : el.getAttribute("data-" + attr)
+        },
+        
+        toggleClass: function(el, className){
+            if (el.classList){ 
+                el.classList.toggle(className)
+            }
+            else{
+                var classList = el.className.split(" "),
+                    index = classList.indexOf(className)
+
+                if (index > -1){      
+                    classList.splice(index, 1)
+                }
+                else{                      
+                    classList.push(className)
+                }
+                
+                el.className = classList.join(" ")
+            }
         }
     }
-
+    
     function IssueDashboard(){
         var _dashboard = document.createElement("div"),
             _offlineIssues = {},
@@ -41,7 +65,7 @@
 
         function toggleDashboard(e){
             e.preventDefault()
-            _dashboard.classList.toggle("open")
+            util.toggleClass(_dashboard, "open")
         }
 
         function getNewIssues(){
@@ -123,8 +147,8 @@
                toggle.addEventListener("click", function(parent){
 
                    return function(e){
-                       e.preventDefault()
-                       parent.classList.toggle("showMarkup")
+                       e.preventDefault() 
+                       util.toggleClass(parent, "showMarkup")
                    }
 
                }(issueItem))
@@ -205,11 +229,11 @@
             // pluck out the bug data from the DOM object
             issues.forEach(function (issue) {
 
-                var bugId = issue.dataset["bug_id"];
+                var bugId = util.getDataAttr(issue, "bug_id")
 
                 if (bugId){
                     list[bugId] = {
-                        "bug_status": issue.dataset["bug_status"],
+                        "bug_status": util.getDataAttr(issue, "bug_status"),
                         "short_desc": issue.querySelector(".short-desc").textContent.replace(/\n?\s+/g, " ")
                     }
                 }
