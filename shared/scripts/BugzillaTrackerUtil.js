@@ -88,7 +88,7 @@
             _config = { 
                 bugSearchURL: "https://www.w3.org/Bugs/Public/buglist.cgi",
                 scriptId: "BugzillaTracker",
-                onSync: _onSync
+                onSearch: _onSearch
             },
             _queryParams = {
                 product: "CSS",
@@ -195,9 +195,8 @@
             }
         }
         
-        function _onSync(bugList){ 
+        function _onSearch(bugList){ 
             
-            console.log("onsync", bugList)
         }
         
         function _getCallbackFn(){
@@ -223,7 +222,7 @@
                 })  
                 
                 // run user-provided callback with the bug list
-                _config.onSync.call(BugzillaTracker, bugs)
+                _config.onSearch.call(BugzillaTracker, bugs)
                 
                 // restore any previously buglistCallback function
                 if (typeof _cache.buglistCallback == "function"){
@@ -245,14 +244,14 @@
                     component: "Regions"
                 }
             */
-            sync: function(queryParams, callbackFn){
+            search: function(queryParams, callbackFn){
                 
                 var params = _extend({}, _queryParams, queryParams),
                     queryString = _serialize(params),
                     url = _config.bugSearchURL + "?" + queryString;  
                     
                 if (typeof callbackFn == "function"){  
-                    _config.onSync = callbackFn;
+                    _config.onSearch = callbackFn;
                 }
                 
                 /* 
@@ -275,22 +274,10 @@
             // overwrite default configuration (ex: Bugzilla buglist.cgi URL)
             setOptions: function(options){
                 _config = _extend({}, _config, options)
-            },
-            
-            setIssueTemplate: function(string){
-                if (string && typeof string){ 
-                    _config.issueTemplate = TemplateManager.compile(string);
-                    
-                    // usage
-                    // _config.issueTemplate({bug_id: "1234", short_desc: "oprea e aici!"})
-                }
-            },
-            
-            renderIssue: function(bugData){    
-                return _config.issueTemplate(bugData)
             }
         }
     })();
     
     window.BugzillaTracker = BugzillaTracker;
+    window.TemplateManager = TemplateManager;
 })()
