@@ -15,14 +15,14 @@ cdate = $(shell date +%Y%m%d)
 
 %.html: %.src.html
 	@echo "Calling post-processor to generate $@..."
-	@curl -F file=@$< -F group=CSS -F output=html -F method=file -s \
-	-F date=$(cdate) -F status=$(status) \
-	-K ~/.curl-w3.org http://cgi.w3.org/member-bin/process.cgi >$@
+	@curl -K ~/.curl-w3.org -s -S -F output=html -F file=@$< -F group=CSS \
+	-F method=file -F date=$(cdate) -F status=$(status) \
+	http://cgi.w3.org/member-bin/process.cgi >$@
 %.err: %.src.html
 	@echo "Calling post-processor to check $<..."
-	@curl -F file=@$< -F group=CSS -F output=err -F method=file -s \
-	-F date=$(cdate) -F status=$(status) \
-	-K ~/.curl-w3.org http://cgi.w3.org/member-bin/process.cgi >$@
+	@curl -K ~/.curl-w3.org -s -S -F output=err -F file=@$< -F group=CSS \
+	-F method=file -F date=$(cdate) -F status=$(status) \
+	http://cgi.w3.org/member-bin/process.cgi >$@
 
 # For Dispositions of Comments in css3-background:
 
@@ -32,7 +32,6 @@ cdate = $(shell date +%Y%m%d)
 
 
 all: check Overview.html
-	@echo Done.
 
 check: Overview.err
 	@cat $<
@@ -43,7 +42,7 @@ check: Overview.err
 # A handy shortcut:
 
 commit: update all
-	-hg commit -m 'Generated. Do not edit!' Overview.html
+	hg commit -m 'Generated. Do not edit!' Overview.html || true
 	hg push
 
 update:
