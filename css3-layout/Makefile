@@ -50,7 +50,7 @@ update:
 	hg pull -u
 
 clean:
-	-rm Overview.html
+	-rm Overview.html Overview.err
 
 
 
