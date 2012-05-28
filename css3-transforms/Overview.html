@@ -39,14 +39,14 @@
 
    <h1>CSS Transforms</h1>
 
-   <h2 class="no-num no-toc" id=longstatus-date>Editor's Draft 26 May 2012</h2>
+   <h2 class="no-num no-toc" id=longstatus-date>Editor's Draft 28 May 2012</h2>
 
    <dl>
     <dt>This version:
 
     <dd> <a
-     href="http://www.w3.org/TR/2012/ED-css3-transforms-20120526/">http://dev.w3.org/csswg/css3-transforms/</a>
-     <!--http://www.w3.org/TR/2012/WD-css3-transforms-20120526/-->
+     href="http://www.w3.org/TR/2012/ED-css3-transforms-20120528/">http://dev.w3.org/csswg/css3-transforms/</a>
+     <!--http://www.w3.org/TR/2012/WD-css3-transforms-20120528/-->
 
     <dt>Latest version:
 
@@ -199,6 +199,10 @@
     <ul class=toc>
      <li><a href="#transform-3d-rendering"><span class=secno>6.1. </span>3D
       Transform Rendering</a>
+
+     <li><a href="#processing-of-perspective-transformed-boxes"><span
+      class=secno>6.2. </span> Processing of Perspective-Transformed Boxes
+      </a>
     </ul>
 
    <li><a href="#transform-property"><span class=secno>7. </span> The
@@ -1117,7 +1121,7 @@ div {
   </div>
 
   <p> Using three-dimensional transforms, it's possible to transform an
-   element such that its reverse side is towards the viewer. 3D-tranformed
+   element such that its reverse side is towards the viewer. 3D-transformed
    elements show the same content on both sides, so the reverse side looks
    like a mirror-image of the front side (as if the element were projected
    onto a sheet of glass). Normally, elements whose reverse side is towards
@@ -1129,7 +1133,152 @@ div {
    class=css><code class=css>backface-visibility: hidden</code></code>’
    were animating, such that its front and reverse sides were alternately
    visible, then it would only be visible when the front side were towards
-   the viewer.</p>
+   the viewer.
+
+  <h3 id=processing-of-perspective-transformed-boxes><span class=secno>6.2.
+   </span> Processing of Perspective-Transformed Boxes</h3>
+
+  <div class=issue>
+   <p class=desc> This is a first pass at an attempt to precisely specify how
+    exactly to transform elements using the provided matrices. It might not
+    be ideal, and implementer feedback is encouraged. See <a
+    href="https://www.w3.org/Bugs/Public/show_bug.cgi?id=15605">bug
+    15605</a>.</p>
+  </div>
+
+  <p> The <a href="#TermAccumulated3DTransformationMatrix">accumulated 3D
+   transformation matrix</a> is a 4×4 matrix, while the objects to be
+   transformed are two-dimensional boxes. To transform each corner
+   (<var>a</var>, <var>b</var>) of a box, the matrix must first be applied to
+   (<var>a</var>, <var>b</var>, 0, 1), which will result in a
+   four-dimensional point (<var>x</var>, <var>y</var>, <var>z</var>,
+   <var>w</var>). This is transformed back to a three-dimensional point
+   (<var>x</var>′, <var>y</var>′, <var>z</var>′) as follows:
+
+  <p> If <var>w</var> &gt; 0, (<var>x</var>′, <var>y</var>′,
+   <var>z</var>′) = (<var>x</var>/<var>w</var>, <var>y</var>/<var>w</var>,
+   <var>z</var>/<var>w</var>).
+
+  <p> If <var>w</var> = 0, (<var>x</var>′, <var>y</var>′,
+   <var>z</var>′) = (<var>x</var> ⋅ <var>n</var>, <var>y</var> ⋅
+   <var>n</var>, <var>z</var> ⋅ <var>n</var>). <var>n</var> is an
+   implementation-dependent value that should be chosen so that
+   <var>x</var>′ or <var>y</var>′ is much larger than the viewport size,
+   if possible. For example, (5px, 22px, 0px, 0) might become (5000px,
+   22000px, 0px), with <var>n</var> = 1000, but this value of <var>n</var>
+   would be too small for (0.1px, 0.05px, 0px, 0). This specification does
+   not define the value of <var>n</var> exactly. Conceptually,
+   (<var>x</var>′, <var>y</var>′, <var>z</var>′) is <a
+   href="http://en.wikipedia.org/wiki/Plane_at_infinity">infinitely far</a>
+   in the direction (<var>x</var>, <var>y</var>, <var>z</var>).
+
+  <p> If <var>w</var> &lt; 0 for all four corners of the transformed box, the
+   box is not rendered.
+
+  <p> If <var>w</var> &lt; 0 for one to three corners of the transformed box,
+   the box must be replaced by a polygon that has any parts with <var>w</var>
+   &lt; 0 cut out. This will in general be a polygon with three to five
+   vertices, of which exactly two will have <var>w</var> = 0 and the rest
+   <var>w</var> &gt; 0. These vertices are then transformed to
+   three-dimensional points using the rules just stated. Conceptually, a
+   point with <var>w</var> &lt; 0 is "behind" the viewer, so should not be
+   visible.
+
+  <div class=example>
+   <pre>&lt;style&gt;
+.transformed {
+    height: 100px;
+    width: 100px;
+    background: lime;
+    transform: perspective(50px) translateZ(100px);
+}
+&lt;/style&gt;</pre>
+
+   <p> All of the box's corners have <var>z</var>-coordinates greater than
+    the perspective. This means that the box is behind the viewer and will
+    not display. Mathematically, the point (<var>x</var>, <var>y</var>) first
+    becomes (<var>x</var>, <var>y</var>, 0, 1), then is translated to
+    (<var>x</var>, <var>y</var>, 100, 1), and then applying the perspective
+    results in (<var>x</var>, <var>y</var>, 100, −1). The
+    <var>w</var>-coordinate is negative, so it does not display. An
+    implementation that doesn't handle the <var>w</var> &lt; 0 case
+    separately might incorrectly display this point as (−<var>x</var>,
+    −<var>y</var>, −100), dividing by −1 and mirroring the box.</p>
+  </div>
+
+  <div class=example>
+   <pre>&lt;style&gt;
+.transformed {
+    height: 100px;
+    width: 100px;
+    background: radial-gradient(yellow, blue);
+    transform: perspective(50px) translateZ(50px);
+}
+&lt;/style&gt;</pre>
+
+   <p> Here, the box is translated upward so that it sits at the same place
+    the viewer is looking from. This is like bringing the box closer and
+    closer to one's eye until it fills the entire field of vision. Since the
+    default transform-origin is at the center of the box, which is yellow,
+    the screen will be filled with yellow.</p>
+
+   <p> Mathematically, the point (<var>x</var>, <var>y</var>) first becomes
+    (<var>x</var>, <var>y</var>, 0, 1), then is translated to (<var>x</var>,
+    <var>y</var>, 50, 1), then becomes (<var>x</var>, <var>y</var>, 50, 0)
+    after applying perspective. Relative to the transform-origin at the
+    center, the upper-left corner was (−50, −50), so it becomes (−50,
+    −50, 50, 0). This is transformed to something very far to the upper
+    left, such as (−5000, −5000, 5000). Likewise the other corners are
+    sent very far away. The radial gradient is stretched over the whole box,
+    now enormous, so the part that's visible without scrolling should be the
+    color of the middle pixel: yellow. However, since the box is not actually
+    infinite, the user can still scroll to the edges to see the blue parts.</p>
+   <!-- TODO: Maybe we should specify that the whole thing is
+                yellow here somehow?  Doesn't seem worth it. -->
+   </div>
+
+  <div class=example>
+   <pre>&lt;style&gt;
+.transformed {
+    height: 50px;
+    width: 50px;
+    background: lime;
+    border: 25px solid blue;
+    transform-origin: left;
+    transform: perspective(50px) rotateY(-45deg);
+}
+&lt;/style&gt;</pre>
+
+   <p> The box will be rotated toward the viewer, with the left edge staying
+    fixed while the right edge swings closer. The right edge will be at about
+    <var>z</var> = 70.7px, which is closer than the perspective of 50px.
+    Therefore, the rightmost edge will vanish ("behind" the viewer), and the
+    visible part will stretch out infinitely far to the right.</p>
+
+   <p> Mathematically, the top right vertex of the box was originally (100,
+    −50), relative to the transform-origin. It is first expanded to (100,
+    −50, 0, 1). After applying the transform specified, this will get
+    mapped to about (70.71, −50, 70.71, −0.4142). This has <var>w</var> =
+    −0.4142 &lt; 0, so we need to slice away the part of the box with
+    <var>w</var> &lt; 0. This results in the new top-right vertex being (50,
+    −50, 50, 0). This is then mapped to some faraway point in the same
+    direction, such as (5000, −5000, 5000), which is up and to the right
+    from the transform-origin. Something similar is done to the lower right
+    corner, which gets mapped far down and to the right. The resulting box
+    stretches far past the edge of the screen.</p>
+
+   <p> Again, the rendered box is still finite, so the user can scroll to see
+    the whole thing if he or she chooses. However, the right part has been
+    chopped off. No matter how far the user scrolls, the rightmost 30px or so
+    of the original box will not be visible. The blue border was only 25px
+    wide, so it will be visible on the left, top, and bottom, but not the
+    right.</p>
+
+   <p> The same basic procedure would apply if one or three vertices had
+    <var>w</var> &lt; 0. However, in that case the result of truncating the
+    <var>w</var> &lt; 0 part would be a triangle or pentagon instead of a
+    quadrilateral.</p>
+  </div>
   <!-- ======================================================================================================= -->
 
   <h2 id=transform-property><span class=secno>7. </span> The ‘<a
