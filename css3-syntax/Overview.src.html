@@ -51,11 +51,11 @@
 	<dd>
 		<a href="http://www.w3.org/TR/2003/WD-css3-syntax-20030813/">http://www.w3.org/TR/2003/WD-css3-syntax-20030813/</a>
 
-	<dt>Issue Tracking:</dt>
+	<dt>Issue Tracking:
 	<dd>
 		<a href="https://www.w3.org/Bugs/Public/buglist.cgi?product=CSS&component=Syntax">W3C Bugzilla</a>
 
-	<dt>Feedback:</dt>
+	<dt>Feedback:
 	<dd>
 		<a href="http://lists.w3.org/Archives/Public/www-style/">www-style@w3.org</a> 
 		with subject line &ldquo;<kbd>[css3-syntax] <var>&hellip; message topic &hellip;</var></kbd>&rdquo;
@@ -359,8 +359,8 @@ Tokenization</h3>
 		cdc,
 		colon,
 		semicolon,
-		open-brace,
-		close-brace,
+		open-bracket,
+		close-bracket,
 		open-paren,
 		close-paren,
 		open-bracket,
@@ -632,12 +632,12 @@ Definitions</h4>
 
 		<dt>U+007B LEFT CURLY BRACKET ({)
 		<dd>
-			Emit an open-brace token.
+			Emit an open-bracket token.
 			Remain in this state.
 
 		<dt>U+007D RIGHT CURLY BRACKET (})
 		<dd>
-			Emit a close-brace token.
+			Emit a close-bracket token.
 			Remain in this state.
 
 		<dt><i>digit</i>
@@ -1120,7 +1120,7 @@ Definitions</h4>
 
 	<p>
 		Create a number token
-		with its representation initially set to the emptry string.
+		with its representation initially set to the empty string.
 
 	<p>
 		Consume the <i>next input character</i>.
@@ -1963,6 +1963,25 @@ Tree Construction</h3>
 		(sometimes a full CSSStyleSheet object, other times a "virtual" stylesheet).
 		The "output" of this stage consists of dynamically modifying or extending that stylesheet's CSSOM.
 
+	<p class='issue'>
+		Something about the fact that if the token stream is empty, 
+		the <i>next input token</i> is always the eof token.
+		This lets me simplify some algorithms
+		by avoiding the need to force the token to be reprocessed.
+
+	<p class='issue'>
+		TODO:
+		<ul>
+			<li>
+				Handle an eof token in all the states.
+
+			<li>
+				Make sure that I properly handle the case where the top element in the stack isn't a stylesheet,
+				such as when parsing the <code>style</code> attribute
+				(there, the top element is a style rule,
+				and we start by entering the declaration mode).
+		</ul>
+
 <h4>
 Creating and Inserting Rules</h4>
 	
@@ -1970,21 +1989,31 @@ Creating and Inserting Rules</h4>
 		...
 
 <h4>
-Terms</h4>
+Definitions</h4>
 
 	<dl>
-		<dt><dfn>Stack of pending rules</dfn>
+		<dt><dfn>next input token</dfn>
 		<dd>
 			...
 
-		<dt><dfn>Stack of open blocks</dfn>
+		<dt><dfn>stack of open rules</dfn>
+		<dd>
+			...
+
+		<dt><dfn>current rule</dfn>
+		<dd>
+			...
+
+		<dt><dfn>current declaration</dfn>
+		<dd>
+			...
 	</dl>
 
 <h4>
-<dfn>Top-level insertion mode</dfn>
+<dfn>Top-level mode</dfn>
 
 	<p>
-		Consume the next input token.
+		Consume the <i>next input token</i>.
 
 	<dl>
 		<dt>cdo token
@@ -1996,28 +2025,539 @@ Terms</h4>
 
 		<dt>at-keyword token
 		<dd>
-			If the at-keyword's value is the name of an at-rule that the UA recognizes,
-			create a new <i>AtRule</i> rule
-			and push it onto the <i>stack of pending rules</i>.
-			Switch to the <i>after at-keyword insertion mode</i>.
+			<i>Create an at-rule</i>
+			with its name set to the value of the <i>current input token</i>
+			and push it onto the <i>stack of open rules</i>.
+			Switch to the <i>at-rule mode</i>.
 
-			<p>
-				Otherwise, this is a <i>parse error</i>.
-				Switch to the <i>at-rule error mode</i>.
-
-		<dt>start-block token
+		<dt>open-brace token
 		<dd>
 			This is a <i>parse error</i>.
-			Push the token onto the <i>stack of open blocks</i>.
-			Switch to the <i>block error mode</i>.
+			<i>Consume a block</i> with the <i>current input token</i>.
+			Ignore the return value.
+			Remain in this state.
+
+		<dt>close-brace token
+		<dt>close-bracket token
+		<dt>close-paren token
+		<dt>bad-string token
+		<dt>bad-url token
+		<dd>
+			This is a <i>parse error</i>.
+			Switch to the <i>next-block error mode</i>.
 
 		<dt>anything else
 		<dd>
-			Create a new <i>Style</i> rule
-			and append it to the <i>stack of pending rules</i>.
-			Switch to the <i>in selector mode</i>.
+			<i>Create a style rule</i>
+			and push it onto the <i>stack of open rules</i>.
+			Switch to the <i>style-rule mode</i>.
 			Reprocess the <i>current input token</i>.
 	</dl>
+
+<h4>
+<dfn>At-rule mode</dfn></h4>
+
+	<p>
+		Consume the <i>next input token</i>.
+
+	<dl>
+		<dt>whitespace token
+		<dd>
+			Do nothing.
+			Remain in this mode.
+
+		<dt>cdo token
+		<dt>cdc token
+		<dt>bad-string token
+		<dt>bad-url token
+		<dt>close-brace token
+		<dt>close-bracket token
+		<dt>close-paren token
+		<dt>at-keyword token
+		<dd>
+			This is a <i>parse error</i>.
+			Pop the <i>current rule</i> from the <i>stack of open rules</i>.
+			<i>Switch to the current rule's content mode.</i>
+
+		<dt>semicolon token
+		<dd>
+			Pop the <i>current rule</i> from the <i>stack of open rules</i>
+			and append it to the list of rules for the new <i>current rule</i>.
+			<i>Switch to the current rule's content mode.</i>
+
+		<dt>open-brace token
+		<dd>
+			Switch to the <i>at-rule-block mode</i>.
+
+		<dt>open-bracket token
+		<dt>open-brace token
+		<dd>
+			<i>Consume a block</i> with the <i>current input token</i>.
+			If a block is returned,
+			append it to the prelude of the <i>current rule</i>
+			and remain in this mode.
+
+			<p>
+				Otherwise,
+				this is a <i>parse error</i>.
+				Pop the <i>current rule</i> from the <i>stack of open rules</i>.
+				Switch to the <i>next-block-or-statement error mode</i>.
+
+		<dt>function token
+		<dd>
+			<i>Consume a function</i> with the <i>current input token</i>.
+			If a function is returned,
+			append it to the prelude of the <i>current rule</i>
+			and remain in this mode.
+
+			<p>
+				Otherwise,
+				this is a <i>parse error</i>.
+				Pop the <i>current rule</i> from the <i>stack of open rules</i>.
+				Switch to the <i>next-block-or-statement error mode</i>.
+
+		<dt>anything else
+		<dd>
+			Append the <i>current input token</i>
+			to the prelude of the <i>current rule</i>
+			and remain in this mode.
+	</dl>
+
+
+<h4>
+<dfn>At-rule-block mode</dfn></h4>
+
+	<p>Consume the <i>next input token</i>.
+
+	<dl>
+		<dt>cdo token
+		<dt>cdc token
+		<dt>bad-string token
+		<dt>bad-url token
+		<dt>close-brace token
+		<dt>close-bracket token
+		<dt>close-paren token
+		<dd>
+			This is a <i>parse error</i>.
+			Switch to the <i>next-block-or-statement error mode</i>.
+
+		<dt>at-keyword token
+		<dd>
+			<i>Create an at-rule</i>
+			with its name set to the value of the <i>current input token</i>
+			and push it onto the <i>stack of open rules</i>.
+			Switch to the <i>at-rule mode</i>.
+
+	</dl>
+
+	<p class='issue'>
+		Not done yet.
+		Every at-rule allows more at-rules in its body,
+		but must choose whether it allows declarations or "style rules" in its body (things with a selector).
+		Need to decide whether I should just specialize on that,
+		or if I should fully specialize on the at-keyword name,
+		so that, for example, @keyframes goes down a special parser rule
+		that ends up accepting only keyframes.
+
+
+<h4>
+<dfn>Style-rule mode</dfn></h4>
+
+	<p>
+		Consume the <i>next input token</i>.
+
+	<dl>
+		<dt>cdo token
+		<dt>cdc token
+		<dt>at-keyword token
+		<dt>close-brace token
+		<dt>close-bracket token
+		<dt>close-parent token
+		<dt>bad-string token
+		<dt>bad-url token
+		<dd>
+			This is a <i>parse error</i>.
+			Pop the <i>current rule</i> from the <i>stack of open rules</i>.
+			Switch to the <i>next-block error mode</i>.
+
+		<dt>open-brace token
+		<dd>
+			Switch to the <i>declaration mode</i>.
+
+		<dt>open-bracket token
+		<dt>open-paren token
+		<dd>
+			<i>Consume a block</i> with the <i>current input token</i>.
+			If a block is returned,
+			append it to the selector of the <i>current rule</i>
+			and remain in this mode.
+
+			<p>
+				Otherwise, this is a <i>parse error</i>.
+				Pop the <i>current rule</i> from the <i>stack of open rules</i>.
+				Switch to the <i>next-block error mode</i>.
+
+
+		<dt>function token
+		<dd>
+			<i>Consume a function</i> with the <i>current input token</i>.
+			If a function is returned,
+			append it to the selector of the <i>current rule</i>
+			and remain in this mode.
+
+			<p>
+				Otherwise, this is a <i>parse error</i>.
+				Pop the <i>current rule</i> from the <i>stack of open rules</i>.
+				Switch to the <i>next-block error mode</i>.
+
+		<dt>anything else
+		<dd>
+			Append the token to the selector of the <i>current rule</i>.
+			Remain in this mode.
+	</dl>
+
+
+<h4>
+<dfn>Declaration mode</dfn></h4>
+
+	<p>
+		Consume the <i>next input token</i>.
+
+	<dl>
+		<dt>whitespace token</dt>
+		<dd>
+			Do nothing.
+			Remain in this mode.
+
+		<dt>ident token
+		<dd>
+			Create a declaration
+			with its name set to the value of the <i>current input token</i>
+			Switch to the <i>after-declaration-name mode</i>.
+
+		<dt>anything else
+		<dd>
+			This is a <i>parse error</i>.
+			Switch to the <i>next-statement error mode</i>.
+	</dl>
+
+
+<h4>
+<dfn>After-declaration-name mode</dfn></h4>
+
+	<p>
+		Consume the <i>next input token</i>.
+
+	<dl>
+		<dt>whitespace
+		<dd>
+			Do nothing.
+			Remain in this mode.
+
+		<dt>colon token
+		<dd>
+			Do nothing.
+			Switch to the <i>declaration-value mode</i>.
+
+		<dt>semicolon token
+		<dd>
+			This is a <i>parse error</i>.
+			Discard the <i>current declaration</i>.
+			<i>Switch to the current rule's content mode</i>.
+
+
+		<dt>anything else
+		<dd>
+			This is a <i>parse error</i>.
+			Switch to the <i>next-statement error mode</i>.
+	</dl>
+
+
+<h4>
+<dfn>Declaration-value mode</dfn></h4>
+
+	<p>
+		Consume the <i>next input token</i>.
+
+	<dl>
+		<dt>cdo token
+		<dt>cdc token
+		<dt>close-bracket token
+		<dt>close-paren token
+		<dt>bad-string token
+		<dt>bad-url token
+		<dd>
+			This is a <i>parse error</i>.
+			Discard the <i>current declaration</i>
+			and switch to the <i>next-statement error mode</i>.
+		
+		<dt>whitespace token
+		<dd>
+			Do nothing.
+			Remain in this mode.
+
+		<dt>open-brace token
+		<dt>open-bracket token
+		<dt>open-paren token
+		<dd>
+			<i>Consume a block</i> with the <i>current input token</i>.
+			If a block is returned,
+			append it to the value of the <i>current declaration</i>
+			and remain in this mode.
+
+			<p>
+				Otherwise,
+				discard the <i>current declaration</i>
+				and switch to the <i>next-statement error mode</i>.
+
+		<dt>function token
+		<dd>
+			<i>Consume a function</i> with the <i>current input token</i>.
+			If a function is returned,
+			append it to the value of the <i>current declaration</i>.
+			and remain in this mode.
+
+			<p>
+				Otherwise, discard the <i>current declaration</i>
+				and switch to the <i>next-statement error mode</i>.
+
+		<dt>semicolon token
+		<dd>
+			Append the <i>current declaration</i>
+			to the list of declarations for the <i>current rule</i>.
+			<i>Switch to the current rule's content mode</i>.
+
+		<dt>close-brace token
+		<dd>
+			Append the <i>current declaration</i>
+			to the list of declarations for the <i>current rule</i>.
+			Pop the <i>current rule</i> from the <i>stack of open rules</i>,
+			and append it to the list of rules for the new <i>current rule</i>.
+			<i>Switch to the current rule's content mode</i>.
+
+		<dt>anything else
+		<dd>
+			Append the <i>current input token</i>
+			to the value of the <i>current declaration</i>.
+			Remain in this mode.
+	</dl>
+
+
+<h4>
+<dfn>Next-block error mode</dfn></h4>
+
+	<p>
+		Consume the <i>next input token</i>.
+
+	<dl>
+		<dt>open-brace token
+		<dd>
+			<i>Consume a block</i> with the <i>current input token</i>.
+			Ignore the return value.
+			<i>Switch to the current rule's content mode</i>.
+
+		<dt>open-bracket token
+		<dt>open-paren token
+		<dd>
+			<i>Consume a block</i> with the <i>current input token</i>.
+			Ignore the return value.
+			Remain in this mode.
+
+		<dt>function token
+		<dd>
+			<i>Consume a function</i> with the <i>current input token</i>.
+			Ignore the return value.
+			Remain in this mode.
+
+		<dt>anything else
+		<dd>
+			Do nothing.
+			Remain in this mode.
+	</dl>
+
+
+<h4>
+<dfn>Next-statement error mode</dfn></h4>
+
+	<p>
+		Consume the <i>next input token</i>.
+
+	<dl>
+		<dt>semicolon token
+		<dd>
+			Do nothing.
+			<i>Switch to the current rule's content mode</i>.
+
+		<dt>open-brace token
+		<dt>open-bracket token
+		<dt>open-paren token
+		<dd>
+			<i>Consume a block</i> with the <i>current input token</i>.
+			Ignore the return value.
+			Remain in this mode.
+
+		<dt>function token
+		<dd>
+			<i>Consume a function</i> with the <i>current input token</i>.
+			Ignore the return value.
+			Remain in this mode.
+
+		<dt>anything else
+		<dd>
+			Do nothing.
+			Remain in this mode.
+	</dl>
+
+
+<h4>
+<dfn>Next-block-or-statement error mode</dfn></h4>
+
+	<p>
+		Consume the <i>next input token</i>.
+
+	<dl>
+		<dt>semicolon token
+		<dd>
+			Do nothing.
+			<i>Switch to the current rule's content mode</i>.
+
+		<dt>open-brace token
+		<dd>
+			<i>Consume a block</i> with the <i>current input token</i>.
+			Ignore the return value.
+			<i>Switch to the current rule's content mode</i>.
+
+		<dt>open-bracket token
+		<dt>open-paren token
+		<dd>
+			<i>Consume a block</i> with the <i>current input token</i>.
+			Ignore the return value.
+			Remain in this mode.
+
+		<dt>function token
+		<dd>
+			<i>Consume a function</i> with the <i>current input token</i>.
+			Ignore the return value.
+			Remain in this mode.
+
+		<dt>anything else
+		<dd>
+			Do nothing.
+			Remain in this mode.
+	</dl>
+
+
+<h4>
+<dfn>Consume a block</dfn></h4>
+
+	<p>
+		This section describes how to <i>consume a block</i>.
+		It must be called with an 
+		open-brace, 
+		open-bracket,
+		or open-paren
+		token.
+
+	<p>
+		The <dfn>ending token</dfn> is the close-* variant of the token this algorithm was called with.
+
+	<p>
+		The <dfn>error flag</dfn> is initially false.
+
+	<p>
+		Create a brace block, bracket block, or paren block as the <dfn>current block</dfn>
+		whichever corresponds to the token this algorithm was called with.
+
+	<p>
+		Repeatedly consume the <i>next input token</i> and process it as follows:
+
+	<dl>
+		<dt>EOF token
+		<dd>
+			Return nothing.
+
+
+		<dt>whitespace token
+		<dd>
+			Do nothing.
+
+		<dt>close-brace token
+		<dt>close-bracket token
+		<dt>close-paren token
+		<dd>
+			If the <i>current input token</i>
+			is the <i>ending token</i>,
+			return the block if the <i>error flag</i> is false,
+			and return nothing if it's true.
+
+			<p>
+				If the <i>current input token</i>
+				is not the <i>ending token</i>,
+				this is a <i>parse error</i>.
+				Set the error flag to true.
+
+		<dt>bad-string token
+		<dt>bad-url token
+		<dt>semicolon token
+		<dt>cdo token
+		<dt>cdc token
+		<dt>at-keyword token
+		<dd>
+			This is a <i>parse error</i>.
+			Set the <i>error flag</i> to true.
+
+		<dt>open-brace token
+		<dt>open-bracket token
+		<dt>open-paren token
+		<dd>
+			<i>Consume a block</i> with the <i>current input token</i>.
+			If it returns a block,
+			append the returned block 
+			to the value of the <i>current block</i>.
+
+			<p>
+				Otherwise, set the <i>error flag</i> to true.
+
+		<dt>function token
+		<dd>
+			<i>Consume a function</i> with the <i>current input token</i>.
+			If it returns a function,
+			append the returned function 
+			to the value of the <i>current block</i>.
+
+			<p>
+				Otherwise, set the <i>error flag</i> to true.
+
+		<dt>anything else
+		<dd>
+			Append the <i>current input token</i>
+			to the value of the <i>current block</i>.
+	</dl>
+
+
+<h4>
+<dfn>Switch to the current rule's content mode</dfn></h4>
+
+	<p>
+		This section describes how to <i>switch to the current rule's content mode</i>.
+		It is invoked whenever a declaration or rule has been successfully completed,
+		or when an error has finished recovery.
+
+	<p>
+		If the <i>current rule</i> is a style rule,
+		switch to the <i>declaration mode</i>.
+
+	<p>
+		If the <i>current rule</i> is an at-rule,
+		switch to the <i>at-rule-block mode</i>.
+
+	<p>
+		If the <i>current rule</i> is a stylesheet,
+		switch to the <i>top-level mode</i>.
+
+
+
+
 
 
 
@@ -2099,11 +2639,11 @@ Conformance classes</h3>
 		<dt><dfn title="style sheet!!as conformance class">style sheet</dfn>
 			<dd>A <a href="http://www.w3.org/TR/CSS21/conform.html#style-sheet">CSS
 			style sheet</a>.
-		<dt><dfn>renderer</dfn></dt>
+		<dt><dfn>renderer</dfn>
 			<dd>A <a href="http://www.w3.org/TR/CSS21/conform.html#user-agent">UA</a>
 			that interprets the semantics of a style sheet and renders
 			documents that use them.
-		<dt><dfn id="authoring-tool">authoring tool</dfn></dt>
+		<dt><dfn id="authoring-tool">authoring tool</dfn>
 			<dd>A <a href="http://www.w3.org/TR/CSS21/conform.html#user-agent">UA</a>
 			that writes a style sheet.
 	</dl>
