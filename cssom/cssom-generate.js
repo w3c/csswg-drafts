@@ -87,10 +87,10 @@
     function formatIDLComment(idl,method,args) {
         if ( method == 'idl' ) {
             return formatIDL ( idl, args );
-        } else if ( method == 'idlDef' ) {
-            return formatIDLDef ( idl, args );
         } else if ( method == 'idlDoc' ) {
             return formatIDLDoc ( idl, args );
+        } else if ( method == 'idlDef' ) {
+            return formatIDLDef ( idl, args );
         } else if ( method == 'idlDocMembers' ) {
             return formatIDLDocMembers ( idl, args );
         } else if ( method == 'idlDocConstructors' ) {
@@ -164,13 +164,39 @@
         return s;
     }
     function formatIDLMember(def, mem, args) {
-        if ( mem.type == 'attribute' ) {
+        if ( mem.type == 'const' ) {
+            return formatIDLConstMember ( def, mem, args );
+        } else if ( mem.type == 'attribute' ) {
             return formatIDLAttrMember ( def, mem, args );
         } else if ( mem.type == 'operation' ) {
             return formatIDLOperMember ( def, mem, args );
         } else {
             return '';
         }
+    }
+    function formatIDLConstMember(def, mem, args) {
+        var n = mem.name;
+        var s = '';
+        s += eltStart ( 'span', [ newAttr ( 'class', 'idlConst' ) ], false );
+        s += '    ';
+        s += 'const';
+        s += ' ';
+        s += formatIDLConstType ( def, mem, mem.idlType, false, args );
+        s += ' ';
+        s += eltStart ( 'span', [ newAttr ( 'class', 'idlConstName' ) ], false );
+        s += eltStart ( 'a', [ newAttr ( 'href', generateIDLConstIDRef ( def, mem ) ) ], false );
+        s += n;
+        s += eltEnd ( 'a', false );
+        s += eltEnd ( 'span', false );
+        if ( !! mem.value ) {
+            s += ' = ';
+            s += eltStart ( 'span', [ newAttr ( 'class', 'idlConstValue' ) ], false );
+            s += mem.value;
+            s += eltEnd ( 'span', false );
+        }
+        s += ';';
+        s += eltEnd ( 'span', false );
+        return s;
     }
     function formatIDLAttrMember(def, mem, args) {
         var n = mem.name;
@@ -205,13 +231,34 @@
         return IDL_ID_PREFIX + '-def-' + def.name;
     }
     function generateIDLMemberID(def, mem) {
-        if ( mem.type == 'attribute' ) {
+        if ( mem.type == 'const' ) {
+            return generateIDLConstID ( def, mem );
+        } else if ( mem.type == 'attribute' ) {
             return generateIDLAttrID ( def, mem );
         } else if ( mem.type == 'operation' ) {
             return generateIDLOperID ( def, mem );
         } else {
             return '';
         }
+    }
+    function generateIDLConstID(def, mem) {
+        return IDL_ID_PREFIX + '-' + def.name + '-' + mem.name;
+    }
+    function generateIDLConstIDRef(def, mem) {
+        return generateIDRef ( generateIDLConstID ( def, mem ) );
+    }
+    function formatIDLConstType(def, mem, type, verbose, args) {
+        return formatIDLType ( def, mem, type, 'idlConstType', verbose, args );
+    }
+    function formatIDLConstSignature(def, mem, verbose, args) {
+        var s = '';
+        s += ' ';
+        s += formatIDLConstType ( def, mem, mem.idlType, verbose, args );
+        if ( !! mem.value ) {
+            s += ', with value ';
+            s += mem.value;
+        }
+        return s;
     }
     function generateIDLAttrID(def, mem) {
         return IDL_ID_PREFIX + '-' + def.name + '-' + mem.name;
@@ -221,6 +268,12 @@
     }
     function formatIDLAttrType(def, mem, type, verbose, args) {
         return formatIDLType ( def, mem, type, 'idlAttrType', verbose, args );
+    }
+    function formatIDLAttrSignature(def, mem, verbose, args) {
+        var s = '';
+        s += ' ';
+        s += formatIDLAttrType ( def, mem, mem.idlType, verbose, args );
+        return s;
     }
     function formatIDLOperMember(def, mem, args) {
         var n = mem.name;
@@ -322,7 +375,7 @@
     function formatIDLType(def, mem, type, cssClass, verbose, args) {
         var s = '';
         if ( !! verbose ) {
-            s += ' of type ';
+            s += 'of type ';
         }
         if ( !! cssClass ) {
             s += eltStart ( 'span', [ newAttr ( 'class', cssClass ) ], false );
@@ -383,7 +436,9 @@
         return s;
     }
     function getIDLMemberID(def,mem,args) {
-        if ( mem.type == 'attribute' ) {
+        if ( mem.type == 'const' ) {
+            return generateIDLConstID ( def, mem );
+        } else if ( mem.type == 'attribute' ) {
             return generateIDLAttrID ( def, mem );
         } else if ( mem.type == 'operation' ) {
             return generateIDLOperID ( def, mem );
@@ -392,7 +447,7 @@
         }
     }
     function getIDLMemberCSSClass(def,mem,args) {
-        if ( mem.type == 'constant' ) {
+        if ( mem.type == 'const' ) {
             return 'idlConst';
         } else if ( mem.type == 'attribute' ) {
             return 'idlAttr';
@@ -403,7 +458,7 @@
         }
     }
     function getIDLMemberTermCSSClass(def,mem,args) {
-        if ( mem.type == 'constant' ) {
+        if ( mem.type == 'const' ) {
             return 'constant';
         } else if ( mem.type == 'attribute' ) {
             return 'attribute';
@@ -430,7 +485,7 @@
     }
     function wrap(s,en,getAttrs,newLine,def,mem,args) {
         var sNew = '';
-        sNew += eltStart ( en, getAttrs && getAttrs ( def, mem, args ), newLine );
+        sNew += eltStart ( en, !! getAttrs ? getAttrs ( def, mem, args ) : [], newLine );
         sNew += s;
         sNew += eltEnd ( en, newLine );
         return sNew;
@@ -524,7 +579,7 @@
         }
     }
     function countConstMembers(def,args) {
-        return countMembers ( 'constant', def, args );
+        return countMembers ( 'const', def, args );
     }
     function countAttrMembers(def,args) {
         return countMembers ( 'attribute', def, args );
@@ -559,7 +614,7 @@
         return formatIDLDefinitionDocAllMembers ( def, args );
     }
     function formatIDLDefinitionDocConstMembers(def,args) {
-        return formatIDLDefinitionDocMembersByType ( 'constant', def, args );
+        return formatIDLDefinitionDocMembersByType ( 'const', def, args );
     }
     function formatIDLDefinitionDocAttrMembers(def,args) {
         return formatIDLDefinitionDocMembersByType ( 'attribute', def, args );
@@ -571,14 +626,12 @@
         return formatIDLDefinitionDocMembersByType ( null, def, args );
     }
     function getIDLDefinitionListCSSClass(type) {
-        if ( type == 'constant' ) {
+        if ( type == 'const' ) {
             return 'constants';
         } else if ( type == 'attribute' ) {
             return 'attributes';
         } else if ( type == 'operation' ) {
             return 'methods';
-        } else if ( type == 'constant' ) {
-            return 'constants';
         } else {
             return 'members';
         }
@@ -611,14 +664,16 @@
     }
     function formatIDLMemberTerm(def,mem,args) {
         var getDTAttrs = function(def,mem,args) {
-            return [ newAttr ( 'class', getIDLMemberTermCSSClass ( def, mem, args ), newAttr ( 'id', getIDLMemberID ( def, mem, args ) ) ) ];
+            return [ newAttr ( 'class', getIDLMemberTermCSSClass ( def, mem, args ) ), newAttr ( 'id', getIDLMemberID ( def, mem, args ) ) ];
         };
         return wrap ( formatIDLMemberTermContent ( def, mem, args ), 'dt', getDTAttrs, true, def, mem, args );
     }
     function formatIDLMemberTermContent(def,mem,args) {
         var s = formatAsCode ( mem.name );
-        if ( mem.type == 'attribute' ) {
-            s += formatIDLAttrType ( def, mem, mem.idlType, true, args );
+        if ( mem.type == 'const' ) {
+            s += formatIDLConstSignature ( def, mem, true, args );
+        } else if ( mem.type == 'attribute' ) {
+            s += formatIDLAttrSignature ( def, mem, true, args );
         } else if ( mem.type == 'operation' ) {
             s += formatIDLOperSignature ( def, mem, true, args );
         }
