@@ -1,6 +1,7 @@
 
 ANOLIS = anolis
 PYTHON = python
+NODE = node
 
 XREFS  = data/xrefs/css/cssom.json
 EDFILE = Overview.html
@@ -8,8 +9,8 @@ TRFILE = TR/Overview.html
 
 all: $(EDFILE)
 
-Overview.src.html: cssom-source cssom-generate.py
-	$(PYTHON) cssom-generate.py
+Overview.src.html: cssom-generate.js idl/cssom.json cssom-source
+	$(NODE) cssom-generate.js > $@
 
 $(XREFS): Overview.src.html Makefile
 	$(ANOLIS) --dump-xrefs=$@ $< /tmp/spec; $(RM) /tmp/spec
