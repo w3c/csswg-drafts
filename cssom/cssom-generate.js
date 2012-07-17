@@ -866,7 +866,7 @@
         },
         run : function(argv) {
             try {
-                var sIdl = fs.readFileSync ( './idl/cssom.json', 'utf8' );
+                var sIdl = fs.readFileSync ( 'cssom.json', 'utf8' );
                 idl = JSON.parse ( sIdl );
                 var sDoc = fs.createReadStream ( 'cssom-source' );
                 p.on ( 'end', $.onend );
