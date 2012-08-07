@@ -865,14 +865,26 @@
             util.puts ( output );
         },
         run : function(argv) {
-            try {
-                var sIdl = fs.readFileSync ( 'cssom.json', 'utf8' );
-                idl = JSON.parse ( sIdl );
-                var sDoc = fs.createReadStream ( 'cssom-source' );
-                p.on ( 'end', $.onend );
-                p.parse ( sDoc );
-            } catch ( e ) {
-                util.puts ( util.inspect ( e ) );
+            var argc = argv.length - 2;
+            if ( argc < 1 ) {
+                util.error ( "Error: Missing JSONFILE argument." );
+                process.exit(2);
+            } else if ( argc < 2 ) {
+                util.error ( "Error: Missing INPUTFILE argument." );
+                process.exit(2);
+            } else {
+              try {
+                  var jsonFile = argv[argc++];
+                  var inFile = argv[argc++];
+                  var sIdl = fs.readFileSync ( jsonFile, 'utf8' );
+                  idl = JSON.parse ( sIdl );
+                  var sDoc = fs.createReadStream ( inFile );
+                  p.on ( 'end', $.onend );
+                  p.parse ( sDoc );
+              } catch ( e ) {
+                  util.error ( util.inspect ( e ) );
+                  process.exit(1);
+              }
             }
         }
     };
