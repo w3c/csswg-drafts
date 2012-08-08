@@ -2,6 +2,12 @@
 ANOLIS		= anolis
 NODE		= node
 
+SPECSTOP	= ..
+GENDIR		= $(SPECSTOP)/cssom
+IDLGEN		= $(GENDIR)/cssom-generate-json.js
+SPECGEN		= $(GENDIR)/cssom-generate.js
+SPECSRC		= cssom-source
+
 IDLDRIVER	= cssom.idl
 IDLFRAGS	= idl/CSSFontFaceRule.idl \
 		  idl/CSSImportRule.idl \
@@ -28,11 +34,11 @@ TRFILE		= TR/Overview.html
 
 all: $(EDFILE)
 
-$(JSONFILE): cssom-generate-json.js $(IDLDRIVER) $(IDLFRAGS)
-	gcc -E -x c -P -Iidl -C $(IDLDRIVER) | node cssom-generate-json.js > $@
+$(JSONFILE): $(IDLDRIVER) $(IDLFRAGS) $(IDLGEN)
+	gcc -E -x c -P -Iidl -C $(IDLDRIVER) | node $(IDLGEN) > $@
 
-Overview.src.html: cssom-generate.js $(JSONFILE) cssom-source
-	$(NODE) cssom-generate.js > $@
+Overview.src.html: $(SPECGEN) $(JSONFILE) $(SPECSRC)
+	$(NODE) $(SPECGEN) $(JSONFILE) $(SPECSRC) > $@
 
 $(XREFS): Overview.src.html Makefile
 	$(ANOLIS) --dump-xrefs=$@ $< /tmp/spec; $(RM) /tmp/spec
@@ -52,9 +58,11 @@ $(TRFILE): Overview.src.html $(XREFS) Makefile
 publish: $(TRFILE)
 
 clean::
-	$(RM) $(EDFILE)
 	$(RM) Overview.src.html
 	$(RM) $(JSONFILE)
+
+cleanall:: clean
+	$(RM) $(EDFILE)
 	echo '{ "definitions": {}, "url": "http://dvcs.w3.org/hg/csswg/raw-file/tip/cssom/Overview.html#" }' > $(XREFS)
 
 
