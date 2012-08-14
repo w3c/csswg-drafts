@@ -4,7 +4,51 @@
         util = require('util'),
         fs = require('fs');
     var output = '';
-    var p = new HTML5.Parser();
+    var parser = new HTML5.Parser();
+    var idl = null;
+    function augmentIDL(idl) {
+        return augmentIDLDefinitions(idl);
+    }
+    function augmentIDLDefinitions(idl) {
+        for ( var i in idl ) {
+            augmentIDLDefinition ( idl[i] );
+        }
+        return idl;
+    }
+    function augmentIDLDefinition(def) {
+        if ( def && !! def.type ) {
+            if ( def.type == 'interface' ) {
+                augmentIDLInterface ( def );
+            }
+        }
+    }
+    function augmentIDLInterface(def) {
+        augmentIDLConstructors(def);
+    }
+    function augmentIDLConstructors(def) {
+        for ( var i in def.extAttrs ) {
+            var xa = def.extAttrs[i];
+            if ( !! xa.name && ( xa.name == 'Constructor' ) ) {
+                def.members.push ( generateIDLConstructor ( def, xa ) );
+            }
+        }
+        for ( var i in def.extAttrs ) {
+            var xa = def.extAttrs[i];
+            if ( !! xa.name && ( xa.name == 'NamedConstructor' ) ) {
+                def.members.push ( generateIDLConstructor ( def, xa ) );
+            }
+        }
+    }
+    function generateIDLConstructor(def,xa) {
+        return {
+            type: 'constructor',
+            idlType: def.name,
+            name: xa.value || def.name,
+            arguments: !! xa.arguments ? xa.arguments : [],
+            raises: '',
+            extAttrs: xa.extAttrs
+        };
+    }
     var eol = '\n';
     function needsEOL(ln,end) {
         if ( ( ln == 'html' ) && ! end ) {
@@ -42,10 +86,10 @@
     }
     var rIdl = new RegExp ( /^(idl[a-zA-Z]*)\(([^\)]*)\)$/ );
     var rSep = new RegExp ( /\s*,\s*/ );
-    function processIDLComment(idl,comment) {
+    function processIDLComment(comment) {
         var m = rIdl.exec ( getSubstitutionComment ( comment ) );
         if ( m && ( m.length > 2 ) ) {
-            return formatIDLComment ( idl, m[1], m[2].split(rSep) );
+            return formatIDLComment ( m[1], m[2].split(rSep) );
         } else {
             return '';
         }
@@ -84,40 +128,44 @@
         }
         return '';
     }
-    function formatIDLComment(idl,method,args) {
+    function formatIDLComment(method,args) {
         if ( method == 'idl' ) {
-            return formatIDL ( idl, args );
+            return formatIDL ( args );
         } else if ( method == 'idlDoc' ) {
-            return formatIDLDoc ( idl, args );
+            return formatIDLDoc ( args );
         } else if ( method == 'idlDef' ) {
-            return formatIDLDef ( idl, args );
+            return formatIDLDef ( args );
         } else if ( method == 'idlDocMembers' ) {
-            return formatIDLDocMembers ( idl, args );
-        } else if ( method == 'idlDocConstructors' ) {
-            return formatIDLDocConstructors ( idl, args );
+            return formatIDLDocMembers ( args );
         } else {
             return '';
         }
     }
-    function formatIDL(idl,args) {
+    function formatIDL(args) {
         var s = '';
-        s += formatIDLDoc ( idl, args );
-        s += formatIDLDef ( idl, args );
-        s += formatIDLDocMembers ( idl, args );
-        s += formatIDLDocConstructors ( idl, args );
+        s += formatIDLDoc ( args );
+        s += formatIDLDef ( args );
+        s += formatIDLDocMembers ( args );
         return s;
     }
-    function formatIDLDef(idl,args) {
-        var n = args[0];
+    function findIDL(name) {
         for ( var i in idl ) {
             var d = idl[i];
-            if ( !! d.name && ( d.name == n ) ) {
-                return formatIDLDefinition ( d, args );
-            } else if ( !! d.target && ( d.target == n ) ) {
-                return formatIDLDefinition ( d, args );
+            if ( !! d.name && ( d.name == name ) ) {
+                return d;
+            } else if ( !! d.target && ( d.target == name ) ) {
+                return d;
             }
         }
-        return '';
+        return null;
+    }
+    function formatIDLDef(args) {
+        var d = findIDL ( args[0] );
+        if ( d ) {
+            return formatIDLDefinition ( d, args );
+        } else {
+            return '';
+        }
     }
     function formatIDLDefinition(def,args) {
         var t = def.type;
@@ -140,27 +188,150 @@
         s += eol;
         s += eltStart ( 'pre', [ newAttr ( 'class', 'idl' ) ], false );
         s += eltStart ( 'span', [ newAttr ( 'class', 'idlInterface' ), newAttr ( 'id', generateIDLDefinitionID ( def ) ) ], false );
+        s += formatIDLExtendedAttributes ( def, args );
         if ( partial ) {
-        s += 'partial' + ' ';
+            s += 'partial ';
         }
-        s += 'interface' + ' ';
+        s += 'interface ';
         s += eltStart ( 'span', [ newAttr ( 'class', 'idlInterfaceID' ) ], false );
         s += n;
         s += eltEnd ( 'span', false );
-        if ( x ) {
-            // TBD
+        if ( x && ( x.length > 0 ) ) {
+            s += ' : ';
+            var xti = 0;
+            for ( var i in x ) {
+                var xt = x [ i ];
+                if ( xti++ > 0 ) {
+                    s += ', ';
+                }
+                s += eltStart ( 'span', [ newAttr ( 'class', 'idlSuperclass' ) ], false );
+                s += formatNamedIDLDefinitionNameAsLink ( xt );
+                s += eltEnd ( 'span', false );
+            }
         }
-        s += ' ' + '{' + eol;
+        s += ' {' + eol;
         for ( var i in def.members ) {
             var m = def.members [ i ];
             var f = formatIDLMember ( def, m, args );
             if ( f != '' ) {
-                s += f + '\n';
+                s += f + eol;
             }
         }
         s += '};';
         s += eltEnd ( 'span', false );
         s += eltEnd ( 'pre', true );
+        return s;
+    }
+    function formatIDLExtendedAttributes(def,args) {
+        var s = '';
+        var numExposed = 0;
+        for ( var i in def.extAttrs ) {
+            var ea = def.extAttrs[i];
+            if ( isExposedExtendedAttribute ( ea ) ) {
+                numExposed++;
+            }
+        }
+        if ( numExposed > 0 ) {
+            s += '[';
+        }
+        var numOutput = 0;
+        for ( var i in def.extAttrs ) {
+            var ea = def.extAttrs[i];
+            if ( isExposedExtendedAttribute ( ea ) ) {
+                if ( numOutput > 0 ) {
+                    s += ',' + eol + ' ';
+                }
+                s += ea.name;
+                if ( !! ea.value ) {
+                    s += '=';
+                    if ( isIDLIdentifier ( ea.value ) ) {
+                        s += ea.value;
+                        s += formatIDLExtendedAttributesArguments ( ea );
+                    } else {
+                        s += '"' + ea.value + '"';
+                    }
+                } else if ( !! ea.arguments ) {
+                    s += formatIDLExtendedAttributesArguments ( ea );
+                }
+                numOutput++;
+            }
+        }
+        if ( numExposed > 0 ) {
+            if ( numOutput > 1 ) {
+                s += eol;
+            }
+            s += ']' + eol;
+        }
+        return s;
+    }
+    function isIDLIdentifier(s) {
+        for ( var i = 0, n = s.length; i < n; i++ ) {
+            var c = s.charAt(i);
+            if ( ( c >= 'A' ) && ( c <= 'Z' ) ) {
+                continue;
+            } else if ( ( c >= 'a' ) && ( c <= 'z' ) ) {
+                continue;
+            } else if ( ( i > 0 ) && ( c >= '0' ) && ( c <= '9' ) ) {
+                continue;
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+    function isExposedExtendedAttribute(ea) {
+        var n = ea.name;
+        if ( n == 'ArrayClass' ) {
+            return true;
+        } else if ( n == 'Clamp' ) {
+            return true;
+        } else if ( n == 'Constructor' ) {
+            return true;
+        } else if ( n == 'EnforceRange' ) {
+            return true;
+        } else if ( n == 'ImplicitThis' ) {
+            return true;
+        } else if ( n == 'LenientThis' ) {
+            return true;
+        } else if ( n == 'NamedConstructor' ) {
+            return true;
+        } else if ( n == 'NoInterfaceObject' ) {
+            return true;
+        } else if ( n == 'OverrideBuiltins' ) {
+            return true;
+        } else if ( n == 'PutForwards' ) {
+            return true;
+        } else if ( n == 'Replaceable' ) {
+            return true;
+        } else if ( n == 'NamedPropertiesObject' ) {
+            return true;
+        } else if ( n == 'TreatNonCallableAsNull' ) {
+            return true;
+        } else if ( n == 'TreatNullAs' ) {
+            return true;
+        } else if ( n == 'TreatUndefinedAs' ) {
+            return true;
+        } else if ( n == 'Unforgeable' ) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    function formatIDLExtendedAttributesArguments(ea) {
+        var s = '';
+        if ( !! ea.arguments && ( ea.arguments.length > 0 ) ) {
+            s += '(';
+            for ( var i in ea.arguments ) {
+                var a = ea.arguments[i];
+                if ( i > 0 ) {
+                    s += ',';
+                }
+                s += a.type.idlType;
+                s += ' ';
+                s += a.name;
+            }
+            s += ')';
+        }
         return s;
     }
     function formatIDLMember(def, mem, args) {
@@ -179,8 +350,7 @@
         var s = '';
         s += eltStart ( 'span', [ newAttr ( 'class', 'idlConst' ) ], false );
         s += '    ';
-        s += 'const';
-        s += ' ';
+        s += 'const ';
         s += formatIDLConstType ( def, mem, mem.idlType, false, args );
         s += ' ';
         s += eltStart ( 'span', [ newAttr ( 'class', 'idlConstName' ) ], false );
@@ -210,8 +380,7 @@
             s += ' readonly';
         }
         s += ' ';
-        s += 'attribute';
-        s += ' ';
+        s += 'attribute ';
         s += formatIDLAttrType ( def, mem, mem.idlType, false, args );
         s += ' ';
         s += eltStart ( 'span', [ newAttr ( 'class', 'idlAttrName' ) ], false );
@@ -230,22 +399,24 @@
     function generateIDLDefinitionID(def) {
         return IDL_ID_PREFIX + '-def-' + def.name;
     }
-    function generateIDLMemberID(def, mem) {
+    function generateIDLMemberID(def, mem, args) {
         if ( mem.type == 'const' ) {
-            return generateIDLConstID ( def, mem );
+            return generateIDLConstID ( def, mem, args );
         } else if ( mem.type == 'attribute' ) {
-            return generateIDLAttrID ( def, mem );
+            return generateIDLAttrID ( def, mem, args );
         } else if ( mem.type == 'operation' ) {
-            return generateIDLOperID ( def, mem );
+            return generateIDLOperID ( def, mem, false, args );
+        } else if ( mem.type == 'constructor' ) {
+            return generateIDLOperID ( def, mem, false, args );
         } else {
             return '';
         }
     }
-    function generateIDLConstID(def, mem) {
+    function generateIDLConstID(def, mem, args) {
         return IDL_ID_PREFIX + '-' + def.name + '-' + mem.name;
     }
-    function generateIDLConstIDRef(def, mem) {
-        return generateIDRef ( generateIDLConstID ( def, mem ) );
+    function generateIDLConstIDRef(def, mem, args) {
+        return generateIDRef ( generateIDLConstID ( def, mem, args ) );
     }
     function formatIDLConstType(def, mem, type, verbose, args) {
         return formatIDLType ( def, mem, type, 'idlConstType', verbose, args );
@@ -260,11 +431,11 @@
         }
         return s;
     }
-    function generateIDLAttrID(def, mem) {
+    function generateIDLAttrID(def, mem, args) {
         return IDL_ID_PREFIX + '-' + def.name + '-' + mem.name;
     }
-    function generateIDLAttrIDRef(def, mem) {
-        return generateIDRef ( generateIDLAttrID ( def, mem ) );
+    function generateIDLAttrIDRef(def, mem, args) {
+        return generateIDRef ( generateIDLAttrID ( def, mem, args ) );
     }
     function formatIDLAttrType(def, mem, type, verbose, args) {
         return formatIDLType ( def, mem, type, 'idlAttrType', verbose, args );
@@ -283,12 +454,11 @@
         s += formatIDLOperType ( def, mem, mem.idlType, false, args );
         s += ' ';
         s += eltStart ( 'span', [ newAttr ( 'class', 'idlMethName' ) ], false );
-        s += eltStart ( 'a', [ newAttr ( 'href', generateIDLOperIDRef ( def, mem ) ) ], false );
+        s += eltStart ( 'a', [ newAttr ( 'href', generateIDLOperIDRef ( def, mem, args ) ) ], false );
         s += n;
         s += eltEnd ( 'a', false );
         s += eltEnd ( 'span', false );
-        s += ' ';
-        s += '(';
+        s += ' (';
         for ( var i in mem.arguments ) {
             var p = mem.arguments [ i ];
             if ( i > 0 ) {
@@ -303,8 +473,7 @@
     }
     function formatIDLOperSignature(def, mem, includeReturnType, args) {
         var s = '';
-        s += ' ';
-        s += '(';
+        s += ' (';
         for ( var i in mem.arguments ) {
             var p = mem.arguments [ i ];
             if ( i > 0 ) {
@@ -319,32 +488,38 @@
         }
         return s;
     }
-    function generateIDLOperID(def, mem) {
+    function generateIDLOperID(def, mem, verbose, args) {
         var s = '';
         s += IDL_ID_PREFIX;
         s += '-';
         s += def.name;
-        s += '-';
-        s += mem.name;
-        if ( ( mem.idlType != 'void' ) || ( mem.arguments.length > 0 ) ) {
+        if ( mem.type == 'operation' ) {
             s += '-';
-            s += generateIDLOperTypeID ( def, mem, mem.idlType );
+            s += mem.name;
+            if ( ( mem.idlType != 'void' ) || ( mem.arguments.length > 0 ) ) {
+                s += '-';
+                s += generateIDLOperTypeID ( def, mem, mem.idlType, verbose, args );
+            }
         }
-        for ( var i in mem.arguments ) {
-            var p = mem.arguments [ i ];
-            s += '-';
-            s += generateIDLOperParamID ( def, mem, p );
+        if ( !! mem.arguments && ( mem.arguments.length > 0 ) ) {
+            for ( var i in mem.arguments ) {
+                var p = mem.arguments [ i ];
+                s += '-';
+                s += generateIDLOperParamID ( def, mem, p, verbose, args );
+            }
+        } else if ( mem.type == 'constructor' ) {
+            s += '-void';
         }
         return s;
     }
-    function generateIDLOperIDRef(def, mem) {
-        return '#' + generateIDLOperID ( def, mem );
+    function generateIDLOperIDRef(def, mem, args) {
+        return '#' + generateIDLOperID ( def, mem, false, args );
     }
     function formatIDLOperType(def, mem, type, verbose, args) {
         return formatIDLType ( def, mem, type, 'idlMethType', verbose, args );
     }
-    function generateIDLOperTypeID(def, mem, type) {
-        return generateIDLTypeID ( def, mem, type );
+    function generateIDLOperTypeID(def, mem, type, verbose, args) {
+        return generateIDLTypeID ( def, mem, type, verbose, args );
     }
     function formatIDLOperParam(def, mem, param, index, isSignature, args) {
         var s = '';
@@ -362,9 +537,9 @@
         s += eltEnd ( 'span', false );
         return s;
     }
-    function generateIDLOperParamID(def, mem, param) {
+    function generateIDLOperParamID(def, mem, param, verbose, args) {
         var s = '';
-        s += generateIDLTypeID ( def, mem, param.type );
+        s += generateIDLTypeID ( def, mem, param.type, verbose, args );
         s += '-';
         s += param.name;
         return s;
@@ -399,7 +574,7 @@
         }
         return s;
     }
-    function generateIDLTypeID(def, mem, type) {
+    function generateIDLTypeID(def, mem, type, verbose, args) {
         return hyphenateForID ( type.idlType || type );
     }
     function hyphenateForID(token) {
@@ -437,22 +612,26 @@
     }
     function getIDLMemberID(def,mem,args) {
         if ( mem.type == 'const' ) {
-            return generateIDLConstID ( def, mem );
+            return generateIDLConstID ( def, mem, args );
         } else if ( mem.type == 'attribute' ) {
-            return generateIDLAttrID ( def, mem );
+            return generateIDLAttrID ( def, mem, args );
         } else if ( mem.type == 'operation' ) {
-            return generateIDLOperID ( def, mem );
+            return generateIDLOperID ( def, mem, false, args );
+        } else if ( mem.type == 'constructor' ) {
+            return generateIDLOperID ( def, mem, false, args );
         } else {
-            return generateIDLOtherID ( def, mem );
+            return generateIDLOtherID ( def, mem, args );
         }
     }
     function getIDLMemberCSSClass(def,mem,args) {
         if ( mem.type == 'const' ) {
-            return 'idlConst';
+            return 'idlConstant';
         } else if ( mem.type == 'attribute' ) {
-            return 'idlAttr';
+            return 'idlAttribute';
         } else if ( mem.type == 'operation' ) {
             return 'idlMethod';
+        } else if ( mem.type == 'constructor' ) {
+            return 'idlConstructor';
         } else {
             return 'unknown';
         }
@@ -464,6 +643,8 @@
             return 'attribute';
         } else if ( mem.type == 'operation' ) {
             return 'method';
+        } else if ( mem.type == 'constructor' ) {
+            return 'constructor';
         } else {
             return 'unknown';
         }
@@ -516,17 +697,13 @@
         }
         return join ( sa );
     }
-    function formatIDLDoc(idl,args) {
-        var n = args[0];
-        for ( var i in idl ) {
-            var d = idl[i];
-            if ( !! d.name && ( d.name == n ) ) {
-                return formatIDLDefinitionDoc ( d, args );
-            } else if ( !! d.target && ( d.target == n ) ) {
-                return formatIDLDefinitionDoc ( d, args );
-            }
+    function formatIDLDoc(args) {
+        var d = findIDL ( args[0] );
+        if ( d ) {
+            return formatIDLDefinitionDoc ( d, args );
+        } else {
+            return '';
         }
-        return '';
     }
     function formatIDLDefinitionDoc(def,args) {
         for ( var i in def.extAttrs ) {
@@ -538,14 +715,7 @@
         return '';
     }
     function getIDLConstructorCount(def) {
-        var nc = 0;
-        for ( var i in def.extAttrs ) {
-            var xa = def.extAttrs[i];
-            if ( xa.name == 'Constructor' ) {
-                nc++;
-            }
-        }
-        return nc;
+        return !! def.constructors ? def.constructors.length : 0;
     }
     function collectIDLDefinitionKeywords(def,args) {
         return {
@@ -553,23 +723,31 @@
             name: formatAsCode ( def.name ),
             link: formatIDLDefinitionNameAsLink ( def, args ),
             memberCount: !! def.members ? def.members.length : 0,
-            constructorCount: getIDLConstructorCount ( def )
+            constructorCount: countConstructorMembers ( def, args )
         };
     }
     function formatIDLDefinitionNameAsLink(def,args) {
         return formatAsLink ( def.name, 'idlType', generateIDRef ( generateIDLDefinitionID ( def, args ) ), args );
     }
-    function formatIDLDocMembers(idl,args) {
-        var n = args[0];
-        for ( var i in idl ) {
-            var d = idl[i];
-            if ( !! d.name && ( d.name == n ) ) {
-                return formatIDLDefinitionDocMembers ( d, args );
-            } else if ( !! d.target && ( d.target == n ) ) {
-                return formatIDLDefinitionDocMembers ( d, args );
+    function formatNamedIDLDefinitionNameAsLink(name,args) {
+        if ( name ) {
+            var d = findIDL ( name );
+            if ( d ) {
+                return formatIDLDefinitionNameAsLink ( d, args );
+            } else {
+                return formatAsCode ( name );
             }
+        } else {
+            return '';
         }
-        return '';
+    }
+    function formatIDLDocMembers(args) {
+        var d = findIDL ( args[0] );
+        if ( d ) {
+            return formatIDLDefinitionDocMembers ( d, args );
+        } else {
+            return '';
+        }
     }
     function formatIDLDefinitionDocMembers(def,args) {
         if ( hasArg ( args, 'uncollatedMembers' ) ) {
@@ -587,6 +765,9 @@
     function countOperMembers(def,args) {
         return countMembers ( 'operation', def, args );
     }
+    function countConstructorMembers(def,args) {
+        return countMembers ( 'constructor', def, args );
+    }
     function countMembers(type,def,args) {
         var n = 0;
         for ( var i in def.members ) {
@@ -599,6 +780,9 @@
     }
     function formatIDLDefinitionDocMembersCollated(def,args) {
         var s = '';
+        if ( countConstructorMembers ( def, args ) > 0 ) {
+            s += formatIDLDefinitionDocConstructorMembers ( def, args );
+        }
         if ( countConstMembers ( def, args ) > 0 ) {
             s += formatIDLDefinitionDocConstMembers ( def, args );
         }
@@ -622,6 +806,9 @@
     function formatIDLDefinitionDocOperMembers(def,args) {
         return formatIDLDefinitionDocMembersByType ( 'operation', def, args );
     }
+    function formatIDLDefinitionDocConstructorMembers(def,args) {
+        return formatIDLDefinitionDocMembersByType ( 'constructor', def, args );
+    }
     function formatIDLDefinitionDocAllMembers(def,args) {
         return formatIDLDefinitionDocMembersByType ( null, def, args );
     }
@@ -632,6 +819,8 @@
             return 'attributes';
         } else if ( type == 'operation' ) {
             return 'methods';
+        } else if ( type == 'constructor' ) {
+            return 'constructors';
         } else {
             return 'members';
         }
@@ -676,6 +865,8 @@
             s += formatIDLAttrSignature ( def, mem, true, args );
         } else if ( mem.type == 'operation' ) {
             s += formatIDLOperSignature ( def, mem, true, args );
+        } else if ( mem.type == 'constructor' ) {
+            s += formatIDLOperSignature ( def, mem, false, args );
         }
         return s;
     }
@@ -704,6 +895,8 @@
     function getIDLMemberSignature(mem) {
         if ( mem.type == 'operation' ) {
             return '(' + getIDLOperParamsSignature ( mem, ',' ) + ')';
+        } else if ( mem.type == 'constructor' ) {
+            return '(' + getIDLOperParamsSignature ( mem, ',' ) + ')';
         } else {
             return '';
         }
@@ -718,40 +911,6 @@
     }
     function formatIDLMemberNameAsLink(def,mem,args) {
         return formatAsLink ( mem.name, getIDLMemberCSSClass ( def, mem, args ), generateIDRef ( generateIDLMemberID ( def, mem, args ) ), args );
-    }
-    function formatIDLDocConstructors(idl,args) {
-        var n = args[0];
-        for ( var i in idl ) {
-            var d = idl[i];
-            if ( !! d.name && ( d.name == n ) ) {
-                return formatIDLDefinitionDocConstructors ( d, args );
-            } else if ( !! d.target && ( d.target == n ) ) {
-                return formatIDLDefinitionDocConstructors ( d, args );
-            }
-        }
-        return '';
-    }
-    function formatIDLDefinitionDocConstructors(def,args) {
-        var s = '';
-        for ( var i in def.extAttrs ) {
-            var xa = def.extAttrs[i];
-            if ( !! xa.name && ( xa.name == 'Constructor' ) ) {
-                s += formatIDLConstructorDoc ( def, xa, args );
-            }
-        }
-        return s;
-    }
-    function formatIDLConstructorDoc(def,cons,args) {
-        for ( var i in cons.extAttrs ) {
-            var xa = cons.extAttrs[i];
-            if ( !! xa.name && ( xa.name == 'Documentation' ) ) {
-                return performKeywordSubs ( xa.value || '', collectIDLConstructorKeywords ( def, cons, args ) );
-            }
-        }
-        return '';
-    }
-    function collectIDLConstructorKeywords(def,cons,args) {
-        return {};
     }
     function newAttr(n,v) {
         return { nodeName: n, nodeValue: v };
@@ -826,7 +985,6 @@
         return newChars;
     }
     var $ = {
-        idl : null,
         output : '',
         ondata : function(data) {
             output += data;
@@ -853,7 +1011,7 @@
                 $.ondata ( '</' + ln + '>' + needsEOL ( ln, true ) );
             } else if ( token.type == 'Comment' ) {
                 if ( isIDLComment ( token.data ) ) {
-                    $.ondata ( processIDLComment ( idl, token.data ) );
+                    $.ondata ( processIDLComment ( token.data ) );
                 } else {
                     $.ondata ( '<!--' + token.data + '-->' );
                 }
@@ -861,7 +1019,7 @@
             }
         },
         onend : function() {
-            new HTML5.TreeWalker ( p.tree.document, $.ontoken );
+            new HTML5.TreeWalker ( parser.tree.document, $.ontoken );
             util.puts ( output );
         },
         run : function(argv) {
@@ -877,10 +1035,10 @@
                   var jsonFile = argv[argc++];
                   var inFile = argv[argc++];
                   var sIdl = fs.readFileSync ( jsonFile, 'utf8' );
-                  idl = JSON.parse ( sIdl );
+                  idl = augmentIDL ( JSON.parse ( sIdl ) );
                   var sDoc = fs.createReadStream ( inFile );
-                  p.on ( 'end', $.onend );
-                  p.parse ( sDoc );
+                  parser.on ( 'end', $.onend );
+                  parser.parse ( sDoc );
               } catch ( e ) {
                   util.error ( util.inspect ( e ) );
                   process.exit(1);
