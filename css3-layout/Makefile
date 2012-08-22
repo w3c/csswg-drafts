@@ -33,10 +33,11 @@ cdate = $(shell date +%Y%m%d)
 
 all: check Overview.html
 
+# egrep will exit with a non-zero exit code if there is anything left
 check: Overview.err
 	@cat $<
-	@grep -q '^No errors$$' $< # Force a non-zero exit code if errors
-
+	@if egrep -v '^(Warning:|\(Processed in .* seconds\)|No errors)' $<;\
+	 then false; else true; fi
 
 
 # A handy shortcut:
@@ -54,3 +55,4 @@ clean:
 
 
 .PHONY: check commit update clean
+.DELETE_ON_ERROR:
