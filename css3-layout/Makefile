@@ -33,7 +33,7 @@ cdate = $(shell date +%Y%m%d)
 
 all: check Overview.html
 
-# egrep will exit with a non-zero exit code if there is anything left
+# egrep will exit with a zero exit code if there is anything left
 check: Overview.err
 	@cat $<
 	@if egrep -v '^(Warning:|\(Processed in .* seconds\)|No errors)' $<;\
