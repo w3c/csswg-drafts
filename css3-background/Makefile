@@ -17,12 +17,12 @@ cdate = $(shell date +%Y%m%d)
 	@echo "Calling post-processor to generate $@..."
 	@curl -K ~/.curl-w3.org -s -S -F output=html -F file=@$< -F group=CSS \
 	-F method=file -F date=$(cdate) -F status=$(status) -o $@ \
-	http://cgi.w3.org/member-bin/process.cgi
+	https://cgi.w3.org/member-bin/process.cgi
 %.err: %.src.html
 	@echo "Calling post-processor to check $<..."
 	@curl -K ~/.curl-w3.org -s -S -F output=err -F file=@$< -F group=CSS \
 	-F method=file -F date=$(cdate) -F status=$(status) -o $@ \
-	http://cgi.w3.org/member-bin/process.cgi
+	https://cgi.w3.org/member-bin/process.cgi
 
 # For Dispositions of Comments in css3-background:
 
