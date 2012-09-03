@@ -479,7 +479,7 @@
             if ( i > 0 ) {
                 s += ', ';
             }
-            s += formatIDLOperParam ( def, mem, p, i, true, args );
+            s += formatIDLOperParam ( def, mem, p, i, false, args );
         }
         s += ')';
         if ( !! includeReturnType ) {
@@ -521,14 +521,14 @@
     function generateIDLOperTypeID(def, mem, type, verbose, args) {
         return generateIDLTypeID ( def, mem, type, verbose, args );
     }
-    function formatIDLOperParam(def, mem, param, index, isSignature, args) {
+    function formatIDLOperParam(def, mem, param, index, excludeParamName, args) {
         var s = '';
         s += eltStart ( 'span', [ newAttr ( 'class', 'idlParam' ) ], false );
         if ( !! param.optional ) {
             s += 'optional ';
         }
         s += formatIDLParamType ( def, mem, param.type, false, args );
-        if ( ! isSignature ) {
+        if ( ! excludeParamName ) {
             s += ' ';
             s += eltStart ( 'span', [ newAttr ( 'class', 'idlParamName' ) ], false );
             s += param.name;
@@ -558,7 +558,7 @@
         s += eltStart ( 'a', [], false );
         s += type.idlType || type;
         s += eltEnd ( 'a', false );
-        if ( ! verbose && !! type.nullable ) {
+        if ( !! type.nullable ) {
             s += '?';
         }
         if ( !! cssClass ) {
