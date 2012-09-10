@@ -359,6 +359,9 @@
    <li><a href="#font-feature-resolution"><span class=secno>7 </span>Font
     feature resolution </a>
 
+   <li><a href="#font-load-events"><span class=secno>8 </span>Font load
+    events</a>
+
    <li class=no-num><a href="#platform-props-to-css">Appendix A: Mapping
     platform font properties to CSS properties</a>
 
@@ -689,7 +692,7 @@ body { font-family: "New Century Schoolbook", serif }
    depending upon the platform font management API's. The Windows GDI API
    only allows four faces to be grouped into a family while the DirectWrite
    API and API's on OSX and other platforms support font families with a
-   variety of weights, widths and styles (see <a
+   variety of weights, widths and slopes (see <a
    href="#platform-props-to-css">Appendix A</a> for more details).
 
   <p>Some font formats allow fonts to carry multiple localizations of the
@@ -4803,6 +4806,148 @@ span.special { font-variant-ligatures: no-discretionary-ligatures; }
     class=property>font-feature-settings</code></a>’ is resolved after
     that, the ‘<code class=property>dlig</code>’ value reenables
     discretionary ligatures.</p>
+  </div>
+
+  <h2 id=font-load-events><span class=secno>8 </span>Font load events</h2>
+
+  <p>Since fonts defined via @font-face rules are loaded on demand, pages may
+   need to know precisely when fonts have completed downloading before
+   measuring text elements on the page or to show some form of interim user
+   interface state.
+
+  <p>To allow font loading to be tracked explicitly within content the
+   following event target is added to the document of the page:
+
+  <dl>
+   <dt><b>IDL Definition</b>
+
+   <dd>
+    <div class=idl-code>
+     <pre>
+partial interface Document {
+  readonly attribute FontLoader fontloader;
+};
+
+[Constructor]
+interface CSSFontFaceLoadEvent : Event {
+  readonly attribute CSSFontFaceRule fontface;
+  readonly attribute DOMString error;
+}
+
+enum FontLoaderReadyState {
+    "idle",
+    "loading"
+};
+
+[Constructor]
+interface FontLoader : EventTarget {
+
+  // -- events for one or more fonts loading and completing
+  [TreatNonCallableAsNull] attribute Function? onloading;
+  [TreatNonCallableAsNull] attribute Function? onloadingdone;
+
+  // -- events for each individual font load
+  [TreatNonCallableAsNull] attribute Function? onload;
+  [TreatNonCallableAsNull] attribute Function? onerror;
+
+  // async load
+  void loadFont(DOMString font, optional DOMString text);
+
+  // notify after font loads complete or no loads needed
+  callback FontsReadyCallback = void ();
+  void notifyWhenFontsReady(FontsReadyCallback fontsReady);
+
+  // "idle" or "loading"
+  readonly attribute FontLoaderReadyState readyState;
+};</pre>
+    </div>
+   </dd>
+   <!-- IDL -->
+  </dl>
+
+  <p>When layout determines that a font or a set of fonts defined via
+   @font-face rules need to be loaded, the readyState switches from the
+   initial state of "idle" to the "loading" state and the "loading" event
+   fires. As each font load completes the "load" event fires (or an "error"
+   event fires if none of the resources listed for the ‘<a
+   href="#descdef-src"><code class=property>src</code></a>’ descriptor
+   contain valid data). After the final font load completes, the readyState
+   is switched to "idle" and the "load" (or "error") event fires. Then the
+   "loadingdone" event fires. For example, if three fonts are loaded at the
+   same time, a "loading" event followed by three "load" or "error" events
+   will fire, followed by a "loadingdone" event.
+
+  <p>The ‘<code class=property>loadFont</code>’ method is used to
+   explicitly load a font or set of fonts, for use with API's like canvas
+   where text drawing operations need to happen after a specific set of fonts
+   have been loaded. The ‘<a href="#propdef-font"><code
+   class=property>font</code></a>’ parameter indicates the exact set of
+   families and style to use and the optional ‘<code
+   class=property>text</code>’ parameter provides the exact text for which
+   fonts are to be selected, since the unicode-range descriptor of @font-face
+   rules indicates which codepoints a font may support.
+
+  <p>Because the number of fonts loaded depends on the how many fonts are
+   used for a given piece of text, in some cases whether fonts need to be
+   loaded or not may not be known. The ‘<code
+   class=property>notifyWhenFontsReady</code>’ method indicates a callback
+   function to be called the next time layout completes and the user agent
+   can determine whether fonts need to be loaded or not based on the current
+   state of layout. If no fonts need to be loaded, the callback is called
+   immediately upon layout completion. If fonts need to be loaded, the
+   callback is called after the user agent completes after all font loads. If
+   fonts are loaded, the callback is called after the "loadingdone" event
+   fires. The callback is only called once, authors need to explicitly call
+   this method again to have the callback called again.
+
+  <div class=example>
+   <p>To show content only after all font loads complete:</p>
+
+   <pre>  document.fontloader.onloadingdone = function() {
+    var content = document.getElementById("content");
+    content.style.visibility = "visible";
+  }
+</pre>
+  </div>
+
+  <div class=example>
+   <p>Drawing text in a canvas with a downloadable font, explicitly
+    initiating the font download and drawing upon completion:</p>
+
+   <pre>  function drawStuff() {
+    var ctx = document.getElementById("c").getContext("2d");
+
+    ctx.fillStyle = "red";
+    ctx.font = "50px MyDownloadableFont";
+    ctx.fillText("Hello!", 100, 100);
+  }
+
+  window.onload = function() {
+    document.fontloader.loadFont("50px MyDownloadableFont");
+  }
+
+  document.fontloader.onloadingdone = drawStuff;</pre>
+  </div>
+
+  <div class=example>
+   <p>A rich text editing application may need to measure text elements after
+    editing operations have taken place. Since style changes may or may not
+    require additional fonts to be downloaded, or the fonts may already have
+    been downloaded, the measurement procedures need to occur after those
+    font loads complete:</p>
+
+   <pre>  function measureTextElements() {
+    // contents can now be measured using the metrics of
+    // the downloadable font(s)
+  }
+
+  function doEditing() {
+
+    // content/layout operations that may cause additional font loads
+
+    document.fontloader.notifyWhenFontsReady(measureTextElements);
+  }
+</pre>
   </div>
 
   <h2 class=no-num id=platform-props-to-css>Appendix A: Mapping platform font
