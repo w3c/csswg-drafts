@@ -93,6 +93,9 @@
     font-size: 120%;
   }
 
+  ol ol {
+    list-style-type: lower-alpha;
+  }
   </style>
   <link href="http://www.w3.org/StyleSheets/TR/W3C-ED.css" rel=stylesheet
   type="text/css">
@@ -302,11 +305,17 @@
      <li><a href="#font-style-matching"><span class=secno>5.1 </span>Matching
       font styles</a>
 
-     <li><a href="#char-handling-issues"><span class=secno>5.2
+     <li><a href="#cluster-matching"><span class=secno>5.2 </span>Cluster
+      matching</a>
+
+     <li><a href="#char-handling-issues"><span class=secno>5.3
       </span>Character handling issues</a>
 
-     <li><a href="#font-matching-changes"><span class=secno>5.3 </span>Font
+     <li><a href="#font-matching-changes"><span class=secno>5.4 </span>Font
       matching changes since CSS 2.1</a>
+
+     <li><a href="#font-matching-examples"><span class=secno>5.5 </span>Font
+      matching examples</a>
     </ul>
 
    <li><a href="#font-rend-props"><span class=secno>6 </span>Font Feature
@@ -2772,10 +2781,13 @@ src: url(http://another.example.com/fonts/simple.ttf);
   <h3 id=font-style-matching><span class=secno>5.1 </span>Matching font
    styles</h3>
 
-  <p> The procedure for choosing fonts consists of iterating over the font
+  <p>The procedure for choosing fonts consists of iterating over the font
    families determined by the font-family property, selecting a font face
    with the appropriate style based on other font properties and then
-   determining whether a glyph exists for a given character.
+   determining whether a glyph exists for a given character. Codepoint
+   sequences consisting of a base character followed by a sequence of
+   combining characters are treated slightly differently, see the section on
+   <a href="#cluster-matching">cluster matching</a> below.
 
   <ol id=fontmatchingalg>
    <li>Using the computed font property values for a given element, the user
@@ -2799,9 +2811,8 @@ src: url(http://another.example.com/fonts/simple.ttf);
     platform font with the same name must not occur in this case.
 
    <li>If a font family match occurs, the user agent assembles the set of
-    font faces in that family that contain a glyph for the character. It then
-    narrows this matching set to a single face using other font properties in
-    the order given below:
+    font faces in that family and then narrows the set to a single face using
+    other font properties in the order given below:
     <ol id=fontstylematchingalg>
      <li><span class=property>‘<a href="#descdef-font-stretch"><code
       class=property>font-stretch</code></a>’</span> is tried first. If the
@@ -2897,7 +2908,58 @@ src: url(http://another.example.com/fonts/simple.ttf);
     Font</a>) or using the missing character glyph from a default font.
   </ol>
 
-  <h3 id=char-handling-issues><span class=secno>5.2 </span>Character handling
+  <h3 id=cluster-matching><span class=secno>5.2 </span>Cluster matching</h3>
+
+  <p>When text contains characters such as combining diacritics, ideally the
+   base character should be rendered using the same font as the diacritic,
+   this assures proper placement of the diacritic. For this reason, the font
+   matching algorithm for clusters is more specialized than the general case
+   of matching a single character by itself. For sequences containing
+   variation selectors, which indicate the precise glyph to be used for a
+   given character, user agents always attempt system font fallback to find
+   the appropriate glyph before using the default glyph of the base
+   character.
+
+  <p>A sequence of codepoints containing combining diacritics or other
+   modifiers is termed a grapheme cluster (see <a href="#CSS3TEXT"
+   rel=biblioentry>[CSS3TEXT]<!--{{CSS3TEXT}}--></a> for a more complete
+   description). For a given cluster containing a base character, <em>b</em>
+   and a sequence of combining characters <em>c1, c2…</em>, the entire
+   cluster is matched using these steps:
+
+  <ol>
+   <li>For each family in the font list, a face is chosen using the style
+    selection rules defined in the previous section.
+    <ol>
+     <li>If the sequence <em>b + c1 + c2 …</em> is completely supported by
+      the font, select this font for the sequence.
+
+     <li>If a sequence of multiple codepoints is canonically equivalent to a
+      single character and the font supports that character, select this font
+      for the sequence.
+    </ol>
+
+   <li>If no font was found in the font list in step 1:
+    <ol>
+     <li>If <em>c1</em> is a variation selector, system fallback must be used
+      to find a font that supports the full sequence of <em>b + c1</em>. If
+      no font on the system supports the full sequence, match the single
+      character <em>b</em> using the normal procedure for matching single
+      characters and ignore the variation selector. Note: a sequence with
+      more than one variation selector is treated as an encoding error and
+      the trailing selectors are ignored.
+
+     <li>Otherwise, the user agent may optionally use system font fallback to
+      match a font that supports the entire cluster.
+    </ol>
+
+   <li>If no font is found in step 2, use the matching sequence from step 1
+    to determine the longest sequence that is completely matched by a font in
+    the font list and attempt to match the remaining combining characters
+    separately using the rules for single characters.
+  </ol>
+
+  <h3 id=char-handling-issues><span class=secno>5.3 </span>Character handling
    issues</h3>
 
   <p>The procedure above is always performed on text runs containing Unicode
@@ -2911,19 +2973,11 @@ src: url(http://another.example.com/fonts/simple.ttf);
    normalized or denormalized form (see <a href="#CHARMOD-NORM"
    rel=biblioentry>[CHARMOD-NORM]<!--{{CHARMOD-NORM}}--></a> for more
    details). Layout engines often convert base character plus combining
-   character sequences into precomposed characters if they exist. Fonts can
-   generally support both ways of matching characters but variations can
-   occur. Authors should always tailor their choice of fonts to their
-   content, including whether that content contains normalized or
-   denormalized character streams.
-
-  <p>If a text run contains Unicode variation selectors, special handling is
-   required. For each character + variation selector pair, if the first font
-   with a glyph for the base character also contains a glyph for the variant
-   specified by the variation selector, user agents must display the variant
-   glyph instead of the default one. If the first font with a glyph for the
-   base character does not have a glyph for the variation selector pair, the
-   default glyph is displayed.
+   character sequences into precomposed characters if they exist. The font
+   matching algorithm outlined here supports both ways and fonts can
+   generally support either but variations can occur. Authors should always
+   tailor their choice of fonts to their content, including whether that
+   content contains normalized or denormalized character streams.
 
   <p>If a given character is a Private-Use Area Unicode codepoint and none of
    the fonts in the fontlist contain a glyph for that codepoint, user agents
@@ -2938,9 +2992,7 @@ src: url(http://another.example.com/fonts/simple.ttf);
    similar character maps. The process outlined here is designed to handle
    even font families containing faces with widely variant character maps.
    However, authors are cautioned that the use of such families can lead to
-   unexpected results. A special character only available in the condensed
-   italic face of a family may still be used even when font properties imply
-   a bold expanded face should be used instead.
+   unexpected results.
 
   <p>Optimizations of this process are allowed provided that an
    implementation behaves as if the algorithm had been followed exactly.
@@ -2948,10 +3000,7 @@ src: url(http://another.example.com/fonts/simple.ttf);
    consistent as possible across user agents, given an identical set of
    available fonts and rendering technology.
 
-  <p class=issue>How to match grapheme clusters needs to be specified
-   explicitly.
-
-  <h3 id=font-matching-changes><span class=secno>5.3 </span>Font matching
+  <h3 id=font-matching-changes><span class=secno>5.4 </span>Font matching
    changes since CSS 2.1</h3>
 
   <p>The algorithm above is different from CSS 2.1 in a number of key places.
@@ -2969,7 +3018,12 @@ src: url(http://another.example.com/fonts/simple.ttf);
     they are now handled via font features.
 
    <li>Unicode variation selector matching is required.
+
+   <li>Cluster sequences are matched as a unit.
   </ul>
+
+  <h3 id=font-matching-examples><span class=secno>5.5 </span>Font matching
+   examples</h3>
 
   <div class=example>
    <p>It's useful to note that the CSS selector syntax may be used to create
@@ -5170,6 +5224,8 @@ interface CSSFontFeatureValuesRule : CSSRule {
     class=property>font-size-adjust</code></a>’
 
    <li>Added definition of font load events
+
+   <li>Defined explicit steps for font matching grapheme clusters
   </ul>
 
   <h2 class=no-num id=acknowledgments>Acknowledgments</h2>
@@ -5212,10 +5268,10 @@ interface CSSFontFeatureValuesRule : CSSRule {
    <dt id=CORS>[CORS]
 
    <dd>Anne van Kesteren. <a
-    href="http://www.w3.org/TR/2010/WD-cors-20100727/"><cite>Cross-Origin
-    Resource Sharing.</cite></a> 27 July 2010. W3C Working Draft. (Work in
+    href="http://www.w3.org/TR/2012/WD-cors-20120403/"><cite>Cross-Origin
+    Resource Sharing.</cite></a> 3 April 2012. W3C Working Draft. (Work in
     progress.) URL: <a
-    href="http://www.w3.org/TR/2010/WD-cors-20100727/">http://www.w3.org/TR/2010/WD-cors-20100727/</a>
+    href="http://www.w3.org/TR/2012/WD-cors-20120403/">http://www.w3.org/TR/2012/WD-cors-20120403/</a>
     </dd>
    <!---->
 
@@ -5232,10 +5288,10 @@ interface CSSFontFeatureValuesRule : CSSRule {
    <dt id=CSS3VAL>[CSS3VAL]
 
    <dd>Håkon Wium Lie; Tab Atkins; Elika J. Etemad. <a
-    href="http://www.w3.org/TR/2012/WD-css3-values-20120308/"><cite>CSS
-    Values and Units Module Level 3.</cite></a> 8 March 2012. W3C Working
-    Draft. (Work in progress.) URL: <a
-    href="http://www.w3.org/TR/2012/WD-css3-values-20120308/">http://www.w3.org/TR/2012/WD-css3-values-20120308/</a>
+    href="http://www.w3.org/TR/2012/CR-css3-values-20120828/"><cite>CSS
+    Values and Units Module Level 3.</cite></a> 28 August 2012. W3C Candidate
+    Recommendation. (Work in progress.) URL: <a
+    href="http://www.w3.org/TR/2012/CR-css3-values-20120828/">http://www.w3.org/TR/2012/CR-css3-values-20120828/</a>
     </dd>
    <!---->
 
@@ -5369,6 +5425,16 @@ interface CSSFontFeatureValuesRule : CSSRule {
     </dd>
    <!---->
 
+   <dt id=CSS3TEXT>[CSS3TEXT]
+
+   <dd>Elika J. Etemad; Koji Ishii. <a
+    href="http://www.w3.org/TR/2012/WD-css3-text-20120814/"><cite>CSS Text
+    Level 3.</cite></a> 14 August 2012. W3C Working Draft. (Work in
+    progress.) URL: <a
+    href="http://www.w3.org/TR/2012/WD-css3-text-20120814/">http://www.w3.org/TR/2012/WD-css3-text-20120814/</a>
+    </dd>
+   <!---->
+
    <dt id=DIGITAL-TYPOGRAPHY>[DIGITAL-TYPOGRAPHY]
 
    <dd>Richard Rubinstein. <cite>Digital Typography, An Introduction to Type
@@ -5425,6 +5491,7 @@ interface CSSFontFeatureValuesRule : CSSRule {
   <!--{{CHARMOD-NORM}}-->
   <!--{{AAT-FEATURES}}-->
   <!--{{CSS3-CONDITIONAL}}-->
+  <!--{{CSS3TEXT}}-->
 
   <h2 class=no-num id=index>Index</h2>
   <!--begin-index-->
