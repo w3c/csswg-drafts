@@ -1,46 +1,65 @@
 # Calling the post-processor with file-upload. Assumes the username
-# and password are in ~/.curl-w3.org
+# and password are in ~/.curl-w3.org (user = USER:PASS)
 #
 # To set a date other than today, use: make cdate=YYYYMMDD
 #
-# Possible other options:
+# To set the status, modify one of the "this version" URLs:
+# http://www.w3.org/TR/[YEAR]/CR-[SHORTNAME]-[CDATE]/
+# Or set that URL to [VERSION] and call Make as: make status=CR
+#
+#
+# Possible other options to add to the curl command below:
 # -F ids=on
+# -F omitdchtml=on
+
+opts =
 
 cdate = $(shell date +%Y%m%d)
 
 %.html: %.src.html
 	@echo "Calling post-processor to generate $@..."
-	@curl -F file=@$< -F group=CSS -F output=html -F method=file -s \
-	-F date=$(cdate) \
-	-K ~/.curl-w3.org http://cgi.w3.org/member-bin/process.cgi >$@
+	@curl -K ~/.curl-w3.org -s -S -F output=html -F file=@$< -F group=CSS \
+	-F method=file -F date=$(cdate) -F status=$(status) $(opts) -o $@ \
+	https://cgi.w3.org/member-bin/process.cgi
 %.err: %.src.html
 	@echo "Calling post-processor to check $<..."
-	@curl -F file=@$< -F group=CSS -F output=err -F method=file -s \
-	-F date=$(cdate) \
-	-K ~/.curl-w3.org http://cgi.w3.org/member-bin/process.cgi >$@
+	@curl -K ~/.curl-w3.org -s -S -F output=err -F file=@$< -F group=CSS \
+	-F method=file -F date=$(cdate) -F status=$(status) $(opts) -o $@ \
+	https://cgi.w3.org/member-bin/process.cgi
 
+# For Dispositions of Comments in css3-background:
+%.html: %.txt; awk -f issues-txt-to-html.awk $< >$@
+
+# Rule to create EPS from FIG
+%.eps: %.fig; fig2dev -m 0.8 -L eps -F -c $< $@
+
+# Rule to create raster image versions of EPS images
+%.png: %.eps; convert -density 96x96 $< $@
 
 
 all: check Overview.html
-	@echo Done.
 
+# egrep will exit with a zero exit code if there is anything left
 check: Overview.err
 	@cat $<
-	@grep -q '^No errors$$' $< # Force a non-zero exit code if errors
-
+	@if egrep -v '^(Warning:|\(Processed in .* seconds\)|No errors)' $<;\
+	 then false; else true; fi
 
 
 # A handy shortcut:
 
-commit: update clean all
-	cvs commit -m 'Generated. Do not edit!' Overview.html
+commit: update all
+	hg commit -m 'Generated. Do not edit!' Overview.html || true
+	hg push
 
 update:
-	cvs update
+	hg pull -u
 
 clean:
-	rm Overview.html
+	rm -f Overview.html Overview.err
 
 
 
 .PHONY: check commit update clean
+.DELETE_ON_ERROR:
+.PRECIOUS: %.png
