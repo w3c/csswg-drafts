@@ -28,10 +28,13 @@ cdate = $(shell date +%Y%m%d)
 	https://cgi.w3.org/member-bin/process.cgi
 
 # For Dispositions of Comments in css3-background:
+%.html: %.txt; awk -f issues-txt-to-html.awk $< >$@
 
-%.html: %.txt
-	awk -f issues-txt-to-html.awk $< >$@
+# Rule to create EPS from FIG
+%.eps: %.fig; fig2dev -m 0.8 -L eps -F -c $< $@
 
+# Rule to create raster image versions of EPS images
+%.png: %.eps; convert -density 96x96 $< $@
 
 
 all: check Overview.html
@@ -59,3 +62,4 @@ clean:
 
 .PHONY: check commit update clean
 .DELETE_ON_ERROR:
+.PRECIOUS: %.png
