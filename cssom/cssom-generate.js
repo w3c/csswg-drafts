@@ -1,10 +1,10 @@
 (function() {
-    var HTML5 = require('html5'),
+    var html5 = require('html5'),
         events = require('events'),
         util = require('util'),
         fs = require('fs');
     var output = '';
-    var parser = new HTML5.Parser();
+    var parser = new html5.Parser();
     var idl = null;
     function augmentIDL(idl) {
         return augmentIDLDefinitions(idl);
@@ -63,7 +63,7 @@
         'data-anolis-ref'
     ];
     function isBooleanAttr(ln,n) {
-        if ( ( HTML5.BOOLEAN_ATTRIBUTES [ ln ] || [] ).indexOf(n) != -1 ) {
+        if ( ( html5.BOOLEAN_ATTRIBUTES [ ln ] || [] ).indexOf(n) != -1 ) {
             return true;
         } else if ( ANOLIS_BOOLEAN_ATTRIBUTES.indexOf(n) != -1 ) {
             return true;
@@ -954,7 +954,7 @@
         s += eltEnd ( 'a' );
         return s;
     }
-    var rQuote = new RegExp ( '[' + HTML5.SPACE_CHARACTERS_IN + '<=>\'\"' + ']' );
+    var rQuote = new RegExp ( '[' + html5.SPACE_CHARACTERS_IN + '<=>\'\"' + ']' );
     var alwaysQuote = true;
     function formatAttr(a,ln) {
         var n = a.nodeName;
@@ -985,7 +985,6 @@
         return newChars;
     }
     var $ = {
-        output : '',
         ondata : function(data) {
             output += data;
         },
@@ -1019,7 +1018,7 @@
             }
         },
         onend : function() {
-            new HTML5.TreeWalker ( parser.tree.document, $.ontoken );
+            new html5.TreeWalker ( parser.tree.document, $.ontoken );
             util.puts ( output );
         },
         run : function(argv) {
