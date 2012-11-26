@@ -24,7 +24,7 @@
 
 SOURCEFILE=Overview.src.html
 OUTPUTFILE=Overview.html
-PROCESSCGI=http://cgi.w3.org/member-bin/process.cgi
+PROCESSCGI=https://cgi.w3.org/member-bin/process.cgi
 CURL=curl
 CURLFLAGS=
 
