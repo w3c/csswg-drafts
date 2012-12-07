@@ -53,7 +53,8 @@ commit: update all
 	hg push
 
 update:
-	hg pull -u
+	hg pull
+	hg update
 
 clean:
 	rm -f Overview.html Overview.err
