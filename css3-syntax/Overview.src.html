@@ -2210,31 +2210,23 @@ Parsing</h2>
 			dimension,
 			unicode-range,
 			whitespace,
-			cdo,
-			cdc,
 			colon,
 			semicolon,
 			at-keyword,
-			],
-			),
-			and }.
 
 			<p class='note'>
 				This means that the following tokens emitted by the tokenizer stage will <strong>not</strong> appear in the stylesheet object:
 				function,
 				bad-string,
 				bad-url,
+				cdo,
+				cdc,
 				[,
+				],
 				(,
+				),
 				{.
-
-			<p class='issue'>
-				Currently bad-url and bad-string tokens can also appear in the tree.  
-				Is it worth it to complexify the parser with error-handling for this kind of thing
-				(every call to "<i>consume a primitive</i>" might fail)?
-				Or should I just leave them alone,
-				assume that grammar-checking will kill them,
-				and leave their serialization undefined?
+				and }.
 
 		<dt><dfn>function</dfn>
 		<dd>
@@ -2376,6 +2368,8 @@ Parser State Machine</h3>
 			Do nothing.
 			Remain in this mode.
 
+		<dt>bad-string token
+
 		<dt>at-keyword token
 		<dd>
 			Create an at-rule
@@ -2471,10 +2465,20 @@ Parser State Machine</h3>
 
 		<dt>anything else
 		<dd>
-			<i>Consume a primitive</i>
-			and append the returned value 
+			<i>Consume a primitive</i>.
+			If anything was returned,
+			append the returned value 
 			to the prelude of the <i>current rule</i>.
 			Remain in this mode.
+
+			<p>
+				Otherwise,
+				this is a <i>parse error</i>.
+				<i>Discard the current rule</i>.
+				If the <i>current rule</i> is <i>declaration-filled</i> or <i>rule-filled</i>,
+				switch to the <i>next-block error mode</i>;
+				otherwise,
+				switch to the <i>next-block-or-statement error mode</i>.
 	</dl>
 
 
@@ -2554,10 +2558,17 @@ Parser State Machine</h3>
 
 		<dt>anything else
 		<dd>
-			<i>Consume a primitive</i>
-			and append the returned value 
+			<i>Consume a primitive</i>.
+			If anything was returned,
+			append the returned value 
 			to the selector of the <i>current rule</i>.
 			Remain in this mode.
+
+			<p>
+				Otherwise,
+				this is a <i>parse error</i>.
+				<i>Discard the current rule</i>.
+				Switch to the <i>next-block error mode</i>.
 	</dl>
 
 
@@ -2693,10 +2704,15 @@ Parser State Machine</h3>
 			and the <i>current declaration's</i> name
 			is an <i>ASCII case-insensitive</i> match
 			for one of the property names on the <i>hashless color quirk list</i>,
-			<i>consume a primitive with the hashless color quirk</i>
-			and append the returned value
-			to the value of the <i>current declaration</i>.
-			Remain in this mode.
+			<i>consume a primitive with the hashless color quirk</i>.
+			If anything was returned,
+			append the returned value
+			to the value of the <i>current declaration</i>
+			and remain in this mode;
+			otherwise,
+			unset the <i>current declaration</i>
+			and switch to the <i>next-declaration error mode</i>.
+
 
 			<p>
 				Otherwise,
@@ -2704,17 +2720,25 @@ Parser State Machine</h3>
 				and the <i>current declaration's</i> name
 				is an <i>ASCII case-insensitive</i> match
 				for one of the property names on the <i>unitless length quirk list</i>,
-				<i>consume a primitive with the unitless length quirk</i>
-				and append the returned value
-				to the value of the <i>current declaration</i>.
-				Remain in this mode.
+				<i>consume a primitive with the unitless length quirk</i>.
+				If anything was returned,
+				append the returned value
+				to the value of the <i>current declaration</i>
+				and remain in this mode;
+				otherwise,
+				unset the <i>current declaration</i>
+				and switch to the <i>next-declaration error mode</i>.
 
 			<p>
 				Otherwise,
-				<i>consume a primitive</i>
-				and append the returned value
-				to the value of the <i>current declaration</i>.
-				Remain in this mode.
+				<i>consume a primitive</i>.
+				If anything was returned,
+				append the returned value
+				to the value of the <i>current declaration</i>
+				and remain in this mode;
+				otherwise,
+				unset the <i>current declaration</i>
+				and switch to the <i>next-declaration error mode</i>.
 	</dl>
 
 
@@ -2916,6 +2940,17 @@ Parser State Machine</h3>
 		<i>finish parsing</i>.
 
 	<p>
+		Otherwise, if the <i>current input token</i>
+		is a cdo token,
+		cdc token,
+		} token,
+		] token,
+		) token,
+		bad-string token,
+		or bad-url token,
+		return nothing.
+
+	<p>
 		Otherwise, return the <i>current input token</i>.
 
 <h3>
@@ -3019,19 +3054,29 @@ Parser State Machine</h3>
 		This is the <dfn>current block</dfn>.
 
 	<p>
+		Initialize a <var>valid</var> flag to true.
+
+	<p>
 		Repeatedly consume the <i>next input token</i> and process it as follows:
 
 	<dl>
 		<dt>EOF token
 		<dt><i>ending token</i>
 		<dd>
-			Return the block.
+			If the <var>valid</var> flag is true,
+			return the block.
+
+			<p>
+				Otherwise, 
+				return nothing.
 
 		<dt>anything else
 		<dd>
-			<i>Consume a primitive</i>
-			and append the returned value
-			to the value of the <i>current block</i>.
+			<i>Consume a primitive</i>.
+			If anything was returned,
+			append the returned value
+			to the value of the <i>current block</i>;
+			otherwise, set the <var>valid</var> flag to false.
 	</dl>
 
 
@@ -3048,14 +3093,22 @@ Parser State Machine</h3>
 		which is initially empty.
 
 	<p>
+		Initialize a <var>valid</var> flag to true.
+
+	<p>
 		Repeatedly consume the <i>next input token</i> and process it as follows:
 
 	<dl>
 		<dt>EOF token
 		<dt>) token
 		<dd>
-			Append the <i>current argument</i> to the function's argument list.
+			If the <var>valid</var> flag is true,
+			append the <i>current argument</i> to the function's argument list.
 			Return the function.
+
+			<p>
+				Otherwise,
+				return nothing.
 
 		<dt>delim token with the value ","
 		<dd>
@@ -3066,21 +3119,27 @@ Parser State Machine</h3>
 		<dd>
 			If the <i>quirks mode</i> flag is set,
 			and the function's name is as <i>ASCII case-insensitive</i> match with "rect",
-			<i>consume a primitive with the unitless length quirk</i>
-			and append the returned value
-			to the value of the <i>current argument</i>.
+			<i>consume a primitive with the unitless length quirk</i>.
+			If anything was returned,
+			append the returned value
+			to the value of the <i>current argument</i>;
+			otherwise, set the <var>valid</var> flag to false.
 
 			<p>
 				Otherwise,
-				<i>consume a primitive</i>
-				and append the returned value
-				to the value of the <i>current argument</i>.
+				<i>consume a primitive</i>.
+				If anything was returned,
+				append the returned value
+				to the value of the <i>current argument</i>;
+				otherwise, set the <var>valid</var> flag to false.
 
 		<dt>anything else
 		<dd>
-			<i>Consume a primitive</i>
-			and append the returned value
-			to the value of the <i>current argument</i>.
+			<i>Consume a primitive</i>.
+			If anything was returned,
+			append the returned value
+			to the value of the <i>current argument</i>;
+				otherwise, set the <var>valid</var> flag to false.
 	</dl>
 
 
