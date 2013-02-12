@@ -2225,36 +2225,36 @@ PPPPPPPPPPAAAAAAA                   AAAAAAARRRRRRRR     RRRRRRR SSSSSSSSSSSSSSS 
 Parsing</h2>
 
 	<p>
-		The input to the tree construction stage is a sequence of tokens from the tokenization stage.
-		The output is a tree of items
-		with a stylesheet at the root
-		and all other nodes being at-rules, style rules, or declarations.
+		The input to the parsing stage is a stream or list of tokens from the tokenization stage.
+		The output depends on how the parser is invoked,
+		as defined by the entry points listed later in this section.
+		The parser output can consist of at-rules,
+		qualified rules,
+		and/or declarations.
 
 	<p>
-		The construction of this stylesheet does not take into account unrecognized items,
-		like unknown properties or at-rules.
-		It simply produces a tree of rules according to the fundamental syntax of CSS.
-		Unrecognized or misplaced rules are handled in the CSSOM Construction stage.
+		The parser's output is constructed according to the fundamental syntax of CSS,
+		without regards for the validity of any specific item.
+		Implementations may check the validity of items as they are returned by the various parser algorithms
+		and treat the algorithm as returning nothing if the item was invalid according to the implementation's own grammar knowledge,
+		or may construct a full tree as specified
+		and "clean up" afterwards by removing any invalid items.
 
 	<p>
 		The items that can appear in the tree are a mixture of basic tokens
 		and new objects:
 
 	<dl>
-		<dt><dfn>stylesheet</dfn>
-		<dd>
-			A stylesheet has a value consisting of a list of at-rules and style rules.
-
 		<dt><dfn>at-rule</dfn>
 		<dd>
 			An at-rule has a name,
 			a prelude consisting of a list of component values,
 			and a value consisting of a list of at-rules, style rules, or declarations.
 
-		<dt><dfn>style rule</dfn>
+		<dt><dfn>qualified rule</dfn>
 		<dd>
-			A style rule has
-			a selector consisting of a list of component values,
+			A qualified rule has
+			a prelude consisting of a list of component values,
 			and a value consisting of a list of at-rules or declarations.
 
 		<dt><dfn>declaration</dfn>
@@ -2271,43 +2271,20 @@ Parsing</h2>
 
 		<dt><dfn>preserved tokens</dfn>
 		<dd>
-			The tokens that can appear in the tree are:
-			ident,
-			hash,
-			string,
-			url,
-			delim,
-			number,
-			percentage,
-			dimension,
-			unicode-range,
-			whitespace,
-			colon,
-			semicolon,
-			at-keyword,
-			include-match,
-			dash-match,
-			prefix-match,
-			suffix-match,
-			and substring-match.
+			Any token produced by the tokenizer
+			except for function tokens,
+			{ tokens,
+			( tokens,
+			and [ tokens.
 
 			<p class='note'>
-				This means that the following tokens emitted by the tokenizer stage will <strong>not</strong> appear in the stylesheet object:
-				function,
-				bad-string,
-				bad-url,
-				cdo,
-				cdc,
-				[,
-				],
-				(,
-				),
-				{,
-				and }.
+				The non-preserved tokens listed above are always consumed into higher-level objects,
+				either functions or simple blocks,
+				and so never appear in any parser output themselves.
 
 		<dt><dfn>function</dfn>
 		<dd>
-			A function has a name,
+			A function has a name
 			and a list of arguments.
 			Each argument is a list of component values.
 
@@ -2315,25 +2292,16 @@ Parsing</h2>
 		<dd>
 			A simple block has an associated token (either a [, (, or { token)
 			and a value consisting of a list of component values.
+
+		<dt><dfn>recognized at-rule name</dfn>
+		<dd>
+			When the parser is invoked,
+			it must be provided with a list of <i>recognized at-rule names</i>,
+			where each name is additionally associated with whether the <i>at-rule</i> is
+			<i>rule-filled</i>,
+			<i>declaration-filled</i>,
+			or neither.
 	</dl>
-
-	<p>
-		When the parser is invoked,
-		it must be provided with a list of <dfn>recognized at-rule names</dfn>,
-		where each name is additionally associated with whether the <i>at-rule</i> is
-		<i>rule-filled</i>,
-		<i>declaration-filled</i>,
-		or neither.
-
-	<div class='issue'>
-		<p>
-			TODO:
-
-			<li>
-				Handle the an+b production somehow.
-				Maybe just define it in property grammar terms?
-		</ul>
-	</div>
 
 <h3>
 Parser Flags</h3>
@@ -2346,13 +2314,6 @@ Parser Flags</h3>
 			the parser allows <a href="#consume-a-component value-with-the-hashless-co">hash colors without the # character</a>
 			and <a href="#consume-a-component value-with-the-unitless-le">pixel lengths without the 'px' unit</a>
 			in some circumstances.
-
-		<dt>the <dfn>only declarations</dfn> flag
-		<dd>
-			This flag is set when the parser is invoked to consume just a set of declarations,
-			not any rules.
-			It causes the } token to be a syntax error,
-			rather than have special rule-closing behavior.
 	</dl>
 
 <h3>
@@ -2375,36 +2336,14 @@ Definitions</h3>
 			so that the next time a mode instructs you to consume the next input token,
 			it will instead reconsume the current input token.
 
-		<dt><dfn>stack of open rules</dfn>
-		<dd>
-			A stack of rules.
-			This stack always contains the stylesheet object at the bottom of the stack,
-			gains additional rules as block are opened,
-			and loses them when blocks are closed.
-
-		<dt><dfn>top-level rule</dfn>
-		<dd>
-			A rule is a <i>top-level rule</i> if the <i>stack of open rules</i> contains only it and the stylesheet object.
-			Otherwise, it is not a <i>top-level rule</i>.
-
-		<dt><dfn>current rule</dfn>
-		<dd>
-			The topmost rule in the <i>stack of open rules</i>.
-
-		<dt><dfn>current declaration</dfn>
-		<dd>
-			The declaration currently being built.
-			There may or may not be a current declaration at any given time,
-			but there is never more than one.
-
 		<dt><dfn>rule-filled</dfn>
 		<dd>
 			An at-rule is <i>rule-filled</i>
 			if it is in the list of <i>recognized at-rules</i>
 			and marked as such.
 			This type of <i>at-rule</i> may have a prelude,
-			and finishes with a block
-			which contains at-rules and/or style rules.
+			and finishes with a <i>simple block</i>
+			which contains <i>at-rules</i> and/or <i>qualified rules</i>.
 			Examples of <i>rule-filled</i> at-rules are ''@media'' and ''@keyframes''.
 
 		<dt><dfn>declaration-filled</dfn>
@@ -2413,8 +2352,8 @@ Definitions</h3>
 			if it is in the list of <i>recognized at-rules</i>
 			and marked as such.
 			This type of <i>at-rule</i> may have a prelude,
-			and finishes with a block
-			which contains at-rules and/or declarations.
+			and finishes with a <i>simple block</i>
+			which contains <i>at-rules</i> and/or <i>declarations</i>.
 			Examples of <i>declaration-filled</i> at-rules are ''@font-face'' and ''@page''.
 
 		<dt><dfn>ASCII case-insensitive</dfn>
@@ -2428,922 +2367,364 @@ Definitions</h3>
 			and then compare them on a codepoint-by-codepoint basis.
 	</dl>
 
-<h3>
-Parser State Machine</h3>
-
-<h4>
-<dfn>Top-level mode</dfn></h4>
-
-	<p>
-		Consume the <i>next input token</i>.
-
-	<dl>
-		<dt>cdo token
-		<dt>cdc token
-		<dt>whitespace token
-		<dd>
-			Do nothing.
-			Remain in this mode.
-
-		<dt>at-keyword token
-		<dd>
-			Create an at-rule
-			with its name set to the value of the <i>current input token</i>
-			and push it onto the <i>stack of open rules</i>.
-			Switch to the <i>at-rule-prelude mode</i>.
-
-		<dt>EOF token
-		<dd>
-			<i>Finish parsing</i>.
-
-		<dt>anything else
-		<dd>
-			Create a style rule
-			and push it onto the <i>stack of open rules</i>.
-			Switch to the <i>selector mode</i>.
-			<i>Reconsume the current input token</i>.
-	</dl>
-
-<h4>
-<dfn>At-rule-prelude mode</dfn></h4>
-
-	<p>
-		Consume the <i>next input token</i>.
-
-	<dl>
-		<dt>semicolon token
-		<dd>
-			If the <i>current rule</i> is <i>declaration-filled</i> or <i>rule-filled</i>,
-			this is a <i>parse error</i>.
-			<i>Discard the current rule</i>.
-			<i>Switch to the current rule's content mode.</i>
-
-			<p>
-				Otherwise,
-				<i>pop the current rule</i>.
-				<i>Switch to the current rule's content mode.</i>
-
-		<dt>{ token
-		<dd>
-			If the <i>current rule</i> is <i>rule-filled</i>,
-			switch to the <i>rule-block mode</i>.
-
-			<p>
-				Otherwise,
-				if the <i>current rule</i> is <i>declaration-filled</i>,
-				switch to the <i>declaration-block mode</i>.
-
-			<p>
-				Otherwise, this is a <i>parse error</i>.
-				<i>Discard the current rule</i>.
-				<i>Consume a component value</i>
-				and ignore the return value.
-				<i>Switch to the current rule's content mode</i>.
-
-		<dt>} token
-		<dd>
-			If the <i>current rule</i> is a <i>top-level rule</i>,
-			this is a <i>parse error</i>.
-			<i>Discard the current rule</i>.
-			Switch to the <i>next-block-or-statement error mode</i>.
-			<i>Reconsume the current input token</i>.
-
-			<p>
-				Otherwise,
-				if the <i>current rule</i> is <i>declaration-filled</i> or <i>rule-filled</i>,
-				this is a <i>parse error</i>.
-				<i>Discard the current rule</i>.
-				<i>Switch to the current rule's content mode</i>.
-				<i>Reconsume the current input token</i>.
-
-			<p>
-				Otherwise,
-				<i>pop the current rule</i>.
-				<i>Switch to the current rule's content mode</i>.
-				<i>Reconsume the current input token</i>.
-
-		<dt>EOF token
-		<dd>
-			If the <i>current rule</i> is <i>declaration-filled</i> or <i>rule-filled</i>,
-			this is a <i>parse error</i>.
-			<i>Discard the current rule</i>.
-			<i>Finish parsing</i>.
-
-			<p>
-				Otherwise,
-				<i>finish parsing</i>.
-
-		<dt>anything else
-		<dd>
-			<i>Consume a component value</i>.
-			If anything was returned,
-			append the returned value
-			to the prelude of the <i>current rule</i>.
-			Remain in this mode.
-
-			<p>
-				Otherwise,
-				this is a <i>parse error</i>.
-				<i>Discard the current rule</i>.
-				If the <i>current rule</i> is <i>declaration-filled</i> or <i>rule-filled</i>,
-				switch to the <i>next-block error mode</i>;
-				otherwise,
-				switch to the <i>next-block-or-statement error mode</i>.
-				<i>Reconsume the current input token</i>.
-	</dl>
-
-
-<h4>
-<dfn>Rule-block mode</dfn></h4>
-
-	<p>Consume the <i>next input token</i>.
-
-	<dl>
-		<dt>whitespace token
-		<dd>
-			Do nothing.
-			Remain in this mode.
-
-		<dt>} token
-		<dd>
-			<i>Pop the current rule</i>.
-			<i>Switch to the current rule's content mode</i>.
-
-		<dt>at-keyword token
-		<dd>
-			Create an at-rule
-			with its name set to the value of the <i>current input token</i>
-			and push it onto the <i>stack of open rules</i>.
-			Switch to the <i>at-rule-prelude mode</i>.
-
-		<dt>EOF token
-		<dd>
-			<i>Finish parsing</i>.
-
-		<dt>anything else
-		<dd>
-			Create a style rule
-			and push it onto the <i>stack of open rules</i>.
-			Switch to the <i>selector mode</i>.
-			<i>Reconsume the current input token</i>.
-
-	</dl>
-
-
-<h4>
-<dfn>Selector mode</dfn></h4>
-
-	<p>
-		Consume the <i>next input token</i>.
-
-	<dl>
-		<dt>{ token
-		<dd>
-			Switch to the <i>declaration-block mode</i>.
-
-		<dt>} token
-		<dd>
-			If the <i>current rule</i> is a <i>top-level rule</i>,
-			this is a <i>parse error</i>.
-			<i>Discard the current rule</i>.
-			Switch to the <i>next-block error mode</i>.
-			<i>Reconsume the current input token</i>.
-
-			<p>
-				Otherwise,
-				this is a <i>parse error</i>.
-				<i>Discard the current rule</i>.
-				<i>Switch to the current rule's content mode</i>.
-				<i>Reconsume the current input token.</i>
-
-		<dt>EOF token
-		<dd>
-			This is a <i>parse error</i>.
-			<i>Discard the current rule</i>.
-			<i>Finish parsing</i>.
-
-		<dt>anything else
-		<dd>
-			<i>Consume a component value</i>.
-			If anything was returned,
-			append the returned value
-			to the selector of the <i>current rule</i>.
-			Remain in this mode.
-
-			<p>
-				Otherwise,
-				this is a <i>parse error</i>.
-				<i>Discard the current rule</i>.
-				Switch to the <i>next-block error mode</i>.
-				<i>Reconsume the current input token</i>.
-	</dl>
-
-
-<h4>
-<dfn>Declaration-block mode</dfn></h4>
-
-	<p>
-		Consume the <i>next input token</i>.
-
-	<dl>
-		<dt>whitespace token
-		<dt>semicolon token
-		<dd>
-			Do nothing.
-			Remain in this mode.
-
-		<dt>} token
-		<dd>
-			If the <i>only declarations</i> flag is set
-			and the <i>current rule</i> is a <i>top-level rule</i>,
-			this is a <i>parse error</i>.
-			Unset the <i>current declaration</i>.
-			Switch to the <i>next-declaration error mode</i>.
-			<i>Reconsume the current input token</i>.
-
-			<p>
-				Otherwise,
-				<i>pop the current rule</i>.
-				<i>Switch to the current rule's content mode</i>.
-
-		<dt>at-keyword token
-		<dd>
-			Create an at-rule
-			with its name set to the value of the <i>current input token</i>
-			and push it onto the <i>stack of open rules</i>.
-			Switch to the <i>at-rule-prelude mode</i>.
-
-		<dt>ident token
-		<dd>
-			Create a declaration
-			with its name set to the value of the <i>current input token</i>.
-			Set it as the <i>current declaration</i>.
-			Switch to the <i>after-declaration-name mode</i>.
-
-		<dt>EOF token
-		<dd>
-			<i>Finish parsing</i>.
-
-		<dt>anything else
-		<dd>
-			This is a <i>parse error</i>.
-			Unset the <i>current declaration</i>.
-			Switch to the <i>next-declaration error mode</i>.
-			<i>Reconsume the current input token</i>.
-	</dl>
-
-
-<h4>
-<dfn>After-declaration-name mode</dfn></h4>
-
-	<p>
-		Consume the <i>next input token</i>.
-
-	<dl>
-		<dt>whitespace
-		<dd>
-			Do nothing.
-			Remain in this mode.
-
-		<dt>colon token
-		<dd>
-			Do nothing.
-			Switch to the <i>declaration-value mode</i>.
-
-		<dt>semicolon token
-		<dd>
-			This is a <i>parse error</i>.
-			Unset the <i>current declaration</i>.
-			<i>Switch to the current rule's content mode</i>.
-
-		<dt>EOF token
-		<dd>
-			Unset the <i>current declaration</i>.
-			<i>Finish parsing</i>.
-
-		<dt>anything else
-		<dd>
-			This is a <i>parse error</i>.
-			Unset the <i>current declaration</i>.
-			Switch to the <i>next-declaration error mode</i>.
-			<i>Reconsume the current input token</i>.
-	</dl>
-
-
-<h4>
-<dfn>Declaration-value mode</dfn></h4>
-
-	<p>
-		Consume the <i>next input token</i>.
-
-	<dl>
-		<dt>delim token with a value of "!"
-		<dd>
-			<i>Switch to the <i>declaration-important mode</i>.
-
-		<dt>semicolon token
-		<dd>
-			If the <i>current declaration</i> is grammatically valid,
-			append it to the value of the <i>current rule</i>.
-			Unset the <i>current declaration</i>.
-			<i>Switch to the current rule's content mode</i>.
-
-		<dt>} token
-		<dd>
-			If the <i>only declarations</i> flag is set
-			and the <i>current rule</i> is a <i>top-level rule</i>,
-			this is a <i>parse error</i>.
-			Unset the <i>current declaration</i>.
-			Switch to the <i>next-declaration error mode</i>.
-			<i>Reconsume the current input token</i>.
-
-			<p>
-				Otherwise,
-				if the <i>current declaration</i> is grammatically valid,
-				append it to the value of the <i>current rule</i>.
-				Unset the <i>current declaration</i>.
-				<i>Pop the current rule</i>.
-				<i>Switch to the current rule's content mode</i>.
-
-		<dt>EOF token
-		<dd>
-			<i>Finish parsing</i>.
-
-		<dt>anything else
-		<dd>
-			If the <i>quirks mode</i> flag is set,
-			and the <i>current declaration's</i> name
-			is an <i>ASCII case-insensitive</i> match
-			for one of the property names on the <i>hashless color quirk list</i>,
-			<i>consume a component value with the hashless color quirk</i>.
-			If anything was returned,
-			append the returned value
-			to the value of the <i>current declaration</i>
-			and remain in this mode;
-			otherwise,
-			unset the <i>current declaration</i>
-			and switch to the <i>next-declaration error mode</i>.
-			<i>Reconsume the current input token</i>.
-
-
-			<p>
-				Otherwise,
-				if the <i>quirks mode</i> flag is set,
-				and the <i>current declaration's</i> name
-				is an <i>ASCII case-insensitive</i> match
-				for one of the property names on the <i>unitless length quirk list</i>,
-				<i>consume a component value with the unitless length quirk</i>.
-				If anything was returned,
-				append the returned value
-				to the value of the <i>current declaration</i>
-				and remain in this mode;
-				otherwise,
-				unset the <i>current declaration</i>
-				and switch to the <i>next-declaration error mode</i>.
-				<i>Reconsume the current input token</i>.
-
-			<p>
-				Otherwise,
-				<i>consume a component value</i>.
-				If anything was returned,
-				append the returned value
-				to the value of the <i>current declaration</i>
-				and remain in this mode;
-				otherwise,
-				unset the <i>current declaration</i>
-				and switch to the <i>next-declaration error mode</i>.
-				<i>Reconsume the current input token</i>.
-	</dl>
-
-
-<h4>
-<dfn>Declaration-important mode</dfn></h4>
-
-	<p>
-		Consume the <i>next input token</i>.
-
-	<dl>
-		<dt>whitespace token
-		<dd>
-			Do nothing.
-			Remain in this mode.
-
-		<dt>ident token whose value is an <i>ASCII case-insensitive</i> match for "important"
-		<dd>
-			Set the important flag of the <i>current declaration</i> to true.
-			Switch to the <i>declaration-end mode</i>.
-
-		<dt>anything else
-		<dd>
-			This is a <i>parse error</i>.
-			Unset the <i>current declaration</i>.
-			Switch to the <i>next-declaration error mode</i>.
-			<i>Reconsume the current input token</i>.
-	</dl>
-
-
-
-<h4>
-<dfn>Declaration-end mode</dfn></h4>
-
-	<!--
-	This is intended only for times
-	when you've just consumed something that must come at the end of a declaration.
-	Currently, that's just !important.
-	-->
-
-	<p>
-		Consume the <i>next input token</i>.
-
-	<dl>
-		<dt>whitespace token
-		<dd>
-			Do nothing.
-			Remain in this mode.
-
-		<dt>semicolon token
-		<dd>
-			If the <i>current declaration</i> is grammatically valid,
-			append it to the value of the <i>current rule</i>.
-			Unset the <i>current declaration</i>.
-			<i>Switch to the current rule's content mode</i>.
-
-		<dt>} token
-		<dd>
-			If the <i>only declarations</i> flag is set
-			and the <i>current rule</i> is a <i>top-level rule</i>,
-			this is a <i>parse error</i>.
-			Unset the <i>current declaration</i>.
-			Switch to the <i>next-declaration error mode</i>.
-			<i>Reconsume the current input token</i>.
-
-			<p>
-				Otherwise,
-				if the <i>current declaration</i> is grammatically valid,
-				append it to the value of the <i>current rule</i>.
-				Unset the <i>current declaration</i>.
-				<i>Pop the current rule.</i>
-				<i>Switch to the current rule's content mode</i>.
-
-		<dt>EOF token
-		<dd>
-			<i>Finish parsing</i>.
-
-		<dt>anything else
-		<dd>
-			This is a <i>parse error</i>.
-			Unset the <i>current declaration</i>.
-			Switch to the <i>next-declaration error mode</i>.
-			<i>Reconsume the current input token</i>.
-	</dl>
-
-
-<h4>
-<dfn>Next-block error mode</dfn></h4>
-
-	<!-- Make sure you've already discarded the error'd rule before switching here! -->
-
-	<p>
-		Consume the <i>next input token</i>.
-
-	<dl>
-		<dt>{ token
-		<dd>
-			<i>Consume a component value</i>.
-			Ignore the return value.
-			<i>Switch to the current rule's content mode</i>.
-
-		<dt>EOF token
-		<dd>
-			<i>Finish parsing</i>.
-
-		<dt>anything else
-		<dd>
-			<i>Consume a component value</i>.
-			Ignore the return value.
-			Remain in this mode.
-	</dl>
-
-
-<h4>
-<dfn>Next-declaration error mode</dfn></h4>
-
-	<!-- Make sure you've already unset the current declaration before switching here! -->
-
-	<p>
-		Consume the <i>next input token</i>.
-
-	<dl>
-		<dt>semicolon token
-		<dd>
-			Do nothing.
-			Switch to the <i>declaration-block mode</i>.
-
-		<dt>} token
-		<dd>
-			If the <i>only declarations</i> flag is set
-			and the <i>current rule</i> is a <i>top-level rule</i>,
-			do nothing.
-			Remain in this mode.
-
-			<p>
-				Otherwise,
-				do nothing.
-				Switch to the <i>declaration-block mode</i>.
-				<i>Reconsume the current input token</i>.
-
-		<dt>EOF token
-		<dd>
-			<i>Finish parsing</i>.
-
-		<dt>anything else
-		<dd>
-			<i>Consume a component value</i>.
-			Ignore the return value.
-			Remain in this mode.
-	</dl>
-
-
-<h4>
-<dfn>Next-block-or-statement error mode</dfn></h4>
-
-	<!-- Make sure you've already discarded the error'd rule before switching here! -->
-
-	<p>
-		Consume the <i>next input token</i>.
-
-	<dl>
-		<dt>semicolon token
-		<dd>
-			Do nothing.
-			<i>Switch to the current rule's content mode</i>.
-
-		<dt>{ token
-		<dd>
-			<i>Consume a component value</i>.
-			Ignore the return value.
-			<i>Switch to the current rule's content mode</i>.
-
-		<dt>EOF token
-		<dd>
-			<i>Finish parsing</i>.
-
-		<dt>anything else
-		<dd>
-			<i>Consume a component value</i>.
-			Ignore the return value.
-			Remain in this mode.
-	</dl>
 
 
 <h3>
-<dfn>Consume a component value</dfn></h3>
+Parser Entry Points</h3>
 
 	<p>
-		This section describes how to <i>consume a component value</i>.
+		The algorithms defined in this specification can be invoked in multiple ways
+		to convert a stream of text into various CSS concepts.
 
 	<p>
-		If the <i>current input token</i>
-		is a {, [, or ( token,
-		<i>consume a simple block</i>
-		and return it.
+		All of the algorithms defined in this section begin in the parser.
+		It is assumed that the <a href="#preprocessing-the-input-stream">input preprocessing</a>
+		and <a href="#tokenization">tokenization</a>
+		steps have already been completed,
+		resulting in a stream of tokens.
+
+	<div class='issue'>
+		<p>
+			The following notes should probably be translated into normative text in the relevant specs,
+			hooking this spec's terms:
+
+		<ul>
+			<li>
+				"<i>Parse a stylesheet</i>" is intended to be the normal parser entry point,
+				for parsing stylesheets.
+
+			<li>
+				"<i>Parse a rule</i>" is intended for use by the <code>CSSStyleSheet#insertRule</code> method,
+				and similar functions which might exist,
+				which parse text into a single rule.
+
+			<li>
+				"<i>Parse a list of declarations</i>" is for the contents of a <code>style</code> attribute,
+				which parses text into the contents of a single style rule.
+
+			<li>
+				Dunno about "<i>Parse a value</i>" yet.
+				I'll remove it if I don't figure out what to do with it.
+
+			<li>
+				"<i>Parse a list of values</i>" is for the contents of presentational attributes,
+				which parse text into a single declaration's value.
+
+			<li>
+				"<i>Parse a comma-separated list of values</i>" is similar,
+				but for comma-separated lists.
+		</ul>
+
+		<p>
+			Are there any other things somewhere where some tech (that isn't straight CSS itself) needs to parse some text into CSS?
+	</div>
+
+
+<h4>
+<dfn>Parse a stylesheet</dfn></h4>
 
 	<p>
-		Otherwise, if the <i>current input token</i>
-		is a function token,
-		<i>consume a function</i>
-		and return it.
-
-	<p>
-		Otherwise, if the <i>current input token</i>
-		is an EOF token,
-		<i>finish parsing</i>.
-
-	<p>
-		Otherwise, if the <i>current input token</i>
-		is a cdo token,
-		cdc token,
-		} token,
-		] token,
-		) token,
-		bad-string token,
-		or bad-url token,
-		this is a <i>parse error</i>.
-		Return nothing.
-
-	<p>
-		Otherwise, return the <i>current input token</i>.
-
-<h3>
-<dfn>Consume a component value with the hashless color quirk</dfn></h3>
-
-	<p>
-		This section describes how to <i>consume a component value with the hashless color quirk</i>.
-
-	<p>
-		The <dfn>hashless color quirk list</dfn> contains the following property names:
-
-	<ul>
-		<li>'background-color'
-		<li>'border-color'
-		<li>'border-top-color'
-		<li>'border-right-color'
-		<li>'border-bottom-color'
-		<li>'border-left-color'
-		<li>'color'
-	</ul>
-
-	<p>
-		If the <i>current input token</i> is a number token,
-		let <var>value</var> be the token's representation.
-		If the <i>current input token</i> is a dimension token,
-		let <var>value</var> be the token's representation followed by the token's unit.
-		If the <i>current input token</i> is an ident token,
-		let <var>value</var> be the token's value.
-
-	<p>
-		If <var>value</var> has a length of 3 or 6 and is composed solely of <i>hex digits</i>,
-		create a hash token with its value set to the <var>value</var>
-		and return it.
-
-	<p>
-		Otherwise,
-		<i>consume a component value</i>
-		and return the returned value.
-
-<h3>
-<dfn>Consume a component value with the unitless length quirk</dfn></h3>
-
-	<p>
-		This section describes how to <i>consume a component value with the unitless length quirk</i>.
-
-	<p>
-		The <dfn>unitless length quirk list</dfn> contains the following property names:
-
-	<ul>
-		<li>'border-top-width'
-		<li>'border-right-width'
-		<li>'border-bottom-width'
-		<li>'border-left-width'
-		<li>'border-width'
-		<li>'bottom'
-		<li>'font-size'
-		<li>'height'
-		<li>'left'
-		<li>'letter-spacing'
-		<li>'margin'
-		<li>'margin-right'
-		<li>'margin-left'
-		<li>'margin-top'
-		<li>'margin-bottom'
-		<li>'padding'
-		<li>'padding-top'
-		<li>'padding-right'
-		<li>'padding-bottom'
-		<li>'padding-left'
-		<li>'right'
-		<li>'top'
-		<li>'width'
-		<li>'word-spacing'
-	</ul>
-
-	<p>
-		If the <i>current input token</i> is a number token,
-		create a dimension token with its value and representation set to the token's value and representation,
-		and its unit set to "px".
-		Return the dimension token.
-
-	<p>
-		Otherwise,
-		<i>consume a component value</i>
-		and return the returned value.
-
-
-
-<h3>
-<dfn>Consume a simple block</dfn></h3>
-
-	<p>
-		This section describes how to <i>consume a simple block</i>.
-
-	<p>
-		The <dfn>ending token</dfn> is the mirror variant of the <i>current input token</i>.
-		(E.g. if it was called with [, the <i>ending token</i> is ].)
-
-	<p>
-		Create a simple block with its associated token set to the <i>current input token</i>.
-		This is the <dfn>current block</dfn>.
-
-	<p>
-		Initialize a <var>valid</var> flag to true.
-
-	<p>
-		Repeatedly consume the <i>next input token</i> and process it as follows:
-
-	<dl>
-		<dt>EOF token
-		<dt><i>ending token</i>
-		<dd>
-			If the <var>valid</var> flag is true,
-			return the block.
-
-			<p>
-				Otherwise,
-				return nothing.
-
-		<dt>anything else
-		<dd>
-			<i>Consume a component value</i>.
-			If anything was returned,
-			append the returned value
-			to the value of the <i>current block</i>;
-			otherwise, set the <var>valid</var> flag to false.
-	</dl>
-
-
-<h3>
-<dfn>Consume a function</dfn></h3>
-
-	<p>
-		This section describes how to <i>consume a function</i>.
-
-	<p>
-		Create a function with a name equal to the value of the <i>current input token</i>.
-		Create an argument,
-		called the <dfn>current argument</dfn>,
-		which is initially empty.
-
-	<p>
-		Initialize a <var>valid</var> flag to true.
-
-	<p>
-		Repeatedly consume the <i>next input token</i> and process it as follows:
-
-	<dl>
-		<dt>EOF token
-		<dt>) token
-		<dd>
-			If the <var>valid</var> flag is true,
-			append the <i>current argument</i> to the function's argument list.
-			Return the function.
-
-			<p>
-				Otherwise,
-				return nothing.
-
-		<dt>delim token with the value ","
-		<dd>
-			Append the <i>current argument</i> to the function's argument list.
-			Create a new <i>current argument</i> which is initially empty.
-
-		<dt>number token
-		<dd>
-			If the <i>quirks mode</i> flag is set,
-			and the function's name is as <i>ASCII case-insensitive</i> match with "rect",
-			<i>consume a component value with the unitless length quirk</i>.
-			If anything was returned,
-			append the returned value
-			to the value of the <i>current argument</i>;
-			otherwise, set the <var>valid</var> flag to false.
-
-			<p>
-				Otherwise,
-				<i>consume a component value</i>.
-				If anything was returned,
-				append the returned value
-				to the value of the <i>current argument</i>;
-				otherwise, set the <var>valid</var> flag to false.
-
-		<dt>anything else
-		<dd>
-			<i>Consume a component value</i>.
-			If anything was returned,
-			append the returned value
-			to the value of the <i>current argument</i>;
-				otherwise, set the <var>valid</var> flag to false.
-	</dl>
-
-
-<h3>
-<dfn>Switch to the current rule's content mode</dfn></h3>
-
-	<p>
-		This section describes how to <i>switch to the current rule's content mode</i>.
-		It is invoked whenever a declaration or rule has been successfully completed,
-		or when an error has finished recovery.
-
-	<p>
-		If the <i>current rule</i> is a style rule or a <i>declaration-filled</i> at-rule,
-		switch to the <i>declaration-block mode</i>.
-
-	<p>
-		If the <i>current rule</i> is a <i>rule-filled</i> at-rule,
-		switch to the <i>rule-block mode</i>.
-
-	<p>
-		If the <i>current rule</i> is a stylesheet,
-		switch to the <i>top-level mode</i>.
-
-
-<h3>
-<dfn>Pop the current rule</dfn></h3>
-
-	<p>
-		This section describes how to <i>pop the current rule</i>.
-		It is invoked whenever a rule is "finished" parsing
-		and can be made part of its parent rule.
-
-	<p>
-		First, validate the <i>current rule</i>.
-		If the rule does not match its required grammar,
-		or if it's not valid in its current context,
-		discard it.
-
-	<p>
-		Otherwise, pop the <i>current rule</i> from the <i>stack of open rules</i>
-		and append it to the value of the new <i>current rule</i>.
-
-
-<h3>
-<dfn>Discard the current rule</dfn></h3>
-
-	<p>
-		This section describes how to <i>discard the current rule</i>.
-		It is invoked whenever the parser determines that the rule it's currently parsing isn't valid,
-		and thus must not be included in the parsed stylesheet.
-
-	<p>
-		Pop the <i>current rule</i> from the <i>stack of open rules</i>.
-		Don't do anything with it.
-
-
-<h3>
-<dfn>Finish parsing</dfn></h3>
-
-	<p>
-		This section describes how to <i>finish parsing</i>.
-		It is invoked whenever an EOF token is encountered.
-
-	<p>
-		If there is a <i>current declaration</i>,
-		and it is grammatically valid,
-		append it to the value of the <i>current rule</i>.
-
-	<p>
-		While there's more than one rule on the <i>stack of open rules</i>,
-		<i>pop the current rule</i>.
-
-	<p>
-		Finally, return the <i>current rule</i> as the result of parsing.
-
-
-<h3>
-Changes from CSS 2.1 Core Grammar</h3>
-
-	<p>
-		<em>This section is non-normative.</em>
-
-	<p class='issue'>
-		Here are the changes that I know that I've made to the Core Grammar of 2.1.
-		If there are changes not present here,
-		please let me know
-		as they may be unintentional.
-
-	<p class='issue'>
-		Note that the point of this spec is to match reality;
-		changes from CSS2.1&apos;s Core Grammar are nearly always because the Core Grammar specified something that doesn't match actual browser behavior,
-		or left something unspecified.
-		If some detail doesn't match browsers,
-		please let me know
-		as it's almost certainly unintentional.
+		To <i>parse a stylesheet</i> from a stream of tokens:
 
 	<ol>
 		<li>
-			The handling of some miscellanous "special" tokens
-			(like an unmatched } token)
-			showing up in various places in the grammar
-			has been specified with some reasonable behavior shown by at least one browser.
-			Previously, stylesheets with those tokens in those places just didn't match the stylesheet grammar at all,
-			so their handling was totally undefined.
-			Specifically:
+			Create a new stylesheet.
+
+		<li>
+			<i>Consume a list of rules</i> from the stream of tokens.
+
+		<li>
+			Assign the returned value to the stylesheet's value.
+
+		<li>
+			Return the stylesheet.
+	</ol>
+
+<h4>
+<dfn>Parse a rule</dfn></h4>
+
+	<p>
+		To <i>parse a rule</i> from a stream of tokens:
+
+	<ol>
+		<li>
+			Consume whitespace tokens from the token stream until a non-whitespace token is encountered.
+
+		<li>
+			If the <i>current input token</i>
+			is a CDO token, CDC token, or EOF token,
+			return a syntax error.
+
+			<p>
+				Otherwise,
+				if the <i>current input token</i> is an at-keyword token:
 
 			<ul>
 				<li>
-					[] blocks, () blocks and functions can now contain {} blocks, at-keywords or semicolons
+					If the at-keyword token's name is on the list of <i>recognized at-rule names</i>,
+					and the list indicates that it is a <i>rule-filled</i> or <i>declaration-filled</i> at-rule,
+					<i>consume an at-rule</i>.
+					If nothing was returned,
+					return a syntax error.
 
 				<li>
-					Selectors can now contain semicolons
+					Otherwise,
+					<i>consume an at-statement</i>.
+					If nothing was returned,
+					return a syntax error.
+			</ul>
+
+			<p>
+				Otherwise,
+				<i>consume a qualified rule</i>.
+				If nothing was returned,
+				return a syntax error.
+
+		<li>
+			Consume whitespace tokens from the token stream until a non-whitespace token is encountered.
+
+		<li>
+			If the <i>current input token</i> is an EOF token,
+			return the rule obtained in step 2.
+			Otherwise, return a syntax error.
+	</ol>
+
+<h4>
+<dfn>Parse a list of declarations</dfn></h4>
+
+	<p>
+		To <i>parse a list of declarations</i>:
+
+	<ol>
+		<li>
+			<i>Consume a list of declarations</i>.
+			If anything was returned,
+			return it.
+	</ol>
+
+<h4>
+<dfn>Parse a component value</dfn></h4>
+
+	<p>
+		To <i>parse a component value</i>:
+
+	<ol>
+		<li>
+			Discard whitespace tokens from the token stream until a non-whitespace token is reached.
+			If the token stream is exhausted without finding a non-whitespace token,
+			return a syntax error.
+
+		<li>
+			<i>Consume a component value</i>.
+			If nothing is returned,
+			return a syntax error.
+
+		<li>
+			Discard whitespace tokens from the token stream until a non-whitespace token is reached.
+			If the token stream is exhausted without finding a non-whitespace token,
+			return the value found in the previous step.
+			Otherwise,
+			return a syntax error.
+	</ol>
+
+	<p class='note'>
+		This algorithm is <dfn>token/component-value agnostic</dfn>,
+		which means it can be called with either a stream of tokens
+		or a stream of component values
+		with identical results.
+
+<h4>
+<dfn>Parse a list of component values</dfn></h4>
+
+	<p>
+		To <i>parse a list of component values</i>:
+
+	<ol>
+		<li>
+			Repeatedly <i>consume a component value</i> until an EOF token is returned,
+			appending the returned values into a list.
+			Return the list.
+	</ol>
+
+	<p class='note'>
+		This algorithm is <i>token/component-value agnostic</i>.
+
+<h4>
+<dfn>Parse a comma-separated list of component values</dfn></h4>
+
+	<p>
+		To <i>parse a comma-separated list of component values</i>:
+
+	<ol>
+		<li>
+			Initialize <var>val</var> to an empty list,
+			and <var>temp</var> to an empty list.
+
+		<li>
+			Repeatedly <i>consume a component value</i>,
+			appending the returned values to <var>temp</var>,
+			until either a comma token or EOF token is returned.
+
+		<li>
+			If a comma token is encountered,
+			do not append it to <var>temp</var>.
+			Instead,
+			append <var>temp</var> to <var>val</var>.
+			Create a new <var>temp</var>,
+			and return to step 2.
+
+		<li>
+			If an EOF token is encountered,
+			append <var>temp</var> to <var>val</var>,
+			and return <var>val</var>.
+	</ol>
+
+	<p class='note'>
+		This algorithm is <i>token/component-value agnostic</i>.
+
+<h4>
+<dfn>Parse an+b notation</dfn></h4>
+
+	<p>
+		To <i>parse an+b notation</i>:
+
+	<p>
+		Initialize an integer called <var>step</var> to 0,
+		an integer called <var>offset</var> to 0,
+		and a string called <var>repr</var> to the empty string.
+
+	<p>
+		Repeatedly consume the <i>next input token</i>
+		and process it as follows:
+
+	<dl>
+		<dt>ident token
+		<dt>number token with its type flag set to "integer"
+		<dt>dimension token
+		<dd>
+			Append the token's value, representation, or representation and unit, respectively, to <var>repr</var>.
+
+		<dt>delim token with the value "+"
+		<dd>
+			Append U+002B PLUS SIGN (+) to <var>repr</var>.
+
+		<dt>delim token with the value "-"
+		<dd>
+			Append U+002D HYPHEN-MINUS (-) to <var>repr</var>.
+
+		<dt>whitespace token
+		<dd>
+			Append U+0020 SPACE ( ) to <var>repr</var>.
+
+		<dt>EOF
+		<dd>
+			Continue to the next step of the algorithm.
+
+		<dt>anything else
+		<dd>
+			This is a <i>parse error</i>.
+			Return a syntax error.
+	</dl>
+
+	<p>
+		Trim U+0020 SPACE ( ) characters from the front and back of <var>repr</var>,
+		then process it as follows:
+
+	<ol>
+		<li>
+			If <var>repr</var> is an <i>ASCII case-insensitive</i> match
+			for the string "odd",
+			set <var>step</var> to 2
+			and <var>offset</var> to 1.
+
+		<li>
+			Otherwise, if <var>repr</var> is an <i>ASCII case-insensitive</i> match
+			for the string "even",
+			set <var>step</var> to 2
+			and <var>offset</var> to 0.
+
+		<li>
+			Otherwise, if <var>repr</var> consists solely of <i>digits</i>,
+			optionally prefixed with a single
+			U+002B PLUS SIGN (+)
+			or U+002D HYPHEN-MINUS (-),
+			interpret <var>repr</var> as a base-10 number,
+			and set <var>step</var> to the result.
+
+		<li>
+			Otherwise, if <var>repr</var> contains
+			U+004E LATIN CAPITAL LETTER N (N),
+			or U+006E LATIN SMALL LETTER N (n),
+			split <var>repr</var> into two substrings
+			composed respectively of the characters preceding and following the first such letter.
+
+			<p>
+				Interpret the first string as follows:
+
+			<ul>
+				<li>
+					If the first string is empty,
+					set <var>step</var> to 1.
 
 				<li>
-					Selectors and at-rule preludes can now contain at-keywords
+					Otherwise, if the first string consists solely of a single
+					U+002B PLUS SIGN (+)
+					or U+002D HYPHEN-MINUS (-),
+					set <var>step</var> to 1 or -1, respectively.
+
+				<li>
+					Otherwise, if the first string consists solely of <i>digits</i>,
+					optionally prefixed with a single
+					U+002B PLUS SIGN (+)
+					or U+002D HYPHEN-MINUS (-),
+					interpret the first string as a base-10 number,
+					and set <var>step</var> to the result.
+
+				<li>
+					Otherwise, this is a <i>parse error</i>;
+					return a syntax error.
+			</ul>
+
+			<p>
+				Interpret the second string as follows:
+
+			<ul>
+				<li>
+					If the second string is empty,
+					set <var>offset</var> to 0.
+
+				<li>
+					Otherwise, if the second string consists solely of
+					0 or more U+0020 SPACE characters,
+					optionally followed by a single
+					U+002B PLUS SIGN (+)
+					or U+002D HYPHEN-MINUS (-) character,
+					followed by 0 or more U+0020 SPACE characters,
+					followed by 1 or more <i>digits</i>,
+					interpret the digits as a base-10 number.
+					If there was a U+002D HYPHEN-MINUS (-) character,
+					negate the result.
+					Set <var>offset</var> to the result.
+
+				<li>
+					Otherwise, this is a <i>parse error</i>;
+					return a syntax error.
 			</ul>
 
 		<li>
-			Quirks mode parsing differences are now officially recognized in the parser.
+			Otherwise, this is a <i>parse error</i>;
+			return a syntax error.
 	</ol>
 
+	<p>
+		Return <var>step</var> and <var>offset</var>.
 
-<!--
+	<p class='note'>
+		This algorithm is <i>token/component-value agnostic</i>.
+
+<h3>
+Parser Algorithms</h3>
+
 <h4>
 <dfn>Consume a list of rules</dfn></h4>
 
@@ -3552,349 +2933,245 @@ Changes from CSS 2.1 Core Grammar</h3>
 
 	<p>
 		Return the declaration.
--->
 
 
-<h2>
-Parser Entry Points</h2>
-
-	<p>
-		The state machines defined in this specification can be invoked in multiple ways,
-		to convert a stream of text into various CSS concepts.
+<h4>
+<dfn>Consume a component value</dfn></h4>
 
 	<p>
-		All of the algorithms defined in this section begin in the parser.
-		It is assumed that the <a href="#preprocessing-the-input-stream">input preprocessing</a>
-		and <a href="#tokenization">tokenization</a>
-		steps have already been completed,
-		resulting in a stream of tokens.
-
-	<div class='issue'>
-		<p>
-			The following notes should probably be translated into normative text in the relevant specs,
-			hooking this spec's terms:
-
-		<ul>
-			<li>
-				"<i>Parse a stylesheet</i>" is intended to be the normal parser entry point,
-				for parsing stylesheets.
-
-			<li>
-				"<i>Parse a rule</i>" is intended for use by the <code>CSSStyleSheet#insertRule</code> method,
-				and similar functions which might exist,
-				which parse text into a single rule.
-
-			<li>
-				"<i>Parse a list of declarations</i>" is for the contents of a <code>style</code> attribute,
-				which parses text into the contents of a single style rule.
-
-			<li>
-				Dunno about "<i>Parse a value</i>" yet.
-				I'll remove it if I don't figure out what to do with it.
-
-			<li>
-				"<i>Parse a list of values</i>" is for the contents of presentational attributes,
-				which parse text into a single declaration's value.
-
-			<li>
-				"<i>Parse a comma-separated list of values</i>" is similar,
-				but for comma-separated lists.
-		</ul>
-
-		<p>
-			Are there any other things somewhere where some tech (that isn't straight CSS itself) needs to parse some text into CSS?
-	</div>
-
-
-
-
-<h3>
-<dfn>Parse a stylesheet</dfn></h3>
+		This section describes how to <i>consume a component value</i>.
 
 	<p>
-		To <i>parse a stylesheet</i>:
-
-	<ol>
-		<li>
-			Initialize the <i>stack of open rules</i> by pushing a new <i>stylesheet</i> onto it.
-
-		<li>
-			Invoke the <a href="#parser-state-machine">parser</i>.
-
-		<li>
-			Return the <i>stylesheet</i> it returns.
-	</ol>
-
-<h3>
-<dfn>Parse a rule</dfn></h3>
+		If the <i>current input token</i>
+		is a {, [, or ( token,
+		<i>consume a simple block</i>
+		and return it.
 
 	<p>
-		To <i>parse a rule</i>:
-
-	<ol>
-		<li>
-			Initialize the <i>stack of open rules</i> by pushing a new <i>stylesheet</i> onto it.
-
-		<li>
-			Invoke the <a href="#parser-state-machine">parser</i>.
-
-		<li>
-			If the returned <i>stylesheet</i> contains more than one rule in its value,
-			return a syntax error.
-
-			<p>
-				Otherwise,
-				return the first rule in the value of the <i>stylesheet</i> it returns.
-	</ol>
-
-<h3>
-<dfn>Parse a list of declarations</dfn></h3>
+		Otherwise, if the <i>current input token</i>
+		is a function token,
+		<i>consume a function</i>
+		and return it.
 
 	<p>
-		To <i>parse a list of declarations</i>:
+		Otherwise, return the <i>current input token</i>.
 
-	<ol>
-		<li>
-			Initialize the <i>stack of open rules</i> by pushing a new <i>stylesheet</i> onto it,
-			and then pushing a new <i>style rule</i> onto it
-			with a selector set to the empty string
-			and an initially empty value.
-
-		<li>
-			Invoke the <a href="#parser-state-machine">parser</a>,
-			with the <i>only declarations</i> flag set,
-			starting in the <i>declaration-block mode</i>.
-
-		<li>
-			Return the value of the <i>style rule</i> in the value of the <i>stylesheet</i> it returns.
-	</ol>
-
-<h3>
-<dfn>Parse a component value</dfn></h3>
+<h4>
+<dfn>Consume a component value with the hashless color quirk</dfn></h4>
 
 	<p>
-		To <i>parse a component value</i>:
-
-	<ol>
-		<li>
-			Discard whitespace tokens from the token stream until a non-whitespace token is reached.
-			If the token stream is exhausted without finding a non-whitespace token,
-			return a syntax error.
-
-		<li>
-			<i>Consume a component value</i>.
-			If nothing is returned,
-			return a syntax error.
-
-		<li>
-			Discard whitespace tokens from the token stream until a non-whitespace token is reached.
-			If the token stream is exhausted without finding a non-whitespace token,
-			return the value found in the previous step.
-			Otherwise,
-			return a syntax error.
-	</ol>
-
-	<p class='note'>
-		This algorithm is <dfn>token/component-value agnostic</dfn>,
-		which means it can be called with either a stream of tokens
-		or a stream of component values
-		with identical results.
-
-<h3>
-<dfn>Parse a list of component values</dfn></h3>
+		This section describes how to <i>consume a component value with the hashless color quirk</i>.
 
 	<p>
-		To <i>parse a list of component values</i>:
+		The <dfn>hashless color quirk list</dfn> contains the following property names:
 
-	<ol>
-		<li>
-			Repeatedly <i>consume a component value</i> until the token stream is exhausted,
-			appending the returned values into a list.
-			If at any point nothing is returned,
-			return a syntax error.
-
-		<li>
-			Return the list.
-	</ol>
-
-	<p class='note'>
-		This algorithm is <i>token/component-value agnostic</i>.
-
-<h3>
-<dfn>Parse a comma-separated list of component values</dfn></h3>
+	<ul>
+		<li>'background-color'
+		<li>'border-color'
+		<li>'border-top-color'
+		<li>'border-right-color'
+		<li>'border-bottom-color'
+		<li>'border-left-color'
+		<li>'color'
+	</ul>
 
 	<p>
-		To <i>parse a comma-separated list of component values</i>:
-
-	<ol>
-		<li>
-			Initialize <var>val</var> to an empty list,
-			and <var>temp</var> to an empty list.
-
-		<li>
-			Repeatedly <i>consume a component value</i>,
-			appending the returned values to <var>temp</var>,
-			until either a comma token is returned,
-			or the token stream is exhausted.
-			If at any point nothing is returned,
-			return a syntax error.
-
-		<li>
-			If a comma token is encountered,
-			do not append it to <var>temp</var>.
-			Instead,
-			append <var>temp</var> to <var>val</var>.
-			Create a new <var>temp</var>,
-			and return to step 2.
-
-		<li>
-			If the token stream is exhausted,
-			append <var>temp</var> to <var>val</var>,
-			and return <var>val</var>.
-	</ol>
-
-	<p class='note'>
-		This algorithm is <i>token/component-value agnostic</i>.
-
-<h3>
-<dfn>Parse an+b notation</dfn></h3>
+		If the <i>current input token</i> is a number token,
+		let <var>value</var> be the token's representation.
+		If the <i>current input token</i> is a dimension token,
+		let <var>value</var> be the token's representation followed by the token's unit.
+		If the <i>current input token</i> is an ident token,
+		let <var>value</var> be the token's value.
 
 	<p>
-		To <i>parse an+b notation</i>:
+		If <var>value</var> has a length of 3 or 6 and is composed solely of <i>hex digits</i>,
+		create a hash token with its value set to the <var>value</var>
+		and return it.
 
 	<p>
-		Initialize an integer called <var>step</var> to 0,
-		an integer called <var>offset</var> to 0,
-		and a string called <var>repr</var> to the empty string.
+		Otherwise,
+		<i>consume a component value</i>
+		and return the returned value.
+
+<h4>
+<dfn>Consume a component value with the unitless length quirk</dfn></h4>
 
 	<p>
-		Repeatedly consume the <i>next input token</i>
-		and process it as follows:
+		This section describes how to <i>consume a component value with the unitless length quirk</i>.
+
+	<p>
+		The <dfn>unitless length quirk list</dfn> contains the following property names:
+
+	<ul>
+		<li>'border-top-width'
+		<li>'border-right-width'
+		<li>'border-bottom-width'
+		<li>'border-left-width'
+		<li>'border-width'
+		<li>'bottom'
+		<li>'font-size'
+		<li>'height'
+		<li>'left'
+		<li>'letter-spacing'
+		<li>'margin'
+		<li>'margin-right'
+		<li>'margin-left'
+		<li>'margin-top'
+		<li>'margin-bottom'
+		<li>'padding'
+		<li>'padding-top'
+		<li>'padding-right'
+		<li>'padding-bottom'
+		<li>'padding-left'
+		<li>'right'
+		<li>'top'
+		<li>'width'
+		<li>'word-spacing'
+	</ul>
+
+	<p>
+		If the <i>current input token</i> is a number token,
+		create a dimension token with its value and representation set to the token's value and representation,
+		and its unit set to "px".
+		Return the dimension token.
+
+	<p>
+		Otherwise,
+		<i>consume a component value</i>
+		and return the returned value.
+
+
+
+<h4>
+<dfn>Consume a simple block</dfn></h4>
+
+	<p>
+		This section describes how to <i>consume a simple block</i>.
+
+	<p>
+		The <dfn>ending token</dfn> is the mirror variant of the <i>current input token</i>.
+		(E.g. if it was called with [, the <i>ending token</i> is ].)
+
+	<p>
+		Create a simple block with its associated token set to the <i>current input token</i>.
+
+	<p>
+		Repeatedly consume the <i>next input token</i> and process it as follows:
 
 	<dl>
-		<dt>ident token
-		<dt>number token with its type flag set to "integer"
-		<dt>dimension token
+		<dt>EOF token
+		<dt><i>ending token</i>
 		<dd>
-			Append the token's value, representation, or representation and unit, respectively, to <var>repr</var>.
-
-		<dt>delim token with the value "+"
-		<dd>
-			Append U+002B PLUS SIGN (+) to <var>repr</var>.
-
-		<dt>delim token with the value "-"
-		<dd>
-			Append U+002D HYPHEN-MINUS (-) to <var>repr</var>.
-
-		<dt>whitespace token
-		<dd>
-			Append U+0020 SPACE ( ) to <var>repr</var>.
-
-		<dt>EOF
-		<dd>
-			Continue to the next step of the algorithm.
+			Return the block.
 
 		<dt>anything else
 		<dd>
-			This is a <i>parse error</i>.
-			Return a syntax error.
+			<i>Consume a component value</i>
+			and append it to the value of the block.
 	</dl>
 
+
+<h4>
+<dfn>Consume a function</dfn></h4>
+
 	<p>
-		Trim U+0020 SPACE ( ) characters from the front and back of <var>repr</var>,
-		then process it as follows:
+		This section describes how to <i>consume a function</i>.
+
+	<p>
+		Create a function with a name equal to the value of the <i>current input token</i>,
+		and an argument list which is initially empty.
+		Create an argument,
+		called the <dfn>current argument</dfn>,
+		with a value which is initially an empty list.
+
+	<p>
+		Repeatedly consume the <i>next input token</i> and process it as follows:
+
+	<dl>
+		<dt>EOF token
+		<dt>) token
+		<dd>
+			Return the function.
+
+		<dt>comma token
+		<dd>
+			Append the <i>current argument</i> to the function's argument list.
+			Create a new <i>current argument</i> which is initially empty.
+
+		<dt>number token
+		<dd>
+			If the <i>quirks mode</i> flag is set,
+			and the function's name is as <i>ASCII case-insensitive</i> match with "rect",
+			<i>consume a component value with the unitless length quirk</i>.
+			If anything was returned,
+			append the returned value
+			to the value of the <i>current argument</i>;
+			otherwise, set the <var>valid</var> flag to false.
+
+			<p>
+				Otherwise,
+				<i>consume a component value</i>.
+				If anything was returned,
+				append the returned value
+				to the value of the <i>current argument</i>;
+				otherwise, set the <var>valid</var> flag to false.
+
+		<dt>anything else
+		<dd>
+			<i>Consume a component value</i>
+			and append the returned value
+			to the value of the <i>current argument</i>.
+	</dl>
+
+
+
+<h3>
+Changes from CSS 2.1 Core Grammar</h3>
+
+	<p>
+		<em>This section is non-normative.</em>
+
+	<p class='issue'>
+		Here are the changes that I know that I've made to the Core Grammar of 2.1.
+		If there are changes not present here,
+		please let me know
+		as they may be unintentional.
+
+	<p class='issue'>
+		Note that the point of this spec is to match reality;
+		changes from CSS2.1&apos;s Core Grammar are nearly always because the Core Grammar specified something that doesn't match actual browser behavior,
+		or left something unspecified.
+		If some detail doesn't match browsers,
+		please let me know
+		as it's almost certainly unintentional.
 
 	<ol>
 		<li>
-			If <var>repr</var> is an <i>ASCII case-insensitive</i> match
-			for the string "odd",
-			set <var>step</var> to 2
-			and <var>offset</var> to 1.
-
-		<li>
-			Otherwise, if <var>repr</var> is an <i>ASCII case-insensitive</i> match
-			for the string "even",
-			set <var>step</var> to 2
-			and <var>offset</var> to 0.
-
-		<li>
-			Otherwise, if <var>repr</var> consists solely of <i>digits</i>,
-			optionally prefixed with a single
-			U+002B PLUS SIGN (+)
-			or U+002D HYPHEN-MINUS (-),
-			interpret <var>repr</var> as a base-10 number,
-			and set <var>step</var> to the result.
-
-		<li>
-			Otherwise, if <var>repr</var> contains
-			U+004E LATIN CAPITAL LETTER N (N),
-			or U+006E LATIN SMALL LETTER N (n),
-			split <var>repr</var> into two substrings
-			composed respectively of the characters preceding and following the first such letter.
-
-			<p>
-				Interpret the first string as follows:
+			The handling of some miscellanous "special" tokens
+			(like an unmatched } token)
+			showing up in various places in the grammar
+			has been specified with some reasonable behavior shown by at least one browser.
+			Previously, stylesheets with those tokens in those places just didn't match the stylesheet grammar at all,
+			so their handling was totally undefined.
+			Specifically:
 
 			<ul>
 				<li>
-					If the first string is empty,
-					set <var>step</var> to 1.
+					[] blocks, () blocks and functions can now contain {} blocks, at-keywords or semicolons
 
 				<li>
-					Otherwise, if the first string consists solely of a single
-					U+002B PLUS SIGN (+)
-					or U+002D HYPHEN-MINUS (-),
-					set <var>step</var> to 1 or -1, respectively.
+					Selectors can now contain semicolons
 
 				<li>
-					Otherwise, if the first string consists solely of <i>digits</i>,
-					optionally prefixed with a single
-					U+002B PLUS SIGN (+)
-					or U+002D HYPHEN-MINUS (-),
-					interpret the first string as a base-10 number,
-					and set <var>step</var> to the result.
-
-				<li>
-					Otherwise, this is a <i>parse error</i>;
-					return a syntax error.
-			</ul>
-
-			<p>
-				Interpret the second string as follows:
-
-			<ul>
-				<li>
-					If the second string is empty,
-					set <var>offset</var> to 0.
-
-				<li>
-					Otherwise, if the second string consists solely of
-					0 or more U+0020 SPACE characters,
-					optionally followed by a single
-					U+002B PLUS SIGN (+)
-					or U+002D HYPHEN-MINUS (-) character,
-					followed by 0 or more U+0020 SPACE characters,
-					followed by 1 or more <i>digits</i>,
-					interpret the digits as a base-10 number.
-					If there was a U+002D HYPHEN-MINUS (-) character,
-					negate the result.
-					Set <var>offset</var> to the result.
-
-				<li>
-					Otherwise, this is a <i>parse error</i>;
-					return a syntax error.
+					Selectors and at-rule preludes can now contain at-keywords
 			</ul>
 
 		<li>
-			Otherwise, this is a <i>parse error</i>;
-			return a syntax error.
+			Quirks mode parsing differences are now officially recognized in the parser.
 	</ol>
 
-	<p>
-		Return <var>step</var> and <var>offset</var>.
 
-	<p class='note'>
-		This algorithm is <i>token/component-value agnostic</i>.
+
 
 <h2>Serialization</h2>
 
