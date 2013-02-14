@@ -12,6 +12,7 @@
 # -F ids=on
 
 cdate = $(shell date +%Y%m%d)
+status = ED
 
 %.html: %.src.html
 	@echo "Calling post-processor to generate $@..."
