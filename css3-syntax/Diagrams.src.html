@@ -22,7 +22,7 @@
 	<dl>
 	</dl>
 <h3 id=parsing>Parsing</h3>
-    <p>All comments are ignored.</p>
+	<p>All comments are ignored.</p>
 	<dl>
 	</dl>
 
@@ -42,7 +42,8 @@ function add(name, diagram) {
 	var dt = document.createElement('dt'),
 		dd = document.createElement('dd');
 	dt.textContent = name;
-	dt.setAttribute('id', name.toLowerCase() + '-diagram');
+	name = name.toLowerCase().replace(/[\/ ]/g, '-').replace(/[*!]/g, '');
+	dt.setAttribute('id', name + '-diagram');
 	dd.appendChild(diagram.toSVG());
 	preview.appendChild(document.createTextNode('\t'));
 	preview.appendChild(dt);
@@ -51,18 +52,31 @@ function add(name, diagram) {
 	preview.appendChild(document.createTextNode('\n\n\t'));
 }
 
+add('comment', Diagram(
+	'/*',
+	ZeroOrMore(
+		NonTerminal('anything but * followed by /')),
+	'*/'));
+
+add('newline', Diagram(Choice(0, '\\n', '\\r\\n', '\\r', '\\f')));
+
+add('whitespace character', Diagram(Choice(
+	0, 'space', '\\t', NonTerminal('newline'))));
+
 add('escape', Diagram(
 	'\\', Choice(0,
-		NonTerminal('not NL or hex digit'),
+		NonTerminal('not newline or hex digit'),
 		Sequence(
 			OneOrMore(NonTerminal('hex digit'), Comment('1-6 times')),
-			Optional(NonTerminal('WS*'), 'skip')))));
+			Optional(NonTerminal('whitespace character'), 'skip')))));
+
+add('WHITESPACE', Diagram(OneOrMore(NonTerminal('whitespace character'))));
 
 add('IDENT', Diagram(
 	Choice(0, Skip(), '-'),
 	Choice(0, NonTerminal('a-z A-Z _ or non-ASCII'), NonTerminal('escape')),
-	ZeroOrMore(
-		Choice(0, NonTerminal('a-z A-Z 0-9 _ - or non-ASCII'), NonTerminal('escape')))));
+	ZeroOrMore(Choice(0,
+		NonTerminal('a-z A-Z 0-9 _ - or non-ASCII'), NonTerminal('escape')))));
 
 add('FUNCTION', Diagram(
 	NonTerminal('IDENT'), '('));
@@ -81,35 +95,32 @@ add('STRING', Diagram(
 			'"',
 			ZeroOrMore(
 				Choice(0,
-					NonTerminal('not " \\ or NL'),
+					NonTerminal('not " \\ or newline'),
 					NonTerminal('escape'),
-					Sequence('\\', NonTerminal('NL')))),
+					Sequence('\\', NonTerminal('newline')))),
 			'"'),
 		Sequence(
 			'\'',
 			ZeroOrMore(
 				Choice(0,
-					NonTerminal("not ' \\ or NL"),
+					NonTerminal("not ' \\ or newline"),
 					NonTerminal('escape'),
-					Sequence('\\', NonTerminal('NL')))),
+					Sequence('\\', NonTerminal('newline')))),
 			'\''))));
 
 add('URL', Diagram(
-	NonTerminal("IDENT(url)"),
+	NonTerminal('IDENT(url)'),
 	'(',
-	Choice(1,
-		Sequence(
-			ZeroOrMore(NonTerminal('WS'), null, 'skip'),
-			Optional(NonTerminal('STRING')),
-			ZeroOrMore(NonTerminal('WS'), null, 'skip')),
-		Sequence(
-			ZeroOrMore(NonTerminal('WS'), null, 'skip'),
-			OneOrMore(
-				Choice(0,
-					NonTerminal('not " \' ( ) \\ WS or NPC'),
-					NonTerminal('escape'))),
-			ZeroOrMore(NonTerminal('WS'), null, 'skip'))),
+	Optional(NonTerminal('WHITESPACE'), 'skip'),
+	Optional(Sequence(
+		Choice(0, NonTerminal('url-unquoted'), NonTerminal('STRING')),
+		Optional(NonTerminal('WHITESPACE'), 'skip'))),
 	')'));
+
+add('url-unquoted', Diagram(OneOrMore(
+	Choice(0,
+		NonTerminal('not " \' ( ) \\ whitespace or non-printable'),
+		NonTerminal('escape')))));
 
 add('NUMBER', Diagram(
 	Choice(1, '+', Skip(), '-'),
@@ -150,15 +161,19 @@ add('UNICODE-RANGE', Diagram(
 			'-',
 			OneOrMore(NonTerminal('hex digit'), Comment('1-6 times'))))));
 
-add('COMMENT', Diagram(
-	'/*',
-	ZeroOrMore(
-		NonTerminal("anything but * followed by /")),
-	'*/'));
+add('INCLUDE-MATCH', Diagram('~='));
 
-add('CDO', Diagram("<" + "!--"));
+add('DASH-MATCH', Diagram('|='));
 
-add('CDC', Diagram("-" + "->"));
+add('PREFIX-MATCH', Diagram('^='));
+
+add('SUFFIX-MATCH', Diagram('$='));
+
+add('SUBSTRING-MATCH', Diagram('*='));
+
+add('CDO', Diagram('<' + '!--'));
+
+add('CDC', Diagram('-' + '->'));
 
 
 document.getElementsByTagName('textarea')[0].value = '\t' + preview.outerHTML
@@ -172,74 +187,71 @@ preview = document.getElementsByTagName('dl')[1];
 
 var NT = NonTerminal
 
-add('Stylesheet', Diagram(ZeroOrMore(Choice(0,
-    NT('Style rule'), NT('At-rule'), NT('WHITESPACE'), NT('CDO'), NT('CDC')))));
-
-add('Style rule', Diagram(
-    NT('Style rule prelude'),
-    NT('{'), NT('Declaration/at-rule list'), NT('}')));
-
-add('Style rule prelude', Diagram(
-    Optional(Sequence(
-        NT('Component value, except AT-KEYWORD or {} block'),
-        ZeroOrMore(NT('Component value, except {} block'))))));
+add('Stylesheet', Diagram(ZeroOrMore(Choice(3,
+	NT('CDO'), NT('CDC'), NT('WHITESPACE'),
+	NT('Qualified rule'), NT('At-rule')))));
 
 add('At-rule', Diagram(
-    NT('AT-KEYWORD'), NT('At-rule prelude'),
-    Choice(0,
-        Sequence(NT('{'), NT('Declaration/at-rule list'), NT('}')),
-        Sequence(NT('{'), NT('Rule list'), NT('}')),
-        NT('SEMICOLON'))));
+	NT('AT-KEYWORD'), ZeroOrMore(NT('Component value')),
+	Choice(0,
+		Sequence(NT('{'), NT('Rule list'), NT('}')),
+		Sequence(NT('{'), NT('Declaration/at-rule list'), NT('}')),
+		NT('SEMICOLON'))));
 
-add('At-rule prelude', Diagram(
-    ZeroOrMore(NT('Component value, except SEMICOLON or {} block'))));
+add('Qualified rule', Diagram(
+	ZeroOrMore(NT('Component value')),
+	NT('{'), NT('Declaration/at-rule list'), NT('}')));
 
-add('Rule list', Diagram(
-    ZeroOrMore(Choice(0, NT('Style rule'), NT('At-rule'), NT('WHITESPACE')))));
-
-add('WS*', Diagram(ZeroOrMore(NT('WHITESPACE'))));
+add('Rule list', Diagram(ZeroOrMore(Choice(0,
+	NT('Qualified rule'), NT('At-rule'), NT('WHITESPACE')))));
 
 add('Declaration/at-rule list', Diagram(
-    NT('WS*'),
-    Choice(0,
-        Sequence(
-            Optional(NT('Declaration')),
-            Optional(Sequence(NT(';'), NT('Declaration/at-rule list')))),
-        Sequence(
-            NT('At-rule'),
-            NT('Declaration/at-rule list')))));
+	NT('ws*'),
+	Choice(0,
+		Sequence(
+			Optional(NT('Declaration')),
+			Optional(Sequence(NT(';'), NT('Declaration/at-rule list')))),
+		Sequence(
+			NT('At-rule'),
+			NT('Declaration/at-rule list')))));
 
 add('Declaration', Diagram(
-    NT('IDENT'), NT('WS*'), NT('COLON'), NT('WS*'),
-    NT('Declaration value'),
-    Optional(NT('!important'))));
-
-add('Declaration value', Diagram(
-    ZeroOrMore(NT('Component value, except SEMICOLON or DELIM(!)'))));
+	NT('IDENT'), NT('ws*'), NT('COLON'), NT('ws*'),
+	ZeroOrMore(NT('Component value')),
+	Optional(NT('!important'))));
 
 add('!important', Diagram(
-    NT('DELIM(!)'), NT('WS*'),
-    NT('IDENT(ASCII case-insensitive match for "important")'), NT('WS*')));
+	NT('DELIM(!)'), NT('ws*'), NT('IDENT(important)'), NT('ws*')));
+
+add('ws*', Diagram(ZeroOrMore(NT('WHITESPACE'))));
 
 add('Component value', Diagram(Choice(0,
-    NT("IDENT"),
-    NT("HASH"),
-    NT("STRING"),
-    NT("URL"),
-    NT("DELIM"),
-    NT("NUMBER"),
-    NT("PERCENTAGE"),
-    NT("DIMENSION"),
-    NT("UNICODE-RANGE"),
-    NT("WHITESPACE"),
-    NT("COLON"),
-    NT("SEMICOLON"),
-    NT("AT-KEYWORD"),
+	NT('IDENT'),
+	NT('AT-KEYWORD'),
+	NT('HASH'),
+	NT('STRING'),
+	NT('URL'),
+	NT('DELIM'),
+	NT('NUMBER'),
+	NT('PERCENTAGE'),
+	NT('DIMENSION'),
+	NT('UNICODE-RANGE'),
+	NT('INCLUDE-MATCH'),
+	NT('DASH-MATCH'),
+	NT('PREFIX-MATCH'),
+	NT('SUFFIX-MATCH'),
+	NT('SUBSTRING-MATCH'),
+	NT('WHITESPACE'),
+	NT('CDO'),
+	NT('CDC'),
+	NT('COLON'),
+	NT('SEMICOLON'),
+	NT('COMMA'),
 
-    NT("{} block"),
-    NT("() block"),
-    NT("[] block"),
-    NT("Function block"))));
+	NT('{} block'),
+	NT('() block'),
+	NT('[] block'),
+	NT('Function block'))));
 
 
 add('{} block', Diagram(NT('{'), ZeroOrMore(NT('Component value')), NT('}')));
@@ -247,10 +259,9 @@ add('() block', Diagram(NT('('), ZeroOrMore(NT('Component value')), NT(')')));
 add('[] block', Diagram(NT('['), ZeroOrMore(NT('Component value')), NT(']')));
 
 add('Function block', Diagram(
-    NT('FUNCTION'), ZeroOrMore(
-        ZeroOrMore(NT('Component value, except DELIM(,)')),
-        NT('DELIM(,)')),
-    ')'));
+	NT('FUNCTION'),
+	OneOrMore(ZeroOrMore(NT('Component value')), NT('DELIM(,)')),
+	')'));
 
 
 document.getElementsByTagName('textarea')[1].value = '\t' + preview.outerHTML
