@@ -1,0 +1,3 @@
+include ../Makefile
+
+FORMAT=-x
