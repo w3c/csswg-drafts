@@ -59,6 +59,10 @@
 #   Any text destined at the working group: edits to do or done,
 #   actions for people or for the WG, other comments...
 #
+# Resolution:
+#   Like Edit, only destined at the working group, but used to
+#   summarize a resolution.
+#
 # "Summary:", "Comment:", "Response:", "From:" and "Edit:" may have
 # continuation lines (in the case of Comment and Response only if the
 # first line contains text and not a URL), which are lines that start
@@ -92,8 +96,9 @@ BEGIN {nerrors = 0; n = 0; prev = ""; IGNORECASE = 1}
 }
 /^issue\>/ {
   h = val($0);
-  if (h in id) err("Duplicate issue number: " h);
+  if (h in seqno) err("Duplicate issue number: " h);
   id[++n] = h;
+  seqno[h] = n;
   prev = "";
   next;
 }
@@ -174,6 +179,12 @@ n && /^objection[ \t]*:/ {
 }
 n && /^edit[ \t]*:/ {
   edit[n] = edit[n] "<p>" val($0);
+  prev = "edit";
+  next;
+}
+
+n && /^resolution[ \t]*:/ {
+  edit[n] = edit[n] "<p>Resolution: " val($0);
   prev = "edit";
   next;
 }
@@ -284,9 +295,9 @@ function generate(	command, title, date, class, nobjections, i)
     else print "incomplete>";
     print "<td id=x" i "><a href=\"#x" i "\">" id[i] "</a>";
     print "<td>" from[i];
-    print "<td>" summary[i];
+    print "<td>" linkify(summary[i]);
     if (link[i]) printf "<ol>\n%s</ol>\n", link[i];
-    if (audience != "Director") printf "<td class=edit>%s\n", edit[i];
+    if (audience != "Director") printf "<td class=edit>%s\n", linkify(edit[i]);
     if (status[i]) printf "<td>%s", status[i];
     else printf "<td><strong>[OPEN]</strong>";
     if (obj[i]) printf " but %s", obj[i];
@@ -326,6 +337,17 @@ function generate(	command, title, date, class, nobjections, i)
   print "<p>This file was generated from";
   print "<a href=\"" FILENAME "\">" FILENAME "</a>";
   print "on " strftime("%e %B %Y", systime(), 1) ".";
+}
+
+
+# linkify -- make words that look like URLs into links
+function linkify(s)
+{
+  s = gensub(/[a-z]+:[^ )<]+/, "<a href=\"&\">&</a>", "g", s);
+  # s = gensub(/(>[a-z]+:)[^ )<]*([^ )<][^ )<][^ )<][^ )<][^ )<][^ )<][^ )<][^ )<][^ )<]<)/, "\\1\\&hellip;\\2", "g", s);
+  # s = gensub(/(>[a-z]+:)[^ )<]*\/([^ /)<]+<)/, "\\1\\&hellip;\\2", "g", s);
+  s = gensub(/>[^ )<]*\/([^ /)<]+<)/, ">\\1", "g", s);
+  return s;
 }
 
 
