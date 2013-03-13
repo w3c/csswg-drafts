@@ -39,14 +39,14 @@ $(XREFS): Overview.src.html Makefile
 
 $(EDFILE): Overview.src.html $(XREFS) Makefile
 	$(ANOLIS) --output-encoding=utf-8 --omit-optional-tags --quote-attr-values \
-	--w3c-compat --enable=xspecxref --enable=refs --w3c-shortname="cssom" \
+	--w3c-compat --enable=xspecxref --enable=refs --w3c-shortname="cssom-view" \
 	--force-html4-id --filter=".publish" $< $@
 
 draft: $(EDFILE)
 
 $(TRFILE): Overview.src.html $(XREFS) Makefile
 	$(ANOLIS) --output-encoding=utf-8 --omit-optional-tags --quote-attr-values \
-	--w3c-compat --enable=xspecxref --enable=refs --w3c-shortname="cssom" \
+	--w3c-compat --enable=xspecxref --enable=refs --w3c-shortname="cssom-view" \
 	--force-html4-id --filter=".dontpublish" --pubdate="$(PUBDATE)" --w3c-status=WD $< $@
 
 publish: $(TRFILE)

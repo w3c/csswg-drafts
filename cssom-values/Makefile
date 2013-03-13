@@ -1,15 +1,27 @@
 
-ANOLIS = anolis
-PYTHON = python
+ANOLIS		= anolis
+NODE		= node
 
-XREFS  = data/xrefs/css/cssom-values.json
-EDFILE = Overview.html
-TRFILE = TR/Overview.html
+SPECSTOP	= ..
+GENDIR		= $(SPECSTOP)/cssom
+IDLGEN		= $(GENDIR)/cssom-generate-json.js
+SPECGEN		= $(GENDIR)/cssom-generate.js
+SPECSRC		= cssom-values-source
+
+IDLDRIVER	= cssom-values.idl
+IDLFRAGS	=
+JSONFILE	= cssom-values.json
+XREFS		= data/xrefs/css/cssom-values.json
+EDFILE		= Overview.html
+TRFILE		= TR/Overview.html
 
 all: $(EDFILE)
 
-Overview.src.html: cssom-values-source cssom-values-generate.py ../cssom/cssattrs.py
-	export PYTHONPATH=$(PYTHONPATH):../cssom; $(PYTHON) cssom-values-generate.py
+$(JSONFILE): $(IDLDRIVER) $(IDLFRAGS) $(IDLGEN)
+	gcc -E -x c -P -Iidl -C $(IDLDRIVER) | node $(IDLGEN) > $@
+
+Overview.src.html: $(SPECGEN) $(JSONFILE) $(SPECSRC)
+	$(NODE) $(SPECGEN) $(JSONFILE) $(SPECSRC) > $@
 
 $(XREFS): Overview.src.html Makefile
 	$(ANOLIS) --dump-xrefs=$@ $< /tmp/spec; $(RM) /tmp/spec
@@ -29,8 +41,9 @@ $(TRFILE): Overview.src.html $(XREFS) Makefile
 publish: $(TRFILE)
 
 clean::
-	$(RM) $(EDFILE)
 	$(RM) Overview.src.html
+	$(RM) $(JSONFILE)
+
+cleanall:: clean
+	$(RM) $(EDFILE)
 	echo '{ "definitions": {}, "url": "http://dvcs.w3.org/hg/csswg/raw-file/tip/cssom-values/Overview.html#" }' > $(XREFS)
-
-
