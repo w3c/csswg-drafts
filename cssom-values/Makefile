@@ -29,14 +29,15 @@ $(XREFS): Overview.src.html Makefile
 $(EDFILE): Overview.src.html $(XREFS) Makefile
 	$(ANOLIS) --output-encoding=utf-8 --omit-optional-tags --quote-attr-values \
 	--w3c-compat --enable=xspecxref --enable=refs --w3c-shortname="cssom-values" \
-	--force-html4-id --filter=".publish" $< $@
+	--force-html4-id --filter=".publish" --split-references-section $< $@
 
 draft: $(EDFILE)
 
 $(TRFILE): Overview.src.html $(XREFS) Makefile
 	$(ANOLIS) --output-encoding=utf-8 --omit-optional-tags --quote-attr-values \
 	--w3c-compat --enable=xspecxref --enable=refs --w3c-shortname="cssom-values" \
-	--force-html4-id --filter=".dontpublish" --pubdate="$(PUBDATE)" --w3c-status=WD $< $@
+	--force-html4-id --filter=".dontpublish" --pubdate="$(PUBDATE)" --split-references-section \
+        --w3c-status=WD $< $@
 
 publish: $(TRFILE)
 
