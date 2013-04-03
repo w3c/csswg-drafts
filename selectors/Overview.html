@@ -441,8 +441,6 @@
     Syntax</a>
     <ul class=toc>
      <li><a href="#grammar"><span class=secno>16.1. </span> Grammar</a>
-
-     <li><a href="#lex"><span class=secno>16.2. </span> Lexical scanner</a>
     </ul>
 
    <li><a href="#profiling"><span class=secno>17. </span> Profiles</a>
@@ -3814,15 +3812,15 @@
 
   <h2 id=formal-syntax><span class=secno>16. </span> Formal Syntax</h2>
 
-  <p class=issue>This section needs to be updated.
-
   <h3 id=grammar><span class=secno>16.1. </span> Grammar</h3>
 
-  <p>The grammar below defines the syntax of Selectors. It is globally LL(1)
-   and can be locally LL(2) (but note that most UAs should not use it
-   directly, since it doesn't express the parsing conventions). The format of
-   the productions is optimized for human consumption and some shorthand
-   notations beyond Yacc (see <a href="#YACC"
+  <p> The grammar below defines the syntax of Selectors. It is applied to a
+   stream of tokens, as returned by the tokenizer defined in <a
+   href="#CSS3SYN" rel=biblioentry>[CSS3SYN]<!--{{!CSS3SYN}}--></a>. It is
+   globally LL(1) and can be locally LL(2) (but note that most UAs should not
+   use it directly, since it doesn't express the parsing conventions). The
+   format of the productions is optimized for human consumption and some
+   shorthand notations beyond Yacc (see <a href="#YACC"
    rel=biblioentry>[YACC]<!--{{!YACC}}--></a>) are used:
 
   <ul>
@@ -3837,42 +3835,54 @@
    <li><b>[ ]</b>: grouping
   </ul>
 
+  <p> The productions in uppercase are defined by CSS Syntax <a
+   href="#CSS3SYN" rel=biblioentry>[CSS3SYN]<!--{{!CSS3SYN}}--></a>, and
+   correspond to the tokens of the same name. Literal strings correspond to
+   delim tokens with the given value. The production "S" represents a
+   whitespace token. The wqname_prefix production comes from the Namespaces
+   spec <a href="#CSS3NAMESPACE"
+   rel=biblioentry>[CSS3NAMESPACE]<!--{{!CSS3NAMESPACE}}--></a> The
+
   <p>The productions are:
 
   <pre>
-    selectors_group
-      : selector [ COMMA S* selector ]*
+    complex_selector_list
+      : complex_selector [ COMMA S* complex_selector ]*
       ;
 
-    selector
-      : compound_selector [ combinator simple_selector_sequence ]*
+    complex_selector
+      : compound_selector [ combinator compound_selector ]* S*
       ;
 
     combinator
       /* combinators can be surrounded by whitespace */
-      : PLUS S* | GREATER S* | TILDE S* | S+
+      : S+ | S* [ '>' | '+' | '~' | COLUMN | '/' IDENT '/' ] S*
       ;
 
-    simple_selector_sequence
-      : [ type_selector | universal ]
-        [ HASH | class | attrib | pseudo | negation ]*
-      | [ HASH | class | attrib | pseudo | negation ]+
+    compound_selector_list
+      : compound_selector S* [ COMMA S* compound_selector ]* S*
+
+    compound_selector
+      : type_selector [ id | class | attrib | pseudo ]*
+        | [ id | class | attrib | pseudo ]+
       ;
+
+    simple_selector_list
+      : simple_selector S* [ COMMA S* simple_selector ] S*
+
+    simple_selector
+      : type_selector | id | class | attrib | pseudo
 
     type_selector
-      : [ namespace_prefix ]? element_name
-      ;
-
-    namespace_prefix
-      : [ IDENT | '*' ]? '|'
+      : wqname_prefix? element_name
       ;
 
     element_name
-      : IDENT
+      : IDENT | '*'
       ;
 
-    universal
-      : [ namespace_prefix ]? '*'
+    id
+      : HASH
       ;
 
     class
@@ -3880,15 +3890,24 @@
       ;
 
     attrib
-      : '[' S* [ namespace_prefix ]? IDENT S*
-            [ [ PREFIXMATCH |
-                SUFFIXMATCH |
-                SUBSTRINGMATCH |
-                '=' |
-                INCLUDES |
-                DASHMATCH ] S* [ IDENT | STRING ] S* [IDENT S*]?
-            ]? ']'
+      : '[' S* attrib_name ']'
+        | '[' S* attrib_name attrib_match [ IDENT | STRING ] S* attrib_flags? ']'
       ;
+
+    attrib_name
+      : wqname_prefix? IDENT S*
+
+    attrib_match
+      : [ '=' |
+          PREFIX-MATCH |
+          SUFFIX-MATCH |
+          SUBSTRING-MATCH |
+          INCLUDE-MATCH |
+          DASH-MATCH
+        ] S*
+
+    attrib_flags
+      : IDENT S*
 
     pseudo
       /* '::' starts a pseudo-element, ':' a pseudo-class */
@@ -3899,145 +3918,8 @@
       ;
 
     functional_pseudo
-      : FUNCTION S* expression ')'
-      ;
-
-    expression
-      /* In CSS3, the expressions are identifiers, strings, */
-      /* or of the form "an+b" */
-      : [ [ PLUS | '-' | DIMENSION | NUMBER | STRING | IDENT ] S* ]+
-      ;
-
-    negation
-      : NOT S* negation_arg S* ')'
-      ;
-
-    negation_arg
-      : type_selector | universal | HASH | class | attrib | pseudo
+      : FUNCTION S* value ')'
       ;</pre>
-
-  <h3 id=lex><span class=secno>16.2. </span> Lexical scanner</h3>
-
-  <p>The following is the tokenizer, written in Flex (see <a href="#FLEX"
-   rel=biblioentry>[FLEX]<!--{{!FLEX}}--></a>) notation. The tokenizer is
-   case-insensitive.
-
-  <p>The two occurrences of "\377" represent the highest character number
-   that current versions of Flex can deal with (decimal 255). They should be
-   read as "\4177777" (decimal 1114111), which is the highest possible code
-   point in Unicode/ISO-10646. <a href="#UNICODE"
-   rel=biblioentry>[UNICODE]<!--{{!UNICODE}}--></a>
-
-  <pre><!--
-  -->%option case-insensitive
-<!--
-  -->
-<!--
-  -->ident     [-]?{nmstart}{nmchar}*
-<!--
-  -->name      {nmchar}+
-<!--
-  -->nmstart   [_a-z]|{nonascii}|{escape}
-<!--
-  -->nonascii  [^\0-\177]
-<!--
-  -->unicode   \\[0-9a-f]{1,6}(\r\n|[ \n\r\t\f])?
-<!--
-  -->escape    {unicode}|\\[^\n\r\f0-9a-f]
-<!--
-  -->nmchar    [_a-z0-9-]|{nonascii}|{escape}
-<!--
-  -->num       [0-9]+|[0-9]*\.[0-9]+
-<!--
-  -->string    {string1}|{string2}
-<!--
-  -->string1   \"([^\n\r\f\\"]|\\{nl}|{nonascii}|{escape})*\"
-<!--
-  -->string2   \'([^\n\r\f\\']|\\{nl}|{nonascii}|{escape})*\'
-<!--
-  -->invalid   {invalid1}|{invalid2}
-<!--
-  -->invalid1  \"([^\n\r\f\\"]|\\{nl}|{nonascii}|{escape})*
-<!--
-  -->invalid2  \'([^\n\r\f\\']|\\{nl}|{nonascii}|{escape})*
-<!--
-  -->nl        \n|\r\n|\r|\f
-<!--
-  -->w         [ \t\r\n\f]*
-<!--
-  -->
-<!--
-  -->D         d|\\0{0,4}(44|64)(\r\n|[ \t\r\n\f])?
-<!--
-  -->E         e|\\0{0,4}(45|65)(\r\n|[ \t\r\n\f])?
-<!--
-  -->N         n|\\0{0,4}(4e|6e)(\r\n|[ \t\r\n\f])?|\\n
-<!--
-  -->O         o|\\0{0,4}(4f|6f)(\r\n|[ \t\r\n\f])?|\\o
-<!--
-  -->T         t|\\0{0,4}(54|74)(\r\n|[ \t\r\n\f])?|\\t
-<!--
-  -->V         v|\\0{0,4}(58|78)(\r\n|[ \t\r\n\f])?|\\v
-<!--
-  -->
-<!--
-  -->%%
-<!--
-  -->
-<!--
-  -->[ \t\r\n\f]+     return S;
-<!--
-  -->
-<!--
-  -->"~="             return INCLUDES;
-<!--
-  -->"|="             return DASHMATCH;
-<!--
-  -->"^="             return PREFIXMATCH;
-<!--
-  -->"$="             return SUFFIXMATCH;
-<!--
-  -->"*="             return SUBSTRINGMATCH;
-<!--
-  -->{ident}          return IDENT;
-<!--
-  -->{string}         return STRING;
-<!--
-  -->{ident}"("       return FUNCTION;
-<!--
-  -->{num}            return NUMBER;
-<!--
-  -->"#"{name}        return HASH;
-<!--
-  -->{w}"+"           return PLUS;
-<!--
-  -->{w}">"           return GREATER;
-<!--
-  -->{w}","           return COMMA;
-<!--
-  -->{w}"~"           return TILDE;
-<!--
-  -->":"{N}{O}{T}"("  return NOT;
-<!--
-  -->@{ident}         return ATKEYWORD;
-<!--
-  -->{invalid}        return INVALID;
-<!--
-  -->{num}%           return PERCENTAGE;
-<!--
-  -->{num}{ident}     return DIMENSION;
-<!--
-  -->"&lt;!--"           return CDO;
-<!--
-  -->"-->"            return CDC;
-<!--
-  -->
-<!--
-  -->\/\*[^*]*\*+([^/*][^*]*\*+)*\/                    /* ignore comments */
-<!--
-  -->
-<!--
-  -->.                return *yytext;</pre>
 
   <h2 id=profiling><span class=secno>17. </span> Profiles</h2>
 
@@ -4324,10 +4206,14 @@
    </dd>
    <!---->
 
-   <dt id=FLEX>[FLEX]
+   <dt id=CSS3SYN>[CSS3SYN]
 
-   <dd><cite>Flex: The Lexical Scanner Generator.</cite> Version 2.3.7, ISBN
-    1882114213</dd>
+   <dd>L. David Baron. <a
+    href="http://www.w3.org/TR/2003/WD-css3-syntax-20030813"><cite>CSS3
+    module: Syntax.</cite></a> 13 August 2003. W3C Working Draft. (Work in
+    progress.) URL: <a
+    href="http://www.w3.org/TR/2003/WD-css3-syntax-20030813">http://www.w3.org/TR/2003/WD-css3-syntax-20030813</a>
+   </dd>
    <!---->
 
    <dt id=RFC2119>[RFC2119]
@@ -4345,18 +4231,6 @@
     href="http://www.w3.org/TR/2011/REC-css3-selectors-20110929/"><cite>Selectors
     Level 3.</cite></a> 29 September 2011. W3C Recommendation. URL: <a
     href="http://www.w3.org/TR/2011/REC-css3-selectors-20110929/">http://www.w3.org/TR/2011/REC-css3-selectors-20110929/</a>
-   </dd>
-   <!---->
-
-   <dt id=UNICODE>[UNICODE]
-
-   <dd>The Unicode Consortium. <a
-    href="http://www.unicode.org/standard/versions/enumeratedversions.html"><cite>The
-    Unicode Standard.</cite></a> 2012. Defined by: The Unicode Standard,
-    Version 6.2.0 (Mountain View, CA: The Unicode Consortium, 2012. ISBN
-    978-1-936213-07-8), as updated from time to time by the publication of
-    new versions URL: <a
-    href="http://www.unicode.org/standard/versions/enumeratedversions.html">http://www.unicode.org/standard/versions/enumeratedversions.html</a>
    </dd>
    <!---->
 
