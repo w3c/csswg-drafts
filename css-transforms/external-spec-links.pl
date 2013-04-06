@@ -251,7 +251,7 @@ sub link {
   if ($text =~ /^'([^ \/]*)'$/) {
     my $name = $1;
     if (defined $elements{$name}) {
-      return "<a class='element-name' href='$elements{$name}{href}'>'$name'</a>";
+      return "<span class='element-name'><a href='$elements{$name}{href}'>$name</a></span>";
     } elsif (defined $attributes{$name}) {
       if (scalar(keys(%{$attributes{$name}})) > 1) {
         print STDERR "ambiguous reference '$name' to attribute; specify 'elementname/$name' instead\n";
@@ -271,7 +271,7 @@ sub link {
       print STDERR "unknown element '$1'\n";
       return "<span class='xxx'>$text</span>";
     }
-    return "<a class='element-name' href='$elements{$name}{href}'>'$name'</a>";
+    return "<span class='element-name'><a href='$elements{$name}{href}'>$name</a></span>";
   } elsif ($text =~ /^'([^ \/]*) attribute'$/) {
     my $name = $1;
     unless (defined $attributes{$name}) {
