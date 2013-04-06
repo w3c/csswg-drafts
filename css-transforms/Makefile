@@ -23,7 +23,9 @@
 # ...where "foo" and "bar" are your W3C username and password.
 
 SOURCEFILE=Transforms.src.html
+LINKEDFILE=.Transforms.linked.html
 OUTPUTFILE=Overview.html
+EXTERNALLINKS=perl external-spec-links.pl
 PROCESSCGI=https://www.w3.org/Style/Group/process.cgi
 CURL=curl
 CURLFLAGS=
@@ -36,7 +38,10 @@ USER=
 
 all: $(OUTPUTFILE) 
 
-$(OUTPUTFILE): $(SOURCEFILE)
+.%.linked.html : %.src.html
+	$(EXTERNALLINKS) "$<" > "$@"
+
+$(OUTPUTFILE): $(LINKEDFILE)
 ifeq (,$(PUBDATE))
 	$(CURL) $(CURLFLAGS) -K ~/.curl-w3.org -F file="@$<" -o "$@" -F group=FX -F output=html -F method=file $(PROCESSCGI)
 else
