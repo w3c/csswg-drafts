@@ -32,8 +32,8 @@ all: check Overview.html
 
 check: Overview.err
 	@cat $<
-	@grep -q '^No errors$$' $< # Force a non-zero exit code if errors
-
+	@if egrep -v '^(Warning:|\(Processed in .* seconds\)|No errors)' $<;\
+	 then false; else true; fi
 
 
 # A handy shortcut:
