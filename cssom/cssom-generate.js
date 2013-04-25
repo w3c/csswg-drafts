@@ -151,9 +151,11 @@
         s += formatIDLPartials ( args );
         return s;
     }
-    function findIDL(name) {
+    function findIDL(name, includePartials) {
         for ( var i in idl ) {
             var d = idl[i];
+            if ( ( d.type == 'partialinterface' ) && !includePartials )
+                continue;
             if ( !! d.name && ( d.name == name ) ) {
                 return d;
             } else if ( !! d.target && ( d.target == name ) ) {
@@ -709,7 +711,7 @@
         }
         return join ( sa );
     }
-    function formatIDLDoc(args) {
+    function formatIDLDoc(args, ignorePartials) {
         var d = findIDL ( args[0] );
         if ( d ) {
             return formatIDLDefinitionDoc ( d, args );
@@ -753,7 +755,7 @@
             return '';
         }
     }
-    function formatIDLDocMembers(args) {
+    function formatIDLDocMembers(args, ignorePartials) {
         var d = findIDL ( args[0] );
         if ( d ) {
             return formatIDLDefinitionDocMembers ( d, args );
