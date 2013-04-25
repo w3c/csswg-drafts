@@ -137,6 +137,8 @@
             return formatIDLDef ( args );
         } else if ( method == 'idlDocMembers' ) {
             return formatIDLDocMembers ( args );
+        } else if ( method == 'idlPartials' ) {
+            return formatIDLPartials ( args );
         } else {
             return '';
         }
@@ -146,6 +148,7 @@
         s += formatIDLDoc ( args );
         s += formatIDLDef ( args );
         s += formatIDLDocMembers ( args );
+        s += formatIDLPartials ( args );
         return s;
     }
     function findIDL(name) {
@@ -188,7 +191,7 @@
         s += eol;
         s += eltStart ( 'pre', [ newAttr ( 'class', 'idl' ) ], false );
         s += eltStart ( 'span', [ newAttr ( 'class', 'idlInterface' ), newAttr ( 'id', generateIDLDefinitionID ( def ) ) ], false );
-        s += formatIDLExtendedAttributes ( def, args );
+        s += formatIDLExtendedAttributes ( def, args, true );
         if ( partial ) {
             s += 'partial ';
         }
@@ -222,7 +225,7 @@
         s += eltEnd ( 'pre', true );
         return s;
     }
-    function formatIDLExtendedAttributes(def,args) {
+    function formatIDLExtendedAttributes(def,args,useEol) {
         var s = '';
         var numExposed = 0;
         for ( var i in def.extAttrs ) {
@@ -257,10 +260,14 @@
             }
         }
         if ( numExposed > 0 ) {
-            if ( numOutput > 1 ) {
-                s += eol;
+            if (useEol) {
+                if ( numOutput > 1 ) {
+                    s += eol;
+                }
+                s += ']' + eol;
+            } else {
+                s += ']' + ' ';
             }
-            s += ']' + eol;
         }
         return s;
     }
@@ -350,6 +357,7 @@
         var s = '';
         s += eltStart ( 'span', [ newAttr ( 'class', 'idlConst' ) ], false );
         s += '    ';
+        s += formatIDLExtendedAttributes ( mem, args, false );
         s += 'const ';
         s += formatIDLConstType ( def, mem, mem.idlType, false, args );
         s += ' ';
@@ -372,14 +380,14 @@
         var n = mem.name;
         var s = '';
         s += eltStart ( 'span', [ newAttr ( 'class', 'idlAttribute' ) ], false );
-        s += '   ';
+        s += '    ';
+        s += formatIDLExtendedAttributes ( mem, args, false );
         if ( mem.stringifier ) {
-            s += ' stringifier';
+            s += 'stringifier ';
         }
         if ( mem.readonly ) {
-            s += ' readonly';
+            s += 'readonly ';
         }
-        s += ' ';
         s += 'attribute ';
         s += formatIDLAttrType ( def, mem, mem.idlType, false, args );
         s += ' ';
@@ -451,6 +459,7 @@
         var s = '';
         s += eltStart ( 'span', [ newAttr ( 'class', 'idlMethod' ) ], false );
         s += '    ';
+        s += formatIDLExtendedAttributes ( mem, args, false );
         s += formatIDLOperType ( def, mem, mem.idlType, false, args );
         s += ' ';
         s += eltStart ( 'span', [ newAttr ( 'class', 'idlMethName' ) ], false );
@@ -911,6 +920,33 @@
     }
     function formatIDLMemberNameAsLink(def,mem,args) {
         return formatAsLink ( mem.name, getIDLMemberCSSClass ( def, mem, args ), generateIDRef ( generateIDLMemberID ( def, mem, args ) ), args );
+    }
+    function findIDLPartials(name) {
+        var partials = [];
+        for ( var i in idl ) {
+            var d = idl[i];
+            if ( d.type != 'partialinterface' ) {
+                continue;
+            } else if ( !! d.name && ( d.name == name ) ) {
+                partials.push(d);
+            }
+        }
+        return partials;
+    }
+    function formatIDLPartial(d, args) {
+        var s = '';
+        s += formatIDLDefinitionDoc ( d, args );
+        s += formatIDLDefinition ( d, args );
+        s += formatIDLDefinitionDocMembers ( d, args );
+        return s;
+    }
+    function formatIDLPartials(args) {
+        var s = '';
+        var partials = findIDLPartials ( args[0] );
+        for ( var i in partials ) {
+            s += formatIDLPartial ( partials[i], args );
+        }
+        return s;
     }
     function newAttr(n,v) {
         return { nodeName: n, nodeValue: v };
