@@ -570,6 +570,9 @@
         if ( !! type.nullable ) {
             s += '?';
         }
+        if ( !! type.array ) {
+            s += '[]';
+        }
         if ( !! cssClass ) {
             s += eltEnd ( 'span', false );
         }
