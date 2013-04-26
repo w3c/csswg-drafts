@@ -637,6 +637,14 @@
             return generateIDLOtherID ( def, mem, args );
         }
     }
+    function getIDLMemberIDAbbreviated(def,mem,args) {
+        var id = getIDLMemberID ( def, mem, args );
+        var idParts = id.split('-');
+        if (idParts.length < 4)
+            return id;
+        else
+            return idParts[0] + '-' + idParts[1] + '-' + idParts[2];
+    }
     function getIDLMemberCSSClass(def,mem,args) {
         if ( mem.type == 'const' ) {
             return 'idlConstant';
@@ -872,7 +880,10 @@
         return wrap ( formatIDLMemberTermContent ( def, mem, args ), 'dt', getDTAttrs, true, def, mem, args );
     }
     function formatIDLMemberTermContent(def,mem,args) {
-        var s = formatAsCode ( mem.name );
+        var getDFNAttrs = function(def,mem,args) {
+            return [ newAttr ( 'id', getIDLMemberIDAbbreviated ( def, mem, args ) ) ];
+        };
+        var s = wrap ( formatAsCode ( mem.name ), 'dfn', getDFNAttrs, false, def, mem, args );
         if ( mem.type == 'const' ) {
             s += formatIDLConstSignature ( def, mem, true, args );
         } else if ( mem.type == 'attribute' ) {
