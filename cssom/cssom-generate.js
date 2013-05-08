@@ -609,7 +609,7 @@
         var s = '';
         s += eol;
         s += eltStart ( 'pre', [ newAttr ( 'class', 'idl' ) ], false );
-        s += '[[TBD - IMPLEMENTS]]\n';
+        s += def.target + ' ' + def.type + ' ' + def.implements + ';\n'; // [[TBD - IMPLEMENTS]] TODO: fix highlighting
         s += eltEnd ( 'pre', true );
         return s;
     }
