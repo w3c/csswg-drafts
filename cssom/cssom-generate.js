@@ -601,7 +601,11 @@
         var s = '';
         s += eol;
         s += eltStart ( 'pre', [ newAttr ( 'class', 'idl' ) ], false );
-        s += '[[TBD - TYPEDEF]]\n';
+        if (def.idlType.sequence) {
+            s += 'typedef sequence&lt;' + def.idlType.idlType.idlType + '> ' + def.name + ';\n'; // TODO: implement properly
+        } else {
+            s += '[[TBD - TYPEDEF]]\n';
+        }
         s += eltEnd ( 'pre', true );
         return s;
     }
