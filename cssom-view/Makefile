@@ -35,12 +35,12 @@ Overview.src.html: $(SPECGEN) $(JSONFILE) $(SPECSRC)
 	$(NODE) $(SPECGEN) $(JSONFILE) $(SPECSRC) > $@
 
 $(XREFS): Overview.src.html Makefile
-	$(ANOLIS) --dump-xrefs=$@ $< /tmp/spec; $(RM) /tmp/spec
+	$(ANOLIS) --allow-duplicate-dfns --dump-xrefs=$@ $< /tmp/spec; $(RM) /tmp/spec
 
 $(EDFILE): Overview.src.html $(XREFS) Makefile
 	$(ANOLIS) --output-encoding=utf-8 --omit-optional-tags --quote-attr-values \
 	--w3c-compat --enable=xspecxref --enable=refs --w3c-shortname="cssom-view" \
-	--force-html4-id --filter=".publish" --split-references-section $< $@
+	--force-html4-id --filter=".publish" --split-references-section --allow-duplicate-dfns $< $@
 
 draft: $(EDFILE)
 
@@ -48,7 +48,7 @@ $(TRFILE): Overview.src.html $(XREFS) Makefile
 	$(ANOLIS) --output-encoding=utf-8 --omit-optional-tags --quote-attr-values \
 	--w3c-compat --enable=xspecxref --enable=refs --w3c-shortname="cssom-view" \
 	--force-html4-id --filter=".dontpublish" --pubdate="$(PUBDATE)" --split-references-section \
-        --w3c-status=WD $< $@
+        --w3c-status=WD --allow-duplicate-dfns $< $@
 
 publish: $(TRFILE)
 
@@ -58,6 +58,6 @@ clean::
 
 cleanall:: clean
 	$(RM) $(EDFILE)
-	echo '{ "definitions": {}, "url": "http://dvcs.w3.org/hg/csswg/raw-file/tip/cssom-view/Overview.html#" }' > $(XREFS)
+	echo '{ "definitions": {}, "url": "http://dev.w3.org/hg/csswg/cssom-view/#" }' > $(XREFS)
 
 
