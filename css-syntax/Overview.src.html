@@ -62,10 +62,10 @@
 
 	<p>
 		<a href="http://www.w3.org/TR/CSS/">CSS</a> is a language for describing the rendering of structured documents (such as HTML and XML) on screen, on paper, in speech, etc.
-   <span class="p-summary">
+	 <span class="p-summary">
 		This module describes, in general terms, the basic structure and syntax of CSS stylesheets.
 		It defines, in detail, the syntax and parsing of CSS - how to turn a stream of bytes into a meaningful stylesheet.
-   </span>
+	 </span>
 
 <h2 class="no-num no-toc" id="status">Status of this document</h2>
 
@@ -220,7 +220,7 @@ Error Handling</h3>
 		This is because errors aren't always mistakes - 
 		new syntax looks like an error to an old parser,
 		and it's useful to be able to add new syntax to the language
-		without worrying stylesheets that include it being completely broken in older UAs.
+		without worrying about stylesheets that include it being completely broken in older UAs.
 
 	<p>
 		The precise error-recovery behavior is detailed in the parser itself,
@@ -228,23 +228,37 @@ Error Handling</h3>
 
 	<ul>
 		<li>
-			If an error is encountered while parsing a <i>declaration</i>,
-			the parser throws away the declaration
-			and skips forward until it next encounters a top-level semicolon token,
-			or the declaration's enclosing rule is ended.
+			At the "top level" of a stylesheet,
+			an at-keyword starts an at-rule.
+			Anything else starts a qualified rule,
+			and is included in the rule's prelude.
+			This may produce an invalid selector,
+			but that's not the concern of the CSS parser &mdash;
+			at worst, it means the selector will match nothing.
 
 		<li>
-			If an error is encountered while parsing the prelude of a <i>qualified rule</i>,
-			the parser throws away the rule
-			and skips forward until it next encounters a simple {} block,
-			or the rule's enclosing rule is ended.
+			Once an at-rule starts,
+			nothing is invalid from the parser's standpoint;
+			it's all part of the at-rule's prelude.
+			Encountering a semicolon (;) ends the at-rule immediately,
+			while encountering an opening curly-brace ({) starts the at-rule's body.
+			The at-rule seeks forward, matching blocks (content surrounded by (), {}, or [])
+			until it finds a closing curly-brace (}) that isn't matched by anything else
+			or inside of another block.
+			The contents of the at-rule are then interpreted according to the at-rule's own grammar.
 
 		<li>
-			If an error is encountered while parsing the prelude of an <i>at-rule</i>,
-			the parser throws away the rule
-			and skips forward until it next encounters either
-			a simple {} block,
-			or a semicolon token.
+			Qualified rules work similarly, 
+			except that semicolons don't end them;
+			instead, they are just taken in as part of the rule's prelude.
+			When the first {} block is found,
+			the contents are always interpreted as a list of declarations.
+
+		<li>
+			When interpreting a list of declarations,
+			unknown syntax at any point causes the parser to throw away whatever declaration it's currently building,
+			and seek forward until it finds a semicolon (or the end of the block).
+			It then starts fresh, trying to parse a declaration again.
 
 		<li>
 			If the stylesheet ends while any rule, declaration, function, string, etc. are still open,
@@ -446,7 +460,7 @@ Tokenization</h2>
 		Additionally, hash tokens have a type flag set to either "id" or "unrestricted".  The type flag defaults to "unrestricted" if not otherwise set.
 		Delim tokens have a value composed of a single character.
 		Number, percentage, and dimension tokens have a representation composed of 1 or more character, and a numeric value.
-		Number tokens additionally have a type flag set to either "integer" or "number".  The type flag defaults to "integer" if not otherwise set.
+		Number and dimension tokens additionally have a type flag set to either "integer" or "number".  The type flag defaults to "integer" if not otherwise set.
 		Dimension tokens additionally have a unit composed of one or more characters.
 		Unicode-range tokens have a range of characters.
 
@@ -1370,13 +1384,8 @@ Tokenizer State Machine</h3>
 
 			<p>
 				Otherwise,
-				create a dimension token
-				with its representation set to the number token's representation,
-				its value set to the number
-				produced by interpreting the number token's representation
-				as a base-10 number,
-				and its unit initially set to the <i>current input character</i>.
-				Switch to the <i>dimension state</i>.
+				switch to the <i>number-end state</i>.
+				<i>Reconsume the current input character</i>.
 
 		<dt>anything else
 		<dd>
@@ -1434,6 +1443,7 @@ Tokenizer State Machine</h3>
 			create a dimension token
 			with its representation set to the number token's representation,
 			its value set to the number token's value,
+			its type flag set to the number token's type flag,
 			and a unit initially set to the <i>current input character</i>.
 			Switch to the <i>dimension state</i>.
 
@@ -1448,6 +1458,7 @@ Tokenizer State Machine</h3>
 			Create a dimension token
 			with its representation set to the number token's representation,
 			its value set to the number token's value,
+			its type flag set to the number token's type flag,
 			and a unit initially set to the <i>current input character</i>.
 			Switch to the <i>dimension state</i>.
 
@@ -1458,6 +1469,7 @@ Tokenizer State Machine</h3>
 			Create a dimension token
 			with its representation set to the number token's representation,
 			its value set to the number token's value,
+			its type flag set to the number token's type flag,
 			and a unit initially set to the returned character.
 			Switch to the <i>dimension state</i>.
 			
@@ -1658,30 +1670,6 @@ Tokenizer State Machine</h3>
 	</dl>
 
 <h4>
-<dfn>URL-end state</dfn></h4>
-
-	<p>
-		Consume the <i>next input character</i>.
-
-	<dl>
-		<dt>U+0029 RIGHT PARENTHESIS ())
-		<dt>EOF
-		<dd>
-			Emit the url token.
-			Switch to the <i>data state</i>.
-
-		<dt><i>whitespace</i>
-		<dd>
-			Remain in this state.
-
-		<dt>anything else
-		<dd>
-			This is a <i>parse error</i>.
-			Switch to the <i>bad-url state</i>.
-			<i>Reconsume the current input character</i>.
-	</dl>
-
-<h4>
 <dfn>URL-unquoted state</dfn></h4>
 
 	<p>
@@ -1725,6 +1713,30 @@ Tokenizer State Machine</h3>
 			Append the <i>current input character</i>
 			to the url token's value.
 			Remain in this state.
+	</dl>
+
+<h4>
+<dfn>URL-end state</dfn></h4>
+
+	<p>
+		Consume the <i>next input character</i>.
+
+	<dl>
+		<dt>U+0029 RIGHT PARENTHESIS ())
+		<dt>EOF
+		<dd>
+			Emit the url token.
+			Switch to the <i>data state</i>.
+
+		<dt><i>whitespace</i>
+		<dd>
+			Remain in this state.
+
+		<dt>anything else
+		<dd>
+			This is a <i>parse error</i>.
+			Switch to the <i>bad-url state</i>.
+			<i>Reconsume the current input character</i>.
 	</dl>
 
 
@@ -1822,8 +1834,15 @@ Tokenizer State Machine</h3>
 			<i>Reconsume the current input character</i>.
 	</dl>
 
+
 <h3>
-<dfn>Consume an escaped character</dfn></h3>
+Tokenizer Algorithms</h3>
+
+	<p>
+		This section defines a number of specialized spec algorithms used by the tokenizer.
+
+<h4>
+<dfn>Consume an escaped character</dfn></h4>
 
 	<p>
 		This section describes how to <i>consume an escaped character</i>.
@@ -1854,8 +1873,8 @@ Tokenizer State Machine</h3>
 			Return the <i>current input character</i>.
 	</dl>
 
-<h3>
-<dfn>Set the unicode-range token's range</dfn></h3>
+<h4>
+<dfn>Set the unicode-range token's range</dfn></h4>
 
 	<p>
 		This section describes how to set a unicode-range token's range
@@ -1892,8 +1911,8 @@ Tokenizer State Machine</h3>
 		the character whose codepoint is the <i>start of the range</i>
 		and the character whose codepoint is the <i>end of the range</i>.
 
-<h3>
-<dfn title="convert a sci-notation representation into a value|sci-not-to-value">Convert a sci-notation representation into a value</dfn></h3>
+<h4>
+<dfn title="convert a sci-notation representation into a value|sci-not-to-value">Convert a sci-notation representation into a value</dfn></h4>
 
 	<p>
 		This section describes how to turn a sci-notation representation
@@ -1913,8 +1932,8 @@ Tokenizer State Machine</h3>
 		Return <code><var>base</var> * 10<sup><var>power</var></sup></code>.
 
 
-<h3>
-<dfn title="check if two characters are a valid escape|are a valid escape|starts with a valid escape">Check if two characters are a valid escape</dfn></h3>
+<h4>
+<dfn title="check if two characters are a valid escape|are a valid escape|starts with a valid escape">Check if two characters are a valid escape</dfn></h4>
 
 	<p>
 		This section describes how to <i>check if two characters are a valid escape</i>.
@@ -1942,8 +1961,8 @@ Tokenizer State Machine</h3>
 		Otherwise, return true.
 
 
-<h3>
-<dfn title="check if three characters would start an identifier|starts with an identifier|start with an identifier|would start an identifier">Check if three characters would start an identifier</dfn></h3>
+<h4>
+<dfn title="check if three characters would start an identifier|starts with an identifier|start with an identifier|would start an identifier">Check if three characters would start an identifier</dfn></h4>
 
 	<p>
 		This section describes how to <i>check if three characters would start an identifier</i>.
@@ -1979,8 +1998,8 @@ Tokenizer State Machine</h3>
 			Otherwise, return false.
 	</dl>
 
-<h3>
-<dfn title="check if three characters would start a number|starts with a number|start with a number|would start a number">Check if three characters would start a number</dfn></h3>
+<h4>
+<dfn title="check if three characters would start a number|starts with a number|start with a number|would start a number">Check if three characters would start a number</dfn></h4>
 
 	<p>
 		This section describes how to <i>check if three characters would start a number</i>.
@@ -2087,14 +2106,14 @@ PPPPPPPPPPPPPPPPP        AAA               RRRRRRRRRRRRRRRRR      SSSSSSSSSSSSSS
 P::::::::::::::::P      A:::A              R::::::::::::::::R   SS:::::::::::::::SE::::::::::::::::::::ER::::::::::::::::R
 P::::::PPPPPP:::::P    A:::::A             R::::::RRRRRR:::::R S:::::SSSSSS::::::SE::::::::::::::::::::ER::::::RRRRRR:::::R
 PP:::::P     P:::::P  A:::::::A            RR:::::R     R:::::RS:::::S     SSSSSSSEE::::::EEEEEEEEE::::ERR:::::R     R:::::R
-  P::::P     P:::::P A:::::::::A             R::::R     R:::::RS:::::S              E:::::E       EEEEEE  R::::R     R:::::R
-  P::::P     P:::::PA:::::A:::::A            R::::R     R:::::RS:::::S              E:::::E               R::::R     R:::::R
-  P::::PPPPPP:::::PA:::::A A:::::A           R::::RRRRRR:::::R  S::::SSSS           E::::::EEEEEEEEEE     R::::RRRRRR:::::R
-  P:::::::::::::PPA:::::A   A:::::A          R:::::::::::::RR    SS::::::SSSSS      E:::::::::::::::E     R:::::::::::::RR
-  P::::PPPPPPPPP A:::::A     A:::::A         R::::RRRRRR:::::R     SSS::::::::SS    E:::::::::::::::E     R::::RRRRRR:::::R
-  P::::P        A:::::AAAAAAAAA:::::A        R::::R     R:::::R       SSSSSS::::S   E::::::EEEEEEEEEE     R::::R     R:::::R
-  P::::P       A:::::::::::::::::::::A       R::::R     R:::::R            S:::::S  E:::::E               R::::R     R:::::R
-  P::::P      A:::::AAAAAAAAAAAAA:::::A      R::::R     R:::::R            S:::::S  E:::::E       EEEEEE  R::::R     R:::::R
+	P::::P     P:::::P A:::::::::A             R::::R     R:::::RS:::::S              E:::::E       EEEEEE  R::::R     R:::::R
+	P::::P     P:::::PA:::::A:::::A            R::::R     R:::::RS:::::S              E:::::E               R::::R     R:::::R
+	P::::PPPPPP:::::PA:::::A A:::::A           R::::RRRRRR:::::R  S::::SSSS           E::::::EEEEEEEEEE     R::::RRRRRR:::::R
+	P:::::::::::::PPA:::::A   A:::::A          R:::::::::::::RR    SS::::::SSSSS      E:::::::::::::::E     R:::::::::::::RR
+	P::::PPPPPPPPP A:::::A     A:::::A         R::::RRRRRR:::::R     SSS::::::::SS    E:::::::::::::::E     R::::RRRRRR:::::R
+	P::::P        A:::::AAAAAAAAA:::::A        R::::R     R:::::R       SSSSSS::::S   E::::::EEEEEEEEEE     R::::R     R:::::R
+	P::::P       A:::::::::::::::::::::A       R::::R     R:::::R            S:::::S  E:::::E               R::::R     R:::::R
+	P::::P      A:::::AAAAAAAAAAAAA:::::A      R::::R     R:::::R            S:::::S  E:::::E       EEEEEE  R::::R     R:::::R
 PP::::::PP   A:::::A             A:::::A   RR:::::R     R:::::RSSSSSSS     S:::::SEE::::::EEEEEEEE:::::ERR:::::R     R:::::R
 P::::::::P  A:::::A               A:::::A  R::::::R     R:::::RS::::::SSSSSS:::::SE::::::::::::::::::::ER::::::R     R:::::R
 P::::::::P A:::::A                 A:::::A R::::::R     R:::::RS:::::::::::::::SS E::::::::::::::::::::ER::::::R     R:::::R
@@ -2259,12 +2278,6 @@ Parser Railroad Diagrams</h3>
 		<dd><svg class="railroad-diagram" width="433" height="81"><g transform="translate(.5 .5)"><path d="M 20 31 v 20 m 10 -20 v 20 m -10 -10 h 20.5"></path><path d="M40 41h10"></path><g><path d="M50 41h0"></path><path d="M134 41h0"></path><rect x="50" y="30" width="84" height="22"></rect><text x="92" y="45">FUNCTION</text></g><path d="M134 41h10"></path><g><path d="M144 41h0"></path><path d="M344 41h0"></path><path d="M144 41a10 10 0 0 0 10 -10v0a10 10 0 0 1 10 -10"></path><g><path d="M164 21h160"></path></g><path d="M324 21a10 10 0 0 1 10 10v0a10 10 0 0 0 10 10"></path><path d="M144 41h20"></path><g><path d="M164 41h0"></path><path d="M324 41h0"></path><path d="M164 41h10"></path><g><path d="M174 41h0"></path><path d="M314 41h0"></path><rect x="174" y="30" width="140" height="22"></rect><text x="244" y="45">Component value</text></g><path d="M314 41h10"></path><path d="M174 41a10 10 0 0 0 -10 10v0a10 10 0 0 0 10 10"></path><g><path d="M174 61h140"></path></g><path d="M314 61a10 10 0 0 0 10 -10v0a10 10 0 0 0 -10 -10"></path></g><path d="M324 41h20"></path></g><path d="M344 41h10"></path><g><path d="M354 41h0"></path><path d="M382 41h0"></path><rect x="354" y="30" width="28" height="22" rx="10" ry="10"></rect><text x="368" y="45">)</text></g><path d="M382 41h10"></path><path d="M 392 41 h 20 m -10 -10 v 20 m 10 -20 v 20"></path></g></svg></dd>
 
 	</dl>
-
-<h3>
-Parser Flags</h3>
-
-	<p>
-		No flags currently.
 
 <h3>
 Definitions</h3>
@@ -2512,143 +2525,6 @@ Parser Entry Points</h3>
 			append <var>temp</var> to <var>val</var>,
 			and return <var>val</var>.
 	</ol>
-
-<h4>
-<dfn>Parse an+b notation</dfn></h4>
-
-	<p>
-		To <i>parse an+b notation</i>:
-
-	<p>
-		Initialize an integer called <var>step</var> to 0,
-		an integer called <var>offset</var> to 0,
-		and a string called <var>repr</var> to the empty string.
-
-	<p>
-		Repeatedly consume the <i>next input token</i>
-		and process it as follows:
-
-	<dl>
-		<dt>ident token
-		<dt>number token with its type flag set to "integer"
-		<dt>dimension token
-		<dd>
-			Append the token's value, representation, or representation and unit, respectively, to <var>repr</var>.
-
-		<dt>delim token with the value "+"
-		<dd>
-			Append U+002B PLUS SIGN (+) to <var>repr</var>.
-
-		<dt>delim token with the value "-"
-		<dd>
-			Append U+002D HYPHEN-MINUS (-) to <var>repr</var>.
-
-		<dt>whitespace token
-		<dd>
-			Append U+0020 SPACE ( ) to <var>repr</var>.
-
-		<dt>EOF
-		<dd>
-			Continue to the next step of the algorithm.
-
-		<dt>anything else
-		<dd>
-			This is a <i>parse error</i>.
-			Return a syntax error.
-	</dl>
-
-	<p>
-		Trim U+0020 SPACE ( ) characters from the front and back of <var>repr</var>,
-		then process it as follows:
-
-	<ol>
-		<li>
-			If <var>repr</var> is an <i>ASCII case-insensitive</i> match
-			for the string "odd",
-			set <var>step</var> to 2
-			and <var>offset</var> to 1.
-
-		<li>
-			Otherwise, if <var>repr</var> is an <i>ASCII case-insensitive</i> match
-			for the string "even",
-			set <var>step</var> to 2
-			and <var>offset</var> to 0.
-
-		<li>
-			Otherwise, if <var>repr</var> consists solely of <i>digits</i>,
-			optionally prefixed with a single
-			U+002B PLUS SIGN (+)
-			or U+002D HYPHEN-MINUS (-),
-			interpret <var>repr</var> as a base-10 number,
-			and set <var>step</var> to the result.
-
-		<li>
-			Otherwise, if <var>repr</var> contains
-			U+004E LATIN CAPITAL LETTER N (N),
-			or U+006E LATIN SMALL LETTER N (n),
-			split <var>repr</var> into two substrings
-			composed respectively of the characters preceding and following the first such letter.
-
-			<p>
-				Interpret the first string as follows:
-
-			<ul>
-				<li>
-					If the first string is empty,
-					set <var>step</var> to 1.
-
-				<li>
-					Otherwise, if the first string consists solely of a single
-					U+002B PLUS SIGN (+)
-					or U+002D HYPHEN-MINUS (-),
-					set <var>step</var> to 1 or -1, respectively.
-
-				<li>
-					Otherwise, if the first string consists solely of <i>digits</i>,
-					optionally prefixed with a single
-					U+002B PLUS SIGN (+)
-					or U+002D HYPHEN-MINUS (-),
-					interpret the first string as a base-10 number,
-					and set <var>step</var> to the result.
-
-				<li>
-					Otherwise, this is a <i>parse error</i>;
-					return a syntax error.
-			</ul>
-
-			<p>
-				Interpret the second string as follows:
-
-			<ul>
-				<li>
-					If the second string is empty,
-					set <var>offset</var> to 0.
-
-				<li>
-					Otherwise, if the second string consists solely of
-					0 or more U+0020 SPACE characters,
-					optionally followed by a single
-					U+002B PLUS SIGN (+)
-					or U+002D HYPHEN-MINUS (-) character,
-					followed by 0 or more U+0020 SPACE characters,
-					followed by 1 or more <i>digits</i>,
-					interpret the digits as a base-10 number.
-					If there was a U+002D HYPHEN-MINUS (-) character,
-					negate the result.
-					Set <var>offset</var> to the result.
-
-				<li>
-					Otherwise, this is a <i>parse error</i>;
-					return a syntax error.
-			</ul>
-
-		<li>
-			Otherwise, this is a <i>parse error</i>;
-			return a syntax error.
-	</ol>
-
-	<p>
-		Return <var>step</var> and <var>offset</var>.
 
 <h3>
 Parser Algorithms</h3>
@@ -2990,6 +2866,215 @@ Changes from CSS 2.1 Core Grammar</h3>
 
 
 
+<h2 id="anb">
+The <var>An+B</var> microsyntax</h2>
+
+	<p>
+		Several things in CSS, 
+		such as the '':nth-child()'' pseudoclass,
+		need to indicate indexes in a list.
+		The <var>An+B</var> microsyntax is useful for this,
+		allowing an author to easily indicate single elements
+		or all elements at regularly-spaced intervals in a list.
+
+	<p>
+		The <dfn>An+B</dfn> notation defines an integer step (<dfn>A</dfn>) and offset (<dfn>B</dfn>),
+		and represents the <var>An+B</var>th elements in a list,
+		for every positive integer or zero value of <var>n</var>,
+		with the first element in the list having index 1 (not 0).
+
+	<p>
+		For values of <var>A</var> and <var>B</var> greater than 0,
+		this effectively divides the list into groups of <var>A</var> elements
+		(the last group taking the remainder),
+		and selecting the <var>B</var>th element of each group.
+
+	<p>
+		The <var>An+B</var> notation also accepts the ''even'' and ''odd'' keywords,
+		which have the same meaning as ''2n'' and ''2n+1'', respectively.
+		
+	<div class="example">
+		<p>Examples:
+		<pre><!--
+		-->2n+0   /* represents all of the even elements in the list */&#xa;<!--
+		-->even   /* same */&#xa;<!--
+		-->4n+1   /* represents the 1st, 5th, 9th, 13th, etc. elements in the list */</pre>
+	</div>
+
+	<p>
+		The values of <var>A</var> and <var>B</var> can be negative,
+		but only the positive results of <var>An+B</var>,
+		for <var>n</var> ≥ 0,
+		are used.
+
+	<div class="example">
+		<p>Example:
+		<pre>-n+6   /* represents the first 6 elements of the list */</pre>
+	</div>
+
+	<p>
+		If both <var>A</var> and <var>B</var> are 0,
+		the pseudo-class represents no element in the list.
+
+<h3 id='anb-syntax'>
+Informal Syntax Description</h3>
+
+	<p><em>This section is non-normative.</em>
+
+	<p>
+		When <var>A</var> is 0, the <var>An</var> part may be omitted
+		(unless the <var>B</var> part is already omitted).
+		When <var>An</var> is not included
+		and <var>B</var> is non-negative,
+		the ''+'' sign before <var>B</var> (when allowed)
+		may also be omitted.
+		In this case the syntax simplifies to just <var>B</var>.
+
+	<div class="example">
+		<p>Examples:
+		<pre><!--
+		-->0n+5   /* represents the 5th element in the list */&#xa;<!--
+		-->5      /* same */</pre>
+	</div>
+
+	<p>
+		When <var>A</var> is 1 or -1,
+		the <code>1</code> may be omitted from the rule.
+
+	<div class="example">
+		<p>Examples:
+		<p>The following notations are therefore equivalent:
+		<pre><!--
+		-->1n+0   /* represents all elements in the list */&#xa;<!--
+		-->n+0    /* same */&#xa;<!--
+		-->n      /* same */</pre>
+	</div>
+
+	<p>
+		If <var>B</var> is 0, then every <var>A</var>th element is picked.
+		In such a case,
+		the <var>+B</var> (or <var>-B</var>) part may be omitted
+		unless the <var>A</var> part is already omitted.
+
+	<div class="example">
+		<p>Examples:
+		<pre><!--
+		-->2n+0   /* represents every even element in the list */&#xa;<!--
+		-->2n     /* same */</pre>
+	</div>
+
+	<p>
+		Whitespace is permitted on either side of the ''+'' or ''-''
+		that separates the <var>An</var> and <var>B</var> parts when both are present.
+
+	<div class="example">
+		<p>Valid Examples with white space:
+		<pre><!--
+		-->3n + 1&#xa;<!--
+		-->+3n - 2&#xa;<!--
+		-->-n+ 6&#xa;<!--
+		-->+6</pre>
+		<p>Invalid Examples with white space:
+		<pre><!--
+		-->3 n&#xa;<!--
+		-->+ 2n&#xa;<!--
+		-->+ 2</pre>
+	</div>
+
+
+<h3 id="the-anb-type">
+The <code>&lt;an+b></code> type</h3>
+
+	<p>
+		The <var>An+B</var> notation was originally defined using a slightly different tokenizer than the rest of CSS,
+		resulting in a somewhat odd definition when expressed in terms of CSS tokens.
+		This section describes how to recognize the <var>An+B</var> notation in terms of CSS tokens
+		(thus defining the <var>&lt;an+b></var> type for CSS grammar purposes),
+		and how to interpret the CSS tokens to obtain values for <var>A</var> and <var>B</var>.
+
+	<p>
+		The <var>&lt;an+b></var> type is defined as:
+
+	<pre class='prod'>
+<dfn id="anb-production">&lt;an+b></dfn> =
+  odd | even |
+  <var>&lt;integer></var> |
+
+  <var>&lt;n-dimension></var> |
+  '+'? n |
+  -n |
+
+  <var>&lt;ndashdigit-dimension></var> |
+  '+'? <var>&lt;ndashdigit-ident></var> |
+  <var>&lt;dashndashdigit-ident></var> |
+
+  <var>&lt;n-dimension></var> <var>&lt;signed-integer></var> |
+  '+'? n <var>&lt;signed-integer></var> |
+  -n <var>&lt;signed-integer></var> |
+
+  <var>&lt;n-dimension></var> ['+' | '-'] <var>&lt;signless-integer></var>
+  '+'? n ['+' | '-'] <var>&lt;signless-integer></var> |
+  -n ['+' | '-'] <var>&lt;signless-integer></var></pre>
+
+	<p>
+		where:
+
+	<ul>
+		<li><dfn><code>&lt;n-dimension></code></dfn> is a DIMENSION token with its type flag set to "integer", and a unit that is an <i>ASCII case-insensitive</i> match for "n"
+		<li><dfn><code>&lt;ndashdigit-dimension></code></dfn> is a DIMENSION token with its type flag set to "integer", and a unit that is an <i>ASCII case-insensitive</i> match for "n-*", where "*" is a series of one or more <i>digits</i>
+		<li><dfn><code>&lt;ndashdigit-ident></code></dfn> is an IDENT token whose representation is an <i>ASCII case-insensitive</i> match for "n-*", where "*" is a series of one or more <i>digits</i>
+		<li><dfn><code>&lt;dashndashdigit-ident></code></dfn> is an IDENT token whose representation is an <i>ASCII case-insensitive</i> match for "-n-*", where "*" is a series of one or more <i>digits</i>
+		<li><dfn><code>&lt;integer></code></dfn> is a NUMBER token with its type flag set to "integer"
+		<li><dfn><code>&lt;signed-integer></code></dfn> is a NUMBER token with its type flag set to "integer", and whose representation starts with "+" or "-"
+		<li><dfn><code>&lt;signless-integer></code></dfn> is a NUMBER token with its type flag set to "integer", and whose representation start with a <i>digit</i>
+	</ul>
+
+	<p>
+		The clauses of the production are interpreted as follows:
+
+	<dl>
+		<dt>''odd''
+		<dd>
+			<var>A</var> is 2, <var>B</var> is 1.
+
+		<dt>''even''
+		<dd>
+			<var>A</var> is 2, <var>B</var> is 0.
+
+		<dt><code><var>&lt;integer></var></code>
+		<dd>
+			<var>A</var> is 0, <var>B</var> is the integer.
+
+		<dt><code><var>&lt;n-dimension></var></code>
+		<dt><code>'+'? n</code>
+		<dt><code>-n</code>
+		<dd>
+			<var>A</var> is the dimension's value, 1, or -1, respectively. <var>B</var> is 0.
+
+		<dt><code><var>&lt;ndashdigit-dimension></var></code>
+		<dt><code>'+'? <var>&lt;ndashdigit-ident></var></code>
+		<dt><code><var>&lt;dashndashdigit-ident></var></code>
+		<dd>
+			<var>A</var> is the dimension's value, 1, or -1, respectively. <var>B</var> is the dimension's unit or ident's representation, as appropriate, with the first two characters removed and the remainder interpreted as a base-10 number.
+
+		<dt><code><var>&lt;n-dimension></var> <var>&lt;signed-integer></var></code>
+		<dt><code>'+'? n <var>&lt;signed-integer></var></code>
+		<dt><code>-n <var>&lt;signed-integer></var></code>
+		<dd>
+			<var>A</var> is the dimension's value, 1, or -1, respectively. <var>B</var> is the integer.
+
+		<dt><code><var>&lt;n-dimension></var> ['+' | '-'] <var>&lt;signless-integer></var></code>
+		<dt><code>'+'? n ['+' | '-'] <var>&lt;signless-integer></var></code>
+		<dt><code>-n ['+' | '-'] <var>&lt;signless-integer></var></code>
+		<dd>
+			<var>A</var> is the dimension's value, 1, or -1, respectively. <var>B</var> is the integer. If a '-' was provided between the two, <var>B</var> is instead the negation of the integer.
+	</dl>
+
+
+
+
+
+
 
 <h2>Serialization</h2>
 
@@ -3042,6 +3127,12 @@ Changes from CSS 2.1 Core Grammar</h3>
 		so the above rule reinserts the minimum number of comments into the serialized text to ensure an accurate round-trip.
 		(Roughly.  The delim token rules are slightly too powerful, for simplicity.)
 
+<h3 id='serializing-anb'>
+Serializing <var>&lt;an+b></var></h3>
+	
+	<p class='issue'>
+		Define this.
+
 
 
 
@@ -3052,17 +3143,17 @@ T:::::::::::::::::::::TH:::::::H     H:::::::HE::::::::::::::::::::E
 T:::::::::::::::::::::TH:::::::H     H:::::::HE::::::::::::::::::::E
 T:::::TT:::::::TT:::::THH::::::H     H::::::HHEE::::::EEEEEEEEE::::E
 TTTTTT  T:::::T  TTTTTT  H:::::H     H:::::H    E:::::E       EEEEEE
-        T:::::T          H:::::H     H:::::H    E:::::E
-        T:::::T          H::::::HHHHH::::::H    E::::::EEEEEEEEEE
-        T:::::T          H:::::::::::::::::H    E:::::::::::::::E
-        T:::::T          H:::::::::::::::::H    E:::::::::::::::E
-        T:::::T          H::::::HHHHH::::::H    E::::::EEEEEEEEEE
-        T:::::T          H:::::H     H:::::H    E:::::E
-        T:::::T          H:::::H     H:::::H    E:::::E       EEEEEE
-      TT:::::::TT      HH::::::H     H::::::HHEE::::::EEEEEEEE:::::E
-      T:::::::::T      H:::::::H     H:::::::HE::::::::::::::::::::E
-      T:::::::::T      H:::::::H     H:::::::HE::::::::::::::::::::E
-      TTTTTTTTTTT      HHHHHHHHH     HHHHHHHHHEEEEEEEEEEEEEEEEEEEEEE
+				T:::::T          H:::::H     H:::::H    E:::::E
+				T:::::T          H::::::HHHHH::::::H    E::::::EEEEEEEEEE
+				T:::::T          H:::::::::::::::::H    E:::::::::::::::E
+				T:::::T          H:::::::::::::::::H    E:::::::::::::::E
+				T:::::T          H::::::HHHHH::::::H    E::::::EEEEEEEEEE
+				T:::::T          H:::::H     H:::::H    E:::::E
+				T:::::T          H:::::H     H:::::H    E:::::E       EEEEEE
+			TT:::::::TT      HH::::::H     H::::::HHEE::::::EEEEEEEE:::::E
+			T:::::::::T      H:::::::H     H:::::::HE::::::::::::::::::::E
+			T:::::::::T      H:::::::H     H:::::::HE::::::::::::::::::::E
+			TTTTTTTTTTT      HHHHHHHHH     HHHHHHHHHEEEEEEEEEEEEEEEEEEEEEE
 
 
 
@@ -3070,14 +3161,14 @@ EEEEEEEEEEEEEEEEEEEEEENNNNNNNN        NNNNNNNNDDDDDDDDDDDDD
 E::::::::::::::::::::EN:::::::N       N::::::ND::::::::::::DDD
 E::::::::::::::::::::EN::::::::N      N::::::ND:::::::::::::::DD
 EE::::::EEEEEEEEE::::EN:::::::::N     N::::::NDDD:::::DDDDD:::::D
-  E:::::E       EEEEEEN::::::::::N    N::::::N  D:::::D    D:::::D
-  E:::::E             N:::::::::::N   N::::::N  D:::::D     D:::::D
-  E::::::EEEEEEEEEE   N:::::::N::::N  N::::::N  D:::::D     D:::::D
-  E:::::::::::::::E   N::::::N N::::N N::::::N  D:::::D     D:::::D
-  E:::::::::::::::E   N::::::N  N::::N:::::::N  D:::::D     D:::::D
-  E::::::EEEEEEEEEE   N::::::N   N:::::::::::N  D:::::D     D:::::D
-  E:::::E             N::::::N    N::::::::::N  D:::::D     D:::::D
-  E:::::E       EEEEEEN::::::N     N:::::::::N  D:::::D    D:::::D
+	E:::::E       EEEEEEN::::::::::N    N::::::N  D:::::D    D:::::D
+	E:::::E             N:::::::::::N   N::::::N  D:::::D     D:::::D
+	E::::::EEEEEEEEEE   N:::::::N::::N  N::::::N  D:::::D     D:::::D
+	E:::::::::::::::E   N::::::N N::::N N::::::N  D:::::D     D:::::D
+	E:::::::::::::::E   N::::::N  N::::N:::::::N  D:::::D     D:::::D
+	E::::::EEEEEEEEEE   N::::::N   N:::::::::::N  D:::::D     D:::::D
+	E:::::E             N::::::N    N::::::::::N  D:::::D     D:::::D
+	E:::::E       EEEEEEN::::::N     N:::::::::N  D:::::D    D:::::D
 EE::::::EEEEEEEE:::::EN::::::N      N::::::::NDDD:::::DDDDD:::::D
 E::::::::::::::::::::EN::::::N       N:::::::ND:::::::::::::::DD
 E::::::::::::::::::::EN::::::N        N::::::ND::::::::::::DDD

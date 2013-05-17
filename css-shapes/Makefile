@@ -34,7 +34,7 @@ PUBMSG=
 PUBDATE=
 USER=
 
-W3C_CSS_DIR=~/work/W3C/cvs/dev.w3.org/csswg/css3-exclusions
+W3C_CSS_DIR=~/work/W3C/cvs/dev.w3.org/csswg/css3-shapes
 
 all: $(OUTPUTFILE) 
 

@@ -58,6 +58,6 @@ clean::
 
 cleanall:: clean
 	$(RM) $(EDFILE)
-	echo '{ "definitions": {}, "url": "http://dev.w3.org/hg/csswg/cssom-view/#" }' > $(XREFS)
+	echo '{ "definitions": {}, "url": "http://dev.w3.org/csswg/cssom-view/#" }' > $(XREFS)
 
 
