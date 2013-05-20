@@ -251,7 +251,7 @@ sub link {
   if ($text =~ /^'([^ \/]*)'$/) {
     my $name = $1;
     if (defined $elements{$name}) {
-      return "<span class='element-name'><a href='$elements{$name}{href}'>$name</a></span>";
+      return "<a href='$elements{$name}{href}'><code class='element-name'>&lt;$name></code></a>";
     } elsif (defined $attributes{$name}) {
       if (scalar(keys(%{$attributes{$name}})) > 1) {
         print STDERR "ambiguous reference '$name' to attribute; specify 'elementname/$name' instead\n";
@@ -271,7 +271,7 @@ sub link {
       print STDERR "unknown element '$1'\n";
       return "<span class='xxx'>$text</span>";
     }
-    return "<span class='element-name'><a href='$elements{$name}{href}'>$name</a></span>";
+    return "<a href='$elements{$name}{href}'><code class='element-name'>&lt;$name></code></a>";
   } elsif ($text =~ /^'([^ \/]*) attribute'$/) {
     my $name = $1;
     unless (defined $attributes{$name}) {
@@ -360,12 +360,12 @@ sub elementSummary {
       $model .= '<ul class=no-bullets>';
       for my $cat (@{$elements{$name}{elementcategories}}) {
         $model .= "<li><a href='$elementCategories{$cat}{href}'>$cat</a> <span class=expanding> — ";
-        $model .= join(', ', map { "<a href='$elements{$_}{href}'><span class=element-name>‘$_’</span></a>" }
+        $model .= join(', ', map { "<a href='$elements{$_}{href}'><span class=element-name>&lt;$_></span></a>" }
                              @{$elementCategories{$cat}{elements}});
         $model .= '</span></li>';
       }
       for my $elementName (@{$elements{$name}{elements}}) {
-        $model .= "<li><a href='$elements{$elementName}{href}'><span class=element-name>‘$elementName’</span></a></li>";
+        $model .= "<li><a href='$elements{$elementName}{href}'><span class=element-name>&lt;$elementName></span></a></li>";
       }
       $model .= '</ul>';
     }
@@ -377,7 +377,7 @@ sub elementSummary {
     for my $cat (@{$elements{$name}{attributecategories}}) {
       if ($cat eq 'presentation') {
         $attributes .= "<li><a href='$attributeCategories{$cat}{href}'>$cat attributes</a><span class=expanding> — ";
-        $attributes .= join(', ', map { "<a href='$properties{$_}{href}'><span class=attr-name>‘$_’</span></a>" }
+        $attributes .= join(', ', map { "<a href='$properties{$_}{href}'>‘<code class=property>$_</code>’</a>" }
                             sort keys(%properties));
         $attributes .= '</span></li>';
       } elsif (defined $attributeCategories{$cat}{href}) {
