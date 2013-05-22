@@ -1,8 +1,12 @@
 ANOLIS		= anolis
+SED  = sed
+CURL  = curl
 SPECSTOP	= ..
 GENDIR		= $(SPECSTOP)/cssom
 XREF  = data
 XREFS		= $(XREF)/xrefs/css/cssom-view.json
+SRCFILE  = Overview.src.html
+VNUFILE  = Overview.src.vnu.html
 EDFILE		= Overview.html
 TRFILE		= TR/Overview.html
 
@@ -14,7 +18,12 @@ $(XREFS): Overview.src.html Makefile
 $(EDFILE): Overview.src.html $(XREF) Makefile
 	$(ANOLIS) --output-encoding=utf-8 --omit-optional-tags --quote-attr-values \
 	--w3c-compat --enable=xspecxref --enable=refs --w3c-shortname="cssom-view" \
-	--force-html4-id --filter=".publish" $< $@
+	--force-html4-id --filter=".publish" $< $@; \
+ $(SED) 's/\[/\(/g;s/\]/\)/g' <$(SRCFILE) >$(VNUFILE); \
+ $(CURL) -F out=gnu -F content=@$(VNUFILE) http://validator.nu/; \
+ $(RM) $(VNUFILE); \
+ $(CURL) 'http://www.w3.org/2009/07/webidl-check?doc=http%3A%2F%2Fdev.w3.org%2Fcsswg%2Fcssom-view%2F&output=text'
+ #$(CURL) -F output=text -F input=@$(SRCFILE) http://www.w3.org/2009/07/webidl-check
 
 draft: $(EDFILE)
 
