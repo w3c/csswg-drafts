@@ -1,0 +1,406 @@
+<!DOCTYPE HTML>
+<title>Transition reversing demo</title>
+<!-- L. David Baron <dbaron@dbaron.org>, 2013-06-07 -->
+<style>
+#demo {
+    background: blue;
+    width: 200px;
+    height: 1em;
+    padding: 2px;
+}
+#transitionable {
+    position: relative;
+    background: fuchsia;
+    width: 100px;
+    height: 1em;
+    pointer-events: none;
+}
+p.algRadio { margin: 0 }
+</style>
+<script>
+
+var gDemo;
+var gTransitionable;
+
+function start()
+{
+    var radios = document.getElementsByName("function");
+    for (var idx = 0; idx < radios.length; ++idx) {
+        var radio = radios[idx];
+        radio.addEventListener("change", refresh_tfs, false);
+    }
+
+    document.getElementsByName("x1")[0].addEventListener("change", refresh_tfs, false);
+    document.getElementsByName("y1")[0].addEventListener("change", refresh_tfs, false);
+    document.getElementsByName("x2")[0].addEventListener("change", refresh_tfs, false);
+    document.getElementsByName("y2")[0].addEventListener("change", refresh_tfs, false);
+
+    gDemo = document.getElementById("demo");
+    gDemo.addEventListener("mouseover", demo_mouseover, false);
+    gDemo.addEventListener("mouseout", demo_mouseout, false);
+    gTransitionable = document.getElementById("transitionable");
+
+    refresh_tfs();
+
+    var algs = document.getElementById("algorithms");
+    for (var alg in gAlgorithms) {
+        var radio = document.createElement("input");
+        radio.setAttribute("type", "radio");
+        radio.setAttribute("name", "algorithm");
+        radio.setAttribute("value", alg);
+        radio.addEventListener("change", refresh_algs, false);
+        var t = document.createTextNode(alg);
+        var label = document.createElement("label");
+        label.appendChild(radio);
+        label.appendChild(t);
+        var p = document.createElement("p");
+        p.className = "algRadio";
+        p.appendChild(label);
+        algs.appendChild(p);
+    }
+
+    document.getElementsByName("algorithm")[0].checked = true;
+    refresh_algs();
+
+    setInterval(tick, 20);
+}
+
+function tick()
+{
+    var value = gCurrentAlgorithm.tick(Date.now());
+    //gTransitionable.style.left = Math.round(value) + "px";
+    var trans = "translateX(" + Math.round(value) + "px)";
+    gTransitionable.style.webkitTransform = trans;
+    gTransitionable.style.MozTransform = trans;
+    gTransitionable.style.msTransform = trans;
+    gTransitionable.style.OTransform = trans;
+    gTransitionable.style.transform = trans;
+}
+
+function refresh_algs(event)
+{
+    var alg = "";
+
+    var radios = document.getElementsByName("algorithm");
+    for (var idx = 0; idx < radios.length; ++idx) {
+        var radio = radios[idx];
+        if (radio.checked) {
+            alg = radio.value;
+        }
+    }
+
+    gCurrentAlgorithm = gAlgorithms[alg];
+    gCurrentAlgorithm.construct();
+}
+
+var gDuration = 4000; // ms
+
+var gAlgorithmData = null;
+var gCurrentAlgorithm;
+
+var gAlgorithms = {
+    "No Reversing Adjustment": {
+        construct: function() {
+            gAlgorithmData = {
+                current:0,
+                starttime: Date.now(),
+                startpos: 0,
+                endpos: 0,
+            };
+        },
+        over: function() {
+            var now = Date.now();
+            gAlgorithmData.startpos = this.tick(now);
+            gAlgorithmData.endpos = 100;
+            gAlgorithmData.starttime = now;
+        },
+        out: function() {
+            var now = Date.now();
+            gAlgorithmData.startpos = this.tick(now);
+            gAlgorithmData.endpos = 0;
+            gAlgorithmData.starttime = now;
+        },
+        tick: function(t) {
+            var time_portion = clamp((t - gAlgorithmData.starttime) / gDuration);
+            var value_portion = gCurrentTF(time_portion);
+            return value_portion * gAlgorithmData.endpos + (1 - value_portion) * gAlgorithmData.startpos;
+        },
+    },
+    "2013-06-07 spec text on reversing (Apple proposal)": {
+        construct: function() {
+            gAlgorithmData = {
+                current:0,
+                starttime: Date.now(),
+                startpos: 0,
+                endpos: 0,
+                reverse_tf: false,
+            };
+        },
+        over: function() {
+            var now = Date.now();
+            var curpos = this.tick(now);
+            if (curpos == gAlgorithmData.endpos) {
+                gAlgorithmData.reverse_tf = false;
+                gAlgorithmData.starttime = now;
+            } else {
+                gAlgorithmData.reverse_tf = !gAlgorithmData.reverse_tf;
+                gAlgorithmData.starttime = now - ((gAlgorithmData.starttime + gDuration) - now);
+            }
+            gAlgorithmData.startpos = 0;
+            gAlgorithmData.endpos = 100;
+        },
+        out: function() {
+            var now = Date.now();
+            var curpos = this.tick(now);
+            if (curpos == gAlgorithmData.endpos) {
+                gAlgorithmData.reverse_tf = false;
+                gAlgorithmData.starttime = now;
+            } else {
+                gAlgorithmData.reverse_tf = !gAlgorithmData.reverse_tf;
+                gAlgorithmData.starttime = now - ((gAlgorithmData.starttime + gDuration) - now);
+            }
+            gAlgorithmData.startpos = 100;
+            gAlgorithmData.endpos = 0;
+        },
+        tick: function(t) {
+            var time_portion = clamp((t - gAlgorithmData.starttime) / gDuration);
+            if (gAlgorithmData.reverse_tf) {
+                time_portion = 1.0 - time_portion;
+            }
+            var value_portion = gCurrentTF(time_portion);
+            if (gAlgorithmData.reverse_tf) {
+                value_portion = 1.0 - value_portion;
+            }
+            return value_portion * gAlgorithmData.endpos + (1 - value_portion) * gAlgorithmData.startpos;
+        },
+    },
+    "dbaron proposal (implemented in Gecko)": {
+        construct: function() {
+            gAlgorithmData = {
+                current:0,
+                starttime: Date.now(),
+                startpos: 0,
+                endpos: 0,
+                duration: gDuration,
+            };
+        },
+        over: function() {
+            var now = Date.now();
+            var curpos = this.tick(now);
+            if (curpos == gAlgorithmData.endpos) {
+                gAlgorithmData.duration = gDuration;
+            } else {
+                gAlgorithmData.duration = gDuration * Math.abs(curpos - gAlgorithmData.startpos) / 100;
+            }
+            gAlgorithmData.startpos = curpos;
+            gAlgorithmData.endpos = 100;
+            gAlgorithmData.starttime = now;
+        },
+        out: function() {
+            var now = Date.now();
+            var curpos = this.tick(now);
+            if (curpos == gAlgorithmData.endpos) {
+                gAlgorithmData.duration = gDuration;
+            } else {
+                gAlgorithmData.duration = gDuration * Math.abs(curpos - gAlgorithmData.startpos) / 100;
+            }
+            gAlgorithmData.startpos = curpos;
+            gAlgorithmData.endpos = 0;
+            gAlgorithmData.starttime = now;
+        },
+        tick: function(t) {
+            var time_portion = clamp((t - gAlgorithmData.starttime) / gAlgorithmData.duration);
+            var value_portion = gCurrentTF(time_portion);
+            return value_portion * gAlgorithmData.endpos + (1 - value_portion) * gAlgorithmData.startpos;
+        },
+    },
+    "plinss proposal (jump to current point on reverse curve)": {
+        construct: function() {
+            gAlgorithmData = {
+                current:0,
+                starttime: Date.now(),
+                startpos: 0,
+                endpos: 0,
+            };
+        },
+        over: function() {
+            var now = Date.now();
+            var curpos = this.tick(now);
+            if (curpos == gAlgorithmData.endpos) {
+                gAlgorithmData.starttime = now;
+            } else {
+				var time_portion = gCurrentInverseTF(1.0 - gCurrentTF(this.time_portion(now)))
+                gAlgorithmData.starttime = now - time_portion * gDuration;
+            }
+            gAlgorithmData.startpos = 0;
+            gAlgorithmData.endpos = 100;
+        },
+        out: function() {
+            var now = Date.now();
+            var curpos = this.tick(now);
+            if (curpos == gAlgorithmData.endpos) {
+                gAlgorithmData.starttime = now;
+            } else {
+				var time_portion = gCurrentInverseTF(1.0 - gCurrentTF(this.time_portion(now)))
+                gAlgorithmData.starttime = now - time_portion * gDuration;
+            }
+            gAlgorithmData.startpos = 100;
+            gAlgorithmData.endpos = 0;
+        },
+		time_portion: function(t) {
+            return clamp((t - gAlgorithmData.starttime) / gDuration);
+		},
+        tick: function(t) {
+            var value_portion = gCurrentTF(this.time_portion(t));
+            return value_portion * gAlgorithmData.endpos + (1 - value_portion) * gAlgorithmData.startpos;
+        },
+    },
+    "vhardy proposal (accumulation) (NOT YET IMPLEMENTED)": {
+    },
+}
+
+function demo_mouseover(event)
+{
+    if (event.target != gDemo) {
+        return;
+    }
+
+    gCurrentAlgorithm.over();
+}
+
+function demo_mouseout(event)
+{
+    if (event.target != gDemo) {
+        return;
+    }
+
+    gCurrentAlgorithm.out();
+}
+
+function clamp(v)
+{
+    if (v < 0) return 0;
+    if (v > 1) return 1;
+    return v;
+}
+
+var gCurrentTF;
+var gCurrentInverseTF;
+var gX1, gY1, gX2, gY2;
+var gCurrentInput, gCurrentOutput;
+
+function refresh_tfs()
+{
+    var func = "";
+
+    var radios = document.getElementsByName("function");
+    for (var idx = 0; idx < radios.length; ++idx) {
+        var radio = radios[idx];
+        if (radio.checked) {
+            func = radio.value;
+        }
+    }
+
+    var x1o = document.getElementById("x1");
+    var y1o = document.getElementById("y1");
+    var x2o = document.getElementById("x2");
+    var y2o = document.getElementById("y2");
+
+    x1o.value = "";
+    y1o.value = "";
+    x2o.value = "";
+    y2o.value = "";
+
+    var x1, y1, x2, y2;
+    switch (func) {
+        case "ease":
+            x1 = 0.25; y1 = 0.10; x2 = 0.25; y2 = 1.00;
+            break;
+        case "linear":
+            x1 = 0.00; y1 = 0.00; x2 = 1.00; y2 = 1.00;
+            break;
+        case "ease-in":
+            x1 = 0.42; y1 = 0.00; x2 = 1.00; y2 = 1.00;
+            break;
+        case "ease-out":
+            x1 = 0.00; y1 = 0.00; x2 = 0.58; y2 = 1.00;
+            break;
+        case "ease-in-out":
+            x1 = 0.42; y1 = 0.00; x2 = 0.58; y2 = 1.00;
+            break;
+        case "cubic-bezier":
+            x1 = clamp(Number(document.getElementsByName("x1")[0].value));
+            y1 = Number(document.getElementsByName("y1")[0].value);
+            x2 = clamp(Number(document.getElementsByName("x2")[0].value));
+            y2 = Number(document.getElementsByName("y2")[0].value);
+            break;
+        default:
+            return;
+    }
+
+    x1o.innerHTML = x1.toFixed(2);
+    y1o.innerHTML = y1.toFixed(2);
+    x2o.innerHTML = x2.toFixed(2);
+    y2o.innerHTML = y2.toFixed(2);
+
+    var tf = bezier(x1, y1, x2, y2);
+    gX1 = x1; gY1 = y1; gX2 = x2; gY2 = y2;
+    gCurrentTF = tf;
+    gCurrentInverseTF = bezier(y1, x1, y2, x2);
+}
+
+function bezier(x1, y1, x2, y2) {
+    // Cubic bezier with control points (0, 0), (x1, y1), (x2, y2), and (1, 1).
+    function x_for_t(t) {
+        var omt = 1-t;
+        return 3 * omt * omt * t * x1 + 3 * omt * t * t * x2 + t * t * t;
+    }
+    function y_for_t(t) {
+        var omt = 1-t;
+        return 3 * omt * omt * t * y1 + 3 * omt * t * t * y2 + t * t * t;
+    }
+    function t_for_x(x) {
+        // Binary subdivision.
+        var mint = 0, maxt = 1;
+        for (var i = 0; i < 30; ++i) {
+            var guesst = (mint + maxt) / 2;
+            var guessx = x_for_t(guesst);
+            if (x < guessx)
+                maxt = guesst;
+            else
+                mint = guesst;
+        }
+        return (mint + maxt) / 2;
+    }
+    return function bezier_closure(x) {
+        if (x == 0) return 0;
+        if (x == 1) return 1;
+        return y_for_t(t_for_x(x));
+    }
+}
+
+</script>
+
+<body onload="start()">
+
+<p>Choose a timing function:<br>
+<label><input type="radio" name="function" value="ease" checked>ease</label>
+<label><input type="radio" name="function" value="linear">linear</label>
+<label><input type="radio" name="function" value="ease-in">ease-in</label>
+<label><input type="radio" name="function" value="ease-out">ease-out</label>
+<label><input type="radio" name="function" value="ease-in-out">ease-in-out</label>
+<label><input type="radio" name="function" value="cubic-bezier" id="cbez">cubic-bezier</label>(<input type="text" size="4" name="x1" value="0.25">, <input type="text" size="4" name="y1" value="0">, <input type="text" size="4" name="x2" value="0.75">, <input type="text" size="4" name="y2" value="1">)
+</p>
+
+<p>Cubic bezier curve with control points: (0, 0) &rarr;
+(<span id="x1"></span>, <span id="y1"></span>) &rarr;
+(<span id="x2"></span>, <span id="y2"></span>) &rarr;
+(1, 1).  This function maps time to value.</p>
+
+<div id="algorithms">
+</div>
+
+<p>Hover over the outer box:</p>
+<div id="demo">
+  <div id="transitionable"></div>
+</div>
