@@ -16,9 +16,9 @@ $(XREFS): Overview.src.html Makefile
 	$(ANOLIS) --dump-xrefs=$@ $< /tmp/spec; $(RM) /tmp/spec
 
 $(EDFILE): Overview.src.html $(XREF) Makefile
-	$(ANOLIS) --output-encoding=utf-8 --omit-optional-tags --quote-attr-values \
-	--w3c-compat --enable=xspecxref --enable=refs --w3c-shortname="cssom" \
-	--force-html4-id --filter=".publish" $< $@; \
+	$(ANOLIS) --output-encoding=utf-8 --omit-optional-tags --quote-attr-values --use-strict \
+	--w3c-compat-substitutions --w3c-compat-xref-a-placement --enable=xspecxref --enable=refs --w3c-shortname="cssom" \
+	--filter=".publish" $< $@; \
  $(SED) 's/\[/\(/g;s/\]/\)/g' <$(SRCFILE) >$(VNUFILE); \
  $(CURL) -F out=gnu -F content=@$(VNUFILE) http://validator.nu/; \
  $(RM) $(VNUFILE); \
@@ -28,9 +28,9 @@ $(EDFILE): Overview.src.html $(XREF) Makefile
 draft: $(EDFILE)
 
 $(TRFILE): Overview.src.html $(XREF) Makefile
-	$(ANOLIS) --output-encoding=utf-8 --omit-optional-tags --quote-attr-values \
-	--w3c-compat --enable=xspecxref --enable=refs --w3c-shortname="cssom" \
-	--force-html4-id --filter=".dontpublish" --pubdate="$(PUBDATE)" \
+	$(ANOLIS) --output-encoding=utf-8 --omit-optional-tags --quote-attr-values --use-strict \
+	--w3c-compat-substitutions --w3c-compat-xref-a-placement --enable=xspecxref --enable=refs --w3c-shortname="cssom" \
+	--filter=".dontpublish" --pubdate="$(PUBDATE)" \
  --w3c-status=WD $< $@
 
 publish: $(TRFILE)
