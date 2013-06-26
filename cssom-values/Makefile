@@ -17,7 +17,7 @@ $(XREFS): Overview.src.html Makefile
 
 $(EDFILE): Overview.src.html $(XREF) Makefile
 	$(ANOLIS) --output-encoding=utf-8 --omit-optional-tags --quote-attr-values --use-strict \
-	--w3c-compat-substitutions --w3c-compat-xref-a-placement --enable=xspecxref --enable=refs --w3c-shortname="cssom-values" \
+	--w3c-compat-substitutions --w3c-compat-xref-a-placement --enable=xspecxref --w3c-compat-class-toc --enable=refs --w3c-shortname="cssom-values" \
  --filter=".publish" $< $@; \
  $(SED) 's/\[/\(/g;s/\]/\)/g' <$(SRCFILE) >$(VNUFILE); \
  $(CURL) -F out=gnu -F content=@$(VNUFILE) http://validator.nu/; \
@@ -29,7 +29,7 @@ draft: $(EDFILE)
 
 $(TRFILE): Overview.src.html $(XREF) Makefile
 	$(ANOLIS) --output-encoding=utf-8 --omit-optional-tags --quote-attr-values --use-strict \
-	--w3c-compat-substitutions --w3c-compat-xref-a-placement --enable=xspecxref --enable=refs --w3c-shortname="cssom-values" \
+	--w3c-compat-substitutions --w3c-compat-xref-a-placement --enable=xspecxref --w3c-compat-class-toc --enable=refs --w3c-shortname="cssom-values" \
  --filter=".dontpublish" --pubdate="$(PUBDATE)" \
  --w3c-status=WD $< $@
 
