@@ -11,10 +11,11 @@
 # Possible other options to add to the curl command below:
 # -F ids=on
 # -F omitdchtml=on
+# e.g., like this: make opts="-F ids=on -F omitdchtml=on"
 
+cdate =
+status =
 opts =
-
-cdate = $(shell date +%Y%m%d)
 
 %.html: %.src.html
 	@echo "Calling post-processor to generate $@..."
