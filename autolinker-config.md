@@ -71,7 +71,10 @@ css-images-3
 
 css-lists-3
 -----------
+* list-style
+* list-style-image
 * list-style-position
+* list-style-type
 
 css-syntax-3
 ------------
