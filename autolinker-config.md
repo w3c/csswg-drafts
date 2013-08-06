@@ -56,6 +56,14 @@ css-break-3
 * break-before
 * orphans
 
+css-fonts-3
+-----------
+* font
+* font-size
+* font-style
+* font-variant
+* font-weight
+
 css-images-3
 ------------
 * <image>
