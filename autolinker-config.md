@@ -59,6 +59,7 @@ css-break-3
 css-fonts-3
 -----------
 * font
+* font-family
 * font-size
 * font-style
 * font-variant
