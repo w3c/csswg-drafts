@@ -88,3 +88,42 @@ css-writing-modes-3
 -------------------
 * direction
 * unicode-bidi
+
+
+Specialized Data
+================
+
+Below this section are some specialized data sections that use the same constructs as the above,
+but mean something slightly different.
+Each one has slightly different rules.
+
+Ignored Specs
+-------------
+
+List in this section specs which should be removed from lists when there's a conflict -
+they'll only be linked to when you specify it explicitly,
+or they're the sole definition of the term.
+
+* css-box-3
+* css-text-4
+* css-inline-3
+* css-page-4
+* css-template-1
+* css1
+
+CSS 2.1 Replacements
+--------------------
+
+List in here specs which are fully replacing 2.1 -
+if there's a conflict, and one of these specs are in the list,
+2.1 will be removed from the list.
+Just list the earliest version of each module that fully replaces 2.1.
+
+* css-break-3
+* css-images-3
+* css-lists-3
+* css-syntax-3
+* css-text-3
+* css-writing-modes-3
+* css-font-3
+* css-backgrounds-3
