@@ -119,11 +119,13 @@ if there's a conflict, and one of these specs are in the list,
 2.1 will be removed from the list.
 Just list the earliest version of each module that fully replaces 2.1.
 
+* css-backgrounds-3
 * css-break-3
+* css-color-3
+* css-fonts-3
 * css-images-3
 * css-lists-3
 * css-syntax-3
 * css-text-3
+* css-ui-3
 * css-writing-modes-3
-* css-font-3
-* css-backgrounds-3
