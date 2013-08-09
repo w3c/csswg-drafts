@@ -92,6 +92,16 @@ css-text-3
 ----------
 * text-align
 
+css-values-3
+------------
+* <url>
+* <string>
+* <integer>
+* <number>
+* <percentage>
+* <length>
+* <angle>
+
 css-writing-modes-3
 -------------------
 * direction
