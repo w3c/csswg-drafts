@@ -145,5 +145,6 @@ Just list the earliest version of each module that fully replaces 2.1.
 * css-lists-3
 * css-syntax-3
 * css-text-3
+* css-text-decor-3
 * css-ui-3
 * css-writing-modes-3
