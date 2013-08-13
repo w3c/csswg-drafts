@@ -101,6 +101,7 @@ css-values-3
 * <percentage>
 * <length>
 * <angle>
+* <resolution>
 
 css-writing-modes-3
 -------------------
