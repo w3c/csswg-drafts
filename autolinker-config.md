@@ -44,6 +44,15 @@ css21
 * height
 * line-height
 
+css-align-3
+-----------
+* align-self
+* align-content
+* align-items
+* justify-self
+* justify-content
+* justify-items
+
 css-backgrounds-4
 -----------------
 * border-top-width
@@ -145,6 +154,7 @@ Just list the earliest version of each module that fully replaces 2.1.
 * css-images-3
 * css-lists-3
 * css-overflow-3
+* css-position-3
 * css-syntax-3
 * css-text-3
 * css-text-decor-3
