@@ -17,12 +17,14 @@
 
 my $inFile = $ARGV[0];
 if (!$inFile) {
-  print "Pass in issues list filename for processing!\n";
-  print "Template for issues-list.txt follows...\n";
+  print "\nPass in issues list filename for processing!\n\n";
+  print "~~~~~~~~~~~~~~~~~~~~~ Template for issues-list.txt ~~~~~~~~~~~~~~~~~~~~~\n";
   print <<XXX;
+
 Draft:    http://www.w3.org/TR/2013/WD-css-text-decor-3-20130103/
 Title:    CSS Text Decoration Level 3
 ... anything else you want here, except 4 dashes ...
+
 ----
 Issue 1.
 Summary:  [summary]
@@ -58,7 +60,6 @@ while (<IN>) {
   $code = '';
   if (/\nVerified:\s+http/) {
     $code = 'a';
-    print "Verified!";
   }
   elsif (/\n(?:Closed|Open):\s+(\S+)/) {
     $code = $statusStyle{lc $1};
