@@ -10,7 +10,7 @@ Editor: Tab Atkins Jr., Google, http://xanthir.com/contact/
 Editor: John Daggett, Mozilla, jdaggett@mozilla.com
 Abstract: This CSS module describes events and interfaces used for dynamically loading font resources.
 Link Defaults: css-fonts-3 (descriptor) src
-Ignored Terms: domerror, notfounderror, networkerror, canvasrenderingcontext2d, font
+Ignored Terms: domerror, notfounderror, networkerror, canvasrenderingcontext2d, font, event, eventinit, eventtarget
 </pre>
 
 <style>
@@ -99,38 +99,38 @@ Extension to the <code>document</code> interface</h3>
 The <code>FontLoader</code> Interface</h3>
 
 	<pre class="idl">
-		dictionary <dfn dictionary>CSSFontFaceLoadEventInit</dfn> : EventInit {
+		dictionary <dfn dictionary>CSSFontFaceLoadEventInit</dfn> : <a dictionary>EventInit</a> {
 			CSSFontFaceRule <dfn dictmember for=CSSFontFaceLoadEventInit>fontface</dfn> = null;
 			DOMError <dfn dictmember for=CSSFontFaceLoadEventInit>error</dfn> = null;
 		};
 
-		[Constructor(DOMString type, optional CSSFontFaceLoadEventInit eventInitDict)]
-		interface <dfn interface>CSSFontFaceLoadEvent</dfn> : Event {
+		[Constructor(DOMString type, optional <a dictionary>CSSFontFaceLoadEventInit</a> eventInitDict)]
+		interface <dfn interface>CSSFontFaceLoadEvent</dfn> : <a interface>Event</a> {
 			readonly attribute CSSFontFaceRule <dfn attribute for=CSSFontFaceLoadEvent>fontface</dfn>;
 			readonly attribute DOMError? <dfn attribute for=CSSFontFaceLoadEvent>error</dfn> = null;
 		}
 
-		interface <dfn interface>FontLoader</dfn> : EventTarget {
+		interface <dfn interface>FontLoader</dfn> : <a interface>EventTarget</a> {
 
 			// -- events for when loading state changes
-			attribute EventHandler <dfn attribute for=FontLoader>onloading</dfn>;
-			attribute EventHandler <dfn attribute for=FontLoader>onloadingdone</dfn>;
+			attribute <a interface>EventHandler</a> <dfn attribute for=FontLoader>onloading</dfn>;
+			attribute <a interface>EventHandler</a> <dfn attribute for=FontLoader>onloadingdone</dfn>;
 
 			// -- events for each individual font load
-			attribute EventHandler <dfn attribute for=FontLoader>onloadstart</dfn>;
-			attribute EventHandler <dfn attribute for=FontLoader>onload</dfn>;
-			attribute EventHandler <dfn attribute for=FontLoader>onerror</dfn>;
+			attribute <a interface>EventHandler</a> <dfn attribute for=FontLoader>onloadstart</dfn>;
+			attribute <a interface>EventHandler</a> <dfn attribute for=FontLoader>onload</dfn>;
+			attribute <a interface>EventHandler</a> <dfn attribute for=FontLoader>onerror</dfn>;
 
 			// check and start load if appropriate
-			// and fire callback when all loads complete
+			// and fulfill promise when all loads complete
 			Promise <a method for=FontLoader title="loadFont()">loadFont</a>(DOMString font, optional DOMString text = " ");
 
 			// return whether all fonts in the fontlist are loaded
 			// (does not initiate load if not available)
 			boolean <a method for=FontLoader title="checkFont()">checkFont</a>(DOMString font, optional DOMString text = " ");
 
-			// async notify upon completion, pending layout changes
-			void <a method for=FontLoader title="notifyWhenFontsReady()">notifyWhenFontsReady</a>(FontsReadyCallback fontsReadyCallback);
+			// async notification that font loading and layout operations are done
+			Promise <a method for=FontLoader title="ready()">ready</a>();
 
 			// loading state, true while one or more fonts loading, false otherwise
 			readonly attribute boolean <dfn attribute for=FontLoader>loading</dfn>;
@@ -306,6 +306,9 @@ Methods</h4>
 	fonts are downloadable fonts and have not already been loaded, the
 	user agent will initiate the load of each of these fonts.
 
+<h5 id='loadfont-method'>
+The <code>loadFont()</code> method</h5>
+
 	The <dfn method for="FontLoader" title="loadFont()">loadFont(<dfn argument>font</dfn>, <dfn argument>text</dfn>)</dfn> method must use these steps:
 
 	<p class='issue'>
@@ -314,7 +317,7 @@ Methods</h4>
 
 	<ol>
 		<li>
-			Create a new promise and return it.
+			Create a new Promise and return it.
 			Run the remaining steps in this algorithm asynchronously.
 
 		<li>
@@ -359,6 +362,9 @@ Methods</h4>
 				reject the promise with XXX.
 	</ol>
 
+<h5 id='checkfont-method'>
+The <code>checkFont()</code> method</h5>
+
 	The <dfn method for="FontLoader" title="checkFont()">checkFont(<dfn argument>font</dfn>, <dfn argument>text</dfn>)</dfn> method must use these steps:
 
 	<ol>
@@ -398,58 +404,48 @@ Methods</h4>
 	the same way the <a attribute>font</a> attribute of the <a interface>CanvasRenderingContext2D</a> is interpreted. [[!HTML5]]
 	This yields a list of font families along with font style attributes.
 
-	Because the number of fonts loaded depends on the how many fonts
-	are used for a given piece of text, in some cases whether fonts need
-	to be loaded or not may not be known.  The
-	<a>notifyWhenFontsReady()</a>
-	method provides a way for authors to avoid having to keep track of
-	which fonts have or haven't been loaded before examining content
-	affected by which font is used.
+<h5 id='ready-method'>
+The <code>ready()</code> method</h5>
 
-	The <dfn method for="FontLoader" title="notifyWhenFontsReady()">notifyWhenFontsReady(<dfn argument>fontsReadyCallback</dfn>)</dfn>
-	method must use these steps:
+	Because the number of fonts loaded depends on the how many fonts are used for a given piece of text, 
+	in some cases whether fonts need to be loaded or not may not be known.
+	The <a>ready()</a> method returns a Promise which is fulfilled when the document is done loading fonts,
+	which provides a way for authors to avoid having to keep track of which fonts have or haven't been loaded 
+	before examining content which may be affected by loading fonts.
 
-	<ol>
-		<li>
-			Let <var>font loader</var> be the value of the <a attribute>fontloader</a> attribute of <var>doc</var>.
+	Let <var>font loader</var> be the value of the <a attribute>fontloader</a> attribute of <var>doc</var>.
+	The <var>font loader</var> contains a <dfn export>font readiness promise</dfn>,
+	which is initially set to a fresh pending Promise.
+	If, after the document has finished loading and completed its initial layout,
+	no fonts need to be loaded,
+	the <a>font readiness promise</a> is fulfilled with <var>font loader</var>.
 
-		<li>
-			Add the value of the <a argument>fontsReadyCallback</a> parameter
-			to the <var>notify</var> callback list of the <var>font loader</var> and return.
+	If, at any point,
+	a <a event>loading</a> event is fired at <var>font loader</var>,
+	the current <a>font readiness promise</a> is discarded,
+	and a fresh pending promise is created and assigned to be the <a>font readiness promise</a>.
+	If, at any point,
+	a <a event>loadingdone</a> event is fired at <var>font loader</var>,
+	the current <a>font readiness promise</a> is fulfilled with <var>font loader</var>.
 
-		<li>
-			Once all pending layout operations have completed,
-			determine whether font resources need to be loaded.
+	The <dfn method for="FontLoader" title="ready()">ready()</dfn> method
+	must return the current <a>font readiness promise</a>.
 
-		<li>
-			If no loads are in progress, copy the contents of the <var>notify</var> callback list
-			to the <var>notify pending</var> list of the <var>font loader</var> and clear out the
-			<var>notify</var> list.  After the <a event>loadingdone</a> event fires,
-			call each of the callbacks in the <var>notify pending</var>
-			list and clear out the <var>notify pending</var> list.
+	Note: Authors should note that a given <a>font readiness promise</a> is only fulfilled once,
+	but further fonts may be loaded after it fulfills.
+	This is similar to listening for a <a event>loadingdone</a> event to fire,
+	but the callbacks passed to the <a method>ready()</a> promise will <strong>always</strong> get called,
+	even when no font loads occur because the fonts in question are already loaded.  
+	It's a simple, easy way to synchronize code to font loads 
+	without the need to keep track of what fonts are needed and precisely when they load.
 
-		<li>
-			Otherwise, after all font loads complete and subsequent layout operations finish,
-			again check whether loads are in progress.  If no loads are in progress, execute
-			the previous step.  If fonts are still loading, continue waiting until those loads
-			complete and repeat this step.
-	</ol>
-
-	Authors should note here that the callback only fires once, the
-	method needs to be called again when further font loads might occur.
-	This method is similar to the callback function of the
-	<a event>loadingdone</a> event handler, except that
-	in this case the callback will <strong>always</strong> get called,
-	even when no font loads occur because the fonts in question are
-	already loaded.  It's a simple, easy way to sync code to font loads
-	without the need to keep track of what fonts are needed and precisely
-	when they load.
-
-	Note that the user agent may need to iterate over multiple font loads before
-	the notify callback is called.  This can occur with font fallback situations, where
-	one font in the fontlist is loaded but doesn't contain a particular glyph and other
-	fonts in the fontlist need to be loaded.  The notify callback only fires
-	after layout operations complete and no additional font loads are necessary.
+	Note: Note that the user agent may need to iterate over multiple font loads before the <a>font readiness promise</a> is fulfilled.
+	This can occur with font fallback situations, 
+	where one font in the fontlist is loaded 
+	but doesn't contain a particular glyph 
+	and other fonts in the fontlist need to be loaded.  
+	The <a>font readiness promise</a> is only fulfilled after layout operations complete 
+	and no additional font loads are necessary.
 
 <h3 id="font-load-event-examples">
 Font load event examples</h3>
@@ -458,10 +454,10 @@ Font load event examples</h3>
 		To show content only after all font loads complete:
 
 		<pre>
-			document.fontloader.onloadingdone = function() {
+			document.fontloader.ready().then(function() {
 				var content = document.getElementById("content");
 				content.style.visibility = "visible";
-			}
+			});
 		</pre>
 	</div>
 
@@ -478,9 +474,8 @@ Font load event examples</h3>
 				ctx.fillText("Hello!", 100, 100);
 			}
 
-			document.fontloader.loadFont({font: "50px MyDownloadableFont",
-			                              success: drawStuff,
-			                              error: handleError});
+			document.fontloader.loadFont("50px MyDownloadableFont")
+			                     .then(drawStuff, handleError);
 		</pre>
 	</div>
 
@@ -499,7 +494,7 @@ Font load event examples</h3>
 
 			function doEditing() {
 				// content/layout operations that may cause additional font loads
-				document.fontloader.notifyWhenFontsReady(measureTextElements);
+				document.fontloader.ready().then(measureTextElements);
 			}
 		</pre>
 	</div>
@@ -543,7 +538,11 @@ Changes from the <a href="http://www.w3.org/TR/2013/WD-css3-fonts-20130212/">Feb
 	Major changes include:
 
 	<ul>
-		<li>Add details of font load errors
+		<li>Add details of font load errors.
+
+		<li>Switched to a promise-based design for loadFont() and ready().
+
+		<li>Renamed notifyWhenFontsReady() to ready().
 	</ul>
 
 <h2 class=no-num id=acknowledgments>
