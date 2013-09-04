@@ -10,11 +10,10 @@ Previous Version: http://www.w3.org/TR/2013/WD-css-variables-20130312/
 Previous Version: http://www.w3.org/TR/2012/WD-css-variables-20120410/
 Editor: Tab Atkins Jr., Google, http://xanthir.com/contact
 Abstract: This module introduces cascading variables as a new primitive value type that is accepted by all CSS properties, and custom properties for defining them.
-Ignored Properties: var-0, var-foo, var-main-color, color, var-Bar, var-two, margin-top, var-header-color, var-accent-background, var-foo-bar, var-bar, background-color, var-one, all
-Ignored Terms: <color>, <bad-url>, <bad-string>, <semicolon>, <delim>
+Ignored Terms: var-0, var-foo, var-main-color, var-Bar, var-two, var-header-color, var-accent-background, var-foo-bar, var-bar, var-one, var, <ident>
 </pre>
 
-<h2>
+<h2 id="intro">
 Introduction</h2>
 
 	<em>This section is not normative.</em>
@@ -43,14 +42,14 @@ Introduction</h2>
 	and the change will propagate to all uses of that variable automatically.
 
 
-<h3>
+<h3 id="module-interactions">
 Module Interactions</h3>
 
 	This module defines a new type of primitive value,
 	the <a>variable</a>,
 	which is accepted by all properties.
 
-<h3>
+<h3 id="module-values">
 Values</h3>
 
 	This specification follows the <a href="http://www.w3.org/TR/CSS21/about.html#property-defs">CSS property definition conventions</a> from [[!CSS21]].
@@ -81,20 +80,6 @@ Defining Custom Properties: the 'var-*' family of properties</h2>
 		Should variables have special animation behavior, 
 		such that they just never animate,
 		not even with the "just flip at 50% progress" like everything else?
-
-	<p class='issue'>
-		Should the global values initial/inherit/default be interpreted?
-		I'm guessing no,
-		because we're not meant to interpret *anything*.
-		You can get switch it back to inheriting by setting it to a guaranteed-invalid value,
-		like ''var-foo: var(foo);'',
-		but you can't get ''default'' behavior.
-
-	<p class='issue'>
-		What's the relationship of custom properties and the 'all' property?
-		Does it reset all the variables?
-		If ''var-foo: initial;'' isn't interpreted by CSS,
-		what effect does ''all: initial;'' have?
 
 	A <dfn>custom property</dfn> is any property
 	whose name starts with "var-",
@@ -150,20 +135,30 @@ Defining Custom Properties: the 'var-*' family of properties</h2>
 		while using ''var(FOO)'' will refer to the second.
 	</div>
 
+	Custom properties are <strong>not</strong> reset by the 'all' property.
+	<span class='note'>We may define a 'var' property in the future that resets all variables.</span>
+
+	The <a spec=css-values>CSS-wide keywords</a> can be used in custom properties,
+	with the same meaning as in any another property.
+	
+	Note: That is, they're interpreted at cascaded-value time as normal,
+	and are not preserved as the custom property's value,
+	and thus are not substituted in by the corresponding variable.
+
 <h3 id='syntax'>
 Custom Property Value Syntax</h3>
 
 	The allowed syntax for <a>custom properties</a> is extremely permissive.
 	The <dfn>&lt;any-value></dfn> production matches <em>any</em> sequence of one or more tokens,
 	so long as the sequence does not contain
-	<<bad-string>>,
-	<<bad-url>>,
-	unmatched <<)>>, <<]>>, or <<}>>,
-	or top-level <<semicolon>> tokens or <<delim>> tokens with a value of "!".
+	<<<bad-string>>>,
+	<<<bad-url>>>,
+	unmatched <<<)>>>, <<<]>>>, or <<<}>>>,
+	or top-level <<<semicolon>>> tokens or <<<delim>>> tokens with a value of "!".
 
 	Note: This definition,
 	along with the general CSS syntax rules,
-	imply that a custom property value never includes an unmatched quote or bracket,
+	implies that a custom property value never includes an unmatched quote or bracket,
 	and so cannot have any effect on larger syntax constructs,
 	like the enclosing style rule,
 	when reserialized.
@@ -387,7 +382,7 @@ Using Cascading Variables: the ''var()'' notation</h2>
 	The syntax of ''var()'' is:
 
 	<pre class='prod'>
-	<dfn id='variable-type' title="<variable>|var()">&lt;variable></dfn> = var( <var>variable-name</var> [, <<any-value>> ]? )
+	<dfn>var()</dfn> = var( <<ident>> [, <<any-value>> ]? )
 	</pre>
 
 	A variable can be used in place of any part of a value in any property on an element.
@@ -398,6 +393,7 @@ Using Cascading Variables: the ''var()'' notation</h2>
 	(Doing so usually produces invalid syntax,
 	or else a value whose meaning has no connection to the variable.)
 
+	The first argument to the function is the name of the variable to be substituted.
 	The second argument to the function, if provided,
 	is a fallback value,
 	which is used as the substitution value when the referenced variable is invalid.
@@ -574,6 +570,39 @@ Invalid Variables</h3>
 	because variables can't "fail early" like other syntax errors can,
 	so by the time the user agent realizes a property value is invalid,
 	it's already thrown away the other cascaded values.
+
+<h3 id=variables-in-shorthands>
+Variables in Shorthand Properties</h3>
+
+	The use of <a>variables</a> in <a>shorthand properties</a> presents some unique difficulties.
+
+	Ordinarily, the value of a shorthand property is separated out into its component <a>longhand properties</a> at parse time,
+	and then the longhands themselves participate in the <a>cascade</a>,
+	with the shorthand more-or-less discarded.
+	If a <a>variable</a> is used in a shorthand, however,
+	one can't tell what values are meant to go where;
+	it may in fact be impossible to separate it out at parse time,
+	as a single <a>variable</a> may substitute in the value of several longhands at once.
+
+	To get around this,
+	implementations must fill in longhands with a special, unobservable-to-authors <dfn export>pending variable-substitution value</dfn>
+	that indicates the shorthand contains a variable,
+	and thus the longhand's value is pending variable substitution.
+	This value must then be cascaded as normal,
+	and at computed-value time,
+	after <a>variables</a> are finally substituted in,
+	the shorthand must be parsed and the longhands must be given their appropriate values at that point.
+
+	<a>Pending variable-substitution values</a> must be serialized as the empty string,
+	if an API allows them to be observed.
+
+	Similarly,
+	while [[CSSOM]] defines that shorthand properties are serialized
+	by appropriately concatenating the values of their corresponding longhands,
+	shorthands containing <a>variables</a> must instead retain their original, ''var()''-containing, value.
+	If serializing a shorthand's value would involve serializing a <a>pending variable-substitution value</a>,
+	the shorthand must instead be serialized by serializing its original value.
+
 
 <!--
                AAA               PPPPPPPPPPPPPPPPP   IIIIIIIIII
@@ -775,7 +804,7 @@ Changes from 10 April 2012 Working Draft</h2>
 	</ul>
 
 
-<h2>
+<h2 id="acks">
 Acknowledgments</h2>
 
 	<p>
