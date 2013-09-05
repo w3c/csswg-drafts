@@ -200,7 +200,7 @@ The <code>FontFace</code> Interface</h3>
 	and fulfills or rejects when the font is successfully loaded and parsed, or hits an error.
 
 	All <a interface>FontFace</a> objects also contain 
-	internal <dfn attribute for=FontFace>[[Url]]</dfn>, <dfn attribute for=FontFace>[[CSSUrl]]</dfn>, and <dfn attribute for=FontFace>[[Data]]</dfn> attributes,
+	internal <dfn attribute for=FontFace>[[Urls]]</dfn> and <dfn attribute for=FontFace>[[Data]]</dfn> attributes,
 	of which one is not <code>null</code> and the rest are <code>null</code>.
 
 <h4 id='font-face-constructor'>
@@ -210,7 +210,7 @@ The Constructor</h4>
 	from a URL pointing to a font face file,
 	or from an ArrayBuffer (or ArrayBufferView) containing the binary representation of a font face.
 
-	When the <dfn>Constructor(DOMString family, (DOMString or BinaryData) source, FontFaceDescriptors descriptors)</dfn> method is run,
+	When the <dfn>Constructor(DOMString family, (DOMString or BinaryData) source, FontFaceDescriptors descriptors)</dfn> method is called,
 	execute these steps:
 
 	<ol link-type=idl>
@@ -229,10 +229,19 @@ The Constructor</h4>
 
 		<li>
 			If the <a>source</a> argument was a <a>DOMString</a>,
-			parse it as a URL.
+			parse it according to the grammar of the 'src' descriptor of the CSS ''@font-face'' rule.
 			If it fails to parse correctly,
 			throw a SyntaxError exception and abort these steps;
-			otherwise, set <var>font face's</var> internal <a>[[Url]]</a> attribute to the parsed URL.
+			otherwise, set <var>font face's</var> internal <a>[[Urls]]</a> attribute to the string.
+
+			Note: Note that this means that passing a naked url as the source argument,
+			like <code>"http://example.com/myFont.woff"</code>,
+			won't work - it needs to be at least wrapped in a ''url()'' function,
+			like <code>"url(http://example.com/myFont.woff)"</code>.
+			In return for this inconvenience,
+			you get to specify multiple fallbacks,
+			specify the type of font each fallback is,
+			and refer to local fonts easily.
 
 			If the <a>source</a> argument was a <a>BinaryData</a>,
 			set <var>font face's</var> internal <a>[[Data]]</a> attribute to the passed argument.
@@ -257,56 +266,39 @@ The Constructor</h4>
 <h4 id='font-face-load'>
 The <code>load()</code> method</h4>
 
-	When the <dfn method for=FontFace>load()</dfn> is run, execute these steps:
+	When the <dfn method for=FontFace>load()</dfn> method is called,
+	execute these steps:
 
 	<ol link-type=idl>
 		<li>
 			Let <var>font face</var> be the <a>FontFace</a> object on which this method was called.
 
 		<li>
-			If <var>font face's</var> <a>[[Url]]</a> attribute is <code>null</code>,
+			If <var>font face's</var> <a>[[Urls]]</a> attribute is <code>null</code>,
 			or its <a>status</a> attribute is anything other than <code>"unloaded"</code>,
 			abort this algorithm immediately.
 
 		<li>
-			Otherwise, return immediately,
+			Otherwise, 
+			set <var>font face's</var> <a>status</a> attribute to "loading",
+			return immediately,
 			and follow these steps asynchronously:
 
 		<li>
-			Create a <a>request</a> <var>request</var>,
-			with its <var>url</var> set to <var>font face's</var> <a>[[Url]]</a> attribute,
-			its <var>origin</var> set to the script's document's URL (or effective script origin?),
-			its <var>referrer</var> set to the script's URL,
-			its <var>omit credentials mode</var> set to "always",
-			its <var>synchronous</var> flag set,
-			and its <var>mode</var> set to "CORS".
+			Using the value of <var>font face's</a> <a>[[Urls]]</a> attribute,
+			attempt to load a font as defined in [[CSS3FONTS]],
+			as if it was the value of a ''@font-face'' rule's 'src' descriptor.
 
 		<li>
-			Set <var>font face's</var> <a>status</a> attribute to "loading".
-
-		<li>
-			<a>Fetch</a> <var>request</var>,
-			and call the returned response <var>response</var>.
-
-		<li>
-			If <var>response</var> is CORS cross-origin,
+			If the attempt to load fails,
 			reject <var>font face's</var> <a>[[FontStatusPromise]]</a> with a NetworkError
 			and set <var>font face's</var> <a>status</a> attribute to "error".
 
 		<li>
-			If <var>response's</var> type is "error",
-			reject <var>font face's</var> <a>[[FontStatusPromise]]</a> with a NetworkError
-			and set <var>font face's</var> <a>status</a> attribute to "error".
-
-		<li>
-			Attempt to decode the data in <var>response's</var> body as a font.
-			If this is successful,
-			<var>font face</var> now represents the decoded font;
+			Otherwise,
+			<var>font face</var> now represents the loaded font;
 			fulfill <var>font face's</var> <a>[[FontStatusPromise]]</a> with <var>font face</var>
 			and set <var>font face's</var> <a>status</a> attribute to "loaded".
-			If it is unsuccessful,
-			reject <var>font face's</var> <a>[[FontStatusPromise]]</a> with a SyntaxError
-			and set <var>font face's</var> <a>status</a> attribute to "error".
 	</ol>
 
 <h4 id='font-face-ready'>
@@ -344,7 +336,7 @@ Connection to CSS's ''@font-face''</h4>
 	any change made to a ''@font-face'' descriptor is immediately reflected in the corresponding <a interface>FontFace</a> attribute,
 	and vice versa.
 
-	The internal <a attribute>[[CSSUrl]]</a> attribute of the <a interface>FontFace</a> object is set to the value of the ''@font-face'' rule's 'src' descriptor,
+	The internal <a attribute>[[Urls]]</a> attribute of the <a interface>FontFace</a> object is set to the value of the ''@font-face'' rule's 'src' descriptor,
 	and reflects any changes made to the 'src' descriptor.
 
 	Otherwise, a <a interface>FontFace</a> object created by a CSS ''@font-face'' rule is identical to one created manually.
@@ -354,14 +346,12 @@ The <code>FontFaceSet</code> Interface</h3>
 
 	<pre class="idl">
 		dictionary <dfn dictionary>CSSFontFaceLoadEventInit</dfn> : <a dictionary>EventInit</a> {
-			CSSFontFaceRule <dfn dictmember for=CSSFontFaceLoadEventInit>fontface</dfn> = null;
-			DOMError <dfn dictmember for=CSSFontFaceLoadEventInit>error</dfn> = null;
+			sequence<CSSFontFaceRule> <dfn dictmember for=CSSFontFaceLoadEventInit>fontfaces</dfn> = null;
 		};
 
 		[Constructor(DOMString type, optional <a dictionary>CSSFontFaceLoadEventInit</a> eventInitDict)]
 		interface <dfn interface>CSSFontFaceLoadEvent</dfn> : <a interface>Event</a> {
-			readonly attribute CSSFontFaceRule <dfn attribute for=CSSFontFaceLoadEvent>fontface</dfn>;
-			readonly attribute DOMError? <dfn attribute for=CSSFontFaceLoadEvent>error</dfn> = null;
+			readonly attribute sequence<CSSFontFaceRule> <dfn attribute for=CSSFontFaceLoadEvent>fontfaces</dfn>;
 		}
 
 		enum FontFaceSetLoadStatus { "loading", "loaded" };
@@ -372,6 +362,7 @@ The <code>FontFaceSet</code> Interface</h3>
 			// -- events for when loading state changes
 			attribute <a interface>EventHandler</a> <dfn attribute for=FontFaceSet>onloading</dfn>;
 			attribute <a interface>EventHandler</a> <dfn attribute for=FontFaceSet>onloadingdone</dfn>;
+			attribute <a interface>EventHandler</a> <dfn attribute for=FontFaceSet>onloadingerror</dfn>;
 
 			// check and start load if appropriate
 			// and fulfill promise when all loads complete
@@ -402,23 +393,22 @@ The <code>FontFaceSet</code> Interface</h3>
 	after the ''@font-face''-generated ones,
 	in insertion order.
 
-	Because font families defined with <code>@font-face</code> rules are
-	loaded only when they are used, content sometimes needs to understand
-	when the loading of fonts occurs.  Authors can use the events and methods
-	defined here to allow greater control over actions that are dependent upon
-	the availability of specific fonts.
+	Because font families are loaded only when they are used, 
+	content sometimes needs to understand when the loading of fonts occurs.  
+	Authors can use the events and methods defined here to allow greater control over actions 
+	that are dependent upon the availability of specific fonts.
 
 	The term <dfn>font load</dfn> is used below to indicate when the
 	loading of content for a given <code>@font-face</code> rule completes.
-	An ''@font-face'' rule may list multiple alternate resources
-	within the 'src' descriptor, including references to local fonts, but
-	the term font load only refers to the loading of the finally selected
-	resource for a given rule, not to the loading of each individual
-	resource.
+	A <a interface>FontFace</a> object may list multiple alternate resources
+	within its <a attribute>[[Urls]]</a> attribute, 
+	including references to local fonts,
+	but the term font load only refers to the loading of the finally selected resource for a given <a interface>FontFace</a>, 
+	not to the loading of each individual resource.
 
 	<p class="issue">
-		Given that the FontFaceSet object is defined to be attached to the
-		document, how will canvas worker threads load fonts?
+		Document the FontFaceSet behavior for Workers.
+		(They start out empty, but can construct fonts or be sent them via postMessage.)
 
 <h4 id='FontFaceSet-events'>
 Events</h4>
@@ -445,14 +435,8 @@ Events</h4>
 				<th><a attribute>onloadingdone</a>
 				<td><a event>loadingdone</a>
 			<tr>
-				<th><a attribute>onloadstart</a>
-				<td><a event>loadstart</a>
-			<tr>
-				<th><a attribute>onload</a>
-				<td><a event>load</a>
-			<tr>
-				<th><a attribute>onerror</a>
-				<td><a event>error</a>
+				<th><a attribute>onloadingerror</a>
+				<td><a event>loadingerror</a>
 	</table>
 
 	To <dfn>fire a font load event</dfn> named <var>e</var> at a <a interface>FontFaceSet</a> target
@@ -628,7 +612,8 @@ The <code>check()</code> method</h4>
 	it returns true;
 	otherwise, it returns false.
 
-	The <dfn method for="FontFaceSet" title="check()">check(<dfn argument>font</dfn>, <dfn argument>text</dfn>)</dfn> method must use these steps:
+	When the <dfn method for="FontFaceSet" title="check()">check(<dfn argument>font</dfn>, <dfn argument>text</dfn>)</dfn> method is called,
+	execute these steps:
 
 	<ol>
 		<li>
@@ -676,23 +661,42 @@ The <code>ready()</code> method</h4>
 	which provides a way for authors to avoid having to keep track of which fonts have or haven't been loaded 
 	before examining content which may be affected by loading fonts.
 
-	Let <var>font loader</var> be the value of the <a attribute>FontFaceSet</a> attribute of <var>doc</var>.
-	The <var>font loader</var> contains an internal <dfn export>font readiness promise</dfn>,
-	which is initially set to a fresh pending Promise.
-	If, after the document has finished loading and completed its initial layout,
-	no fonts need to be loaded,
-	the <a>font readiness promise</a> is fulfilled with <var>font loader</var>.
+	When the <dfn method for=FontFaceSet>ready()</dfn> method is called,
+	execute these steps:
 
-	If, at any point,
-	a <a event>loading</a> event is fired at <var>font loader</var>,
-	the current <a>font readiness promise</a> is discarded,
-	and a fresh pending promise is created and assigned to be the <a>font readiness promise</a>.
-	If, at any point,
-	a <a event>loadingdone</a> event is fired at <var>font loader</var>,
-	the current <a>font readiness promise</a> is fulfilled with <var>font loader</var>.
+	<ol>
+		<li>
+			Let <var>font face set</var> be the value of the <a attribute>FontFaceSet</a> attribute of the document.
+			Let <var>font readiness promise</var> be a fresh Promise which is initially pending.
 
-	The <dfn method for="FontFaceSet" title="ready()">ready()</dfn> method
-	must return the current <a>font readiness promise</a>.
+		<li>
+			Return <var>font readiness promise</var>.
+			Execute the rest of these steps asynchronously.
+
+		<li>
+			At the earliest point after there are <a>no pending font loads</a>,
+			fulfill <var>font readiness promise</var> with <var>font face set</var>.
+	</ol>
+
+	There are <dfn>no pending font loads</dfn> whenever all of the following are true:
+
+	<ul>
+		<li>
+			The document has finished loading.
+
+		<li>
+			There are no pending stylesheet requests.
+
+		<li>
+			There are no <a interface>FontFace</a> objects in <var>font face set</var>
+			with a <a attribute for=FontFace>status</a> of "loading".
+
+		<li>
+			There are no pending layout operations which might cause the user agent to request a font.
+	</ul>
+
+	If any of the above conditions are false,
+	there are <dfn>possibly pending font loads</dfn>.
 
 	Note: Authors should note that a given <a>font readiness promise</a> is only fulfilled once,
 	but further fonts may be loaded after it fulfills.
