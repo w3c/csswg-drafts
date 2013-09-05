@@ -67,6 +67,11 @@ ol ol {
 	font-size: .9em;
 }
 
+.idl-code .idl-code,
+pre .idl-code {
+	font-size: 1em;
+}
+
 pre.idl {
 	white-space: pre-wrap;
 }
@@ -135,7 +140,7 @@ The <code>FontFace</code> Interface</h3>
 			attribute DOMString variant;
 			attribute DOMString featureSettings;
 
-			attribute FontFaceLoadStatus status;
+			readonly attribute FontFaceLoadStatus status;
 
 			// If the font face's source is url-based and its status isn't
 			// "loading" or "loaded", this kicks off the load.
@@ -182,6 +187,11 @@ The <code>FontFace</code> Interface</h3>
 		<dd>
 			This attribute reflects the current status of the font face.
 			It must be "unloaded" for a newly-created <a interface>FontFace</a>.
+
+			It can change due to an author explicitly requesting a font face to load,
+			such as through the <a method for=FontFace>load()</a> method on <a interface>FontFace</a>,
+			or implicitly by the user agent,
+			due to it detecting that the font face is needed to draw some text on the screen.
 	</dl>
 
 	All <a interface>FontFace</a> objects contain an internal <dfn attribute for=FontFace>[[FontStatusPromise]]</dfn> attribute,
@@ -190,8 +200,8 @@ The <code>FontFace</code> Interface</h3>
 	and fulfills or rejects when the font is successfully loaded and parsed, or hits an error.
 
 	All <a interface>FontFace</a> objects also contain 
-	internal <dfn attribute for=FontFace>[[Url]]</dfn> and <dfn attribute for=FontFace>[[Data]]</dfn> attributes,
-	of which one is always <code>null</code> and the other is non-<code>null</code>.
+	internal <dfn attribute for=FontFace>[[Url]]</dfn>, <dfn attribute for=FontFace>[[CSSUrl]]</dfn>, and <dfn attribute for=FontFace>[[Data]]</dfn> attributes,
+	of which one is not <code>null</code> and the rest are <code>null</code>.
 
 <h4 id='font-face-constructor'>
 The Constructor</h4>
@@ -205,7 +215,7 @@ The Constructor</h4>
 
 	<ol link-type=idl>
 		<li>
-			Create a fresh <a>FontFace</a> object, <var>font face</a>.
+			Let <var>font face</var> be a fresh <a>FontFace</a> object.
 			Set <var>font face's</var> <a>status</a> argument to <code>"unloaded"</code>.
 			Set its internal <a>[[FontStatusPromise]]</a> attribute to a fresh pending <a>Promise</a> object.
 
@@ -322,6 +332,23 @@ The <code>match()</code> method</h4>
 	<p class='issue'>
 		Refer to Font's font matching algorithm somehow.
 
+<h4 id='font-face-css-connection'>
+Connection to CSS's ''@font-face''</h4>
+
+	A CSS ''@font-face'' rule automatically defines a corresponding <a interface>FontFace</a> object,
+	which is automatically placed in the document's <a attribute>fonts</a> attribute.
+
+	The <a interface>FontFace</a> object corresponding to a ''@font-face'' rule
+	has its <a attribute>family</a>, <a attribute>style</a>, <a attribute>weight</a>, <a attribute>stretch</a>, <a attribute>unicodeRange</a>, <a attribute>variant</a>, and <a attribute>featureSettings</a> attributes set to the same value as the corresponding descriptors in the ''@font-face'' rule.
+	There is a two-way connection between the two:
+	any change made to a ''@font-face'' descriptor is immediately reflected in the corresponding <a interface>FontFace</a> attribute,
+	and vice versa.
+
+	The internal <a attribute>[[CSSUrl]]</a> attribute of the <a interface>FontFace</a> object is set to the value of the ''@font-face'' rule's 'src' descriptor,
+	and reflects any changes made to the 'src' descriptor.
+
+	Otherwise, a <a interface>FontFace</a> object created by a CSS ''@font-face'' rule is identical to one created manually.
+
 <h3 id="FontFaceSet-interface">
 The <code>FontFaceSet</code> Interface</h3>
 
@@ -337,7 +364,9 @@ The <code>FontFaceSet</code> Interface</h3>
 			readonly attribute DOMError? <dfn attribute for=CSSFontFaceLoadEvent>error</dfn> = null;
 		}
 
-		[SetClass(FontFace)]
+		enum FontFaceSetLoadStatus { "loading", "loaded" };
+
+		[SetClass(<a interface>FontFace</a>)]
 		interface <dfn interface>FontFaceSet</dfn> {
 
 			// -- events for when loading state changes
@@ -346,11 +375,11 @@ The <code>FontFaceSet</code> Interface</h3>
 
 			// check and start load if appropriate
 			// and fulfill promise when all loads complete
-			Promise <a method for=FontFaceSet title="loadFont()">loadFont</a>(DOMString font, optional DOMString text = " ");
+			Promise <a method for=FontFaceSet title="load()">load</a>(DOMString font, optional DOMString text = " ");
 
 			// return whether all fonts in the fontlist are loaded
 			// (does not initiate load if not available)
-			boolean <a method for=FontFaceSet title="checkFont()">checkFont</a>(DOMString font, optional DOMString text = " ");
+			boolean <a method for=FontFaceSet title="check()">check</a>(DOMString font, optional DOMString text = " ");
 
 			// async notification that font loading and layout operations are done
 			Promise <a method for=FontFaceSet title="ready()">ready</a>();
@@ -531,10 +560,10 @@ Events</h4>
 		load events (i.e. <a event>loading</a> and <a event>loadingdone</a>).
 		This seems fine but need to confirm this.
 
-<h4 id='loadfont-method'>
-The <code>loadFont()</code> method</h4>
+<h4 id='load-method'>
+The <code>load()</code> method</h4>
 
-	The <a>loadFont()</a> method of <a interface>FontFaceSet</a> will determine whether all fonts in the given font list
+	The <a>load()</a> method of <a interface>FontFaceSet</a> will determine whether all fonts in the given font list
 	have been loaded and are available.
 	If any fonts are downloadable fonts and have not already been loaded,
 	the user agent will initiate the load of each of these fonts.
@@ -542,7 +571,7 @@ The <code>loadFont()</code> method</h4>
 	which is fulfilled when all of the fonts are loaded and ready to be used,
 	or rejected if any font failed to load properly.
 
-	When the <dfn method for="FontFaceSet" title="loadFont()">loadFont(<dfn argument>font</dfn>, <dfn argument>text</dfn>)</dfn> method is called,
+	When the <dfn method for="FontFaceSet" title="load()">load(<dfn argument>font</dfn>, <dfn argument>text</dfn>)</dfn> method is called,
 	execute these steps:
 
 	<ol>
@@ -552,7 +581,7 @@ The <code>loadFont()</code> method</h4>
 			Run the remaining steps in this algorithm asynchronously.
 
 		<li>
-			Parse the value of the <a argument for='loadFont()'>font</a> argument, 
+			Parse the value of the <a argument for='load()'>font</a> argument, 
 			using the CSS value syntax of the 'font' property.
 
 		<li>
@@ -571,7 +600,7 @@ The <code>loadFont()</code> method</h4>
 
 		<li>
 			Remove from the set of font faces all faces that have defined 'unicode-range'
-			values that don't intersect the range of character values in the <a argument for='loadFont()'>text</a>
+			values that don't intersect the range of character values in the <a argument for='load()'>text</a>
 			argument and set this to be the <var>font load list</var>.
 
 		<li>
@@ -590,20 +619,20 @@ The <code>loadFont()</code> method</h4>
 			Resolve <var>font load promise</var> with the promise produced in the previous step.
 	</ol>
 
-<h4 id='checkfont-method'>
-The <code>checkFont()</code> method</h4>
+<h4 id='check-method'>
+The <code>check()</code> method</h4>
 
-	The <a>checkFont()</a> method of <a interface>FontFaceSet</a> will determine whether all fonts in the given font list
+	The <a>check()</a> method of <a interface>FontFaceSet</a> will determine whether all fonts in the given font list
 	have been loaded and are available.
 	If all fonts are available,
 	it returns true;
 	otherwise, it returns false.
 
-	The <dfn method for="FontFaceSet" title="checkFont()">checkFont(<dfn argument>font</dfn>, <dfn argument>text</dfn>)</dfn> method must use these steps:
+	The <dfn method for="FontFaceSet" title="check()">check(<dfn argument>font</dfn>, <dfn argument>text</dfn>)</dfn> method must use these steps:
 
 	<ol>
 		<li>
-			Parse the value of the <a argument for="checkFont()">font</a> parameter,
+			Parse the value of the <a argument for="check()">font</a> parameter,
 			using the CSS value syntax of the 'font' property.
 
 		<li>
@@ -621,7 +650,7 @@ The <code>checkFont()</code> method</h4>
 
 		<li>
 			Remove from the set of font faces all faces that have defined 'unicode-range'
-			values that don't intersect the range of character values in the <a argument for="checkFont()">text</a>
+			values that don't intersect the range of character values in the <a argument for="check()">text</a>
 			parameter and set this to be the <var>font load list</var>.
 
 		<li>
@@ -632,8 +661,8 @@ The <code>checkFont()</code> method</h4>
 			return <code>true</code>.  Otherwise, return <code>false</code>.
 	</ol>
 
-	The <a argument for="checkFont()">font</a> parameter of <a>checkFont()</a>
-	and <a>loadFont()</a> both specify the list of fonts to load.  
+	The <a argument for="check()">font</a> parameter of <a>check()</a>
+	and <a>load()</a> both specify the list of fonts to load.  
 	These values must be parsed using the same syntax as values for the CSS 'font' property,
 	the same way the <a attribute>font</a> attribute of the <a interface>CanvasRenderingContext2D</a> is interpreted. [[!HTML5]]
 	This yields a list of font families along with font style attributes.
@@ -708,7 +737,7 @@ Font load event examples</h3>
 				ctx.fillText("Hello!", 100, 100);
 			}
 
-			document.FontFaceSet.loadFont("50px MyDownloadableFont")
+			document.FontFaceSet.load("50px MyDownloadableFont")
 			                     .then(drawStuff, handleError);
 		</pre>
 	</div>
@@ -774,7 +803,7 @@ Changes from the <a href="http://www.w3.org/TR/2013/WD-css3-fonts-20130212/">Feb
 	<ul>
 		<li>Add details of font load errors.
 
-		<li>Switched to a promise-based design for loadFont() and ready().
+		<li>Switched to a promise-based design for load() and ready().
 
 		<li>Renamed notifyWhenFontsReady() to ready().
 	</ul>
