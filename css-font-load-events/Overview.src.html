@@ -393,18 +393,51 @@ The <code>FontFaceSet</code> Interface</h3>
 	after the ''@font-face''-generated ones,
 	in insertion order.
 
+	The <a interface>FontFace</a> objects in a given <a interface>FontFaceSet</a>
+	are the <dfn>available font faces</dfn> for that set.
+	Similarly, the <a>available font faces</a> for a document
+	are the <a>available font faces</a> for the <a interface>FontFaceSet</a>
+	that is the value of its <a attribute>fonts</a> attribute.
+
 	Because font families are loaded only when they are used, 
 	content sometimes needs to understand when the loading of fonts occurs.  
 	Authors can use the events and methods defined here to allow greater control over actions 
 	that are dependent upon the availability of specific fonts.
 
-	The term <dfn>font load</dfn> is used below to indicate when the
-	loading of content for a given <code>@font-face</code> rule completes.
+	The term <dfn>font load</dfn> indicates when the
+	loading of content for a given <a interface>FontFace</code> object completes.
 	A <a interface>FontFace</a> object may list multiple alternate resources
 	within its <a attribute>[[Urls]]</a> attribute, 
 	including references to local fonts,
 	but the term font load only refers to the loading of the finally selected resource for a given <a interface>FontFace</a>, 
 	not to the loading of each individual resource.
+
+	There are <dfn>no pending font loads</dfn> whenever all of the following are true:
+
+	<ul>
+		<li>
+			The document has finished loading.
+
+		<li>
+			There are no pending stylesheet requests.
+
+		<li>
+			There are no <a>available font faces</a>
+			with a <a attribute for=FontFace>status</a> of "loading".
+
+		<li>
+			There are no pending layout operations which might cause the user agent to request a font.
+	</ul>
+
+	If any of the above conditions are false,
+	there are <dfn>possibly pending font loads</dfn>.
+
+	<a interface>FontFaceSet</a> objects also have internal
+	<dfn attribute for=FontFaceSet>[[LoadingFonts]]</dfn>,
+	<dfn attribute for=FontFaceSet>[[LoadedFonts]]</dfn>,
+	<dfn attribute for=FontFaceSet>[[FailedFonts]]</dfn>,
+	and <dfn attribute for=FontFaceSet>[[PendingReadyPromises]]</dfn> attributes,
+	all of which are initialized to the empty list.
 
 	<p class="issue">
 		Document the FontFaceSet behavior for Workers.
@@ -413,11 +446,16 @@ The <code>FontFaceSet</code> Interface</h3>
 <h4 id='FontFaceSet-events'>
 Events</h4>
 
-	Font load events are grouped into two general categories, events
-	associated with a group of fonts loading (<dfn event for="FontFaceSet">loading</dfn>,
-	<dfn event for="FontFaceSet">loadingdone</dfn>) or finer-grained events associated
-	with each individual font loaded (<dfn event for="FontFaceSet">loadstart</dfn>,
-	<dfn event for="FontFaceSet">load</dfn>, <dfn event for="FontFaceSet">error</dfn>).
+	Font load events make it easy to respond to the font-loading behavior of the entire document,
+	rather than having to listen to each font specifically.
+	The <dfn event for="FontFaceSet">loading</dfn> event
+	fires when the document begins loading fonts,
+	while the <dfn event for="FontFaceSet">loadingdone</dfn>
+	and <dfn event for="FontFaceSet">loadingerror</dfn> events
+	fire when the document is done loading fonts,
+	containing the fonts that successfully loaded
+	or failed to load,
+	respectively.
 
 	The following are the event handlers (and their corresponding event handler event types)
 	that must be supported by <code>FontFaceSet</code> objects as IDL attributes:
@@ -439,110 +477,86 @@ Events</h4>
 				<td><a event>loadingerror</a>
 	</table>
 
-	To <dfn>fire a font load event</dfn> named <var>e</var> at a <a interface>FontFaceSet</a> target
+	To <dfn>fire a font load event</dfn> named <var>e</var> 
+	at a <a interface>FontFaceSet</a> <var>target</var>
+	with optional <var>font faces</var>
 	means to
 	<a href="http://www.w3.org/TR/html5/webappapis.html#event-firing">fire a simple event</a> named <var>e</var>
 	using the <a interface>CSSFontFaceLoadEvent</a> interface that also meets these conditions:
 
 	<ol>
 		<li>
-			The <a attribute>fontface</a> attribute is initialized to the given <var>font
-			face rule</var>.
-
-		<li>
-			The <a attribute>error</a> attribute is initialized to the given <var>error</var>, if one occurred during the font load.
+			The <a attribute>fontfaces</a> attribute is initialized to the given list of <a interface>FontFace</a> objects.
 	</ol>
 
-	When the user agent determines that one or more fonts
-	defined via ''@font-face'' rules in a document <var>doc</var>
-	need to be loaded, it must run the following steps:
+	Whenever a <a interface>FontFace</a> in a given <a interface>FontFaceSet</a> <var>font face set</var>
+	changes its <a attribute for=FontFace>status</a> attribute to 
+
+	Whenever one or more <a>available font faces</a> for a given <a interface>FontFaceSet</a>
+	change their <a attribute for=FontFace>status</a> attribute to "loading",
+	the user agent must run the following steps: 
 
 	<ol>
 		<li>
-			Let <var>font loader</var> be the value of the <a attribute>FontFaceSet</a> attribute of <var>doc</var>.
+			Let <var>font face set</var> be the given <a interface>FontFaceSet</a>,
+			and <var>loading fonts</var> be the <a interface>FontFace</a> objects
+			that have newly switched to "loading" status,
+			in the same order as they appear in <var>font face set</var>.
 
 		<li>
-			Set the <code class="idl-code">loading</code> attribute of <var>font loader</var> to true.
+			Set the <a attribute for=FontFaceSet>status</a> attribute of <var>font face set</var> to "loading".
 
 		<li>
-			<a>Fire a font load event</a> named <a event>loading</a> at <var>font loader</var>
-			with <a attribute>fontface</a> set to the first ''@font-face'' rule.
+			If <var>font face set's</var> <a attribute>[[LoadingFonts]]</a> attribute is currently empty,
+			<a>fire a font load event</a> named <a event>loading</a> at <var>font face set</var>.
 
 		<li>
-			When the user agent begins loading the first resource for a given <code>@font-face</code> rule, it must <a>fire a
-			font load event</a> named <a event>loadstart</a> at <var>font loader</var>
-			with <a attribute>fontface</a> set to the given ''@font-face'' rule.
+			Append the <var>loading fonts</var> to <var>font face set's</var> <a attribute>[[LoadingFonts]]</a> attribute.
 	</ol>
 
-	These steps imply that if fonts are loaded concurrently, the
-	<a event>loading</a> event will fire just once, while
-	the <a event>loadstart</a> event will be fired once
-	for each ''@font-face'' rule whose load is initiated.
-	User agents must only set the <a event>error</a>
-	attribute of a font load event to a non-null value in the cases
-	noted in this section.
-
-	The term “font load” covers any of the resources listed in the
-	'src' descriptor, including local fonts.  When multiple resources are
-	listed, the “font load” is the first resource in the list to
-	successfully load or the error that occurs on the last resource for
-	which a load is attempted.
-
-	When the user agent completes each font load for a document <var>doc</var>,
-	it must run the following steps:
+	Whenever one or more <a>available font faces</a> for a given <a interface>FontFaceSet</a>
+	change their <a attribute for=FontFace>status</a> attribute to "loaded" or "error",
+	the user agent must run the following steps:
 
 	<ol>
 		<li>
-			Let <var>font loader</var> be the value of the <a attribute>FontFaceSet</a> attribute of <var>doc</var>.
+			Let <var>font face set</var> be the given <a interface>FontFaceSet</a>,
+			and <var>loaded fonts</var> be the <a interface>FontFace</a> objects
+			that have newly switched to "loaded" or "error" status,
+			in the same order as they appear in <var>font face set</var>.
 
 		<li>
-			If a font data was successfully loaded and activated,
-			<a>fire a font load event</a> named
-			<a event>load</a> at <var>font loader</var> with
-			<a attribute>fontface</a> set to the ''@font-face''
-			rule for which the font data was loaded.
-
-		<li>
-			Otherwise, <a>fire a font load event</a>
-			named <a event>error</a>
-			at <var>font loader</var> with <a attribute>fontface</a>
-			set to the ''@font-face'' rule for which the error occurred.
-			If the font data can't be loaded <a attribute>error</a>
-			is set to one of the standard <a interface>DOMError</a> types (e.g. <a event>NotFoundError</a>,
-			<a event>NetworkError</a>).  If the font data was downloaded but invalid,
-			then <a attribute>error</a> is set to <code>"InvalidFontDataError"</code>.
-			If several resources are listed in the 'src' descriptor, the
-			error that caused the last font resource in the list to fail must be used.
+			For each font in the <var>loaded fonts</var>,
+			if their <a attribute for=FontFace>status</a> attribute is "loaded",
+			append them to <var>font face set's</var> <a attribute>[[LoadedFonts]]</a> attribute;
+			if it's "error",
+			append them to <var>font face set's</var> <a attribute>[[FailedFonts]]</a> attribute.
 	</ol>
 
-	When the user agent completes the final font load for document
-	<var>doc</var>, after all pending layout operations that might affect
-	font selection have completed and no font loads are pending, it must
-	run the following steps:
+	If there are ever <a>no pending font loads</a>
+	and either of <var>font face set's</a> <a attribute>[[LoadedFonts]]</a> or <a attribute>[[FailedFonts]]</a> attributes are not empty,
+	user agents must run these steps:
 
 	<ol>
 		<li>
-			Let <var>font loader</var> be the value of the <a attribute>FontFaceSet</a> attribute of <var>doc</var>.
+			Set <var>font face set's</var> <a attribute for=FontFaceSet>status</a> attribute to "loaded".
 
 		<li>
-			Set the <a attribute>loading</a> attribute of <var>font loader</var> to false.
+			<a>Fire a font load event</a> named <a event>loadingdone</a> at <var>font face set</var>
+			with the contents of <var>font face set's</var> <a attribute>[[LoadedFonts]]</a> attribute, if any.
 
 		<li>
-			<a>Fire a font load event</a>
-			named <a event>loadingdone</a>
-			at <var>font loader</var> with <a attribute>fontface</a>
-			set to the ''@font-face'' rule of the last font loaded.
+			If <var>font face set's</var> <a attribute>[[FailedFonts]]</a> attribute is non-empty,
+			<a>fire a font load event</a> named <a event>loadingerror</a> at <var>font face set</var>
+			with the contents of <var>font face set's</var> <a attribute>[[FailedFonts]]</a> attribute.
+
+		<li>
+			If <var>font face set's</var> <a attribute>[[PendingReadyPromises]]</a> attribute is non-empty,
+			fulfill each promise in the attribute's value with <var>font face set</var>.
+
+		<li>
+			Empty <var>font face set's</var> <a attribute>[[LoadingFonts]]</a>, <a attribute>[[LoadedFonts]]</a>, <a attribute>[[FailedFonts]]</a>, and <a attribute>[[PendingReadyPromises]]</a> attributes.
 	</ol>
-
-	For example, if three fonts are loaded at the same time, a
-	<a event>loading</a> event followed by three <a event>loadstart</a> events and three
-	<a event>load</a> or <a event>error</a> events, followed by a
-	<a event>loadingdone</a> event will occur.
-
-	<p class="issue">
-		Errors will go "unreported" when using the general category of font
-		load events (i.e. <a event>loading</a> and <a event>loadingdone</a>).
-		This seems fine but need to confirm this.
 
 <h4 id='load-method'>
 The <code>load()</code> method</h4>
@@ -667,38 +681,19 @@ The <code>ready()</code> method</h4>
 	<ol>
 		<li>
 			Let <var>font face set</var> be the value of the <a attribute>FontFaceSet</a> attribute of the document.
-			Let <var>font readiness promise</var> be a fresh Promise which is initially pending.
+			Let <var>ready promise</var> be a fresh Promise which is initially pending.
+
+		<li>
+			If <var>font face set's</var> <a attribute for=FontFaceSet>status</a> attribute is "loaded",
+			fulfill <var>ready promise</var> with <var>font face set</var>.
+			Otherwise, append <var>ready promise</var>
+			to <var>font face set's</var> <a attribute>[[PendingReadyPromises]]</a> attribute.
 
 		<li>
 			Return <var>font readiness promise</var>.
-			Execute the rest of these steps asynchronously.
-
-		<li>
-			At the earliest point after there are <a>no pending font loads</a>,
-			fulfill <var>font readiness promise</var> with <var>font face set</var>.
 	</ol>
 
-	There are <dfn>no pending font loads</dfn> whenever all of the following are true:
-
-	<ul>
-		<li>
-			The document has finished loading.
-
-		<li>
-			There are no pending stylesheet requests.
-
-		<li>
-			There are no <a interface>FontFace</a> objects in <var>font face set</var>
-			with a <a attribute for=FontFace>status</a> of "loading".
-
-		<li>
-			There are no pending layout operations which might cause the user agent to request a font.
-	</ul>
-
-	If any of the above conditions are false,
-	there are <dfn>possibly pending font loads</dfn>.
-
-	Note: Authors should note that a given <a>font readiness promise</a> is only fulfilled once,
+	Note: Authors should note that a given <a>ready promise</a> is only fulfilled once,
 	but further fonts may be loaded after it fulfills.
 	This is similar to listening for a <a event>loadingdone</a> event to fire,
 	but the callbacks passed to the <a method>ready()</a> promise will <strong>always</strong> get called,
@@ -706,12 +701,12 @@ The <code>ready()</code> method</h4>
 	It's a simple, easy way to synchronize code to font loads 
 	without the need to keep track of what fonts are needed and precisely when they load.
 
-	Note: Note that the user agent may need to iterate over multiple font loads before the <a>font readiness promise</a> is fulfilled.
+	Note: Note that the user agent may need to iterate over multiple font loads before the <a>ready promise</a> is fulfilled.
 	This can occur with font fallback situations, 
 	where one font in the fontlist is loaded 
 	but doesn't contain a particular glyph 
 	and other fonts in the fontlist need to be loaded.  
-	The <a>font readiness promise</a> is only fulfilled after layout operations complete 
+	The <a>ready promise</a> is only fulfilled after layout operations complete 
 	and no additional font loads are necessary.
 
 <h3 id="font-load-event-examples">
