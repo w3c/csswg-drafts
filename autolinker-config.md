@@ -161,3 +161,18 @@ Just list the earliest version of each module that fully replaces 2.1.
 * css-text-decor-3
 * css-ui-3
 * css-writing-modes-3
+
+
+"Fake Spec" Linking Data
+========================
+
+Use headings like "Custom [spec-name]  [spec-url]" to set up custom (non-Shepherd) links.
+The [spec-name] is only used to disambiguate;
+the important bit is the url.
+
+Follow each by a list of links, of the form "[term]  ([type])  [hash]".
+
+
+Custom css-fake-spec-1 http://dev.w3.org/csswg/css-fake-spec
+------------------------------------------------------------
+* foo bar (dfn) #foobar
