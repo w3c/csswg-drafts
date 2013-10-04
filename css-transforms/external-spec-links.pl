@@ -258,10 +258,10 @@ sub link {
         return "<span class='xxx'>$text</span>";
       } else {
         my $href = join('', values(%{$attributes{$name}}));
-        return "<a class='attr-name' href='$href'>'$name'</a>";
+        return "<a class='attr-name' href='$href'>‘$name‘</a>";
       }
     } elsif (defined $properties{$name}) {
-      return "<a class='property' href='$properties{$name}{href}'>'$name'</a>";
+      return "<a class='property' href='$properties{$name}{href}'>‘$name‘</a>";
     }
     print STDERR "unknown element, attribute or property '$1'\n";
     return "<span class='xxx'>$text</span>";
@@ -283,7 +283,7 @@ sub link {
       return "<span class='xxx'>$text</span>";
     } else {
       my $href = join('', values(%{$attributes{$name}}));
-      return "<a class='attr-name' href='$href'>'$name'</a>";
+      return "<a class='attr-name' data-link-type='maybe' href='$href'>$name</a>";
     }
   } elsif ($text =~ /^'([^ \/]*) property'$/) {
     my $name = $1;
@@ -291,7 +291,7 @@ sub link {
       print STDERR "unknown element '$1'\n";
       return "<span class='xxx'>$text</span>";
     }
-    return "<a class='property' href='$properties{$name}{href}'>'$name'</a>";
+    return "<a class='property' href='$properties{$name}{href}' data-link-type='propdesc' title='$name'>$name</a>";
   } elsif ($text =~ /^'([^ ]*)\/([^ ]*)'$/) {
     my $eltname = $1;
     my $attrname = $2;
@@ -299,7 +299,7 @@ sub link {
       print STDERR "unknown attribute '$attrname' on element '$eltname'\n";
       return "<span class='xxx'>$text</span>";
     }
-    return "<a class='attr-name' href='$elements{$eltname}{attributes}{$attrname}'>'$attrname'</a>";
+    return "<a class='attr-name' data-link-type='maybe' href='$elements{$eltname}{attributes}{$attrname}'>$attrname</a>";
   } elsif ($text =~ /^<(.*)>$/) {
     my $symname = $1;
     unless (defined $terms{"<$symname>"}) {
@@ -418,7 +418,7 @@ sub elementSummary {
 <table class=propdef summary="$name element">
   <tr>
     <th>Name:</th>
-    <td><dfn id="@{[ lc $name ]}">$name</dfn>
+    <td><dfn element>$name</dfn>
   </tr>
   <tr>
     <th>Categories:</th>
