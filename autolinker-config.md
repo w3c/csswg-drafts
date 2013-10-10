@@ -40,6 +40,7 @@ Some final notes:
 
 css21
 -----
+* display
 * width
 * height
 * line-height
