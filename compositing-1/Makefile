@@ -40,9 +40,9 @@ all: $(OUTPUTFILE)
 
 $(OUTPUTFILE): $(SOURCEFILE)
 ifeq (,$(PUBDATE))
-	$(CURL) $(CURLFLAGS) -K ~/.curl-w3.org -F file="@$<" -o "$@" -F group=FX -F output=html -F method=file $(PROCESSCGI)
+	$(CURL) $(CURLFLAGS) -K ~/.curl-w3.org -F file="@$<" -o "$@" -F group=FX -F output=html -F method=file $(PROCESSCGI) -F status=$(STATUS)
 else
-	$(CURL) $(CURLFLAGS) -K ~/.curl-w3.org -F file="@$<" -o "$@" -F group=FXw -F output=html -F method=file $(PROCESSCGI) -F date=$(PUBDATE)
+	$(CURL) $(CURLFLAGS) -K ~/.curl-w3.org -F file="@$<" -o "$@" -F group=FX -F output=html -F method=file $(PROCESSCGI)  -F status=$(STATUS) -F date=$(PUBDATE)
 endif
 
 publish:
