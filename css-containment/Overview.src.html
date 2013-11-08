@@ -8,44 +8,73 @@ Group: csswg
 ED: http://dev.w3.org/csswg/css-overflow-clipping/
 Editor: Tab Atkins, Google, http://xanthir.com/contact/
 Abstract: This CSS module describes the ''clip'' value for the 'overflow' property, which is similar to the ''hidden'' value, but imposes stricter constraints on the element.
-Ignored Terms: scrollWidth, scrollHeight, clientWidth, clientHeight
+Ignored Terms: scrollWidth, scrollHeight, clientWidth, clientHeight, formatting context
+Link Defaults: css-lists-3 (property) counter-increment
 </pre>
 
 <h2 id='intro'>
 Introduction</h2>
 
-	Elements with ''overflow:hidden'' set on them hide the parts of their content that overflow their boundaries.
-	However, this hiding is not absolute;
-	several CSS features (such as fixed positioning) can cause contents of the element to be visible outside the element's boundaries,
-	and scrolling to reveal the overflowing content is still possible through use of scripting.
+	Efficiently rendering a website relies on the User Agent being able to detect what parts of the page are being displayed,
+	which parts might affect the currently-displayed section,
+	and what can be ignored.
 
-	The ''clip'' value defined in this module is similar to ''hidden'',
-	but imposes stricter constraints on the element
-	that ensure the overflowing content can't be seen in any way.
-	This allows user agents to employ stronger optimizations when drawing pages,
-	while not giving up anything important in most cases over what ''hidden'' allows.
+	There are various heuristics that can be used to guess when a given sub-tree is independent of the rest of the page in some manner,
+	but they're fragile,
+	so innocuous changes to a page may inadvertently make it flunk the heuristics and fall into a slow mode.
+	There are also many things that would be good to isolate which are difficult or impossible to detect in a heuristic manner.
 
-	Note: This feature does <strong>not</strong> replace ''hidden'' entirely.
-	Notably, ''overflow: hidden'' is often used when scrolling is deliberately implemented with scripting,
-	and such a use is still completely appropriate
-	(and, in fact, would stop working entirely with ''clip'').
+	To alleviate these problems
+	and allow strong, predictable isolation of a subtree from the rest of the page,
+	this specification defines a 'contain' property.
 
 <h2 id='overflow-clip'>
-Hard Clipping: the ''clip'' value for 'overflow'</h2>
+Strong Containment: the 'contain' property</h2>
 
 	<pre class='propdef'>
-		Name: overflow
-		New values: clip
+		Name: contain
+		Value: none | strict
+		Initial: none
+		Inherited: no
+		Applies to: all elements
+		Media: all
+		Computed value: specified value
 	</pre>
 
-	The <dfn value for='overflow'>clip</dfn> value for 'overflow' indicates that the content of the element is clipped to the element's content box,
-	and that the element must not provide a scrolling user interface (such as a scrollbar).
+	The 'contain' property allows an author to indicate that an element and its contents are,
+	as much as possible,
+	<em>independent</em> of the rest of the document tree.
+	This allows user agents to utilize much stronger optimizations when rendering a page using 'contain' properly,
+	and allows authors to be confident that their page won't accidentally fall into a slow code path
+	due to an innocuous change.
 
-	It has several additional effects, as well:
+	<dl dfn-type=value dfn-for=containment>
+		<dt><dfn>none</dfn>
+		<dd>
+			This value indicates that the property has no effect.
+			The element renders as normal,
+			with no containment effects applied.
+
+		<dt><dfn>strict</dfn>
+		<dd>
+			The ''containment/strict'' value indicates that the element is <a>strictly contained</a>,
+			so that its contents are guaranteed to have no effect on the rest of the page outside the element's bounds.
+	</dl>
+
+	<p class='issue'>
+		Do we want to break this apart,
+		so people can opt into particular forms of containment without going whole-hog,
+		if they really need to?
+
+	An element that is <dfn export>strictly contained</dfn> operates under the following restrictions:
 
 	<ol>
 		<li>
-			The element must not be scrollable at all, by any means.
+			The contents of the element must be clipped to the element's content box.
+
+		<li>
+			The element must not provide a scrolling user interface (such as a scrollbar),
+			nor be scrollable by any other means, such as dragging or script-based interaction.
 
 		<li>
 			The <a attribute>scrollWidth</a> and <a attribute>scrollHeight</a> attributes of the element's <code>DOM</code> must return the same values as the <a attribute>clientWidth</a> and <a attribute>clientHeight</a> attributes, respectively.
@@ -54,20 +83,35 @@ Hard Clipping: the ''clip'' value for 'overflow'</h2>
 				Make sure this is the right way to define this.  Also, ensure it's sane.
 
 		<li>
-			The object acts as a containing block for absolutely positioned and fixed positioned descendants.
+			The element must act as a containing block for absolutely positioned and fixed positioned descendants.
+
+		<li>
+			The element must be a <a>formatting context</a>.
+
+		<li>
+			The following properties must have no effect on descendants of the element:
+
+			<ul>
+				<li>'break-*' (and the related aliases)
+				<li>'page-group'
+				<li>'bookmark-*'
+				<li>'string-set'
+			</ul>
+
+		<li>
+			The 'counter-increment', 'counter-set', 'flow-from', and 'flow-into' properties must be <a title='scoped property'>scoped</a> to the element's sub-tree.
 	</ol>
 
-	<p class='issue'>
-		Other names for this value?  ''contained''?
+	A <dfn export>scoped property</dfn> has its effects scoped to a particular element or subtree.
+	It must act as if the scoping element was the root of the document
+	for the purpose of evaluating the property's effects:
+	any uses of the property outside the scoping element must have no effect on the uses of the property on or in the scoping element,
+	and vice versa.
+	If scoped to a sub-tree, it's the same,
+	except the scoping element itself is counted as "outside" the tree,
+	like the rest of the document.
 
-	<div class='issue'>
-		Is is possible to separate out this functionality into more useful orthogonal things,
-		which would work *with* ''overflow: hidden'' rather than obsoleting it for many uses?
-		Basically you'd need the ability to form a fixpos containing block,
-		and stop scrolling.
-
-		Both of these are indeed potentially useful.
-		For example, forming a fixpos containing block would mean that fixpos becomes an abspos that "pierces through" most containing blocks,
-		only being stopped by these more powerful blocks.
-		That seems like it might be useful in general.
-	</div>
+	For example, if 'counter-increment' is scoped to an element,
+	the first use of it within the subtree acts as if the named counter were set to 0 at the scoping element,
+	regardless of whether the counter had been used outside the scoping element.
+	Any increments made within the subtree have no effect on counters of the same name outside the scoping element.
