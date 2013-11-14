@@ -35,6 +35,15 @@ sub dec {
   return $s;
 }
 
+sub resolve {
+  my $base = shift;
+  my $href = shift;
+  if ($href =~ /^http/) {
+    return $href;
+  }
+  return "$base$href";
+}
+
 my $htmlfn = $ARGV[0] or die;
 
 my $html = readfile($htmlfn);
@@ -98,11 +107,13 @@ sub readdefs {
         $children2 =~ /href=['"](.*?)['"]/ or die;
         my $attrHref = $1;
 
-        $attributeCategories{$name}{attributes}{$attrName} = "$base$attrHref";
+        my $resolvedHref = resolve($base, $attrHref);
+        $attributeCategories{$name}{attributes}{$attrName} = $resolvedHref;
+
         push(@{$attributeCategories{$name}{attributesOrder}}, $attrName);
 
         $attributes{$attrName} = { } unless defined $attributes{$attrName};
-        $attributes{$attrName}{""} = "$base$attrHref";
+        $attributes{$attrName}{""} = $resolvedHref;
       }
     }
   }
@@ -118,7 +129,7 @@ sub readdefs {
     my $href = $1;
 
     $elements{$name} = { } unless defined $elements{$name};
-    $elements{$name}{href} = "$base$href";
+    $elements{$name}{href} = resolve($base, $href);
     $elements{$name}{attributes} = { };
 
     # next: parse all the info into %elements, then
@@ -168,9 +179,9 @@ sub readdefs {
         my $attrName = $1;
 
         $children2 =~ /href=['"](.*?)['"]/ or die;
-        my $attrHref = "$base$1";
+        my $attrHref = resolve($base, $1);
 
-        $elements{$name}{attributes}{$attrName} = "$base$attrHref";
+        $elements{$name}{attributes}{$attrName} = resolve($base, $attrHref);
 
         push(@{$elements{$name}{attributesSpecific}}, $attrName);
 
@@ -182,7 +193,7 @@ sub readdefs {
 
   while ($defs =~ s/<attribute\s+name=['"](.*?)['"]\s+elements=['"](.*?)['"]\s+href=['"](.*?)['"].*?\/>//s) {
     my $attrName = $1;
-    my $attrHref = "$base$3";
+    my $attrHref = resolve($base, $3);
     my @elements = split(/,\s*/, $2);
     for my $element (@elements) {
       $elements{$element}{attributes}{$attrName} = $attrHref;
@@ -193,7 +204,7 @@ sub readdefs {
 
   while ($defs =~ s/<attribute\s+name=['"](.*?)['"]\s+href=['"](.*?)['"].*?\/>//s) {
     my $attrName = $1;
-    my $attrHref = "$base$2";
+    my $attrHref = resolve($base, $2);
 
     $commonAttributes{$attrName} = $attrHref;
     $attributes{$attrName} = { } unless defined $attributes{$attrName};
@@ -212,7 +223,7 @@ sub readdefs {
 
   while ($defs =~ s/<elementcategory\s+name=['"](.*?)['"]\s+href=['"](.*?)['"]\s+elements=['"](.*?)['"]\/>//s) {
     my $cat = $1;
-    my $href = "$base$2";
+    my $href = resolve($base, $2);
     $elementCategories{$cat} = {
       href => $href,
       elements => [split(/,\s*/, $3)]
@@ -226,23 +237,23 @@ sub readdefs {
 
   while ($defs =~ s/<property\s+name=['"](.*?)['"]\s+href=['"](.*?)['"]\s*\/>//s) {
     $properties{$1} = {
-      href => "$base$2"
+      href => resolve($base, $2)
     };
   }
 
   while ($defs =~ s/<interface\s+name=['"](.*?)['"]\s+href=['"](.*?)['"]\s*\/>//s) {
     $interfaces{$1} = {
-      href => "$base$2"
+      href => resolve($base, $2)
     };
-    $terms{$1} = "$base$2";
+    $terms{$1} = resolve($base, $2);
   }
 
   while ($defs =~ s/<term\s+name=['"](.*?)['"]\s+href=['"](.*?)['"]\s*\/>//s) {
-    $terms{$1} = "$base$2"
+    $terms{$1} = resolve($base, $2);
   }
 
   while ($defs =~ s/<symbol\s+name=['"](.*?)['"]\s+href=['"](.*?)['"]\s*\/>//s) {
-    $terms{"<$1>"} = "$base$2"
+    $terms{"<$1>"} = resolve($base, $2);
   }
 }
 
@@ -415,7 +426,7 @@ sub elementSummary {
   }
 
   return <<EOF;
-<table class=propdef summary="$name element">
+<table class="definition-table">
   <tr>
     <th>Name:</th>
     <td><dfn element>$name</dfn>
