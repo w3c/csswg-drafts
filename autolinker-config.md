@@ -133,6 +133,7 @@ List in this section specs which should be removed from lists when there's a con
 they'll only be linked to when you specify it explicitly,
 or they're the sole definition of the term.
 
+* css-backgrounds-4
 * css-box-3
 * css-text-4
 * css-inline-3
