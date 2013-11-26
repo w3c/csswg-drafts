@@ -34,6 +34,9 @@ input, select {
 	font: inherit;
 	vertical-align: top;
 }
+canvas {
+	border: 1px solid #bbb;
+}
 </style>
 
 </head>
@@ -59,17 +62,34 @@ input, select {
 	
 	<label>
 		Algorithm:
-		<select id="algorithm" size="6">
+		<select id="algorithm" size="7">
 			<option value="old">Old</option>
+			<option value="linear">Linear</option>
 			<option value="arc">Arc</option>
 			<option value="hyp">Hyperbolic</option>
-			<option value="cubic" selected>Cubic</option>
-			<option value="linear">Linear</option>
+			<option value="cubic">Cubic</option>
+			<option value="bezier" selected>Bezier</option>
 			<option value="custom">Custom</option>
 		</select>
 	</label>
 	
-	<label>f(x) = 
+	<canvas id="plot" width="200" height="200"></canvas>
+
+	<div id="bezier_points">
+		<label>x1:
+			<input id="x1" value=".25" />
+		</label>
+		<label>y1:
+			<input id="y1" value=".25" />
+		</label>
+		<label>x2:
+			<input id="x2" value=".25" />
+		</label>
+		<label>y2:
+			<input id="y2" value="1" />
+		</label>
+	</div>
+	<label>f(x) =
 		<input id="custom" value="x < 1? 1-(x-1)*(x-1) : 1" />
 	</label>
 </form>
@@ -79,6 +99,100 @@ input, select {
 </div>
 
 <script>
+CubicBezier = function(x1, y1, x2, y2)
+{
+  this.x1 = x1;
+  this.y1 = y1;
+  this.x2 = x2;
+  this.y2 = y2;
+};
+
+CubicBezier.prototype = {
+    _solveQuadraticEquation: function(a, b, c) {
+        var discriminant = Math.pow(b, 2) - (4 * a * c);
+
+        if (discriminant < 0) {
+            return [];
+        }
+        return [
+            (-b + Math.sqrt(discriminant)) / (2 * a),
+            (-b - Math.sqrt(discriminant)) / (2 * a)
+        ];
+    },
+
+    _solveCubicEquation: function(a, b, c, d) {
+        if (! a) {
+            return this._solveQuadraticEquation(b, c, d);
+        }
+
+        b /= a;
+        c /= a;
+        d /= a;
+
+        var p = ((3 * c) - Math.pow(b, 2)) / 3;
+        var q = ((2 * Math.pow(b, 3)) - (9 * b * c) + (27 * d)) / 27;
+        var discriminant = Math.pow(q / 2, 2) + Math.pow(p / 3, 3);
+
+        if (discriminant === 0) {
+            return [Math.pow(q / 2, 1 / 3) - (b / 3)];
+        } else if (discriminant > 0) {
+            return [Math.pow(-(q / 2) + Math.sqrt(discriminant), 1 / 3) - Math.pow((q / 2) + Math.sqrt(discriminant), 1 / 3) - (b / 3)];
+        } else {
+            var r = Math.sqrt(Math.pow(-(p/3), 3));
+            var phi = Math.acos(-(q / (2 * Math.sqrt(Math.pow(-(p / 3), 3)))));
+            var s = 2 * Math.pow(r, 1/3);
+
+            return [
+                s * Math.cos(phi / 3) - b / 3,
+                s * Math.cos((phi + 2 * Math.PI) / 3) - b / 3,
+                s * Math.cos((phi + 4 * Math.PI) / 3) - b / 3
+            ];
+        }
+    },
+
+    _solveCubicBezier: function(p0, p1, p2, p3, x) {
+        p0 -= x;
+        p1 -= x;
+        p2 -= x;
+        p3 -= x;
+
+        var roots = this._solveCubicEquation(
+            p3 - (3 * p2) + (3 * p1) - p0,
+            (3 * p2) - (6 * p1) + (3 * p0),
+            (3 * p1) - (3 * p0),
+            p0
+        );
+
+        var result = 0;
+        for (var index = 0; index < roots.length; index++) {
+            var root = Math.round(roots[index] * 1000000000000000) / 1000000000000000;
+            result = ((result <= root) && (root <= 1)) ? root : result;
+        }
+        return result;
+    },
+    
+    _bezier: function(t, p0, p1, p2, p3) {
+        return (Math.pow(1 - t, 3) * p0) + (3 * Math.pow(1 - t, 2) * t * p1) + (3 * (1 - t) * Math.pow(t, 2) * p2) + (Math.pow(t, 3) * p3);
+    },
+    
+    x: function(t) {
+        return this._bezier(t, 0, this.x1, this.x2, 1);
+    },
+    
+    y: function(t) {
+        return this._bezier(t, 0, this.y1, this.y2, 1);
+    },
+    
+    tx: function(x) {
+        return this._solveCubicBezier(0, this.x1, this.x2, 1, x);
+    },
+    
+    ty: function(y) {
+        return this._solveCubicBezier(0, this.y1, this.y2, 1, y);
+    }
+};
+
+
 function $$(expr, con) {
 	return Array.prototype.slice.call((con || document).querySelectorAll(expr));
 }
@@ -123,6 +237,8 @@ Box.prototype = {
 	}
 };
 
+Box.bezier = new CubicBezier(x1.value, y1.value, x2.value, y2.value);
+
 Box.constant = 4;
 
 Box.ratios = {
@@ -131,7 +247,7 @@ Box.ratios = {
 	},
 	
 	arc: function(x) {
-		return x < 1? Math.sqrt(1 - (x-1)*(x-1)) : 1;
+		return Math.sqrt(1 - (x-1)*(x-1));
 	},
 	
 	hyp: function(x) {
@@ -139,13 +255,17 @@ Box.ratios = {
 	},
 	
 	cubic: function(x) {
-		return x < 1? 1 + Math.pow(x-1, 3) : 1;
+		return 1 + Math.pow(x-1, 3);
 	},
 	
 	linear: function(x) {
-		return x < 1? x : 1;
+		return x;
 	},
 	
+    bezier: function(x) {
+        return Box.bezier.y(Box.bezier.tx(x));
+    },
+    
 	custom: function (x) {
 		try {
 			return eval(custom.value);
@@ -157,7 +277,7 @@ Box.ratios = {
 };
 
 Box.spreadRounding = function(r, spread) {
-	var ratio = Box.ratio(r/spread);
+	var ratio = (r/spread) < 1 ? Box.ratio(r/spread) : 1;
 	
 	return r + spread * ratio;
 };
@@ -178,6 +298,8 @@ spread.oninput = spread.onchange = function() {
 	$$('.box').forEach(function (box) {
 		box.box.spread = +spread;
 	});
+
+	redrawPlot();
 };
 
 bradius.oninput = bradius.onchange = function() {
@@ -186,19 +308,86 @@ bradius.oninput = bradius.onchange = function() {
 	$$('.box').forEach(function (box) {
 		box.box.borderRadius = +radius;
 	});
+	
+	redrawPlot();
 };
 
 algorithm.onchange = function () {
 	Box.ratio = Box.ratios[this.value];
 	
-	custom.parentNode.style.visibility = this.value == 'custom'? '' : 'hidden';
+	bezier_points.style.display = this.value == 'bezier' ? '' : 'none';
+	custom.parentNode.style.display = this.value == 'custom'? '' : 'none';
 	
 	Box.redrawAll();
+	redrawPlot();
 };
+
+var plotContext = plot.getContext('2d');
+plotContext.lineWidth = 1 / plot.height;
+plotContext.translate(0, plot.height);
+plotContext.scale(plot.width, -plot.height);
 
 algorithm.onchange();
 
-custom.oninput = Box.redrawAll;
+function redrawPlot() {
+	var context = plot.getContext('2d');
+	
+	// draw function
+	context.strokeStyle = "black";
+	context.clearRect(0, 0, 1, 1);
+	context.beginPath();
+	context.moveTo(0, Box.ratio(0));
+	for (var x = 0; x <= 1; x += .005) {
+		context.lineTo(x, Box.ratio(x));
+	}
+	context.stroke();
+	
+	// draw ratio
+	var ratio = Math.min(bradius.value / spread.value, 1);
+	context.strokeStyle = "#ccc";
+	context.beginPath();
+	context.moveTo(ratio, 0);
+	context.lineTo(ratio, 1);
+	context.stroke();
+	context.beginPath();
+	context.moveTo(0, ratio < 1 ? Box.ratio(ratio) : 1);
+	context.lineTo(1, ratio < 1 ? Box.ratio(ratio) : 1);
+	context.stroke();
+	
+	if ('bezier' == algorithm.value) {
+		context.strokeStyle = "red";
+		context.beginPath();
+		context.moveTo(0, 0);
+		context.lineTo(x1.value, y1.value);
+		context.stroke();
+		context.beginPath();
+		context.moveTo(x1.value, y1.value + .025);
+		context.arc(x1.value, y1.value, .025, 0, 360, false);
+		context.stroke();
+		context.strokeStyle = "green";
+		context.beginPath();
+		context.moveTo(1, 1);
+		context.lineTo(x2.value, y2.value);
+		context.stroke();
+		context.beginPath();
+		context.moveTo(x2.value, y2.value + .025);
+		context.arc(x2.value, y2.value, .025, 0, 360, false);
+		context.stroke();
+	}
+}
+
+custom.oninput = function() {
+	Box.redrawAll();
+	redrawPlot();
+};
+
+x1.oninput = y1.oninput = x2.oninput = y2.oninput = function() {
+	if (this.value < 0) this.value = 0;
+	if (this.value > 1) this.value = 1;
+	Box.bezier = new CubicBezier(x1.value, y1.value, x2.value, y2.value);
+	Box.redrawAll();
+	redrawPlot();
+};
 
 //constant.oninput = function() {
 //	Box.constant = +this.value;
@@ -214,6 +403,7 @@ $$('input').forEach(function (input) {
 });
 
 Box.redrawAll();
+redrawPlot();
 </script>
 
 </body>
