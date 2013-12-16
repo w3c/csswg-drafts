@@ -759,7 +759,8 @@
               The <a>effective current time</a> to maintain while the player is
               <a>paused</a> or effectively paused due to <a
               title="bounded">bounding</a> behavior.
-              Null when neither of these conditions apply.
+              When neither of these conditions apply,
+              the <a>pause start time</a> is null.
               The <a>pause start time</a> is initially null.
             </dd>
           </dl>
@@ -790,7 +791,7 @@
           <ol>
             <li>Let the <dfn>pause time lag</dfn> be the result of evaluating
                 <code>(<a>effective timeline time</a> - <a
-                title="player start time">start time</a>) * <a
+                title="player start time">start time</a>) &times; <a
                 title="player playback rate">playback rate</a> -
                 <a>pause start time</a></code>.
             <li>Let the <dfn>unbounded current time</dfn> be the result of
@@ -805,7 +806,9 @@
               <dl class="switch">
                 <dt>If the <a>paused state</a> is true,</dt>
                 <dd>Return the <a>pause time lag</a>.</dd>
-                <dt>If the <a>unbounded current time</a> &lt; zero,</dt>
+                <dt>If the <a>unbounded current time</a> &lt; zero; or,<br>
+                    if the <a>player playback rate</a> &lt; zero and the
+                    <a>unbounded current time</a> equals zero,</dt>
                 <dd>
                   <ol>
                     <li>If the <a>pause start time</a> is null</a>,
@@ -815,8 +818,11 @@
                         start time</a>.
                   </ol>
                 </dd>
-                <dt>If the <a>unbounded current time</a> &ge; <a>source
-                    content end</a>,</dt>
+                <dt>If the <a>unbounded current time</a> &gt;
+                    <a>source content end</a>; or,<br>
+                    if the <a>player playback rate</a> &gt; zero and the
+                    <a>unbounded current time</a> equals
+                    <a>source content end</a>,</dt>
                 <dd>
                   <ol>
                     <li>If the <a>pause start time</a> is null</a>,
@@ -840,10 +846,6 @@
               </dl>
             </li>
           </ol>
-          <p class="issue">
-            This procedure needs verification.
-            It is highly likely to be wrong.
-          </p>
         </section>
         <section>
           <h4>Updating the <a>paused state</a></h4>
@@ -894,25 +896,22 @@
           </p>
           <ol>
             <li>Let <var>seek time</var> be the desired <a>time value</a> for
-                the player's <a>current time</a>.</li>
-            <li>The steps for adjusting the <a>current time</a> depend on the
-                <a>paused state</a> as follows:
-              <dl class="switch">
-                <dt>If the <a>paused state</a> is true,</dt>
-                <dd>
-                  Set <a>pause start time</a> to <var>seek time</var>.
-                </dd>
-                <dt>If the <a>paused state</a> is false,</dt>
-                <dd>
-                  Set the stored value for the <a>time lag</a> to
-                  the result of evaluating
-                  <code>(<a>effective timeline time</a> - <a
-                     title="player start time">start time</a>)
-                     * <a title="player playback rate">playback rate</a> -
-                     <var>seek time</var></code>.
-                </dd>
-              </dl>
-            </li>
+                the player's <a>current time</a>.
+            <li>If <em>any</em> of the following conditions is true:
+              <ul>
+                <li>the <a>paused state</a> is true, or
+                <li><var>seek time</var> &lt; 0, or
+                <li><var>seek time</var> &ge; <a>source content end</a>
+                    (as defined in <a href="#calculating-the-time-lag"
+                    class="sectionRef"></a>),
+              </ul>
+                then set <a>pause start time</a> to <var>seek time</var>.
+            <li>If the <a>paused state</a> is false, set the stored value for
+                the <a>time lag</a> to the result of evaluating
+                <code>(<a>effective timeline time</a> -
+                <a title="player start time">start time</a>) &times;
+                <a title="player playback rate">playback
+                rate</a> - <var>seek time</var></code>.
           </ol>
           <p>
             The <a>timing events</a> queued when a seek is performed are
@@ -6268,6 +6267,12 @@
           <dt>attribute double startTime</dt>
           <dd>
             The <a title="player start time">start time</a> of this player.
+            <p>
+              On setting, the <a>pause start time</a> should be reset to
+              <code>null</code> so that when the <a>time lag</a> is recalculated
+              (see <a href="#calculating-the-time-lag" class="sectionRef"></a>)
+              the <a>pause start time</a> will be updated accordingly.
+            </p>
           </dd>
           <dt>attribute double currentTime</dt>
           <dd>
@@ -6297,22 +6302,45 @@
           <dt>readonly attribute boolean playing</dt>
           <dd>
             <p>
-              Returns true if this <a>player</a> is not <a>bounded</a> which
-              occurs when the player is waiting to start, has reached the end of
-              its <a>source content</a>, or has been seeked to a time outside
-              the range <code>[0, source.endTime]</code>.
+              Returns true if this <a>player</a> is not <a>bounded</a> or
+              paused, that is, when <em>all</em> of the following
+              conditions are true:
             </p>
-            <p>
-              This may be true even while <code>paused</code> is also true.
-            </p>
+            <ul>
+              <li>the <a>player</a> has associated <a>source content</a>, and
+              <li>the <a>paused state</a> is false, and
+              <li>the <a>pause start time</a> is null.
+            </ul>
             <div class="issue">
               <p>
-                Is this the most useful behavior?
-                Making <code>playing == !paused &amp;&amp; !bounded</code> is
-                perhaps more intuitive but when <code>paused</code> is true and
-                <code>currentTime</code> is zero you can't tell if the player is
-                ready to play (but paused), or waiting to play.
+                Is this the most useful definition?<br>
               </p>
+              <p>
+                We could, alternatively, define <code>inRange</code> which would
+                be true even if paused&mdash;then you could more easily tell
+                when when the player was at an endpoint or not without having to
+                check <code>paused</code> as well.
+              </p>
+              <p>
+                Alternatively, we could define <code>finished</code> which is
+                true when you've reached the end of the source content in the
+                current <a>player playback direction</a>.
+                (The name <code>finish</code> lines up with
+                <code>finish()</code> and avoids confusion with
+                HTMLMediaElement's <code>ended</code> which is different since
+                <code>ended</code> is asymmetrical).
+                One limitation of this, however, is that when
+                <code>currentTime</code> is zero and you have a positive
+                <code>playbackRate</code> you can't distinguish between waiting
+                to start (i.e. being <a>bounded</a>) or simply being at the
+                start of the content.
+              </p>
+            </div>
+            <div class="issue">
+              If the <a>player playback rate</a> is zero what should we return
+              here? Above we arbitrarily just handle it the same as a positive
+              playback rate. Does it make sense to saying <code>playing</code>
+              is false when playback rate is zero?
             </div>
           </dd>
           <dt>void cancel()</dt>
@@ -6376,13 +6404,13 @@
                   <a href="#performing-a-seek">adjust the current time</a> of
                   the player as follows:
                   <dl class="switch">
-                    <dt>If <a>current time</a> &lt; zero or
-                        <a>current time</a> &ge; <a>source
+                    <dt>If <a>effective current time</a> &lt; zero or
+                        <a>effective current time</a> &ge; <a>source
                         content</a>'s <a>end time</a>;
                         and <a>player playback rate</a> &gt; zero,</dt>
                     <dd>Seek to time zero.</dd>
-                    <dt>If <a>current time</a> &lt; zero or
-                        <a>current time</a> &ge; <a>source
+                    <dt>If <a>effective current time</a> &lt; zero or
+                        <a>effective current time</a> &ge; <a>source
                         content</a>'s <a>end time</a>;
                         and <a>player playback rate</a> &lt; zero,</dt>
                     <dd>Seek to the <a>source content</a>'s <a>end
@@ -6391,8 +6419,6 @@
                     <dd>Do nothing.</dd>
                   </dl>
             </ol>
-            <p class="issue">Should this return a Promise that is resolved when
-            <code>playing</code> becomes false?</p>
           </dd>
           <dt>void pause()</dt>
           <dd>
@@ -6407,18 +6433,17 @@
               this player and seeks to the start of the source media if it has
               finished playing in the reversed direction using the following
               procedure.
-                evt.
             <ol>
               <li>If the <a>player playback rate</a> is zero, abort these steps.
               <li>If <a>source content</a> is associated with the player,
                   <a href="#performing-a-seek">adjust the current time</a> of
                   the player as follows:
                 <dl class="switch">
-                  <dt>If <a>current time</a> &ge; <a>source
+                  <dt>If <a>effective current time</a> &ge; <a>source
                       content</a>'s <a>end time</a> and the
                       <a>player playback rate</a> &gt; zero,</dt>
                   <dd>Seek to the <a>source content</a>'s <a>end time</a>.</dd>
-                  <dt>If the <a>current time</a> &lt; zero and the
+                  <dt>If the <a>effective current time</a> &lt; zero and the
                       <a>player playback rate</a> &lt; zero,</dt>
                   <dd>Seek to time zero.</dd>
                   <dt>Otherwise,</dt>
