@@ -178,3 +178,7 @@ Follow each by a list of links, of the form "[term]  ([type])  [hash]".
 Custom css-fake-spec-1 http://dev.w3.org/csswg/css-fake-spec
 ------------------------------------------------------------
 * foo bar (dfn) #foobar
+
+Custom respimg-usecases-1 http://usecases.responsiveimages.org/
+---------------------------------------------------------------
+* art direction (dfn) #art-direction
