@@ -31,10 +31,13 @@ opts =
 # For Dispositions of Comments in css3-background:
 %.html: %.txt; awk -f issues-txt-to-html.awk $< >$@
 
-# Rule to make PNG from FIG
+# Rule to create PNG from FIG
 %.png: %.fig; fig2dev -L png -m 0.8 -S 4 $< $@
 
-# Rule to make PNG from EPS
+# Rule to create EPS from FIG
+%.eps: %.fig; fig2dev -m 0.8 -L eps -F -c $< $@
+
+# Rule to create PNG from EPS
 %.png: %.eps; convert -density 96x96 $< $@
 
 
