@@ -11,10 +11,11 @@
 # Possible other options to add to the curl command below:
 # -F ids=on
 # -F omitdchtml=on
+# e.g., like this: make opts="-F ids=on -F omitdchtml=on"
 
+cdate =
+status =
 opts =
-
-cdate = $(shell date +%Y%m%d)
 
 %.html: %.src.html
 	@echo "Calling post-processor to generate $@..."
@@ -30,10 +31,13 @@ cdate = $(shell date +%Y%m%d)
 # For Dispositions of Comments in css3-background:
 %.html: %.txt; awk -f issues-txt-to-html.awk $< >$@
 
+# Rule to create PNG from FIG
+%.png: %.fig; fig2dev -L png -m 0.8 -S 4 $< $@
+
 # Rule to create EPS from FIG
 %.eps: %.fig; fig2dev -m 0.8 -L eps -F -c $< $@
 
-# Rule to create raster image versions of EPS images
+# Rule to create PNG from EPS
 %.png: %.eps; convert -density 96x96 $< $@
 
 
@@ -53,7 +57,8 @@ commit: update all
 	hg push
 
 update:
-	hg pull -u
+	hg pull
+	hg update
 
 clean:
 	rm -f Overview.html Overview.err
