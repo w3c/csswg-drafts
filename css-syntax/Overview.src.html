@@ -13,7 +13,7 @@ Editor: Tab Atkins Jr., Google, http://xanthir.com/contact/
 Editor: Simon Sapin, Mozilla, http://exyr.org/about/
 Abstract: This module describes, in general terms, the basic structure and syntax of CSS stylesheets. It defines, in detail, the syntax and parsing of CSS - how to turn a stream of bytes into a meaningful stylesheet.
 Ignored Terms: <keyframes-name>, <keyframe-rule>, <keyframe-selector>, <translation-value>, <media-query-list>
-Link Defaults: css-text-decor-3 (property) text-decoration, css-color-3 (property) color
+Link Defaults: css-text-decor-3 (property) text-decoration, css-color-3 (property) color, css-transforms-1 (function) translatex()
 </pre>
 
 <h2 id="intro">
@@ -259,17 +259,16 @@ The input byte stream</h3>
 
 	When parsing a stylesheet,
 	the stream of Unicode <a>code points</a> that comprises the input to the tokenization stage
-	may be initially seen by the user agent as a stream of bytes
+	might be initially seen by the user agent as a stream of bytes
 	(typically coming over the network or from the local file system).
-	The bytes encode the <a>code points</a> according to a particular character encoding,
-	which the user agent must use to decode the bytes into <a>code points</a>.
+	If so, the user agent must decode these bytes into <a>code points</a> according to a particular character encoding.
 
 	To decode the stream of bytes into a stream of <a>code points</a>,
-	UAs must use the <a href="http://encoding.spec.whatwg.org/#decode">decode</a> algorithm
+	UAs must use the <dfn><a href="http://encoding.spec.whatwg.org/#decode">decode</a></dfn> algorithm
 	defined in [[!ENCODING]],
 	with the fallback encoding determined as follows.
 
-	Note: The <a href="http://encoding.spec.whatwg.org/#decode">decode</a> algorithm
+	Note: The <a>decode</a> algorithm
 	gives precedence to a byte order mark (BOM),
 	and only uses the fallback when none is found.
 
@@ -278,40 +277,61 @@ The input byte stream</h3>
 	<ol>
 		<li>
 			If HTTP or equivalent protocol defines an encoding (e.g. via the charset parameter of the Content-Type header),
-			<a href="http://encoding.spec.whatwg.org/#concept-encoding-get">get an encoding</a> [[!ENCODING]]
+			<dfn export><a href="http://encoding.spec.whatwg.org/#concept-encoding-get">get an encoding</a></dfn> [[!ENCODING]]
 			for the specified value.
 			If that does not return failure,
 			use the return value as the fallback encoding.
 
 		<li>
-			Otherwise, check the byte stream. If the first several bytes match the hex sequence
+			Otherwise, check the byte stream. If the byte stream begins with the hex sequence
 
-			<pre>40 63 68 61 72 73 65 74 20 22 (not 22)* 22 3B</pre>
+			<pre>40 63 68 61 72 73 65 74 20 22 XX* 22 3B</pre>
 
-			then <a href="http://encoding.spec.whatwg.org/#concept-encoding-get">get an encoding</a> [[!ENCODING]]
-			for the sequence of <code>(not 22)*</code> bytes,
-			decoded per <code>windows-1252</code>.
+			where each <code>XX</code> byte is between 23<sub>16</sub> and 7E<sub>16</sub> inclusive,
+			then <a>get an encoding</a>
+			for the sequence of <code>XX</code> bytes,
+			interpreted as <code>ASCII</code>.
 
-			Note: Anything ASCII-compatible will do since valid labels are all ASCII,
-			so using <code>windows-1252</code> is fine.
+			<details class='why'>
+				<summary>What does that byte sequence mean?</summary>
 
+				The byte sequence above,
+				when decoded as ASCII,
+				is the string "<code>@charset "…";</code>",
+				where the "…" is the sequence of bytes corresponding to the encoding's label.
+			</details>
 
-			Note: The byte sequence above,
-			when decoded as ASCII,
-			is the string "<code>@charset "…";</code>",
-			where the "…" is the sequence of bytes corresponding to the encoding's label.
+			UAs may impose an arbitrary limit upon the number of <code>XX</code> bytes scanned,
+			as long as it is large enough to encompass all of the <a href="http://encoding.spec.whatwg.org/#label">labels</a> defined in [[!ENCODING]];
+			at the time of writing this specification these are all 19 or fewer bytes long.
 
 			If the return value was <code>utf-16be</code> or <code>utf-16le</code>,
 			use <code>utf-8</code> as the fallback encoding;
 			if it was anything else except failure,
 			use the return value as the fallback encoding.
 
-			Note: UTF-16BE and UTF-16LE are the only ASCII-incompatible encodings that
-			<a href="http://encoding.spec.whatwg.org/#concept-encoding-get">get an encoding</a>
-			can return.
-			Using one of them to decode the ASCII <code>@charset "…";</code> byte sequence
-			would result in garbage.
-			This mimics HTML <code>&lt;meta></code> behavior.
+			<details class='why'>
+				<summary>Why use utf-8 when the declaration says utf-16?</summary>
+
+				The bytes of the encoding declaration spell out “<code>@charset "…";</code>” in ASCII,
+				but UTF-16 is not ASCII-compatible.
+				Either you've typed in complete gibberish (like <code>䁣桡牳整•utf-16be∻</code>) to get the right bytes in the document,
+				which we don't want to encourage,
+				or your document is actually in an ASCII-compatible encoding
+				and your encoding declaration is lying.
+
+				Either way, defaulting to UTF-8 is a decent answer.
+
+				As well, this mimics the behavior of HTML's <code>&lt;meta charset></code> attribute.
+			</details>
+
+			Note: Note that the syntax of an encoding declaration <em>looks like</em> the syntax of an <a>@charset</a> rule,
+			but it's actually much more restrictive.
+			A number of things you can do in CSS that would produce a valid <a>@charset</a> rule,
+			such as using multiple spaces, comments, or single quotes,
+			will cause the encoding declaration to not be recognized.
+			This behavior keeps the encoding declaration as simple as possible,
+			and thus maximizes the likelihood of it being implemented correctly.
 
 		<li>
 			Otherwise, if an <a>environment encoding</a> is provided by the referring document,
@@ -321,17 +341,31 @@ The input byte stream</h3>
 			Otherwise, use <code>utf-8</code> as the fallback encoding.
 	</ol>
 
+	<div class='note'>
+
+		Though UTF-8 is the default encoding for the web,
+		and many newer web-based file formats assume or require UTF-8 encoding,
+		CSS was created before it was clear which encoding would win,
+		and thus can't automatically assume the stylesheet is UTF-8.
+
+		Stylesheet authors <em>should</em> author their stylesheets in UTF-8,
+		and ensure that either an HTTP header (or equivalent method) declares the encoding of the stylesheet to be UTF-8,
+		or that the referring document declares its encoding to be UTF-8.
+		(In HTML, this is done by adding a <code>&lt;meta charset=utf-8></code> element to the head of the document.)
+
+		If neither of these options are available,
+		authors should begin the stylesheet with a UTF-8 BOM
+		or the exact characters <code>@charset "utf-8";</code>.
+	</div>
 
 <h3 id="environment-encoding">
 Environment encoding</h3>
 
-Document languages that refer to CSS stylesheets that are decoded from bytes
-must define an <dfn>environment encoding</dfn> for each such stylesheet,
-which is used as a fallback when other encoding hints are not available or can not be used.
+	Document languages that refer to CSS stylesheets that are decoded from bytes
+	must define an <dfn>environment encoding</dfn> for each such stylesheet,
+	which is used as a fallback when other encoding hints are not available or can not be used.
 
-Note: [[HTML]] defines
-<a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/links.html#link-type-stylesheet">
-the environment encoding for <code>&lt;link rel=stylesheet></code></a>
+	Note: [[HTML]] defines <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/links.html#link-type-stylesheet">the environment encoding for <code>&lt;link rel=stylesheet></code></a>.
 
 <h4 id="environment-encoding-at-import">
 ''@import'' rules</h4>
@@ -2996,7 +3030,7 @@ The ''@charset'' Rule</h3>
 
 	Therefore, the stylesheet parser recognizes an @-rule with the general syntax
 
-	<pre class='prod'><dfn>&lt;at-charset-rule></dfn> = @charset <<string>> ;</pre>
+	<pre class='prod'><dfn>@charset</dfn> = @charset <<string>> ;</pre>
 
 	and, for backward compatibility, includes it in the object model for the stylesheet.
 	Modifying, adding, or removing an @charset rule via the object model has no effect
