@@ -52,6 +52,8 @@ $/ = "----\n";
 # Issues
 while (<IN>) {
   chomp;
+  # Don't pipe code
+  s/</&lt;/g;
 
   # Issue number
   s/Issue (\d+)\./Issue \1. <a href="#issue-\1">#<\/a>/;
@@ -72,7 +74,6 @@ while (<IN>) {
 
   # And print it
   print OUT "<pre class='$code' id='issue-$index'>\n";
-  s/</&lt;/g;
   s/(http\S+)/<a href="\1">\1<\/a>/g;
   print OUT;
   print OUT "</pre>\n";
