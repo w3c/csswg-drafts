@@ -24,6 +24,7 @@ if (!$inFile) {
 Draft:    http://www.w3.org/TR/2013/WD-css-text-decor-3-20130103/
 Title:    CSS Text Decoration Level 3
 ... anything else you want here, except 4 dashes ...
+... note: known status codes are Accepted/OutOfScope/Invalid/Rejected/Retracted
 
 ----
 Issue 1.
@@ -71,6 +72,7 @@ while (<IN>) {
 
   # And print it
   print OUT "<pre class='$code' id='issue-$index'>\n";
+  s/</&lt;/g;
   s/(http\S+)/<a href="\1">\1<\/a>/g;
   print OUT;
   print OUT "</pre>\n";
