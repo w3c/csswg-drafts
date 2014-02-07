@@ -289,10 +289,6 @@ The <code>FontFaceSet</code> Interface</h2>
 			attribute EventHandler onloadingdone;
 			attribute EventHandler onloadingerror;
 
-			// Return the fonts that match the given "font" argument
-			// and can render the given characters.
-			sequence&lt;FontFace> match(DOMString font, optional DOMString text = " ");
-
 			// check and start loads if appropriate
 			// and fulfill promise when all loads complete
 			Promise load(DOMString font, optional DOMString text = " ");
@@ -304,7 +300,7 @@ The <code>FontFaceSet</code> Interface</h2>
 			// async notification that font loading and layout operations are done
 			Promise ready();
 
-			// loading state, true while one or more fonts loading, false otherwise
+			// loading state, "loading" while one or more fonts loading, "loaded" otherwise
 			readonly attribute FontFaceLoadStatus status;
 		};
 
@@ -347,6 +343,14 @@ The <code>FontFaceSet</code> Interface</h2>
 
 	If any of the above conditions are false,
 	there are <dfn>possibly pending font loads</dfn>.
+
+	<dl>
+		<dt><dfn attribute for="FontFaceSet">status</dfn>, of type <a interface>DOMString</a>
+		<dd>
+			If there are <a>possibly pending font loads</a>,
+			the <a attribute for=FontFaceSet>status</a> attribute must have the value <code class="idl-code">"loading"</code>.
+			Otherwise, it must have the value <code class="idl-code">"loaded"</code>.
+	</dl>
 
 	<a interface>FontFaceSet</a> objects also have internal
 	<dfn attribute for=FontFaceSet>[LoadingFonts]</dfn>,
@@ -487,42 +491,47 @@ Events</h3>
 	</ol>
 
 
-<h3 id='font-face-set-match'>
-The <code>match()</code> method</h3>
-
-	The <a for=FontFaceSet>match()</a> method of <a interface>FontFaceSet</a> returns
-	the subset of <a>available font faces</a>
-	that match a given 'font' specifier
-	and can render the given characters.
-
-	When the <dfn method for="FontFaceSet">match(<dfn argument>font</dfn>, <dfn argument>text</dfn>)</dfn> method is called,
-	execute these steps:
+	If asked to <dfn export>find the matching font faces</dfn>
+	from a FontFaceSet <var>source</var>,
+	for a given font string <var>font</var>
+	and optionally some sample text <var>text</var>,
+	run the following steps:
 
 	<ol>
 		<li>
-			Parse the value of the <a argument for='load()'>font</a> argument,
+			Parse <var>font</var>
 			using the CSS value syntax of the 'font' property.
-
-		<li>
 			If a syntax error occurs,
-			throw a SyntaxError exception.
+			return a syntax error.
 
 		<li>
-			Otherwise, let <var>font family list</var> be the set of families and
-			<var>font style</var> be the other font style attributes.
+			If <var>text</var> was not explicitly provided,
+			let it be a string containing a single space character (U+0020 SPACE).
+
+		<li>
+			Let <var>font family list</var> be the list of font families parsed from <var>font</var>,
+			and <var>font style</var> be the other font style attributes parsed from <var>font</var>.
+
+		<li>
+			Let <var>available font faces</var> be the font faces within <var>source</var>.
+
+		<li>
+			Let <var>matched font faces</var> initially be an empty list.
 
 		<li>
 			For each family in <var>font family list</var>,
-			use the font matching rules to select the <a>available font faces</a> that match the <var>font style</var>.
+			use the font matching rules to select the font faces from <var>available font faces</var>
+			that match the <var>font style</var>,
+			and add them to <var>matched font faces</var>.
 			The use of the <a attribute>unicodeRange</a> attribute means that this may be more than just a single font face.
 
 		<li>
-			Remove from the set of font faces all faces that have defined 'unicode-range'
-			values that don't intersect the range of character values in the <a argument for='load()'>text</a>
-			argument and set this to be the <var>font load list</var>.
+			For each font face in <var>matched font faces</var>,
+			if its defined 'unicode-range' does not include the codepoint of at least one character in <var>text</var>,
+			remove it from the list.
 
 		<li>
-			Return the <var>font load list</var>.
+			Return <var>matched font faces</var>.
 	</ol>
 
 
@@ -540,7 +549,7 @@ The <code>load()</code> method</h3>
 	When the <dfn method for="FontFaceSet">load(<dfn argument>font</dfn>, <dfn argument>text</dfn>)</dfn> method is called,
 	execute these steps:
 
-	<ol link-type=idl>
+	<ol>
 		<li>
 			Let <var>font face set</var> be the <a interface>FontFaceSet</a> object this method was called on.
 			Let <var>promise</var> be a newly-created promise object.
@@ -550,11 +559,12 @@ The <code>load()</code> method</h3>
 			Complete the rest of these steps asynchronously.
 
 		<li>
-			Call <var>font face set's</var> <a method for=FontFaceSet>match()</a> method
-			with the same arguments as this method,
+			<a>Find the matching font faces</a> from <var>font face set</var>
+			using the <a argument for="FontFaceSet/load()">font</a> and <a argument for="FontFaceSet/load()">text</a> arguments passed to the function,
 			and let <var>font face list</var> be the return value.
-			If <a method for=FontFaceSet>match()</a> threw an exception,
-			reject <var>promise</var> with that same exception and terminate these steps.
+			If a syntax error was returned,
+			reject <var>promise</var> with a SyntaxError exception
+			and terminate these steps.
 
 		<li>
 			For all of the font faces in the <var>font face list</var>,
@@ -562,7 +572,7 @@ The <code>load()</code> method</h3>
 
 		<li>
 			Resolve <var>promise</var> with the result of
-			waiting for all of the <a>[FontStatusPromise]</a>s of each font face in the <var>font face list</var>, in order.
+			waiting for all of the <a attribute>[FontStatusPromise]</a>s of each font face in the <var>font face list</var>, in order.
 	</ol>
 
 <h3 id='font-face-set-check'>
@@ -582,15 +592,16 @@ The <code>check()</code> method</h3>
 			Let <var>font face set</var> be the <a interface>FontFaceSet</a> object this method was called on.
 
 		<li>
-			Call <var>font face set's</var> <a method for=FontFaceSet>match()</a> method
-			with the same arguments as this method,
+			<a>Find the matching font faces</a> from <var>font face set</var>
+			using the <a argument for="FontFaceSet/check()">font</a> and <a argument for="FontFaceSet/check()">text</a> arguments passed to the function,
 			and let <var>font face list</var> be the return value.
-			If <a method for=FontFaceSet>match()</a> threw an exception,
-			throw that same exception and terminate these steps.
+			If a syntax error was returned,
+			reject <var>promise</var> with a SyntaxError exception
+			and terminate these steps.
 
 		<li>
 			If the <var>font face list</var> contains no font faces,
-			return <code class="idl-code">false</code>.
+			return <code class="idl-code">true</code>.
 
 		<li>
 			If all fonts in the <var>font face list</var> have a <a attribute for=FontFace>status</a> attribute of "loaded",
@@ -663,12 +674,12 @@ Interaction with CSS Font Loading and Matching</h3>
 The <code>FontFaceSource</code> interface</h2>
 
 	<pre class='idl'>
-		interface <dfn interface>FontFaceSource</dfn> {
-			readonly attribute <a interface>FontFaceSet</a> <dfn attribute for=FontFaceSource>fonts</dfn>;
+		interface FontFaceSource {
+			readonly attribute FontFaceSet fonts;
 		};
 
-		Document implements <a interface>FontFaceSource</a>;
-		WorkerGlobalScope implements <a interface>FontFaceSource</a>;
+		Document implements FontFaceSource;
+		WorkerGlobalScope implements FontFaceSource;
 	</pre>
 
 	Any document, workers, or other context which can use fonts in some manner must implement the <a interface>FontFaceSource</a> interface.
@@ -798,8 +809,6 @@ Changes from the <a href="http://www.w3.org/TR/2013/WD-css3-fonts-20130212/">Feb
 		<li>Switched to a promise-based design for load() and ready().
 
 		<li>Renamed notifyWhenFontsReady() to ready().
-
-		<li>Added a match() method, to directly expose the font matching algorithm.
 
 		<li>Added a FontFace interface, to directly represent the individual font faces, and allow manual construction of font faces without having to indirect through a @font-face rule.
 
