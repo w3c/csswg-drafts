@@ -33,6 +33,7 @@ CURLFLAGS=
 PUBMSG=
 PUBDATE=
 USER=
+STATUS="CR"
 
 W3C_CSS_DIR=~/work/W3C/cvs/dev.w3.org/csswg/compositing
 
