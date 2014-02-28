@@ -16,7 +16,7 @@ Former editor: <a href="mailto:alexmog@microsoft.com">Alex Mogilevsky</a>, Micro
 Former editor: <a href="mailto:pcupp@microsoft.com">Phil Cupp</a>, Microsoft Corporation
 !Issues list: <a href="https://www.w3.org/Bugs/Public/buglist.cgi?product=CSS&amp;component=Grid+Layout&amp;bug_status=NEW&amp;bug_status=ASSIGNED&amp;bug_status=REOPENED">In Bugzilla</a>
 Abstract: This CSS module defines a two-dimensional grid-based layout system, optimized for user interface design. In the grid layout model, the children of a grid container can be positioned into arbitrary slots in a flexible or fixed predefined layout grid.
-Ignored Terms: containing block, <positive-integer>, <ident>, auto, grid-*-start, grid-*-end
+Ignored Terms: containing block, <positive-integer>, <ident>, auto, grid-*-start, grid-*-end, flex factor, flex factors
 Link Defaults: css21 (property) margin, css-align-3 (dfn) alignment container/alignment subject
 At Risk: the ''grid-template-rows/subgrid'' value of 'grid-template-columns' and 'grid-template-rows', and its component parts individually
 </pre>
@@ -780,7 +780,7 @@ Track Sizing: the 'grid-template-rows' and 'grid-template-columns' properties</h
 
 		<dt><dfn><<flex>></dfn>
 		<dd>
-			A non-negative dimension with the unit "fr".
+			A non-negative dimension with the unit ''fr'' specifying the track's <dfn noexport>flex factor</dfn>.
 			Each <<flex>> value takes a share of the remaining space in proportion to its value.
 			See <a href="#fr-unit">Flexible Lengths</a> for more details.
 
@@ -960,14 +960,14 @@ Flexible Lengths: the ''fr'' unit</h4>
 	<p>
 		The distribution of <a>free space</a> occurs after all non-flexible <a>sizing functions</a> have reached their maximum.
 		The total size of such rows or columns is subtracted from the available space, yielding the <dfn export>free space</dfn>,
-		which is then divided among the flex-sized rows and columns in proportion to their flex factor.
+		which is then divided among the flex-sized rows and columns in proportion to their <i>flex factor</i>.
 
 	<p class='note'>
 		Flexible lengths in a <a>track list</a> work similarly to flexible lengths with a zero base size in [[CSS3-FLEXBOX]].
 
 	<p>
 		Each column or row's share of the <a>free space</a> can be computed as the column or row's
-		<code>&lt;flex> * &lt;free space> / &lt;sum of all flex factors></code>.
+		<code>&lt;flex> * &lt;free space> / &lt;sum of all <i>flex factors</i></code>.
 		For the purpose of this calculation,
 		a flexible length in the <var>min</var> position of a ''minmax()'' function is treated as ''0'' (an inflexible length).
 
@@ -977,10 +977,10 @@ Flexible Lengths: the ''fr'' unit</h4>
 		flex-sized <a>grid tracks</a> are sized to their contents while retaining their respective proportions.
 		The used size of each flex-sized <a>grid track</a> is computed by
 		determining the ''max-content'' size of each flex-sized <a>grid track</a>
-		and dividing that size by the respective flex factor
-		to determine a <dfn export>hypothetical 1fr size</dfn>.
-		The maximum of those is used as the ''1fr'' length,
-		which is then multiplied by each <a>grid track</a>’s flex factor to determine its final size.
+		and dividing that size by the respective <i>flex factor</i>
+		to determine a “hypothetical ''1fr'' size”.
+		The maximum of those is used as the resolved ''1fr'' length (the <dfn>flex fraction</dfn>),
+		which is then multiplied by each <a>grid track</a>’s <i>flex factor</i> to determine its final size.
 
 
 <h4 id="subgrids">
@@ -3063,6 +3063,179 @@ Intrinsic Sizing</h3>
 	<p class='issue'>
 		This section'll need updating after the algorithm is rewritten.
 
+<h2 id='layout-algorithm-fantasai'>
+Rewritten Grid Layout Algorithm</h2>
+
+	<p class='issue'>
+		This should be functionally identical to the Microsoft algorithm.
+		If not, please let Tab and fantasai know in what cases it's not!
+
+	Each track has a <dfn title="minimum track size">minimum</dfn> and
+	a <dfn title="maximum track size">maximum</dfn> <i>sizing function</i>
+	(which may be the same).
+	Each <i>sizing function</i> is either:
+	<ul>
+		<li>A fixed size (<<length>> or resolved <<percentage>>).
+		<li>An intrinsic size (''min-content'' or ''max-content'').
+		<li>A flexible size (<<flex>>).
+	</ul>
+
+	The grid layout algorithm defines how to resolve these sizing constraints into used track sizes.
+	The grid items are then laid out into their respective <i>grid areas</i>.
+
+	<ol>
+		<li>First, the <i>track sizing algorithm</i> is used to resolve the sizes of the grid columns.
+		<li>Next, the <i>track sizing algorithm</i> resolves the sizes of the grid rows.
+		<li>Then, if the <i>min-size contribution</i> of any grid items have changed
+			based on the row sizes calculated in step 2,
+			steps 1 and 2 are repeated with the new <i>min-size contribution</i> (once only).
+			<p class='issue'>
+				What is this solving and is this the right solution?
+	</ol>
+
+	The remainder of this section is the <dfn>track sizing algorithm</dfn>. There are four steps:
+	<ol>
+		<li><a href="#init-sizes">Initializing Used Sizes</a>
+		<li><a href="#resolve-intrinsic">Resolving Intrinsic Track Sizes</a>
+		<li><a href="#resolve-minmax">Distributing Free Space to ''minmax()'' Ranges</a>
+		<li><a href="#resolve-flex">Distributing Free Space to Flexible Lengths</a>
+	</ol>
+
+<h3 id='init-sizes'>
+Initialize Minimum and Maximum Track Sizes</h3>
+
+	For fixed track sizes,
+	use that resolved size.
+
+	For intrinsic track sizes,
+	use an initial <i>minimum track size</i> of zero and an initial <i>maximum track size</i> of infinity.
+
+    For flexible track sizes,
+	use an initial <i>maximum track size</i> of infinity.
+
+	A flexible <i>minimum track size</i> is treated exactly as a fixed track size of zero;
+    except when the <i>grid container</i> is being sized under a <i>min-content constraint</i>,
+	in which case it is treated exactly as ''min-content''.
+	<span class='issue'>This seems correct, but should be checked because it wasn't in the original algorithm.</span>
+
+	These initial sizes will be resolved in subsequent steps.
+
+<h3 id="resolve-intrinsic">
+Resolve Intrinsic Track Sizes</h3>
+
+	The following steps resolve intrinsic track sizes to used lengths.
+	First it resolves those sizes based on items that are contained wholly within a single track.
+	Then it gradually adds in the space requirements of items that span multiple tracks,
+	evenly increasing their sizes insofar as possible.
+
+	<ol>
+		<li>
+			For each track with an intrinsic size, consider the items with a span of 1:
+			<ul>
+				<li>Set any ''min-content'' track size to the maximum of their <i>min-size contributions</i>.
+				<li>Set any ''max-content'' track size to the maximum of their <i>max-size contributions</i>.
+			</ul>
+		<li>
+			Next, consider the items with a span of 2
+			and that do not span a track with a flexible maximum size:
+			<ol>
+				<li>
+					First increase any ''min-content'' <i>minimum track sizes</i>
+					by <a href="#extra-space">distributing extra space</a>
+					as needed to any tracks with intrinsic minimum sizes
+					to account for these items' <i>min-size contributions</i>.
+				<li>
+					Next increase any ''max-content'' <i>minimum track sizes</i>
+					by <a href="#extra-space">distributing extra space</a>
+					as needed to any tracks with max-content minimum sizes
+					to account for these items' <i>max-size contributions</i>.
+				<li>
+					Third increase any ''min-content'' <i>maximum track sizes</i>
+					by <a href="#extra-space">distributing extra space</a>
+					as needed to any tracks with intrinsic maximum sizes
+					to account for these items' <i>min-size contributions</i>.
+				<li>
+					Lastly increase any ''max-content'' <i>maximum track sizes</i>
+					by <a href="#extra-space">distributing extra space</a>
+					as needed to any tracks with max-content maximum sizes
+					to account for these items' <i>min-size contributions</i>.
+			</ol>
+
+			Repeat incrementally for items with greater spans until all items have been considered.
+	</ol>
+
+	<p id='extra-space'>
+	To <dfn noexport>distribute extra space</dfn> required by a set of intrinsic size contributions,
+	<ol>
+		<li>
+			Maintain separately for each affected track size an amount of planned increase.
+			(This prevents the size increases from becoming order-dependent.)
+
+			For each considered item,
+			<ol>
+				<li>
+					Subtract the corresponding (non-infinite) sizes of all spanned tracks
+					from its size contribution to find the item's remaining size contribution.
+					This is the space to distribute.
+					<pre><var>extra-space</var> = <var>size-contribution</var> - ∑<var>track-sizes</var></pre>
+				<li>
+					Distribute the space evenly to the tracked increase of each spanned track with an affected size,
+					dropping maxed-out tracks as they hit their maximums.
+					<pre><var>track-size-increase</var> = max(<var>track-size-increase</var>, <var>share-of-extra-space</var>)</pre>
+				<li>
+					If space remains after all tracks max out, continue to increase&hellip;
+					<ul>
+						<li>
+							for ''min-content'' minimum sizes,
+							any affected tracks that happen to also have intrinsic maximum sizes;
+							else all affected tracks.
+						<li>
+							for ''max-content'' minimum sizes,
+							any affected tracks that happen to also have max-content maximum sizes;
+							else all affected tracks.
+						<li>for intrinsic maximum sizes,
+							all affected tracks
+					</ul>
+				<li>
+					Update the tracks' affected sizes by folding in the calculated increase
+					so that the next round of space distribution will account for the increase.
+			</ol>
+	</ol>
+
+	At this point, all intrinsic <i title="minimum track size">minimum</i>and <i title="maximum track size">maximum track sizes</i>
+	will have been resolved to their used lengths.
+
+<h3 id="resolve-minmax">
+Distribute Free Space to ''minmax()'' Ranges</h3>
+
+	Size all tracks to their <i>minimum track size</i>
+	and find the remaining space (the <i>free space</i>) in the <i>grid container</i>.
+	If sizing under a max-content constraint, the <i>free space</i> for this step is infinite.
+	If sizing under a min-content constraint, the <i>free space</i> for this step is zero.
+	If this <i>free space</i> is positive, distribute it evenly to all tracks,
+	dropping maxed-out tracks as they hit their maximum sizes.
+
+<h3 id="resolve-flex">
+Distribute Free Space to Flexible Lengths</h3>
+
+	If the remaining <i>free space</i> after the previous step is finite and positive,
+	find the <i>flex fraction</i> by dividing the this space by the sum of all the tracks' <i>flex factors</i>.
+
+	Otherwise, if the <i>free space</i> is not finite
+	(i.e. when the grid container's is sized under a max-content or preferred-size constraint
+	or it is auto-sized in infinite available space),
+	find the <i>flex fraction</i> by taking the maximum of:
+	<ul>
+		<li>
+			Each flexible track's minimum size divided by its <i>flex factor</i>.
+		<li>
+			The <i>max-size contribution</i> of each item in a flexible track divided by that track's <i>flex factor</i>.
+			For items that span multiple tracks,
+			first subtract the used sizes of all spanned non-flexible tracks from the item's <i>max-size contribution</i>,
+			then divide by the sum of all spanned flexible tracks' <i>flex factors</i>.
+	</ul>
+
+	Size each flexible track to the product of its <i>flex factor</i> and this calculated <i>flex fraction</i>.
 
 <h2 id='pagination'>
 Fragmenting Grid Layout</h2>
