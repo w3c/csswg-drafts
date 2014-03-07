@@ -11,7 +11,7 @@ Editor: Tab Atkins Jr., Google, http://xanthir.com/contact/
 Former Editor: John Daggett, Mozilla, jdaggett@mozilla.com
 Abstract: This CSS module describes events and interfaces used for dynamically loading font resources.
 Link Defaults: css-fonts-3 (descriptor) src
-Ignored Terms: promise, domstring, eventinit, cssfontfacerule, eventtarget, workerglobalscope, document
+Ignored Terms: domstring, eventinit, cssfontfacerule, eventtarget, workerglobalscope, document
 </pre>
 
 <h2 id="introduction">
@@ -31,6 +31,14 @@ Introduction</h2>
 	allowing font faces to be easily created and loaded from script.
 	It also provides methods to track the loading status of an individual font,
 	or of all the fonts on an entire page.
+
+<h3 id="values">
+Values</h3>
+
+	This specification uses <dfn interface title="Promise">Promises</dfn>.
+	Promises are currently defined by <a href="https://github.com/domenic/promises-unwrapping">Domenic Denicola's spec</a>,
+	but when TC39 is finished adding them to ECMAScript 6 their definition should be used instead.
+	HTML5Rocks has some <a href="http://www.html5rocks.com/en/tutorials/es6/promises/">good tutorial material introducing Promises</a>.
 
 <h2 id="fontface-interface">
 The <code>FontFace</code> Interface</h2>
@@ -66,13 +74,7 @@ The <code>FontFace</code> Interface</h2>
 
 			readonly attribute FontFaceLoadStatus status;
 
-			// If the font face's source is url-based and its status isn't
-			// "loading" or "loaded", this kicks off the load.
-			void load();
-
-			// Returns a promise that fulfills or rejects when the font face
-			// reached "loaded" or "error" status.
-			Promise ready();
+			Promise load();
 		};
 	</pre>
 
@@ -138,7 +140,7 @@ The Constructor</h3>
 		<li>
 			Let <var>font face</var> be a fresh <a>FontFace</a> object.
 			Set <var>font face's</var> <a for=FontFace>status</a> argument to <code>"unloaded"</code>.
-			Set its internal <a>[FontStatusPromise]</a> attribute to a newly-created promise object.
+			Set its internal <a>[FontStatusPromise]</a> attribute to a newly-created <a idl>Promise</a> object.
 			Return <var>font face</var>,
 			and complete the rest of these steps asynchronously.
 
@@ -182,6 +184,10 @@ The Constructor</h3>
 			and set <var>font face's</var> <a for=FontFace>status</a> attribute to "error".
 	</ol>
 
+	Note: Note that constructing a <a idl>FontFace</a> object <strong>does not</strong> automatically add it to the document's <a>font source</a>.
+	If it's desired that the newly-constructed <a idl>FontFace</a> object is usable from CSS/etc,
+	it must be explicitly added to a <a>font source</a>.
+
 <h3 id='font-face-load'>
 The <code>load()</code> method</h3>
 
@@ -201,13 +207,14 @@ The <code>load()</code> method</h3>
 		<li>
 			If <var>font face's</var> <a>[Urls]</a> attribute is <code>null</code>,
 			or its <a for=FontFace>status</a> attribute is anything other than <code>"unloaded"</code>,
-			abort this algorithm immediately.
+			return <var>font face's</var> <a>[FontStatusPromise]</a>
+			and abort these steps.
 
 		<li>
 			Otherwise,
 			set <var>font face's</var> <a for=FontFace>status</a> attribute to "loading",
-			return immediately,
-			and follow these steps asynchronously:
+			return <var>font face's</var> <a>[FontStatusPromise]</a>,
+			and continue executing the rest of this algorithm asynchronously.
 
 		<li>
 			Using the value of <var>font face's</a> <a>[Urls]</a> attribute,
@@ -231,36 +238,12 @@ The <code>load()</code> method</h3>
 	When this happens,
 	they must act as if they had called the corresponding <a interface>FontFace</a>’s <a method for=FontFace>load()</a> method described here.
 
-<h3 id='font-face-ready'>
-The <code>ready()</code> method</h3>
-
-	The <a method for=FontFace>ready()</a> method of <a interface>FontFace</a>
-	returns a Promise
-	which is fulfilled when the font face is successfully loaded,
-	or rejected when the font face fails to load or parse successfully.
-
-	When the <dfn method for="FontFace">ready()</dfn> method is called,
-	execute these steps:
-
-	<ol link-type=idl>
-		<li>
-			Let <var>font face</var> be the <a>FontFace</a> object on which this method was called.
-
-		<li>
-			Let <var>ready promise</var> be a newly-created promise object.
-
-		<li>
-			Resolve <var>ready promise</var> with <var>font face's</var> <a attribute>[FontStatusPromise]</a>.
-
-		<li>
-			Return <var>ready promise</var>.
-	</ol>
-
 <h3 id='font-face-css-connection'>
 Interaction with CSS’s ''@font-face'' Rule</h3>
 
 	A CSS ''@font-face'' rule automatically defines a corresponding <a interface>FontFace</a> object,
-	which is automatically placed in the document's <a>font source</a>.
+	which is automatically placed in the document's <a>font source</a>
+	when the rule is parsed.
 	This <a interface>FontFace</a> object is <dfn>CSS-connected</dfn>.
 
 	The <a interface>FontFace</a> object corresponding to a ''@font-face'' rule
@@ -330,14 +313,6 @@ The <code>FontFaceSet</code> Interface</h2>
 	content sometimes needs to understand when the loading of fonts occurs.
 	Authors can use the events and methods defined here to allow greater control over actions
 	that are dependent upon the availability of specific fonts.
-
-	The term <dfn>font load</dfn> indicates when the
-	loading of content for a given <a interface>FontFace</a> object completes.
-	A <a interface>FontFace</a> object may list multiple alternate resources
-	within its <a attribute>[Urls]</a> attribute,
-	including references to local fonts,
-	but the term font load only refers to the loading of the finally selected resource for a given <a interface>FontFace</a>,
-	not to the loading of each individual resource.
 
 	There are <dfn>no pending font loads</dfn> whenever all of the following are true:
 
@@ -669,7 +644,7 @@ The <code>ready()</code> method</h3>
 
 	Note: Note that the Promise returned by this <a method for=FontFaceSet>ready()</a> method is only ever fulfilled,
 	never rejected,
-	unlike the Promise returned by the <a interface>FontFace</a> <a method for=FontFace>ready()</a> method.
+	unlike the Promise returned by the <a interface>FontFace</a> <a method for=FontFace>load()</a> method.
 
 <h3 id='font-face-set-css'>
 Interaction with CSS Font Loading and Matching</h3>
@@ -689,6 +664,7 @@ Interaction with CSS Font Loading and Matching</h3>
 The <code>FontFaceSource</code> interface</h2>
 
 	<pre class='idl'>
+		[NoInterfaceObject]
 		interface FontFaceSource {
 			readonly attribute FontFaceSet fonts;
 		};
@@ -737,7 +713,7 @@ API Examples</h2>
 		To show content only after all font loads complete:
 
 		<pre>
-			document.FontFaceSet.ready().then(function() {
+			document.fonts.ready().then(function() {
 				var content = document.getElementById("content");
 				content.style.visibility = "visible";
 			});
@@ -787,27 +763,35 @@ API Examples</h2>
 		<strong>and</strong> text has been laid out without causing additional font loads:
 
 		<pre>
+			&lt;style>
 			@font-face {
 				font-family: latin-serif;
 				src: url(latinserif.woff) format("woff"); /* contains no kanji/kana */
 			}
-
 			@font-face {
 				font-family: jpn-mincho;
 				src: url(mincho.woff) format("woff");
 			}
+			@font-face {
+				font-family: unused;
+				src: url(unused.woff);
+			}
 
 			body { font-family: latin-serif, jpn-mincho; }
-
+			&lt;/style>
 			&lt;p>納豆はいかがでしょうか
 		</pre>
 
 		In this situation, the user agent first downloads “latinserif.woff”
-		and then tries to use this to draw the Japanese text.  But because no
-		Japanese glyphs are present in that font, fallback occurs and the font
-		“mincho.woff” is downloaded.  Only after the second font is downloaded
-		and the Japanese text laid out does the <a event>loadingdone</a>
-		event fire.
+		and then tries to use this to draw the Japanese text.
+		But because no Japanese glyphs are present in that font,
+		fallback occurs and the font “mincho.woff” is downloaded.
+		Only after the second font is downloaded and the Japanese text laid out does the <a event>loadingdone</a> event fire.
+
+		The "unused" font isn't loaded,
+		but no text is using it,
+		so the UA isn't even <em>trying</em> to load it.
+		It doesn't interfere with the <a event>loadingdone</a> event.
 	</div>
 
 
