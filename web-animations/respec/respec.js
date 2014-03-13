@@ -1604,7 +1604,6 @@ berjon.respec.prototype = {
             }
         }
         if (summaryProcessor) {
-            summaryProcessor.mergePartials();
             var df = summaryProcessor.makeMarkup(true);
             summary.appendChild(df);
         }
@@ -2316,41 +2315,6 @@ berjon.WebIDLProcessor.prototype = {
     parseExtendedAttributes:    function (str, obj) {
         str = str.replace(/^\s*\[([^\]]+)\]\s+/, function (x, m1) { obj.extendedAttributes = m1; return ""; });
         return str;
-    },
-
-    mergePartials: function() {
-        var objs = this.parent.children;
-        for (var i = 0; i < objs.length; i++) {
-            var child = objs[i];
-            if (!child.partial)
-                continue;
-
-            for (var j = 0; j < objs.length; j++) {
-                if (j === i || objs[j].refId !== child.refId)
-                    continue;
-
-                // Found match
-
-                // If the match is not a partial, use its position
-                if (!objs[j].partial) {
-                  var master = objs[j];
-                  master.children =
-                    master.children.concat(child.children);
-                  objs.splice(i, 1);
-                  --i;
-                // Otherwise, use the position of child
-                } else {
-                  var master = child;
-                  master.children =
-                    master.children.concat(objs[j].children);
-                  objs.splice(j, 1);
-                  if (j < i)
-                    --i;
-                }
-
-                break;
-            }
-        }
     },
 
     makeMarkup:    function (summaryOnly /*=false*/) {
