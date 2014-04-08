@@ -5,13 +5,13 @@
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
 #THE_YEAR = YYYY
-THE_YEAR = 2013
+THE_YEAR = 2014
 #THE_MONTH = MM
 THE_MONTH = 04
 #THE_MONTHNAME = MMMMM
 THE_MONTHNAME = April
 #THE_DAY = DD
-THE_DAY = 29
+THE_DAY = 08
 THE_STATUS = ED
 #THE_STATUS = REC
 THE_STATUSNAME = Editors Draft
