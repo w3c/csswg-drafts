@@ -393,12 +393,12 @@ sub elementSummary {
         $attributes .= '</span></li>';
       } elsif ($cat eq 'filter primitive') {
         $attributes .= "<li><a href='$attributeCategories{$cat}{href}'>$cat attributes</a><span class=expanding> — ";
-        $attributes .= join(', ', map { "<a element-attr for=filter-primitive>$_</a>" }
+        $attributes .= join(', ', map { "‘<a element-attr for=filter-primitive>$_</a>’" }
                             @{$attributeCategories{$cat}{attributesOrder}});
         $attributes .= '</span></li>';
       } elsif ($cat eq 'transfer function element') {
         $attributes .= "<li><a href='$attributeCategories{$cat}{href}'>$cat attributes</a><span class=expanding> — ";
-        $attributes .= join(', ', map { "<a element-attr for=feComponentTransfer>$_</a>" }
+        $attributes .= join(', ', map { "‘<a element-attr for=feComponentTransfer>$_</a>’" }
                             @{$attributeCategories{$cat}{attributesOrder}});
         $attributes .= '</span></li>';
       } elsif (defined $attributeCategories{$cat}{href}) {
@@ -418,7 +418,7 @@ sub elementSummary {
       $attributes .= "<li><a href='$href'><span class=attr-name>‘$attr’</span></a></li>";
     }
     for my $attr (@{$elements{$name}{attributesSpecific}}) {
-      $attributes .= "<li><a element-attr for=$name>$attr</a></li>";
+      $attributes .= "<li>‘<a element-attr for=$name>$attr</a>’</li>";
     }
   }
   if ($attributes eq '') {
