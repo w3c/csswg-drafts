@@ -24,7 +24,6 @@ if (!$inFile) {
 Draft:    http://www.w3.org/TR/2013/WD-css-text-decor-3-20130103/
 Title:    CSS Text Decoration Level 3
 ... anything else you want here, except 4 dashes ...
-... note: known status codes are Accepted/OutOfScope/Invalid/Rejected/Retracted
 
 ----
 Issue 1.
@@ -32,7 +31,7 @@ Summary:  [summary]
 From:     [name]
 Comment:  [url]
 Response: [url]
-Closed:   [status ... or replace this "Closed" line with "Open"]
+Closed:   [Accepted/OutOfScope/Invalid/Rejected/Retracted ... or replace this "Closed" line with "Open"]
 Verified: [url]
 Resolved: Editorial/Bugfix (for obvious fixes)/Editors' discretion/[url to minutes]
 ----
@@ -42,7 +41,13 @@ XXX
 
 # Input/Output setup
 my $outFile = $inFile;
-$outFile =~ s/\.txt/\.html/;
+if ($inFile =~ /\.txt$/) {
+  $outFile =~ s/\.txt/\.html/;
+}
+elsif ($inFile =~ /\.$/) { # tab completion case
+  $inFile .= 'txt';
+  $outFile .= 'html';
+}
 open IN,  "<", $inFile  || die "Cannot open $inFile: $!";
 open OUT, ">", $outFile || die "Cannot open $outFile: $!";
 $/ = "----\n";
