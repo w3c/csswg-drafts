@@ -1,0 +1,155 @@
+<h1>CSS Will Change Module Level 1</h1>
+
+<pre class='metadata'>
+Shortname: css-will-change
+Level: 1
+Status: FPWD
+Group: CSSWG
+ED: http://tabatkins.github.io/specs/css-will-change/
+Abstract: This document defines the 'will-change' CSS property, which allows an author to inform the UA ahead of time of what kinds of changes they are likely to make to an element.  This allows the UA to optimize how they handle the element ahead of time, performing potentially-expensive work preparing for an animation before the animation actually begins.
+Editor: Tab Atkins Jr., Google Inc., http://xanthir.com/contact/
+Link Defaults: css-transforms-1 (property) transform
+</pre>
+
+<h2 id='intro'>
+Introduction</h2>
+
+	Modern CSS renderers perform a number of complex optimizations in order to render webpages quickly and efficiently.
+	Unfortunately, employing these optimizations often has a non-trivial start-up cost,
+	which can have a negative impact on the responsiveness of a page.
+
+	<div class='example'>
+		For example, when using CSS 3D Transforms to move an element around the screen,
+		the element and its contents might be promoted to a “layer”,
+		where they can render independently from the rest of the page and be composited in later.
+		This isolates the rendering of the content so that the rest of the page doesn't have to be rerendered
+		if the element’s transform is the only thing that changes between frames,
+		and often provides significant speed benefits.
+
+		However, setting up the element in a fresh layer is a relatively expensive operation,
+		which can delay the start of a 'transform' animation by a noticeable fraction of a second.
+	</div>
+
+	The 'will-change' property defined in this specification allows an author to declare ahead-of-time what properties are likely to change in the future,
+	so the UA can set up the appropriate optimizations some time before they're needed.
+	This way, when the actual change happens,
+	the page updates in a snappy manner.
+
+<h2 id='will-change'>
+Hinting at Future Behavior: the 'will-change' property</h2>
+
+	<pre class='propdef'>
+	Name: will-change
+	Value: auto | <<animateable-feature>>#
+	Initial: auto
+	Applies to: all elements
+	Inherited: no
+	Percentages: n/a
+	Media: all
+	Computed value: specified value
+	</pre>
+
+	<pre class='prod'><dfn>&lt;animateable-feature></dfn> = scroll-position | contents | <<custom-ident>></pre>
+
+	The 'will-change' property provides a rendering hint to the user agent,
+	stating what kinds of changes the author expects to perform on the element.
+	This allows the user agent to perform ahead-of-time any optimizations necessary for rendering those changes smoothly,
+	avoiding “jank” when the author does begin changing or animating that feature.
+
+	Values have the following meanings:
+
+	<dl dfn-for="will-change" dfn-type="value">
+		<dt><dfn>auto</dfn>
+		<dd>
+			Expresses no particular intent;
+			the user agent should apply whatever heuristics and optimizations it normally does.
+
+		<dt><dfn>scroll-position</dfn>
+		<dd>
+			Indicates that the author expects to animate or change the scroll position of the element in the near future.
+
+			<p class='example'>
+				For example, browsers often only render the content in the "scroll window" on a scrollable element,
+				and some of the content past that window,
+				balancing memory and time savings from the skipped rendering against making scrolling look nice.
+				A browser might take this value as a signal to expand the range of content around the scroll window that is rendered,
+				so that longer/faster scrolls can be done smoothly.
+
+		<dt><dfn>contents</dfn>
+		<dd>
+			Indicates that the author expects to animate or change something about the element's contents in the near future.
+
+			<p class='example'>
+				For example, browsers often “cache” rendering of elements over time,
+				because most things don't change very often,
+				or only change their position.
+				However, if an element *does* change its contents regularly,
+				producing and maintaining this cache is a waste of time.
+				A browser might take this value as a signal to cache less aggressively on the element,
+				or avoid caching at all and just continually re-render the element from scratch.
+
+		<dt><dfn><<custom-ident>></dfn>
+		<dd>
+			Indicates that the author expects to animate or change the property with the given name on the element in the near future.
+
+			The <<custom-ident>> production used here excludes the keywords ''will-change'', ''none'', ''all'', ''auto'', ''scroll-position'', and ''contents'',
+			in addition to the keywords normally excluded from <<custom-ident>>.
+
+			Note: Note that most properties will have no effect when specified,
+			as the user agent doesn't perform any special optimizations for changes in most properties.
+			It is still <em>safe</em> to specify them, though;
+			it'll simply have no effect.
+
+			If any non-initial value of a property would create a stacking context on the element,
+			specifying that property in 'will-change' must create a stacking context on the element.
+
+			If any non-initial value of a property would cause the element to generate a containing block for fixed-position elements,
+			specifying that property in 'will-change' must cause the element to generate a containing block for fixed-position elements.
+
+			If a non-initial value of a property would cause rendering differences on the element
+			(such as using a different anti-aliasing strategy for text),
+			the user agent should use that alternate rendering when the property is specified in 'will-change',
+			to avoid sudden rendering differences when the property is eventually changed.
+
+			<p class='example'>
+				For example, browsers often handle elements with 'transform' set to a non-initial value very differently from normal elements,
+				perhaps rendering them to their own “GPU layer”
+				or using other mechanisms to make it easier to quickly make the sort of transformations that 'transform' can produce.
+				A browser might take a value of 'transform' as a signal
+				that it should go ahead and promote the element to its own layer immediately,
+				before the element starts to be transformed,
+				to avoid any delay involved in rerendering the old and new layers.
+	</dl>
+
+
+	<div class='example'>
+		For example, setting 'opacity' to any value other than ''1'' creates a stacking context on the element.
+		Thus, setting ''will-change: opacity'' also creates a stacking context,
+		even if 'opacity' is <em>currently</em> still equal to ''1''.
+	</div>
+
+	The 'will-change' property has no <em>direct</em> effect on the element it is specified on,
+	beyond the creation of stacking contexts and containing blocks as specified above.
+	It is solely a rendering hint to the user agent,
+	allowing it set up potentially-expensive optimizations for certain types of changes
+	before the changes actually start occurring.
+
+	<div class='note'>
+		Different browsers can use the information from 'will-change' in different ways,
+		and even a single browser might use it in different ways at different time.
+		For example, a browser that promotes elements to their own “GPU layer”
+		when they have ''will-change: transform'' specified
+		might avoid doing that when there are <em>too many</em> elements declaring that,
+		to avoid exhausting GPU memory.
+
+		Authors should avoid overusing this property,
+		and shouldn't apply it to an element unless it is known (or expected)
+		that the element will change in the indicated way soon.
+		For example, applying 'will-change' to an element from a static CSS stylesheet
+		is probably an error;
+		most of the time,
+		'will-change' should be applied by scripting,
+		some time shortly before starting an animation or other change,
+		and should be promptly reset to its initial value of ''auto''
+		when the element stops changing.
+	</div>
