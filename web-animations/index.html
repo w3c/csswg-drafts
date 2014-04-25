@@ -5112,8 +5112,78 @@ The slope of the graph is equal for the first two segments but changes for the l
       </div> <!-- informative -->
       <p>
         A <dfn>custom effect</dfn> is an author-defined programming callback
-        that is passed timing information whenever a <a>sample</a> is performed.
+        that is passed timing information for each
+        referencing <a>animation</a> whenever a <a>sample</a> is performed
+        according to the following steps:
       </p>
+      <ol>
+        <li>If, on the previous sample, the <a>animation</a> referencing the
+            <a>custom effect</a>:
+          <ul>
+            <li>was <a>in effect</a>, and
+            <li>referenced this same <a>custom effect</a>, and
+            <li>had a different <a>animation target</a>
+          </ul>
+          <p>
+            Call the callback passing a null <a>time fraction</a> and the
+            <a>animation target</a> from the previous sample as parameters to
+            the callback.
+          </p>
+        <li>Call the callback for the current <a>animation target</a> based on
+            the first matching condition from the following:
+          <dl class="switch">
+            <dt>If the <a>animation</a> referencing the custom effect is not
+                <a>in effect</a> but was <a>in effect</a> in the previous
+                sample,
+            </dt>
+            <dd>
+              Call the callback passing a null <a>time fraction</a> and the
+              current <a>animation target</a> as parameters to the callback.
+            </dd>
+            <dt>Otherwise, if the <a>animation</a> referencing the custom
+                effect:
+              <ul>
+                <li>is <a>in effect</a>, and
+                <li>was not <a>in effect</a> in the previous <a>sample</a>, or
+                    was <a>in effect</a> but with a different <a>time
+                    fraction</a> or <a>current iteration</a>,
+              </ul>
+            </dt>
+            <dd>
+              Call the callback passing with the referencing <a>animation</a>'s
+              current <a>time fraction</a> and <a>animation target</a> as
+              parameters to the callback.
+            </dd>
+          </dl>
+      </ol>
+      <div class="issue">
+        <p>
+          There may be use cases where an action needs to be triggered at
+          a specific point in an animation tree.
+          In many cases this can be achieved by inserting a custom effect with
+          a step-start easing that spans the period during which the action
+          should be triggered.
+          However, this can impose additional layout requirements on the content
+          which might be cumbersome to accomodate.
+        </p>
+        <p>
+          Some alternatives under consideration:
+        </p>
+        <ul>
+          <li>Additional calling conditions could be defined to accommodate
+              zero-width custom effects. For example, it could be required that
+              the callback be called if (given infinite precision) there was
+              a time between the previous and current sample times that aligned
+              with the custom effect.
+          <li>Instead of adding special calling conditions to custom effects,
+              a new type of timed item, Trigger, could be introduced. The
+              trigger would only ever act as a zero-width custom effect as
+              described above, its constructor would take a callback function,
+              but not require a target or timing. It could also specify other
+              calling conventions, for example whether it should only trigger in
+              a specific playback direction.
+        </ul>
+      </div>
       <section>
         <h4>Execution order of custom effects</h4>
         <p>
@@ -6552,6 +6622,11 @@ interface Duration {
               May be <code>null</code> in which case the animation will produce
               no observable effect.
             </p>
+            <p class="issue">
+              On setting, if the previous value was an <a>EffectCallback</a>, we
+              should call the old callback with a null time fraction so it can
+              clear its result.
+            </p>
           </dd>
           <dt>attribute Animatable? target</dt>
           <dd>
@@ -7652,26 +7727,34 @@ elem.animate({ left: '100px' }, 3000);
               When this is <code>null</code>, the function SHOULD
               remove the effect.
             </dd>
+            <dt>Animatable currentTarget</dt>
+            <dd>
+              <p>
+                The <a>animation target</a> on which this callback is expected
+                to operate.
+              </p>
+              <div class="note">
+                <p>
+                  Note that <var>currentTarget</var> may differ from
+                  <code><var>animation</var>.target</code>.
+                </p>
+                <p>
+                  If the <a>animation target</a> of <var>animation</var>
+                  is changed between samples, this method will be
+                  called once with a null <var>timeFraction</var> and the
+                  previous <a>animation target</a> as the
+                  <var>currentTarget</var>, then again with the current
+                  <var>timeFraction</var> and the updated <a>animation
+                  target</a> as the <var>currentTarget</var>.
+                  This allows the animation effect to be removed from the old
+                  <a>animation target</a>.
+                </p>
+              </div>
+            </dd>
             <dt>Animation animation</dt>
             <dd>
               The <a title="Animation interface">Animation</a> object that is
               being sampled.
-            </dd>
-            <dt>double? previousTimeFraction</dt>
-            <dd>
-              <p>
-                The value of <var>timeFraction</var> that was passed to this
-                <a>EffectCallback</a> when it was previously called in the
-                context of sampling the same <a>Animation</a> that generated the
-                current call.
-              </p>
-              <p>
-                If this <a>EffectCallback</a> has not previously been called
-                within the context of sampling the same <a>Animation</a> as
-                with the current call, or if the <a>time fraction</a> was
-                <code>null</code> on the previous call, this parameter will be
-                <code>null</code>.
-              </p>
             </dd>
           </dl>
         </div>
@@ -8094,6 +8177,7 @@ elem.animate({ left: '100px' }, 3000);
             <a>spacing points</a>, and <a>point offsets</a> to <a>motion path
             animation effects</a> in order to support all the features of SVG's
             <code>animateMotion</code> element.
+        <li>Clarified the conditions for calling <a>custom effects</a>.
         <li>Removed custom effect priorities.
         <li>Renamed the <code>Timeline</code> interface to
             <a>AnimationTimeline</a>.
