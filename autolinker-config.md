@@ -54,13 +54,6 @@ css-align-3
 * justify-content
 * justify-items
 
-css-backgrounds-4
------------------
-* border-top-width
-* border-left-width
-* border-right-width
-* border-bottom-width
-
 css-break-3
 -----------
 * break-before
