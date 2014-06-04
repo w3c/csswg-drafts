@@ -2612,13 +2612,15 @@ berjon.WebIDLProcessor.prototype = {
     makeMethodID:    function (cur, obj) {
         var refId = obj.refId ? obj.refId
                               : obj.special ? obj.special : "anon";
-        var id = cur + refId + "-" + obj.datatype + "-";
+        var id = cur + refId + " " + obj.datatype + " ";
         var params = [];
         for (var i = 0, n = obj.params.length; i < n; i++) {
             var prm = obj.params[i];
-            params.push(prm.datatype + (prm.array ? "Array" : "") + "-" + prm.id)
+            params.push(prm.datatype + (prm.array ? "Array" : "") + " " + prm.id)
         }
-        id += params.join("-");
+        id += params.join(" ");
+        // Don't make contiguous whitespace significant
+        id = id.replace(/\s+/g, " ");
         return sn.sanitiseID(id);
         // return sn.idThatDoesNotExist(id);
     },
