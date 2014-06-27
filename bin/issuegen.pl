@@ -62,7 +62,7 @@ while (<IN>) {
   s/</&lt;/g;
 
   # Issue number
-  s/Issue (\d+)\./Issue \1. <a href="#issue-\1">#<\/a>/;
+  s/Issue (\d+)\./Issue \1. <a href='#issue-\1'>#<\/a>/;
   $index = $1;
 
   # Color coding
@@ -80,10 +80,12 @@ while (<IN>) {
 
   # And print it
   print OUT "<pre class='$code' id='issue-$index'>\n";
-  s/(http\S+)/<a href="\1">\1<\/a>/g;
+  s/(http\S+)/<a href='\1'>\1<\/a>/g;
   print OUT;
   print OUT "</pre>\n";
 }
+
+&script;
 
 sub header {
   # Read header
@@ -107,7 +109,8 @@ sub header {
 
   # Print it all out
   print OUT <<XXX;
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<!DOCTYPE html>
+<meta charset="utf-8">
 <title>$title Disposition of Comments for $date $status</title>
 <style type="text/css">
   .a  { background: lightgreen }
@@ -139,5 +142,32 @@ sub header {
 <p>An issue can be closed as <code>Accepted</code>, <code>OutOfScope</code>,
 <code>Invalid</code>, <code>Rejected</code>, or <code>Retracted</code>.
 <code>Verified</code> indicates commentor's acceptance of the response.</p>
+XXX
+}
+
+sub script {
+	print OUT <<XXX;
+<script>
+(function () {
+	var sheet = document.styleSheets[0];
+	function addCheckbox(className) {
+		var element = document.querySelector('*.' + className);
+		var span = document.createElement('span');
+		span.innerHTML = element.innerHTML;
+		element.innerHTML = null;
+		var check = document.createElement('input');
+		check.type = 'checkbox';
+		check.checked = true;
+		sheet.addRule('pre.' + className, '');
+		var rule = sheet.rules[sheet.rules.length - 1];
+		check.onchange = function (e) {
+			rule.style.display = this.checked ? 'block' : 'none';
+		}
+		element.appendChild(check);
+		element.appendChild(span);
+	}
+	['a', 'd', 'fo', 'oi', 'r', 'open'].forEach(addCheckbox);
+}());
+</script>
 XXX
 }
