@@ -17,13 +17,14 @@
 
 my $inFile = $ARGV[0];
 if (!$inFile) {
-  print "\nPass in issues list filename for processing!\n\n";
+  print "\nPass in issues list filename for processing!";
+  print "\nOr use argument 'help' for help.\n\n";
   print "~~~~~~~~~~~~~~~~~~~~~ Template for issues-list.txt ~~~~~~~~~~~~~~~~~~~~~\n";
   print <<XXX;
 
 Draft:    http://www.w3.org/TR/2013/WD-css-text-decor-3-20130103/
 Title:    CSS Text Decoration Level 3
-... anything else you want here, except 4 dashes ...
+... any notes you want here, except 4 dashes ...
 
 ----
 Issue 1.
@@ -31,10 +32,87 @@ Summary:  [summary]
 From:     [name]
 Comment:  [url]
 Response: [url]
-Closed:   [Accepted/OutOfScope/Invalid/Rejected/Retracted ... or replace this "Closed" line with "Open"]
+Closed:   [Accepted/OutOfScope/Invalid/Rejected/Retracted/Deferred ... or replace this "Closed" line with "Open"]
 Verified: [url]
 Resolved: Editorial/Bugfix (for obvious fixes)/Editors' discretion/[url to minutes]
 ----
+XXX
+  exit;
+}
+if ($inFile eq 'help') {
+  print <<XXX;
+
+Welcome to fantasai's Issues List Generator!
+
+This is a script that converts a plaintext (.txt) issues list into a
+color-coded HTML file of the same name (but .html file extension).
+The input is itself a presentable, easily-editable file designed
+mostly for the editor’s convenenience.
+
+The original purpose of this format is to create a Disposition of
+Comments for the W3C's LCWD->CR transition process. However, it is
+also useful for tracking issues in general and can be used as such.
+There is no requirement to use this format; fantasai merely found it
+the most convenient way to track issues and create a DoC.
+
+Beyond the header, the script itself only processes the dividers,
+the issue number, and the status (Closed/Open). Additional fields
+may be added or removed as desired; they are merely passed through.
+
+fantasai suggests the following fields, as seen in the template:
+
+Summary:  A one-line summary of the issue, so that a reviewer can
+          quickly grasp what the issue was about.
+
+From:     The name of the commenter.
+
+Comment:  URL to the message that most clearly presents the issue.
+          Usually the initial message in a thread, but not always.
+          This is the hook into the discussion, where further details
+          can be read.
+
+Response: URL to the editor’s response that is intended to close
+          the issue: usually either reporting changes made to the
+          spec, or explaining why changes aren't being made.
+          Note this is not always the first reply from the editor.
+
+The Comment/Response lines can be repeated if new responses are
+made presenting information that reopens the issue; however the
+entire thread shouldn't be tracked, only key messages. The goal
+is to minimize the effort required for someone reviewing the issues
+to understand this issue and its resolution.
+
+Closed:   A status line on how the issue was closed. Triggers colors.
+
+Verified: URL to a message where the commenter indicates satisfaction
+          with the resolution of the issue.
+          (If the status was Rejected, this will turn the color green.)
+          It's helpful to get the commenter's feedback on the changes,
+          since they will often notice any mistakes. Verification
+          indicates full closure of the issue.
+
+Resolved: I use this line to track by what authority the issue was closed.
+          It makes me think explicitly about whether the WG or anyone
+          else should be consulted for solutions/review/approval.
+          Values applicable to the CSSWG include:
+            Editorial - no substantive change
+            Bugfix    - fixes an obvious error with an obvious solution
+            [URL]     - link to WG resolution closing the issue
+            Editor's discretion - 
+              This is the tricky one. It's used in cases where
+                1. the solution isn't obvious (not Bugfix)
+                2. the impact of the solution is minor and localized:
+                     * there is no cross-module impact
+                     * there is no cross-module consistency concern
+                     * it is unlikely to affect implementation architecture
+                3. no syntax/API is affected
+                4. there is consensus on the mailing list, at least
+                   among the people involved in the discussion; and
+                   nobody not involved is likely to care
+              It is also occasionally used to close issues as No Change
+              in cases where the commenter is clueless or the requested
+              change would clearly violate a WG design principle.
+~fantasai
 XXX
   exit;
 }
@@ -73,7 +151,7 @@ while (<IN>) {
   elsif (/\n(?:Closed|Open):\s+(\S+)/) {
     $code = $statusStyle{lc $1};
   }
-  if (/\nOpen/) {
+  if (/\nOpen/ or /\nResolved:\s+Open/) {
     $code .= ' ' if $code;
     $code .= 'open';
   }
