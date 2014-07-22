@@ -32,9 +32,9 @@ Summary:  [summary]
 From:     [name]
 Comment:  [url]
 Response: [url]
-Closed:   [Accepted/OutOfScope/Invalid/Rejected/Retracted/Deferred ... or replace this "Closed" line with "Open"]
+Closed:   Accepted/OutOfScope/Invalid/Rejected/Retracted/Deferred ... or replace this line with "Open"
 Verified: [url]
-Resolved: Editorial/Bugfix (for obvious fixes)/Editors' discretion/[url to minutes]
+Resolved: Editorial/Bugfix (for obvious fixes)/Editor discretion/[url to minutes]
 ----
 XXX
   exit;
@@ -83,6 +83,7 @@ is to minimize the effort required for someone reviewing the issues
 to understand this issue and its resolution.
 
 Closed:   A status line on how the issue was closed. Triggers colors.
+          Replacing "Closed" with "Open" marks the issue unresolved.
 
 Verified: URL to a message where the commenter indicates satisfaction
           with the resolution of the issue.
@@ -98,7 +99,7 @@ Resolved: I use this line to track by what authority the issue was closed.
             Editorial - no substantive change
             Bugfix    - fixes an obvious error with an obvious solution
             [URL]     - link to WG resolution closing the issue
-            Editor's discretion - 
+            Editor discretion - 
               This is the tricky one. It's used in cases where
                 1. the solution isn't obvious (not Bugfix)
                 2. the impact of the solution is minor and localized:
@@ -145,13 +146,13 @@ while (<IN>) {
 
   # Color coding
   $code = '';
-  if (/\nVerified:\s+http/) {
+  if (/\nVerified:\s+\S+/) {
     $code = 'a';
   }
   elsif (/\n(?:Closed|Open):\s+(\S+)/) {
     $code = $statusStyle{lc $1};
   }
-  if (/\nOpen/ or /\nResolved:\s+Open/) {
+  if (/\nOpen/) {
     $code .= ' ' if $code;
     $code .= 'open';
   }
