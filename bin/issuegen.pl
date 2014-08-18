@@ -236,12 +236,21 @@ sub script {
 		element.innerHTML = null;
 		var check = document.createElement('input');
 		check.type = 'checkbox';
-		check.checked = true;
-		sheet.addRule('pre.' + className, '');
-		var rule = sheet.rules[sheet.rules.length - 1];
-		check.onchange = function (e) {
-			rule.style.display = this.checked ? 'block' : 'none';
+		if (className == 'open') {
+			check.checked = false;
+			sheet.insertRule('pre:not(.open)' + '{}', sheet.cssRules.length);
+			check.onchange = function (e) {
+				rule.style.display = this.checked ? 'none' : 'block';
+			}
 		}
+		else {
+			check.checked = true;
+			sheet.insertRule('pre.' + className + '{}', sheet.cssRules.length);
+			check.onchange = function (e) {
+				rule.style.display = this.checked ? 'block' : 'none';
+			}
+		}
+		var rule = sheet.cssRules[sheet.cssRules.length - 1];
 		element.appendChild(check);
 		element.appendChild(span);
 	}
