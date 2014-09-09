@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<title>Universal Default Justification Experiment</title>
+<meta charset=utf-8>
+<style id="renderStyle">
+.space { }
+.letter { }
+</style>
+
+<h1>Universal Default Justification Experiment</h1>
+
+<p id="render"></p>
+
+<form>
+<label>Text to Justify: <textarea name=text id=text>서울특별시(서울特別市)는 한반도</textarea></label>
+<label>Space-CJK Threshold: <input id=cjk name=cjk value=1></label>
+<!-- <label>Space-SEA Threshold: <input id=sea name=sea value=3></label> -->
+<label>Split Hangul-Han: <input type=checkbox name=splitHangul id=splitHangul></label>
+<p  onclick="render()" style="color: green; font-weight: bold; cursor: pointer;">Render!</p>
+</form>
+
+<style>
+form { text-align: right; display: table; width: 100%; }
+textarea { display: table-row; margin: auto; vertical-align: top; }
+label { display: table-row; font-size: smaller; font-weight: bold; }
+input, textarea { width: calc(96vw - 15rem); box-sizing: border-box; }
+#render {
+  box-shadow: 0.25em 0.25em 0.5em;
+  border: solid 1px silver;
+  min-height: 1em;
+  max-width: 15em;
+  margin: 1.5em auto 2em;
+  white-space: nowrap;
+  position: relative;
+}
+</style>
+
+<script>
+charCats = {
+  // copied from http://fluxbb.org/forums/viewtopic.php?id=3866
+  'space' :
+    ' ' // U+0020
+  ,
+  'hangul' :
+    '[\u1100-\u11FF' + // Hangul Jamo                          1100-11FF        (http://www.fileformat.info/info/unicode/block/hangul_jamo/index.htm)
+     '\u3130-\u318F' + // Hangul Compatibility Jamo            3130-318F        (http://www.fileformat.info/info/unicode/block/hangul_compatibility_jamo/index.htm)
+     '\uAC00-\uD7AF]'   // Hangul Syllables                     AC00-D7AF        (http://www.fileformat.info/info/unicode/block/hangul_syllables/index.htm)
+  ,
+  'han' :
+    '[\u2E80-\u2EFF' + // CJK Radicals Supplement                2E80-2EFF        (http://www.fileformat.info/info/unicode/block/cjk_radicals_supplement/index.htm)
+     '\u2F00-\u2FDF' + // Kangxi Radicals                        2F00-2FDF        (http://www.fileformat.info/info/unicode/block/kangxi_radicals/index.htm)
+     '\u2FF0-\u2FFF' + // Ideographic Description Characters    2FF0-2FFF        (http://www.fileformat.info/info/unicode/block/ideographic_description_characters/index.htm)
+     '\u3000-\u303F' + // CJK Symbols and Punctuation            3000-303F        (http://www.fileformat.info/info/unicode/block/cjk_symbols_and_punctuation/index.htm)
+     '\u31C0-\u31EF' + // CJK Strokes                            31C0-31EF        (http://www.fileformat.info/info/unicode/block/cjk_strokes/index.htm)
+     '\u3200-\u32FF' + // Enclosed CJK Letters and Months        3200-32FF        (http://www.fileformat.info/info/unicode/block/enclosed_cjk_letters_and_months/index.htm)
+     '\u3400-\u4DBF' + // CJK Unified Ideographs Extension A    3400-4DBF        (http://www.fileformat.info/info/unicode/block/cjk_unified_ideographs_extension_a/index.htm)
+     '\u4E00-\u9FFF]'  // CJK Unified Ideographs                4E00-9FFF        (http://www.fileformat.info/info/unicode/block/cjk_unified_ideographs/index.htm)
+     // '\u20000-\u2A6DF' // CJK Unified Ideographs Extension B    20000-2A6DF    (http://www.fileformat.info/info/unicode/block/cjk_unified_ideographs_extension_b/index.htm)
+  ,
+  'kana' :
+    '[\u3040-\u30FF]'        // Kana
+};
+
+function render() {
+  var renderer = document.getElementById('render');
+  var text = document.getElementById('text').value;
+  var charList = [];
+  for (c in text) {
+    charList.push('<span>' + text[c] + '</span>');
+  }
+  renderer.innerHTML = charList.join('');
+  document.getElementById('renderStyle').textContent = '';
+
+  var splitHangul = document.getElementById('splitHangul').checked;
+  var charList = renderer.childNodes;
+  var numSpaces = 0; // number of spaces
+  var numCJK = 0;    // number of stretchable gaps around CJK
+  for (var c of charList) {
+    if (c.textContent.match(charCats['space'])) {
+      c.setAttribute('class', 'space');
+      numSpaces++;
+    }
+    else {
+      n = c.nextSibling;
+      if (!n) break; // no space after last char
+      if (c.textContent.match(charCats['han']) ||
+          (c.textContent.match(charCats['hangul']) && !splitHangul)) {
+        c.setAttribute('class', 'cjk');
+        numCJK++;
+      }
+      else if (n && n.textContent.match(charCats['han']) ||
+                (n.textContent.match(charCats['hangul']) && !splitHangul)) {
+        numCJK++;
+      }
+    }
+  }
+  //alert(charList.length + ',' + numSpaces + ',' + numCJK);
+
+  /* Calculate Space */
+  renderWidth = renderer.offsetWidth;
+  renderWidth -= getComputedStyle(renderer).borderLeftWidth.slice(0,-2);
+  renderWidth -= getComputedStyle(renderer).borderRightWidth.slice(0,-2);
+  renderWidth -= getComputedStyle(renderer).paddingLeft.slice(0,-2);
+  renderWidth -= getComputedStyle(renderer).paddingRight.slice(0,-2);
+
+  lastChar = charList[charList.length-1];
+  contentSize = lastChar.offsetLeft + lastChar.offsetWidth;
+
+  spaceToFill = renderWidth - contentSize;
+  x = spaceToFill;
+
+  /* Split Space */
+  fontSize = getComputedStyle(renderer).fontSize.slice(0,-2);
+  cjkSpaceLimit = document.getElementById('cjk').value * fontSize;
+  //seaSpaceLimit = document.getElementById('sea').value * fontSize;
+  
+  addToSpace = spaceToFill / numSpaces;
+  if (addToSpace > cjkSpaceLimit)
+    addToSpace = cjkSpaceLimit;
+  spaceToFill -= addToSpace * numSpaces;
+  
+  addToCJK = spaceToFill / (numCJK+numSpaces);
+  //alert(renderWidth + ' - ' + contentSize + ' = ' + x + ' = ' + numSpaces + '*' + addToSpace + '+' + (numCJK+numSpaces) + '*' + addToCJK);
+
+  document.getElementById('renderStyle').textContent = 
+    '.space { padding-right: ' + (addToSpace+addToCJK) + 'px; }\n' +
+    '.cjk { padding: 0 ' + addToCJK + 'px; }\n' +
+    ':first-child, .cjk + .cjk { padding-left: 0; }'; 
+}
+</script>
+
