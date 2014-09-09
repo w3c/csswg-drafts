@@ -10,12 +10,16 @@
 
 <p id="render"></p>
 
-<form>
+<form action="">
 <label>Text to Justify: <textarea name=text id=text>서울특별시(서울特別市)는 한반도</textarea></label>
-<label>Space-CJK Threshold: <input id=cjk name=cjk value=1></label>
-<!-- <label>Space-SEA Threshold: <input id=sea name=sea value=3></label> -->
+<label>Space-CJK Threshold: <input id=cjk name=cjk value=0.67></label>
+<!-- <label>Space-SEA Threshold: <input id=sea name=sea value=2.67></label> -->
 <label>Split Hangul-Han: <input type=checkbox name=splitHangul id=splitHangul></label>
-<p  onclick="render()" style="color: green; font-weight: bold; cursor: pointer;">Render!</p>
+<ul>
+<li class="button" style="color: green"  onclick="render()">Render!</li>
+<li class="button" style="color: orange" onclick="save()" >Save!</li>
+<li class="button" style="color: red"    onclick="window.location = window.location.href.match('^[^#\?]+')">Reset!</li>
+</ul>
 </form>
 
 <style>
@@ -31,11 +35,20 @@ input, textarea { width: calc(96vw - 15rem); box-sizing: border-box; }
   margin: 1.5em auto 2em;
   white-space: nowrap;
   position: relative;
+  font-size: 200%;
 }
+.button {
+  font-weight: bold; cursor: pointer;
+  border: solid; border-radius: 0.5em; padding: 0.1em 0.25em;
+}
+ul, li { margin: 1em 0; padding: 0; list-style: none; text-align: center; }
+li { display: inline; }
 </style>
 
 <script>
-charCats = {
+'use strict';
+
+var charCats = {
   // copied from http://fluxbb.org/forums/viewtopic.php?id=3866
   'space' :
     ' ' // U+0020
@@ -75,51 +88,55 @@ function render() {
   var numSpaces = 0; // number of spaces
   var numCJK = 0;    // number of stretchable gaps around CJK
   for (var c of charList) {
+    var n = c.nextSibling;
     if (c.textContent.match(charCats['space'])) {
       c.setAttribute('class', 'space');
       numSpaces++;
+      if (n && n.textContent.match(charCats['han']) ||
+          (n.textContent.match(charCats['hangul']) && !splitHangul)) {
+        numCJK++;
+      }
     }
     else {
-      n = c.nextSibling;
       if (!n) break; // no space after last char
       if (c.textContent.match(charCats['han']) ||
           (c.textContent.match(charCats['hangul']) && !splitHangul)) {
         c.setAttribute('class', 'cjk');
         numCJK++;
       }
-      else if (n && n.textContent.match(charCats['han']) ||
+      else if (n.textContent.match(charCats['han']) ||
                 (n.textContent.match(charCats['hangul']) && !splitHangul)) {
         numCJK++;
       }
     }
   }
-  //alert(charList.length + ',' + numSpaces + ',' + numCJK);
+  console.log(charList.length + ' chars: ' + numSpaces + ' spaces, ' + numCJK + ' cjk gaps');
 
   /* Calculate Space */
-  renderWidth = renderer.offsetWidth;
+  var renderWidth = renderer.offsetWidth;
   renderWidth -= getComputedStyle(renderer).borderLeftWidth.slice(0,-2);
   renderWidth -= getComputedStyle(renderer).borderRightWidth.slice(0,-2);
   renderWidth -= getComputedStyle(renderer).paddingLeft.slice(0,-2);
   renderWidth -= getComputedStyle(renderer).paddingRight.slice(0,-2);
 
-  lastChar = charList[charList.length-1];
-  contentSize = lastChar.offsetLeft + lastChar.offsetWidth;
+  var lastChar = charList[charList.length-1];
+  var contentSize = lastChar.offsetLeft + lastChar.offsetWidth;
 
-  spaceToFill = renderWidth - contentSize;
-  x = spaceToFill;
+  var spaceToFill = renderWidth - contentSize;
+  var x = spaceToFill;
 
   /* Split Space */
-  fontSize = getComputedStyle(renderer).fontSize.slice(0,-2);
-  cjkSpaceLimit = document.getElementById('cjk').value * fontSize;
-  //seaSpaceLimit = document.getElementById('sea').value * fontSize;
+  var fontSize = getComputedStyle(renderer).fontSize.slice(0,-2);
+  var cjkSpaceLimit = document.getElementById('cjk').value * fontSize;
+  //var seaSpaceLimit = document.getElementById('sea').value * fontSize;
   
-  addToSpace = spaceToFill / numSpaces;
+  var addToSpace = spaceToFill / numSpaces;
   if (addToSpace > cjkSpaceLimit)
     addToSpace = cjkSpaceLimit;
   spaceToFill -= addToSpace * numSpaces;
   
-  addToCJK = spaceToFill / (numCJK+numSpaces);
-  //alert(renderWidth + ' - ' + contentSize + ' = ' + x + ' = ' + numSpaces + '*' + addToSpace + '+' + (numCJK+numSpaces) + '*' + addToCJK);
+  var addToCJK = spaceToFill / (numCJK+numSpaces);
+  console.log(renderWidth + ' - ' + contentSize + ' = ' + x + ' = ' + numSpaces + '*' + addToSpace + ' + ' + (numCJK+numSpaces) + '*' + addToCJK);
 
   document.getElementById('renderStyle').textContent = 
     '.space { padding-right: ' + (addToSpace+addToCJK) + 'px; }\n' +
@@ -128,3 +145,41 @@ function render() {
 }
 </script>
 
+<script>
+/* Onload */
+  /* Decode query and load into inputs */
+  var query = window.location.hash.slice(1);
+  if (!query) {
+    query = window.location.href.match('\\?[^\\?]+');
+  }
+  if (query) {
+    var pairs = decodeURIComponent(query[0].slice(1)).split('&&');
+    for (var pair of pairs) {
+      var [name, value] = pair.split('=');
+      var field = document.getElementById(name);
+      field.value = value;
+      if (field.type == 'checkbox') {
+        field.setAttribute('checked', 'checked');
+      }
+    }
+  }
+  /* Then render it*/
+  render();
+
+function save() {
+  var pairs = [];
+  var fields = document.getElementsByTagName('input');
+  for (var i = 0; i < fields.length; i++) {
+    if (fields[i].type == 'checkbox') {
+      pairs.push(fields[i].id + '=' + fields[i].id);
+    }
+    else {
+      pairs.push(fields[i].id + '=' + fields[i].value);
+    }
+  }
+  // put this one last so URL is more hackable
+  pairs.push('text=' + document.getElementById('text').value);
+  var location = window.location.href.match('^[^#\?]+');
+  window.location = location[0] + '?' + pairs.join('&&');
+}
+</script>
