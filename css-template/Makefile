@@ -13,20 +13,22 @@
 # -F omitdchtml=on
 # e.g., like this: make opts="-F ids=on -F omitdchtml=on"
 
-cdate =
-status =
-opts =
+cdate ?=
+status ?=
+group ?= CSS
+opts ?=
+target ?= Overview
 
 %.html: %.src.html
 	@echo "Calling post-processor to generate $@..."
-	@curl -K ~/.curl-w3.org -s -S -F output=html -F file=@$< -F group=CSS \
-	-F method=file -F date=$(cdate) -F status=$(status) $(opts) -o $@ \
-	https://www.w3.org/Style/Group/process.cgi
+	@curl -K ~/.curl-w3.org -s -S -F output=html -F file=@$< \
+	-F group=$(group) -F method=file -F date=$(cdate) -F status=$(status) \
+	$(opts) -o $@ https://www.w3.org/Style/Group/process.cgi
 %.err: %.src.html
 	@echo "Calling post-processor to check $<..."
-	@curl -K ~/.curl-w3.org -s -S -F output=err -F file=@$< -F group=CSS \
-	-F method=file -F date=$(cdate) -F status=$(status) $(opts) -o $@ \
-	https://www.w3.org/Style/Group/process.cgi
+	@curl -K ~/.curl-w3.org -s -S -F output=err -F file=@$< \
+	-F group=$(group) -F method=file -F date=$(cdate) -F status=$(status) \
+	$(opts) -o $@ https://www.w3.org/Style/Group/process.cgi
 
 # For Dispositions of Comments in css3-background:
 %.html: %.txt; awk -f issues-txt-to-html.awk $< >$@
@@ -41,10 +43,10 @@ opts =
 %.png: %.eps; convert -density 96x96 $< $@
 
 
-all: check Overview.html
+all: check $(target).html
 
 # egrep will exit with a zero exit code if there is anything left
-check: Overview.err
+check: $(target).err
 	@cat $<
 	@if egrep -v '^(Warning:|\(Processed in .* seconds\)|No errors)' $<;\
 	 then false; else true; fi
@@ -53,7 +55,7 @@ check: Overview.err
 # A handy shortcut:
 
 commit: update all
-	hg commit -m 'Generated. Do not edit!' Overview.html || true
+	hg commit -m 'Generated. Do not edit!' $(target).html || true
 	hg push
 
 update:
@@ -61,7 +63,7 @@ update:
 	hg update
 
 clean:
-	rm -f Overview.html Overview.err
+	rm -f $(target).html $(target).err
 
 
 
