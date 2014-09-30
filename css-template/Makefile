@@ -18,6 +18,7 @@ status ?=
 group ?= CSS
 opts ?=
 target ?= Overview
+markup ?= html
 
 %.html: %.src.html
 	@echo "Calling post-processor to generate $@..."
@@ -29,6 +30,12 @@ target ?= Overview
 	@curl -K ~/.curl-w3.org -s -S -F output=err -F file=@$< \
 	-F group=$(group) -F method=file -F date=$(cdate) -F status=$(status) \
 	$(opts) -o $@ https://www.w3.org/Style/Group/process.cgi
+%.html: %.bs
+	curl -s -L -F file=@$< -F time=$(cdate) -F output=html \
+	-F paragraph=$(markup) $(opts) -o $@ http://api.csswg.org/bikeshed/
+%.err: %.bs
+	curl -s -L -F file=@$< -F time=$(cdate) -F output=err \
+	-F paragraph=$(markup) $(opts) -o $@ http://api.csswg.org/bikeshed/
 
 # For Dispositions of Comments in css3-background:
 %.html: %.txt; awk -f issues-txt-to-html.awk $< >$@
@@ -48,7 +55,7 @@ all: check $(target).html
 # egrep will exit with a zero exit code if there is anything left
 check: $(target).err
 	@cat $<
-	@if egrep -v '^(Warning:|\(Processed in .* seconds\)|No errors)' $<;\
+	@if egrep -qv '^(Warning:|\(Processed in .* seconds\)|No errors)' $<;\
 	 then false; else true; fi
 
 
