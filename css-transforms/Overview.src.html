@@ -324,8 +324,6 @@ Normally, elements render as flat planes, and are rendered into the same plane a
 
 Three-dimensional transforms can result in transformation matrices with a non-zero Z component (where the Z axis projects out of the plane of the screen). This can result in an element rendering on a different plane than that of its containing block. This may affect the front-to-back rendering order of that element relative to other elements, as well as causing it to intersect with other elements. This behavior depends on whether the element is a member of a <i>3D rendering context</i>, as described below.
 
-Issue: This description does not exactly match what WebKit implements. Perhaps it should be changed to match current implementations? See <a href="https://www.w3.org/Bugs/Public/show_bug.cgi?id=19637">Bug 19637</a>.
-
 <div class="example">
 
 This example shows the effect of three-dimensional transform applied to an element.
@@ -355,7 +353,7 @@ The transform is a 50&deg; rotation about the vertical, Y axis. Note how this ma
 </div>
 
 
-<h4>Perspective</h4>
+<h4 id="perspective">Perspective</h4>
 
 The 'perspective' and 'perspective-origin' properties can be used to add a feeling of depth to a scene by making elements higher on the Z axis (closer to the viewer) appear larger, and those further away to appear smaller. The scaling is proportional to <var>d</var>/(<var>d</var> &minus; <var>Z</var>) where <var>d</var>, the value of 'perspective', is the distance from the drawing plane to the the assumed position of the viewer's eye.
 
@@ -425,7 +423,7 @@ A 3D rendering context is established by an element which has a used value for t
 
 Note: This is conceptually similar to CSS stacking contexts. A positioned element with explicit z-index establishes a stacking context, while participating in the stacking context of an ancestor.  Similarly, an element can establish a 3D rendering context for its descendants, while participating in the 3D rendering context of an ancestor. Just as elements within a stacking context render in z-index order, elements in a 3D-rendering context render in z-depth order and can intersect.
 
-Some CSS properties have values that are considered to force "grouping": they require that their element and its descendants are rendered as a group before being composited with other elements; these include opacity, filters and properties that affect clipping. The relevant property values are listed <a href="#transform-style-property">below</a>. These grouping property values force the used value for transform-style to be "flat", and such elements are referred to as <dfn>flattening elements</dfn>. Consequently, they always establish a new 3D rendering context. The root element always has a used value of "flat" for transform-style.
+Some CSS properties have values that are considered to force "grouping": they require that their element and its descendants are rendered as a group before being composited with other elements; these include opacity, filters and properties that affect clipping. The relevant property values are listed under <a href="#grouping-property-values">grouping property values</a>. These grouping property values force the used value for transform-style to be "flat", and such elements are referred to as <dfn>flattening elements</dfn>. Consequently, they always establish a new 3D rendering context. The root element always has a used value of "flat" for transform-style.
 
 The rendering of elements in a 3D rendering context is as follows (numbers refer to items in <a href="http://www.w3.org/TR/CSS2/zindex.html#painting-order">CSS 2.1, Appendix E, Section E.2 Painting Order</a>):
 
@@ -439,6 +437,8 @@ The rendering of elements in a 3D rendering context is as follows (numbers refer
 
 Issue: is it OK to not pop 2D-transformed elements into their own planes?
 
+Issue: requiring intersection with non-transformed content and descendants requires UAs to allocate additional textures (possibly doubling memory use). Would be more efficient to simply render content and untransformed descendants along with background and borders.
+
 Note that elements with transforms which have a negative z-component will render behind the content and untransformed descendants of the establishing element, and that 3D transformed elements may interpenetrate with content and untransformed elements.
 
 Note: Because the 3D-transformed elements in a 3D rendering context can all depth-sort and intersect with each other, they are effectively rendered as if they were siblings. The effect of transform-style: preserve-3d can then be thought of as causing all the 3D transformed elements in a 3D rendering context to be hoisted up into the establishing element, but still rendered with their <a href="#accumulated-3d-transformation-matrix-computation">accumulated 3D transformation matrix</a>.
@@ -448,7 +448,6 @@ Note: Because the 3D-transformed elements in a 3D rendering context can all dept
 &lt;style&gt;
 .container {
     background-color: rgba(0, 0, 0, 0.3);
-    transform-style: preserve-3d;
     perspective: 500px;
 }
 .container > div {
@@ -463,7 +462,7 @@ Note: Because the 3D-transformed elements in a 3D rendering context can all dept
 }
 .container > :last-child {
     transform: translateZ(40px);
-    background-color: rgba(0, 0, 255, 0.75);
+    background-color: rgba(0, 0, 255, 0.6);
     top: 50px;
     height: 100px;
 }
@@ -476,16 +475,14 @@ Note: Because the 3D-transformed elements in a 3D rendering context can all dept
 
 This example shows show elements in a 3D rendering context can intersect. The container element establishes a 3D rendering context for itself and its two children. The children intersect with each other, and the orange element also intersects with the container.
 
-Issue: need to improve this example.
-
   <div class="figure">
-    <img src="examples/3d-intersection.png" width="200" height="200" alt="Intersecting sibling elements.">
+    <img src="examples/3d-intersection.png" width="210" height="198" alt="Intersecting sibling elements.">
   </div>
 </div>
 
-The ''perspective'' property can be used to ensure that 3D transformed elements in the resulting 3D rendering context appear to live in a common three-dimensional space with depth. By default, elements with value for ''perspective'' other than ''none'' are flattening, and thus establish a 3D rendering context. However, setting ''transform-style'' to ''preserve-3d'' allows the perspective element to extend its containing 3D rendering context (provided no other grouping property value are in effect).
+The ''perspective'' property can be used to ensure that 3D transformed elements in the resulting 3D rendering context appear to live in a common three-dimensional space with depth, by suppling a common perspective matrix to descendant transformed members of its 3D rendering context, which is taken into account in the <a href="#accumulated-3d-transformation-matrix-computation">accumulated 3D matrix computation</a>.
 
-The purpose of this property is to supply a common perspective matrix to members of its 3D rendering context, which is taken into account in the <a href="#accumulated-3d-transformation-matrix-computation">accumulated 3D matrix computation</a>.
+By default, elements with value for ''perspective'' other than ''none'' are flattening, and thus establish a 3D rendering context. However, setting ''transform-style'' to ''preserve-3d'' allows the perspective element to extend its containing 3D rendering context (provided no other <a href="#grouping-property-values">grouping property values</a> are in effect).
 
 <div class="example">
   <pre>
@@ -523,9 +520,9 @@ This example shows how nested 3D transforms are rendered. The blue div is transf
   </div>
 </div>
 
-<h4>Transformed element hierarchies</h4>
+<h4 id="transformed-element-hierarchies">Transformed element hierarchies</h4>
 
-By default, <i>transformed elements</i> are flattening, and thus establish a <i>3D rendering context</i>. However, since it is useful to construct hierarchies of transformed objects that share a common 3-dimensional space, this flattening behavior may be overridden by specifying a value of ''preserve-3d'' for the ''transform-style'' property. This allows descendants of the transformed element to share the same 3D rendering context. Non-3D-transformed descendants of such elements are rendered into the plane of the element in step C above, but 3D-transformed elements in the same 3D rendering context will "pop out" into their own planes. However, if any of the other grouping property values are present the used value for ''transform-style'' will still be forced to ''flat''.
+By default, <i>transformed elements</i> are flattening, and thus establish a <i>3D rendering context</i>. However, since it is useful to construct hierarchies of transformed objects that share a common 3-dimensional space, this flattening behavior may be overridden by specifying a value of ''preserve-3d'' for the ''transform-style'' property, provided no other <a href="#grouping-property-values">grouping property values</a> are in effect. This allows descendants of the transformed element to share the same 3D rendering context. Non-3D-transformed descendants of such elements are rendered into the plane of the element in step C above, but 3D-transformed elements in the same 3D rendering context will "pop out" into their own planes.
 
 <div class="example">
   <pre>
@@ -561,24 +558,61 @@ This example is identical to the previous example, with the addition of ''transf
 
 The final value of the transform used to render an element in a <i>3D rendering context</i> is computed by accumulating an <i>accumulated 3D transformation matrix</i> as follows:
 
-<ol>
-  <li>Start with the identity matrix.</li>
-  <li>For each containing block between the root of the <i>3D rendering context</i> and the element in question:
-    <ol>
-      <li>multiply the accumulated matrix with the <i>perspective matrix</i> on the element's containing block (if any).
-      <li>apply to the accumulated matrix a translation equivalent to the horizontal and vertical offset of the element relative to its containing block as specified by the CSS visual formatting model.</li>
-      <li>multiply the accumulated matrix with the <i>transformation matrix</i>.</li>
-    </ol>
-  </li>
-</ol>
+1. Let <var>transform</var> be the identity matrix.
+1. Let <var>current element</var> be the transformed element.
+1. Let <var>ancestor block</var> be the element that establishes the transformed element's containing block.
+1. While <var>current element</var> is not the element that establishes the transformed element's <i>3D rendering context</i>:
 
-Issue: this needs tightening up; in particular, it needs to describe how to account for perspective at something that is not the root of the context.
+    1. If <var>current element</var> has a value for 'transform' which is not ''none'', pre-multiply <var>current element</var>'s <i>transformation matrix</i> with the <var>transform</var>.
+    1. Compute a translation matrix which represents the offset of <var>current element</var> from its <var>ancestor block</var>, and pre-multiply that matrix into the <var>transform</var>.
+    1. If <var>ancestor block</var> has a value for 'perspective' which is not ''none'', pre-multiply the <var>ancestor block</var>'s <i>perspective matrix</i> into the <var>transform</var>.
+    1. Let <var>ancestor block</var> be the element that establishes the <var>current element</var>'s containing block.
+    1. Let <var>current element</var> be the <var>ancestor block</var>.
 
-<h4>Backface Visibility</h4>
+Note: as described here, the <i>accumulated 3D transformation matrix</i> takes into account offsets generated by the <a href="http://www.w3.org/TR/REC-CSS2/visuren.html">visual formatting model</a> on the transformed element, and elements in the ancestor chain between the transformed element and the element that establishes the its <i>3D rendering context</i>.
+
+<h4 id="backface-visibility">Backface Visibility</h4>
 
 Using three-dimensional transforms, it's possible to transform an element such that its reverse side is visible. 3D-transformed elements show the same content on both sides, so the reverse side looks like a mirror-image of the front side (as if the element were projected onto a sheet of glass). Normally, elements whose reverse side is towards the viewer remain visible. However, the 'backface-visibility' property allows the author to make an element invisible when its reverse side is towards the viewer. This behavior is "live"; if an element with ''backface-visibility: hidden'' were animating, such that its front and reverse sides were alternately visible, then it would only be visible when the front side were towards the viewer.
 
 Visibility of the reverse side of an element is considered using the <i>accumulated 3D transformation matrix</i>, and is thus relative to the enclosing flattening element.
+
+Note: This property is useful when you place two elements back-to-back, as you would to create a playing card. Without this property, the front and back elements could switch places at times during an animation to flip the card. Another example is creating a box out of 6 elements, but where you want to see only the inside faces of the box.
+
+<div class="example">
+
+This example shows how to make a "card" element that flips over when clicked. Note the "transform-style: preserve-3d" on #card which is necessary to avoid flattening when flipped.
+
+  <pre>&lt;style&gt;
+.body { perspective: 500px; }
+#card {
+    position: relative;
+    height: 300px; width: 200px;
+    transition: transform 1s;
+    transform-style: preserve-3d;
+}
+#card.flipped {
+    transform: rotateY(180deg);
+}
+.face {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-color: silver;
+    border-radius: 40px;
+    backface-visibility: hidden;
+}
+.back {
+    transform: rotateY(180deg);
+}
+&lt;/style&gt;
+&lt;div id="card" onclick="this.classList.toggle('flipped')"&gt;
+    &lt;div class="front face"&gt;Front&lt;/div&gt;
+    &lt;div class="back face"&gt;Back&lt;/div&gt;
+&lt;/div&gt;
+</pre>
+
+</div>
 
 Issue: what is the impact of backface-visibility on non-transformed or 2D-transformed elements? Do they get popped into their own planes and intersect?
 
@@ -836,6 +870,8 @@ Animatable: no
 
 A value of "flat" for 'transform-style' establishes a stacking context, and establishes a <i>3D rendering context</i>. Elements with a used value of "auto" are ignored for the purposes of 3D rendering context computation, and those with a used value of "preserve-3d" extend the 3D rendering context to which they belong, even if values for the ''transform'' or ''perspective'' properties would otherwise cause flattening.
 
+<h3 id="grouping-property-values">Grouping property values</h3>
+
 The following CSS property values require the user agent to create a flattened representation of the descendant elements before they can be applied, and therefore force the used value of ''transform-style'' to ''flat'':
 
 * 'overflow': any value other than ''visible''.
@@ -895,7 +931,9 @@ Where <<length>> values must be positive.
   <dt><<length>></dt>
   <dd>
     <p>Distance to the center of projection.
+
 Issue: Verify that projection is the distance to the center of projection.
+
   </dd>
   <dt><dfn>none</dfn></dt>
   <dd>
@@ -1024,10 +1062,6 @@ The <a href="http://www.w3.org/TR/cssom/#resolved-value">resolved value</a> of '
 
 <h2 id="backface-visibility-property">The 'backface-visibility' Property</h2>
 
-The 'backface-visibility' property determines whether or not the "back" side of a transformed element is visible when facing the viewer. With an identity transform, the front side of an element faces the viewer. Applying a rotation about Y of 180&deg; (for instance) would cause the back side of the element to face the viewer.
-
-Note: This property is useful when you place two elements back-to-back, as you would to create a playing card. Without this property, the front and back elements could switch places at times during an animation to flip the card. Another example is creating a box out of 6 elements, but where you want to see the inside faces of the box. This is useful when creating the backdrop for a 3 dimensional stage.
-
 <pre class='propdef'>
 Name: backface-visibility
 Value: visible | hidden
@@ -1042,14 +1076,8 @@ Animatable: no
 
 The visibility of an element with ''backface-visibility: hidden'' is determined as follows:
 
-<ol>
-  <li>
-    For an element in a <i>3D rendering context</i>, compute its <var> accumulated 3D transformation matrix</var>. For an element not in a <i>3D rendering context</i>, compute its <i>transformation matrix</i>.
-  </li>
-  <li>
-    If the component of the matrix in row 3, column 3 is negative, then the element should be hidden. Otherwise it is visible.
-  </li>
-</ol>
+1. Compute the element's <var> accumulated 3D transformation matrix</var>.
+2. If the component of the matrix in row 3, column 3 is negative, then the element should be hidden. Otherwise it is visible.
 
 Issue: Backface-visibility cannot be tested by only looking at m33.  See <a href="https://www.w3.org/Bugs/Public/show_bug.cgi?id=23014">Bug 23014</a>.
 
