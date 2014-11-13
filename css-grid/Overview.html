@@ -80,7 +80,623 @@ dl.phase {
 }
 </style>
 
-</head>
+<script>self = (typeof window !== 'undefined')
+	? window   // if in browser
+	: (
+		(typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope)
+		? self // if in worker
+		: {}   // if in node js
+	);
+
+/**
+ * Prism: Lightweight, robust, elegant syntax highlighting
+ * MIT license http://www.opensource.org/licenses/mit-license.php/
+ * @author Lea Verou http://lea.verou.me
+ */
+
+var Prism = (function(){
+
+// Private helper vars
+var lang = /\blang(?:uage)?-(?!\*)(\w+)\b/i;
+
+var _ = self.Prism = {
+	util: {
+		encode: function (tokens) {
+			if (tokens instanceof Token) {
+				return new Token(tokens.type, _.util.encode(tokens.content), tokens.alias);
+			} else if (_.util.type(tokens) === 'Array') {
+				return tokens.map(_.util.encode);
+			} else {
+				return tokens.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\u00a0/g, ' ');
+			}
+		},
+
+		type: function (o) {
+			return Object.prototype.toString.call(o).match(/\[object (\w+)\]/)[1];
+		},
+
+		// Deep clone a language definition (e.g. to extend it)
+		clone: function (o) {
+			var type = _.util.type(o);
+
+			switch (type) {
+				case 'Object':
+					var clone = {};
+
+					for (var key in o) {
+						if (o.hasOwnProperty(key)) {
+							clone[key] = _.util.clone(o[key]);
+						}
+					}
+
+					return clone;
+
+				case 'Array':
+					return o.slice();
+			}
+
+			return o;
+		}
+	},
+
+	languages: {
+		extend: function (id, redef) {
+			var lang = _.util.clone(_.languages[id]);
+
+			for (var key in redef) {
+				lang[key] = redef[key];
+			}
+
+			return lang;
+		},
+
+		// Insert a token before another token in a language literal
+		insertBefore: function (inside, before, insert, root) {
+			root = root || _.languages;
+			var grammar = root[inside];
+			var ret = {};
+
+			for (var token in grammar) {
+
+				if (grammar.hasOwnProperty(token)) {
+
+					if (token == before) {
+
+						for (var newToken in insert) {
+
+							if (insert.hasOwnProperty(newToken)) {
+								ret[newToken] = insert[newToken];
+							}
+						}
+					}
+
+					ret[token] = grammar[token];
+				}
+			}
+
+			return root[inside] = ret;
+		},
+
+		// Traverse a language definition with Depth First Search
+		DFS: function(o, callback, type) {
+			for (var i in o) {
+				if (o.hasOwnProperty(i)) {
+					callback.call(o, i, o[i], type || i);
+
+					if (_.util.type(o[i]) === 'Object') {
+						_.languages.DFS(o[i], callback);
+					} else if (_.util.type(o[i]) === 'Array') {
+						_.languages.DFS(o[i], callback, i);
+					}
+				}
+			}
+		}
+	},
+
+	highlightAll: function(async, callback) {
+		var elements = document.querySelectorAll('pre[class*="language-"], [class*="language-"] pre, pre[class*="lang-"], [class*="lang-"] pre');
+
+		for (var i=0, element; element = elements[i++];) {
+			_.highlightElement(element, async === true, callback);
+		}
+	},
+
+	highlightElement: function(element, async, callback) {
+		// Find language
+		var language, grammar, parent = element;
+
+		while (parent && !lang.test(parent.className)) {
+			parent = parent.parentNode;
+		}
+
+		if (parent) {
+			language = (parent.className.match(lang) || [,''])[1];
+			grammar = _.languages[language];
+		}
+
+		if (!grammar) {
+			return;
+		}
+
+		// Set language on the element, if not present
+		element.className = element.className.replace(lang, '').replace(/\s+/g, ' ') + ' language-' + language;
+
+		// Set language on the parent, for styling
+		parent = element.parentNode;
+
+		if (/pre/i.test(parent.nodeName)) {
+			parent.className = parent.className.replace(lang, '').replace(/\s+/g, ' ') + ' language-' + language;
+		}
+
+		var code = element.textContent;
+
+		if(!code) {
+			return;
+		}
+
+		var env = {
+			element: element,
+			language: language,
+			grammar: grammar,
+			code: code
+		};
+
+		_.hooks.run('before-highlight', env);
+
+		if (async && self.Worker) {
+			var worker = new Worker(_.filename);
+
+			worker.onmessage = function(evt) {
+				env.highlightedCode = Token.stringify(JSON.parse(evt.data), language);
+
+				_.hooks.run('before-insert', env);
+
+				env.element.innerHTML = env.highlightedCode;
+
+				callback && callback.call(env.element);
+				_.hooks.run('after-highlight', env);
+			};
+
+			worker.postMessage(JSON.stringify({
+				language: env.language,
+				code: env.code
+			}));
+		}
+		else {
+			env.highlightedCode = _.highlight(env.code, env.grammar, env.language)
+
+			_.hooks.run('before-insert', env);
+
+			env.element.innerHTML = env.highlightedCode;
+
+			callback && callback.call(element);
+
+			_.hooks.run('after-highlight', env);
+		}
+	},
+
+	highlight: function (text, grammar, language) {
+		var tokens = _.tokenize(text, grammar);
+		return Token.stringify(_.util.encode(tokens), language);
+	},
+
+	tokenize: function(text, grammar, language) {
+		var Token = _.Token;
+
+		var strarr = [text];
+
+		var rest = grammar.rest;
+
+		if (rest) {
+			for (var token in rest) {
+				grammar[token] = rest[token];
+			}
+
+			delete grammar.rest;
+		}
+
+		tokenloop: for (var token in grammar) {
+			if(!grammar.hasOwnProperty(token) || !grammar[token]) {
+				continue;
+			}
+
+			var patterns = grammar[token];
+			patterns = (_.util.type(patterns) === "Array") ? patterns : [patterns];
+
+			for (var j = 0; j < patterns.length; ++j) {
+				var pattern = patterns[j],
+					inside = pattern.inside,
+					lookbehind = !!pattern.lookbehind,
+					lookbehindLength = 0,
+					alias = pattern.alias;
+
+				pattern = pattern.pattern || pattern;
+
+				for (var i=0; i<strarr.length; i++) { // Don’t cache length as it changes during the loop
+
+					var str = strarr[i];
+
+					if (strarr.length > text.length) {
+						// Something went terribly wrong, ABORT, ABORT!
+						break tokenloop;
+					}
+
+					if (str instanceof Token) {
+						continue;
+					}
+
+					pattern.lastIndex = 0;
+
+					var match = pattern.exec(str);
+
+					if (match) {
+						if(lookbehind) {
+							lookbehindLength = match[1].length;
+						}
+
+						var from = match.index - 1 + lookbehindLength,
+							match = match[0].slice(lookbehindLength),
+							len = match.length,
+							to = from + len,
+							before = str.slice(0, from + 1),
+							after = str.slice(to + 1);
+
+						var args = [i, 1];
+
+						if (before) {
+							args.push(before);
+						}
+
+						var wrapped = new Token(token, inside? _.tokenize(match, inside) : match, alias);
+
+						args.push(wrapped);
+
+						if (after) {
+							args.push(after);
+						}
+
+						Array.prototype.splice.apply(strarr, args);
+					}
+				}
+			}
+		}
+
+		return strarr;
+	},
+
+	hooks: {
+		all: {},
+
+		add: function (name, callback) {
+			var hooks = _.hooks.all;
+
+			hooks[name] = hooks[name] || [];
+
+			hooks[name].push(callback);
+		},
+
+		run: function (name, env) {
+			var callbacks = _.hooks.all[name];
+
+			if (!callbacks || !callbacks.length) {
+				return;
+			}
+
+			for (var i=0, callback; callback = callbacks[i++];) {
+				callback(env);
+			}
+		}
+	}
+};
+
+var Token = _.Token = function(type, content, alias) {
+	this.type = type;
+	this.content = content;
+	this.alias = alias;
+};
+
+Token.stringify = function(o, language, parent) {
+	if (typeof o == 'string') {
+		return o;
+	}
+
+	if (Object.prototype.toString.call(o) == '[object Array]') {
+		return o.map(function(element) {
+			return Token.stringify(element, language, o);
+		}).join('');
+	}
+
+	var env = {
+		type: o.type,
+		content: Token.stringify(o.content, language, parent),
+		tag: 'span',
+		classes: ['token', o.type],
+		attributes: {},
+		language: language,
+		parent: parent
+	};
+
+	if (env.type == 'comment') {
+		env.attributes['spellcheck'] = 'true';
+	}
+
+	if (o.alias) {
+		var aliases = _.util.type(o.alias) === 'Array' ? o.alias : [o.alias];
+		Array.prototype.push.apply(env.classes, aliases);
+	}
+
+	_.hooks.run('wrap', env);
+
+	var attributes = '';
+
+	for (var name in env.attributes) {
+		attributes += name + '="' + (env.attributes[name] || '') + '"';
+	}
+
+	return '<' + env.tag + ' class="' + env.classes.join(' ') + '" ' + attributes + '>' + env.content + '</' + env.tag + '>';
+
+};
+
+if (!self.document) {
+	if (!self.addEventListener) {
+		// in Node.js
+		return self.Prism;
+	}
+ 	// In worker
+	self.addEventListener('message', function(evt) {
+		var message = JSON.parse(evt.data),
+		    lang = message.language,
+		    code = message.code;
+
+		self.postMessage(JSON.stringify(_.util.encode(_.tokenize(code, _.languages[lang]))));
+		self.close();
+	}, false);
+
+	return self.Prism;
+}
+
+// Get current script and highlight
+var script = document.getElementsByTagName('script');
+
+script = script[script.length - 1];
+
+if (script) {
+	_.filename = script.src;
+
+	if (document.addEventListener && !script.hasAttribute('data-manual')) {
+		document.addEventListener('DOMContentLoaded', _.highlightAll);
+	}
+}
+
+return self.Prism;
+
+})();
+
+if (typeof module !== 'undefined' && module.exports) {
+	module.exports = Prism;
+}
+;
+Prism.languages.markup = {
+	'comment': /<!--[\w\W]*?-->/g,
+	'prolog': /<\?.+?\?>/,
+	'doctype': /<!DOCTYPE.+?>/,
+	'cdata': /<!\[CDATA\[[\w\W]*?]]>/i,
+	'tag': {
+		pattern: /<\/?[\w:-]+\s*(?:\s+[\w:-]+(?:=(?:("|')(\\?[\w\W])*?\1|[^\s'">=]+))?\s*)*\/?>/gi,
+		inside: {
+			'tag': {
+				pattern: /^<\/?[\w:-]+/i,
+				inside: {
+					'punctuation': /^<\/?/,
+					'namespace': /^[\w-]+?:/
+				}
+			},
+			'attr-value': {
+				pattern: /=(?:('|")[\w\W]*?(\1)|[^\s>]+)/gi,
+				inside: {
+					'punctuation': /=|>|"/g
+				}
+			},
+			'punctuation': /\/?>/g,
+			'attr-name': {
+				pattern: /[\w:-]+/g,
+				inside: {
+					'namespace': /^[\w-]+?:/
+				}
+			}
+
+		}
+	},
+	'entity': /\&#?[\da-z]{1,8};/gi
+};
+
+// Plugin to make entity title show the real entity, idea by Roman Komarov
+Prism.hooks.add('wrap', function(env) {
+
+	if (env.type === 'entity') {
+		env.attributes['title'] = env.content.replace(/&amp;/, '&');
+	}
+});
+;
+Prism.languages.css = {
+	'comment': /\/\*[\w\W]*?\*\//g,
+	'atrule': {
+		pattern: /@[\w-]+?.*?(;|(?=\s*{))/gi,
+		inside: {
+			'punctuation': /[;:]/g
+		}
+	},
+	'url': /url\((["']?).*?\1\)/gi,
+	'selector': /[^\{\}\s][^\{\};]*(?=\s*\{)/g,
+	'property': /(\b|\B)[\w-]+(?=\s*:)/ig,
+	'string': /("|')(\\?.)*?\1/g,
+	'important': /\B!important\b/gi,
+	'punctuation': /[\{\};:]/g,
+	'function': /[-a-z0-9]+(?=\()/ig
+};
+
+if (Prism.languages.markup) {
+	Prism.languages.insertBefore('markup', 'tag', {
+		'style': {
+			pattern: /<style[\w\W]*?>[\w\W]*?<\/style>/ig,
+			inside: {
+				'tag': {
+					pattern: /<style[\w\W]*?>|<\/style>/ig,
+					inside: Prism.languages.markup.tag.inside
+				},
+				rest: Prism.languages.css
+			}
+		}
+	});
+};
+Prism.languages.css.selector = {
+	pattern: /[^\{\}\s][^\{\}]*(?=\s*\{)/g,
+	inside: {
+		'pseudo-element': /:(?:after|before|first-letter|first-line|selection)|::[-\w]+/g,
+		'pseudo-class': /:[-\w]+(?:\(.*\))?/g,
+		'class': /\.[-:\.\w]+/g,
+		'id': /#[-:\.\w]+/g
+	}
+};
+
+Prism.languages.insertBefore('css', 'ignore', {
+	'hexcode': /#[\da-f]{3,6}/gi,
+	'entity': /\\[\da-f]{1,8}/gi,
+	'number': /[\d%\.]+/g
+});;
+</script><style>/* http://prismjs.com/download.html?themes=prism&languages=clike */
+/**
+ * prism.js default theme for JavaScript, CSS and HTML
+ * Based on dabblet (http://dabblet.com)
+ * @author Lea Verou
+ */
+
+code[class*="language-"],
+pre[class*="language-"] {
+	color: black;
+	text-shadow: 0 1px white;
+	font-family: Consolas, Monaco, 'Andale Mono', monospace;
+	direction: ltr;
+	text-align: left;
+	white-space: pre;
+	word-spacing: normal;
+	word-break: normal;
+	line-height: 1.5;
+
+	-moz-tab-size: 4;
+	-o-tab-size: 4;
+	tab-size: 4;
+
+	-webkit-hyphens: none;
+	-moz-hyphens: none;
+	-ms-hyphens: none;
+	hyphens: none;
+}
+
+pre[class*="language-"]::-moz-selection, pre[class*="language-"] ::-moz-selection,
+code[class*="language-"]::-moz-selection, code[class*="language-"] ::-moz-selection {
+	text-shadow: none;
+	background: #b3d4fc;
+}
+
+pre[class*="language-"]::selection, pre[class*="language-"] ::selection,
+code[class*="language-"]::selection, code[class*="language-"] ::selection {
+	text-shadow: none;
+	background: #b3d4fc;
+}
+
+@media print {
+	code[class*="language-"],
+	pre[class*="language-"] {
+		text-shadow: none;
+	}
+}
+
+/* Code blocks */
+pre[class*="language-"] {
+	padding: 1em;
+	margin: .5em 0;
+	overflow: auto;
+}
+
+:not(pre) > code[class*="language-"],
+pre[class*="language-"] {
+	background: #f5f2f0;
+}
+
+/* Inline code */
+:not(pre) > code[class*="language-"] {
+	padding: .1em;
+	border-radius: .3em;
+}
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+	color: slategray;
+}
+
+.token.punctuation {
+	color: #999;
+}
+
+.namespace {
+	opacity: .7;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+	color: #905;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+	color: #690;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+	color: #a67f59;
+	background: hsla(0, 0%, 100%, .5);
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+	color: #07a;
+}
+
+.token.function {
+	color: #DD4A68;
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+	color: #e90;
+}
+
+.token.important {
+	font-weight: bold;
+}
+
+.token.entity {
+	cursor: help;
+}
+</style></head>
 <body class=h-entry>
 <div class=head>
   <p data-fill-with=logo><a class=logo href=http://www.w3.org/>
@@ -89,7 +705,7 @@ dl.phase {
 </p>
   <h1 class="p-name no-ref" id=title>CSS Grid Layout Module Level 1</h1>
   <h2 class="no-num no-toc no-ref heading settled" id=subtitle><span class=content>Editor’s Draft,
-    <span class=dt-updated><span class=value-title title=20141112>12 November 2014</span></span></span></h2>
+    <span class=dt-updated><span class=value-title title=20141113>13 November 2014</span></span></span></h2>
   <div data-fill-with=spec-metadata><dl><dt>This version:<dd><a class=u-url href=http://dev.w3.org/csswg/css-grid/>http://dev.w3.org/csswg/css-grid/</a><dt>Latest version:<dd><a href=http://www.w3.org/TR/css-grid-1/>http://www.w3.org/TR/css-grid-1/</a><dt>Previous Versions:<dd><a href=http://www.w3.org/TR/2014/WD-css-grid-1-20140513/ rel=previous>http://www.w3.org/TR/2014/WD-css-grid-1-20140513/</a><dd><a href=http://www.w3.org/TR/2014/WD-css-grid-1-20140123/ rel=previous>http://www.w3.org/TR/2014/WD-css-grid-1-20140123/</a><dd><a href=http://www.w3.org/TR/2013/WD-css3-grid-layout-20130402/ rel=previous>http://www.w3.org/TR/2013/WD-css3-grid-layout-20130402/</a><dd><a href=http://www.w3.org/TR/2012/WD-css3-grid-layout-20121106/ rel=previous>http://www.w3.org/TR/2012/WD-css3-grid-layout-20121106/</a><dt>Feedback:<dd><span><a href="mailto:www-style@w3.org?subject=%5Bcss-grid%5D%20feedback">www-style@w3.org</a> with subject line “<kbd>[css-grid] <var>… message topic …</var></kbd>” (<a href=http://lists.w3.org/Archives/Public/www-style/ rel=discussion>archives</a>)</span><dt class=editor>Editors:<dd class=editor><div class="p-author h-card vcard"><a class="p-name fn u-url url" href=http://www.xanthir.com/contact/>Tab Atkins Jr.</a> (<span class="p-org org">Google</span>)</div><dd class=editor><div class="p-author h-card vcard"><a class="p-name fn u-url url" href=http://fantasai.inkedblade.net/contact>fantasai</a> (<span class="p-org org">Mozilla</span>)</div><dd class=editor><div class="p-author h-card vcard"><a class="p-name fn u-email email" href=mailto:ratan@microsoft.com>Rossen Atanassov</a> (<span class="p-org org">Microsoft</span>)</div><dt>Former Editors:<dd><div class="p-author h-card vcard"><a class="p-name fn u-email email" href=mailto:alexmog@microsoft.com>Alex Mogilevsky</a> (<span class="p-org org">Microsoft Corporation</span>)</div><dd><div class="p-author h-card vcard"><a class="p-name fn u-email email" href=mailto:pcupp@microsoft.com>Phil Cupp</a> (<span class="p-org org">Microsoft Corporation</span>)</div><dt>Issues list:<dd><span><a href="https://www.w3.org/Bugs/Public/buglist.cgi?product=CSS&amp;component=Grid+Layout&amp;bug_status=NEW&amp;bug_status=ASSIGNED&amp;bug_status=REOPENED">In Bugzilla</a></span></dl></div>
   <div data-fill-with=warning></div>
   <p class=copyright data-fill-with=copyright><a href=http://www.w3.org/Consortium/Legal/ipr-notice#Copyright>Copyright</a> © 2014 <a href=http://www.w3.org/><abbr title="World Wide Web Consortium">W3C</abbr></a><sup>®</sup> (<a href=http://www.csail.mit.edu/><abbr title="Massachusetts Institute of Technology">MIT</abbr></a>, <a href=http://www.ercim.eu/><abbr title="European Research Consortium for Informatics and Mathematics">ERCIM</abbr></a>, <a href=http://www.keio.ac.jp/>Keio</a>, <a href=http://ev.buaa.edu.cn/>Beihang</a>), All Rights Reserved. W3C <a href=http://www.w3.org/Consortium/Legal/ipr-notice#Legal_Disclaimer>liability</a>, <a href=http://www.w3.org/Consortium/Legal/ipr-notice#W3C_Trademarks>trademark</a> and <a href=http://www.w3.org/Consortium/Legal/copyright-documents>document use</a> rules apply.
@@ -312,8 +928,8 @@ Adapting Layouts to Available Space</span><a class=self-link href=#adapting-to-a
 	using the <a class=property data-link-type=propdesc href=#propdef-grid-template-rows title=grid-template-rows>grid-template-rows</a> and <a class=property data-link-type=propdesc href=#propdef-grid-template-columns title=grid-template-columns>grid-template-columns</a> properties on the <a data-link-type=dfn href=#grid-container title="grid container">grid container</a>,
 	and the <a class=property data-link-type=propdesc href=#propdef-grid-row title=grid-row>grid-row</a> and <a class=property data-link-type=propdesc href=#propdef-grid-column title=grid-column>grid-column</a> properties on each <a data-link-type=dfn href=#grid-item title="grid item">grid item</a>.</p>
 
-	<pre class=example>&lt;style type="text/css"&gt;
-  #grid {
+	<div class=example>
+		<pre class=lang-css>#grid {
   display: grid;
 
   /* Two columns: the first sized to content, the second receives
@@ -326,19 +942,20 @@ Adapting Layouts to Available Space</span><a class=self-link href=#adapting-to-a
    * row receives the remaining space, but is never smaller than
    * the minimum height of the board or stats areas. */
   grid-template-rows: auto minmax(min-content, 1fr) auto
-  }
+}
 
-  /* Each part of the game is positioned between grid lines by
-   * referencing the starting grid line and then specifying, if more
-   * than one, the number of rows or columns spanned to determine
-   * the ending grid line, which establishes bounds for the part. */
-  #title    { grid-column: 1; grid-row: 1 }
-  #score    { grid-column: 1; grid-row: 3 }
-  #stats    { grid-column: 1; grid-row: 2; justify-self: start }
-  #board    { grid-column: 2; grid-row: 1 / span 2; }
-  #controls { grid-column: 2; grid-row: 3; align-self: center }
-&lt;/style&gt;
+/* Each part of the game is positioned between grid lines by
+ * referencing the starting grid line and then specifying, if more
+ * than one, the number of rows or columns spanned to determine
+ * the ending grid line, which establishes bounds for the part. */
+#title    { grid-column: 1; grid-row: 1 }
+#score    { grid-column: 1; grid-row: 3 }
+#stats    { grid-column: 1; grid-row: 2; justify-self: start }
+#board    { grid-column: 2; grid-row: 1 / span 2; }
+#controls { grid-column: 2; grid-row: 3; align-self: center }
+</pre>
 
+		<pre class=lang-markup>
 &lt;div id="grid"&gt;
   &lt;div id="title"&gt;Game Title&lt;/div&gt;
   &lt;div id="score"&gt;Score&lt;/div&gt;
@@ -347,6 +964,7 @@ Adapting Layouts to Available Space</span><a class=self-link href=#adapting-to-a
   &lt;div id="controls"&gt;Controls&lt;/div&gt;
 &lt;/div&gt;
 </pre>
+	</div>
 
 <h3 class="heading settled" data-level=1.3 id=source-independence><span class=secno>1.3. </span><span class=content>
 Source-Order Independence</span><a class=self-link href=#source-independence></a></h3>
