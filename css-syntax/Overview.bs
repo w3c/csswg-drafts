@@ -2862,48 +2862,24 @@ The <<urange>> type</h3>
 	in terms of existing CSS tokens,
 	and how to interpret it as a range of unicode codepoints.
 
+	Note: The syntax described here is intentionally very low-level,
+	and geared toward implementors.
+	Authors should instead read the informal syntax description in the previous section,
+	as it contains all information necessary to use <<urange>>,
+	and is actually readable.
+
 	The <<urange>> type is defined
 	(using the <a href="http://www.w3.org/TR/css3-values/#value-defs">Value Definition Syntax in the Values & Units spec</a>) as:
 
 	<pre class="prod">
 		<<urange>> =
-			u '+' <<urange-codepoint>> |
-			u '+' <<urange-codepoint>>? '?'+ |
-			u '+' <<urange-codepoint>> <<negative-urange-codepoint>> |
-			u '+' <<urange-range>>
+			u '+' <<ident-token>> '?'* |
+			u <<dimension-token>> '?'* |
+			u <<number-token>> '?'* |
+			u <<number-token>> <<dimension-token>> |
+			u <<number-token>> <<number-token>> |
+			u '+' '?'+
 	</pre>
-
-	where:
-
-	: <dfn><<urange-codepoint>></dfn>
-	:: One of the following:
-		* A <<number-token>> whose type flag is set to "integer" and whose representation is composed solely of <a>digits</a> (no leading "+" or "-" characters).
-		* An <<ident-token>> whose representation is solely <a>hex digits</a>.
-		*  A <<dimension-token>> whose type flag is set to "integer" and whose unit is composed solely of <a>hex digits</a>
-
-	: <dfn><<negative-urange-codepoint>></dfn>
-	:: One of the following:
-		* A <<number-token>> whose type flag is set to "integer", and whose value is negative.
-			(If the implementation does not support <a href="https://en.wikipedia.org/wiki/Signed_zero">negative zero</a>,
-			then when the value is zero,
-			the implementation must additionally verify that the representation begins with U+002D HYPHEN-MINUS (-).)
-		* An <<ident-token>> whose representation is U+002D HYPHEN-MINUS, followed solely <a>hex digits</a>.
-		* A <<dimension-token>> whose type flag is set to "integer",
-			whose value is negative,
-			and whose unit is composed solely of <a>hex digits</a>.
-			(Same caveat as for <<number-token>> applies here.)
-
-	: <dfn><<urange-range>></dfn>
-	:: One of the following:
-		* An <<ident-token>> whose representation consists solely of
-			one or more <a>hex digits</a>,
-			followed by U+002D HYPHEN-MINUS (-),
-			followed by one or more <a>hex digits</a>.
-		* A <<dimension-token>> whose type flag is set to "integer",
-			and whose unit consists solely of
-			one or more <a>hex digits</a>,
-			followed by U+002D HYPHEN-MINUS (-),
-			followed by one or more <a>hex digits</a>.
 
 	In this production,
 	no whitespace can occur between any of the tokens.
@@ -2911,33 +2887,71 @@ The <<urange>> type</h3>
 	The <<urange>> production represents a range of one or more contiguous unicode code points
 	as a <var>start value</var> and an <var>end value</var>,
 	which are non-negative integers.
-	Each clause of the above grammar is interpreted as follows:
+	To interpret the production above into a range,
+	execute the following steps in order:
 
-	: <code>u '+' <<urange-codepoint>></code>
-	::
-		<a title="interpret a token as a hex integer">Interpret the &lt;urange-codepoint> as a hex integer</a>.
-		Let <var>start value</var> and <var>end value</var> both be the returned value.
-	: <code>u '+' <<urange-codepoint>>? '?'+</code>
-	::
-		If the <<urange-codepoint>> is specified,
-		let <var>B</var> be the result of <a title="interpret a token as a hex integer">interpreting the &lt;urange-codepoint> as a hex integer</a>;
-		otherwise, let <var>B</var> be zero.
-		Let <var>S</var> be the number of contiguous U+003F QUESTION MARK (?) codepoints.
+	1. Skipping the first ''u'' token,
+		concatenate the representations of all the tokens in the production together
+		(or, in the case of <<dimension-token>>s,
+		the representation followed by the unit).
+		Let this be <var>text</var>.
 
-		Let <var>start value</var> be <code style="white-space: nowrap">B✕(16<sup>S</sup>)</code>.
-		Let <var>end value</var> be <code style="white-space: nowrap">B✕(16<sup>S</sup>) + 16<sup>S+1</sup> − 1</code>.
-	: <code>u '+' <<urange-codepoint>> <<negative-urange-codepoint>></code>
-	::
-		Let <var>start value</var> be the result of <a title="interpret a token as a hex integer">interpreting the &lt;urange-codepoint> as a hex integer</a>.
-		Let <var>end value</var> be the negation of the result of <a title="interpret a token as a hex integer">interpreting the &lt;negative-urange-codepoint> as a hex integer</a>.
-	: <code>u '+' <<urange-range>></code>
-	::
-		Split the <<urange-range>>’s representation (or representation + unit)
-		into the two halves on either side of the U+002D HYPHEN-MINUS (-) codepoint.
-		Interpret each half as a hexadecimal integer.
+	2. If the first character of <var>text</var> is U+002B PLUS SIGN,
+		consume it.
+		Otherwise,
+		this is an invalid <<urange>>,
+		and this algorithm must exit.
 
-		Let <var>start value</var> be the first half's value.
-		Let <var>end value</var> be the second half's value.
+	3. Consume as many <a>hex digits</a> from <var>text</var> as possible.
+		then consume as many U+003F QUESTION MARK (?) <a>code points</a> as possible.
+		If zero <a>code points</a> were consumed,
+		or more than six <a>code points</a> were consumed,
+		this is an invalid <<urange>>,
+		and this algorithm must exit.
+
+		If any U+003F QUESTION MARK (?) <a>code points</a> were consumed, then:
+
+		1. If there are any <a>code points</a> left in <var>text</var>,
+			this is an invalid <<urange>>,
+			and this algorithm must exit.
+
+		2. Interpret the consumed <a>code points</a> as a hexadecimal number,
+			with the U+003F QUESTION MARK (?) <a>code points</a>
+			replaced by U+0030 DIGIT ZERO (0) <a>code points</a>.
+			This is the <var>start value</var>.
+
+		3. Interpret the consumed <a>code points</a> as a hexadecimal number again,
+			with the U+003F QUESTION MARK (?) <a>code points</a>
+			replaced by U+0046 LATIN CAPITAL LETTER F (F) <a>code points</a>.
+			This is the <var>end value</var>.
+
+		4. Exit this algorithm.
+
+		Otherwise, interpret the consumed <a>code points</a> as a hexadecimal number.
+		This is the <var>start value</var>.
+
+	4. If there are no <a>code points</a> left in <var>text</var>,
+		The <var>end value</var> is the same as the <var>start value</var>.
+		Exit this algorithm.
+
+	5. If the next <a>code point</a> in <var>text</var> is U+002D HYPHEN-MINUS (-),
+		consume it.
+		Otherwise,
+		this is an invalid <<urange>>,
+		and this algorithm must exit.
+
+	6. Consume as many <a>hex digits</a> as possible from <var>text</var>.
+
+		If zero <a>hex digits</a> were consumed,
+		or more than 6 <a>hex digits</a> were consumed,
+		this is an invalid <<urange>>,
+		and this algorithm must exit.
+		If there are any <a>code points</a> left in <var>text</var>,
+		this is an invalid <<urange>>,
+		and this algorithm must exit.
+
+	7. Interpret the consumed <a>code points</a> as a hexadecimal number.
+		This is the <var>end value</var>.
 
 	To determine what codepoints the <<urange>> represents:
 
@@ -2949,26 +2963,20 @@ The <<urange>> type</h3>
 
 	3. Otherwise, the <<urange>> represents a contiguous range of codepoints from <var>start value</var> to <var>end value</var>, inclusive.
 
-	To <dfn>interpret a token as a hex integer</dfn>:
-
-	* If the token is a <<number-token>> whose type flag is set to "integer",
-		interpret its representation as a hexadecimal number
-		and return the resulting value.
-
-	* If the token is an <<ident-token>> consisting solely of <a>hex digits</a>,
-		interpret its representation as a hexadecimal number
-		and return the resulting value.
-
-	* If the token is a <<dimension-token>> whose type flag is set to "integer"
-		and whose unit consists solely of <a>hex digits</a>,
-		concatenate its representation and its unit,
-		then interpret that as a hexadecimal number
-		and return the resulting value.
-
-	* Otherwise, the token can't be interpreted as a hex integer.
-		It is a specification error to reach this clause.
-
-
+	Note: The syntax of <<urange>> is intentionally fairly wide;
+	its patterns capture every possible token sequence
+	that the informal syntax can generate.
+	However, it requires no whitespace between its constituent tokens,
+	which renders it fairly safe to use in practice.
+	Even grammars which have a <<urange>> followed by a <<number>> or <<dimension>>
+	(which might appear to be ambiguous
+	if an author specifies the <<urange>> with the ''u <<number>>'' clause)
+	are actually quite safe,
+	as an author would have to intentionally separate the <<urange>> and the <<number>>/<<dimension>>
+	with a comment rather than whitespace
+	for it to be ambiguous.
+	Thus, while it's <em>possible</em> for authors to write things that are parsed in confusing ways,
+	the actual code they'd have to write to cause the confusion is, itself, confusing and rare.
 
 
 <!--
