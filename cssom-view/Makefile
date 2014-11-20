@@ -20,7 +20,7 @@ $(EDFILE): Overview.src.html $(XREF) Makefile
 	--w3c-compat-substitutions --w3c-compat-xref-a-placement --enable=xspecxref --w3c-compat-class-toc --enable=refs --w3c-shortname="cssom-view" \
 	--filter=".publish" $< $@; \
  $(SED) 's/\[/\(/g;s/\]/\)/g' <$(SRCFILE) >$(VNUFILE); \
- $(CURL) -F out=gnu -F content=@$(VNUFILE) http://html5.validator.nu/; \
+ $(CURL) -F out=gnu -F content=@$(VNUFILE) https://html5.validator.nu/; \
  $(RM) $(VNUFILE); \
  $(CURL) 'http://www.w3.org/2009/07/webidl-check?doc=http%3A%2F%2Fdev.w3.org%2Fcsswg%2Fcssom-view%2F&output=text'
  #$(CURL) -F output=text -F input=@$(SRCFILE) http://www.w3.org/2009/07/webidl-check
