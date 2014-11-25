@@ -113,7 +113,7 @@ sub header {
 
 <p>Last call document: <a href="$url">$url</a>
 
-<p>Editor's draft: <a href="http://dev.w3.org/csswg/$shortname/">http://dev.w3.org/csswg/$shortname/</a>
+<p>Editor's draft: <a href="http://dev.w3.org/fxtf/$shortname/">http://dev.w3.org/fxtf/$shortname/</a>
 
 <p>The following color coding convention is used for comments:</p>
 
