@@ -871,53 +871,17 @@
       </h2>
 
       <p>
-        When the computed value of an animatable property changes,
-        implementations must decide what transitions to start based on
-        the values of the 'transition-property', 'transition-duration',
-        'transition-timing-function', and 'transition-delay' properties
-        at the time the animatable property would first have its new
-        computed value.
-        This means that when one of these 'transition-*' properties
-        changes at the same time as
-        a property whose change might transition,
-        it is the <em>new</em> values of the 'transition-*' properties
-        that control the transition.
+        Implementations must maintain a set of running transitions,
+        each of which applies to a specific element and non-shorthand
+        property.  Each of these transitions also has a
+        <dfn>start time</dfn>, <dfn>end time</dfn>, <dfn>start value</dfn>,
+        <dfn>end value</dfn>, <dfn>reversing-adjusted start value</dfn>,
+        and <dfn>reversing shortening factor</dfn>.
+        Transitions are added to this set as described in this section,
+        and are removed from this set
+        when they <span>complete</span>
+        or when implementations are required to <dfn>cancel</dfn> them.
       </p>
-      <div class="example" id="manual-reversing-example">
-        <p style="display:none">
-          Example(s):
-        </p>
-        <p>This provides a way for authors to specify different values
-        of the 'transition-*' properties for the &ldquo;forward&rdquo;
-        and &ldquo;reverse&rdquo; transitions (but see <a
-        href="#reversing">below</a> for special reversing behavior when
-        an <em>incomplete</em> transition is interrupted).  Authors can
-        specify the value of 'transition-duration',
-        'transition-timing-function', or 'transition-delay' in the same
-        rule where they specify the value that triggers the transition,
-        or can change these properties at the same time as they change
-        the property that triggers the transition.  Since it's the new
-        values of these 'transition-*' properties that affect the
-        transition, these values will be used for the transitions
-        <em>to</em> the associated transitioning values.  For example:
-         </p>
-        <pre>li {
-  transition: background-color linear 1s;
-  background: blue;
-}
-li:hover {
-  background-color: green;
-  transition-duration: 2s; /* applies to the transition *to* the :hover state */
-}</pre>
-        <p>
-          When a list item with these style rules enters the :hover
-          state, the computed 'transition-duration' at the time that
-          'background-color' would have its new value (''green'') is ''2s'',
-          so the transition from ''blue'' to ''green'' takes 2 seconds.
-          However, when the list item leaves the :hover state, the
-          transition from ''green'' to ''blue'' takes 1 second.
-        </p>
-      </div>
 
       <p>
         Various things can cause the computed style of an element to change,
@@ -980,17 +944,36 @@ li:hover {
         Likewise, define the <dfn>after-change style</dfn> as
         the computed style for the element based on the information
         known at the start of that <span>style change event</span>,
-        in other words,
-        excluding any changes resulting from CSS Transitions
-        that start during that <span>style change event</span>.
+        but excluding any styles from CSS Transitions in the computation,
+        and inheriting from
+        the <span>after-transition style</dfn> of the parent.
+        <span class="note">(Note that inheriting from the
+        <span>after-transition style</span> of the parent is needed to
+        ensure that transitions are canceled properly
+        when an ancestor and descendant are running transitions
+        on the same inherited property.)</span>
+        Finally, define the <dfn>after-transition style</dfn> as
+        the computed style for the element based on the information
+        known at the start of that <span>style change event</span>,
+        excluding any styles from CSS Transitions that are started or
+        stopped during that <span>style change event</span>, but
+        including any styles from CSS Transitions that exist before
+        the <span>style change event</span> and are not stopped during it
+        (these are defined below),
+        also inheriting from the <span>after-transition style</span>
+        of the parent.
       </p>
 
-      <p class="issue">
-        This wording needs to handle already-running transitions better!
-        Need to cancel a transition that hasn't moved yet when we're
-        resetting to its start value!  Define canceling as not
-        firing transition events.  And point to other occurrence of
-        canceling in reversing section.
+      <p class="note">
+        Note that the <span>after-change style</dfn> and
+        the <span>after-transition style</span>
+        both exclude any changes resulting from CSS Transitions
+        that start during that <span>style change event</span>,
+        and both exclude styles from CSS Transitions
+        that are stopped during the <span>style change event</span>.
+        They differ in how they include styles from CSS Transitions
+        that existed before the <span>style change event</span>
+        and continue running after it.
       </p>
 
       <div class="note">
@@ -1027,75 +1010,284 @@ li:hover {
       <p>
         For each element with a <span>before-change style</span> and
         an <span>after-change style</span>,
-        and each property (other than shorthands) for which
-        the <span>before-change style</span> is different from
-        the <span>after-change style</span>,
-        implementations must
-        start transitions based on the relevant item (see <a
-        href="#transition-property">the definition of
-        'transition-property'</a>) in the computed value of
-        'transition-property'.
-        Corresponding to this item there is
-        a <span>matching transition duration</span>,
-        a <span>matching transition delay</span>, and
-        a <span>matching transition timing function</span>
-        in the computed values of
+        and each property (other than shorthands),
+        define the <dfn>matching transition-property value</dfn> as
+        the last value in the
+        'transition-property' in the element's <span>after-change style</span>
+        that matches the property,
+        as described in
+        <a href="#transition-property">the definition of
+        'transition-property'</a>.
+        If there is such a value, then corresponding to it, there is
+        a <dfn>matching transition duration</dfn>,
+        a <dfn>matching transition delay</dfn>, and
+        a <dfn>matching transition timing function</dfn>
+        in the values in the <span>after-change style</span> of
         'transition-duration', 'transition-delay', and 'transition-timing-function'
         (see <a href="#list-matching">the rules on matching lists</a>).
         Define the <dfn>combined duration</dfn> of the transition
-        as the sum of max(matching transition duration, ''0s'') and
-        the matching transition-delay.
-        When the combined duration is greater than ''0s'',
-        then a transition starts based on the values of the
-        matching transition duration, the matching transition delay,
-        and the matching transition-timing-function;
-        in other cases transitions do not occur.
-        The <dfn>start time</dfn> of this transition is defined as
-        the time of the <span>style change event</span> plus
-        the matching transition delay.
-        The <dfn>end time</dfn> of this transition is defined as
-        the <span>start time</span> plus the matching transition duration.
-        The <dfn>start value</dfn> of this transition is defined as
-        the value of the transitioning property
-        in the <span>before-change style</span>,
-        and the <dfn>end value</dfn> of this transition is defined as
-        the value of the transitioning property
-        in the <span>after-change style</span>.
-        Except in the cases described
-        in the <a href="#reversing">section on reversing of
-        transitions</a>,
-        the <dfn>reversing-adjusted start value</dfn> is the same as
-        the <span>start value</span>,
-        and the <dfn>reversing shortening factor</dfn> is 1.
+        as the sum of max(<span>matching transition duration</span>, ''0s'') and
+        the <span>matching transition-delay</span>.
+        For each element and property, the implementation must act
+        as follows:
       </p>
 
-      <p>
-        Once the transition of a property has started, it must continue
-        running based on the original timing function, duration, and
+      <ol>
+      <li>
+        If the element does not have a running transition for the property,
+        the <span>before-change style</span> is different from
+        and can be interpolated with
+        the <span>after-change style</span> for that property,
+        there is a <span>matching transition-property value</span>,
+        and the <span>combined duration</span> is greater than ''0s'',
+        implementations must
+        start a transition whose:
+        <ul>
+          <li>
+            <span>start time</span> is
+            the time of the <span>style change event</span> plus
+            the <span>matching transition delay</span>,
+          </li>
+          <li>
+            <span>end time</span> is
+            the <span>start time</span> plus
+            the <span>matching transition duration</span>,
+          </li>
+          <li>
+            <span>start value</span> is
+            the value of the transitioning property
+            in the <span>before-change style</span>,
+          </li>
+          <li>
+            <span>end value</span> is
+            the value of the transitioning property
+            in the <span>after-change style</span>,
+          </li>
+          <li>
+            <span>reversing-adjusted start value</span> is the same as
+            the <span>start value</span>, and
+          <li>
+            <span>reversing shortening factor</span> is 1.
+          </li>
+        </ul>
+      </li>
+      <li>
+        If the element has a running transition for the property,
+        and there is <strong>not</strong>
+        a <span>matching transition-property value</span>,
+        then implementations must
+        <span>cancel</span> the running transition.
+      </li>
+      <li>
+        If the element has a running transition for the property,
+        there is a <span>matching transition-property value</span>,
+        and the <span>end value</span> of the running transition is
+        <strong>not</strong> equal to the value of the property in the
+        <span>after-change style</span>, then:
+        <ol>
+          <li>
+            If the <span>current value</span> of the property
+            in the running transition
+            is equal to
+            the value of the property in the <span>after-change style</span>,
+            or if these two values cannot be interpolated,
+            then implementations must
+            <span>cancel</span> the running transition.
+          </li>
+          <li>
+            Otherwise, if the <span>combined duration</span> is
+            less than or equal to ''0s'',
+            then implementations must
+            <span>cancel</span> the running transition.
+          </li>
+          <li>
+            Otherwise, if the <span>reversing-adjusted start value</span>
+            of the running transition is the same as the value of
+            the property in the <span>after-change style</span>
+            <span class="note">(see the
+            <a href="#reversing">section on reversing of
+            transitions</a> for why these case exists)</span>,
+            implementations must
+            <span>cancel</span> the running transition and
+            start a new transition whose:
+            <ul>
+              <li>
+                <span>reversing-adjusted start value</span> is
+                the <span>end value</span> of the
+                running transition
+                <span class="note">(Note: This represents the logical start state of
+                the transition, and allows some calculations to ignore that
+                the transition started before that state was reached, which
+                in turn allows repeated reversals of the same transition to
+                work correctly),</span>
+              <li>
+                <span>reversing shortening factor</span>
+                is the absolute value, clamped to the range [0, 1],
+                of the sum of:
+                <ol>
+                  <li>the output of the timing function of the old transition
+                  at the time of the <span>style change event</span>,
+                  times the <span>reversing shortening factor</span> of the
+                  old transition</li>
+                  <li>1 minus the <span>reversing shortening factor</span> of
+                  the old transition.</li>
+                </ol>
+                <span class="note">Note: This represents the portion of the
+                space between the <span>reversing-adjusted start value</span>
+                and the <span>end value</span> that the old transition has
+                traversed (in amounts of the value, not time), except with the
+                absolute value and clamping to handle timing functions that
+                have y1 or y2 outside the range [0, 1].</span>
+              </li>
+              <li>
+                <span>start time</span> is
+                the time of the <span>style change event</span> plus:
+                <ol>
+                  <li>if the <span>matching transition delay</span>
+                      is nonnegative,
+                      the <span>matching transition delay</span>, or
+                  <li>if the <span>matching transition delay</span>
+                      is negative,
+                      the product of
+                      the new transition's
+                      <span>reversing shortening factor</span> and
+                      the <span>matching transition delay</span>,
+                </ol>
+              </li>
+              <li>
+                <span>end time</span> is
+                the <span>start time</span> plus the product of
+                the <span>matching transition duration</span> and
+                the new transition's <span>reversing shortening factor</span>,
+              </li>
+              <li>
+                <span>start value</span> is
+                the <span>current value</span> of the property
+                in the running transition,
+              </li>
+              <li>
+                <span>end value</span> is
+                the value of the property
+                in the <span>after-change style</span>,
+              </li>
+            </ul>
+          </li>
+          <li>
+            Otherwise, implementations must
+            <span>cancel</span> the running transition
+            and start a new transition whose:
+            <ul>
+              <li>
+                <span>start time</span> is
+                the time of the <span>style change event</span> plus
+                the <span>matching transition delay</span>,
+              </li>
+              <li>
+                <span>end time</span> is
+                the <span>start time</span> plus
+                the <span>matching transition duration</span>,
+              </li>
+              <li>
+                <span>start value</span> is
+                the <span>current value</span> of the property
+                in the running transition,
+              </li>
+              <li>
+                <span>end value</span> is
+                the value of the property
+                in the <span>after-change style</span>,
+              </li>
+              <li>
+                <span>reversing-adjusted start value</span> is the same as
+                the <span>start value</span>, and
+              <li>
+                <span>reversing shortening factor</span> is 1.
+              </li>
+            </ul>
+          </li>
+        </ol>
+      </li>
+
+      </ol>
+
+      <div class="note">
+        <p>
+          Note that the above rules mean that
+          when the computed value of an animatable property changes,
+          the transitions that start are based on the
+          values of the 'transition-property', 'transition-duration',
+          'transition-timing-function', and 'transition-delay' properties
+          at the time the animatable property would first have its new
+          computed value.
+          This means that when one of these 'transition-*' properties
+          changes at the same time as
+          a property whose change might transition,
+          it is the <em>new</em> values of the 'transition-*' properties
+          that control the transition.
+        </p>
+        <div class="example" id="manual-reversing-example">
+          <p style="display:none">
+            Example(s):
+          </p>
+          <p>This provides a way for authors to specify different values
+          of the 'transition-*' properties for the &ldquo;forward&rdquo;
+          and &ldquo;reverse&rdquo; transitions (but see <a
+          href="#reversing">below</a> for special reversing behavior when
+          an <em>incomplete</em> transition is interrupted).  Authors can
+          specify the value of 'transition-duration',
+          'transition-timing-function', or 'transition-delay' in the same
+          rule where they specify the value that triggers the transition,
+          or can change these properties at the same time as they change
+          the property that triggers the transition.  Since it's the new
+          values of these 'transition-*' properties that affect the
+          transition, these values will be used for the transitions
+          <em>to</em> the associated transitioning values.  For example:
+           </p>
+          <pre>li {
+    transition: background-color linear 1s;
+    background: blue;
+  }
+  li:hover {
+    background-color: green;
+    transition-duration: 2s; /* applies to the transition *to* the :hover state */
+  }</pre>
+          <p>
+            When a list item with these style rules enters the :hover
+            state, the computed 'transition-duration' at the time that
+            'background-color' would have its new value (''green'') is ''2s'',
+            so the transition from ''blue'' to ''green'' takes 2 seconds.
+            However, when the list item leaves the :hover state, the
+            transition from ''green'' to ''blue'' takes 1 second.
+          </p>
+        </div>
+      </div>
+
+      <p class="note">
+        Note that once the transition of a property has started,
+        it continues running based on
+        the original timing function, duration, and
         delay, even if the 'transition-timing-function',
         'transition-duration', or 'transition-delay' property changes
         before the transition is complete.  However, if the
         'transition-property' property changes such that the transition
-        would not have started, the transition must stop (and the
-        property must immediately change to its final value).
+        would not have started, the transition stops (and the
+        property immediately changes to its final value).
       </p>
 
-      <p>
-        Implementations must not start a transition when the computed
+      <p class="note">
+        Note that above rules mean that
+        transitions do not start when the computed
         value of a property changes as a result of declarative animation
         (as opposed to scripted animation).
-      </p>
-
-      <p>
-        Implementations also must not start a transition when the
-        computed value changes because it is inherited (directly or
-        indirectly) from another element that is transitioning the same
-        property.
+        This happens because the before-change style includes up-to-date
+        style for declarative animations.
       </p>
 
       <h3 id="reversing">
         Faster reversing of interrupted transitions
       </h3>
+      <div class="note">
+
       <p>
         Many common transitions effects involve transitions between two states,
         such as the transition that occurs when the mouse pointer moves
@@ -1111,70 +1303,16 @@ li:hover {
         the resulting effect can be distractingly asymmetric
         because the second transition
         takes the full specified time to move a shortened distance.
-        Instead, the expected behavior is that the second transition is shorter.
+        Instead, this specification makes second transition shorter.
       </p>
 
       <p>
-        To meet this expectation,
-        when a transition is started for a property on an element
-        (henceforth, the <dfn>new transition</dfn>)
-        that has a currently-running transition whose
-        <span>reversing-adjusted start value</span> is the same as the
-        <span>end value</span> of the new transition
-        (henceforth, the <dfn>old transition</dfn>), implementations
-        must cancel the old transition <span class="issue">link to
-        definition above</span> and adjust the new transition as follows
-        (prior to following the rules for computing the <span>combined
-        duration</span>, <span>start time</span>, and <span>end
-        time</span>):
+        The mechanism the above rules use to cause this involves the
+        <span>reversing shortening factor</span> and the
+        <span>reversing-adjusted start value</span>.
+        In particular, the reversing behavior is present whenever
+        the <span>reversing shortening factor</span> is less than 1.
       </p>
-
-      <ol>
-
-        <li>
-          The <span>reversing-adjusted start value</span> of the new
-          transition is instead the the <span>end value</span> of the
-          old transition.
-          <span class="note">Note: This represents the logical start state of
-          the transition, and allows some calculations to ignore that
-          the transition started before that state was reached, which
-          in turn allows repeated reversals of the same transition to
-          work correctly.</span>
-        </li>
-
-        <li>
-          The <span>reversing shortening factor</span> of the new
-          transition is the absolute value, clamped to the range [0, 1],
-          of the sum of:
-          <ol>
-            <li>the output of the timing function of the old transition
-            at the time of the <span>style change event</span>,
-            times the <span>reversing shortening factor</span> of the
-            old transition</li>
-            <li>1 minus the <span>reversing shortening factor</span> of
-            the old transition.</li>
-          </ol>
-          <span class="note">Note: This represents the portion of the
-          space between the <span>reversing-adjusted start value</span>
-          and the <span>end value</span> that the old transition has
-          traversed (in amounts of the value, not time), except with the
-          absolute value and clamping to handle timing functions that
-          have y1 or y2 outside the range [0, 1].</span>
-        </li>
-
-        <li>
-          The matching transition-duration for the new transition is
-          multiplied by the
-          <span>reversing shortening factor</span>.
-        </li>
-
-        <li>
-          If the matching transition-delay for the new transition is
-          negative, it is also multiplied by the
-          <span>reversing shortening factor</span>.
-        </li>
-
-      </ol>
 
       <p class="note">
         Note that these rules do not fully address the problem for
@@ -1195,6 +1333,8 @@ li:hover {
         resolution made on 2013-06-07 and edits made on 2013-11-11.
       </p>
 
+      </div>
+
       <h2 id="application">
         Application of transitions
       </h2>
@@ -1203,7 +1343,8 @@ li:hover {
         When a property on an element is undergoing a transition
         (that is, when or after the transition has started and before the
         <span>end time</span> of the transition)
-        the transition adds a style to the CSS cascade
+        the transition adds a style called the <dfn>current value</dfn>
+        to the CSS cascade
         at the level defined for CSS Transitions in [[CSS3CASCADE]].
       </p>
 
@@ -1238,7 +1379,7 @@ li:hover {
         If the current time is at or before the
         <span>start time</span> of the transition
         (that is, during the delay phase of the transition),
-        this value is a specified style that will compute
+        the <span>current value</span> is a specified style that will compute
         to the <span>start value</span> of the transition.
       </p>
 
@@ -1246,7 +1387,7 @@ li:hover {
         If the current time is after the
         <span>start time</span> of the transition
         (that is, during the duration phase of the transition),
-        this value is a specified style that will compute
+        the <span>current value</span> is a specified style that will compute
         to the <a href="#animatable-types">result of interpolating the property</a>
         using the <span>start value</span> of the transition as
         <var>V</var><sub>start</sub>,
@@ -1254,6 +1395,26 @@ li:hover {
         <var>V</var><sub>end</sub>,
         and using (current time - start time) / (end time - start time)
         as the input to the timing function.
+      </p>
+
+      <h2 id="complete">Completion of transitions</h2>
+
+      <p>
+        Running transitions <dfn>complete</dfn>
+        at a time that equal to or after their end time,
+        but prior to to the first <span>style change event</span>
+        whose time is equal to or after their <span>end time</span>.
+        When a transition completes,
+        implementations must remove
+        all transitions that complete at that time
+        from the set of running transitions
+        and then fire the <a href="#transition-events">events</a>
+        for those completions.
+        <span class="note">(Note that doing otherwise could allow
+        a style change event to happen
+        without the necessary transitions completing,
+        since firing the event could cause a style change event,
+        if an event handler requests up-to-date computed style.)</span>
       </p>
 
       <h2 id="transition-events"><a title="" id="transition-events-">
@@ -1755,7 +1916,10 @@ li:hover {
 dated 19 November 2013</a>:</p>
 
 <ul>
+  <li>Canceling and interrupting of running transitions is defined much more precisely.  This involved introducing the new concept of <span>after-transition style</span>, which also means that the <span>after-change style</span> is no longer a tree of style at a single point in time (since the transition computation on a parent element depends on the after-change style for that parent, but is required prior to computing the after-change style for its children).</p>
+  <li>Completion of transitions is defined somewhat more precisely.</p>
   <li>The transitionend event is no longer cancelable.  This is since it has no default action, so canceling it would have no meaning.  It also matches the animation events.</p>
+  <li>The interpolation of ''inset'' values on shadow lists is no longer backwards.</p>
   <li class="issue">... ADD CHANGES HERE ...
 </ul>
 
