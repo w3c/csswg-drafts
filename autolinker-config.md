@@ -145,9 +145,11 @@ Just list the earliest version of each module that fully replaces 2.1.
 * css-backgrounds-3
 * css-break-3
 * css-color-3
+* css-counter-styles-3
 * css-display-3
 * css-fonts-3
 * css-images-3
+* css-images-4
 * css-lists-3
 * css-overflow-3
 * css-position-3
