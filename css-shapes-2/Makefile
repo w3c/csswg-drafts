@@ -28,6 +28,8 @@ PROCESSCGI=https://www.w3.org/Style/Group/process.cgi
 CURL=curl
 CURLFLAGS=
 
+# need to bikeshed and remove this
+
 # if you want to set a publication date other than today's date,
 # invoke make like this: "make PUBDATE=2008-03-19"
 PUBMSG=
