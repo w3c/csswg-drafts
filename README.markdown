@@ -1,6 +1,8 @@
 ### [CSS Working Group](http://www.w3.org/Style/CSS/) Specifications
 
-To download a copy of all specifications:
+This is the official CSSWG repository for editor's drafts of CSS specifications.
+
+This repository is a two-way mirror of a Mercurial repository:
 
         hg clone https://hg.csswg.org/drafts
 
