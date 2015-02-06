@@ -132,6 +132,7 @@ or they're the sole definition of the term.
 * css-inline-3
 * css-page-4
 * css-template-1
+* css3-tables
 * css1
 
 CSS 2.1 Replacements
