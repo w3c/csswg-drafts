@@ -30,12 +30,27 @@ markup ?= html
 	@curl -K ~/.curl-w3.org -s -S -F output=err -F file=@$< \
 	-F group=$(group) -F method=file -F date=$(cdate) -F status=$(status) \
 	$(opts) -o $@ https://www.w3.org/Style/Group/process.cgi
-%.html: %.bs
+%.html: %.tmp
 	curl -s -L -F file=@$< -F time=$(cdate) -F output=html \
 	-F paragraph=$(markup) $(opts) -o $@ http://api.csswg.org/bikeshed/
-%.err: %.bs
+%.err: %.tmp
+	rm -f $@
+	touch $@
 	curl -s -L -F file=@$< -F time=$(cdate) -F output=err \
 	-F paragraph=$(markup) $(opts) -o $@ http://api.csswg.org/bikeshed/
+
+%.tmp: %.bs
+	cp $< $@
+	if [ "$(cdate)" != "" ]; then sed -r -i " \
+	 /<pre class=['\"]?metadata/,/<\/pre/{ \
+	  s/^Date:.*/Date: $(cdate)/; \
+	  s/<\/pre/Date: $(cdate)\n&/; \
+	 }" $@; fi
+	if [ "$(status)" != "" ]; then sed -r -i " \
+	 /<pre class=['\"]?metadata/,/<\/pre/{ \
+	  s/^Status:.*/Status: $(status)/; \
+	  s/<\/pre/Status: $(status)\n&/; \
+	 }" $@; fi
 
 # For Dispositions of Comments in css3-background:
 %.html: %.txt; awk -f issues-txt-to-html.awk $< >$@
@@ -70,7 +85,7 @@ update:
 	hg update
 
 clean:
-	rm -f $(target).html $(target).err
+	rm -f $(target).html $(target).err $(target).tmp
 
 
 
