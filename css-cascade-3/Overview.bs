@@ -1,0 +1,895 @@
+<h1>CSS Cascading and Inheritance Level 4</h1>
+
+<pre class='metadata'>
+Shortname: css-cascade
+Level: 4
+Status: ED
+Group: csswg
+ED: http://dev.w3.org/csswg/css-cascade/
+TR: http://www.w3.org/TR/css-cascade-4/
+Editor: fantasai, Mozilla, http://fantasai.inkedblade.net/contact
+Editor: Tab Atkins Jr., Google, http://xanthir.com/contact/
+Previous Version: http://www.w3.org/TR/2013/WD-css-cascade-3-20130730/
+Previous Version: http://www.w3.org/TR/2013/WD-css3-cascade-20130103/
+Previous Version: http://www.w3.org/TR/2005/WD-css3-cascade-20051215/
+Issue Tracking: Disposition of Comments http://dev.w3.org/csswg/css-cascade/issues
+Abstract: This CSS module describes how to collate style rules and assign values to all properties on all elements. By way of cascading and inheritance, values are propagated for all properties on all elements.
+Ignored Terms: auto, flex items
+Link Defaults: css21 (property) display
+</pre>
+
+<h2 id="intro">
+Introduction</h2>
+
+	One of the fundamental design principles of CSS is <a lt="cascade">cascading</a>,
+	which allows several style sheets to influence the presentation of a document.
+	When different declarations try to set a value for the same element/property combination,
+	the conflicts must somehow be resolved.
+
+	The opposite problem arises when no declarations try to set a the value for an element/property combination.
+	In this case, a value is be found by way of <a>inheritance</a>
+	or by looking at the property's <a>initial value</a>.
+
+	The <a href="#cascade">cascading</a> and <a href="#defaulting">defaulting</a> process takes a set of declarations as input,
+	and outputs a <a>specified value</a> for each property on each element.
+
+	The rules for finding the specified value for all properties on all elements in the document are described in this specification.
+	The rules for finding the specified values in the page context and its margin boxes are described in [[CSS3PAGE]].
+
+<h2 id="at-import">
+Importing Style Sheets: the ''@import'' rule</h2>
+
+	The <dfn>@import</dfn> rule allows users to import style rules from other style sheets.
+	Any ''@import'' rules must precede all other at-rules and style rules in a style sheet
+	(besides ''@charset'', which must be the first thing in the style sheet if it exists),
+	or else the ''@import'' rule is invalid.
+	The syntax of ''@import'' is:
+
+	<pre class='prod'>@import [ <<url>> | <<string>> ] <<media-query-list>>? ;</pre>
+
+	If a <<string>> is provided,
+	it must be interpreted as a url with the same value.
+
+	<div class="example">
+		The following lines are equivalent in meaning
+		and illustrate both ''@import'' syntaxes
+		(one with ''url()'' and one with a bare string):
+
+		<pre>
+		@import "mystyle.css";
+		@import url("mystyle.css");
+		</pre>
+	</div>
+
+	If an ''@import'' rule refers to a valid stylesheet,
+	user agents must treat the contents of the stylesheet as if they were written in place of the ''@import'' rule.
+
+	<p class='example'>
+		For example, declarations in style rules from imported stylesheets interact with the cascade
+		as if they were written literally into the stylesheet at the point of the ''@import''.
+		Similarly, style rules in a stylesheet imported into a scoped stylesheet
+		are scoped in the same way.
+
+	An ''@import'' rule can be media-dependent:
+	such media-dependent imports include a comma-separated list of “media queries” after the URI,
+	which specify to which media the imported style sheet applies.
+	In the absence of any media query, the import is unconditional.
+	(Specifying ''@media/all'' for the medium has the same effect.)
+
+	The evaluation and full syntax of the expressions after the URL
+	is defined by the <a href="http://www.w3.org/TR/css3-mediaqueries/">Media Queries</a> specification [[!MEDIAQ]].
+	If the media query does not match,
+	the rules in the imported stylesheet do not apply,
+	exactly as if the imported stylesheet were wrapped in an ''@media'' block with the given media query.
+	User agents may therefore avoid fetching a media-dependent import
+	as long as the media query does not match.
+
+	<div class=example>
+		The following rules illustrate how ''@import'' rules can be made media-dependent:
+
+		<pre>
+		@import url("fineprint.css") print;
+		@import url("bluish.css") projection, tv;
+		@import url("narrow.css") handheld and (max-width: 400px);
+		</pre>
+	</div>
+
+	When the same style sheet is imported or linked to a document in multiple places,
+	user agents must process (or act as though they do) each link
+	as though the link were to a separate style sheet.
+
+	Note: This does not place any requirements on resource fetching,
+	only how the style sheet is reflected in the CSSOM and used in specs such as this one.
+	Assuming appropriate caching,
+	it is perfectly appropriate for a UA to fetch a style sheet only once,
+	even though it's linked or imported multiple times.
+
+	The <a>origin</a> of an imported style sheet is the same as the <a>origin</a> of the style sheet that imported it.
+
+	The <a>environment encoding</a> of an imported style sheet is the encoding of the style sheet that imported it. [[CSS3SYN]]
+
+<h3 id='content-type'>
+Content-Type of CSS Style Sheets</h3>
+
+	The processing of imported style sheets depends on the actual type of the linked resource.
+	If the resource does not have <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/fetching-resources.html#content-type">Content-Type metadata</a>,
+	or the host document is in <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/infrastructure.html#quirks-mode">quirks mode</a>
+	and has the <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/origin-0.html#same-origin">same origin</a> as the imported style sheet,
+	the type of the linked resource is <code>text/css</code>.
+	Otherwise, the type is determined from its <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/fetching-resources.html#content-type">Content-Type metadata</a>.
+
+	If the linked resource's type is <code>text/css</code>,
+	it must be interpreted as a CSS style sheet.
+	Otherwise, it must be interpreted as a network error.
+
+
+<h2 id='shorthand'>
+Shorthand Properties</h2>
+
+	Some properties are <dfn export lt="shorthand property | shorthand">shorthand properties</dfn>,
+	meaning that they allow authors to specify the values of several properties with a single property.
+	A <a>shorthand property</a> sets all of its <dfn export lt="longhand | longhand property | sub-property">longhand sub-properties</dfn>,
+	exactly as if expanded in place.
+
+	When values are omitted from a <a>shorthand</a> form,
+	unless otherwise defined,
+	each “missing” <a>sub-property</a> is assigned its <a>initial value</a>.
+
+	<div class='note'>
+		This means that a <a>shorthand</a> property declaration always sets <em>all</em> of its <a>sub-properties</a>,
+		even those that are not explicitly set.
+		Carelessly used, this might result in inadvertently resetting some <a>sub-properties</a>.
+		Carefully used, a <a>shorthand</a> can guarantee a “blank slate”
+		by resetting <a>sub-properties</a> inadvertently cascaded from other sources.
+
+		For example, writing ''background: green'' rather than ''background-color: green''
+		ensures that the background color overrides any earlier declarations
+		that might have set the background to an image with 'background-image'.
+	</div>
+
+	<div class='example'>
+		For example, the CSS Level 1 'font' property
+		is a <a>shorthand</a> property for setting <a property>font-style</a>, <a property>font-variant</a>, <a property>font-weight</a>, 'font-size', 'line-height', and <a property>font-family</a> all at once.
+		The multiple declarations of this example:
+
+		<pre>
+h1 {
+	font-weight: bold;
+	font-size: 12pt;
+	line-height: 14pt;
+	font-family: Helvetica;
+	font-variant: normal;
+	font-style: normal;
+}</pre>
+
+		can therefore be rewritten as
+
+		<pre>h1 { font: bold 12pt/14pt Helvetica }</pre>
+
+		As more 'font' <a>sub-properties</a> are introduced into CSS,
+		the shorthand declaration resets those to their initial values as well.
+	</div>
+
+	In some cases, a <a>shorthand</a> might have different syntax
+	or special keywords
+	that don't directly correspond to values of its <a>sub-properties</a>.
+	(In such cases, the <a>shorthand</a> will explicitly define the expansion of its values.)
+
+	In other cases, a property might be a <dfn>reset-only sub-property</dfn> of the shorthand:
+	Like other <a>sub-properties</a>, it is reset to its initial value by the shorthand when unspecified,
+	but the shorthand might not include syntax to set the <a>sub-property</a>
+	to any of its other values.
+	For example, the 'border' shorthand resets 'border-image'
+	to its initial value of ''border-image/none'',
+	but has no syntax to set it to anything else. [[CSS3BG]]
+
+	If a <a>shorthand</a> is specified as one of the <a href="http://www.w3.org/TR/css3-values/#common-keywords">CSS-wide keywords</a> [[!CSS3VAL]],
+	it sets all of its <a>sub-properties</a> to that keyword,
+	including any that are <a>reset-only sub-properties</a>.
+	(Note that these keywords cannot be combined with other values in a single declaration, not even in a shorthand.)
+
+	Declaring a <a>shorthand</a> property to be ''!important''
+	is equivalent to declaring all of its <a>sub-properties</a> to be ''!important''.
+
+
+<h3 id="all-shorthand">
+Resetting All Properties: the 'all' property</h3>
+
+	<table class="propdef">
+		<tr>
+			<th>Name:
+			<td><dfn>all</dfn>
+		<tr>
+			<th>Value:
+			<td>initial | inherit | unset
+		<tr>
+			<th>Initial:
+			<td>See individual properties
+		<tr>
+			<th>Applies to:
+			<td>See individual properties
+		<tr>
+			<th>Inherited:
+			<td>See individual properties
+		<tr>
+			<th>Percentages:
+			<td>See individual properties
+		<tr>
+			<th>Media:
+			<td>See individual properties
+		<tr>
+			<th>Computed value:
+			<td>See individual properties
+		<tr>
+			<th>Animatable:
+			<td>See individual properties
+	</table>
+
+	The 'all' property is a <a>shorthand</a> that resets <em>all</em> CSS properties
+	except 'direction' and 'unicode-bidi'.
+	It only accepts the <a href="http://www.w3.org/TR/css3-values/#common-keywords">CSS-wide keywords</a>.
+
+	Note: The excepted properties are actually markup-level features,
+	and <a href="http://www.w3.org/TR/css3-writing-modes/#text-direction">should not be set in the author's style sheet</a>.
+	(They exist as CSS properties only to style document languages not supported by the UA.)
+	Authors should use the appropriate markup, such as HTML's <code>dir</code> attribute, instead.
+	[[CSS3-WRITING-MODES]]
+
+	<div class='example'>
+		For example, if an author specifies ''all: initial'' on an element
+		it will block all inheritance and reset all properties,
+		as if no rules appeared in the author, user, or user-agent levels of the cascade.
+
+		This can be useful for the root element of a "widget" included in a page,
+		which does not wish to inherit the styles of the outer page.
+		Note, however, that any "default" style applied to that element
+		(such as, e.g. ''display: block'' from the UA style sheet on block elements such as <code>&lt;div></code>)
+		will also be blown away.
+	</div>
+
+<h2 id="value-stages">
+Value Processing</h2>
+
+	Once a user agent has parsed a document and constructed a document tree,
+	it must assign,
+	to every element in the tree,
+	and correspondingly to every box in the formatting structure,
+	a value to every property that applies to the target media type.
+
+	The final value of a CSS property for a given element or box
+	is the result of a multi-step calculation:
+
+	<ul>
+		<li>
+			First, all the <a>declared values</a> applied to an element are collected,
+			for each property on each element.
+			There may be zero or many <a>declared values</a> applied to the element.
+
+		<li>
+			Cascading yields the <a>cascaded value</a>.
+			There is at most one <a>cascaded value</a> per property per element.
+
+		<li>
+			Defaulting yields the <a>specified value</a>.
+			Every element has exactly one <a>specified value</a> per property.
+
+		<li>
+			Resolving value dependencies yields the <a>computed value</a>.
+			Every element has exactly one <a>computed value</a> per property.
+
+		<li>
+			Formatting the document yields the <a>used value</a>.
+			An element only has a <a>used value</a> for a given property
+			if that property applies to the element.
+
+		<li>
+			Finally, the used value is transformed to the <a>actual value</a>
+			based on constraints of the display environment.
+			As with the <a>used value</a>, there may or may not be an <a>actual value</a>
+			for a given property on an element.
+	</ul>
+
+<h3 id="declared">
+Declared Values</h3>
+
+	Each property declaration <a href="#filtering">applied to an element</a>
+	contributes a <dfn export>declared value</dfn> for that property
+	associated with the element.
+	See <a href="#filtering">Filtering Declarations</a> for details.
+
+	These values are then processed by the <a>cascade</a>
+	to choose a single “winning value”.
+
+<h3 id="cascaded">
+Cascaded Values</h3>
+
+	The <dfn export>cascaded value</dfn> represents the result of <a href="#cascade">the cascade</a>:
+	it is the <a>declared value</a> that wins the cascade
+	(is sorted first in the <a>output of the cascade</a>).
+	If the <a>output of the cascade</a> is an empty list,
+	there is no <a>cascaded value</a>.
+
+<h3 id="specified">
+Specified Values</h3>
+
+	The <dfn export>specified value</dfn> the value of a given property that the style sheet authors intended for that element.
+	It is the result of putting the <a>cascaded value</a> through the <a href="#defaulting">defaulting</a> processes,
+	guaranteeing that a <a>specified value</a> exists for every property on every element.
+
+	In many cases, the <a>specified value</a> is the <a>cascaded value</a>.
+	However, if there is no <a>cascaded value</a> at all,
+	the <a>specified value</a> is <a href="#defaulting">defaulted</a>.
+	The ''initial'' and ''inherit'' keywords
+	are handled specially when they are the <a>cascaded value</a> of a property,
+
+
+<h3 id="computed">
+Computed Values</h3>
+
+	The <dfn export>computed value</dfn> is the result of resolving the <a>specified value</a>
+	as defined in the “Computed Value” line of the property definition table,
+	generally absolutizing it in preparation for <a>inheritance</a>.
+
+	Note: The <a>computed value</a> is the value that is transferred from parent to child during <a>inheritance</a>.
+	For historical reasons,
+	it is not necessarily the value returned by the <code>getComputedStyle()</code> function.
+
+	<div class="example">
+		A <a>specified value</a> can be either absolute (i.e., not relative to another value, as in ''red'' or ''2mm'')
+		or relative (i.e., relative to another value, as in ''auto'', ''2em'').
+		Computing a relative value generally absolutizes it:
+
+		<ul>
+			<li>
+				values with relative units
+				(''em'', ''ex'', ''vh'', ''vw'')
+				must be made absolute by multiplying with the appropriate reference size
+
+			<li>
+				certain keywords
+				(e.g., ''smaller'', ''bolder'')
+				must be replaced according to their definitions
+
+			<li>
+				percentages on some properties must be multiplied by a reference value
+				(defined by the property)
+
+			<li>
+				valid relative URLs must be resolved to become absolute.
+		</ul>
+
+		See examples (f), (g) and (h) in the <a href="#stages-examples">table below</a>.
+	</div>
+
+	Note: In general, the <a>computed value</a> resolves the <a>specified value</a>
+	as far as possible without laying out the document
+	or performing other expensive or hard-to-parallelize operations,
+	such as resolving network requests
+	or retrieving values other than from the element and its parent.
+
+	The <a>computed value</a> exists even when the property does not apply
+	(as defined by the “Applies To” line).
+	However, some properties may change how they determine the <a>computed value</a>
+	based on whether the property applies to the element.
+
+<h3 id='used'>
+Used Values</h3>
+
+	The <dfn export>used value</dfn> is the result of taking the <a>computed value</a>
+	and completing any remaining calculations to make it the absolute theoretical value
+	used in the layout of the document.
+	If the property does not apply to this element,
+	then the element has no <a>used value</a> for that property.
+
+	<p class='example'>
+		For example, a declaration of ''width: auto'' can't be resolved into a length without knowing the layout of the element's ancestors,
+		so the <a>computed value</a> is ''auto'',
+		while the <a>used value</a> is an absolute length, such as ''100px''. [[CSS21]]
+
+	<p class='example'>
+		As another example, a <code>&lt;div></code> might have a computed 'break-before' value of ''auto'',
+		but acquire a used 'break-before' value of ''break-before/page'' by propagation from its first child. [[CSS3-BREAK]]
+
+	<p class='example'>
+		Lastly, if a property does not apply to an element,
+		it has no <a>used value</a>;
+		so, for example, the 'flex' property has no <a>used value</a>
+		on elements that aren't <a>flex items</a>.
+
+<h3 id="actual">
+Actual Values</h3>
+
+	A <a>used value</a> is in principle ready to be used,
+	but a user agent may not be able to make use of the value in a given environment.
+	For example, a user agent may only be able to render borders with integer pixel widths
+	and may therefore have to approximate the <a lt="used value">used</a> width.
+	Also, the font size of an element may need adjustment based on the availability of fonts
+	or the value of the 'font-size-adjust' property.
+	The <dfn export>actual value</dfn> is the used value after any such adjustments have been made.
+
+	Note: By probing the actual values of elements,
+	much can be learned about how the document is laid out.
+	However, not all information is recorded in the actual values.
+	For example, the actual value of the 'page-break-after' property
+	does not reflect whether there is a page break or not after the element.
+	Similarly, the actual value of 'orphans'
+	does not reflect how many orphan lines there is in a certain element.
+	See examples (j) and (k) in the <a href="#stages-examples">table below</a>.
+
+<h3 id="stages-examples">
+Examples</h3>
+
+	<table class="data">
+		<thead>
+			<tr>
+				<th>
+				<th>Property
+				<th>Winning declaration
+				<th>Cascaded value
+				<th>Specified value
+				<th>Computed value
+				<th>Used value
+				<th>Actual value
+		<tbody>
+			<tr>
+				<td>(a)
+				<th>'text-align'
+				<td><code class="declaration">text-align: left</code>
+				<td><css>left</css>
+				<td><css>left</css>
+				<td><css>left</css>
+				<td><css>left</css>
+				<td><css>left</css>
+			<tr>
+				<td>(b)
+				<th>'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width'
+				<td><code class="declaration">border-width: inherit</code>
+				<td><css>inherit</css>
+				<td class="say"><css>4.2px</css>
+				<td><css>4.2px</css>
+				<td><css>4.2px</css>
+				<td><css>4px</css>
+			<tr>
+				<td>(c)
+				<th>'width'
+				<td><small>(none)</small>
+				<td><small>(none)</small>
+				<td><css>auto</css> <small>(initial&nbsp;value)</small>
+				<td><css>auto</css>
+				<td><css>120px</css>
+				<td><css>120px</css>
+			<tr>
+				<td>(d)
+				<th>'list-style-position'
+				<td><code class="declaration">list-style-position: inherit</code>
+				<td><css>inherit</css>
+				<td class="say"><css>inside</css>
+				<td><css>inside</css>
+				<td><css>inside</css>
+				<td><css>inside</css>
+			<tr>
+				<td>(e)
+				<th>'list-style-position'
+				<td><code class="declaration">list-style-position: initial</code>
+				<td><css>initial</css>
+				<td><css>outside</css> <small>(initial&nbsp;value)</small>
+				<td><css>outside</css>
+				<td><css>outside</css>
+				<td><css>outside</css>
+			<tr>
+				<td>(f)
+				<th>'font-size'
+				<td><code class="declaration">font-size: 1.2em</code>
+				<td><css>1.2em</css>
+				<td><css>1.2em</css>
+				<td class="say"><css>14.1px</css>
+				<td><css>14.1px</css>
+				<td><css>14px</css>
+			<tr>
+				<td>(g)
+				<th>'width'
+				<td><code class="declaration">width: 80%</code>
+				<td><css>80%</css>
+				<td><css>80%</css>
+				<td><css>80%</css>
+				<td class="say"><css>354.2px</css>
+				<td><css>354px</css>
+			<tr>
+				<td>(h)
+				<th>'width'
+				<td><code class="declaration">width: auto</code>
+				<td><css>auto</css>
+				<td><css>auto</css>
+				<td><css>auto</css>
+				<td class="say"><css>134px</css>
+				<td><css>134px</css>
+			<tr>
+				<td>(i)
+				<th>'height'
+				<td><code class="declaration">height: auto</code>
+				<td><css>auto</css>
+				<td><css>auto</css>
+				<td><css>auto</css>
+				<td class="say"><css>176px</css>
+				<td><css>176px</css>
+			<tr>
+				<td>(j)
+				<th>'page-break-after'
+				<td><small>(none)</small>
+				<td><small>(none)</small>
+				<td><css>auto</css> <small>(initial&nbsp;value)</small>
+				<td><css>auto</css>
+				<td><css>auto</css>
+				<td><css>auto</css>
+			<tr>
+				<td>(k)
+				<th>'orphans'
+				<td><code class="declaration">orphans: 3</code>
+				<td><css>3</css>
+				<td><css>3</css>
+				<td><css>3</css>
+				<td><css>3</css>
+				<td><css>3</css>
+	</table>
+
+
+
+<h2 id='filtering'>
+Filtering</h2>
+
+	In order to find the <a>declared values</a>,
+	implementations must first identify all declarations that apply to each element.
+	A declaration applies to an element if:
+
+	<ul>
+		<li>
+			It belongs to a style sheet that currently applies to this document.
+
+		<li>
+			It is not qualified by a conditional rule [[!CSS3-CONDITIONAL]] with a false condition.
+
+		<li>
+			It belongs to a style rule whose selector matches the element. [[!SELECT]]
+			(Taking <a href="http://www.w3.org/TR/selectors4/#scoping">scoping</a> into account, if necessary.)
+
+		<li>
+			It is syntactically valid:
+			the declaration's property is a known property name,
+			and the declaration's value matches the syntax for that property.
+	</ul>
+
+	The values of the declarations that apply form,
+	for each property on each element,
+	a list of <a>declared values</a>.
+	The next section,
+	the <a>cascade</a>,
+	prioritizes these lists.
+
+
+<h2 id='cascading'>
+Cascading</h2>
+
+	The <dfn export>cascade</dfn>
+	takes a unordered list of <a>declared values</a>
+	for a given property on a given element,
+	sorts them by their declaration’s precedence as determined below,
+	and outputs a single <a>cascaded value</a>.
+
+	The cascade sorts declarations according to the following criteria,
+	in descending order of priority:
+
+	<dl>
+		<dt id='cascade-origin'>Origin and Importance
+		<dd>
+			The <a>origin</a> of a declaration is based on where it comes from
+			and its <a lt="important">importance</a> is whether or not it is declared ''!important'' (see below).
+			The precedence of the various <a>origins</a> is, in descending order:
+
+			<ol>
+				<li>Transition declarations [[!CSS3-TRANSITIONS]]
+				<li>Important user agent declarations
+				<li>Important user declarations
+				<li>Important override declarations [[!DOM-LEVEL-2-STYLE]]
+				<li>Important author declarations
+				<li>Animation declarations [[!CSS3-ANIMATIONS]]
+				<li>Normal override declarations [[!DOM-LEVEL-2-STYLE]]
+				<li>Normal author declarations
+				<li>Normal user declarations
+				<li>Normal user agent declarations
+			</ol>
+
+			Declarations from <a>origins</a> earlier in this list win over declarations from later <a>origins</a>.
+
+		<dt id='cascade-scope'>Scope
+		<dd>
+			A declaration can be <dfn export>scoped</dfn> to a subtree of the document
+			so that it only affects its <dfn export>scoping element</dfn> and that element's descendants.
+			For example, [[HTML5]] defines scoped <code>&lt;style&gt;</code> elements,
+			whose style sheets are scoped to the element's parent.
+
+			If the <a>scoping elements</a> of two declarations
+			have an ancestor/descendant relationship,
+			then for normal rules the declaration whose <a>scoping element</a> is the descendant wins,
+			and for important rules the declaration whose <a>scoping element</a> is the ancestor wins.
+
+			Note: In other words, for normal declarations the inner scope's declarations override,
+			but for ''!important'' rules <em>outer</em> scope's override.
+
+			For the purpose of this step,
+			all unscoped declarations are considered to be <a>scoped</a> to the root element.
+			Normal declarations from style attributes
+			are considered to be <a>scoped</a> to the element with the attribute,
+			whereas important declarations from style attributes
+			are considered to be <a>scoped</a> to the root element.
+			[[!CSSSTYLEATTR]]
+
+			Note: This odd handling of ''!important'' style attribute declarations
+			is to match the behavior defined in CSS Levels 1 and 2,
+			where style attributes simply have higher specificity than any other author rules. [[CSS21]]
+
+		<dt id='cascade-specificity'>Specificity
+		<dd>
+			The <a href="http://www.w3.org/TR/selectors/#specificity">Selectors module</a> [[!SELECT]] describes how to compute the specificity of a selector.
+			Each declaration has the same specificity as the style rule it appears in.
+			For the purpose of this step,
+			declarations that do not belong to a style rule
+			(such as the <a href="http://www.w3.org/TR/css-style-attr/#interpret">contents of a style attribute</a>)
+			are considered to have a specificity higher than any selector.
+			The declaration with the highest specificity wins.
+
+
+		<dt id='cascade-order'>Order of Appearance
+		<dd>
+			The last declaration in document order wins.
+			For this purpose:
+
+			<ul>
+				<li>Declarations from <a at-rule lt="@import">imported style sheets</a>
+					are ordered as if their style sheets were substituted in place of the ''@import'' rule.
+				<li>Declarations from style sheets independently linked by the originating document
+					are treated as if they were concatenated in linking order,
+					as determined by the host document language.
+				<li>Declarations from style attributes
+					are ordered according to the document order of the element the style attribute appears on,
+					and are all placed after any style sheets.
+			</ul>
+	</dl>
+
+	The <dfn>output of the cascade</dfn>
+	is a (potentially empty) sorted list of <a>declared values</a> for each property on each element.
+
+
+<h3 id='cascading-origins'>
+Cascading Origins</h3>
+
+	Each style rule has an <dfn export>origin</dfn>,
+	which determines where it enters the cascade.
+	CSS defines three core <a>origins</a>:
+
+	<dl>
+		<dt id='cascade-origin-author'>Author
+		<dd>
+			The author specifies style sheets for a source document according to the conventions of the document language. For instance, in HTML, style sheets may be included in the document or linked externally.
+
+		<dt id='cascade-origin-user'>User
+		<dd>
+			The user may be able to specify style information for a particular document.
+			For example, the user may specify a file that contains a style sheet
+			or the user agent may provide an interface that generates a user style sheet
+			(or behaves as if it did).
+
+		<dt id='cascade-origin-ua'>User agent
+		<dd>
+			Conforming user agents must apply a default style sheet
+			(or behave as if they did).
+			A user agent's default style sheet should present the elements of the document language in ways that satisfy general presentation expectations for the document language
+			(e.g., for visual browsers, the EM element in HTML is presented using an italic font).
+			See e.g. the <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/rendering.html#the-css-user-agent-style-sheet-and-presentational-hints">HTML user agent style sheet</a>. [[HTML5]]
+	</dl>
+
+	Extensions to CSS define the following additional <a>origins</a>:
+
+	<dl>
+		<dt id='cascade-origin-override'>Override
+		<dd>
+			DOM Level 2 Style [[!DOM-LEVEL-2-STYLE]] defines an interface for “override” styles,
+			which enter the cascade at a higher level than other author rules.
+
+		<dt id='cascade-origin-animation'>Animation
+		<dd>
+			CSS Animations [[CSS3-ANIMATIONS]] generate “virtual” rules representing their effects when running.
+
+		<dt id='cascade-origin-transition'>Transition
+		<dd>
+			Like CSS Animations, CSS Transitions [[CSS3-TRANSITIONS]] generate “virtual” rules representing their effects when running.
+	</dl>
+
+<h3 id='importance'>
+Important Declarations: the ''!important'' annotation</h3>
+
+	CSS attempts to create a balance of power between author and user style sheets.
+	By default, rules in an author's style sheet override those in a user's style sheet,
+	which override those in the user-agent's default style sheet.
+	To balance this, a declaration can be made <dfn export>important</dfn>,
+	which increases its weight in the cascade and inverts the order of precedence.
+
+	A declaration is <a>important</a> if it has a <dfn export id='bang-important'>!important</dfn> annotation,
+	as defined by [[CSS3SYN]].
+	i.e. if the last two (non-whitespace, non-comment) tokens
+	in its value are the delimiter token ''!'' followed by the identifier token ''important''.
+
+	<div class='example'>
+		<pre>[hidden] { display: none !important; }</pre>
+	</div>
+
+	An <a>important</a> declaration takes precedence over a normal declaration.
+	Author and user style sheets may contain ''!important'' declarations,
+	with user ''!important'' declarations overriding author ''!important'' declarations.
+	This CSS feature improves accessibility of documents by giving users with special requirements
+	(large fonts, color combinations, etc.)
+	control over presentation.
+
+	Important declarations from all origins take precedence over animations.
+	This allows authors to override animated values in important cases.
+	(Animated values normally override all other rules.)
+	[[CSS3-ANIMATIONS]]
+
+	User agent style sheets may also contain ''!important'' declarations.
+	These override all author and user declarations.
+
+	<div class='example'>
+		The first rule in the user's style sheet in the following example contains an ''!important'' declaration,
+		which overrides the corresponding declaration in the author's style sheet.
+		The declaration in the second rule will also win due to being marked ''!important''.
+		However, the third declaration in the user's style sheet is not ''!important''
+		and will therefore lose to the second rule in the author's style sheet
+		(which happens to set style on a <a>shorthand</a> property).
+		Also, the third author rule will lose to the second author rule since the second declaration is ''!important''.
+		This shows that ''!important'' declarations have a function also within author style sheets.
+
+		<pre>
+		/* From the user's style sheet */
+		p { text-indent: 1em !important }
+		p { font-style: italic !important }
+		p { font-size: 18pt }
+
+		/* From the author's style sheet */
+		p { text-indent: 1.5em !important }
+		p { font: normal 12pt sans-serif !important }
+		p { font-size: 24pt }
+		</pre>
+	</div>
+
+<h3 id="preshint">
+Precedence of Non-CSS Presentational Hints</h3>
+
+	The UA may choose to honor presentational hints in a source document's markup,
+	for example the <code>bgcolor</code> attribute or <code>&lt;s></code> element in [[HTML5]].
+	All document language-based styling must be translated to corresponding CSS rules
+	and either enter the cascade at the user agent level or
+	be treated as author level rules with a specificity of zero placed at the start of the author style sheet.
+	A document language may define whether a presentational hint enters at the UA or author level of the cascade;
+	if so, the UA must behave accordingly.
+	For example, [[SVG11]] maps its presentation attributes into the author level.
+
+	Note: Presentational hints entering the cascade at the UA level can be overridden by author or user styles.
+	Presentational hints entering the cascade at the author level can be overridden by author styles,
+	but not by non-''!important'' user styles.
+	Host languages should choose the appropriate level for presentational hints with these considerations in mind.
+
+
+<h2 id="defaulting">
+Defaulting</h2>
+
+	When the <a>cascade</a> does not result in a value,
+	the <a>specified value</a> must be found some other way.
+	<a>Inherited properties</a> draw their defaults from their parent element through <a>inheritance</a>;
+	all other properties take their <a>initial value</a>.
+	Authors can explicitly request inheritance or initialization
+	via the ''inherit'' and ''initial'' keywords.
+
+<h3 id="initial-values">
+Initial Values</h3>
+
+	Each property has an <dfn export>initial value</dfn>,
+	defined in the property's definition table.
+	If the property is not an <a>inherited property</a>,
+	and the <a>cascade</a> does not result in a value,
+	then the <a>specified value</a> of the property is its <a>initial value</a>.
+
+<h3 id="inheriting">
+Inheritance</h3>
+
+	<dfn export>Inheritance</dfn> propagates property values from parent elements to their children.
+	The <dfn export>inherited value</dfn> of a property on an element
+	is the <a>computed value</a> of the property on the element's parent element.
+	For the root element,
+	which has no parent element,
+	the <a>inherited value</a> is the <a>initial value</a> of the property.
+
+	(Pseudo-elements inherit according to a fictional tag sequence described for each pseudo-element [[!SELECT]].)
+
+	Some properties are <dfn export lt="inherited property">inherited properties</dfn>,
+	as defined in their property definition table.
+	This means that,
+	unless the cascade results in a value,
+	the value will be determined by inheritance.
+
+	A property can also be explicitly inherited. See the ''inherit'' keyword.
+
+	Note: Inheritance follows the document tree and is not intercepted by <a href="http://www.w3.org/TR/CSS21/visuren.html#box-gen">anonymous boxes</a>,
+	or otherwise affected by manipulations of the box tree.
+
+<h3 id="defaulting-keywords">
+Explicit Defaulting</h3>
+
+	Several CSS-wide property values are defined below;
+	declaring a property to have these values explicitly specifies a particular defaulting behavior.
+	As specified in <a href="http://www.w3.org/TR/css3-values/#common-keywords">CSS Values and Units Level 3</a> [[!CSS3VAL]],
+	all CSS properties can accept these values.
+
+<h4 id="initial">
+Resetting a Property: the ''initial'' keyword</h4>
+
+	If the <a>cascaded value</a> is the <dfn for=all>''initial''</dfn> keyword,
+	the property's <a>initial value</a> becomes its <a>specified value</a>.
+
+<h4 id="inherit">
+Explicit Inheritance: the ''inherit'' keyword</h4>
+
+	If the <a>cascaded value</a> of a property is the <dfn for=all>''inherit''</dfn> keyword,
+	the <a>inherited value</a> becomes the property's <a lt="specified value">specified</a> and <a>computed values</a>.
+
+<h4 id="inherit-initial">
+Erasing All Declarations: the ''unset'' keyword</h4>
+
+	If the <a>cascaded value</a> of a property is the <dfn for=all>''unset''</dfn> keyword,
+	then if it is an inherited property, this is treated as ''inherit'',
+	and if it is not, this is treated as ''initial''.
+	This keyword effectively erases all <a>declared values</a> occurring earlier in the <a>cascade</a>,
+	correctly inheriting or not as appropriate for the property
+	(or all longhands of a <a>shorthand</a>).
+
+<h2 id="changes">
+Changes</h2>
+
+<h3 id="changes-2013">
+Changes Since the 3 October 2013 Candidate Recommendation</h3>
+
+	The following changes were made to this specification since the
+	<a href="http://www.w3.org/TR/2013/CR-css-cascade-3-20131003/">3 October 2013 Candidate Recommendation</a>:
+
+	<ul>
+		<li>Defined <a>environment encoding</a> of imported style sheets.
+			<blockquote>
+				<ins><p>The <a>environment encoding</a> of an imported style sheet is the encoding of the style sheet that imported it. [[CSS3SYN]]</p></ins>
+			</blockquote>
+		<li>Referenced [[!CSS3SYN]] for syntax of ''!important'' rules.
+			<blockquote>
+				<p>A declaration is <a>important</a> if it has a ''!important'' annotation,
+				<ins>as defined by [[CSS3SYN]]</ins>.
+			</blockquote>
+		<li>Explained <a>reset-only sub-properties</a>
+		    and clarified that they also get affected by a CSS-wide keyword value in the shorthand declaration.
+			<blockquote>
+				<p><ins>In other cases, a property might be a <a>reset-only sub-property</a> of the shorthand:
+				Like other <a>sub-properties</a>, it is reset to its initial value by the shorthand when unspecified,
+				but the shorthand might not include syntax to set the <a>sub-property</a>
+				to any of its other values.
+				For example, the 'border' shorthand resets 'border-image'
+				to its initial value of ''border-image/none'',
+				but has no syntax to set it to anything else. [[CSS3BG]]</ins></p>
+
+				<p>If a <a>shorthand</a> is specified as one of the <a href="http://www.w3.org/TR/css3-values/#common-keywords">CSS-wide keywords</a> [[!CSS3VAL]],
+				it sets all of its <a>sub-properties</a> to that keyword,
+				<ins>including any that are <a>reset-only sub-properties</a></ins>.
+				(Note that these keywords cannot be combined with other values in a single declaration, not even in a shorthand.)</p>
+			</blockquote>
+
+	</ul>
+
+	<p>A <a href="http://dev.w3.org/csswg/css-cascade-3/issues-cr-2013">Disposition of Comments</a> is available.
+
+<h2 class="no-num" id="acknowledgments">Acknowledgments</h2>
+
+	David Baron, Simon Sapin, and Boris Zbarsky contributed to this specification.
