@@ -12,13 +12,16 @@ Editor: Simon Pieters, Opera Software ASA http://www.opera.com, simonp@opera.com
 Editor: Glenn Adams, Cox Communications&#44; Inc. http://www.cox.com, glenn.adams@cos.com, http://www.w3.org/wiki/User:Gadams
 Former Editor: Anne van Kesteren, Opera Software ASA http://www.opera.com, annevk@annevk.nl, https://annevankesteren.nl/
 Abstract: CSSOM defines APIs (including generic parsing and serialization rules) for Media Queries, Selectors, and of course CSS itself.
-Ignored Terms: EmptyString, mediaText, cssText
+Ignored Terms: EmptyString, mediaText, cssText, InvalidCharacterError, SecurityError, SyntaxError, IndexSizeError, HierarchyRequestError, InvalidStateError, InvalidModificationError, NoModificationAllowedError, CORS-same-origin, group of selectors, list of css page selectors
 </pre>
 
 <pre class='anchors'>
 urlPrefix: https://html.spec.whatwg.org/multipage/
     urlPrefix: infrastructure.html
         type: dfn; text: html elements
+        type: dfn; text: tree order
+        type: dfn; text: document base url
+        type: dfn; text: content-type metadata; url: #content-type
     urlPrefix: browsers.html
         type: interface; text: WindowProxy
         type: dfn
@@ -30,6 +33,7 @@ urlPrefix: https://html.spec.whatwg.org/multipage/
         type: dfn
             text: responsible browsing context
             text: incumbent settings object
+            text: event loop
             text: event handler
             text: event handler event type
             text: event handler IDL attributes
@@ -39,8 +43,14 @@ urlPrefix: https://html.spec.whatwg.org/multipage/
             text: skip whitespace
             text: collect a sequence of characters
             text: space character
-            text: converted to ascii lowercase
             text: rules for parsing integers
+    urlPrefix: xhtml.html
+        type: dfn
+            text: xml parser
+    urlPrefix: semantics.html
+        type: dfn
+            text: a style sheet that is blocking scripts
+            text: style sheet ready
 urlPrefix: https://dom.spec.whatwg.org/#concept-
     type: dfn
         text: context object
@@ -50,7 +60,10 @@ urlPrefix: https://dom.spec.whatwg.org/#concept-
         text: quirks mode; url: document-quirks
         text: fire an event; url: event-fire
         text: node document
+        text: concept-document-url
 urlPrefix: https://dom.spec.whatwg.org/
+    type: interface
+        text: Element
     type: attribute; for: Event; urlPrefix: #dom-Event-
         text: type
         text: isTrusted
@@ -59,6 +72,12 @@ urlPrefix: https://dom.spec.whatwg.org/
         text: case-sensitive
         text: document's character encoding; url: concept-document-encoding
         text: converted to ascii lowercase
+        text: converted to ascii uppercase
+        text: concept-node
+        text: concept-document
+        text: concept-node-document
+        text: concept-tree-following
+        text: concept-cd-data
 urlPrefix: http://www.w3.org/TR/CSS21/visuren.html
     type: dfn; text: anonymous block box; url: #anonymous-block-level
 urlPrefix: http://heycam.github.io/webidl/#
@@ -69,8 +88,24 @@ urlPrefix: http://heycam.github.io/webidl/#
         text: converted to an IDL value
         text: throw
         text: supported property indices
-urlPrefix: https://encoding.spec.whatwg.org/; spec: ENCODING
+urlPrefix: https://encoding.spec.whatwg.org/#; spec: ENCODING
     type: dfn; text: get an encoding; url: concept-encoding-get
+urlPrefix: https://url.spec.whatwg.org/#
+    type: dfn; text: absolute url; url: concept-absolute-url
+    type: dfn; text: concept-url
+    type: dfn; text: concept-url-parser
+    type: dfn; text: concept-url-serializer
+urlPrefix: http://www.w3.org/TR/xml-stylesheet/#
+    type: dfn; text: xml-stylesheet processing instruction
+    type: dfn; text: pseudo-attribute
+urlPrefix: https://fetch.spec.whatwg.org/#
+    type: dfn;
+        text: concept-fetch
+        text: concept-request
+        text: concept-request-url
+        text: concept-request-origin
+        text: concept-request-referrer
+        text: concept-network-error
 </pre>
 
 <pre class='link-defaults'>
@@ -78,6 +113,7 @@ spec: dom-core-ls; type: interface; text: Document
 spec:css-display-3; type:value; for:display; text:table
 spec:css-color-4; type:property; text:color
 spec:css-position-3; type:property; text:left
+spec:html5; type:element; text:style
 </pre>
 
 Introduction {#introduction}
@@ -516,13 +552,13 @@ part of the chain of the selector, and finally return
 
 <ol>
  <li>If there is only one <a>simple selector</a> in the
- <a>sequence of simple selectors</a> which is a
+ <a>compound selectors</a> which is a
  <a>universal selector</a>, append the result of
  <a lt="serialize a simple selector">serializing</a> the
  <a>universal selector</a> to <var>s</var>.
 
  <li>Otherwise, for each <a>simple selector</a> in the
- <a>sequence of simple selectors</a> that is not a
+ <a>compound selectors</a> that is not a
  universal selector of which the
  <a>namespace prefix</a> maps to a namespace that is not the
  <a>default namespace</a>
@@ -665,50 +701,51 @@ represents a style sheet as defined by the CSS specification. In the CSSOM a
 <a>CSS style sheet</a> has a number of associated state items:
 
 <dl dfn-for="CSS style sheet">
- <dt><dfn id=concept-css-style-sheet-type>type</dfn>
+ <dt><dfn lt=concept-css-style-sheet-type>type</dfn>
  <dd>The literal string "<code>text/css</code>".
 
- <dt><dfn id=concept-css-style-sheet-location>location</dfn>
+ <dt><dfn lt=concept-css-style-sheet-location>location</dfn>
  <dd>Specified when created. The <a>absolute URL</a> of the first request of the
  <a>CSS style sheet</a> or null if the <a>CSS style sheet</a> was
  embedded. Does not change during the lifetime of the <a>CSS style sheet</a>.
 
- <dt><dfn id=concept-css-style-sheet-parent-css-style-sheet>parent CSS style sheet</dfn>
+ <dt><dfn lt=concept-css-style-sheet-parent-css-style-sheet>parent CSS style sheet</dfn>
  <dd>Specified when created. The <a>CSS style sheet</a> that is the parent of the
  <a>CSS style sheet</a> or null if there is no associated parent.
 
- <dt><dfn id=concept-css-style-sheet-owner-node>owner node</dfn>
+ <dt><dfn lt=concept-css-style-sheet-owner-node>owner node</dfn>
  <dd>Specified when created. The DOM node associated with the <a>CSS style sheet</a> or
  null if there is no associated DOM node.
 
- <dt><dfn id=concept-css-style-sheet-owner-css-rule>owner CSS rule</dfn>
- <dd>Specified when created. The <a>CSS rule</a> in the <a>parent CSS style sheet</a>
+ <dt><dfn lt=concept-css-style-sheet-owner-css-rule>owner CSS rule</dfn>
+ <dd>Specified when created. The <a>CSS rule</a>
+ in the <a lt=concept-css-style-sheet-parent-css-style-sheet>parent CSS style sheet</a>
  that caused the inclusion of the <a>CSS style sheet</a> or null if
  there is no associated rule.
 
- <dt><dfn id=concept-css-style-sheet-media>media</dfn>
+ <dt><dfn lt=concept-css-style-sheet-media>media</dfn>
  <dd>
   Specified when created. The {{MediaList}} object associated with the
   <a>CSS style sheet</a>.
 
-  If this property is specified to a string, the <a>media</a> must be set to the return value of invoking
+  If this property is specified to a string, the <a lt=concept-css-style-sheet-media>media</a> must be set to the return value of invoking
   <a>create a <code>MediaList</code> object</a> steps for that string.
 
-  If this property is specified to an attribute of the <a for="CSS style sheet">owner node</a>, the
-  <a>media</a> must be set to the return value of invoking <a>create a <code>MediaList</code> object</a> steps
-  for the value of that attribute. Whenever the attribute is set, changed or removed, the <a>media</a>'s
+  If this property is specified to an attribute of the <a lt=concept-css-style-sheet-owner-node>owner node</a>, the
+  <a lt=concept-css-style-sheet-media>media</a> must be set to the return value of invoking <a>create a <code>MediaList</code> object</a> steps
+  for the value of that attribute. Whenever the attribute is set, changed or removed, the <a lt=concept-css-style-sheet-media>media</a>'s
   {{MediaList/mediaText}} attribute must be set to the new value of the attribute, or to null if the attribute is absent.
 
-  Note: Changing the <a>media</a>'s {{MediaList/mediaText}} attribute does not
-  change the corresponding attribute on the <a for="CSS style sheet">owner node</a>.
+  Note: Changing the <a lt=concept-css-style-sheet-media>media</a>'s {{MediaList/mediaText}} attribute does not
+  change the corresponding attribute on the <a lt=concept-css-style-sheet-owner-node>owner node</a>.
 
 
- <dt><dfn id=concept-css-style-sheet-title>title</dfn>
+ <dt><dfn lt=concept-css-style-sheet-title>title</dfn>
  <dd>
   Specified when created. The title of the <a>CSS style sheet</a>, which can be the empty string.
 
   <div class="example">
-   In the following, the <a>title</a> is non-empty
+   In the following, the <a lt=concept-css-style-sheet-title>title</a> is non-empty
    for the first style sheet, but is empty for the second and third style sheets.
 
    <pre>
@@ -730,19 +767,19 @@ represents a style sheet as defined by the CSS specification. In the CSSOM a
    </pre>
   </div>
 
-  If this property is specified to an attribute of the <a for="CSS style sheet">owner node</a>, the
-  <a>title</a> must be set to the value of that attribute. Whenever the attribute is set, changed or removed, the
-  <a>title</a> must be set to the new value of the attribute, or to the empty string if the attribute is absent.
+  If this property is specified to an attribute of the <a lt=concept-css-style-sheet-owner-node>owner node</a>, the
+  <a lt=concept-css-style-sheet-title>title</a> must be set to the value of that attribute. Whenever the attribute is set, changed or removed, the
+  <a lt=concept-css-style-sheet-title>title</a> must be set to the new value of the attribute, or to the empty string if the attribute is absent.
 
 
 
- <dt><dfn id=concept-css-style-sheet-alternate-flag>alternate flag</dfn>
+ <dt><dfn lt=concept-css-style-sheet-alternate-flag>alternate flag</dfn>
  <dd>
   Specified when created. Either set or unset. Unset by default.
 
   <div class="example">
    The following <a>CSS style sheets</a> have
-   their <a>alternate flag</a> set:
+   their <a lt=concept-css-style-sheet-alternate-flag>alternate flag</a> set:
 
    <pre>&lt;?xml-stylesheet alternate="yes" lt="x" href="data:text/css,&hellip;"?></pre>
 
@@ -750,7 +787,7 @@ represents a style sheet as defined by the CSS specification. In the CSSOM a
   </div>
 
 
- <dt><dfn id=concept-css-style-sheet-disabled-flag>disabled flag</dfn>
+ <dt><dfn lt=concept-css-style-sheet-disabled-flag>disabled flag</dfn>
  <dd>
   Either set or unset. Unset by default.
 
@@ -759,12 +796,12 @@ represents a style sheet as defined by the CSS specification. In the CSSOM a
 
 
 
- <dt><dfn id=concept-css-style-sheet-css-rules>CSS rules</dfn>
- <dd>The <a>CSS rules</a> associated with the
+ <dt><dfn lt=concept-css-style-sheet-css-rules>CSS rules</dfn>
+ <dd>The CSS rules associated with the
  <a>CSS style sheet</a>.
 
- <dt><dfn id=concept-css-style-sheet-origin-clean-flag>origin-clean flag</dfn>
- <dd>Specified when created. Either set or unset. If it is set, the API allows reading and modifying of the <a for="CSS style sheet">CSS rules</a>.
+ <dt><dfn lt=concept-css-style-sheet-origin-clean-flag>origin-clean flag</dfn>
+ <dd>Specified when created. Either set or unset. If it is set, the API allows reading and modifying of the <a lt=concept-css-style-sheet-css-rules>CSS rules</a>.
 </dl>
 
 
@@ -792,25 +829,25 @@ interface StyleSheet {
 };
 </pre>
 
-The <dfn attribute for=StyleSheet>type</dfn> attribute must return the <a for="CSS style sheet">type</a>.
+The <dfn attribute for=StyleSheet>type</dfn> attribute must return the <a lt=concept-css-style-sheet-type>type</a>.
 
-The <dfn attribute for=StyleSheet>href</dfn> attribute must return the <a>location</a>.
+The <dfn attribute for=StyleSheet>href</dfn> attribute must return the <a lt=concept-css-style-sheet-location>location</a>.
 
-The <dfn attribute for=StyleSheet>ownerNode</dfn> attribute must return the <a for="CSS style sheet">owner node</a>.
+The <dfn attribute for=StyleSheet>ownerNode</dfn> attribute must return the <a lt=concept-css-style-sheet-owner-node>owner node</a>.
 
 The <dfn attribute for=StyleSheet>parentStyleSheet</dfn> attribute must return the
-<a>parent CSS style sheet</a>.
+<a lt=concept-css-style-sheet-parent-css-style-sheet>parent CSS style sheet</a>.
 
-The <dfn attribute for=StyleSheet>title</dfn> attribute must return the <a>title</a> or null if
-<a>title</a> is the empty string.
+The <dfn attribute for=StyleSheet>title</dfn> attribute must return the <a lt=concept-css-style-sheet-title>title</a> or null if
+<a lt=concept-css-style-sheet-title>title</a> is the empty string.
 
-The <dfn attribute for=StyleSheet>media</dfn> attribute must return the <a>media</a>.
+The <dfn attribute for=StyleSheet>media</dfn> attribute must return the <a lt=concept-css-style-sheet-media>media</a>.
 
 The <dfn attribute for=StyleSheet>disabled</dfn> attribute, on getting, must return true if the
-<a>disabled flag</a>
+<a lt=concept-css-style-sheet-disabled-flag>disabled flag</a>
 is set, or false otherwise. On setting, the {{StyleSheet/disabled}} attribute must set the
-<a>disabled flag</a> if the new value is true, or unset the
-<a>disabled flag</a> otherwise.
+<a lt=concept-css-style-sheet-disabled-flag>disabled flag</a> if the new value is true, or unset the
+<a lt=concept-css-style-sheet-disabled-flag>disabled flag</a> otherwise.
 
 
 ### The {{CSSStyleSheet}} Interface ### {#the-cssstylesheet-interface}
@@ -834,16 +871,16 @@ interface CSSStyleSheet : StyleSheet {
 };
 </pre>
 
-The <dfn attribute for=CSSStyleSheet>ownerRule</dfn> attribute must return the <a>owner CSS rule</a>.
+The <dfn attribute for=CSSStyleSheet>ownerRule</dfn> attribute must return the <a lt=concept-css-style-sheet-owner-css-rule>owner CSS rule</a>.
 If a value other than null is ever returned, then that same value must always be returned on each get access.
 
 The <dfn attribute for=CSSStyleSheet>cssRules</dfn> attribute must follow these steps:
 
 <ol>
- <li>If the <a>origin-clean flag</a> is unset,
+ <li>If the <a lt=concept-css-style-sheet-origin-clean-flag>origin-clean flag</a> is unset,
  <a>throw</a> a {{SecurityError}} exception.
  <li>Return a read-only, live {{CSSRuleList}} object representing
- the <a for="CSS style sheet">CSS rules</a>.
+ the <a lt=concept-css-style-sheet-css-rules>CSS rules</a>.
  Note: Even though the returned {{CSSRuleList}} object is read-only (from the perspective of
  client-authored script), it can nevertheless change over time due to its liveness status. For example, invoking
  the {{CSSStyleSheet/insertRule()}} or {{CSSStyleSheet/deleteRule()}} methods can result in
@@ -853,18 +890,18 @@ The <dfn attribute for=CSSStyleSheet>cssRules</dfn> attribute must follow these 
 The <dfn method for=CSSStyleSheet>insertRule(<var>rule</var>, <var>index</var>)</dfn> method must run the following steps:
 
 <ol>
- <li>If the <a>origin-clean flag</a> is unset,
+ <li>If the <a lt=concept-css-style-sheet-origin-clean-flag>origin-clean flag</a> is unset,
  <a>throw</a> a {{SecurityError}} exception.
- <li>Return the result of invoking <a>insert a CSS rule</a> <var>rule</var> in the <a for="CSS style sheet">CSS rules</a>
+ <li>Return the result of invoking <a>insert a CSS rule</a> <var>rule</var> in the <a lt=concept-css-style-sheet-css-rules>CSS rules</a>
  at <var>index</var>.
 </ol>
 
 The <dfn method for=CSSStyleSheet>deleteRule(<var>index</var>)</dfn> method must run the following steps:
 
 <ol>
- <li>If the <a>origin-clean flag</a> is unset,
+ <li>If the <a lt=concept-css-style-sheet-origin-clean-flag>origin-clean flag</a> is unset,
  <a>throw</a> a {{SecurityError}} exception.
- <li><a>Remove a CSS rule</a> in the <a for="CSS style sheet">CSS rules</a> at <var>index</var>.
+ <li><a>Remove a CSS rule</a> in the <a lt=concept-css-style-sheet-css-rules>CSS rules</a> at <var>index</var>.
 </ol>
 
 CSS Style Sheet Collections {#css-style-sheet-collections}
@@ -894,7 +931,7 @@ steps:
  <li>
   Then run the <a>add a CSS style sheet</a> steps for the newly created <a>CSS style sheet</a>.
 
-  <p class=warning>If the <a>origin-clean flag</a> is unset, this can expose information from the user's
+  <p class=warning>If the <a lt=concept-css-style-sheet-origin-clean-flag>origin-clean flag</a> is unset, this can expose information from the user's
   intranet.
 </ol>
 
@@ -905,34 +942,34 @@ steps:
  <li>Add the <a>CSS style sheet</a> to the list of
  <a>document CSS style sheets</a> at the appropriate location. The
  remainder of these steps deal with the
- <a>disabled flag</a>.
+ <a lt=concept-css-style-sheet-disabled-flag>disabled flag</a>.
 
- <li>If the <a>disabled flag</a> is set, terminate
+ <li>If the <a lt=concept-css-style-sheet-disabled-flag>disabled flag</a> is set, terminate
  these steps.
 
- <li>If the <a>title</a> is not the empty string, the
- <a>alternate flag</a> is unset, and
+ <li>If the <a lt=concept-css-style-sheet-title>title</a> is not the empty string, the
+ <a lt=concept-css-style-sheet-alternate-flag>alternate flag</a> is unset, and
  <a>preferred CSS style sheet set name</a> is the empty string
  <a>change the preferred CSS style sheet set name</a> to the
- <a>title</a>.
+ <a lt=concept-css-style-sheet-title>title</a>.
 
  <li>
   If any of the following is true unset the
-  <a>disabled flag</a> and terminate these steps:
+  <a lt=concept-css-style-sheet-disabled-flag>disabled flag</a> and terminate these steps:
 
   <ul>
-   <li>The <a>title</a> is the empty string.
+   <li>The <a lt=concept-css-style-sheet-title>title</a> is the empty string.
    <li>The <a>last CSS style sheet set name</a> is null and the
-   <a>title</a> is a
+   <a lt=concept-css-style-sheet-title>title</a> is a
    <a>case-sensitive</a> match
    for the <a>preferred CSS style sheet set name</a>.
-   <li>The <a>title</a> is a
+   <li>The <a lt=concept-css-style-sheet-title>title</a> is a
    <a>case-sensitive</a> match for the
    <a>last CSS style sheet set name</a>.
   </ul>
 
 
- <li>Set the <a>disabled flag</a>.
+ <li>Set the <a lt=concept-css-style-sheet-disabled-flag>disabled flag</a>.
 </ol>
 
 To <dfn>remove a CSS style sheet</dfn>, run these steps:
@@ -940,8 +977,8 @@ To <dfn>remove a CSS style sheet</dfn>, run these steps:
 <ol>
  <li>Remove the <a>CSS style sheet</a> from the list of <a>document CSS style sheets</a>.
 
- <li>Set the <a>CSS style sheet</a>'s <a>parent CSS style sheet</a>,
- <a for="CSS style sheet">owner node</a> and <a>owner CSS rule</a> to null.
+ <li>Set the <a>CSS style sheet</a>'s <a lt=concept-css-style-sheet-parent-css-style-sheet>parent CSS style sheet</a>,
+ <a lt=concept-css-style-sheet-owner-node>owner node</a> and <a lt=concept-css-style-sheet-owner-css-rule>owner CSS rule</a> to null.
 
  <!-- "associated CSS style sheet" is defined in terms of owner node, so we don't need to set it to null explicitly -->
 
@@ -950,31 +987,31 @@ To <dfn>remove a CSS style sheet</dfn>, run these steps:
 
 A <dfn>persistent CSS style sheet</dfn> is a
 <a>CSS style sheet</a> from the <a>document CSS style sheets</a>
-whose <a>title</a> is the empty string and whose
-<a>alternate flag</a> is unset.
+whose <a lt=concept-css-style-sheet-title>title</a> is the empty string and whose
+<a lt=concept-css-style-sheet-alternate-flag>alternate flag</a> is unset.
 
 A <dfn>CSS style sheet set</dfn> is an ordered
 collection of one or more <a>CSS style sheets</a>
 from the <a>document CSS style sheets</a> which have an identical
-<a>title</a> that is not the empty string.
+<a lt=concept-css-style-sheet-title>title</a> that is not the empty string.
 
 A <dfn>CSS style sheet set name</dfn> is the
-<a>title</a> the <a>CSS style sheet set</a> has in
+<a lt=concept-css-style-sheet-title>title</a> the <a>CSS style sheet set</a> has in
 common.
 
 An <dfn>enabled CSS style sheet set</dfn> is a
 <a>CSS style sheet set</a> of which each <a>CSS style sheet</a> has
-its <a>disabled flag</a> unset.
+its <a lt=concept-css-style-sheet-disabled-flag>disabled flag</a> unset.
 
 To <dfn>enable a CSS style sheet set</dfn>
 with name <var>name</var>, run these steps:
 
 <ol>
  <li>If <var>name</var> is the empty string, set the
- <a>disabled flag</a> for each <a>CSS style sheet</a>
+ <a lt=concept-css-style-sheet-disabled-flag>disabled flag</a> for each <a>CSS style sheet</a>
  that is in a <a>CSS style sheet set</a> and terminate these steps.
 
- <li>Unset the <a>disabled flag</a> for each
+ <li>Unset the <a lt=concept-css-style-sheet-disabled-flag>disabled flag</a> for each
  <a>CSS style sheet</a> in a <a>CSS style sheet set</a> whose
  <a>CSS style sheet set name</a> is a
  <a>case-sensitive</a> match for
@@ -1003,7 +1040,7 @@ A
 <dfn>preferred CSS style sheet set name</dfn>
 is a concept to determine which
 <a>CSS style sheets</a> need to have their
-<a>disabled flag</a> unset. Initially its value
+<a lt=concept-css-style-sheet-disabled-flag>disabled flag</a> unset. Initially its value
 is the empty string.
 
 To
@@ -1128,20 +1165,20 @@ represented by the collection.
 The <dfn attribute for=Document>styleSheets</dfn> attribute must return a {{StyleSheetList}} collection representing
 the <a>document CSS style sheets</a>.
 Note: Because of historical IDL limitations the {{Document/styleSheets}} attribute
-used to be on a separate interface, {{DocumentStyle}}.
+used to be on a separate interface, <code>DocumentStyle</code>.
 
 The <dfn attribute for=Document>selectedStyleSheetSet</dfn> attribute, on getting, must run these steps:
 <ol>
  <li>If there is a single <a>enabled CSS style sheet set</a> and no
  other <a>document CSS style sheets</a> with a
- <a>title</a> that is not the empty string have the
- <a>disabled flag</a> unset, return the
+ <a lt=concept-css-style-sheet-title>title</a> that is not the empty string have the
+ <a lt=concept-css-style-sheet-disabled-flag>disabled flag</a> unset, return the
  <a>CSS style sheet set name</a> of the
  <a>enabled CSS style sheet set</a> and terminate these steps.
 
  <li>Otherwise, if <a>CSS style sheets</a> from
  different <a lt="CSS style sheet set">CSS style sheet sets</a> have
- their <a>disabled flag</a> unset, return
+ their <a lt=concept-css-style-sheet-disabled-flag>disabled flag</a> unset, return
  null and terminate these steps.
 
  <li>
@@ -1149,8 +1186,8 @@ The <dfn attribute for=Document>selectedStyleSheetSet</dfn> attribute, on gettin
 
   Note: At this point either all
   <a>CSS style sheets</a> with a
-  <a>title</a> that is not the empty string have the
-  <a>disabled flag</a> set, or there are no such
+  <a lt=concept-css-style-sheet-title>title</a> that is not the empty string have the
+  <a lt=concept-css-style-sheet-disabled-flag>disabled flag</a> set, or there are no such
   <a>CSS style sheets</a>.
 
 </ol>
@@ -1193,7 +1230,7 @@ steps:
  <li><a>enable a CSS style sheet set</a> with name <var>name</var>.
 </ol>
 Note: <a>CSS style sheets</a> with a
-<a>title</a> that is the empty string are never affected by this method.
+<a lt=concept-css-style-sheet-title>title</a> that is the empty string are never affected by this method.
 This method does not change the values of the
 {{Document/lastStyleSheetSet}} or
 {{Document/preferredStyleSheetSet}} attributes.
@@ -1305,9 +1342,9 @@ Style Sheet Association {#style-sheet-association}
 --------------------------------------------------
 
 This section defines the interface an
-<a for="CSS style sheet">owner node</a> of a <a>CSS style sheet</a> has to
+<a lt=concept-css-style-sheet-owner-node>owner node</a> of a <a>CSS style sheet</a> has to
 implement and defines the requirements for
-<a data-anolis-spec=xmlss lt="xml-stylesheet processing instruction">xml-stylesheet processing instructions</a>
+<a>xml-stylesheet processing instructions</a>
 and HTTP <code>Link</code> headers when the link
 relation type is an
 <a data-anolis-spec=dom>ASCII case-insensitive</a> match for
@@ -1323,25 +1360,25 @@ this specification, in due course.
 
 To <dfn>fetch a CSS style sheet</dfn> with parsed URL <var>parsed URL</var>, referrer <var>referrer</var>, document
 <var>document</var>, optionally a set of parameters <var>parameters</var> (used as input to creating a
-<a data-anolis-spec=fetch lt=concept-request>request</a>), follow these steps:
+<a lt=concept-request>request</a>), follow these steps:
 
 <ol>
  <li>Let <var>origin</var> be <var>document</var>'s <a data-anolis-spec=html>origin</a>.
 
- <li>Let <var>request</var> be a new <a data-anolis-spec=fetch lt=concept-request>request</a>, with the
- <a data-anolis-spec=fetch lt=concept-request-url>url</a> <var>parsed URL</var>,
- <a data-anolis-spec=fetch lt=concept-request-origin>origin</a> <var>origin</var>,
- <a data-anolis-spec=fetch lt=concept-request-referrer>referrer</a> <var>referrer</var>, and if specified the set of parameters <var>parameters</var>.
+ <li>Let <var>request</var> be a new <a lt=concept-request>request</a>, with the
+ <a lt=concept-request-url>url</a> <var>parsed URL</var>,
+ <a lt=concept-request-origin>origin</a> <var>origin</var>,
+ <a lt=concept-request-referrer>referrer</a> <var>referrer</var>, and if specified the set of parameters <var>parameters</var>.
 
- <li>Let <var>response</var> be the result of <a data-anolis-spec=fetch lt=concept-fetch>fetching</a> <var>request</var>.
+ <li>Let <var>response</var> be the result of <a lt=concept-fetch>fetching</a> <var>request</var>.
 
  <li>Wait until <var>response</var> is available.
 
- <li>If <var>response</var> is a <a data-anolis-spec=fetch lt=concept-network-error>network error</a>, return an error.
+ <li>If <var>response</var> is a <a lt=concept-network-error>network error</a>, return an error.
 
- <li>If <var>document</var> is in <a data-anolis-spec=dom lt=concept-document-quirks>quirks mode</a>, <var>response</var> is
- <a>CORS-same-origin</a><!--XXX xref--> and the <a data-anolis-spec=html>Content-Type metadata</a> of <var>response</var> is not a
- <a>supported styling language</a> change the <a data-anolis-spec=html>Content-Type metadata</a> of <var>response</var> to
+ <li>If <var>document</var> is in <a>quirks mode</a>, <var>response</var> is
+ <a>CORS-same-origin</a><!--XXX xref--> and the <a>Content-Type metadata</a> of <var>response</var> is not a
+ <a>supported styling language</a> change the <a>Content-Type metadata</a> of <var>response</var> to
  <code>text/css</code>.
 
  <li>If <var>response</var> is not in a <a>supported styling language</a> return an error.
@@ -1352,7 +1389,7 @@ To <dfn>fetch a CSS style sheet</dfn> with parsed URL <var>parsed URL</var>, ref
 ### The {{LinkStyle}} Interface ### {#the-linkstyle-interface}
 
 The <dfn>associated CSS style sheet</dfn> of a node is the <a>CSS style sheet</a> in the list of
-<a>document CSS style sheets</a> of which the <a for="CSS style sheet">owner node</a> implements the {{LinkStyle}}
+<a>document CSS style sheets</a> of which the <a lt=concept-css-style-sheet-owner-node>owner node</a> implements the {{LinkStyle}}
 interface.
 
 <pre class=idl>[NoInterfaceObject]
@@ -1401,7 +1438,7 @@ must also define when a <a>CSS style sheet</a> is
 
 The <dfn>prolog</dfn> refers to <a data-anolis-spec=dom lt=concept-node>nodes</a> that are children of the
 <a data-anolis-spec=dom lt=concept-document>document</a> and are not <a data-anolis-spec=dom lt=concept-tree-following>following</a> the
-<code data-anolis-spec=dom>Element</code> child of the <a data-anolis-spec=dom lt=concept-document>document</a>, if any.
+{{Element}} child of the <a data-anolis-spec=dom lt=concept-document>document</a>, if any.
 
 When a <code data-anolis-spec=dom>ProcessingInstruction</code> <a data-anolis-spec=dom lt=concept-node>node</a> <var>node</var> becomes part of the
 <a>prolog</a>, is no longer part of the <a>prolog</a>, or has its <a data-anolis-spec=dom lt=concept-cd-data>data</a> changed, these steps
@@ -1409,11 +1446,11 @@ must be run:
 
 <ol>
  <li>If an instance of this algorithm is currently running for <var>node</var>, abort that instance, and stop the associated
- <a data-anolis-spec=fetch lt=concept-fetch>fetching</a> if applicable.
+ <a lt=concept-fetch>fetching</a> if applicable.
 
  <li>If <var>node</var> has an <a>associated CSS style sheet</a>, <a lt="remove a CSS style sheet">remove</a> it.
 
- <li>If <var>node</var> is not an <a data-anolis-spec=xmlss>xml-stylesheet processing instruction</a>, terminate these steps.
+ <li>If <var>node</var> is not an <a>xml-stylesheet processing instruction</a>, terminate these steps.
 
  <li>If <var>node</var> does not have an <code>href</code> <a data-anolis-spec=xmlss>pseudo-attribute</a>, terminate these steps.
 
@@ -1437,7 +1474,7 @@ must be run:
 
  <li>Let <var>base URL</var> be <var>document</var>'s <a data-anolis-spec=html>document base URL</a>.
 
- <li>Let <var>referrer</var> be <var>document</var>'s <a data-anolis-spec=html lt="the document's address">address</a>.
+ <li>Let <var>referrer</var> be <var>document</var>'s <a lt=concept-document-url>address</a>.
 
  <li>Let <var>parsed URL</var> be the return value of invoking the <a data-anolis-spec=url lt=concept-url-parser>URL parser</a> with the
  string <var>input URL</var> and the base URL <var>base URL</var>.
@@ -1453,31 +1490,31 @@ must be run:
   <a>Create a CSS style sheet</a> with the following properties:
 
   <dl>
-   <dt><a>location</a>
+   <dt><a lt=concept-css-style-sheet-location>location</a>
    <dd>The result of invoking the <a data-anolis-spec=url lt=concept-url-serializer>URL serializer</a> with <var>parsed URL</var>.
 
-   <dt><a>parent CSS style sheet</a>
+   <dt><a lt=concept-css-style-sheet-parent-css-style-sheet>parent CSS style sheet</a>
    <dd>null.
 
-   <dt><a for="CSS style sheet">owner node</a>
+   <dt><a lt=concept-css-style-sheet-owner-node>owner node</a>
    <dd><var>node</var>.
 
-   <dt><a>owner CSS rule</a>
+   <dt><a lt=concept-css-style-sheet-owner-css-rule>owner CSS rule</a>
    <dd>null.
 
-   <dt><a>media</a>
+   <dt><a lt=concept-css-style-sheet-media>media</a>
    <dd>The value of the <code>media</code> <a data-anolis-spec=xmlss>pseudo-attribute</a>
    if any, or the empty string otherwise.
 
-   <dt><a>title</a>
+   <dt><a lt=concept-css-style-sheet-title>title</a>
    <dd><var>title</var>.
 
-   <dt><a>alternate flag</a>
+   <dt><a lt=concept-css-style-sheet-alternate-flag>alternate flag</a>
    <dd>Set if the <code>alternate</code> <a data-anolis-spec=xmlss>pseudo-attribute</a>
    value is a <a>case-sensitive</a> match for
    "<code>yes</code>", or unset otherwise.
 
-   <dt><a>origin-clean flag</a>
+   <dt><a lt=concept-css-style-sheet-origin-clean-flag>origin-clean flag</a>
    <dd>Set if <var>response</var> is <a>CORS-same-origin</a><!--XXX xref-->, or unset otherwise.
   </dl>
 
@@ -1495,7 +1532,7 @@ must be run:
 
 </ol>
 
-A style sheet referenced by an <a data-anolis-spec=xmlss>xml-stylesheet processing instruction</a> using the rules in this section, in the context of
+A style sheet referenced by an <a>xml-stylesheet processing instruction</a> using the rules in this section, in the context of
 the {{Document}} of an <a data-anolis-spec=html>XML parser</a> is said to be
 <a data-anolis-spec=html>a style sheet that is blocking scripts</a> if the <code data-anolis-spec=dom>ProcessingInstruction</code>
 <a data-anolis-spec=dom lt=concept-node>node</a> was created by that {{Document}}'s parser, and the style sheet was
@@ -1525,12 +1562,15 @@ must be run:
  "<code>alternate</code>" and <var>title</var> is the
  empty string terminate these steps.
 
- <li>Let <var>input URL</var> be the value specified. <a class=issue>Be more specific</a>
+ <li>Let <var>input URL</var> be the value specified.
+ 
+ Issue: Be more specific
 
- <li>Let <var>base URL</var> be the document's <a data-anolis-spec=html>document base URL</a>. <a class=issue>Is there a document at this
- point?</a>
+ <li>Let <var>base URL</var> be the document's <a data-anolis-spec=html>document base URL</a>.
+ 
+ Issue: Is there a document at this point?
 
- <li>Let <var>referrer</var> be the document's <a data-anolis-spec=html lt="the document's address">address</a>.
+ <li>Let <var>referrer</var> be the document's <a lt=concept-document-url>address</a>.
 
  <li>Let <var>origin</var> be the document's <a data-anolis-spec=html>origin</a>.
 
@@ -1540,38 +1580,40 @@ must be run:
  <li>If <var>parsed URL</var> is failure, terminate these steps.
 
  <li>Let <var>response</var> be the result of <a lt="fetch a CSS style sheet">fetching a CSS style sheet</a> with parsed URL <var>parsed URL</var>,
- referrer <var>referrer</var> and document being the document. <a class=issue>What if the HTML parser hasn't decided on quirks/non-quirks yet?</a>
+ referrer <var>referrer</var> and document being the document.
+ 
+ Issue: What if the HTML parser hasn't decided on quirks/non-quirks yet?
 
  <li>
   <a>Create a CSS style sheet</a> with the following properties:
 
   <dl>
-   <dt><a>location</a>
+   <dt><a lt=concept-css-style-sheet-location>location</a>
    <dd>The result of invoking the <a data-anolis-spec=url lt=concept-url-serializer>URL serializer</a> with <var>parsed URL</var>.
 
-   <dt><a for="CSS style sheet">owner node</a>
+   <dt><a lt=concept-css-style-sheet-owner-node>owner node</a>
    <dd>null.
 
-   <dt><a>parent CSS style sheet</a>
+   <dt><a lt=concept-css-style-sheet-parent-css-style-sheet>parent CSS style sheet</a>
    <dd>null.
 
-   <dt><a>owner CSS rule</a>
+   <dt><a lt=concept-css-style-sheet-owner-css-rule>owner CSS rule</a>
    <dd>null.
 
-   <dt><a>media</a>
+   <dt><a lt=concept-css-style-sheet-media>media</a>
    <dd>The value of the first <code>media</code> parameter.
    <!-- XXX register media parameter? bah -->
 
-   <dt><a>title</a>
+   <dt><a lt=concept-css-style-sheet-title>title</a>
    <dd><var>title</var>.
 
-   <dt><a>alternate flag</a>
+   <dt><a lt=concept-css-style-sheet-alternate-flag>alternate flag</a>
    <dd>Set if one of the specified link relation type for this HTTP
    <code>Link</code> header is an
    <a data-anolis-spec=dom>ASCII case-insensitive</a> match for
    "<code>alternate</code>", or false otherwise.
 
-   <dt><a>origin-clean flag</a>
+   <dt><a lt=concept-css-style-sheet-origin-clean-flag>origin-clean flag</a>
    <dd>Set if <var>response</var> is <a>CORS-same-origin</a><!--XXX xref-->, or unset otherwise.
   </dl>
 
@@ -1591,24 +1633,24 @@ the {{CSSRule}} interface, and which has the following
 associated state items:
 
 <dl>
-<dt><dfn id=concept-css-rule-type>type</dfn>
+<dt><dfn lt=concept-css-rule-type>type</dfn>
 <dd>A non-negative integer associated with a particular type of rule.
 This item is initialized when a rule is created and cannot change.
 
-<dt><dfn id=concept-css-rule-text>text</dfn>
+<dt><dfn lt=concept-css-rule-text>text</dfn>
 <dd>A text representation of the rule suitable for direct use in a style sheet.
 This item is initialized when a rule is created and can be changed.
 
-<dt><dfn id=concept-css-rule-parent-css-rule>parent CSS rule</dfn>
+<dt><dfn lt=concept-css-rule-parent-css-rule>parent CSS rule</dfn>
 <dd>A reference to an enclosing <a>CSS rule</a> or null.
 If the rule has an enclosing rule when it is created, then this item is initialized to the enclosing rule; otherwise it is null. It can be changed to
 null.
 
-<dt><dfn id=concept-css-rule-parent-css-style-sheet>parent CSS style sheet</dfn>
+<dt><dfn lt=concept-css-rule-parent-css-style-sheet>parent CSS style sheet</dfn>
 <dd>A reference to a parent <a>CSS style sheet</a> or null.
 This item is initialized to reference an associated style sheet when the rule is created. It can be changed to null.
 
-<dt><dfn id=concept-css-rule-child-css-rules>child CSS rules</dfn>
+<dt><dfn lt=concept-css-rule-child-css-rules>child CSS rules</dfn>
 <dd>A list of child <a>CSS rules</a>. The list can be mutated.
 </dl>
 
@@ -1872,7 +1914,7 @@ following properties:
  <dd>Null.
 </dl>
 
-The <dfn id=concept-declarations-specified-order>specified order</dfn> for declarations is the same as specified, but with shorthand properties
+The <dfn lt=concept-declarations-specified-order>specified order</dfn> for declarations is the same as specified, but with shorthand properties
 expanded into their longhand properties, in canonical order. If a property is specified more than once (after shorthand expansion), only the
 one with greatest cascading order must be represented, at the same relative position as it was specified. [[!CSS3CASCADE]]
 
@@ -1909,7 +1951,7 @@ The <dfn attribute for=CSSImportRule>media</dfn> attribute must return the value
 attribute of the associated <a>CSS style sheet</a>.
 
 The <dfn attribute for=CSSImportRule>styleSheet</dfn> attribute must return the associated <a>CSS style sheet</a>.
-Note: If loading of the style sheet fails its <a for="CSS style sheet">CSS rules</a>
+Note: If loading of the style sheet fails its <a lt=concept-css-style-sheet-css-rules>CSS rules</a>
 list is simply empty, i.e., an <code>@import</code> at-rule always has an associated <a>CSS style sheet</a>.
 
 
@@ -2024,7 +2066,7 @@ On setting, the {{CSSNamespaceRule/namespaceURI}} attribute must run the followi
 
 <ol>
  <li>Let <var>parent</var> be the <a lt=concept-css-rule-parent-css-style-sheet>parent CSS style sheet</a>.
- <li>Let <var>list</var> be the <a for="CSS style sheet">CSS rules</a> of <var>parent</var>, or
+ <li>Let <var>list</var> be the <a lt=concept-css-style-sheet-css-rules>CSS rules</a> of <var>parent</var>, or
  null if <var>parent</var> is null.
  <li>If <var>list</var> is not null and contains anything other than
  <code>@charset</code> at-rules, <code>@import</code> at-rules, and <code>@namespace</code> at-rules,
@@ -2039,7 +2081,7 @@ On setting, the {{CSSNamespaceRule/prefix}} attribute must run the following ste
 
 <ol>
  <li>Let <var>parent</var> be the <a lt=concept-css-rule-parent-css-style-sheet>parent CSS style sheet</a>.
- <li>Let <var>list</var> be the <a for="CSS style sheet">CSS rules</a> of <var>parent</var>, or
+ <li>Let <var>list</var> be the <a lt=concept-css-style-sheet-css-rules>CSS rules</a> of <var>parent</var>, or
  null if <var>parent</var> is null.
  <li>If <var>list</var> is not null and contains anything other than
  <code>@charset</code> at-rules, <code>@import</code> at-rules, and <code>@namespace</code> at-rules,
@@ -2055,13 +2097,13 @@ A <dfn>CSS declaration</dfn> is an abstract concept that is not exposed as an ob
 properties:
 
 <dl>
- <dt><dfn id=concept-css-declaration-property-name>property name</dfn>
+ <dt><dfn lt=concept-css-declaration-property-name>property name</dfn>
  <dd>The property name of the declaration.
- <dt><dfn id=concept-css-declaration-value>value</dfn>
+ <dt><dfn lt=concept-css-declaration-value>value</dfn>
  <dd>The value of the declaration represented as a list of component values.
- <dt><dfn id=concept-css-declaration-important-flag>important flag</dfn>
+ <dt><dfn lt=concept-css-declaration-important-flag>important flag</dfn>
  <dd>Either set or unset. Can be changed.
- <dt><dfn id=concept-css-declaration-case-sensitive-flag>case-sensitive flag</dfn>
+ <dt><dfn lt=concept-css-declaration-case-sensitive-flag>case-sensitive flag</dfn>
  <dd>Set if the <a lt=concept-css-declaration-property-name>property name</a> is defined to be case-sensitive according to its specification,
  otherwise unset.
 </dl>
@@ -2076,18 +2118,18 @@ the DOM a <a>CSS declaration block</a> is a
 <a>CSS declaration block</a> has the following associated properties:
 
 <dl dfn-for="CSS declaration block">
- <dt><dfn id=concept-css-declaration-block-readonly-flag>readonly flag</dfn>
+ <dt><dfn lt=concept-css-declaration-block-readonly-flag>readonly flag</dfn>
  <dd>Unset if the object can be manipulated. Set if it can not be
  manipulated. Unless otherwise stated it is unset.
 
- <dt><dfn id=concept-css-declaration-block-declarations>declarations</dfn>
+ <dt><dfn lt=concept-css-declaration-block-declarations>declarations</dfn>
  <dd>The <a lt="CSS declaration">CSS declarations</a> associated with the object.
 
  <dt><dfn lt=contept-css-declaration-block-parent-css-rule>parent CSS rule</dfn>
  <dd>The <a>CSS rule</a> that the <a>CSS declaration block</a> is associated with, if any, or null otherwise.
 
- <dt><dfn id=concept-css-declaration-block-owner-node>owner node</dfn>
- <dd>The <a data-anolis-spec=dom>Element</a> or <code>PseudoElement</code> that the <a>CSS declaration block</a> is associated with, if any, or
+ <dt><dfn lt=concept-css-declaration-block-owner-node>owner node</dfn>
+ <dd>The {{Element}} or {{PseudoElement}} that the <a>CSS declaration block</a> is associated with, if any, or
  null otherwise.
 </dl>
 
@@ -2171,7 +2213,7 @@ Note: The serialization of an empty CSS declaration block is the empty string.
 Note: The serialization of a non-empty CSS declaration block does not include any surrounding whitespace, i.e., no whitepsace appears
 before the first property name and no whitespace appears after the final semicolon delimiter that follows the last property value.
 
-The <dfn id=concept-shorthands-preferred-order>preferred order</dfn> of a list of shorthand properties <var>shorthands</var> is as follows:
+The <dfn lt=concept-shorthands-preferred-order>preferred order</dfn> of a list of shorthand properties <var>shorthands</var> is as follows:
 
 <ol>
  <li>Order <var>shorthands</var> lexicographically.
@@ -2464,7 +2506,7 @@ follows:
    <li>If <var>c</var> is "<code>-</code>" (U+002D), let <var>uppercase next</var> be set.
 
    <li>Otherwise, if <var>uppercase next</var> is set, let <var>uppercase next</var> be unset and append <var>c</var>
-   <a data-anolis-spec=dom>converted to ASCII uppercase</a> to <var>output</var>.
+   <a>converted to ASCII uppercase</a> to <var>output</var>.
 
    <li>Otherwise, append <var>c</var> to <var>output</var>.
   </ol>
@@ -2737,7 +2779,7 @@ depends on the component, as follows:
  the literal string "<code>s</code>".
 
  <dt>&lt;uri>
- <dd>The <a data-anolis-spec=url lt=concept-absolute-url>absolute URL</a>
+ <dd>The <a>absolute URL</a>
  <a lt="serialize a URL">URL escaped</a>.
 </dl>
 
@@ -2879,7 +2921,7 @@ Note: Because of historical IDL limitations the {{Window/getComputedStyle()}} me
 a separate interface, <code>ViewCSS</code>.
 
 <p class=warning>The {{Window/getComputedStyle()}} method exposes information from <a lt="CSS style sheet">CSS style
-sheets</a> with the <a>origin-clean flag</a> unset.
+sheets</a> with the <a lt=concept-css-style-sheet-origin-clean-flag>origin-clean flag</a> unset.
 
 The {{GetStyleUtils}} Interface {#the-getstyleutils-interface}
 --------------------------------------------------------------
@@ -2887,7 +2929,7 @@ The {{GetStyleUtils}} Interface {#the-getstyleutils-interface}
 The <dfn>associated document</dfn> of an object <var>obj</var> is <var>obj</var>'s <a data-anolis-spec=dom lt=concept-node-document>node
 document</a> if <var>obj</var> is an <code data-anolis-spec=dom>Element</code> object, or <var>obj</var>'s associated
 <code data-anolis-spec=dom>Element</code> object's <a data-anolis-spec=dom lt=concept-node-document>node document</a> if <var>obj</var> is a
-<code>PseudoElement</code> object.
+{{PseudoElement}} object.
 
 <pre class=idl>[NoInterfaceObject]
 interface GetStyleUtils {
@@ -2961,7 +3003,7 @@ following properties:
 
 <p class=warning>The {{GetStyleUtils/cascadedStyle}}, {{GetStyleUtils/rawComputedStyle}}
 and {{GetStyleUtils/usedStyle}} methods expose information from <a>CSS style sheets</a> with the
-<a>origin-clean flag</a> unset.
+<a lt=concept-css-style-sheet-origin-clean-flag>origin-clean flag</a> unset.
 
 
 Extensions to the {{Element}} Interface {#extensions-to-the-element-interface}
@@ -2976,14 +3018,14 @@ Element implements GetStyleUtils;</pre>
 <p class=atrisk>The <dfn method for=Element>pseudo(<var>pseudoElt</var>)</dfn> method, when invoked, must run the following steps:
 <ol>
  <li>If <var>pseudoElt</var> is as an <a data-anolis-spec=dom>ASCII case-insensitive</a> match for either ':before' or
- '::before' return the <code>PseudoElement</code> representing the ''::before'' pseudo-element of the
+ '::before' return the {{PseudoElement}} representing the ''::before'' pseudo-element of the
  <a data-anolis-spec=dom>context object</a>.
  <li>If <var>pseudoElt</var> is as an <a data-anolis-spec=dom>ASCII case-insensitive</a> match for either ':after' or
- '::after' return the <code>PseudoElement</code> representing the ''::after'' pseudo-element of the
+ '::after' return the {{PseudoElement}} representing the ''::after'' pseudo-element of the
  <a data-anolis-spec=dom>context object</a>.
  <li>Return null.
 </ol>
-When invoked with an argument that returns a <code>PseudoElement</code> object representing a particular pseudo-element, the same object must be
+When invoked with an argument that returns a {{PseudoElement}} object representing a particular pseudo-element, the same object must be
 returned as returned by an earlier call that represent the same pseudo-element.
 
 
@@ -2991,7 +3033,7 @@ returned as returned by an earlier call that represent the same pseudo-element.
 The {{PseudoElement}} Interface {#the-pseudoelement-interface}
 --------------------------------------------------------------
 
-<p class=atrisk>The <code>PseudoElement</code> interface is used for representing CSS pseudo-elements. A <code>PseudoElement</code> object is associated with an
+<p class=atrisk>The {{PseudoElement}} interface is used for representing CSS pseudo-elements. A {{PseudoElement}} object is associated with an
 <code data-anolis-spec=dom>Element</code> object.
 
 <pre class=idl>interface PseudoElement {
@@ -3161,8 +3203,8 @@ Changes From 12 July 2011 To 5 December 2013 {#changes-from-12-july-2011-to-5-de
  <li><a lt="parse a CSS declaration block">Parse</a> and <a lt="serialize a CSS declaration block">serialize</a> a CSS declaration block is
  now defined.
 
- <li>Shorthands are now supported in {{CSSStyleDeclaration/setProperty}},
- {{CSSStyleDeclaration/getPropertyValue}}, et al.
+ <li>Shorthands are now supported in {{CSSStyleDeclaration/setProperty()}},
+ {{CSSStyleDeclaration/getPropertyValue()}}, et al.
 
  <li>{{CSSStyleDeclaration/setPropertyValue()}} and
  {{CSSStyleDeclaration/setPropertyPriority()}} are introduced.
@@ -3172,10 +3214,10 @@ Changes From 12 July 2011 To 5 December 2013 {#changes-from-12-july-2011-to-5-de
 
  <li>The {{Element/pseudo()}} method on <code data-anolis-spec=dom>Element</code> is introduced.
 
- <li>The <code>PseudoElement</code> interface is introduced.
+ <li>The {{PseudoElement}} interface is introduced.
 
  <li>The {{GetStyleUtils/cascadedStyle}}, .{{GetStyleUtils/rawComputedStyle}} and
- {{GetStyleUtils/usedStyle}} attributes on <code data-anolis-spec=dom>Element</code> and <code>PseudoElement</code> are introduced.
+ {{GetStyleUtils/usedStyle}} attributes on <code data-anolis-spec=dom>Element</code> and {{PseudoElement}} are introduced.
 
  <li>The <code method for=CSS>CSS.escape()</code> static method is introduced.
 </ul>
