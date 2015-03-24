@@ -1,7 +1,11 @@
 # Calling the post-processor with file-upload. Assumes the username
 # and password are in ~/.curl-w3.org (user = USER:PASS)
 #
-# To set a date other than today, use: make cdate=YYYYMMDD
+# To set a date other than today, use: make date=YYYYMMDD
+#
+# "cdate" is an alias for "date": "make cdate=YYYYMMDD" works,
+# too. And instead of a compact date, an ISO date is also accepted:
+# "make date=YYYY-MM-DD".
 #
 # To set the status, modify one of the "this version" URLs:
 # http://www.w3.org/TR/[YEAR]/CR-[SHORTNAME]-[CDATE]/
@@ -13,19 +17,20 @@
 # -F omitdchtml=on
 # e.g., like this: make opts="-F ids=on -F omitdchtml=on"
 
-cdate ?=
+date ?=
 status ?=
 group ?= CSS
 opts ?=
 target ?= Overview
 markup ?= html
+cdate ?= $(date)
 
-%.html: %.src.html
+%.html: %.src.html $(MAKEFILE_LIST) %.options
 	@echo "Calling post-processor to generate $@..."
 	@curl -K ~/.curl-w3.org -s -S -F output=html -F file=@$< \
 	-F group=$(group) -F method=file -F date=$(cdate) -F status=$(status) \
 	$(opts) -o $@ https://www.w3.org/Style/Group/process.cgi
-%.err: %.src.html
+%.err: %.src.html %.options
 	@echo "Calling post-processor to check $<..."
 	@curl -K ~/.curl-w3.org -s -S -F output=err -F file=@$< \
 	-F group=$(group) -F method=file -F date=$(cdate) -F status=$(status) \
@@ -39,7 +44,7 @@ markup ?= html
 	curl -s -L -F file=@$< -F time=$(cdate) -F output=err \
 	-F paragraph=$(markup) $(opts) -o $@ http://api.csswg.org/bikeshed/
 
-%.tmp: %.bs
+%.tmp: %.bs $(MAKEFILE_LIST) %.options
 	cp $< $@
 	if [ "$(cdate)" != "" ]; then sed -r -i " \
 	 /<pre class=['\"]?metadata/,/<\/pre/{ \
@@ -52,6 +57,11 @@ markup ?= html
 	  s/<\/pre/Status: $(status)\n&/; \
 	 }" $@; fi
 
+# Check if make options (date, status, opts) changed
+%.options: always
+	@echo '$(MAKEFLAGS)' >$@.tmp
+	@cmp -s $@ $@.tmp && rm $@.tmp || mv $@.tmp $@
+
 # For Dispositions of Comments in css3-background:
 %.html: %.txt; awk -f issues-txt-to-html.awk $< >$@
 
@@ -63,6 +73,13 @@ markup ?= html
 
 # Rule to create PNG from EPS
 %.png: %.eps; convert -density 96x96 $< $@
+
+
+# all:
+# 	@echo MAKFLAGS = $(MAKEFLAGS)
+# 	@echo MAKEOVERRIDES = $(MAKEOVERRIDES)
+# 	@echo MAKEFILES = $(MAKEFILES)
+# 	@echo MAKEFILE_LIST = $(MAKEFILE_LIST)
 
 
 all: check $(target).html
@@ -89,6 +106,7 @@ clean:
 
 
 
-.PHONY: check commit update clean
+.PHONY: check commit update clean always
 .DELETE_ON_ERROR:
-.PRECIOUS: %.png
+.PRECIOUS: %.png %.options
+
