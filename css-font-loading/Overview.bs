@@ -250,8 +250,15 @@ The Constructor</h3>
 		set <var>font face's</var> internal {{[[Data]]}} slot to the passed argument.
 
 	3. If <var>font face's</var> {{[[Data]]}} slot is not <code>null</code>,
-		queue a task to set <var>font face's</var> {{FontFace/status}} attribute to "loading".
-		Attempt to parse the data in it as a font.
+		queue a task to run the following steps synchronously:
+
+		1. Set <var>font face's</var> {{FontFace/status}} attribute to "loading".
+		2. For each {{FontFaceSet}} <var>font face</var> is in:
+			1. If the {{FontFaceSet}}’s {{[[LoadingFonts]]}} list is empty,
+				<a>switch the FontFaceSet to loading</a>.
+			2. Append <var>font face</var> to the {{FontFaceSet}}’s {{[[LoadingFonts]]}} list.
+
+		Asynchronously, attempt to parse the data in it as a font.
 		When this is completed,
 		successfully or not,
 		queue a task to run the following steps synchronously:
@@ -261,9 +268,23 @@ The Constructor</h3>
 			fulfill <var>font face's</var> {{[[FontStatusPromise]]}} with <var>font face</var>,
 			and set its {{FontFace/status}} attribute to "loaded".
 
+			For each {{FontFaceSet}} <var>font face</var> is in:
+			1. Add <var>font face</var> to the {{FontFaceSet}}’s {{[[LoadedFonts]]}} list.
+			2. Remove <var>font face</var> from the {{FontFaceSet}}’s {{[[LoadingFonts]]}} list.
+				If <var>font</var> was the last item in that list
+				(and so the list is now empty),
+				<a>switch the FontFaceSet to loaded</a>.
+
 		2. Otherwise,
 			reject <var>font face's</var> {{[[FontStatusPromise]]}} with a DOMException named "SyntaxError"
 			and set <var>font face's</var> {{FontFace/status}} attribute to "error".
+
+			For each {{FontFaceSet}} <var>font face</var> is in:
+			1. Add <var>font face</var> to the {{FontFaceSet}}’s {{[[FailedFonts]]}} list.
+			2. Remove <var>font face</var> from the {{FontFaceSet}}’s {{[[LoadingFonts]]}} list.
+				If <var>font</var> was the last item in that list
+				(and so the list is now empty),
+				<a>switch the FontFaceSet to loaded</a>.
 
 	Note: Newly constructed FontFace objects are not automatically added
 	to the FontFaceSet associated with a document
@@ -294,7 +315,7 @@ The <code>load()</code> method</h3>
 	When the <dfn method for=FontFace>load()</dfn> method is called,
 	execute these steps:
 
-	<ol link-type=idl>
+	<ol>
 		<li>
 			Let <var>font face</var> be the {{FontFace}} object on which this method was called.
 
@@ -327,11 +348,25 @@ The <code>load()</code> method</h3>
 					a DOMException whose name is "NetworkError"
 					and set <var>font face's</var> {{FontFace/status}} attribute to "error".
 
+					For each {{FontFaceSet}} <var>font face</var> is in:
+					1. Add <var>font face</var> to the {{FontFaceSet}}’s {{[[FailedFonts]]}} list.
+					2. Remove <var>font face</var> from the {{FontFaceSet}}’s {{[[LoadingFonts]]}} list.
+						If <var>font</var> was the last item in that list
+						(and so the list is now empty),
+						<a>switch the FontFaceSet to loaded</a>.
+
 				<li>
 					Otherwise,
 					<var>font face</var> now represents the loaded font;
 					fulfill <var>font face's</var> {{[[FontStatusPromise]]}} with <var>font face</var>
 					and set <var>font face's</var> {{FontFace/status}} attribute to "loaded".
+
+					For each {{FontFaceSet}} <var>font face</var> is in:
+					1. Add <var>font face</var> to the {{FontFaceSet}}’s {{[[LoadedFonts]]}} list.
+					2. Remove <var>font face</var> from the {{FontFaceSet}}’s {{[[LoadingFonts]]}} list.
+						If <var>font</var> was the last item in that list
+						(and so the list is now empty),
+						<a>switch the FontFaceSet to loaded</a>.
 			</ol>
 	</ol>
 
@@ -413,6 +448,9 @@ The <code>FontFaceSet</code> Interface</h2>
 		interface FontFaceSet : EventTarget {
 			// FontFaceSet is Set-like!
 			setlike&lt;FontFace>;
+			FontFaceSet add(FontFace font);
+			boolean delete(FontFace font);
+			void clear();
 
 			// events for when loading state changes
 			attribute EventHandler onloading;
@@ -443,11 +481,6 @@ The <code>FontFaceSet</code> Interface</h2>
 
 			See [[#font-face-set-ready]] for more details on this {{Promise}} and its use.
 
-		: <dfn attribute for="FontFaceSet">status</dfn>
-		:: If there are <a>possibly pending font loads</a>,
-			the {{FontFaceSet/status}} attribute must have the value <code>"loading"</code>.
-			Otherwise, it must have the value <code>"loaded"</code>.
-
 		: <dfn constructor lt="FontFaceSet()">FontFaceSet</dfn>(sequence&lt;{{FontFace}}> <dfn argument for="FontFaceSet/FontFaceSet()">initialFaces</dfn>)
 		:: The {{FontFaceSet}} constructor, when called,
 			must iterate its {{initialFaces}} argument
@@ -464,7 +497,54 @@ The <code>FontFaceSet</code> Interface</h2>
 		:: If a {{FontFaceSet}} is a <a>font source</a>,
 			its <a spec=webidl for>set entries</a> are initialized as specified in [[#document-font-face-set]].
 
-			Otherwise, its <a spec=webidl for>set entries</a> are initially empty.
+			Otherwise, its <a spec=webidl>set entries</a> are initially empty.
+
+		: <dfn method>add(font)</dfn>
+		::
+			When the {{add()}} method is called,
+			execute the following steps:
+
+			1. If <var>font</var> is already in the {{FontFaceSet}}’s <a>set entries</a>,
+				skip to the last step of this algorithm immediately.
+			2. If <var>font</var> is <a>CSS-connected</a>,
+				throw an {{InvalidModificationError}} exception
+				and exit this algorithm immediately.
+			3. Add the <var>font</var> argument to the {{FontFaceSet}}’s <a>set entries</a>.
+			2. If <var>font</var>’s {{FontFace/status}} attribute is "loading":
+				1. If the {{FontFaceSet}}’s {{[[LoadingFonts]]}} list is empty,
+					<a>switch the FontFaceSet to loading</a>.
+				2. Append <var>font</var> to the {{FontFaceSet}}’s {{[[LoadingFonts]]}} list.
+			3. Return the {{FontFaceSet}}.
+
+		: <dfn method>delete(font)</dfn>
+		::
+			When the {{delete()}} method is called,
+			execute the following steps:
+
+			1. If <var>font</var> is <a>CSS-connected</a>,
+				return <code class='lang-javascript'>false</code>
+				and exit this algorithm immediately.
+			2. Let <var>deleted</var> be the result of removing <var>font</var> from the {{FontFaceSet}}’s <a>set entries</a>.
+			3. If <var>font</var> is present in the {{FontFaceSet}}’s {{[[LoadedFonts]]}}, or {{[[FailedFonts]]}} lists,
+				remove it.
+			4. If <var>font</var> is present in the {{FontFaceSet}}’s {{[[LoadingFonts]]}} list,
+				remove it.
+				If <var>font</var> was the last item in that list
+				(and so the list is now empty),
+				<a>switch the FontFaceSet to loaded</a>.
+			5. Return <var>deleted</var>.
+
+		: <dfn method>clear()</dfn>
+		::
+			When the {{clear()}} method is called,
+			execute the following steps:
+
+			1. Remove all items from the {{FontFaceSet}}’s <a>set entries</a>,
+				its {{[[LoadedFonts]]}} list,
+				and its {{[[FailedFonts]]}} list.
+			2. If the {{FontFaceSet}}’s {{[[LoadingFonts]]}} list is non-empty,
+				remove all items from it,
+				then <a>switch the FontFaceSet to loaded</a>.
 	</div>
 
 	{{FontFaceSet}} objects also have internal
@@ -480,27 +560,11 @@ The <code>FontFaceSet</code> Interface</h2>
 	Authors can use the events and methods defined here to allow greater control over actions
 	that are dependent upon the availability of specific fonts.
 
-	There are <dfn>no pending font loads</dfn> for a given {{FontFaceSet}} whenever
-	none of its contained {{FontFace}} objects have a {{FontFace/status}} of <code>"loading"</code>.
+	A {{FontFaceSet}} is <dfn export for="FontFaceSet">pending on the environment</dfn> if any of the following are true:
 
-	For {{FontFaceSet}}s that are <a>font sources</a>,
-	in addition to the above constraint,
-	the following must all be true
-	for them to be considered as having <a>no pending font loads</a>:
-
-	<ul>
-		<li>
-			The document has finished loading.
-
-		<li>
-			There are no pending stylesheet requests.
-
-		<li>
-			There are no pending layout operations which might cause the user agent to request a font.
-	</ul>
-
-	If a {{FontFaceSet}} can't be considered to have <a>no pending font loads</a>,
-	it instead has <dfn>possibly pending font loads</dfn>.
+	* the document is still loading
+	* the document has pending stylesheet requests
+	* the document has pending layout operations which might cause the user agent to request a font.
 
 <!--
 ████████ ██     ██ ████████ ██    ██ ████████  ██████
@@ -559,82 +623,54 @@ Events</h3>
 			the result of filtering <var>font faces</var> to only contain {{FontFace}} objects contained in <var>target</var>.
 	</ol>
 
-	Whenever one or more {{FontFace}} objects within a given {{FontFaceSet}}
-	change their {{FontFace/status}} attribute to "<code>loading</code>",
-	or one or more {{FontFace}} objects whose {{FontFace/status}} attribute is <em>already</em> "<code>loading</code>"
-	is added to a {{FontFaceSet}},
+	When asked to <dfn>switch the FontFaceSet to loading</dfn> for a given {{FontFaceSet}},
 	the user agent must run the following steps:
 
 	<ol>
 		<li>
-			Let <var>font face set</var> be the given {{FontFaceSet}},
-			and <var>loading fonts</var> be the {{FontFace}} objects
-			that have newly switched to "loading" status
-			or that were added to <var>font face set</var> while already in "loading" status,
-			in the same order as they appear in <var>font face set</var>.
+			Let <var>font face set</var> be the given {{FontFaceSet}}.
 
 		<li>
 			Set the {{FontFaceSet/status}} attribute of <var>font face set</var> to "loading".
 
 		<li>
-			If <var>font face set's</var> {{[[LoadingFonts]]}} slot is currently empty,
-			<a>fire a font load event</a> named {{loading}} at <var>font face set</var>.
-
-		<li>
-			Append the <var>loading fonts</var> to <var>font face set's</var> {{[[LoadingFonts]]}} slot.
+			<a>Fire a font load event</a> named {{loading}} at <var>font face set</var>.
 
 		<li>
 			If <var>font face set's</var> {{[[ReadyPromise]]}} slot currently holds a fulfilled promise,
 			replace it with a fresh pending promise.
 	</ol>
 
-	Whenever one or more <a>available font faces</a> for a given {{FontFaceSet}}
-	change their {{FontFace/status}} attribute to "loaded" or "error",
+	When asked to <dfn>switch the FontFaceSet to loaded</dfn> for a given {{FontFaceSet}},
 	the user agent must run the following steps:
 
-	<ol>
-		<li>
-			Let <var>font face set</var> be the given {{FontFaceSet}},
-			and <var>loaded fonts</var> be the {{FontFace}} objects
-			that have newly switched to "loaded" or "error" status,
-			in the same order as they appear in <var>font face set</var>.
+	1. Let <var>font face set</var> be the given {{FontFaceSet}}.
 
-		<li>
-			For each font in the <var>loaded fonts</var>,
-			if their {{FontFace/status}} attribute is "loaded",
-			append them to <var>font face set's</var> {{[[LoadedFonts]]}} slot;
-			if it's "error",
-			append them to <var>font face set's</var> {{[[FailedFonts]]}} slot.
-	</ol>
+	2. If <var>font face set</var> is <a>pending on the environment</a>,
+		mark it as <dfn export for=FontFaceSet>stuck on the environment</dfn>,
+		and exit this algorithm.
 
-	Whenever a {{FontFaceSet}} goes from having <a>possibly pending font loads</a>
-	to having <a>no pending font loads</a>,
-	user agents must run these steps:
+	3. Set <var>font face set’s</var> {{FontFaceSet/status}} attribute to "loaded".
 
-	<ol>
-		<li>
-			If this is not the first time the {{FontFaceSet}} has had <a>no pending font loads</a>,
-			and none of its contained {{FontFace}} objects began loading
-			since the last time it had <a>no pending font loads</a>,
-			abort this algorithm.
+	4. <a>Fire a font load event</a> named {{loadingdone}} at <var>font face set</var>
+		with the (possibly empty) contents of <var>font face set's</var> {{[[LoadedFonts]]}} slot.
+		Reset the {{[[LoadedFonts]]}} slot to an empty list.
 
-		<li>
-			Set <var>font face set's</var> {{FontFaceSet/status}} attribute to "loaded".
+	5. If <var>font face set's</var> {{[[FailedFonts]]}} slots is non-empty,
+		<a>fire a font load event</a> named {{loadingerror}} at <var>font face set</var>
+		with the contents of <var>font face set's</var> {{[[FailedFonts]]}} slot.
+		Reset the {{[[FailedFonts]]}} slot to an empty list.
 
-		<li>
-			<a>Fire a font load event</a> named {{loadingdone}} at <var>font face set</var>
-			with the (possibly empty) contents of <var>font face set's</var> {{[[LoadedFonts]]}} slot.
-			Reset the {{[[LoadedFonts]]}} slot to an empty list.
+	6. Fulfill <var>font face set's</var> {{[[ReadyPromise]]}} attribute's value with <var>font face set</var>.
 
-		<li>
-			If <var>font face set's</var> {{[[FailedFonts]]}} slots is non-empty,
-			<a>fire a font load event</a> named {{loadingerror}} at <var>font face set</var>
-			with the contents of <var>font face set's</var> {{[[FailedFonts]]}} slot.
-			Reset the {{[[FailedFonts]]}} slot to an empty list.
+	Whenever a {{FontFaceSet}} goes from <a>pending on the environment</a> to not <a>pending on the environment</a>,
+	the user agent must run the following steps:
 
-		<li>
-			Fulfill <var>font face set's</var> {{[[ReadyPromise]]}} attribute's value with <var>font face set</var>.
-	</ol>
+	1. If the {{FontFaceSet}} is <a>stuck on the environment</a> and its {{[[LoadingFonts]]}} list is empty,
+		<a>switch the FontFaceSet to loaded</a>.
+
+	2. If the {{FontFaceSet}} is <a>stuck on the environment</a>,
+		unmark it as such.
 
 
 	If asked to <dfn export>find the matching font faces</dfn>
