@@ -315,7 +315,7 @@ all: build/blocks.ok $(SPECOBJS) images/pngs.ok \
 #	-@(cd images; for i in *.gif; do $(LN) -s $$i "`basename $$i .gif`" 2>//dev/null; done)
 #	touch images/links.ok
 
-install: all css2.tgz $(INSTALLDIR)/.htaccess
+install: all css2.tgz css2.txt css2.zip css2.ps.gz css2.pdf $(INSTALLDIR)/.htaccess
 	@if [ -z "$(INSTALLDIR)" ]; then\
 	  echo >&2;\
 	  echo "*** No target directory specified" >&2;\
@@ -323,7 +323,7 @@ install: all css2.tgz $(INSTALLDIR)/.htaccess
 	  exit 1;\
 	fi
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
-	$(CP) css2.tgz $(INSTALLDIR)
+	$(CP) css2.txt css2.zip css2.ps.gz css2.pdf css2.tgz $(INSTALLDIR)
 	zcat css2.tgz | (cd $(INSTALLDIR); $(TAR) xvf -)
 #	-$(RM) -f $(CSSGROUPDIR)/issues.html
 #	-$(RM) $(CSSGROUPDIR)/css2-issues.html
@@ -419,12 +419,12 @@ css2.txt txt: css2.html
 
 ####
 
-css2.tgz: $(ALLOBJS) css2.txt css2.zip css2.ps.gz css2.pdf # images/links.ok
+css2.tgz: $(ALLOBJS) # images/links.ok
 #	$(TAR) cf - $(ALLOBJS) `$(LS) -d images/*.png | $(GREP) -v "\."` | gzip >$@
 	$(TAR) cf - $^ | gzip >$@
 
 css2.zip: $(ALLOBJS)
-	$(ZIP) $@ $(ALLOBJS) images/*.png
+	$(ZIP) $@ $(ALLOBJS)
 #	$(ZIP) $@ $(ALLOBJS) `$(LS) -d images/*.png | $(GREP) -v "\."` 
 
 #### Section generate property tables from property database.
