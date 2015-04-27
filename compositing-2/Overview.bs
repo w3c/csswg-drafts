@@ -1,0 +1,1473 @@
+<h1>Compositing and Blending Level 2</h1>
+<pre class='metadata'>
+Status: CR
+ED: http://dev.w3.org/fxtf/compositing-2/
+TR: http://www.w3.org/TR/compositing-2/
+Previous Version: 
+Shortname: compositing level 2
+Link Defaults: css-color-3 (property) color, svg (property) mask
+Deadline: 2014-08-17
+Level: 2
+Group: fxtf
+Editor: Rik Cabanier, Adobe Systems Inc., cabanier@adobe.com
+Editor: Nikos Andronikos, Canon Information Systems Research Australia, Nikos.Andronikos@cisra.canon.com.au
+Abstract: Compositing describes how shapes of different elements are combined into a single image. There are various possible approaches for compositing. Previous versions of SVG and CSS used <a href="http://www.w3.org/TR/SVG11/masking.html#SimpleAlphaBlending">Simple Alpha Compositing</a>. In this model, each element is rendered into its own buffer and is then merged with its <a>backdrop</a> using the Porter Duff ''source-over'' operator. This specification will define a new compositing model that expands upon the Simple Alpha Compositing model by offering:
+Abstract: <ul><li>additional Porter Duff compositing operators</li><li>advanced blending modes which allow control of how colors mix in the areas where shapes overlap</li><li>compositing groups</li></ul>
+Abstract: In addition, this specification will define CSS properties for blending and group isolation and the properties of the <a href="http://www.w3.org/TR/2dcontext2/#dom-context-2d-globalcompositeoperation" title="canvas 2d globalcompositeoperation">‘globalcompositeoperation’</a> attribute as defined in [[2DCONTEXT2]].
+</pre>
+
+<style type="text/css">
+a[data-link-type=element]::before,span[data-link-type=element]::before {
+  content: '<';
+}
+a[data-link-type=element]::after,span[data-link-type=element]::after {
+  content: '>';
+}
+</style>
+
+<h2 id="introduction">Introduction</h2>
+<p><em>This subsection is non-normative.</em><br>
+The first part of this document describes the properties used to control the compositing in CSS.
+The second part will describe the algorithms of Porter Duff compositing and blending.
+</p>
+
+<h2 id="reading-this-document">Reading This Document</h2>
+
+Each section of this document is normative unless otherwise specified.
+
+<h3 id="module-interactions">Module interactions</h3>
+
+This specification defines a set of CSS properties that affect the visual rendering of elements to which
+those properties are applied; these effects are applied after elements have been sized and positioned according
+to the <a href="http://www.w3.org/TR/CSS2/visuren.html" title="Visual formatting model">Visual formatting model</a>
+from [[!CSS21]]. Some values of these properties result in the creation of a
+<a href="http://www.w3.org/TR/CSS2/visuren.html#containing-block" title="Visual formatting model">containing block</a>,
+and/or the creation of a <a spec="css21">stacking context</a>.
+
+The 'background-blend-mode' property also builds upon the properties defined in the <a href="http://www.w3.org/TR/css3-background/#placement" title="Backgrounds and Borders">CSS  Backgrounds and Borders</a> module [[!CSS3BG]].
+
+This specification also enhances the rules as specified in <a href="http://www.w3.org/TR/2003/REC-SVG11-20030114/masking.html#SimpleAlphaBlending" title="simple alpha blending">Section 14.2 Simple alpha compositing</a> of [[SVG11]] and <a href="http://www.w3.org/TR/css3-color/#alpha" title="simple alpha compositing">simple alpha compositing</a> of [[!CSS3COLOR]].
+
+This module also extends the <a href="http://www.w3.org/TR/2dcontext2/#dom-context-2d-globalcompositeoperation" title="canvas 2d globalcompositeoperation">‘globalcompositeoperation’</a> as defined in [[!2DCONTEXT2]].
+
+<h3 id="values">Values</h3>
+
+This specification follows the <a href="http://www.w3.org/TR/CSS21/about.html#property-defs">CSS property
+definition conventions</a> from [[!CSS21]]. Value types not defined in
+this specification are defined in CSS Level 2 Revision 1 [[!CSS21]]. Other CSS
+modules may expand the definitions of these value types: for example [[!CSS3COLOR]],
+when combined with this module, expands the definition of the &lt;color>
+value type as used in this specification.
+
+In addition to the property-specific values listed in their definitions,
+all properties defined in this specification also accept the <a
+href="http://www.w3.org/TR/CSS21/cascade.html#value-def-inherit">inherit</a>
+keyword as their property value. For readability it has not been repeated
+explicitly.
+   
+<h2 id="csscompositingandblending">Specifying Blending in CSS </h2>
+<h3 id="compositingandblendingorder">Order of graphical operations</h3>
+
+The compositing model must follow the <a href="http://www.w3.org/TR/SVG11/render.html#Introduction">SVG compositing</a> model [[!SVG11]]: first any filter effect is applied, then any clipping, masking, blending and compositing.
+
+<h3 id="csscompositingrules_CSS">Behavior specific to HTML</h3>
+<!-- <p>
+If an element specifies non-default blending or <a href="http://www.w3.org/TR/css3-color/#transparency">'opacity'</a>, its <a href="http://www.w3.org/TR/css3-2d-transforms/#transform-style-property">transform-style</a> [[CSS3-TRANSFORMS]] and that of all of its children must revert to 'flat'.<br>
+The application of blending other than 'normal' to an element must also establish a <a spec="css21">stacking context</a> [[!CSS21]] the same way that CSS <a href="http://www.w3.org/TR/css3-color/#transparency">'opacity'</a> does. One of the consequences is that elements with z-index must not honor the depth of elements outside of the group.<br> -->
+
+Everything in CSS that creates a <a href="http://www.w3.org/TR/CSS21/zindex.html">stacking context</a> must be considered an <a href="#isolatedgroups">‘isolated’ group</a>. HTML elements themselves should not create groups.
+
+An element that has blending applied, must blend with all the underlying content of the <a spec="css21">stacking context</a> [[!CSS21]] that that element belongs to.
+
+<h3 id="csscompositingrules_SVG">Behavior specific to SVG</h3>
+
+By default, every element must create a <a href="#isolatedgroups">non-isolated group</a>.
+
+<!-- SVG has the following <a href="http://www.w3.org/TR/SVG11/render.html#Introduction">compositing model</a>: first any filter effect is applied, then any clipping, masking,  blending and compositing -->
+
+However, certain operations in SVG will create <a href="#isolatedgroups">isolated groups</a>. If one of the following features is used, the group must become isolated:
+
+<ul>
+<li>opacity</li>
+<li>filters</li>
+<li>3D transforms (2D transforms must NOT cause isolation)</li>
+<li>blending</li>
+<li>masking</li>
+</ul>
+
+<h3 id="csskeywords">CSS Properties</h3>
+
+<h4 id="mix-blend-mode">The 'mix-blend-mode' property</h4>
+
+The blend mode defines the formula that must be used to mix the colors with the backdrop.
+This behavior is described in more detail in <a href="#blending">Blending</a>.
+
+<pre class='propdef'>
+Name: mix-blend-mode
+Value: <<blend-mode>>
+Initial: normal
+Applies to: All elements. In SVG, it applies to <a href="http://www.w3.org/TR/SVG/intro.html#TermContainerElement">container elements</a>, <a href="http://www.w3.org/TR/SVG/intro.html#TermGraphicsElement">graphics elements</a> and <a href="http://www.w3.org/TR/2011/REC-SVG11-20110816/intro.html#TermGraphicsReferencingElement">graphics referencing elements</a>. [[SVG11]]
+Inherited: no
+Percentages: N/A
+Computed value: as specified
+Media: visual
+Animatable: no
+</pre>
+
+The syntax of the property of <<blend-mode>> is given with:
+
+<pre class="blendmode"><dfn id="ltblendmodegt">&lt;blend-mode></dfn> = <a value>normal</a> | <a value>multiply</a> | <a value>screen</a> | <a value>overlay</a> | <a value>darken</a> | <a value>lighten</a> | <a value>color-dodge</a> |
+  <a value>color-burn</a> | <a value>hard-light</a> | <a value>soft-light</a> | <a value>difference</a> | <a value>exclusion</a> | <a value>hue</a> | 
+  <a value>saturation</a> | <a value>color</a> | <a value>luminosity</a></pre>
+
+Note: Applying a blendmode other than <a value>normal</a> to the element must establish a new <a spec="css21">stacking context</a> [[!CSS21]]. This group must then be blended and composited with the <a spec="css21">stacking context</a> that contains the element.
+
+<div class="example">
+<p>Given the following sample markup:</p>
+<pre>
+&lt;body>
+  &lt;img src="ducky.png"/>
+&lt;/body>
+</pre>
+<p>And the following style rule:</p>
+<pre>
+  body { background-color: lime; }
+</pre>
+<p>
+... will produce the following result:
+</p>
+<div class="figure">
+<img alt="example of an image of duck with the lime color of the document" src="examples/ducky_normal.png" style="width:30%"/>
+<p class="caption">
+Partially transparent image on a lime backdrop</p>
+</div>
+<p>If we change the style rule to include blending:</p>
+<pre>
+body { background-color: lime; }
+img { mix-blend-mode: multiply; }
+</pre>
+<p>
+... the output will be the image blending with the lime background of the &lt;body> element.
+</p>
+<div class="figure">
+<img alt="example of an image of duck blending with the lime color of the document" src="examples/ducky_multiply.png" style="width:30%"/>
+<p class="caption">
+Blending of a transparent image on a lime backdrop.
+</p>
+</div>
+</div>
+
+<div class="example">
+<p>Given the following svg code:</p>
+<pre>
+<!-- -->&lt;svg>
+<!-- -->  &lt;circle cx="40" cy="40" r="40" fill="red"/>
+<!-- -->  &lt;circle cx="80" cy="40" r="40" fill="lime"/>
+<!-- -->  &lt;circle cx="60" cy="80" r="40" fill="blue"/>
+<!-- -->&lt;/svg>
+</pre>
+<p>And the following style rule:</p>
+<pre>
+circle { mix-blend-mode: screen; }
+</pre>
+<p>
+... the output will be blending of the 3 circles. Each circle is rendered from bottom to top. Where the elements overlap, the blend mode produces a change in color.
+</p>
+<div class="figure">
+<img alt="example of 3 circles blending with a screen blend mode" src="examples/screen_example.svg" style="width:30%"/>
+<p class="caption">
+Example of 3 circles blending with a screen blend mode
+</p>
+</div>
+
+</div>
+
+<div class="example">
+<p>In the following style sheet and document fragment:</p>
+<pre>
+body { background-color: lime; }
+div { background-color: red; width: 200px; opacity: .95}
+img { mix-blend-mode: difference; }
+
+<!-- -->&lt;body>
+<!-- -->  &lt;div>
+<!-- -->     &lt;img src="ducky.png"/>
+<!-- -->  &lt;/div>
+<!-- -->&lt;/body>
+</pre>
+<p>
+... the 'opacity' on the &lt;div> element is causing the creation of a stacking context. This causes the creation of a new group so the image doesn't blend with the color of the &lt;body>.
+</p>
+<div class="figure">
+<img alt="example of an image of duck blending with the lime color of the document" src="examples/ducky_difference.png" style="width:30%"/>
+<p class="caption">
+Example of blending within a stacking context.</p>
+</div>
+<p>
+Note how the image is not blending with the lime color.
+</p>
+</div>
+
+<div class="example">
+<p>Given the following sample markup:</p>
+<pre>
+&lt;body>
+   &lt;div>
+     &lt;p>''overlay'' blending on text&lt;/p>
+   &lt;/div>
+&lt;/body>
+</pre>
+<p>And the following style rule:</p>
+<pre>
+div { background-image: url('texture.png'); }
+@font-face {
+  font-family: "Mythos Std";
+  src: url("http://myfontvendor.com/mythos.otf");
+}
+p {
+  mix-blend-mode: overlay;
+  font-family: "Mythos Std" 
+}
+</pre>
+
+<div class="figure">
+<img alt="example of text that has an overlay blend on top of a texture" src="examples/overlay_text.png" style="width:75%"/>
+<p class="caption">
+Text with a blend overlay on top of an image.
+</p>
+</div>
+</div>
+
+<h4 id="isolation">The 'isolation' property</h4>
+
+In SVG, this defines whether an element is isolated or not.<br>
+For CSS, setting 'isolation' to ''isolate'' will turn the element into a stacking context.
+
+By default, elements use the ''auto'' keyword which implies that they are not isolated. However operations that cause the creation of stacking context [[!CSS21]] must cause a group to be isolated. These operations are described in <a href="#csscompositingrules_CSS">'behavior specific to HTML'</a> and <a href="#csscompositingrules_SVG">'behavior specific to SVG'</a>.
+
+<pre class='propdef'>
+Name: isolation
+Value: <<isolation-mode>>
+Initial: auto
+Applies to: All elements. In SVG, it applies to <a href="http://www.w3.org/TR/SVG/intro.html#TermContainerElement">container elements</a>, <a href="http://www.w3.org/TR/SVG/intro.html#TermGraphicsElement">graphics elements</a> and <a href="http://www.w3.org/TR/2011/REC-SVG11-20110816/intro.html#TermGraphicsReferencingElement">graphics referencing elements</a>. [[SVG11]]
+Inherited: no
+Percentages: N/A
+Computed value: as specified
+Media: visual
+Animatable: no
+</pre>
+
+The syntax of the property of <<isolation-mode>> is given with:
+
+<pre class="isolated"><dfn id="isolated-propid">&lt;isolation-mode></dfn> = auto | isolate</pre>
+
+<p id="img_isolation">
+In CSS, a background image or the content of an <a element>img</a> must always be rendered into an isolated group.<br>For instance, if you link to an SVG file through the <a element>img</a> tag, the artwork of that SVG will not blend with the backdrop of the content.</p>
+
+In SVG, 'mask' always creates an isolated group.
+
+<h4 id="background-blend-mode">The 'background-blend-mode' property</h4>
+
+Defines the blending mode of each background layer.
+
+Each background layer must blend with the element's background layer that is below it and the element's background color. Background layers must not blend with the content that is behind the element, instead they must act as if they are rendered into an isolated group.
+
+The description of the 'background-blend-mode' property is as follows:
+
+<pre class='propdef'>
+Name: background-blend-mode
+Value: <<blend-mode>>#
+Initial: normal
+Applies to: All HTML elements
+Inherited: no
+Percentages: N/A
+Computed value: as specified
+Media: visual
+Animatable: no
+</pre>
+
+The 'background-blend-mode' list must be applied in the same order as 'background-image' [[!CSS3BG]]. This means that the first element in the list will apply to the layer that is on top. If a property doesn't have enough comma-separated values to match the number of layers, the UA must calculate its used value by repeating the list of values until there are enough.</p>
+
+If the 'background' [[!CSS3BG]] shorthand is used, the 'background-blend-mode'
+property for that element must be reset to its initial value.
+
+<div class="example">
+<p>Given the following sample markup:</p>
+<pre>
+<!-- -->&lt;body>
+<!-- -->   &lt;div>&lt;/div>
+<!-- -->&lt;/body>
+</pre>
+<p>And the following style rule:</p>
+<pre>
+body { background-color: lime; }
+div { 
+  width: 200px;
+  height: 200px;
+  background-size: 200px 200px;
+  background-repeat:no-repeat;
+  background-image: linear-gradient(to right, #000000 0%,#ffffff 100%), url('ducky.png');
+  background-blend-mode: difference, normal;
+}
+</pre>
+<div class="figure">
+<img alt="example of div that has an image of a duck and a gradient that is blending" src="examples/ducky_background_blend.png" style="width:30%"/>
+<p class="caption">
+Blending of 2 background images.
+</p>
+</div>
+<p>
+Note that the gradient is not blending with the color of <a element>body</a>. Instead it retains its original color.
+</p>
+</div>
+
+<h2 id="canvascompositingandblending">Specifying Compositing and Blending in Canvas 2D</h2>
+
+The <a href="http://www.w3.org/TR/2dcontext">canvas 2d</a> context defines the <a href="http://www.w3.org/TR/2dcontext/#dom-context-2d-globalcompositeoperation">‘globalCompositeOperation’</a> attribute that is used to set the current compositing and blending operator.
+
+This property takes the following value:
+
+<div class="propdef">
+<dl>
+  <dt id='propdef-mix'><span class='propdef-title prop-name'>‘globalCompositeOperation’</span></dt>
+    <dd>
+      <table class="propinfo">
+        <tbody>
+          <tr>
+            <td><em>Value:</em>  </td>
+            <td> <<blend-mode>> | <<composite-mode>> </td>
+          </tr>
+          <tr>
+            <td><em>Initial:</em>  </td>
+            <td>source-over</td>
+          </tr>
+        </tbody>
+      </table>
+    </dd>
+</dl>
+</div>
+
+The syntax of the property of <<composite-mode>> is given with:
+
+<pre class="compositemode"><dfn id="compositemode">&lt;composite-mode></dfn> = <a href="#porterduffcompositingoperators_clear">clear</a> | <a href="#porterduffcompositingoperators_src">copy</a> | <a href="#porterduffcompositingoperators_srcover">source-over</a> | <a href="#porterduffcompositingoperators_dstover">destination-over</a> | <a href="#porterduffcompositingoperators_srcin">source-in</a> | <br><a href="#porterduffcompositingoperators_dstin">destination-in</a> | <a href="#porterduffcompositingoperators_srcout">source-out</a> | <a href="#porterduffcompositingoperators_dstout">destination-out</a> | <a href="#porterduffcompositingoperators_srcatop">source-atop</a> | <br><a href="#porterduffcompositingoperators_dstatop">destination-atop</a> | <a href="#porterduffcompositingoperators_xor">xor</a> | <a href="#porterduffcompositingoperators_plus">lighter</a> | <a href="#porterduffcompositingoperators_plus_darker">plus-darker</a> | <a href="#porterduffcompositingoperators_plus_lighter">plus-lighter</a></pre>
+
+<h2 id="whatiscompositing">Introduction to compositing</h2>
+
+Compositing is the combining of a graphic element with its backdrop.
+<!--
+<p>
+The figure below, gives a basic example of compositing. The graphic element is overlaid on top of the backdrop to produce a composite image.
+Where the graphic element is opaque, it obscures the backdrop and where the graphic element is partially transparent, some of the backdrop can be seen through.
+</p>
+-->
+
+In the model described in this specification there are two steps to the overall compositing operation - <a href="#advancedcompositing">Porter-Duff compositing</a> and <a href="#blending">blending</a>.
+<!--Porter Duff compositing takes into account the overall shape of the graphic element and its opacity, as well as the opacity and shape of the backdrop, and 
+determines where the backdrop is visible, where the graphic element is visible and where one is visible through the other.-->
+The blending step determines how the colors from the graphic element and the backdrop interact.
+
+Typically, the blending step is performed first, followed by the Porter-Duff compositing step.
+In the blending step, the resultant color from the mix of the element and the the <a>backdrop</a> is calculated. The graphic element's color is replaced with this resultant color.
+The graphic element is then composited with the <a>backdrop</a> using the specified compositing operator.
+
+Note: Shape is defined by the mathematical description of the shape. A particular point is either inside the shape or it is not. There are no gradations.
+
+Note: Opacity is described using an alpha value, stored alongside the color value for each particular point. The alpha value is between 0 and 1, inclusive.
+ A value of 0 means that the pixel has no coverage at that point, and is therefore
+transparent; i.e. there is no color contribution from any geometry because the geometry does not overlap this pixel. A value of 1 means that the pixel is fully opaque; the geometry completely overlaps the pixel.
+
+<h3 id="simplealphacompositing">Simple alpha compositing</h3>
+
+The formula for simple alpha compositing is
+
+<pre>
+co = Cs x αs + Cb x αb x (1 - αs)
+</pre>
+
+Where 
+
+<ul>
+<li>co: the premultiplied pixel value after compositing
+<li>Cs: the color value of the source graphic element being composited
+<li>αs: the alpha value of the source graphic element being composited
+<li>Cb: the color value of the <a>backdrop</a>
+<li>αb: the alpha value of the <a>backdrop</a>
+</ul>
+
+Note: All values are between 0 and 1 inclusive.
+
+The pixel value after compositing (co) is given by adding the contributions from the source graphic element [Cs x αs] and the backdrop [Cb x αb x (1 - αs)].
+For both the graphic element and the backdrop, the color values are multiplied by the alpha to determine the amount of color that contributes.
+With zero alpha meaning that the color does not contribute and partial alpha means that some percentage of the color contributes.
+The contribution of the backdrop is further reduced based on the opacity of the graphic element. 
+Conceptually, (1 - αs) of the backdrop shows through the graphic element, meaning that if the graphic element is fully opaque (αs=1) then no backdrop shows through.
+
+The simple alpha compositing formula listed above gives a resultant color which is the result of the 
+weighted average of the backdrop color and graphic element color, with the weighting determined by the backdrop and
+graphic element alphas.
+The resultant alpha value of the composite is simply the sum of the contributed alpha of the composited elements.
+The formula for the resultant alpha of the composite is
+
+<pre>
+αo = αs + αb x (1 - αs)
+</pre>
+
+Where 
+
+<ul>
+<li>αo: the alpha value of the composite
+<li>αs: the alpha value of the graphic element being composited
+<li>αb: the alpha value of the <a>backdrop</a>
+</ul>
+</p>
+
+<div class="note">
+<p>
+Often, it can be more efficient to store a <code>pre-multiplied value</code> for the color and opacity.
+The pre-multiplied value is given by
+<pre>
+cs = Cs x αs
+</pre>
+with 
+<ul>
+<li>cs: the pre-multiplied value
+<li>Cs: the color value
+<li>αs: the alpha value
+</ul>
+<p>
+Thus the formula for simple alpha compositing using pre-multiplied values becomes
+<pre>
+co = cs + cb x (1 - αs)
+</pre>
+</p>
+</p>
+
+<p>
+To extract the color component of a pre-multiplied value, the formula is reversed:
+<pre>
+Co = co / αo
+</pre>
+</p>
+</div>
+
+<h4 id="simplealphacompositingexamples">Examples of simple alpha compositing</h4>
+<div class="example">
+<div class="figure">
+<img src="examples/simple_box.svg" alt="Simple box showing alpha compositing"/>
+<p class="caption"></p>
+</div>
+<p>
+This describes the most basic case. It consists of 1 shape that is filled with a solid color (α = 1).
+The shape is composited with an empty background. The empty background has no effect on the resultant composite.
+<pre>
+
+Cs = RGB(1,0,0)
+αs = 1
+Cb = RGB(0,0,0)
+αb = 0
+
+co = Cs x αs + Cb x αb x (1 - αs)
+co = RGB(1,0,0) x 1 + RGB(0,0,0) x 0 x (1 - 1)
+co = RGB(1,0,0) x 1
+co = RGB(1,0,0)
+</pre>
+</p>
+</div>
+
+<div class="example">
+<div class="figure">
+<img src="examples/two_box.svg" alt="simple shape"/>
+<p class="caption"></p>
+</div>
+<p>
+This is a more complex example. There is no transparency, but the 2 shapes intersect.
+</p>
+<p>
+Applying the compositing formula in the area of intersection, gives:
+<pre>
+Cs = RGB(0,0,1)
+αs = 1
+Cb = RGB(1,0,0)
+αb = 1
+
+co = Cs x αs + Cb x αb x (1 - αs)
+co = RGB(0,0,1) x 1 + RGB(1,0,0) x 1 x (1 - 1)
+co = RGB(0,0,1) x 1 + RGB(1,0,0) x 1 x 0
+co = RGB(0,0,1) x 1
+co = RGB(0,0,1)
+</pre>
+Calculating the alpha of the resultant composite
+<pre>
+αo = αs + αb x (1 - αs)
+αo = 1 + 1 x (1 - 1)
+αo = 1
+</pre>
+Calculating the color component of the resultant composite
+<pre>
+Co = co / αo
+Co = RGB(0, 0, 1) / 1
+Co = RGB(0, 0, 1)
+</pre>
+</p>
+</div>
+
+<div class="example">
+<div class="figure">
+<img src="examples/two_box_transparency.svg" alt="interaction of a solid box with a transparent box on top"/>
+<p class="caption"></p>
+</div>
+<p>
+This is an example where the shape has some transparency, but the <a>backdrop</a> is fully opaque.
+</p>
+<p>
+Applying the compositing formula in the area of intersection, gives:
+<pre>
+Cs = RGB(0,0,1)
+αs = 0.5
+Cb = RGB(1,0,0)
+αb = 1
+
+co = Cs x αs + Cb x αb x (1 - αs)
+co = RGB(0,0,1) x 0.5 + RGB(1,0,0) x 1 x (1 - 0.5)
+co = RGB(0,0,1) x 0.5 + RGB(1,0,0) x 0.5
+co = RGB(0.5,0,0.5)
+</pre>
+Calculating the alpha of the resultant composite
+<pre>
+αo = αs + αb x (1 - αs)
+αo = 0.5 + 1 x (1 - 0.5)
+αo = 1
+</pre>
+Calculating the color component of the resultant composite
+<pre>
+Co = co / αo
+Co = RGB(0.5, 0, 0.5) / 1
+Co = RGB(0.5, 0, 0.5)
+</pre>
+</p>
+</div>
+
+<div class="example">
+<div class="figure">
+<img src="examples/two_box_transparency_both.svg" alt="interaction of 2 transparent boxes"/>
+<p class="caption"></p>
+</div>
+<p>
+Figure 4 shows an example where both the shape and the <a>backdrop</a> are transparent.
+</p>
+<p>
+Applying the compositing formula in the area of intersection, gives:
+<pre>
+Cs = RGB(0,0,1)
+αs = 0.5
+Cb = RGB(1,0,0)
+αb = 0.5
+
+co = Cs x αs + Cb x αb x (1 - αs)
+co = RGB(0,0,1) x 0.5 + RGB(1,0,0) x 0.5 x (1 - 0.5)
+co = RGB(0,0,1) x 0.5 + RGB(1,0,0) x 0.25
+co = RGB(0.25, 0, 0.5)
+</pre>
+Calculating the alpha of the resultant composite
+<pre>
+αo = αs + αb x (1 - αs)
+αo = 0.5 + 0.5 x (1 - 0.5)
+αo = 0.75
+</pre>
+Calculating the color component of the resultant composite
+<pre>
+Co = co / αo
+Co = RGB(0.25, 0, 0.5) / 0.75
+Co = RGB(0.33, 0, 0.66)
+</pre>
+</p>
+</div>
+
+<h2 id="generalformula">General Formula for Compositing and Blending</h2>
+
+The general formula for compositing and blending which allows for selection of the compositing operator and blending function comprises two steps.
+The terms used in these functions will be described in detail in the following sections.
+
+Apply the blend in place
+
+<pre>
+Cs = (1 - αb) x Cs + αb x B(Cb, Cs)
+</pre>
+
+Composite
+
+<pre>
+Co = αs x Fa x Cs + αb x Fb x Cb
+</pre>
+
+Where:
+
+<ul>
+<li><strong>Cs</strong>: is the source color
+<li><strong>Cb</strong>: is the backdrop color
+<li><strong>αs</strong>: is the source alpha
+<li><strong>αb</strong>: is the backdrop alpha
+<li><strong>B(Cb, Cs)</strong>: is the mixing function
+<li><strong>Fa</strong>: is defined by the Porter Duff operator in use
+<li><strong>Fb</strong>: is defined by the Porter Duff operator in use
+</ul>
+
+<h2 id="backdropCalc">Backdrop calculation</h2>
+
+The <dfn export>backdrop</dfn> is the content behind the element and is what the element is composited with.
+This means that the backdrop is the result of compositing all previous elements.
+
+<h3 id="backdropexamples">Examples of backdrop calculation</h3>
+<div class="example">
+<div class="figure">
+<img src="examples/simple_backdrop.svg" alt="example of a simple backdrop calculation"/>
+<p class="caption"></p>
+</div>
+<p>
+This example has 2 simple shapes. The backdrop for the blue shape includes the bottom right corner of the red shape .
+The dotted line shows the area that is examined during compositing of the blue shape.
+</p>
+</div>
+<div class="example">
+<div class="figure">
+<img src="examples/simple_backdrop_alpha.svg" alt="example of a backdrop with alpha"/>
+<p class="caption"></p>
+</div>
+<p>
+The shape in the backdrop has an alpha value. The alpha value of the backdrop shape is preserved when the backdrop is calculated.
+</p>
+</div>
+
+<h2 id="groups">Compositing Groups</h2>
+
+Compositing groups allow more control over the interaction of compositing with the backdrop. Groups can be used to specify how a compositing effect
+within a group will interact with the content that is already in the scene (the backdrop).
+
+Compositing groups may be made up of any number of elements, and may contain other compositing groups.
+
+The default properties of a compositing group shall cause no visual difference compared to having no group. See <a href="#groupinvariance">Group Invariance</a>.
+
+A compositing group is rendered by first compositing the elements of the group onto the initial backdrop. The result of this is a single element containing
+color and alpha information. This element is then composited onto the group backdrop.
+Steps shall be taken to ensure the group backdrop makes only a single contribution to the final composite.
+
+<dl>
+<dt id="initialbackdrop">initial backdrop</dt>
+<dd>
+The initial backdrop is the backdrop used for compositing the group's first element. This will be the same as the group backdrop in a non-isolated
+group, or a fully transparent backdrop for an isolated group.
+</dd>
+<dt id="groupbackdrop">group backdrop</dt>
+<dd>
+The group backdrop is the result of compositing all elements up to but not including the first element in the group.
+</dd>
+</dt>
+</dl>
+
+<h3 id="groupinvariance">Group invariance</h3>
+
+An important property of simple alpha compositing is its group invariance. This behavior is preserved in the more complex model described in this specification.
+Adding or removing grouping with default attributes shall not show visual differences.
+
+<pre>so: A + B + C = A + (B + C) = (A + B) + C</pre>
+
+When adding attributes to the group such as <!--'knockout', --> ''isolate'', blending modes other than ''normal'' or Porter Duff compositing operators other than ''source-over'', groups may no longer be invariant.
+
+<h3 id="isolatedgroups">Isolated Groups</h3>
+
+In an isolated group, the initial backdrop shall be black and fully transparent.
+
+In this instance, the initial backdrop is different than the group backdrop. The only interaction with the group backdrop shall occur when the group's
+computed color, shape and alpha are composited with it.
+
+See '<a href="#groupcompositing">Isolated groups and Porter Duff modes</a>' for a description of the effect of isolated groups on compositing.
+See '<a href="#isolationblending">Effect of group isolation on blending</a>' for a description of the effect of isolated groups on blending.
+<!--
+<h3 id="knockoutgroups">Knockout Groups</h3>
+<p>
+In a knockout group, each individual element shall be composited with the initial backdrop rather than with the stack of preceding elements in the group.
+When calculating the <a>backdrop</a> for an element inside a knockout group, the elements of the group are ignored. Instead, only the elements that are behind the knockout group are included in the backdrop.
+</p>
+<div class="example">
+<p style="text-align:center"><img src="examples/knockout.png" alt="example of a knockout group"/></p>
+</div>
+<p>
+The above example demonstrates two versions of a group containing three squares (red, green, blue) that are 50% opaque. The group is composited over a grey striped background.<br>
+On the left, the group has the 'knock-out' property activated. On the right, the group has the 'knock-out' property disabled'.<br>
+If the 'knock-out' property is disabled, each element within the group is only composited with the elements underneath the group.
+</p>
+-->
+<h3 id="pagebackdrop">The Page Group</h3>
+
+The top level group is the page group. All other elements and groups are composited into this group.
+The page group is an <a href="#isolatedgroups">isolated group</a>.
+
+The page group is composited with a backdrop color of white with 100% opacity.<!--<br>
+The page group may be used as an element in another graphical composition.-->
+<!--
+<p>
+For example,
+this is an SVG file that contains a red object at 50% opacity. <br>
+The UA will composite the page group onto a white background with 100% opacity. <br>
+The results are as follows:
+<pre>
+co = RGB(255, 0, 0) * .5 + RGB(255, 255, 255) * 1 * (1 - .5)
+co = RGB(127, 0, 0) + RGB(127, 127, 127)
+co = RGB(255, 127, 127)
+</pre>
+which is the color value ultimately displayed by the UA.
+</p>
+-->
+<h2 id="advancedcompositing">Advanced compositing features</h2>
+
+<a href="#simplealphacompositing">Simple alpha compositing</a> uses the <a href="#porterduffcompositingoperators_srcover">source-over</a> Porter Duff compositing operator. <!-- Additional compositing operators exist and may be specified with the <a href="#propdef-mix-composite">mix-composite property</a>.
+The additional compositing operators allow for more complex interactions between the shapes of elements being composited. The compositing operators are described in the <a href="#porterduffcompositingoperators">Porter Duff compositing operators</a>.
+The operators that applies to an element or group is selected using the <a href="#propdef-mix-composite">mix-composite</a> property.-->
+
+Porter Duff compositing is based on a model of a pixel in which two shapes (source and destination) may contribute to the final color of the pixel. The pixel is divided into 4 sub-pixel regions and each region represents a possible combination of source and destination. [[PORTERDUFF]]</p>
+
+The four regions are:
+
+<dl>
+<dt>Source Only</dt><dd>Where only the source contributes to the pixel color</dd>
+<dt>Destination only</dt><dd>where only the destination contributes to the pixel color</dd>
+<dt>Both</dt><dd>Source and Destination – where both the source and destination may combine to define the pixel color</dd>
+<dt>None</dt><dd>No source or Destination – where neither make a contribution to the final pixel color</dd>
+</dl>
+
+Note: Destination is synonymous with backdrop. The term destination is used in this section as this is considered the standard when working with Porter Duff compositing. Additionally, the compositing operators use ''destination'' in their names.
+
+<div class="figure">
+<p style="text-align:center"><img src="examples/PD_regions.svg" alt="overview of the regions affected by porter duff"/></p>
+<p class="caption"></p>
+</div>
+The contribution from each region to the final pixel color is defined by the coverage of the shape at that pixel, and the operator in use.
+Coverage is specified in terms of alpha. Full alpha (1) implies full coverage, while zero alpha (0) implies no coverage.
+This means that the area of each region within the sub-pixel is dependent on the coverage of each shape contributing to the pixel.
+The area of each region can be calculated with the following equations:
+<div class="data">
+<table>
+<tr>
+<th>Both</th>
+<th>αs x αb</th>
+</tr>
+<tr>
+<th>Source only</th>
+<th>αs x (1 – αb)</th>
+</tr>
+<tr>
+<th>Destination only</th>
+<th>αb x (1 – αs)</th>
+</tr>
+<tr>
+<th>None</th>
+<th>(1 – αs) x (1 – αb)</th>
+</tr>
+</table>
+</div>
+
+The figure above represents coverage of 0.5 for both source and destination.
+
+<pre>
+Both = 0.5 x 0.5 = 0.25 
+Source Only = 0.5 (1 – 0.5) = 0.25
+Destination Only = 0.5(1 – 0.5) = 0.25
+None = (1 – 0.5)(1 – 0.5) = 0.25
+</pre>
+
+Therefore, the coverage of each region is 0.25 in this example.
+
+<h3 id="porterduffcompositingoperators">The Porter Duff Compositing Operators</h3>
+
+The landmark paper by Thomas Porter and Tom Duff, who worked for Lucasfilm, defined the algebra of compositing and developed the twelve "Porter Duff" operators. These operators control the results of mixing the four sub-pixel regions formed by the overlapping of graphical objects that have an alpha or pixel coverage channel/value. The operators use all practical combinations of the four regions.
+
+There are 12 basic Porter Duff operators, satisfying all possible combinations of source and destination.
+
+From the geometric representation of each operator, the contribution of each shape can be seen to be expressed as a fraction of the total coverage of the output.
+For example, in source over, the possible contribution of source is full (1) and the possible contribution of destination is whatever is remaining (1 – αs). This is modified by the coverage of source and destination to give the equation for the final coverage of the pixel:
+
+<pre>
+    αo = αs x 1 + αb x (1 – αs)
+</pre>
+
+The fractional terms Fa (1 in this example) and Fb (1 – αs in this example) are defined for each operator and specify the fraction of the shapes that may contribute to the final pixel value.
+The general form of the equation for coverage is:
+
+<pre>
+    αs x Fa + αb x Fb
+</pre>
+
+and incorporating color gives the general Porter Duff equation
+
+<pre>
+    co = αs x Fa x Cs + αb x Fb x Cb
+</pre>
+
+Where:
+
+<ul>
+<li>co is the output color pre-multiplied with the output alpha [0 <= co <= 1]
+<li>αs is the coverage of the source Fa is defined by the operator and controls inclusion of the source Cs is the color of the source (not multiplied by alpha)
+<li>αb is the coverage of the destination Fb is defined by the operator and controls inclusion of the destination Cb is the color of the destination (not multiplied by alpha)
+</ul>
+
+<h4 id="porterduffcompositingoperators_clear">Clear</h4>
+
+No regions are enabled.
+
+<div class="figure">
+<img src="examples/PD_clr.svg" alt="example of porter duff clear"/>
+<p class="caption"></p>
+</div>
+<pre>
+    Fa = 0; Fb = 0
+    co = 0
+    αo = 0
+</pre>
+<h4 id="porterduffcompositingoperators_src">Copy</h4>
+<p>Only the source will be present.</p>
+<div class="figure">
+<img src="examples/PD_src.svg" alt="example of porter duff copy"/>
+<p class="caption"></p>
+</div>
+<pre>
+    Fa = 1; Fb = 0
+    co = αs x Cs
+    αo = αs
+</pre>
+
+<h4 id="porterduffcompositingoperators_dst">Destination</h4>
+
+Only the destination will be present.
+
+<div class="figure">
+<img src="examples/PD_dst.svg" alt="example of porter duff destination"/>
+<p class="caption"></p>
+</div>
+<pre>
+    Fa = 0; Fb = 1
+    co = αb x Cb
+    αo = αb
+</pre>
+
+<h4 id="porterduffcompositingoperators_srcover">Source Over</h4>
+
+Source is placed over the destination.
+
+<div class="figure">
+<img src="examples/PD_src-over.svg" alt="example of porter duff source over"/>
+<p class="caption"></p>
+</div>
+<pre>
+    Fa = 1; Fb = 1 – αs
+    co = αs x Cs + αb x Cb x (1 – αs)
+    αo = αs + αb x (1 – αs)
+</pre>
+<h4 id="porterduffcompositingoperators_dstover">Destination Over</h4>
+
+Destination is placed over the source.
+
+<div class="figure">
+<img src="examples/PD_dst-over.svg" alt="example of porter duff destination over"/>
+<p class="caption"></p>
+</div>
+<pre>
+    Fa = 1 – αb; Fb = 1
+    co = αs x Cs x (1 – αb) + αb x Cb
+    αo = αs x (1 – αb) + αb
+</pre>
+
+<h4 id="porterduffcompositingoperators_srcin">Source In</h4>
+
+The source that overlaps the destination, replaces the destination.
+
+<div class="figure">
+<img src="examples/PD_src-in.svg" alt="example of porter duff source in"/>
+<p class="caption"></p>
+</div>
+<pre>
+    Fa = αb; Fb = 0
+    co = αs x Cs x αb
+    αo = αs x αb
+</pre>
+
+<h4 id="porterduffcompositingoperators_dstin">Destination In</h4>
+Destination which overlaps the source, replaces the source.
+
+<div class="figure">
+<img src="examples/PD_dst-in.svg" alt="example of porter duff destination in "/>
+<p class="caption"></p>
+</div>
+<pre>
+    Fa = 0; Fb = αs
+    co = αb x Cb x αs 
+    αo = αb x αs
+</pre>
+
+<h4 id="porterduffcompositingoperators_srcout">Source Out</h4>
+
+Source is placed, where it falls outside of the destination.
+
+<div class="figure">
+<img src="examples/PD_src-out.svg" alt="example of porter duff source out"/>
+<p class="caption"></p>
+</div>
+<pre>
+    Fa = 1 – αb; Fb = 0
+    co = αs x Cs x (1 – αb)
+    αo = αs x (1 – αb)
+</pre>
+
+<h4 id="porterduffcompositingoperators_dstout">Destination Out</h4>
+
+Destination is placed, where it falls outside of the source.
+
+<div class="figure">
+<img src="examples/PD_dst-out.svg" alt="example of porter duff destination out"/>
+<p class="caption"></p>
+</div>
+<pre>
+    Fa = 0; Fb = 1 – αs
+    co = αb x Cb x (1 – αs)
+    αo = αb x (1 – αs)
+</pre>
+
+<h4 id="porterduffcompositingoperators_srcatop">Source Atop</h4>
+
+Source which overlaps the destination, replaces the destination. Destination is placed elsewhere.
+
+<div class="figure">
+<img src="examples/PD_src-atop.svg" alt="example of porter duff source atop"/>
+<p class="caption"></p>
+</div>
+<pre>
+    Fa = αb; Fb = 1 – αs
+    co = αs x Cs x αb + αb x Cb x (1 – αs)
+    αo = αs x αb + αb x (1 – αs)
+</pre>
+
+<h4 id="porterduffcompositingoperators_dstatop">Destination Atop</h4>
+
+Destination which overlaps the source replaces the source. Source is placed elsewhere.
+
+<div class="figure">
+<img src="examples/PD_dst-atop.svg" alt="example of porter duff destination atop"/>
+<p class="caption"></p>
+</div>
+<pre>
+    Fa = 1 - αb; Fb = αs
+    co = αs x Cs x (1 - αb) + αb x Cb x αs
+    αo = αs x (1 - αb) + αb x αs
+</pre>
+
+<h4 id="porterduffcompositingoperators_xor">XOR</h4>
+
+The non-overlapping regions of source and destination are combined.
+
+<div class="figure">
+<img src="examples/PD_xor.svg" alt="example of porter duff xor"/>
+<p class="caption"></p>
+</div>
+<pre>
+    Fa = 1 - αb; Fb = 1 – αs
+    co = αs x Cs x (1 - αb) + αb x Cb x (1 – αs)
+    αo = αs x (1 - αb) + αb x (1 – αs)
+</pre>
+
+<h4 id="porterduffcompositingoperators_plus">Lighter</h4>
+Display the sum of the source image and destination image. It is defined in the Porter Duff paper as the ''plus'' operator [[PORTERDUFF]].
+
+<pre>
+    Fa = 1; Fb = 1
+    co = αs x Cs + αb x Cb;
+    αo = αs + αb
+</pre>
+
+<h4 id="porterduffcompositingoperators_plus_darker">Plus-darker</h4>
+<pre>
+    Fa = 1; Fb = 1
+    co = max(0, 1 - αs x Cs + 1 - αb x Cb);
+    αo = max(0, 1 - αs + 1 - αb);
+</pre>
+
+<h4 id="porterduffcompositingoperators_plus_lighter">Plus-lighter</h4>
+<pre>
+    Fa = 1; Fb = 1
+    co = min(1, αs x Cs + αb x Cb);
+    αo = min(1, αs + αb);
+</pre>
+
+<h3 id="groupcompositing">Group compositing behavior with Porter Duff modes</h3>
+<!--<h4 id="groupcompositingisolation">Isolated groups and Porter Duff modes</h4>-->
+
+When compositing the elements within an isolated group, the elements are composited over a transparent black initial backdrop. If the bottom element in the group uses a Porter Duff compositing operator
+which is dependent on the backdrop, such as <a href="#porterduffcompositingoperators_dst">destination</a>, <a href="#porterduffcompositingoperators_srcin">source-in</a>, 
+<a href="#porterduffcompositingoperators_dstin">destination-in</a>, <a href="#porterduffcompositingoperators_dstout">destination-out</a> or <a href="#porterduffcompositingoperators_srcatop">source-atop</a>, 
+then the result of the composite will be empty. Subsequent elements within the group are composited with the result of the first composite.
+
+<!--
+<h4 id="groupcompositingknockout">Knockout groups and Porter Duff modes</h4>
+<p>
+Every element within a knock-out group is composited with the initial backdrop.
+This means, that for every element within the group, the backdrop for the compositing of that element, is the initial backdrop.
+</p><p>
+In the example below, the elements within the group (the circle and the square) are composited using the <a href="#porterduffcompositingoperators_srcatop">source-atop</a> operator, with only the hexagon.
+This has the effect of "knocking out" the circle, where it is overlapped by the square.<br>
+Additionally, because the source-atop Porter Duff operator is used, the source shape (either the square or the circle) is only placed where the backdrop exists (the backdrop being the hexagon for both compositing operations within the group).
+<div class="example"><img src="examples/pd-knockout.png" alt="example of knockout with porter duff"/></div>
+</p>
+-->
+<!--
+<h4 id="groupcompositingcliptoself">Clip to self behavior</h4>
+<p>
+When compositing, the areas of the composite that may be modified by the compositing operation, must fall within the shape of the element being composited (i.e. where α > 0).
+This is known as "clip to self" in some graphics libraries.
+The alternative is to not clip the compositing operation at all. The results can be seen in the figure below.
+Some of the Porter Duff operators are unchanged, because they normally have no effect outside the source region. The changes can be seen in the clear, source, source-in, destination-in, source-out and destination-atop.
+<div class="figure"><img src="examples/clip-to-self.png" alt="example of clip to self with porter duff"/></div>
+</p>
+-->
+<h2 id="blending">Blending</h2>
+
+Blending is the aspect of compositing that calculates the mixing of colors where the source element and <a>backdrop</a> overlap.<br>
+Conceptually, the colors in the source element are blended in place with the backdrop.
+After blending, the modified source element is composited with the backdrop.
+In practice, this is usually all performed in one step.
+<br>The blending calculations must not use pre-multiplied color values.
+
+The "mixing" formula is defined as:
+
+<pre>
+	Cm = B(Cb, Cs)
+</pre>
+
+with:
+
+<ul>
+<li>Cm: the result color after blending
+<li>B: the formula that does the blending
+<li>Cb: the <a>backdrop</a> color
+<li>Cs: the source color
+</ul>
+
+The result of the mixing formula must be clamped to the minimum and maximum values of the color range.
+
+The result of the mixing function is modulated by the backdrop alpha. A fully opaque backdrop allows the mixing function to be fully realized.
+A transparent backdrop will cause the final result to be a weighted average between the source color and mixed color with the weight controlled by the backdrop alpha.
+The value of the new color  becomes:
+
+<pre>
+	Cr = (1 - αb) x Cs + αb x B(Cb, Cs)
+</pre>
+
+with:
+
+<ul>
+<li>Cr: the result color
+<li>B: the formula that does the blending
+<li>Cs: the source color
+<li>Cb: the <a>backdrop</a> color
+<li>αb: the <a>backdrop</a> alpha
+</ul>
+
+<div class="example">
+<div class="figure">
+ <img src="examples/blend_background_opacity.svg" alt="example of blending with opacity"/>
+ <p class="caption"></p>
+</div>
+<p>
+This example has a red rectangle with a blending mode that is placed on top of a set of green rectangles that have different levels of opacity.</p>
+<p>
+Note how the top rectangle shifts more toward red as the opacity of the <a>backdrop</a> gets smaller.
+</p>
+</div>
+
+<p class="note">
+Note: The following formula gives the color value in the area where the source and backdrop intersects and then composites with the specified Porter Duff compositing formula. For simple alpha blending, the formula thus becomes:
+<pre>
+simple alpha compositing:
+	co = cs + cb x (1 - αs)
+written as non-premultiplied:
+	αo x Co = αs x Cs + (1 - αs) x αb x Cb
+now substitute the result of blending for Cs:
+    αo x Co = αs x ((1 - αb) x Cs + αb x B(Cb, Cs)) + (1 - αs) x αb x Cb
+            = αs x (1 - αb) x Cs + αs x αb x B(Cb, Cs) + (1 - αs) x αb x Cb
+</pre>
+</p>
+
+<h3 id="blendingseparable">Separable blend modes</h3>
+
+A blend mode is termed separable if each component of the result color is completely determined by the corresponding components of the constituent <a>backdrop</a> and source colors — that is, if the mixing formula is applied <strong>separately</strong> to each set of corresponding components.
+
+Each of the following blend modes will apply the blending function B(Cb, Cs) on each of the color components.
+For simplicity, all the examples in this chapter use <a href="#porterduffcompositingoperators_srcover">source-over</a> compositing.
+
+<h4 id="blendingnormal"><dfn dfn-type="value" dfn-for="<blend-mode>">normal</dfn> blend mode</h4>
+
+This is the default attribute which specifies no blending. The blending formula simply selects the source color.
+
+<pre>
+    B(Cb, Cs) = Cs
+</pre>
+<div class="figure">
+<img src="examples/normal.png" alt="example of normal blending"/>
+ <p class="caption"></p>
+</div>
+
+<h4 id="blendingmultiply"><dfn dfn-type="value" dfn-for="<blend-mode>">multiply</dfn> blend mode</h4>
+
+The source color is multiplied by the destination color and replaces the destination. 
+
+The resultant color is always at least as dark as either the source or destination color. Multiplying any color with black results in black. Multiplying any color with white preserves the original color.
+
+<pre>
+    B(Cb, Cs) = Cb x Cs
+</pre>
+</p>
+<div class="figure">
+<img src="examples/multiply.png" alt="example of multiply blending"/>
+ <p class="caption"></p>
+</div>
+
+<h4 id="blendingscreen"><dfn dfn-type="value" dfn-for="<blend-mode>">screen</dfn> blend mode</h4>
+
+Multiplies the complements of the <a>backdrop</a> and source color values, then complements the result.
+
+The result color is always at least as light as either of the two constituent colors. Screening any color with white produces white; screening with black leaves the original color unchanged. The effect is similar to projecting multiple photographic slides simultaneously onto a single screen.
+
+<pre>
+    B(Cb, Cs) = 1 - [(1 - Cb) x (1 - Cs)]
+              = Cb + Cs -(Cb x Cs)
+</pre>
+</p>
+<div class="figure">
+<img src="examples/screen.png" alt="example of screen blending"/>
+ <p class="caption"></p>
+</div>
+
+<h4 id="blendingoverlay"><dfn dfn-type="value" dfn-for="<blend-mode>">overlay</dfn> blend mode</h4>
+
+Multiplies or screens the colors, depending on the <a>backdrop</a> color value.
+
+Source colors overlay the <a>backdrop</a> while preserving its highlights and shadows. The <a>backdrop</a> color is not replaced but is mixed with the source color to reflect the lightness or darkness of the <a>backdrop</a>.
+
+<pre>
+    B(Cb, Cs) = HardLight(Cs, Cb)
+</pre>
+
+Overlay is the inverse of the <a value>hard-light</a> blend mode. See the definition of <a value>hard-light</a> for the formula.
+
+<div class="figure">
+<img src="examples/overlay.png" alt="example of overlay blending"/>
+ <p class="caption"></p>
+</div>
+
+<h4 id="blendingdarken"><dfn dfn-type="value" dfn-for="<blend-mode>">darken</dfn> blend mode</h4>
+
+Selects the darker of the <a>backdrop</a> and source colors.
+
+The <a>backdrop</a> is replaced with the source where the source is darker; otherwise, it is left unchanged.
+
+<pre>
+    B(Cb, Cs) = min(Cb, Cs)
+</pre>
+<div class="figure">
+<img src="examples/darken.png" alt="example of darken blending"/>
+ <p class="caption"></p>
+</div>
+
+<h4 id="blendinglighten"><dfn dfn-type="value" dfn-for="<blend-mode>">lighten</dfn> blend mode</h4>
+
+Selects the lighter of the <a>backdrop</a> and source colors.
+
+The <a>backdrop</a> is replaced with the source where the source is lighter; otherwise, it is left unchanged.
+
+<pre>
+    B(Cb, Cs) = max(Cb, Cs)
+</pre>
+
+Note: The result must be rounded down if it exceeds the range.
+
+<div class="figure">
+<img src="examples/lighten.png" alt="example of lighten blending"/>
+ <p class="caption"></p>
+</div>
+
+<h4 id="blendingcolordodge"><dfn dfn-type="value" dfn-for="<blend-mode>">color-dodge</dfn> blend mode</h4>
+
+Brightens the <a>backdrop</a> color to reflect the source color. Painting with black produces no changes.
+
+<pre>
+    if(Cb == 0)
+        B(Cb, Cs) = 0
+    else if(Cs == 1)
+        B(Cb, Cs) = 1
+    else
+        B(Cb, Cs) = min(1, Cb / (1 - Cs))
+</pre>
+
+<div class="figure">
+  <img src="examples/colordodge.png" alt="example of color dodge blending"/>
+  <p class="caption"></p>
+</div>
+
+<h4 id="blendingcolorburn"><dfn dfn-type="value" dfn-for="<blend-mode>">color-burn</dfn> blend mode</h4>
+
+Darkens the <a>backdrop</a> color to reflect the source color. Painting with white produces no change.
+
+<pre>
+    if(Cb == 1)
+        B(Cb, Cs) = 1
+    else if(Cs == 0)
+        B(Cb, Cs) = 0
+    else
+        B(Cb, Cs) = 1 - min(1, (1 - Cb) / Cs)
+</pre>
+
+<div class="figure">
+  <img src="examples/colorburn.png" alt="example of color burn blending"/>
+  <p class="caption"></p>
+</div>
+
+<h4 id="blendinghardlight"><dfn dfn-type="value" dfn-for="<blend-mode>">hard-light</dfn> blend mode</h4>
+
+Multiplies or screens the colors, depending on the source color value. The effect is similar to shining a harsh spotlight on the <a>backdrop</a>.
+
+<pre>
+    if(Cs <= 0.5)
+        B(Cb, Cs) = Multiply(Cb, 2 x Cs)
+    else
+        B(Cb, Cs) = Screen(Cb, 2 x Cs -1)	
+</pre>
+
+See the definition of <a value>multiply</a> and <a value>screen</a> for their formulas.
+
+<div class="figure">
+  <img src="examples/hardlight.png" alt="example of hard light blending"/>
+  <p class="caption"></p>
+</div>
+
+<h4 id="blendingsoftlight"><dfn dfn-type="value" dfn-for="<blend-mode>">soft-light</dfn> blend mode</h4>
+
+Darkens or lightens the colors, depending on the source color value. The effect is similar to shining a diffused spotlight on the <a>backdrop</a>.
+
+<pre>
+    if(Cs <= 0.5)
+        B(Cb, Cs) = Cb - (1 - 2 x Cs) x Cb x (1 - Cb)
+    else
+        B(Cb, Cs) = Cb + (2 x Cs - 1) x (D(Cb) - Cb)
+with
+    if(Cb <= 0.25)
+        D(Cb) = ((16 * Cb - 12) x Cb + 4) x Cb
+    else
+        D(Cb) = sqrt(Cb)
+</pre>
+
+<div class="figure">
+  <img src="examples/softlight.png" alt="example of soft light blending"/>
+  <p class="caption"></p>
+</div>
+
+<h4 id="blendingdifference"><dfn dfn-type="value" dfn-for="<blend-mode>">difference</dfn> blend mode</h4>
+
+Subtracts the darker of the two constituent colors from the lighter color.
+
+Painting with white inverts the <a>backdrop</a> color; painting with black produces no change.
+
+<pre>
+    B(Cb, Cs) = | Cb - Cs |
+</pre>
+</p>
+<div class="figure">
+  <img src="examples/difference.png" alt="example of difference blending"/>
+  <p class="caption"></p>
+</div>
+
+<h4 id="blendingexclusion"><dfn dfn-type="value" dfn-for="<blend-mode>">exclusion</dfn> blend mode</h4>
+
+Produces an effect similar to that of the Difference mode but lower in contrast. Painting with white inverts the <a>backdrop</a> color; painting with black produces no change
+
+<pre>
+    B(Cb, Cs) = Cb + Cs - 2 x Cb x Cs
+</pre>
+</p>
+<div class="figure">
+  <img src="examples/exclusion.png" alt="example of exclusion blending"/>
+  <p class="caption"></p>
+</div>
+
+<h3 id="blendingnonseparable">Non-separable blend modes</h3>
+
+Nonseparable blend modes consider all color components in combination as opposed to the separable ones that look at each component individually.
+All of these blend modes conceptually entail the following steps:
+
+<ol>
+ <li>Convert the <a>backdrop</a> and source colors from the blending color space to an intermediate hue-saturation-luminosity representation.</li>
+ <li>Create a new color from some combination of hue, saturation, and luminosity components selected from the <a>backdrop</a> and source colors.</li>
+ <li>Convert the result back to the original color space.</li>
+</ol>
+
+The nonseparable blend mode formulas make use of several auxiliary functions:
+
+<pre>
+    Lum(C) = 0.3 x Cred + 0.59 x Cgreen + 0.11 x Cblue
+    
+    ClipColor(C)
+        L = Lum(C)
+        n = min(Cred, Cgreen, Cblue)
+        x = max(Cred, Cgreen, Cblue)
+        if(n < 0)
+            C = L + (((C - L) * L) / (L - n))
+                      
+        if(x > 1)
+            C = L + (((C - L) * (1 - L)) / (x - L))
+        
+        return C
+    
+    SetLum(C, l)
+        d = l - Lum(C)
+        Cred = Cred + d
+        Cgreen = Cgreen + d
+        Cblue = Cblue + d
+        return ClipColor(C)
+        
+    Sat(C) = max(Cred, Cgreen, Cblue) - min(Cred, Cgreen, Cblue)
+        
+The subscripts min, mid, and max in the next function refer to the color
+components having the minimum, middle, and maximum values upon entry to the function.
+
+    SetSat(C, s)
+        if(Cmax > Cmin)
+            Cmid = (((Cmid - Cmin) x s) / (Cmax - Cmin))
+            Cmax = s
+        else
+            Cmid = Cmax = 0
+        Cmin = 0
+        return C;
+</pre>
+
+<h4 id="blendinghue"><dfn dfn-type="value" dfn-for="<blend-mode>">hue</dfn> blend mode</h4>
+
+Creates a color with the hue of the source color and the saturation and luminosity of the <a>backdrop</a> color.
+
+<pre>
+	B(Cb, Cs) = SetLum(SetSat(Cs, Sat(Cb)), Lum(Cb))
+</pre>
+<div class="figure">
+  <img src="examples/hue.png" alt="example of hue blending"/>
+  <p class="caption"></p>
+</div>
+
+<h4 id="blendingsaturation"><dfn dfn-type="value" dfn-for="<blend-mode>">saturation</dfn> blend mode</h4>
+
+Creates a color with the saturation of the source color and the hue and luminosity of the <a>backdrop</a> color. Painting with this mode in an area of the <a>backdrop</a> that is a pure gray (no saturation) produces no change.
+
+<pre>
+	B(Cb, Cs) = SetLum(SetSat(Cb, Sat(Cs)), Lum(Cb))
+</pre>
+<div class="figure">
+  <img src="examples/saturation.png" alt="example of saturation blending"/>
+  <p class="caption"></p>
+</div>
+
+<h4 id="blendingcolor"><dfn dfn-type="value" dfn-for="<blend-mode>">color</dfn> blend mode</h4>
+
+Creates a color with the hue and saturation of the source color and the luminosity of the <a>backdrop</a> color. This preserves the gray levels of the <a>backdrop</a> and is useful for coloring monochrome images or tinting color images.
+
+<pre>
+	B(Cb, Cs) = SetLum(Cs, Lum(Cb))
+</pre>
+<div class="figure">
+  <img src="examples/color.png" alt="example of color blending"/>
+  <p class="caption"></p>
+</div>
+
+<h4 id="blendingluminosity"><dfn dfn-type="value" dfn-for="<blend-mode>">luminosity</dfn> blend mode</h4>
+
+Creates a color with the luminosity of the source color and the hue and saturation of the <a>backdrop</a> color. This produces an inverse effect to that of the Color mode.
+<pre>
+	B(Cb, Cs) = SetLum(Cb, Lum(Cs))
+</pre>
+<div class="figure">
+  <img src="examples/luminosity.png" alt="example of luminosity blending"/>
+  <p class="caption"></p>
+</div>
+
+<h3 id="isolationblending">Effect of group isolation on blending</h3>
+
+Note: In the following example, the elements used to construct the paper airplane are within a group. Each of these elements has their blend mode set to multiply.
+
+<div class="example">
+The airplane on the left is a normal group, the airplane on the right is an <a href="#isolatedgroups">isolated group</a>.</p>
+<p>
+In the isolated group, the elements within the group are composited onto an empty initial backdrop, this stops the elements within the group multiplying with the backdrop.
+In the normal group, the elements within the group are composited onto the initial backdrop containing the land and sky. Therefore the elements of the airplane multiply with the land and sky.
+In both instances, the result of the group composite is composited onto the land and sky using the normal mix-blend-mode (the default mix-blend-mode applied to the group).
+
+  <div class="figure">
+  <img src="examples/isolate_blend_example.png" alt="example of isolated group blending"/>
+  <p class="caption"></p>
+</div>
+
+</div>
+
+<h2 id="security">Security issues with compositing and blending</h2>
+
+It is important that the timing to the blending and compositing operations is independent of the source and destination pixel. Operations must be implemented in such a way that they always take the same amount of time regardless of the pixel values.</p>
+
+<div class="note">
+<p>
+If this rule is not followed, an attacker could infer information and mount a timing attack.
+</p>
+<p>A timing attack is a method of obtaining information about content that
+   is otherwise protected, based on studying the amount of time it takes for
+   an operation to occur. If, for example, red pixels took longer to
+   draw than green pixels, one might be able to reconstruct a rough image of 
+   the element being rendered, without ever having access to the content 
+   of the element.</p>
+</div>
+
+<h2 id=changes>Changes</h2>
+
+The following changes were made relative to the <a
+href="http://www.w3.org/TR/2014/CR-compositing-1-20140220/"> Candidate Recommendation of 20 February 2014</a>:
+<ul>
+  <li>force isolation of SVG images embedded as &lt;img&gt; no longer at risk</li>
+  <li>removed destination as an option for <<composite-mode>></li>
+</ul>
+
+The following changes were made relative to the <a
+href="http://www.w3.org/TR/2013/WD-compositing-1-20131010/"> Last Call
+Working draft of 7 January 2014</a>:
+
+<ul>
+  <li>unneeded normative and informative references were removed</li>
+</ul>
+
+The following changes were made relative to the <a
+href="http://www.w3.org/TR/2013/WD-compositing-1-20131010/"> Last Call
+Working draft of 10 October 2013</a>:
+
+ <ul>
+ <li>knockout was removed from the non-normative section</li>
+ <li>removed paragraph on SVG from simple alpha compositing</li>
+ <li>updated abstract to include CSS and clarify intent</li>
+ <li>removed clip-to-self and its references</li>
+ <li>Changed section 5-10 to be normative + clarified notes/examples in those sections</li>
+ </ul>
+
+The following changes were made relative to the <a
+href="http://www.w3.org/TR/2013/WD-compositing-1-20130625/" >Working
+Draft of 2013-06-25</a>:
+ 
+ <ul>
+ <li>clipping was removed as one of the operators that 
+ creates an isolated group in SVG
+ <li>background-blend-mode was changed so it matches 
+ repeating behavior of other background syntaxes.
+ <li>The mix-composite property was removed
+ <li>all open issues were resolved
+ </ul>
+
+</body>
+</html>
