@@ -160,465 +160,6 @@
   
 
 	
-  <script>self = (typeof window !== 'undefined')
-	? window   // if in browser
-	: (
-		(typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope)
-		? self // if in worker
-		: {}   // if in node js
-	);
-
-/**
- * Prism: Lightweight, robust, elegant syntax highlighting
- * MIT license http://www.opensource.org/licenses/mit-license.php/
- * @author Lea Verou http://lea.verou.me
- */
-
-var Prism = (function(){
-
-// Private helper vars
-var lang = /\blang(?:uage)?-(?!\*)(\w+)\b/i;
-
-var _ = self.Prism = {
-	util: {
-		encode: function (tokens) {
-			if (tokens instanceof Token) {
-				return new Token(tokens.type, _.util.encode(tokens.content), tokens.alias);
-			} else if (_.util.type(tokens) === 'Array') {
-				return tokens.map(_.util.encode);
-			} else {
-				return tokens.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\u00a0/g, ' ');
-			}
-		},
-
-		type: function (o) {
-			return Object.prototype.toString.call(o).match(/\[object (\w+)\]/)[1];
-		},
-
-		// Deep clone a language definition (e.g. to extend it)
-		clone: function (o) {
-			var type = _.util.type(o);
-
-			switch (type) {
-				case 'Object':
-					var clone = {};
-
-					for (var key in o) {
-						if (o.hasOwnProperty(key)) {
-							clone[key] = _.util.clone(o[key]);
-						}
-					}
-
-					return clone;
-
-				case 'Array':
-					return o.slice();
-			}
-
-			return o;
-		}
-	},
-
-	languages: {
-		extend: function (id, redef) {
-			var lang = _.util.clone(_.languages[id]);
-
-			for (var key in redef) {
-				lang[key] = redef[key];
-			}
-
-			return lang;
-		},
-
-		// Insert a token before another token in a language literal
-		insertBefore: function (inside, before, insert, root) {
-			root = root || _.languages;
-			var grammar = root[inside];
-			var ret = {};
-
-			for (var token in grammar) {
-
-				if (grammar.hasOwnProperty(token)) {
-
-					if (token == before) {
-
-						for (var newToken in insert) {
-
-							if (insert.hasOwnProperty(newToken)) {
-								ret[newToken] = insert[newToken];
-							}
-						}
-					}
-
-					ret[token] = grammar[token];
-				}
-			}
-
-			return root[inside] = ret;
-		},
-
-		// Traverse a language definition with Depth First Search
-		DFS: function(o, callback, type) {
-			for (var i in o) {
-				if (o.hasOwnProperty(i)) {
-					callback.call(o, i, o[i], type || i);
-
-					if (_.util.type(o[i]) === 'Object') {
-						_.languages.DFS(o[i], callback);
-					} else if (_.util.type(o[i]) === 'Array') {
-						_.languages.DFS(o[i], callback, i);
-					}
-				}
-			}
-		}
-	},
-
-	highlightAll: function(async, callback) {
-		var elements = document.querySelectorAll('code[class*="language-"], [class*="language-"] code, code[class*="lang-"], [class*="lang-"] code');
-		for (var i=0, element; element = elements[i++];) {
-			if (element.classList.contains("idl")) {
-				// Bikeshed handles IDL blocks already.
-				continue;
-			}
-			_.highlightElement(element, async === true, callback);
-		}
-
-		var elements = document.querySelectorAll('pre[class*="language-"], [class*="language-"] pre, pre[class*="lang-"], [class*="lang-"] pre');
-		for (var i=0, element; element = elements[i++];) {
-			if (element.firstElementChild && element.firstElementChild.tagName.toLowerCase() == "code") {
-				// Already handled by the previous loop
-				continue;
-			}
-			if (element.classList.contains("idl")) {
-				// Bikeshed handles IDL blocks already.
-				continue;
-			}
-			_.highlightElement(element, async === true, callback);
-		}
-	},
-
-	highlightElement: function(element, async, callback) {
-		// Find language
-		var language, grammar, parent = element;
-
-		while (parent && !lang.test(parent.className)) {
-			parent = parent.parentNode;
-		}
-
-		if (parent) {
-			language = (parent.className.match(lang) || [,''])[1];
-			grammar = _.languages[language];
-		}
-
-		if (!grammar) {
-			return;
-		}
-
-		// Set language on the element, if not present
-		element.className = element.className.replace(lang, '').replace(/\s+/g, ' ') + ' language-' + language;
-
-		// Set language on the parent, for styling
-		parent = element.parentNode;
-
-		if (/pre/i.test(parent.nodeName)) {
-			parent.className = parent.className.replace(lang, '').replace(/\s+/g, ' ') + ' language-' + language;
-		}
-
-		var code = element.textContent;
-
-		if(!code) {
-			return;
-		}
-
-		var env = {
-			element: element,
-			language: language,
-			grammar: grammar,
-			code: code
-		};
-
-		_.hooks.run('before-highlight', env);
-
-		if (async && self.Worker) {
-			var worker = new Worker(_.filename);
-
-			worker.onmessage = function(evt) {
-				env.highlightedCode = Token.stringify(JSON.parse(evt.data), language);
-
-				_.hooks.run('before-insert', env);
-
-				env.element.innerHTML = env.highlightedCode;
-
-				callback && callback.call(env.element);
-				_.hooks.run('after-highlight', env);
-			};
-
-			worker.postMessage(JSON.stringify({
-				language: env.language,
-				code: env.code
-			}));
-		}
-		else {
-			env.highlightedCode = _.highlight(env.code, env.grammar, env.language)
-
-			_.hooks.run('before-insert', env);
-
-			env.element.innerHTML = env.highlightedCode;
-
-			callback && callback.call(element);
-
-			_.hooks.run('after-highlight', env);
-		}
-	},
-
-	highlight: function (text, grammar, language) {
-		var tokens = _.tokenize(text, grammar);
-		return Token.stringify(_.util.encode(tokens), language);
-	},
-
-	tokenize: function(text, grammar, language) {
-		var Token = _.Token;
-
-		var strarr = [text];
-
-		var rest = grammar.rest;
-
-		if (rest) {
-			for (var token in rest) {
-				grammar[token] = rest[token];
-			}
-
-			delete grammar.rest;
-		}
-
-		tokenloop: for (var token in grammar) {
-			if(!grammar.hasOwnProperty(token) || !grammar[token]) {
-				continue;
-			}
-
-			var patterns = grammar[token];
-			patterns = (_.util.type(patterns) === "Array") ? patterns : [patterns];
-
-			for (var j = 0; j < patterns.length; ++j) {
-				var pattern = patterns[j],
-					inside = pattern.inside,
-					lookbehind = !!pattern.lookbehind,
-					lookbehindLength = 0,
-					alias = pattern.alias;
-
-				pattern = pattern.pattern || pattern;
-
-				for (var i=0; i<strarr.length; i++) { // Don’t cache length as it changes during the loop
-
-					var str = strarr[i];
-
-					if (strarr.length > text.length) {
-						// Something went terribly wrong, ABORT, ABORT!
-						break tokenloop;
-					}
-
-					if (str instanceof Token) {
-						continue;
-					}
-
-					pattern.lastIndex = 0;
-
-					var match = pattern.exec(str);
-
-					if (match) {
-						if(lookbehind) {
-							lookbehindLength = match[1].length;
-						}
-
-						var from = match.index - 1 + lookbehindLength,
-							match = match[0].slice(lookbehindLength),
-							len = match.length,
-							to = from + len,
-							before = str.slice(0, from + 1),
-							after = str.slice(to + 1);
-
-						var args = [i, 1];
-
-						if (before) {
-							args.push(before);
-						}
-
-						var wrapped = new Token(token, inside? _.tokenize(match, inside) : match, alias);
-
-						args.push(wrapped);
-
-						if (after) {
-							args.push(after);
-						}
-
-						Array.prototype.splice.apply(strarr, args);
-					}
-				}
-			}
-		}
-
-		return strarr;
-	},
-
-	hooks: {
-		all: {},
-
-		add: function (name, callback) {
-			var hooks = _.hooks.all;
-
-			hooks[name] = hooks[name] || [];
-
-			hooks[name].push(callback);
-		},
-
-		run: function (name, env) {
-			var callbacks = _.hooks.all[name];
-
-			if (!callbacks || !callbacks.length) {
-				return;
-			}
-
-			for (var i=0, callback; callback = callbacks[i++];) {
-				callback(env);
-			}
-		}
-	}
-};
-
-var Token = _.Token = function(type, content, alias) {
-	this.type = type;
-	this.content = content;
-	this.alias = alias;
-};
-
-Token.stringify = function(o, language, parent) {
-	if (typeof o == 'string') {
-		return o;
-	}
-
-	if (Object.prototype.toString.call(o) == '[object Array]') {
-		return o.map(function(element) {
-			return Token.stringify(element, language, o);
-		}).join('');
-	}
-
-	var env = {
-		type: o.type,
-		content: Token.stringify(o.content, language, parent),
-		tag: 'span',
-		classes: ['token', o.type],
-		attributes: {},
-		language: language,
-		parent: parent
-	};
-
-	if (env.type == 'comment') {
-		env.attributes['spellcheck'] = 'true';
-	}
-
-	if (o.alias) {
-		var aliases = _.util.type(o.alias) === 'Array' ? o.alias : [o.alias];
-		Array.prototype.push.apply(env.classes, aliases);
-	}
-
-	_.hooks.run('wrap', env);
-
-	var attributes = '';
-
-	for (var name in env.attributes) {
-		attributes += name + '="' + (env.attributes[name] || '') + '"';
-	}
-
-	return '<' + env.tag + ' class="' + env.classes.join(' ') + '" ' + attributes + '>' + env.content + '</' + env.tag + '>';
-
-};
-
-if (!self.document) {
-	if (!self.addEventListener) {
-		// in Node.js
-		return self.Prism;
-	}
- 	// In worker
-	self.addEventListener('message', function(evt) {
-		var message = JSON.parse(evt.data),
-		    lang = message.language,
-		    code = message.code;
-
-		self.postMessage(JSON.stringify(_.util.encode(_.tokenize(code, _.languages[lang]))));
-		self.close();
-	}, false);
-
-	return self.Prism;
-}
-
-// Get current script and highlight
-var script = document.getElementsByTagName('script');
-
-script = script[script.length - 1];
-
-if (script) {
-	_.filename = script.src;
-
-	if (document.addEventListener && !script.hasAttribute('data-manual')) {
-		document.addEventListener('DOMContentLoaded', _.highlightAll);
-	}
-}
-
-return self.Prism;
-
-})();
-
-if (typeof module !== 'undefined' && module.exports) {
-	module.exports = Prism;
-}
-;
-Prism.languages.css = {
-	'comment': /\/\*[\w\W]*?\*\//g,
-	'atrule': {
-		pattern: /@[\w-]+?.*?(;|(?=\s*{))/gi,
-		inside: {
-			'punctuation': /[;:]/g
-		}
-	},
-	'url': /url\((["']?).*?\1\)/gi,
-	'selector': /[^\{\}\s][^\{\};]*(?=\s*\{)/g,
-	'property': /(\b|\B)[\w-]+(?=\s*:)/ig,
-	'string': /("|')(\\?.)*?\1/g,
-	'important': /\B!important\b/gi,
-	'punctuation': /[\{\};:]/g,
-	'function': /[-a-z0-9]+(?=\()/ig
-};
-
-if (Prism.languages.markup) {
-	Prism.languages.insertBefore('markup', 'tag', {
-		'style': {
-			pattern: /<style[\w\W]*?>[\w\W]*?<\/style>/ig,
-			inside: {
-				'tag': {
-					pattern: /<style[\w\W]*?>|<\/style>/ig,
-					inside: Prism.languages.markup.tag.inside
-				},
-				rest: Prism.languages.css
-			}
-		}
-	});
-};
-Prism.languages.css.selector = {
-	pattern: /[^\{\}\s][^\{\}]*(?=\s*\{)/g,
-	inside: {
-		'pseudo-element': /:(?:after|before|first-letter|first-line|selection)|::[-\w]+/g,
-		'pseudo-class': /:[-\w]+(?:\(.*\))?/g,
-		'class': /\.[-:\.\w]+/g,
-		'id': /#[-:\.\w]+/g
-	}
-};
-
-Prism.languages.insertBefore('css', 'ignore', {
-	'hexcode': /#[\da-f]{3,6}/gi,
-	'entity': /\\[\da-f]{1,8}/gi,
-	'number': /[\d%\.]+/g
-});;
-</script>
   <style>/* http://prismjs.com/download.html?themes=prism&languages=clike */
 /**
  * prism.js default theme for JavaScript, CSS and HTML
@@ -767,7 +308,7 @@ pre[class*="language-"] {
    <h1 class="p-name no-ref" id="title">CSS Overflow Module Level 3</h1>
   
    <h2 class="no-num no-toc no-ref heading settled" id="subtitle"><span class="content">Editor’s Draft,
-    <time class="dt-updated" datetime="2015-04-14">14 April 2015</time></span></h2>
+    <time class="dt-updated" datetime="2015-04-30">30 April 2015</time></span></h2>
   
    <div data-fill-with="spec-metadata">
     <dl>
@@ -1238,7 +779,7 @@ Introduction</span><a class="self-link" href="#intro"></a></h2>
       <td><dfn class="css" data-dfn-type="property" data-export="" id="propdef-overflow-x">overflow-x<a class="self-link" href="#propdef-overflow-x"></a></dfn>, <dfn class="css" data-dfn-type="property" data-export="" id="propdef-overflow-y">overflow-y<a class="self-link" href="#propdef-overflow-y"></a></dfn>
      <tr class="value">
       <th>Value:
-      <td class="prod"><a class="css" data-link-type="maybe" href="#valdef-overflow-visible">visible</a> <a data-link-type="grammar" href="http://dev.w3.org/csswg/css-values-3/#comb-one">|</a> <a class="css" data-link-type="maybe" href="#valdef-overflow-hidden">hidden</a> <a data-link-type="grammar" href="http://dev.w3.org/csswg/css-values-3/#comb-one">|</a> <a class="css" data-link-type="maybe" href="#valdef-overflow-scroll">scroll</a> <a data-link-type="grammar" href="http://dev.w3.org/csswg/css-values-3/#comb-one">|</a> <a class="css" data-link-type="maybe" href="#valdef-overflow-auto">auto</a>
+      <td class="prod"><a class="css" data-link-type="maybe" href="#valdef-overflow-visible">visible</a> <a data-link-type="grammar" href="http://dev.w3.org/csswg/css-values-3/#comb-one">|</a> <a class="css" data-link-type="maybe" href="#valdef-overflow-hidden">hidden</a> <a data-link-type="grammar" href="http://dev.w3.org/csswg/css-values-3/#comb-one">|</a> <a class="css" data-link-type="maybe" href="#valdef-overflow-clipped">clipped</a> <a data-link-type="grammar" href="http://dev.w3.org/csswg/css-values-3/#comb-one">|</a> <a class="css" data-link-type="maybe" href="#valdef-overflow-scroll">scroll</a> <a data-link-type="grammar" href="http://dev.w3.org/csswg/css-values-3/#comb-one">|</a> <a class="css" data-link-type="maybe" href="#valdef-overflow-auto">auto</a>
      <tr>
       <th>Initial:
       <td><a class="css" data-link-type="maybe" href="#valdef-overflow-visible">visible</a>
@@ -1279,7 +820,7 @@ Introduction</span><a class="self-link" href="#intro"></a></h2>
       <td><dfn class="css" data-dfn-type="property" data-export="" id="propdef-overflow">overflow<a class="self-link" href="#propdef-overflow"></a></dfn>
      <tr class="value">
       <th>Value:
-      <td class="prod"><a class="css" data-link-type="maybe" href="#valdef-overflow-visible">visible</a> <a data-link-type="grammar" href="http://dev.w3.org/csswg/css-values-3/#comb-one">|</a> <a class="css" data-link-type="maybe" href="#valdef-overflow-hidden">hidden</a> <a data-link-type="grammar" href="http://dev.w3.org/csswg/css-values-3/#comb-one">|</a> <a class="css" data-link-type="maybe" href="#valdef-overflow-scroll">scroll</a> <a data-link-type="grammar" href="http://dev.w3.org/csswg/css-values-3/#comb-one">|</a> <a class="css" data-link-type="maybe" href="#valdef-overflow-auto">auto</a>
+      <td class="prod"><a class="css" data-link-type="maybe" href="#valdef-overflow-visible">visible</a> <a data-link-type="grammar" href="http://dev.w3.org/csswg/css-values-3/#comb-one">|</a> <a class="css" data-link-type="maybe" href="#valdef-overflow-hidden">hidden</a> <a data-link-type="grammar" href="http://dev.w3.org/csswg/css-values-3/#comb-one">|</a> <a class="css" data-link-type="maybe" href="#valdef-overflow-clipped">clipped</a> <a data-link-type="grammar" href="http://dev.w3.org/csswg/css-values-3/#comb-one">|</a> <a class="css" data-link-type="maybe" href="#valdef-overflow-scroll">scroll</a> <a data-link-type="grammar" href="http://dev.w3.org/csswg/css-values-3/#comb-one">|</a> <a class="css" data-link-type="maybe" href="#valdef-overflow-auto">auto</a>
      <tr>
       <th>Initial:
       <td>see individual properties
@@ -1350,20 +891,79 @@ Introduction</span><a class="self-link" href="#intro"></a></h2>
 		
     <dt><dfn class="css" data-dfn-for="overflow, overflow-x, overflow-y" data-dfn-type="value" data-export="" id="valdef-overflow-hidden">hidden<a class="self-link" href="#valdef-overflow-hidden"></a></dfn>
 		
+    <dd>This value indicates that
+		the content is clipped and that no scrolling user interface should be provided by the UA
+		to view the content outside the clipping region.
+		However, the content may still be scrolled programatically,
+		for example using the mechanisms defined in <a data-link-type="biblio" href="#biblio-cssom-view">[CSSOM-VIEW]</a>.
+		
+    <dt><dfn class="css" data-dfn-for="overflow, overflow-x, overflow-y" data-dfn-type="value" data-export="" id="valdef-overflow-clipped">clipped<a class="self-link" href="#valdef-overflow-clipped"></a></dfn>
+		
+    <dd>Like <a class="css" data-link-type="maybe" href="#valdef-overflow-hidden">hidden</a>,
+		this value indicates that
+		the content is clipped
+		and that no scrolling user interface should be provided by the UA
+		to view the content outside the clipping region.
+		In addition, unlike <a class="css" data-link-type="propdesc" href="#propdef-overflow">overflow: hidden</a>
+		which still allows programmatic scrolling,
+		<a class="css" data-link-type="propdesc" href="#propdef-overflow">overflow: clipped</a> forbids scrolling entirely,
+		through any mechanism.
+
+
+     <p class="issue" id="issue-84aec26b"><a class="self-link" href="#issue-84aec26b"></a>Mozilla implements -moz-hidden-unscrollable,
+		which is similar to <a class="css" data-link-type="maybe" href="#valdef-overflow-clipped">clipped</a>,
+		except that it does not cause the element to establish a BFC.
+		Should we match that?</p>
+     
+		
     <dt><dfn class="css" data-dfn-for="overflow, overflow-x, overflow-y" data-dfn-type="value" data-export="" id="valdef-overflow-scroll">scroll<a class="self-link" href="#valdef-overflow-scroll"></a></dfn>
+		
+    <dd>This value indicates that the content is clipped
+		and that if the user agent uses a scrolling mechanism
+		that is visible on the screen (such as a scroll bar or a panner),
+		that mechanism should be displayed for a box
+		whether or not any of its content is clipped.
+		This avoids any problem with scrollbars appearing
+		and disappearing in a dynamic environment.
+		When this value is specified and the target medium is <a class="css" data-link-type="maybe" href="http://dev.w3.org/csswg/mediaqueries-4/#valdef-media-print">print</a>,
+		overflowing content may be printed. 
 		
     <dt><dfn class="css" data-dfn-for="overflow, overflow-x, overflow-y" data-dfn-type="value" data-export="" id="valdef-overflow-auto">auto<a class="self-link" href="#valdef-overflow-auto"></a></dfn>
 		
-    <dd>
-			
-     <p class="issue" id="issue-75945e26"><a class="self-link" href="#issue-75945e26"></a>
-			Move material from <a data-link-type="biblio" href="#biblio-css21">[CSS21]</a> and <a data-link-type="biblio" href="#biblio-css3box">[CSS3BOX]</a> here.
-			</p>
-     
-		
-    
+    <dd>The behavior of the <a class="css" data-link-type="maybe" href="#valdef-overflow-auto">auto</a> value is user agent-dependent,
+		but should cause a scrolling mechanism to be provided for overflowing boxes. 
 	
    </dl>
+
+
+   <p>Even if <a class="property" data-link-type="propdesc" href="#propdef-overflow">overflow</a> is set to <a class="css" data-link-type="maybe" href="#valdef-overflow-visible">visible</a>,
+	content may be clipped to a UA’s document window by the native operating environment.</p>
+
+
+   <p>If the computed value of <a class="property" data-link-type="propdesc" href="#propdef-overflow">overflow</a> is not <a class="css" data-link-type="maybe" href="#valdef-overflow-visible">visible</a>,
+	the element creates a block formatting context.</p>
+
+
+   <p>UAs must apply the <a class="property" data-link-type="propdesc" href="#propdef-overflow">overflow</a> property
+	set on the root element to the viewport.
+	HTML UAs must instead apply the ‘overflow’ property
+	from the <code><a data-link-type="element" href="https://html.spec.whatwg.org/#the-body-element">body</a></code> element to the viewport
+	if the value on the root element is <a class="css" data-link-type="maybe" href="#valdef-overflow-visible">visible</a>.
+	The <a class="css" data-link-type="maybe" href="#valdef-overflow-visible">visible</a> value when used for the viewport
+	must be interpreted as <a class="css" data-link-type="maybe" href="#valdef-overflow-auto">auto</a>.
+	The element from which the value is propagated
+	must have a used value for <a class="property" data-link-type="propdesc" href="#propdef-overflow">overflow</a> of <a class="css" data-link-type="maybe" href="#valdef-overflow-visible">visible</a>.</p>
+
+
+   <p>In the case of a scrollbar being placed on an edge of the element’s box,
+	it should be inserted between the inner border edge
+	and the outer padding edge.
+	Any space taken up by the scrollbars should be
+	taken out of (subtracted from the dimensions of)
+	the containing block formed by the element with the scrollbars.</p>
+
+
+   <p class="issue" id="issue-402eb70c"><a class="self-link" href="#issue-402eb70c"></a>import examples from <a data-link-type="biblio" href="#biblio-css3-box">[CSS3-BOX]</a>.</p>
 
 	
    <p class="issue" id="issue-c318b1c1"><a class="self-link" href="#issue-c318b1c1"></a>
@@ -1913,7 +1513,7 @@ the <a class="css" data-link-type="maybe" href="#valdef-continue-fragments">frag
 	
    <p>
 		Specifying other values of <a class="property" data-link-type="propdesc" href="http://dev.w3.org/csswg/css2/visuren.html#propdef-display">display</a>, <a class="property" data-link-type="propdesc" href="http://dev.w3.org/csswg/css-position-3/#propdef-position">position</a>,
-		or <a class="property" data-link-type="propdesc" href="http://dev.w3.org/csswg/css-page-floats/#propdef-float">float</a> is permitted, but is not allowed to change
+		or <a class="property" data-link-type="propdesc" href="http://dev.w3.org/csswg/css2/visuren.html#propdef-float">float</a> is permitted, but is not allowed to change
 		the computed value of <a class="property" data-link-type="propdesc" href="http://dev.w3.org/csswg/css-display-3/#propdef-display-inside">display-inside</a>.
 		(Since <a class="property" data-link-type="propdesc" href="#propdef-continue">continue</a> only
 		applies to block containers, flex containers, and grid containers
@@ -2489,6 +2089,7 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
    <li>border-box overflow, <a href="#border_box-overflow">2.3</a>
    <li>border-box overflow rectangle, <a href="#border_box-overflow-rectangle">2.3</a>
    <li>border-box overflow region, <a href="#border_box-overflow-region">2.3</a>
+   <li>clipped, <a href="#valdef-overflow-clipped">3</a>
    <li>continue, <a href="#propdef-continue">4</a>
    <li>discard, <a href="#valdef-continue-discard">4</a>
    <li>fragment box, <a href="#fragment-box">6</a>
@@ -2547,10 +2148,6 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
     <ul>
      <li><a href="http://dev.w3.org/csswg/css-multicol-1/#overflow-columns">overflow columns</a>
     </ul>
-   <li><a data-link-type="biblio" href="#biblio-css-page-floats-3">[css-page-floats-3]</a> defines the following terms:
-    <ul>
-     <li><a href="http://dev.w3.org/csswg/css-page-floats/#propdef-float">float</a>
-    </ul>
    <li><a data-link-type="biblio" href="#biblio-css-position-3">[css-position-3]</a> defines the following terms:
     <ul>
      <li><a href="http://dev.w3.org/csswg/css-position-3/#propdef-position">position</a>
@@ -2586,10 +2183,19 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
     <ul>
      <li><a href="http://dev.w3.org/csswg/css-writing-modes-3/#propdef-direction">direction</a>
     </ul>
-   <li><a data-link-type="biblio" href="#biblio-css21">[css21]</a> defines the following terms:
+   <li><a data-link-type="biblio" href="#biblio-css21">[CSS21]</a> defines the following terms:
     <ul>
      <li><a href="http://dev.w3.org/csswg/css2/visuren.html#propdef-display">display</a>
+     <li><a href="http://dev.w3.org/csswg/css2/visuren.html#propdef-float">float</a>
      <li><a href="http://dev.w3.org/csswg/css2/visudet.html#propdef-height">height</a>
+    </ul>
+   <li><a data-link-type="biblio" href="#biblio-html">[HTML]</a> defines the following terms:
+    <ul>
+     <li><a href="https://html.spec.whatwg.org/#the-body-element">body</a>
+    </ul>
+   <li><a data-link-type="biblio" href="#biblio-mediaqueries-4">[mediaqueries-4]</a> defines the following terms:
+    <ul>
+     <li><a href="http://dev.w3.org/csswg/mediaqueries-4/#valdef-media-print">print</a>
     </ul>
   </ul>
   <h2 class="no-num heading settled" id="references"><span class="content">References</span><a class="self-link" href="#references"></a></h2>
@@ -2607,6 +2213,8 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
    <dd>Håkon Wium Lie; Elika J. Etemad; Tab Atkins Jr.. <a href="http://www.w3.org/TR/2013/CR-css-cascade-3-20131003/">CSS Cascading and Inheritance Level 3</a>. 3 October 2013. W3C Candidate Recommendation. (Work in progress.) URL: <a href="http://www.w3.org/TR/2013/CR-css-cascade-3-20131003/">http://www.w3.org/TR/2013/CR-css-cascade-3-20131003/</a>
    <dt id="biblio-css3col"><a class="self-link" href="#biblio-css3col"></a>[CSS3COL]
    <dd>Håkon Wium Lie. <a href="http://www.w3.org/TR/2011/CR-css3-multicol-20110412">CSS Multi-column Layout Module</a>. 12 April 2011. W3C Candidate Recommendation. (Work in progress.) URL: <a href="http://www.w3.org/TR/2011/CR-css3-multicol-20110412">http://www.w3.org/TR/2011/CR-css3-multicol-20110412</a>
+   <dt id="biblio-html"><a class="self-link" href="#biblio-html"></a>[HTML]
+   <dd>Ian Hickson. <a href="https://html.spec.whatwg.org/">HTML</a>. Living Standard. URL: <a href="https://html.spec.whatwg.org/">https://html.spec.whatwg.org/</a>
    <dt id="biblio-select"><a class="self-link" href="#biblio-select"></a>[SELECT]
    <dd>Tantek Çelik; et al. <a href="http://www.w3.org/TR/2011/REC-css3-selectors-20110929/">Selectors Level 3</a>. 29 September 2011. W3C Recommendation. URL: <a href="http://www.w3.org/TR/2011/REC-css3-selectors-20110929/">http://www.w3.org/TR/2011/REC-css3-selectors-20110929/</a>
    <dt id="biblio-css-backgrounds-3"><a class="self-link" href="#biblio-css-backgrounds-3"></a>[CSS-BACKGROUNDS-3]
@@ -2621,8 +2229,6 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
    <dd>Tab Atkins Jr.; Elika Etemad. <a href="http://www.w3.org/TR/css-display-3/">CSS Display Module Level 3</a>. 11 September 2014. WD. URL: <a href="http://www.w3.org/TR/css-display-3/">http://www.w3.org/TR/css-display-3/</a>
    <dt id="biblio-css-multicol-1"><a class="self-link" href="#biblio-css-multicol-1"></a>[CSS-MULTICOL-1]
    <dd>CSS Multi-column Layout Module Level 1 URL: <a href="http://www.w3.org/TR/css3-multicol/">http://www.w3.org/TR/css3-multicol/</a>
-   <dt id="biblio-css-page-floats-3"><a class="self-link" href="#biblio-css-page-floats-3"></a>[CSS-PAGE-FLOATS-3]
-   <dd>CSS Page Floats Module Level 3 URL: <a href="http://dev.w3.org/csswg/css-page-floats/">http://dev.w3.org/csswg/css-page-floats/</a>
    <dt id="biblio-css-position-3"><a class="self-link" href="#biblio-css-position-3"></a>[CSS-POSITION-3]
    <dd>CSS Positioned Layout Module Level 3 URL: <a href="http://www.w3.org/TR/css3-positioning/">http://www.w3.org/TR/css3-positioning/</a>
    <dt id="biblio-css-pseudo-4"><a class="self-link" href="#biblio-css-pseudo-4"></a>[CSS-PSEUDO-4]
@@ -2641,6 +2247,8 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
    <dd>Elika Etemad; Koji Ishii. <a href="http://www.w3.org/TR/css-writing-modes-3/">CSS Writing Modes Level 3</a>. 20 March 2014. CR. URL: <a href="http://www.w3.org/TR/css-writing-modes-3/">http://www.w3.org/TR/css-writing-modes-3/</a>
    <dt id="biblio-css3-break"><a class="self-link" href="#biblio-css3-break"></a>[CSS3-BREAK]
    <dd>Rossen Atanassov; Elika Etemad. <a href="http://www.w3.org/TR/css3-break/">CSS Fragmentation Module Level 3</a>. 29 January 2015. WD. URL: <a href="http://www.w3.org/TR/css3-break/">http://www.w3.org/TR/css3-break/</a>
+   <dt id="biblio-mediaqueries-4"><a class="self-link" href="#biblio-mediaqueries-4"></a>[MEDIAQUERIES-4]
+   <dd>Florian Rivoal; Tab Atkins Jr.. <a href="http://www.w3.org/TR/mediaqueries-4/">Media Queries Level 4</a>. 5 June 2014. WD. URL: <a href="http://www.w3.org/TR/mediaqueries-4/">http://www.w3.org/TR/mediaqueries-4/</a>
    <dt id="biblio-rfc2119"><a class="self-link" href="#biblio-rfc2119"></a>[RFC2119]
    <dd>S. Bradner. <a href="https://tools.ietf.org/html/rfc2119">Key words for use in RFCs to Indicate Requirement Levels</a>. March 1997. Best Current Practice. URL: <a href="https://tools.ietf.org/html/rfc2119">https://tools.ietf.org/html/rfc2119</a>
   </dl>
@@ -2652,14 +2260,16 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
    <dd>Vincent Hardy; Rossen Atanassov; Alan Stearns. <a href="http://www.w3.org/TR/2013/WD-css3-regions-20130528/">CSS Regions Module Level 1</a>. 28 May 2013. W3C Working Draft. (Work in progress.) URL: <a href="http://www.w3.org/TR/2013/WD-css3-regions-20130528/">http://www.w3.org/TR/2013/WD-css3-regions-20130528/</a>
    <dt id="biblio-css3bg"><a class="self-link" href="#biblio-css3bg"></a>[CSS3BG]
    <dd>Bert Bos; Elika J. Etemad; Brad Kemper. <a href="http://www.w3.org/TR/2012/CR-css3-background-20120724/">CSS Backgrounds and Borders Module Level 3</a>. 24 July 2012. W3C Candidate Recommendation. (Work in progress.) URL: <a href="http://www.w3.org/TR/2012/CR-css3-background-20120724/">http://www.w3.org/TR/2012/CR-css3-background-20120724/</a>
-   <dt id="biblio-css3box"><a class="self-link" href="#biblio-css3box"></a>[CSS3BOX]
-   <dd>Bert Bos. <a href="http://www.w3.org/TR/2007/WD-css3-box-20070809">CSS basic box model</a>. 9 August 2007. W3C Working Draft. (Work in progress.) URL: <a href="http://www.w3.org/TR/2007/WD-css3-box-20070809">http://www.w3.org/TR/2007/WD-css3-box-20070809</a>
    <dt id="biblio-css3gcpm"><a class="self-link" href="#biblio-css3gcpm"></a>[CSS3GCPM]
    <dd>Håkon Wium Lie. <a href="http://www.w3.org/TR/2011/WD-css3-gcpm-20111129/">CSS Generated Content for Paged Media Module</a>. 29 November 2011. W3C Working Draft. (Work in progress.) URL: <a href="http://www.w3.org/TR/2011/WD-css3-gcpm-20111129/">http://www.w3.org/TR/2011/WD-css3-gcpm-20111129/</a>
    <dt id="biblio-css3text"><a class="self-link" href="#biblio-css3text"></a>[CSS3TEXT]
    <dd>Elika J. Etemad; Koji Ishii. <a href="http://www.w3.org/TR/2012/WD-css3-text-20121113/">CSS Text Module Level 3</a>. 13 November 2012. W3C Working Draft. (Work in progress.) URL: <a href="http://www.w3.org/TR/2012/WD-css3-text-20121113/">http://www.w3.org/TR/2012/WD-css3-text-20121113/</a>
+   <dt id="biblio-css3-box"><a class="self-link" href="#biblio-css3-box"></a>[CSS3-BOX]
+   <dd>Bert Bos. <a href="http://www.w3.org/TR/css3-box">CSS basic box model</a>. 9 August 2007. WD. URL: <a href="http://www.w3.org/TR/css3-box">http://www.w3.org/TR/css3-box</a>
    <dt id="biblio-css3-marquee"><a class="self-link" href="#biblio-css3-marquee"></a>[CSS3-MARQUEE]
    <dd>Bert Bos. <a href="http://www.w3.org/TR/css3-marquee">CSS Marquee Module Level 3</a>. 14 October 2014. NOTE. URL: <a href="http://www.w3.org/TR/css3-marquee">http://www.w3.org/TR/css3-marquee</a>
+   <dt id="biblio-cssom-view"><a class="self-link" href="#biblio-cssom-view"></a>[CSSOM-VIEW]
+   <dd>Simon Pieters; Glenn Adams. <a href="http://www.w3.org/TR/cssom-view/">CSSOM View Module</a>. 17 December 2013. WD. URL: <a href="http://www.w3.org/TR/cssom-view/">http://www.w3.org/TR/cssom-view/</a>
   </dl>
   <h2 class="no-num heading settled" id="property-index"><span class="content">Property Index</span><a class="self-link" href="#property-index"></a></h2>
   <table class="proptable data">
@@ -2678,7 +2288,7 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
    <tbody>
     <tr>
      <th scope="row"><a class="css" data-link-type="property" href="#propdef-overflow-x">overflow-x</a>
-     <td>visible | hidden | scroll | auto
+     <td>visible | hidden | clipped | scroll | auto
      <td>visible
      <td>block containers [CSS21], flex containers [CSS3-FLEXBOX], and grid containers [CSS3-GRID-LAYOUT]
      <td>no
@@ -2689,7 +2299,7 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
      <td>see below
     <tr>
      <th scope="row"><a class="css" data-link-type="property" href="#propdef-overflow-y">overflow-y</a>
-     <td>visible | hidden | scroll | auto
+     <td>visible | hidden | clipped | scroll | auto
      <td>visible
      <td>block containers [CSS21], flex containers [CSS3-FLEXBOX], and grid containers [CSS3-GRID-LAYOUT]
      <td>no
@@ -2700,7 +2310,7 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
      <td>see below
     <tr>
      <th scope="row"><a class="css" data-link-type="property" href="#propdef-overflow">overflow</a>
-     <td>visible | hidden | scroll | auto
+     <td>visible | hidden | clipped | scroll | auto
      <td>see individual properties
      <td>block containers [CSS21], flex containers [CSS3-FLEXBOX], and grid containers [CSS3-GRID-LAYOUT]
      <td>no
@@ -2769,9 +2379,11 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
 		If needed, define more formally, as for scrollable overflow above.
 		(Maybe even share the definitions in an appropriate way!)
 	<a href="#issue-42ea3c29"> ↵ </a></div>
-   <div class="issue">
-			Move material from <a data-link-type="biblio" href="#biblio-css21">[CSS21]</a> and <a data-link-type="biblio" href="#biblio-css3box">[CSS3BOX]</a> here.
-			<a href="#issue-75945e26"> ↵ </a></div>
+   <div class="issue">Mozilla implements -moz-hidden-unscrollable,
+		which is similar to <a class="css" data-link-type="maybe" href="#valdef-overflow-clipped">clipped</a>,
+		except that it does not cause the element to establish a BFC.
+		Should we match that?<a href="#issue-84aec26b"> ↵ </a></div>
+   <div class="issue">import examples from <a data-link-type="biblio" href="#biblio-css3-box">[CSS3-BOX]</a>.<a href="#issue-402eb70c"> ↵ </a></div>
    <div class="issue">
 		Explain which directions allow scrolling and which don’t,
 		as a function of <a class="property" data-link-type="propdesc" href="http://dev.w3.org/csswg/css-writing-modes-3/#propdef-direction">direction</a>
@@ -2941,5 +2553,464 @@ that effect.<a href="#issue-13fa8ed4"> ↵ </a></div>
 		the content they produce for interactive media
 		is printed.
 	<a href="#issue-de91ba9b"> ↵ </a></div>
-  </div></body>
+  </div>
+  <script>self = (typeof window !== 'undefined')
+	? window   // if in browser
+	: (
+		(typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope)
+		? self // if in worker
+		: {}   // if in node js
+	);
+
+/**
+ * Prism: Lightweight, robust, elegant syntax highlighting
+ * MIT license http://www.opensource.org/licenses/mit-license.php/
+ * @author Lea Verou http://lea.verou.me
+ */
+
+var Prism = (function(){
+
+// Private helper vars
+var lang = /\blang(?:uage)?-(?!\*)(\w+)\b/i;
+
+var _ = self.Prism = {
+	util: {
+		encode: function (tokens) {
+			if (tokens instanceof Token) {
+				return new Token(tokens.type, _.util.encode(tokens.content), tokens.alias);
+			} else if (_.util.type(tokens) === 'Array') {
+				return tokens.map(_.util.encode);
+			} else {
+				return tokens.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\u00a0/g, ' ');
+			}
+		},
+
+		type: function (o) {
+			return Object.prototype.toString.call(o).match(/\[object (\w+)\]/)[1];
+		},
+
+		// Deep clone a language definition (e.g. to extend it)
+		clone: function (o) {
+			var type = _.util.type(o);
+
+			switch (type) {
+				case 'Object':
+					var clone = {};
+
+					for (var key in o) {
+						if (o.hasOwnProperty(key)) {
+							clone[key] = _.util.clone(o[key]);
+						}
+					}
+
+					return clone;
+
+				case 'Array':
+					return o.slice();
+			}
+
+			return o;
+		}
+	},
+
+	languages: {
+		extend: function (id, redef) {
+			var lang = _.util.clone(_.languages[id]);
+
+			for (var key in redef) {
+				lang[key] = redef[key];
+			}
+
+			return lang;
+		},
+
+		// Insert a token before another token in a language literal
+		insertBefore: function (inside, before, insert, root) {
+			root = root || _.languages;
+			var grammar = root[inside];
+			var ret = {};
+
+			for (var token in grammar) {
+
+				if (grammar.hasOwnProperty(token)) {
+
+					if (token == before) {
+
+						for (var newToken in insert) {
+
+							if (insert.hasOwnProperty(newToken)) {
+								ret[newToken] = insert[newToken];
+							}
+						}
+					}
+
+					ret[token] = grammar[token];
+				}
+			}
+
+			return root[inside] = ret;
+		},
+
+		// Traverse a language definition with Depth First Search
+		DFS: function(o, callback, type) {
+			for (var i in o) {
+				if (o.hasOwnProperty(i)) {
+					callback.call(o, i, o[i], type || i);
+
+					if (_.util.type(o[i]) === 'Object') {
+						_.languages.DFS(o[i], callback);
+					} else if (_.util.type(o[i]) === 'Array') {
+						_.languages.DFS(o[i], callback, i);
+					}
+				}
+			}
+		}
+	},
+
+	highlightAll: function(async, callback) {
+		var elements = document.querySelectorAll('code[class*="language-"], [class*="language-"] code, code[class*="lang-"], [class*="lang-"] code');
+		for (var i=0, element; element = elements[i++];) {
+			if (element.classList.contains("idl")) {
+				// Bikeshed handles IDL blocks already.
+				continue;
+			}
+			_.highlightElement(element, async === true, callback);
+		}
+
+		var elements = document.querySelectorAll('pre[class*="language-"], [class*="language-"] pre, pre[class*="lang-"], [class*="lang-"] pre');
+		for (var i=0, element; element = elements[i++];) {
+			if (element.firstElementChild && element.firstElementChild.tagName.toLowerCase() == "code") {
+				// Already handled by the previous loop
+				continue;
+			}
+			if (element.classList.contains("idl")) {
+				// Bikeshed handles IDL blocks already.
+				continue;
+			}
+			_.highlightElement(element, async === true, callback);
+		}
+	},
+
+	highlightElement: function(element, async, callback) {
+		// Find language
+		var language, grammar, parent = element;
+
+		while (parent && !lang.test(parent.className)) {
+			parent = parent.parentNode;
+		}
+
+		if (parent) {
+			language = (parent.className.match(lang) || [,''])[1];
+			grammar = _.languages[language];
+		}
+
+		if (!grammar) {
+			return;
+		}
+
+		// Set language on the element, if not present
+		element.className = element.className.replace(lang, '').replace(/\s+/g, ' ') + ' language-' + language;
+
+		// Set language on the parent, for styling
+		parent = element.parentNode;
+
+		if (/pre/i.test(parent.nodeName)) {
+			parent.className = parent.className.replace(lang, '').replace(/\s+/g, ' ') + ' language-' + language;
+		}
+
+		var code = element.textContent;
+
+		if(!code) {
+			return;
+		}
+
+		var env = {
+			element: element,
+			language: language,
+			grammar: grammar,
+			code: code
+		};
+
+		_.hooks.run('before-highlight', env);
+
+		if (async && self.Worker) {
+			var worker = new Worker(_.filename);
+
+			worker.onmessage = function(evt) {
+				env.highlightedCode = Token.stringify(JSON.parse(evt.data), language);
+
+				_.hooks.run('before-insert', env);
+
+				env.element.innerHTML = env.highlightedCode;
+
+				callback && callback.call(env.element);
+				_.hooks.run('after-highlight', env);
+			};
+
+			worker.postMessage(JSON.stringify({
+				language: env.language,
+				code: env.code
+			}));
+		}
+		else {
+			env.highlightedCode = _.highlight(env.code, env.grammar, env.language)
+
+			_.hooks.run('before-insert', env);
+
+			env.element.innerHTML = env.highlightedCode;
+
+			callback && callback.call(element);
+
+			_.hooks.run('after-highlight', env);
+		}
+	},
+
+	highlight: function (text, grammar, language) {
+		var tokens = _.tokenize(text, grammar);
+		return Token.stringify(_.util.encode(tokens), language);
+	},
+
+	tokenize: function(text, grammar, language) {
+		var Token = _.Token;
+
+		var strarr = [text];
+
+		var rest = grammar.rest;
+
+		if (rest) {
+			for (var token in rest) {
+				grammar[token] = rest[token];
+			}
+
+			delete grammar.rest;
+		}
+
+		tokenloop: for (var token in grammar) {
+			if(!grammar.hasOwnProperty(token) || !grammar[token]) {
+				continue;
+			}
+
+			var patterns = grammar[token];
+			patterns = (_.util.type(patterns) === "Array") ? patterns : [patterns];
+
+			for (var j = 0; j < patterns.length; ++j) {
+				var pattern = patterns[j],
+					inside = pattern.inside,
+					lookbehind = !!pattern.lookbehind,
+					lookbehindLength = 0,
+					alias = pattern.alias;
+
+				pattern = pattern.pattern || pattern;
+
+				for (var i=0; i<strarr.length; i++) { // Don’t cache length as it changes during the loop
+
+					var str = strarr[i];
+
+					if (strarr.length > text.length) {
+						// Something went terribly wrong, ABORT, ABORT!
+						break tokenloop;
+					}
+
+					if (str instanceof Token) {
+						continue;
+					}
+
+					pattern.lastIndex = 0;
+
+					var match = pattern.exec(str);
+
+					if (match) {
+						if(lookbehind) {
+							lookbehindLength = match[1].length;
+						}
+
+						var from = match.index - 1 + lookbehindLength,
+							match = match[0].slice(lookbehindLength),
+							len = match.length,
+							to = from + len,
+							before = str.slice(0, from + 1),
+							after = str.slice(to + 1);
+
+						var args = [i, 1];
+
+						if (before) {
+							args.push(before);
+						}
+
+						var wrapped = new Token(token, inside? _.tokenize(match, inside) : match, alias);
+
+						args.push(wrapped);
+
+						if (after) {
+							args.push(after);
+						}
+
+						Array.prototype.splice.apply(strarr, args);
+					}
+				}
+			}
+		}
+
+		return strarr;
+	},
+
+	hooks: {
+		all: {},
+
+		add: function (name, callback) {
+			var hooks = _.hooks.all;
+
+			hooks[name] = hooks[name] || [];
+
+			hooks[name].push(callback);
+		},
+
+		run: function (name, env) {
+			var callbacks = _.hooks.all[name];
+
+			if (!callbacks || !callbacks.length) {
+				return;
+			}
+
+			for (var i=0, callback; callback = callbacks[i++];) {
+				callback(env);
+			}
+		}
+	}
+};
+
+var Token = _.Token = function(type, content, alias) {
+	this.type = type;
+	this.content = content;
+	this.alias = alias;
+};
+
+Token.stringify = function(o, language, parent) {
+	if (typeof o == 'string') {
+		return o;
+	}
+
+	if (Object.prototype.toString.call(o) == '[object Array]') {
+		return o.map(function(element) {
+			return Token.stringify(element, language, o);
+		}).join('');
+	}
+
+	var env = {
+		type: o.type,
+		content: Token.stringify(o.content, language, parent),
+		tag: 'span',
+		classes: ['token', o.type],
+		attributes: {},
+		language: language,
+		parent: parent
+	};
+
+	if (env.type == 'comment') {
+		env.attributes['spellcheck'] = 'true';
+	}
+
+	if (o.alias) {
+		var aliases = _.util.type(o.alias) === 'Array' ? o.alias : [o.alias];
+		Array.prototype.push.apply(env.classes, aliases);
+	}
+
+	_.hooks.run('wrap', env);
+
+	var attributes = '';
+
+	for (var name in env.attributes) {
+		attributes += name + '="' + (env.attributes[name] || '') + '"';
+	}
+
+	return '<' + env.tag + ' class="' + env.classes.join(' ') + '" ' + attributes + '>' + env.content + '</' + env.tag + '>';
+
+};
+
+if (!self.document) {
+	if (!self.addEventListener) {
+		// in Node.js
+		return self.Prism;
+	}
+ 	// In worker
+	self.addEventListener('message', function(evt) {
+		var message = JSON.parse(evt.data),
+		    lang = message.language,
+		    code = message.code;
+
+		self.postMessage(JSON.stringify(_.util.encode(_.tokenize(code, _.languages[lang]))));
+		self.close();
+	}, false);
+
+	return self.Prism;
+}
+
+// Get current script and highlight
+var script = document.getElementsByTagName('script');
+
+script = script[script.length - 1];
+
+if (script) {
+	_.filename = script.src;
+
+	if (document.addEventListener && !script.hasAttribute('data-manual')) {
+		document.addEventListener('DOMContentLoaded', _.highlightAll);
+	}
+}
+
+return self.Prism;
+
+})();
+
+if (typeof module !== 'undefined' && module.exports) {
+	module.exports = Prism;
+}
+;
+Prism.languages.css = {
+	'comment': /\/\*[\w\W]*?\*\//g,
+	'atrule': {
+		pattern: /@[\w-]+?.*?(;|(?=\s*{))/gi,
+		inside: {
+			'punctuation': /[;:]/g
+		}
+	},
+	'url': /url\((["']?).*?\1\)/gi,
+	'selector': /[^\{\}\s][^\{\};]*(?=\s*\{)/g,
+	'property': /(\b|\B)[\w-]+(?=\s*:)/ig,
+	'string': /("|')(\\?.)*?\1/g,
+	'important': /\B!important\b/gi,
+	'punctuation': /[\{\};:]/g,
+	'function': /[-a-z0-9]+(?=\()/ig
+};
+
+if (Prism.languages.markup) {
+	Prism.languages.insertBefore('markup', 'tag', {
+		'style': {
+			pattern: /<style[\w\W]*?>[\w\W]*?<\/style>/ig,
+			inside: {
+				'tag': {
+					pattern: /<style[\w\W]*?>|<\/style>/ig,
+					inside: Prism.languages.markup.tag.inside
+				},
+				rest: Prism.languages.css
+			}
+		}
+	});
+};
+Prism.languages.css.selector = {
+	pattern: /[^\{\}\s][^\{\}]*(?=\s*\{)/g,
+	inside: {
+		'pseudo-element': /:(?:after|before|first-letter|first-line|selection)|::[-\w]+/g,
+		'pseudo-class': /:[-\w]+(?:\(.*\))?/g,
+		'class': /\.[-:\.\w]+/g,
+		'id': /#[-:\.\w]+/g
+	}
+};
+
+Prism.languages.insertBefore('css', 'ignore', {
+	'hexcode': /#[\da-f]{3,6}/gi,
+	'entity': /\\[\da-f]{1,8}/gi,
+	'number': /[\d%\.]+/g
+});;
+</script></body>
 </html>
