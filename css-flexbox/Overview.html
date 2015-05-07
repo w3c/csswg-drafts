@@ -253,6 +253,507 @@ ol.continue > li::before { content: counter(list) "."; position: absolute; left:
   
 
 
+  <script>self = (typeof window !== 'undefined')
+	? window   // if in browser
+	: (
+		(typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope)
+		? self // if in worker
+		: {}   // if in node js
+	);
+
+/**
+ * Prism: Lightweight, robust, elegant syntax highlighting
+ * MIT license http://www.opensource.org/licenses/mit-license.php/
+ * @author Lea Verou http://lea.verou.me
+ */
+
+var Prism = (function(){
+
+// Private helper vars
+var lang = /\blang(?:uage)?-(?!\*)(\w+)\b/i;
+
+var _ = self.Prism = {
+	util: {
+		encode: function (tokens) {
+			if (tokens instanceof Token) {
+				return new Token(tokens.type, _.util.encode(tokens.content), tokens.alias);
+			} else if (_.util.type(tokens) === 'Array') {
+				return tokens.map(_.util.encode);
+			} else {
+				return tokens.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\u00a0/g, ' ');
+			}
+		},
+
+		type: function (o) {
+			return Object.prototype.toString.call(o).match(/\[object (\w+)\]/)[1];
+		},
+
+		// Deep clone a language definition (e.g. to extend it)
+		clone: function (o) {
+			var type = _.util.type(o);
+
+			switch (type) {
+				case 'Object':
+					var clone = {};
+
+					for (var key in o) {
+						if (o.hasOwnProperty(key)) {
+							clone[key] = _.util.clone(o[key]);
+						}
+					}
+
+					return clone;
+
+				case 'Array':
+					return o.slice();
+			}
+
+			return o;
+		}
+	},
+
+	languages: {
+		extend: function (id, redef) {
+			var lang = _.util.clone(_.languages[id]);
+
+			for (var key in redef) {
+				lang[key] = redef[key];
+			}
+
+			return lang;
+		},
+
+		// Insert a token before another token in a language literal
+		insertBefore: function (inside, before, insert, root) {
+			root = root || _.languages;
+			var grammar = root[inside];
+			var ret = {};
+
+			for (var token in grammar) {
+
+				if (grammar.hasOwnProperty(token)) {
+
+					if (token == before) {
+
+						for (var newToken in insert) {
+
+							if (insert.hasOwnProperty(newToken)) {
+								ret[newToken] = insert[newToken];
+							}
+						}
+					}
+
+					ret[token] = grammar[token];
+				}
+			}
+
+			return root[inside] = ret;
+		},
+
+		// Traverse a language definition with Depth First Search
+		DFS: function(o, callback, type) {
+			for (var i in o) {
+				if (o.hasOwnProperty(i)) {
+					callback.call(o, i, o[i], type || i);
+
+					if (_.util.type(o[i]) === 'Object') {
+						_.languages.DFS(o[i], callback);
+					} else if (_.util.type(o[i]) === 'Array') {
+						_.languages.DFS(o[i], callback, i);
+					}
+				}
+			}
+		}
+	},
+
+	highlightAll: function(async, callback) {
+		var elements = document.querySelectorAll('code[class*="language-"], [class*="language-"] code, code[class*="lang-"], [class*="lang-"] code');
+		for (var i=0, element; element = elements[i++];) {
+			if (element.classList.contains("idl")) {
+				// Bikeshed handles IDL blocks already.
+				continue;
+			}
+			_.highlightElement(element, async === true, callback);
+		}
+
+		var elements = document.querySelectorAll('pre[class*="language-"], [class*="language-"] pre, pre[class*="lang-"], [class*="lang-"] pre');
+		for (var i=0, element; element = elements[i++];) {
+			if (element.firstElementChild && element.firstElementChild.tagName.toLowerCase() == "code") {
+				// Already handled by the previous loop
+				continue;
+			}
+			if (element.classList.contains("idl")) {
+				// Bikeshed handles IDL blocks already.
+				continue;
+			}
+			_.highlightElement(element, async === true, callback);
+		}
+	},
+
+	highlightElement: function(element, async, callback) {
+		// Find language
+		var language, grammar, parent = element;
+
+		while (parent && !lang.test(parent.className)) {
+			parent = parent.parentNode;
+		}
+
+		if (parent) {
+			language = (parent.className.match(lang) || [,''])[1];
+			grammar = _.languages[language];
+		}
+
+		if (!grammar) {
+			return;
+		}
+
+		// Set language on the element, if not present
+		element.className = element.className.replace(lang, '').replace(/\s+/g, ' ') + ' language-' + language;
+
+		// Set language on the parent, for styling
+		parent = element.parentNode;
+
+		if (/pre/i.test(parent.nodeName)) {
+			parent.className = parent.className.replace(lang, '').replace(/\s+/g, ' ') + ' language-' + language;
+		}
+
+		var code = element.textContent;
+
+		if(!code) {
+			return;
+		}
+
+		var env = {
+			element: element,
+			language: language,
+			grammar: grammar,
+			code: code
+		};
+
+		_.hooks.run('before-highlight', env);
+
+		if (async && self.Worker) {
+			var worker = new Worker(_.filename);
+
+			worker.onmessage = function(evt) {
+				env.highlightedCode = Token.stringify(JSON.parse(evt.data), language);
+
+				_.hooks.run('before-insert', env);
+
+				env.element.innerHTML = env.highlightedCode;
+
+				callback && callback.call(env.element);
+				_.hooks.run('after-highlight', env);
+			};
+
+			worker.postMessage(JSON.stringify({
+				language: env.language,
+				code: env.code
+			}));
+		}
+		else {
+			env.highlightedCode = _.highlight(env.code, env.grammar, env.language)
+
+			_.hooks.run('before-insert', env);
+
+			env.element.innerHTML = env.highlightedCode;
+
+			callback && callback.call(element);
+
+			_.hooks.run('after-highlight', env);
+		}
+	},
+
+	highlight: function (text, grammar, language) {
+		var tokens = _.tokenize(text, grammar);
+		return Token.stringify(_.util.encode(tokens), language);
+	},
+
+	tokenize: function(text, grammar, language) {
+		var Token = _.Token;
+
+		var strarr = [text];
+
+		var rest = grammar.rest;
+
+		if (rest) {
+			for (var token in rest) {
+				grammar[token] = rest[token];
+			}
+
+			delete grammar.rest;
+		}
+
+		tokenloop: for (var token in grammar) {
+			if(!grammar.hasOwnProperty(token) || !grammar[token]) {
+				continue;
+			}
+
+			var patterns = grammar[token];
+			patterns = (_.util.type(patterns) === "Array") ? patterns : [patterns];
+
+			for (var j = 0; j < patterns.length; ++j) {
+				var pattern = patterns[j],
+					inside = pattern.inside,
+					lookbehind = !!pattern.lookbehind,
+					lookbehindLength = 0,
+					alias = pattern.alias;
+
+				pattern = pattern.pattern || pattern;
+
+				for (var i=0; i<strarr.length; i++) { // Don’t cache length as it changes during the loop
+
+					var str = strarr[i];
+
+					if (strarr.length > text.length) {
+						// Something went terribly wrong, ABORT, ABORT!
+						break tokenloop;
+					}
+
+					if (str instanceof Token) {
+						continue;
+					}
+
+					pattern.lastIndex = 0;
+
+					var match = pattern.exec(str);
+
+					if (match) {
+						if(lookbehind) {
+							lookbehindLength = match[1].length;
+						}
+
+						var from = match.index - 1 + lookbehindLength,
+							match = match[0].slice(lookbehindLength),
+							len = match.length,
+							to = from + len,
+							before = str.slice(0, from + 1),
+							after = str.slice(to + 1);
+
+						var args = [i, 1];
+
+						if (before) {
+							args.push(before);
+						}
+
+						var wrapped = new Token(token, inside? _.tokenize(match, inside) : match, alias);
+
+						args.push(wrapped);
+
+						if (after) {
+							args.push(after);
+						}
+
+						Array.prototype.splice.apply(strarr, args);
+					}
+				}
+			}
+		}
+
+		return strarr;
+	},
+
+	hooks: {
+		all: {},
+
+		add: function (name, callback) {
+			var hooks = _.hooks.all;
+
+			hooks[name] = hooks[name] || [];
+
+			hooks[name].push(callback);
+		},
+
+		run: function (name, env) {
+			var callbacks = _.hooks.all[name];
+
+			if (!callbacks || !callbacks.length) {
+				return;
+			}
+
+			for (var i=0, callback; callback = callbacks[i++];) {
+				callback(env);
+			}
+		}
+	}
+};
+
+var Token = _.Token = function(type, content, alias) {
+	this.type = type;
+	this.content = content;
+	this.alias = alias;
+};
+
+Token.stringify = function(o, language, parent) {
+	if (typeof o == 'string') {
+		return o;
+	}
+
+	if (Object.prototype.toString.call(o) == '[object Array]') {
+		return o.map(function(element) {
+			return Token.stringify(element, language, o);
+		}).join('');
+	}
+
+	var env = {
+		type: o.type,
+		content: Token.stringify(o.content, language, parent),
+		tag: 'span',
+		classes: ['token', o.type],
+		attributes: {},
+		language: language,
+		parent: parent
+	};
+
+	if (env.type == 'comment') {
+		env.attributes['spellcheck'] = 'true';
+	}
+
+	if (o.alias) {
+		var aliases = _.util.type(o.alias) === 'Array' ? o.alias : [o.alias];
+		Array.prototype.push.apply(env.classes, aliases);
+	}
+
+	_.hooks.run('wrap', env);
+
+	var attributes = '';
+
+	for (var name in env.attributes) {
+		attributes += name + '="' + (env.attributes[name] || '') + '"';
+	}
+
+	return '<' + env.tag + ' class="' + env.classes.join(' ') + '" ' + attributes + '>' + env.content + '</' + env.tag + '>';
+
+};
+
+if (!self.document) {
+	if (!self.addEventListener) {
+		// in Node.js
+		return self.Prism;
+	}
+ 	// In worker
+	self.addEventListener('message', function(evt) {
+		var message = JSON.parse(evt.data),
+		    lang = message.language,
+		    code = message.code;
+
+		self.postMessage(JSON.stringify(_.util.encode(_.tokenize(code, _.languages[lang]))));
+		self.close();
+	}, false);
+
+	return self.Prism;
+}
+
+// Get current script and highlight
+var script = document.getElementsByTagName('script');
+
+script = script[script.length - 1];
+
+if (script) {
+	_.filename = script.src;
+
+	if (document.addEventListener && !script.hasAttribute('data-manual')) {
+		document.addEventListener('DOMContentLoaded', _.highlightAll);
+	}
+}
+
+return self.Prism;
+
+})();
+
+if (typeof module !== 'undefined' && module.exports) {
+	module.exports = Prism;
+}
+;
+Prism.languages.markup = {
+	'comment': /<!--[\w\W]*?-->/g,
+	'prolog': /<\?.+?\?>/,
+	'doctype': /<!DOCTYPE.+?>/,
+	'cdata': /<!\[CDATA\[[\w\W]*?]]>/i,
+	'tag': {
+		pattern: /<\/?[\w:-]+\s*(?:\s+[\w:-]+(?:=(?:("|')(\\?[\w\W])*?\1|[^\s'">=]+))?\s*)*\/?>/gi,
+		inside: {
+			'tag': {
+				pattern: /^<\/?[\w:-]+/i,
+				inside: {
+					'punctuation': /^<\/?/,
+					'namespace': /^[\w-]+?:/
+				}
+			},
+			'attr-value': {
+				pattern: /=(?:('|")[\w\W]*?(\1)|[^\s>]+)/gi,
+				inside: {
+					'punctuation': /=|>|"/g
+				}
+			},
+			'punctuation': /\/?>/g,
+			'attr-name': {
+				pattern: /[\w:-]+/g,
+				inside: {
+					'namespace': /^[\w-]+?:/
+				}
+			}
+
+		}
+	},
+	'entity': /\&#?[\da-z]{1,8};/gi
+};
+
+// Plugin to make entity title show the real entity, idea by Roman Komarov
+Prism.hooks.add('wrap', function(env) {
+
+	if (env.type === 'entity') {
+		env.attributes['title'] = env.content.replace(/&amp;/, '&');
+	}
+});
+;
+Prism.languages.css = {
+	'comment': /\/\*[\w\W]*?\*\//g,
+	'atrule': {
+		pattern: /@[\w-]+?.*?(;|(?=\s*{))/gi,
+		inside: {
+			'punctuation': /[;:]/g
+		}
+	},
+	'url': /url\((["']?).*?\1\)/gi,
+	'selector': /[^\{\}\s][^\{\};]*(?=\s*\{)/g,
+	'property': /(\b|\B)[\w-]+(?=\s*:)/ig,
+	'string': /("|')(\\?.)*?\1/g,
+	'important': /\B!important\b/gi,
+	'punctuation': /[\{\};:]/g,
+	'function': /[-a-z0-9]+(?=\()/ig
+};
+
+if (Prism.languages.markup) {
+	Prism.languages.insertBefore('markup', 'tag', {
+		'style': {
+			pattern: /<style[\w\W]*?>[\w\W]*?<\/style>/ig,
+			inside: {
+				'tag': {
+					pattern: /<style[\w\W]*?>|<\/style>/ig,
+					inside: Prism.languages.markup.tag.inside
+				},
+				rest: Prism.languages.css
+			}
+		}
+	});
+};
+Prism.languages.css.selector = {
+	pattern: /[^\{\}\s][^\{\}]*(?=\s*\{)/g,
+	inside: {
+		'pseudo-element': /:(?:after|before|first-letter|first-line|selection)|::[-\w]+/g,
+		'pseudo-class': /:[-\w]+(?:\(.*\))?/g,
+		'class': /\.[-:\.\w]+/g,
+		'id': /#[-:\.\w]+/g
+	}
+};
+
+Prism.languages.insertBefore('css', 'ignore', {
+	'hexcode': /#[\da-f]{3,6}/gi,
+	'entity': /\\[\da-f]{1,8}/gi,
+	'number': /[\d%\.]+/g
+});;
+</script>
   <style>/* http://prismjs.com/download.html?themes=prism&languages=clike */
 /**
  * prism.js default theme for JavaScript, CSS and HTML
@@ -764,7 +1265,7 @@ along the <a data-link-type="dfn" href="#main-axis">main axis</a> while preservi
      
 </ul>
 	
-   <div class="example" id="example-0401c357"><a class="self-link" href="#example-0401c357"></a>
+   <div class="example">
 		Here’s an example of a catalog where each item has a title, an photo, a description, and a purchase button.
 		The designer’s intention is that each entry has the same overall size,
 		that the photo be above the text,
@@ -1141,7 +1642,7 @@ Flex Items</span><a class="self-link" href="#flex-items"></a></h2>
 	is not rendered, as if it were <span class="css">display:none</span>.</p>
 
 	
-   <div class="example" id="example-f7107939"><a class="self-link" href="#example-f7107939"></a>
+   <div class="example">
 		
     <p>Examples of flex items:
 		</p>
@@ -1233,7 +1734,7 @@ Absolutely-Positioned Flex Children</span><a class="self-link" href="#abspos-ite
 	were fixed-size boxes of their used size.</p>
 
 	
-   <div class="example" id="example-5860ae02"><a class="self-link" href="#example-5860ae02"></a>
+   <div class="example">
 		The effect of this is that if you set, for example,
 		<a class="css" data-link-type="propdesc" href="#propdef-align-content">align-content: center;</a> on an absolutely-positioned child of a <a data-link-type="dfn" href="#flex-container">flex container</a>,
 		the child’s static position will center it in the <a data-link-type="dfn" href="#flex-container">flex container’s</a> <a data-link-type="dfn" href="#cross-axis">cross axis</a>.
@@ -1312,7 +1813,7 @@ Collapsed Items</span><a class="self-link" href="#visibility-collapse"></a></h3>
 	still operate on collapsed items.</p>
 
 	
-   <div class="example" id="example-f6817be4"><a class="self-link" href="#example-f6817be4"></a>
+   <div class="example">
 		In the following example,
 		a sidebar is sized to fit its content.
 		<a class="css" data-link-type="propdesc" href="http://dev.w3.org/csswg/css2/visufx.html#propdef-visibility">visibility: collapse</a> is used to dynamically hide parts of a navigation sidebar
@@ -1862,7 +2363,7 @@ Flex Direction and Wrap: the <a class="property" data-link-type="propdesc" href=
 	which together define the flex container’s main and cross axes.</p>
 
 	
-   <div class="example" id="example-ce59c06d"><a class="self-link" href="#example-ce59c06d"></a>
+   <div class="example">
 		Some examples of valid flows in an English (left-to-right, horizontal writing mode) document:
 
 		
@@ -2007,7 +2508,7 @@ Display Order: the <a class="property" data-link-type="propdesc" href="#propdef-
 	exactly as if the flex items were reordered in the source document.</p>
 
 	
-   <div class="example" id="example-6155594a"><a class="self-link" href="#example-6155594a"></a>
+   <div class="example">
 		The following figure shows a simple tabbed interface, where the tab for the active pane is always first:
 
 		
@@ -2060,7 +2561,7 @@ Reordering and Accessibility</span><a class="self-link" href="#order-accessibili
 	the desired visual order is not always logical.)</p>
 
 	
-   <div class="example" id="example-465c9ea3"><a class="self-link" href="#example-465c9ea3"></a>
+   <div class="example">
 		Many web pages have a similar shape in the markup,
 		with a header on top,
 		a footer on bottom,
@@ -2170,7 +2671,7 @@ unless the flex container itself is completely empty.</p>
      
 </ul>
 	
-   <div class="example" id="example-e4bd6579"><a class="self-link" href="#example-e4bd6579"></a>
+   <div class="example">
 		This example shows four buttons that do not fit horizontally.
 
 		
@@ -2231,7 +2732,7 @@ unless the flex container itself is completely empty.</p>
 	The <a data-link-type="dfn" href="#main-size">main size</a> of a line is always the same as the <a data-link-type="dfn" href="#main-size">main size</a> of the flex container’s content box.</p>
 
 	
-   <div class="example" id="example-c8b950d1"><a class="self-link" href="#example-c8b950d1"></a>
+   <div class="example">
 		Here’s the same example as the previous,
 		except that the flex items have all been given <a class="css" data-link-type="propdesc" href="#propdef-flex">flex: auto</a>.
 		The first line has 60px of remaining space,
@@ -2452,7 +2953,7 @@ Common Values of <a class="property" data-link-type="propdesc" href="#propdef-fl
 			Equivalent to <a class="css" data-link-type="propdesc" href="#propdef-flex">flex: 0 0 auto</a>.
 			This value sizes the item according to the <a class="property" data-link-type="propdesc" href="http://dev.w3.org/csswg/css2/visudet.html#propdef-width">width</a>/<a class="property" data-link-type="propdesc" href="http://dev.w3.org/csswg/css2/visudet.html#propdef-height">height</a> properties,
 			but makes the flex item fully inflexible.
-			This is similar to <a class="css" data-link-type="maybe" href="http://dev.w3.org/csswg/css-cascade-4/#valdef-all-initial">initial</a>,
+			This is similar to <a class="css" data-link-type="maybe" href="http://dev.w3.org/csswg/css-cascade-3/#valdef-all-initial">initial</a>,
 			except that flex items are not allowed to shrink,
 			even in overflow situations.
 
@@ -2717,7 +3218,7 @@ any positive free space is distributed to auto margins in that dimension.</p>
 	left over after flexing.</p>
 
 	
-   <div class="example" id="example-c2f4f7f3"><a class="self-link" href="#example-c2f4f7f3"></a>
+   <div class="example">
 		One use of <span class="css">auto</span> margins in the main axis is to separate flex items into distinct "groups".
 		The following example shows how to use this to reproduce a common UI pattern -
 		a single bar of actions with some aligned on the left and others aligned on the right.
@@ -2774,7 +3275,7 @@ nav > ul > #login {
    </div>
 
 	
-   <div class="example" id="example-30f9440a"><a class="self-link" href="#example-30f9440a"></a>
+   <div class="example">
 		The figure below illustrates the difference in cross-axis alignment in overflow situations between
 		using <a href="#auto-margins"><span class="css">auto</span> margins</a>
 		and using the <a class="css" data-link-type="property" href="#propdef-align-items">alignment properties</a>.
@@ -3395,7 +3896,7 @@ Line Length Determination</span><a class="self-link" href="#line-sizing"></a></h
 			
 
 			
-     <div class="example" id="example-5ea64ac4"><a class="self-link" href="#example-5ea64ac4"></a>
+     <div class="example">
 				
       <p>For example, the <a data-link-type="dfn" href="http://dev.w3.org/csswg/css-sizing-3/#available">available space</a> to a flex item in a
 					<a href="http://www.w3.org/TR/CSS21/visuren.html#floats">floated</a> <a class="css" data-link-type="value">auto</a>-sized <a data-link-type="dfn" href="#flex-container">flex container</a> is:
@@ -3470,11 +3971,11 @@ Line Length Determination</span><a class="self-link" href="#line-sizing"></a></h
 					Otherwise,
 					size the item into the <a data-link-type="dfn" href="http://dev.w3.org/csswg/css-sizing-3/#available">available space</a>
 					using its used <a data-link-type="dfn" href="#flex-basis">flex basis</a> in place of its <a data-link-type="dfn" href="#main-size">main size</a>,
-					treating a value of <span class="css">content</span> as <a class="css" data-link-type="maybe" href="http://dev.w3.org/csswg/css-sizing-3/#valdef-width-max-content">max-content</a>.
+					treating a value of <span class="css">content</span> as <span class="css">max-content</span>.
 					If a <a data-link-type="dfn" href="#cross-size">cross size</a> is needed to determine the <a data-link-type="dfn" href="#main-size">main size</a>
 					(e.g. when the <a data-link-type="dfn" href="#flex-item">flex item</a>’s <a data-link-type="dfn" href="#main-size">main size</a> is in its block axis)
 					and the <a data-link-type="dfn" href="#flex-item">flex item</a>’s cross size is <a class="css" data-link-type="maybe" href="#valdef-min-width-auto">auto</a> and not <a data-link-type="dfn" href="#definite">definite</a>,
-					in this calculation use <a class="css" data-link-type="maybe" href="http://dev.w3.org/csswg/css-sizing-3/#valdef-width-fit-content">fit-content</a> as the <a data-link-type="dfn" href="#flex-item">flex item</a>’s <a data-link-type="dfn" href="#cross-size">cross size</a>.
+					in this calculation use <span class="css">fit-content</span> as the <a data-link-type="dfn" href="#flex-item">flex item</a>’s <a data-link-type="dfn" href="#cross-size">cross size</a>.
 					The <a data-link-type="dfn" href="#flex-base-size">flex base size</a> is the item’s resulting <a data-link-type="dfn" href="#main-size">main size</a>.
 			
      </ol>
@@ -4146,7 +4647,7 @@ Sample Flex Fragmentation Algorithm</span><a class="self-link" href="#pagination
 		Implementors are encouraged to improve on this algorithm and <a href="#status">provide feedback to the CSS Working Group</a>.
 
 </p>
-   <div class="example" id="example-bb213bd3"><a class="self-link" href="#example-bb213bd3"></a>
+   <div class="example">
 
 	
     <p class="note" role="note">
@@ -4668,7 +5169,9 @@ Fragmenting Flex Layout</a>)</ins>
 		
     <li id="change-201409-min-auto-specified-size"><a class="self-link" href="#change-201409-min-auto-specified-size"></a>
 			Remove the requirement that the <a data-link-type="dfn" href="#flex-basis">flex basis</a> be <span class="css">content</span> for the <a data-link-type="dfn" href="http://dev.w3.org/csswg/css-images-3/#specified-size">specified size</a> to be defined.
-			(The specified size should always win if it is smaller than the intrinsic size.)
+			(The specified size should always win if it is smaller than the intrinsic size.
+			This is particularly important to maintain author expectations for,
+			e.g. <code>&lt;img src="…" width=40 height=40 title="100x100 image"></code>.)
 
 			
      <blockquote>
@@ -4733,7 +5236,7 @@ Clarifications</span><a class="self-link" href="#change-201409-clarify"></a></h4
       <ins>size</ins>
        the item into the <a data-link-type="dfn" href="http://dev.w3.org/csswg/css-sizing-3/#available">available space</a>
 				using its used <a data-link-type="dfn" href="#flex-basis">flex basis</a> in place of its <a data-link-type="dfn" href="#main-size">main size</a>,
-				treating a value of <span class="css">content</span> as <a class="css" data-link-type="maybe" href="http://dev.w3.org/csswg/css-sizing-3/#valdef-width-max-content">max-content</a>.
+				treating a value of <span class="css">content</span> as <span class="css">max-content</span>.
 			
      </blockquote>
      
@@ -5112,7 +5615,7 @@ Substantive Changes and Bugfixes</span><a class="self-link" href="#changes-2014-
       <li>Take into account the specified <a class="property" data-link-type="propdesc" href="http://dev.w3.org/csswg/css2/visudet.html#propdef-width">width</a>/<a class="property" data-link-type="propdesc" href="http://dev.w3.org/csswg/css2/visudet.html#propdef-height">height</a>,
 					so that the implied minimum is never greater than the specified size.
 				
-      <li>Compute to itself (not to <a class="css" data-link-type="maybe" href="http://dev.w3.org/csswg/css-sizing-3/#valdef-width-min-content">min-content</a>) on flex items,
+      <li>Compute to itself (not to <span class="css">min-content</span>) on flex items,
 					since they are no longer equivalent (due to above changes).
 			
      </ul>
@@ -5135,7 +5638,7 @@ Substantive Changes and Bugfixes</span><a class="self-link" href="#changes-2014-
          
 							
          <p class="note" role="note">
-								It is intended that this will compute to the <a class="css" data-link-type="maybe" href="http://dev.w3.org/csswg/css-sizing-3/#valdef-width-min-content">min-content</a> keyword
+								It is intended that this will compute to the <span class="css">min-content</span> keyword
 								when the specification defining it (<a data-link-type="biblio" href="#biblio-css3-sizing">[CSS3-SIZING]</a>) is sufficiently mature.
 							</p>
          
@@ -5275,7 +5778,7 @@ Substantive Changes and Bugfixes</span><a class="self-link" href="#changes-2014-
        <ins>If a <a data-link-type="dfn" href="#cross-size">cross size</a> is needed to determine the <a data-link-type="dfn" href="#main-size">main size</a>
 					(e.g. when the <a data-link-type="dfn" href="#flex-item">flex item</a>’s <a data-link-type="dfn" href="#main-size">main size</a> is in its block axis)
 					and the <a data-link-type="dfn" href="#flex-item">flex item</a>’s <a data-link-type="dfn" href="#cross-size">cross size</a> is <a class="css" data-link-type="maybe" href="#valdef-min-width-auto">auto</a> and not <a data-link-type="dfn" href="#definite">definite</a>,
-					in this calculation use <a class="css" data-link-type="maybe" href="http://dev.w3.org/csswg/css-sizing-3/#valdef-width-fit-content">fit-content</a> as the <a data-link-type="dfn" href="#flex-item">flex item</a>’s <a data-link-type="dfn" href="#cross-size">cross size</a>.</ins>
+					in this calculation use <span class="css">fit-content</span> as the <a data-link-type="dfn" href="#flex-item">flex item</a>’s <a data-link-type="dfn" href="#cross-size">cross size</a>.</ins>
        
 			
       </p>
@@ -5545,7 +6048,7 @@ Substantive Changes and Bugfixes</span><a class="self-link" href="#changes-2014-
 					assuming both the child and the <a data-link-type="dfn" href="#flex-container">flex container</a>
 					were fixed size boxes of their used size.
 					</p>
-       <div class="example" id="example-cd819179"><a class="self-link" href="#example-cd819179"></a>
+       <div class="example">
 						For example, by default, the static position of
 						an absolutely positioned child aligns it to the main-start/cross-start corner,
 						corresponding to the default values of <a class="property" data-link-type="propdesc" href="#propdef-justify-content">justify-content</a> and <a class="property" data-link-type="propdesc" href="#propdef-align-content">align-content</a> on the <a data-link-type="dfn" href="#flex-container">flex container</a>.
@@ -5849,7 +6352,7 @@ Document conventions</span><a class="self-link" href="#conventions"></a></h3>
     like this:
 
     </p>
-  <div class="example" id="example-f839f6c8"><a class="self-link" href="#example-f839f6c8"></a>
+  <div class="example">
         
    <p>This is an example of an informative example.</p>
    
@@ -6131,9 +6634,9 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
      <li><a href="http://dev.w3.org/csswg/css-break-3/#break-after">break-after</a>
      <li><a href="http://dev.w3.org/csswg/css-break-3/#break-before">break-before</a>
     </ul>
-   <li><a data-link-type="biblio" href="#biblio-css-cascade-4">[css-cascade-4]</a> defines the following terms:
+   <li><a data-link-type="biblio" href="#biblio-css-cascade-3">[css-cascade-3]</a> defines the following terms:
     <ul>
-     <li><a href="http://dev.w3.org/csswg/css-cascade-4/#valdef-all-initial">initial</a>
+     <li><a href="http://dev.w3.org/csswg/css-cascade-3/#valdef-all-initial">initial</a>
     </ul>
    <li><a data-link-type="biblio" href="#biblio-css-display-3">[css-display-3]</a> defines the following terms:
     <ul>
@@ -6168,12 +6671,9 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
    <li><a data-link-type="biblio" href="#biblio-css-sizing-3">[css-sizing-3]</a> defines the following terms:
     <ul>
      <li><a href="http://dev.w3.org/csswg/css-sizing-3/#available">available space</a>
-     <li><a href="http://dev.w3.org/csswg/css-sizing-3/#valdef-width-fit-content">fit-content</a>
-     <li><a href="http://dev.w3.org/csswg/css-sizing-3/#valdef-width-max-content">max-content</a>
      <li><a href="http://dev.w3.org/csswg/css-sizing-3/#max_content-constraint">max-content constraint</a>
      <li><a href="http://dev.w3.org/csswg/css-sizing-3/#max_content-contribution">max-content contribution</a>
      <li><a href="http://dev.w3.org/csswg/css-sizing-3/#max_content-size">max-content size</a>
-     <li><a href="http://dev.w3.org/csswg/css-sizing-3/#valdef-width-min-content">min-content</a>
      <li><a href="http://dev.w3.org/csswg/css-sizing-3/#min_content-constraint">min-content constraint</a>
      <li><a href="http://dev.w3.org/csswg/css-sizing-3/#min_content-contribution">min-content contribution</a>
      <li><a href="http://dev.w3.org/csswg/css-sizing-3/#min_content-size">min-content size</a>
@@ -6209,7 +6709,7 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
      <li><a href="http://dev.w3.org/csswg/css-writing-modes-3/#writing-mode">writing mode</a>
      <li><a href="http://dev.w3.org/csswg/css-writing-modes-3/#propdef-writing-mode">writing-mode</a>
     </ul>
-   <li><a data-link-type="biblio" href="#biblio-css21">[CSS21]</a> defines the following terms:
+   <li><a data-link-type="biblio" href="#biblio-css21">[css21]</a> defines the following terms:
     <ul>
      <li><a href="http://dev.w3.org/csswg/css2/visuren.html#propdef-clear">clear</a>
      <li><a href="http://dev.w3.org/csswg/css2/visuren.html#propdef-display">display</a>
@@ -6231,15 +6731,17 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
   <h3 class="no-num heading settled" id="normative"><span class="content">Normative References</span><a class="self-link" href="#normative"></a></h3>
   <dl>
    <dt id="biblio-css21"><a class="self-link" href="#biblio-css21"></a>[CSS21]
-   <dd>Bert Bos; et al. <a href="http://www.w3.org/TR/CSS2">Cascading Style Sheets Level 2 Revision 1 (CSS 2.1) Specification</a>. 7 June 2011. REC. URL: <a href="http://www.w3.org/TR/CSS2">http://www.w3.org/TR/CSS2</a>
+   <dd>Bert Bos; et al. <a href="http://www.w3.org/TR/2011/REC-CSS2-20110607">Cascading Style Sheets Level 2 Revision 1 (CSS 2.1) Specification</a>. 7 June 2011. W3C Recommendation. URL: <a href="http://www.w3.org/TR/2011/REC-CSS2-20110607">http://www.w3.org/TR/2011/REC-CSS2-20110607</a>
    <dt id="biblio-css3-display"><a class="self-link" href="#biblio-css3-display"></a>[CSS3-DISPLAY]
-   <dd>Tab Atkins Jr.; Elika Etemad. <a href="http://www.w3.org/TR/css-display-3/">CSS Display Module Level 3</a>. 11 September 2014. WD. URL: <a href="http://www.w3.org/TR/css-display-3/">http://www.w3.org/TR/css-display-3/</a>
+   <dd>Tab Atkins. <a href="http://www.w3.org/TR/2014/WD-css-display-3-20140220/">CSS Display Module Level 3</a>. 20 February 2014. W3C Working Draft. (Work in progress.) URL: <a href="http://www.w3.org/TR/2014/WD-css-display-3-20140220/">http://www.w3.org/TR/2014/WD-css-display-3-20140220/</a>
+   <dt id="biblio-css3-writing-modes"><a class="self-link" href="#biblio-css3-writing-modes"></a>[CSS3-WRITING-MODES]
+   <dd>Elika J. Etemad; Koji Ishii. <a href="http://www.w3.org/TR/2012/WD-css3-writing-modes-20121115/">CSS Writing Modes Module Level 3</a>. 15 November 2012. W3C Working Draft. (Work in progress.) URL: <a href="http://www.w3.org/TR/2012/WD-css3-writing-modes-20121115/">http://www.w3.org/TR/2012/WD-css3-writing-modes-20121115/</a>
    <dt id="biblio-css-align-3"><a class="self-link" href="#biblio-css-align-3"></a>[CSS-ALIGN-3]
    <dd>Elika Etemad; Tab Atkins Jr.. <a href="http://www.w3.org/TR/css-align-3/">CSS Box Alignment Module Level 3</a>. 18 December 2014. WD. URL: <a href="http://www.w3.org/TR/css-align-3/">http://www.w3.org/TR/css-align-3/</a>
    <dt id="biblio-css-break-3"><a class="self-link" href="#biblio-css-break-3"></a>[CSS-BREAK-3]
    <dd>CSS Fragmentation Module Level 3 URL: <a href="http://www.w3.org/TR/css3-break/">http://www.w3.org/TR/css3-break/</a>
-   <dt id="biblio-css-cascade-4"><a class="self-link" href="#biblio-css-cascade-4"></a>[CSS-CASCADE-4]
-   <dd>Elika Etemad; Tab Atkins Jr.. <a href="http://www.w3.org/TR/css-cascade-4/">CSS Cascading and Inheritance Level 4</a>. 21 April 2015. WD. URL: <a href="http://www.w3.org/TR/css-cascade-4/">http://www.w3.org/TR/css-cascade-4/</a>
+   <dt id="biblio-css-cascade-3"><a class="self-link" href="#biblio-css-cascade-3"></a>[CSS-CASCADE-3]
+   <dd>Håkon Wium Lie; Elika Etemad; Tab Atkins Jr.. <a href="http://www.w3.org/TR/css-cascade-3/">CSS Cascading and Inheritance Level 3</a>. 3 October 2013. CR. URL: <a href="http://www.w3.org/TR/css-cascade-3/">http://www.w3.org/TR/css-cascade-3/</a>
    <dt id="biblio-css-display-3"><a class="self-link" href="#biblio-css-display-3"></a>[CSS-DISPLAY-3]
    <dd>Tab Atkins Jr.; Elika Etemad. <a href="http://www.w3.org/TR/css-display-3/">CSS Display Module Level 3</a>. 11 September 2014. WD. URL: <a href="http://www.w3.org/TR/css-display-3/">http://www.w3.org/TR/css-display-3/</a>
    <dt id="biblio-css-images-3"><a class="self-link" href="#biblio-css-images-3"></a>[CSS-IMAGES-3]
@@ -6264,17 +6766,15 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
    <dd>Rossen Atanassov; Elika Etemad. <a href="http://www.w3.org/TR/css3-break/">CSS Fragmentation Module Level 3</a>. 29 January 2015. WD. URL: <a href="http://www.w3.org/TR/css3-break/">http://www.w3.org/TR/css3-break/</a>
    <dt id="biblio-css3-sizing"><a class="self-link" href="#biblio-css3-sizing"></a>[CSS3-SIZING]
    <dd>Tab Atkins Jr.; Elika Etemad. <a href="http://www.w3.org/TR/css3-sizing/">CSS Intrinsic &amp; Extrinsic Sizing Module Level 3</a>. 27 September 2012. WD. URL: <a href="http://www.w3.org/TR/css3-sizing/">http://www.w3.org/TR/css3-sizing/</a>
-   <dt id="biblio-css3-writing-modes"><a class="self-link" href="#biblio-css3-writing-modes"></a>[CSS3-WRITING-MODES]
-   <dd>Elika Etemad; Koji Ishii. <a href="http://www.w3.org/TR/css-writing-modes-3/">CSS Writing Modes Level 3</a>. 20 March 2014. CR. URL: <a href="http://www.w3.org/TR/css-writing-modes-3/">http://www.w3.org/TR/css-writing-modes-3/</a>
    <dt id="biblio-rfc2119"><a class="self-link" href="#biblio-rfc2119"></a>[RFC2119]
    <dd>S. Bradner. <a href="https://tools.ietf.org/html/rfc2119">Key words for use in RFCs to Indicate Requirement Levels</a>. March 1997. Best Current Practice. URL: <a href="https://tools.ietf.org/html/rfc2119">https://tools.ietf.org/html/rfc2119</a>
   </dl>
   <h3 class="no-num heading settled" id="informative"><span class="content">Informative References</span><a class="self-link" href="#informative"></a></h3>
   <dl>
-   <dt id="biblio-css3ui"><a class="self-link" href="#biblio-css3ui"></a>[CSS3UI]
-   <dd>Tantek Çelik. <a href="http://www.w3.org/TR/css3-ui/">CSS Basic User Interface Module Level 3 (CSS3 UI)</a>. 9 April 2015. WD. URL: <a href="http://www.w3.org/TR/css3-ui/">http://www.w3.org/TR/css3-ui/</a>
    <dt id="biblio-css3-align"><a class="self-link" href="#biblio-css3-align"></a>[CSS3-ALIGN]
-   <dd>Elika Etemad; Tab Atkins Jr.. <a href="http://www.w3.org/TR/css-align-3/">CSS Box Alignment Module Level 3</a>. 18 December 2014. WD. URL: <a href="http://www.w3.org/TR/css-align-3/">http://www.w3.org/TR/css-align-3/</a>
+   <dd>Elika J. Etemad; Tab Atkins Jr.. <a href="http://www.w3.org/TR/2013/WD-css3-align-20130514/">CSS Box Alignment Module Level 3</a>. 14 May 2013. W3C Working Draft. (Work in progress.) URL: <a href="http://www.w3.org/TR/2013/WD-css3-align-20130514/">http://www.w3.org/TR/2013/WD-css3-align-20130514/</a>
+   <dt id="biblio-css3ui"><a class="self-link" href="#biblio-css3ui"></a>[CSS3UI]
+   <dd>Tantek Çelik. <a href="http://www.w3.org/TR/2012/WD-css3-ui-20120117/">CSS Basic User Interface Module Level 3 (CSS3 UI)</a>. 17 January 2012. W3C Working Draft. (Work in progress.) URL: <a href="http://www.w3.org/TR/2012/WD-css3-ui-20120117/">http://www.w3.org/TR/2012/WD-css3-ui-20120117/</a>
    <dt id="biblio-html40"><a class="self-link" href="#biblio-html40"></a>[HTML40]
    <dd>Dave Raggett; Arnaud Le Hors; Ian Jacobs. <a href="http://www.w3.org/TR/html40">HTML 4.0 Recommendation</a>. 24 April 1998. REC. URL: <a href="http://www.w3.org/TR/html40">http://www.w3.org/TR/html40</a>
   </dl>
@@ -6425,506 +6925,5 @@ Non-experimental implementations</span><a class="self-link" href="#testing"></a>
      <td>no
      <td>
      <td>specified value
-  </table>
-  <script>self = (typeof window !== 'undefined')
-	? window   // if in browser
-	: (
-		(typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope)
-		? self // if in worker
-		: {}   // if in node js
-	);
-
-/**
- * Prism: Lightweight, robust, elegant syntax highlighting
- * MIT license http://www.opensource.org/licenses/mit-license.php/
- * @author Lea Verou http://lea.verou.me
- */
-
-var Prism = (function(){
-
-// Private helper vars
-var lang = /\blang(?:uage)?-(?!\*)(\w+)\b/i;
-
-var _ = self.Prism = {
-	util: {
-		encode: function (tokens) {
-			if (tokens instanceof Token) {
-				return new Token(tokens.type, _.util.encode(tokens.content), tokens.alias);
-			} else if (_.util.type(tokens) === 'Array') {
-				return tokens.map(_.util.encode);
-			} else {
-				return tokens.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\u00a0/g, ' ');
-			}
-		},
-
-		type: function (o) {
-			return Object.prototype.toString.call(o).match(/\[object (\w+)\]/)[1];
-		},
-
-		// Deep clone a language definition (e.g. to extend it)
-		clone: function (o) {
-			var type = _.util.type(o);
-
-			switch (type) {
-				case 'Object':
-					var clone = {};
-
-					for (var key in o) {
-						if (o.hasOwnProperty(key)) {
-							clone[key] = _.util.clone(o[key]);
-						}
-					}
-
-					return clone;
-
-				case 'Array':
-					return o.slice();
-			}
-
-			return o;
-		}
-	},
-
-	languages: {
-		extend: function (id, redef) {
-			var lang = _.util.clone(_.languages[id]);
-
-			for (var key in redef) {
-				lang[key] = redef[key];
-			}
-
-			return lang;
-		},
-
-		// Insert a token before another token in a language literal
-		insertBefore: function (inside, before, insert, root) {
-			root = root || _.languages;
-			var grammar = root[inside];
-			var ret = {};
-
-			for (var token in grammar) {
-
-				if (grammar.hasOwnProperty(token)) {
-
-					if (token == before) {
-
-						for (var newToken in insert) {
-
-							if (insert.hasOwnProperty(newToken)) {
-								ret[newToken] = insert[newToken];
-							}
-						}
-					}
-
-					ret[token] = grammar[token];
-				}
-			}
-
-			return root[inside] = ret;
-		},
-
-		// Traverse a language definition with Depth First Search
-		DFS: function(o, callback, type) {
-			for (var i in o) {
-				if (o.hasOwnProperty(i)) {
-					callback.call(o, i, o[i], type || i);
-
-					if (_.util.type(o[i]) === 'Object') {
-						_.languages.DFS(o[i], callback);
-					} else if (_.util.type(o[i]) === 'Array') {
-						_.languages.DFS(o[i], callback, i);
-					}
-				}
-			}
-		}
-	},
-
-	highlightAll: function(async, callback) {
-		var elements = document.querySelectorAll('code[class*="language-"], [class*="language-"] code, code[class*="lang-"], [class*="lang-"] code');
-		for (var i=0, element; element = elements[i++];) {
-			if (element.classList.contains("idl")) {
-				// Bikeshed handles IDL blocks already.
-				continue;
-			}
-			_.highlightElement(element, async === true, callback);
-		}
-
-		var elements = document.querySelectorAll('pre[class*="language-"], [class*="language-"] pre, pre[class*="lang-"], [class*="lang-"] pre');
-		for (var i=0, element; element = elements[i++];) {
-			if (element.firstElementChild && element.firstElementChild.tagName.toLowerCase() == "code") {
-				// Already handled by the previous loop
-				continue;
-			}
-			if (element.classList.contains("idl")) {
-				// Bikeshed handles IDL blocks already.
-				continue;
-			}
-			_.highlightElement(element, async === true, callback);
-		}
-	},
-
-	highlightElement: function(element, async, callback) {
-		// Find language
-		var language, grammar, parent = element;
-
-		while (parent && !lang.test(parent.className)) {
-			parent = parent.parentNode;
-		}
-
-		if (parent) {
-			language = (parent.className.match(lang) || [,''])[1];
-			grammar = _.languages[language];
-		}
-
-		if (!grammar) {
-			return;
-		}
-
-		// Set language on the element, if not present
-		element.className = element.className.replace(lang, '').replace(/\s+/g, ' ') + ' language-' + language;
-
-		// Set language on the parent, for styling
-		parent = element.parentNode;
-
-		if (/pre/i.test(parent.nodeName)) {
-			parent.className = parent.className.replace(lang, '').replace(/\s+/g, ' ') + ' language-' + language;
-		}
-
-		var code = element.textContent;
-
-		if(!code) {
-			return;
-		}
-
-		var env = {
-			element: element,
-			language: language,
-			grammar: grammar,
-			code: code
-		};
-
-		_.hooks.run('before-highlight', env);
-
-		if (async && self.Worker) {
-			var worker = new Worker(_.filename);
-
-			worker.onmessage = function(evt) {
-				env.highlightedCode = Token.stringify(JSON.parse(evt.data), language);
-
-				_.hooks.run('before-insert', env);
-
-				env.element.innerHTML = env.highlightedCode;
-
-				callback && callback.call(env.element);
-				_.hooks.run('after-highlight', env);
-			};
-
-			worker.postMessage(JSON.stringify({
-				language: env.language,
-				code: env.code
-			}));
-		}
-		else {
-			env.highlightedCode = _.highlight(env.code, env.grammar, env.language)
-
-			_.hooks.run('before-insert', env);
-
-			env.element.innerHTML = env.highlightedCode;
-
-			callback && callback.call(element);
-
-			_.hooks.run('after-highlight', env);
-		}
-	},
-
-	highlight: function (text, grammar, language) {
-		var tokens = _.tokenize(text, grammar);
-		return Token.stringify(_.util.encode(tokens), language);
-	},
-
-	tokenize: function(text, grammar, language) {
-		var Token = _.Token;
-
-		var strarr = [text];
-
-		var rest = grammar.rest;
-
-		if (rest) {
-			for (var token in rest) {
-				grammar[token] = rest[token];
-			}
-
-			delete grammar.rest;
-		}
-
-		tokenloop: for (var token in grammar) {
-			if(!grammar.hasOwnProperty(token) || !grammar[token]) {
-				continue;
-			}
-
-			var patterns = grammar[token];
-			patterns = (_.util.type(patterns) === "Array") ? patterns : [patterns];
-
-			for (var j = 0; j < patterns.length; ++j) {
-				var pattern = patterns[j],
-					inside = pattern.inside,
-					lookbehind = !!pattern.lookbehind,
-					lookbehindLength = 0,
-					alias = pattern.alias;
-
-				pattern = pattern.pattern || pattern;
-
-				for (var i=0; i<strarr.length; i++) { // Don’t cache length as it changes during the loop
-
-					var str = strarr[i];
-
-					if (strarr.length > text.length) {
-						// Something went terribly wrong, ABORT, ABORT!
-						break tokenloop;
-					}
-
-					if (str instanceof Token) {
-						continue;
-					}
-
-					pattern.lastIndex = 0;
-
-					var match = pattern.exec(str);
-
-					if (match) {
-						if(lookbehind) {
-							lookbehindLength = match[1].length;
-						}
-
-						var from = match.index - 1 + lookbehindLength,
-							match = match[0].slice(lookbehindLength),
-							len = match.length,
-							to = from + len,
-							before = str.slice(0, from + 1),
-							after = str.slice(to + 1);
-
-						var args = [i, 1];
-
-						if (before) {
-							args.push(before);
-						}
-
-						var wrapped = new Token(token, inside? _.tokenize(match, inside) : match, alias);
-
-						args.push(wrapped);
-
-						if (after) {
-							args.push(after);
-						}
-
-						Array.prototype.splice.apply(strarr, args);
-					}
-				}
-			}
-		}
-
-		return strarr;
-	},
-
-	hooks: {
-		all: {},
-
-		add: function (name, callback) {
-			var hooks = _.hooks.all;
-
-			hooks[name] = hooks[name] || [];
-
-			hooks[name].push(callback);
-		},
-
-		run: function (name, env) {
-			var callbacks = _.hooks.all[name];
-
-			if (!callbacks || !callbacks.length) {
-				return;
-			}
-
-			for (var i=0, callback; callback = callbacks[i++];) {
-				callback(env);
-			}
-		}
-	}
-};
-
-var Token = _.Token = function(type, content, alias) {
-	this.type = type;
-	this.content = content;
-	this.alias = alias;
-};
-
-Token.stringify = function(o, language, parent) {
-	if (typeof o == 'string') {
-		return o;
-	}
-
-	if (Object.prototype.toString.call(o) == '[object Array]') {
-		return o.map(function(element) {
-			return Token.stringify(element, language, o);
-		}).join('');
-	}
-
-	var env = {
-		type: o.type,
-		content: Token.stringify(o.content, language, parent),
-		tag: 'span',
-		classes: ['token', o.type],
-		attributes: {},
-		language: language,
-		parent: parent
-	};
-
-	if (env.type == 'comment') {
-		env.attributes['spellcheck'] = 'true';
-	}
-
-	if (o.alias) {
-		var aliases = _.util.type(o.alias) === 'Array' ? o.alias : [o.alias];
-		Array.prototype.push.apply(env.classes, aliases);
-	}
-
-	_.hooks.run('wrap', env);
-
-	var attributes = '';
-
-	for (var name in env.attributes) {
-		attributes += name + '="' + (env.attributes[name] || '') + '"';
-	}
-
-	return '<' + env.tag + ' class="' + env.classes.join(' ') + '" ' + attributes + '>' + env.content + '</' + env.tag + '>';
-
-};
-
-if (!self.document) {
-	if (!self.addEventListener) {
-		// in Node.js
-		return self.Prism;
-	}
- 	// In worker
-	self.addEventListener('message', function(evt) {
-		var message = JSON.parse(evt.data),
-		    lang = message.language,
-		    code = message.code;
-
-		self.postMessage(JSON.stringify(_.util.encode(_.tokenize(code, _.languages[lang]))));
-		self.close();
-	}, false);
-
-	return self.Prism;
-}
-
-// Get current script and highlight
-var script = document.getElementsByTagName('script');
-
-script = script[script.length - 1];
-
-if (script) {
-	_.filename = script.src;
-
-	if (document.addEventListener && !script.hasAttribute('data-manual')) {
-		document.addEventListener('DOMContentLoaded', _.highlightAll);
-	}
-}
-
-return self.Prism;
-
-})();
-
-if (typeof module !== 'undefined' && module.exports) {
-	module.exports = Prism;
-}
-;
-Prism.languages.markup = {
-	'comment': /<!--[\w\W]*?-->/g,
-	'prolog': /<\?.+?\?>/,
-	'doctype': /<!DOCTYPE.+?>/,
-	'cdata': /<!\[CDATA\[[\w\W]*?]]>/i,
-	'tag': {
-		pattern: /<\/?[\w:-]+\s*(?:\s+[\w:-]+(?:=(?:("|')(\\?[\w\W])*?\1|[^\s'">=]+))?\s*)*\/?>/gi,
-		inside: {
-			'tag': {
-				pattern: /^<\/?[\w:-]+/i,
-				inside: {
-					'punctuation': /^<\/?/,
-					'namespace': /^[\w-]+?:/
-				}
-			},
-			'attr-value': {
-				pattern: /=(?:('|")[\w\W]*?(\1)|[^\s>]+)/gi,
-				inside: {
-					'punctuation': /=|>|"/g
-				}
-			},
-			'punctuation': /\/?>/g,
-			'attr-name': {
-				pattern: /[\w:-]+/g,
-				inside: {
-					'namespace': /^[\w-]+?:/
-				}
-			}
-
-		}
-	},
-	'entity': /\&#?[\da-z]{1,8};/gi
-};
-
-// Plugin to make entity title show the real entity, idea by Roman Komarov
-Prism.hooks.add('wrap', function(env) {
-
-	if (env.type === 'entity') {
-		env.attributes['title'] = env.content.replace(/&amp;/, '&');
-	}
-});
-;
-Prism.languages.css = {
-	'comment': /\/\*[\w\W]*?\*\//g,
-	'atrule': {
-		pattern: /@[\w-]+?.*?(;|(?=\s*{))/gi,
-		inside: {
-			'punctuation': /[;:]/g
-		}
-	},
-	'url': /url\((["']?).*?\1\)/gi,
-	'selector': /[^\{\}\s][^\{\};]*(?=\s*\{)/g,
-	'property': /(\b|\B)[\w-]+(?=\s*:)/ig,
-	'string': /("|')(\\?.)*?\1/g,
-	'important': /\B!important\b/gi,
-	'punctuation': /[\{\};:]/g,
-	'function': /[-a-z0-9]+(?=\()/ig
-};
-
-if (Prism.languages.markup) {
-	Prism.languages.insertBefore('markup', 'tag', {
-		'style': {
-			pattern: /<style[\w\W]*?>[\w\W]*?<\/style>/ig,
-			inside: {
-				'tag': {
-					pattern: /<style[\w\W]*?>|<\/style>/ig,
-					inside: Prism.languages.markup.tag.inside
-				},
-				rest: Prism.languages.css
-			}
-		}
-	});
-};
-Prism.languages.css.selector = {
-	pattern: /[^\{\}\s][^\{\}]*(?=\s*\{)/g,
-	inside: {
-		'pseudo-element': /:(?:after|before|first-letter|first-line|selection)|::[-\w]+/g,
-		'pseudo-class': /:[-\w]+(?:\(.*\))?/g,
-		'class': /\.[-:\.\w]+/g,
-		'id': /#[-:\.\w]+/g
-	}
-};
-
-Prism.languages.insertBefore('css', 'ignore', {
-	'hexcode': /#[\da-f]{3,6}/gi,
-	'entity': /\\[\da-f]{1,8}/gi,
-	'number': /[\d%\.]+/g
-});;
-</script></body>
+  </table></body>
 </html>
