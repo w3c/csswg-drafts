@@ -7,17 +7,17 @@
 #THE_YEAR = YYYY
 THE_YEAR = 2015
 #THE_MONTH = MM
-THE_MONTH = 06
+THE_MONTH = 05
 #THE_MONTHNAME = MMMMM
-THE_MONTHNAME = June
+THE_MONTHNAME = May
 #THE_DAY = DD
-THE_DAY = 02
-THE_STATUS = FPWD
-#THE_STATUS = ED
-THE_STATUSNAME = First Public Working Draft
-#THE_STATUSNAME = Editors' Draft
-THE_STYLE = WD
-#THE_STYLE = ED
+THE_DAY = 28
+#THE_STATUS = FPWD
+THE_STATUS = ED
+#THE_STATUSNAME = First Public Working Draft
+THE_STATUSNAME = Editors' Draft
+#THE_STYLE = WD
+THE_STYLE = ED
 
 PREV_YEAR = 2015
 PREV_MONTH = 06
@@ -280,16 +280,16 @@ LN= ln
 	$(INSAFTER) - build/warning /H1 - |\
 	$(INSAFTER) - $*.subtoc /H1 - |\
 	$(MKCHAIN) -r $@ - |\
-	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
-	       -e 's|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g' \
-	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
-	       -e 's|_THE_STATUS_|$(THE_STATUS)|g' \
-	       -e 's|_THE_STATUSNAME_|$(THE_STATUSNAME)|g' \
-	       -e 's|_THE_STYLE_|$(THE_STYLE)|g' \
-	       -e 's|_THE_DATE_|$(THE_DATE)|g' \
-	       -e 's|_THE_WARNING_|$(THE_WARNING)|g' \
-	       -e 's|_THE_ID_|$(THE_ID)|g' \
-	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' >$@
+	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
+	       -e "s|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g" \
+	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
+	       -e "s|_THE_STATUS_|$(THE_STATUS)|g" \
+	       -e "s|_THE_STATUSNAME_|$(THE_STATUSNAME)|g" \
+	       -e "s|_THE_STYLE_|$(THE_STYLE)|g" \
+	       -e "s|_THE_DATE_|$(THE_DATE)|g" \
+	       -e "s|_THE_WARNING_|$(THE_WARNING)|g" \
+	       -e "s|_THE_ID_|$(THE_ID)|g" \
+	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" >$@
 
 %.srd: %.src build/blocks.ok $(REFSRC:.src=.srd)
 	@echo "=========== making" $@
@@ -376,14 +376,14 @@ images/pngs.ok: images/*.idraw images/*.fig
 	touch images/pngs.ok
 
 translations.html : translations.src
-	$(SED) -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
-	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' $< > $@
+	$(SED) -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
+	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" $< > $@
 
 errata.html : errata.src
-	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
-	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
-	       -e 's|_THE_ID_|$(THE_ID)|g' \
-	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' $< > $@
+	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
+	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
+	       -e "s|_THE_ID_|$(THE_ID)|g" \
+	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" $< > $@
 
 #### Special section to build PS file and single plain text file
 
@@ -462,17 +462,17 @@ cover.html: cover.srd Project.cfg
 	@echo "=========== making" $@
 	$(ADDNAVBAR) -r $@ $< |\
 	$(MKCHAIN) -r $@ - |\
-	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
-	       -e 's|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g' \
-	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
-	       -e 's|_THE_STATUS_|$(THE_STATUS)|g' \
-	       -e 's|_THE_STATUSNAME_|$(THE_STATUSNAME)|g' \
-	       -e 's|_THE_STYLE_|$(THE_STYLE)|g' \
-	       -e 's|_THE_DATE_|$(THE_DATE)|g' \
-	       -e 's|_THE_WARNING_|$(THE_WARNING)|g' \
-	       -e 's|_THE_YEAR_|$(THE_YEAR)|g' \
-	       -e 's|_THE_ID_|$(THE_ID)|g' \
-	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' >$@
+	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
+	       -e "s|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g" \
+	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
+	       -e "s|_THE_STATUS_|$(THE_STATUS)|g" \
+	       -e "s|_THE_STATUSNAME_|$(THE_STATUSNAME)|g" \
+	       -e "s|_THE_STYLE_|$(THE_STYLE)|g" \
+	       -e "s|_THE_DATE_|$(THE_DATE)|g" \
+	       -e "s|_THE_WARNING_|$(THE_WARNING)|g" \
+	       -e "s|_THE_YEAR_|$(THE_YEAR)|g" \
+	       -e "s|_THE_ID_|$(THE_ID)|g" \
+	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" >$@
 
 build/contents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.src=.srd) $(INDEXSRCS:.src=.srd) Project.cfg
 	@echo "=========== making" $@
@@ -500,17 +500,17 @@ indexlist.html: indexlist.srd build/indexlist.srb Project.cfg build/warning
 	$(ADDNAVBAR) -r $@ $< |\
 	$(INSAFTER) - build/warning /H1 - |\
 	$(MKCHAIN) -r $@ - |\
-	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
-	       -e 's|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g' \
-	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
-	       -e 's|_THE_STATUS_|$(THE_STATUS)|g' \
-	       -e 's|_THE_STATUSNAME_|$(THE_STATUSNAME)|g' \
-	       -e 's|_THE_STYLE_|$(THE_STYLE)|g' \
-	       -e 's|_THE_DATE_|$(THE_DATE)|g' \
-	       -e 's|_THE_WARNING_|$(THE_WARNING)|g' \
-	       -e 's|_THE_YEAR_|$(THE_YEAR)|g' \
-	       -e 's|_THE_ID_|$(THE_ID)|g' \
-	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' >$@
+	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
+	       -e "s|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g" \
+	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
+	       -e "s|_THE_STATUS_|$(THE_STATUS)|g" \
+	       -e "s|_THE_STATUSNAME_|$(THE_STATUSNAME)|g" \
+	       -e "s|_THE_STYLE_|$(THE_STYLE)|g" \
+	       -e "s|_THE_DATE_|$(THE_DATE)|g" \
+	       -e "s|_THE_WARNING_|$(THE_WARNING)|g" \
+	       -e "s|_THE_YEAR_|$(THE_YEAR)|g" \
+	       -e "s|_THE_ID_|$(THE_ID)|g" \
+	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" >$@
 
 build/propidx.srb: $(PROPSRC)
 	@echo "=========== making" $@
