@@ -5,25 +5,33 @@
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
 #THE_YEAR = YYYY
-THE_YEAR = 2014
+THE_YEAR = 2015
 #THE_MONTH = MM
-THE_MONTH = 09
+THE_MONTH = 05
 #THE_MONTHNAME = MMMMM
-THE_MONTHNAME = September
+THE_MONTHNAME = May
 #THE_DAY = DD
-THE_DAY = 25
+THE_DAY = 28
+#THE_STATUS = FPWD
 THE_STATUS = ED
-#THE_STATUS = REC
-THE_STATUSNAME = Editors Draft
-#THE_STATUSNAME = Recommendation
+#THE_STATUSNAME = First Public Working Draft
+THE_STATUSNAME = Editors' Draft
+#THE_STYLE = WD
+THE_STYLE = ED
 
-PREV_YEAR = 2011
+PREV_YEAR = 2015
 PREV_MONTH = 06
-PREV_DAY = 07
-PREV_STATUS = REC
-PREV_NAME = CSS2
+PREV_DAY = 02
+PREV_STATUS = WD
+PREV_NAME = CSS22
 
-PERMANENT_NAME = CSS2
+PERMANENT_NAME = CSS22
+
+# A very visible warning after the first H1 on every page (or at the
+# location of the _THE_WARNING_ placeholder on some pages). Leave
+# empty if none is needed. (Escape any & as \&.)
+# 
+THE_WARNING =
 
 # WEBROOT = /afs/w3.org/WWW
 WEBROOT = $(HOME)/WWW
@@ -35,13 +43,13 @@ THE_UPDATE_DIR = http://www.w3.org$(UPDATES)
 UPDATESDIR= $(WEBROOT)$(UPDATES)
 TR_DIR = $(WEBROOT)/TR
 THE_DATE = $(THE_DAY) $(THE_MONTHNAME) $(THE_YEAR)
-THE_ID = $(THE_STATUS)-$(PERMANENT_NAME)-$(THE_YEAR)$(THE_MONTH)$(THE_DAY)
+THE_ID = $(THE_STYLE)-$(PERMANENT_NAME)-$(THE_YEAR)$(THE_MONTH)$(THE_DAY)
 PREV_DATE = $(PREV_YEAR)$(PREV_MONTH)$(PREV_DAY)
-THE_PREVIOUS_VERSION = http://www.w3.org/TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PREV_NAME)-$(PREV_DATE)
+THE_PREVIOUS_VERSION = http://www.w3.org/TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PREV_NAME)-$(PREV_DATE)/
 THE_LOC = $(THE_YEAR)/$(THE_ID)
 INSTALLDIR = $(TR_DIR)/$(THE_LOC)
-THIS_VERSION = http://www.w3.org/TR/$(THE_LOC)
-THE_LATEST_VERSION = http://www.w3.org/TR/$(PERMANENT_NAME)
+THIS_VERSION = http://www.w3.org/TR/$(THE_LOC)/
+THE_LATEST_VERSION = http://www.w3.org/TR/$(PERMANENT_NAME)/
 
 ROOT = .
 
@@ -262,23 +270,26 @@ LN= ln
 # at the cost of possibly incorrect xrefs in the other .html files
 #
 #%.html: %.subtoc Project.cfg
-%.html: %.subtoc $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) Project.cfg #$(SPECSRCS:.src=.srd)
+%.html: %.subtoc $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) Project.cfg build/warning #$(SPECSRCS:.src=.srd)
 	@echo "=========== making" $@
 	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- value-inst-/value-def- |\
 	$(ADDIDXANCH) -r $@ $(INDEXDB) - |\
 	$(ADDMARKUP) - |\
 	$(ADDLONGDESC) - |\
 	$(ADDNAVBAR) -r $@ |\
+	$(INSAFTER) - build/warning /H1 - |\
 	$(INSAFTER) - $*.subtoc /H1 - |\
 	$(MKCHAIN) -r $@ - |\
-	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
-	       -e 's|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g' \
-	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
-	       -e 's|_THE_STATUS_|$(THE_STATUS)|g' \
-	       -e 's|_THE_STATUSNAME_|$(THE_STATUSNAME)|g' \
-	       -e 's|_THE_DATE_|$(THE_DATE)|g' \
-	       -e 's|_THE_ID_|$(THE_ID)|g' \
-	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' >$@
+	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
+	       -e "s|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g" \
+	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
+	       -e "s|_THE_STATUS_|$(THE_STATUS)|g" \
+	       -e "s|_THE_STATUSNAME_|$(THE_STATUSNAME)|g" \
+	       -e "s|_THE_STYLE_|$(THE_STYLE)|g" \
+	       -e "s|_THE_DATE_|$(THE_DATE)|g" \
+	       -e "s|_THE_WARNING_|$(THE_WARNING)|g" \
+	       -e "s|_THE_ID_|$(THE_ID)|g" \
+	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" >$@
 
 %.srd: %.src build/blocks.ok $(REFSRC:.src=.srd)
 	@echo "=========== making" $@
@@ -310,6 +321,8 @@ all: build/blocks.ok $(SPECOBJS) images/pngs.ok \
 	$(IMAGES)
 #	$(IMAGES) issues.html errata-issues.html DOC/TODO.html
 
+build/warning:
+	echo "_THE_WARNING_" >$@
 
 #images/links.ok : $(IMAGES)
 #	-@(cd images; for i in *.gif; do $(LN) -s $$i "`basename $$i .gif`" 2>//dev/null; done)
@@ -335,10 +348,10 @@ $(INSTALLDIR)/.htaccess:
 	mkdir -p $(INSTALLDIR)
 	echo "DirectoryIndex cover.html" >$@
 	echo "<Files ~ \"\.html\">" >>$@
-	echo "ForceType 'text/html; charset=iso-8859-1'" >>$@
+	echo "ForceType 'text/html; charset=utf-8'" >>$@
 	echo "</Files>" >>$@
 	echo "<Files ~ \"\.txt\">" >>$@
-	echo "ForceType 'text/plain; charset=iso-8859-1'" >>$@
+	echo "ForceType 'text/plain; charset=utf-8'" >>$@
 	echo "</Files>" >>$@
 
 link: install
@@ -363,25 +376,26 @@ images/pngs.ok: images/*.idraw images/*.fig
 	touch images/pngs.ok
 
 translations.html : translations.src
-	$(SED) -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
-	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' $< > $@
+	$(SED) -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
+	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" $< > $@
 
 errata.html : errata.src
-	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
-	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
-	       -e 's|_THE_ID_|$(THE_ID)|g' \
-	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' $< > $@
+	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
+	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
+	       -e "s|_THE_ID_|$(THE_ID)|g" \
+	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" $< > $@
 
 #### Special section to build PS file and single plain text file
 
 extras: css2.tgz
 
-# The sources are in ISO-8859-1, make them ASCII to avoid encoding problems
-%.pdf: %.html style/default.css; asc2xml < $< | xml2asc | prince -o $@ -
+%.pdf: %.html style/default.css; prince -o $@ $<
 %.ps: %.pdf; $(PDF2PS) $< $@
 
-css2.pdf: $(SPECOBJS:.html=.pdf)
-	pdftk $+ cat output $@
+# css2.pdf: $(SPECOBJS:.html=.pdf)
+# 	pdftk $+ cat output $@
+# css2.pdf: css2.html
+# 	prince -o $@ $<
 
 # css2.ps: build/blocks.ok $(SPECOBJS) images/pngs.ok $(IMAGES)
 # # Because of memory limitations in html2ps, use the
@@ -448,14 +462,17 @@ cover.html: cover.srd Project.cfg
 	@echo "=========== making" $@
 	$(ADDNAVBAR) -r $@ $< |\
 	$(MKCHAIN) -r $@ - |\
-	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
-	       -e 's|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g' \
-	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
-	       -e 's|_THE_STATUS_|$(THE_STATUS)|g' \
-	       -e 's|_THE_STATUSNAME_|$(THE_STATUSNAME)|g' \
-	       -e 's|_THE_DATE_|$(THE_DATE)|g' \
-	       -e 's|_THE_ID_|$(THE_ID)|g' \
-	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' >$@
+	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
+	       -e "s|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g" \
+	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
+	       -e "s|_THE_STATUS_|$(THE_STATUS)|g" \
+	       -e "s|_THE_STATUSNAME_|$(THE_STATUSNAME)|g" \
+	       -e "s|_THE_STYLE_|$(THE_STYLE)|g" \
+	       -e "s|_THE_DATE_|$(THE_DATE)|g" \
+	       -e "s|_THE_WARNING_|$(THE_WARNING)|g" \
+	       -e "s|_THE_YEAR_|$(THE_YEAR)|g" \
+	       -e "s|_THE_ID_|$(THE_ID)|g" \
+	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" >$@
 
 build/contents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.src=.srd) $(INDEXSRCS:.src=.srd) Project.cfg
 	@echo "=========== making" $@
@@ -478,18 +495,22 @@ indexlist.srd:: build/indexlist.srb #indexlist.src build/blocks.ok
 #	@echo "=========== making" $@
 #	$(CP) $< $@
 
-indexlist.html: indexlist.srd build/indexlist.srb Project.cfg
+indexlist.html: indexlist.srd build/indexlist.srb Project.cfg build/warning
 	@echo "=========== making" $@
 	$(ADDNAVBAR) -r $@ $< |\
+	$(INSAFTER) - build/warning /H1 - |\
 	$(MKCHAIN) -r $@ - |\
-	$(SED) -e 's|_THIS_VERSION_|$(THIS_VERSION)|g' \
-	       -e 's|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g' \
-	       -e 's|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g' \
-	       -e 's|_THE_STATUS_|$(THE_STATUS)|g' \
-	       -e 's|_THE_STATUSNAME_|$(THE_STATUSNAME)|g' \
-	       -e 's|_THE_DATE_|$(THE_DATE)|g' \
-	       -e 's|_THE_ID_|$(THE_ID)|g' \
-	       -e 's|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g' >$@
+	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
+	       -e "s|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g" \
+	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
+	       -e "s|_THE_STATUS_|$(THE_STATUS)|g" \
+	       -e "s|_THE_STATUSNAME_|$(THE_STATUSNAME)|g" \
+	       -e "s|_THE_STYLE_|$(THE_STYLE)|g" \
+	       -e "s|_THE_DATE_|$(THE_DATE)|g" \
+	       -e "s|_THE_WARNING_|$(THE_WARNING)|g" \
+	       -e "s|_THE_YEAR_|$(THE_YEAR)|g" \
+	       -e "s|_THE_ID_|$(THE_ID)|g" \
+	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" >$@
 
 build/propidx.srb: $(PROPSRC)
 	@echo "=========== making" $@
