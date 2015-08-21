@@ -1,0 +1,431 @@
+<pre class='metadata'>
+Title: CSS Scroll Snapping Change Proposal
+Shortname: css-scroll-snap
+Level: 1
+Status: UD
+Work Status: exploring
+Group: CSSWG
+ED: https://drafts.csswg.org/css-scroll-snap/
+Editor: Tab Atkins-Bittner, Google, http://xanthir.com/contact/
+Editor: fantasai, Invited Expert, http://fantasai.inkedblade.net/contact
+Abstract: A brief description of an alternate model for scroll-snapping.
+</pre>
+
+<pre class="link-defaults">
+spec: css-shapes-1; type: value; for: <shape-box>
+	text: border-box
+	text: margin-box
+</pre>
+
+Introduction {#intro}
+=====================
+
+We think scroll snapping is a great idea, and fully support exposing this functionality through CSS. However, a major weakness of the current spec is the way it conceives snapping on a coordinate model rather than a box model. This requires a lot of manual calculations in figuring out the correct coordinates from the box model; and also makes sensible scroll-snap settings dependent on the relative sizes of the viewport and the snappable contents, causing problems for users are unexpectedly large and/or small screens (a problem commonly ignored by many authors).
+
+This proposal builds off of roc's model, using an area-snapping model to intelligently handle adaptation to multiple screen sizes. It also adds group alignment as a built-in concept, rather than requiring authors to build one in JavaScript.
+
+Use Cases {#use-cases}
+======================
+
+<div class="example">
+	Use Case 1: Snapping to the start or middle of each box
+	e.g. address book (start) or photo album (middle)
+
+	1. Snapping to 0.25rem above the top of each heading
+
+		<pre class="lang-css">
+		:root { scroll-snap-type: proximity; }
+		h1, h2, h3, h4, h5, h6 {
+			scroll-snap-align: start;
+			scroll-snap-area: 0.25em;
+		}
+		</pre>
+
+	2. Snapping to the center of each photo
+
+		<pre class="lang-css">
+		:root { scroll-snap-type: mandatory; }
+		img { scroll-snap-align: center; }
+		</pre>
+</div>
+
+<div class="example">
+	Use Case 2: Snapping to the start or middle of a group of boxes,
+	where the number of boxes depends on how many fit in the viewport
+	e.g. scrolling image galleries
+
+	1. Snapping to the top of each "page" of address book entries in a list of entries
+
+		<pre class="lang-css">
+		:root {
+			scroll-snap-type: proximity;
+			scroll-group-align: start;
+		}
+		article {
+			scroll-snap-align: group;
+		}
+		</pre>
+</div>
+
+<div class="example">
+	Use Case 3: Snapping to boxes (or points) in 2D
+	e.g. on a map, where you want to snap points of interest to the
+	center, or a flow-chart diagram, where you want to snap the edges
+	of each box into the visible area. In both cases, you don't want
+	objects wholly outside the visible area to influence snapping.
+
+	1. Snapping each flow chart entry to within the viewport when it falls near the edge:
+
+		<pre class="lang-css">
+		:root {
+			scroll-snap-type: proximity;
+		}
+		li {
+			scroll-snap-align: edges;
+			scroll-snap-scope: finite;
+		}
+		</pre>
+
+	2. Snapping each city on a map to the center of the viewport,
+		but only once it gets near the center in both dimensions:
+
+		<pre class="lang-css">
+		:root {
+			scroll-snap-type: proximity;
+		}
+		.city {
+			scroll-snap-align: center;
+			scroll-snap-scope: finite;
+		}
+		</pre>
+</div>
+
+<div class="example">
+	Use Case 4: Slideshow, where successive slides are arranged horizontally,
+	and sometimes "detail" slides are placed below the "main" slide for that point.
+
+	<pre class="lang-html">
+		&lt;div class="slides">
+			&lt;div class="slide">...&lt;/div>
+			&lt;div class="slide">...&lt;/div>
+			&lt;div class="slide details">
+				&lt;div class="slide">...&lt;/div>
+				&lt;div class="slide">...&lt;/div>
+			&lt;/div>
+			&lt;div class="slide">...&lt;/div>
+		&lt;/div>
+		&lt;style>
+		.slides {
+			display: flex;
+			flex-flow: row;
+			scroll-snap-type: mandatory;
+			overflow-x: scroll;
+			width: 100vw;
+			height: 100vh;
+		}
+		.slide {
+			scroll-snap-align: edges;
+			width: 100vw;
+			min-height: 100vh;
+		}
+		.slide.details {
+			display: flex;
+			flex-flow: column;
+			scroll-snap-type: mandatory;
+			overflow-y: scroll;
+		}
+		&lt;/style>
+	</pre>
+</div>
+
+Overview of Change {#proposal}
+==============================
+
+On the scroll container:
+
+<table class=data>
+	<thead>
+		<tr>
+			<th>Spec
+			<th>Proposal
+			<th>Priority
+	<tbody>
+		<tr>
+			<td>'scroll-snap-type'
+			<td>'scroll-snap-type' (no change)
+			<td>High priority
+		<tr>
+			<td>''scroll-snap-destination: <<position>>''
+			<td>''scroll-snap-destination: auto | <<position>>''
+			<td>Keep this property only if needed for compat.
+		<tr>
+			<td>'scroll-snap-points-x'
+			<td>dropped
+			<td>High priority to drop. :)
+		<tr>
+			<td>'scroll-snap-points-y'
+			<td>dropped
+			<td>High priority to drop. :)
+		<tr>
+			<td>n/a
+			<td>''scroll-group-align: [ start | end | edges ]{1,2} | <<position>>#''
+			<td>Low priority
+</table>
+
+On the children:
+
+<table class=data>
+	<thead>
+		<tr>
+			<th>Spec
+			<th>Proposal
+			<th>Priority
+	<tbody>
+		<tr>
+			<td>''scroll-snap-coordinate: <<position>>#''
+			<td>''scroll-snap-align: [ none | start | end | edges ]{1,2} | <<position>> | group''
+			<td>High priority; simpler version adds a center keyword to the bracketed set instead of allowing the full <<position>># syntax inherited from 'scroll-snap-coordinate'.
+				''group'' keyword is low-priority.
+		<tr>
+			<td>n/a
+			<td>''scroll-snap-area: [ border-box | margin-box ] || <<length>>{1,4}''
+			<td>High priority
+		<tr>
+			<td>n/a
+			<td>''scroll-snap-scope: infinite | finite''
+			<td>Only ''finite'' is really necessary to handle all use cases, however UAs might want ''infinite'' as the initial value for performance reasons.
+</table>
+
+Element-based Snapping {#element}
+======================
+
+Scroll Snapping Area: the 'scroll-snap-area' property {#scroll-snap-area}
+---------------------
+
+	<pre class="propdef">
+	Name: scroll-snap-area
+	Value: [ border-box | margin-box ] || <<length>>{1,4}
+	Initial: border-box
+	Applies to: all elements
+	Inherited: no
+	Computed value: as specified, with lengths made absolute
+	Animatable: yes, if ''border-box''/''margin-box'' are constant
+	Media: visual
+	</pre>
+
+	Specifies the box that is used for snapping.
+	<<length>> values give offsets (similar to 'margin' or 'border-image-outset').
+
+	Note: This functionality effectively replaces 'scroll-snap-destination',
+	in a way that allows for more control in mixed-content environments
+	(each element can specify its own offsets from the viewport edges)
+	and also plays better with smaller viewports (see [[#small-viewports]]).
+
+Scroll Snapping Alignment: the 'scroll-snap-align' property {#scroll-snap-align}
+--------------------------
+
+	<pre class="propdef">
+	Name: scroll-snap-align
+	Value: [ none | start | end | edges | center ]{1,2}
+	Initial: none
+	Applies to: all elements
+	Inherited: no
+	Computed value: as specified
+	Animatable: no
+	Media: visual
+	</pre>
+
+	Specifies the element's snap position as an alignment of
+	its box within the viewport.
+
+	The first value gives alignment in the inline axis;
+	the second value gives alignment in the block axis.
+	If one value is specified, it is duplicated.
+
+### Snap Alignment in Small Viewports ### {#small-viewports}
+
+	The snapped position of a box is given by its scroll-snap-align	property.
+	However,if the scroll-snap-area is larger than the viewport...
+
+	*	Inertial scrolling (and scroll-adjustment caused by snapping)
+		continues to align to the snap-position as normal.
+
+	*	For explicit/programmatic (non-fling) scrolling:
+
+		*	While the area fully fills the viewport in a given axis,
+			snapping is ignored in that axis:
+			the container can be scrolled arbitrarily and will not react.
+
+		*	If the container is scrolled such that the area
+			no longer fully fills the viewport in an axis,
+			the area acts as if it has both-edges snapping in that axis,
+			resisting outward scrolling until you fling out
+			or pull it sufficiently to trigger snapping to a different snap-position
+			(with either proximity or mandatory behavior as appropriate).
+
+	As an example, imagine a photo as the area, or a slide in a slideshow.
+	You want mandatory snapping from item to item,
+	but if the item happens to be larger than your viewport,
+	you want to be able to scroll around the whole thing once you're over it.
+
+
+	Note: I'm not 100% sure of these behaviors or how best to describe them.
+	But we need to handle the the case of larger-than-viewport items,
+	and an area-based model lets us detect that case
+	and do something intelligent about it,
+	allowing the user to scroll around and see the entire box,
+	rather than being clicked into mandatory positionsthat only allow partial views.
+
+<!--
+### Combining 1D and 2D Snap Alignments ### {#combo-snapping}
+
+	The following algorithm defines
+	how to combine 1D (''edges'', ''start'', or ''end'')
+	and 2D (''center'' or <<position>>)
+	snap alignments
+	in the same scroller:
+
+	1. Find the closest block-axis snapping edge in the scroll direction.
+	2. Find the closest inline-axis snapping edge in the scroll direction.
+	3. Compute the "edge displacement" as the euclidean distance between the current scroll position
+		and what the scroll position would be if the scroll container were snapped to the aforementioned two lines.
+	4. Find the closest snap *point* in the scroll direction,
+		measured by euclidean distance from the current scroll position.
+		The difference is the "point displacement".
+	5. If the edge displacement is smaller than the point displacement, snap to those edges.
+		Otherwise, snap to the point.
+
+	Issue: Think about how mandatory/finite would work when there's nothing within range to snap to.
+-->
+
+Scope of Snapping Influence {#scope}
+===========================
+
+Scoping Snaplines to Visible Objects: the 'scroll-snap-scope' property {#scroll-snap-scope}
+---------------------------
+
+	<pre class="propdef">
+	Name: scroll-snap-scope
+	Value: infinite | finite
+	Initial: infinite
+	Applies to: all elements
+	Inherited: no
+	Computed value: as specified
+	Animatable: no
+	Media: visual
+	</pre>
+
+	When ''finite'' snapping is enabled,
+	the "gravitational field" of a snap	alignment is two-dimensional:
+	distance to the snap position is calculated for both dimensions at once.
+
+	In other words, if the snapping radius of influence is <var>r</var>,
+	in infinite	snapping the box snaps along the y axis
+	whenever it is within <var>r</var> of its snapped y position,
+	regardless of its x position.
+	But in finite snapping,
+	the box snaps along the y axis
+	whenever it is within <var>r</var> of its snapped position
+	in both dimensions.
+
+	<div class="example">
+		For example, a small box is snapped to the center of the viewport.
+		It only snaps whenever it is < <var>r</var> distance in any direction
+		from its snap position in both dimensions.
+		In other words, it snaps whenever sqrt(<var>d<sub>x</sub></var><sup>2</sup> + <var>d<sub>y</sub></var><sup>2</sup>) &le; <var>r</var>
+		for <var>d<sub>x</sub></var>,<var>d<sub>y</sub></var> as distance to the snapped position in the x and y dimensions, respectively.
+	</div>
+
+	<div class="example">
+		As another example, a small box is snapped to the edges of the viewport.
+		It only snaps whenever matching edges are within <var>r</var> of the respective viewport edges,
+		so e.g. whenever its top edge approaches the top of the viewport,
+		or its left edge approaches the left of the viewport;
+		but there is no snapping effect if those edges are > <var>r</var> outside the viewport.
+	</div>
+
+	Issue: This feature can be safely deferred to a future level, if necessary.
+	Alternately it can be dropped and ''finite'' snapping can be the default.
+	(We can't think of a use case for the infinite snapping model,
+	except perhaps UA performance.)
+
+Group-based Snapping {#group}
+========================
+
+Collects all snapping areas of group-snapped boxes,
+segments them into groups that will fit within the viewport,
+then creates snap areas that capture
+the specified alignment of each such group.
+(Note that such areas may overlap,
+if group-snapped boxes are arranged in an overlapping pattern.)
+
+This is a simple form of "scrolling by pages".
+
+<div class="example">
+	Use Case 1: Snapping to the top of each "page" of address book entries in a list of entries.
+
+	<pre class="lang-css">
+	:root {
+		scroll-snap-type: proximity;
+		scroll-group-align: start;
+	}
+	article {
+		scroll-snap-align: group;
+	}
+	</pre>
+</div>
+
+<div class="example">
+	Use Case 2: Scrolling an article to the first paragraph that hasn't been completely read.
+
+	<pre class="lang-css">
+	article {
+		scroll-snap-type: proximity;
+		scroll-group-align: start;
+	}
+	article > * {
+		scroll-snap-align: group;
+	}
+	</pre>
+</div>
+
+<div class="example">
+	Use Case 3: Scrolling image gallery, a la Pinterest, where images are packed tightly on the page.
+
+	<pre class="lang-css">
+	.gallery {
+		scroll-snap-type: proximity;
+		scroll-group-align: center;
+	}
+	.gallery > img {
+		scroll-snap-align: group;
+	}
+	</pre>
+</div>
+
+Turning On Group Snapping: the ''group'' value of 'scroll-snap-align' {#scroll-snap-align-group}
+-------------------------
+
+	<pre class="propdef partial">
+	Name: scroll-snap-align
+	New values: group
+	</pre>
+
+	The <dfn value for=scroll-snap-align>group</dfn> value
+	specifies that this element's scroll snap area should be group-aligned to the viewport.
+
+Aligning the Group: the 'scroll-snap-group' property {#scroll-snap-group}
+-----------------
+
+	<pre class="propdef">
+	Name: scroll-snap-group
+	Value: [ start | end | edges | center ]{1,2}
+	Initial: start
+	Applies to: all elements
+	Inherited: no
+	Computed value: as specified
+	Animatable: no
+	Media: visual
+	</pre>
+
+	Specifies the alignment of a group-snapped group's area within the viewport.
