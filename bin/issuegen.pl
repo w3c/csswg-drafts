@@ -120,12 +120,15 @@ XXX
 
 # Input/Output setup
 my $outFile = $inFile;
-if ($inFile =~ /\.txt$/) {
-  $outFile =~ s/\.txt/\.html/;
+if ($inFile =~ /\.(.+)$/) {
+  $outFile =~ s/\.$1/\.html/;
 }
 elsif ($inFile =~ /\.$/) { # tab completion case
   $inFile .= 'txt';
   $outFile .= 'html';
+}
+else {
+  $inFile .= '.html';
 }
 open IN,  "<", $inFile  || die "Cannot open $inFile: $!";
 open OUT, ">", $outFile || die "Cannot open $outFile: $!";
