@@ -140,30 +140,42 @@ $/ = "----\n";
 # Issues
 while (<IN>) {
   chomp;
+
   # Don't pipe code
   s/</&lt;/g;
 
-  # Issue number
+  # Linkify URLs
+  s/(http\S+)/<a href='\1'>\1<\/a>/g;
+
+  # Anchor issue number
   s/Issue (\d+)\./Issue \1. <a href='#issue-\1'>#<\/a>/;
   $index = $1;
 
-  # Color coding
-  $code = '';
-  if (/\nVerified:\s+\S+/) {
-    $code = 'a';
-  }
-  elsif (/\n(?:Closed|Open):\s+(\S+)/) {
-    $code = $statusStyle{lc $1};
-  }
-  if (/\nOpen/) {
-    $code .= ' ' if $code;
-    $code .= 'open';
+  # Color coding WG response
+  @lines = split /\n/;
+  foreach (@lines) {
+    # Get Status
+    if (/^Open/) {
+      $status = 'open';
+    }
+    # Colorize WG response
+    if (/^(?:Closed|Open):\s+(\S+)$/) {
+      $code = $statusStyle{lc $1};
+      $_ = '<span class="' . $code . '">' . $_ . '</span>';
+    }
+    # Colorize commenter response
+    elsif (/^Verified:\s+\S+$/) {
+      $code = 'a';
+      $_ = '<span class="a">' . $_ . '</span>';
+    }
+    else {
+      $_ = '<span>' . $_ . '</span>';
+    }
   }
 
   # And print it
-  print OUT "<pre class='$code' id='issue-$index'>\n";
-  s/(http\S+)/<a href='\1'>\1<\/a>/g;
-  print OUT;
+  print OUT "<pre class='$status $code' id='issue-$index'>\n";
+  print OUT join "\n", @lines;
   print OUT "</pre>\n";
 }
 
@@ -195,11 +207,14 @@ sub header {
 <meta charset="utf-8">
 <title>$title Disposition of Comments for $date $status</title>
 <style type="text/css">
-  .a  { background: lightgreen }
-  .d  { background: lightblue  }
-  .r  { background: orange     }
-  .fo { background: red        }
-  .open   { border: solid red; padding: 0.2em; }
+  pre { border: solid thin silver; padding: 0.2em; white-space: normal; }
+  pre > span { display: block; white-space: pre; }
+  :not(pre).a  { background: lightgreen }
+  :not(pre).d  { background: lightblue  }
+  :not(pre).oi { background: yellow     }
+  :not(pre).r  { background: orange     }
+  :not(pre).fo { background: red        }
+  .open   { border: solid red; }
   :target { box-shadow: 0.25em 0.25em 0.25em;  }
 </style>
 
