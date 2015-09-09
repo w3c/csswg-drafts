@@ -164,7 +164,7 @@ while (<IN>) {
       $_ = '<span class="' . $code . '">' . $_ . '</span>';
     }
     # Colorize commenter response
-    elsif (/^Verified:\s+\S+$/) {
+    elsif (/^Verified:\s+\S+/) {
       $code = 'a';
       $_ = '<span class="a">' . $_ . '</span>';
     }
