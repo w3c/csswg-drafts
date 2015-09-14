@@ -1,7 +1,9 @@
 # Calling the post-processor with file-upload. Assumes the username
 # and password are in ~/.curl-w3.org (user = USER:PASS)
 #
-# To set a date other than today, use: make cdate=YYYYMMDD
+# To set a date other than today, use: make date=YYYY-MM-DD
+#
+# "cdate" is an alias for "date": "make cdate=YYYY-MM-DD" works, too.
 #
 # To set the status, modify one of the "this version" URLs:
 # http://www.w3.org/TR/[YEAR]/CR-[SHORTNAME]-[CDATE]/
@@ -13,12 +15,14 @@
 # -F omitdchtml=on
 # e.g., like this: make opts="-F ids=on -F omitdchtml=on"
 
-cdate ?=
-status ?=
+date ?=
+status ?= ED
 group ?= CSS
 opts ?=
 target ?= Overview
 markup ?= html
+cdate ?= $(date)
+
 
 %.html: %.src.html
 	@echo "Calling post-processor to generate $@..."
@@ -31,11 +35,15 @@ markup ?= html
 	-F group=$(group) -F method=file -F date=$(cdate) -F status=$(status) \
 	$(opts) -o $@ https://www.w3.org/Style/Group/process.cgi
 %.html: %.bs
-	curl -s -L -F file=@$< -F time=$(cdate) -F output=html \
-	-F paragraph=$(markup) $(opts) -o $@ http://api.csswg.org/bikeshed/
+	@echo "- Calling Bikeshed to generate $@..."
+	@curl -o $@ -s -L -F file=@$< -F md-date=$(cdate) -F md-status=$(status) \
+	 -F output=html -F paragraph=$(markup) $(opts) http://api.csswg.org/bikeshed/
 %.err: %.bs
-	curl -s -L -F file=@$< -F time=$(cdate) -F output=err \
-	-F paragraph=$(markup) $(opts) -o $@ http://api.csswg.org/bikeshed/
+	@echo "- Calling Bikeshed to check $<..."
+	@rm -f $@
+	@touch $@
+	@curl -o $@ -s -L -F file=@$< -F md-date=$(cdate) -F md-status=$(status) \
+	 -F output=err -F paragraph=$(markup) $(opts) http://api.csswg.org/bikeshed/
 
 # For Dispositions of Comments in css3-background:
 %.html: %.txt; awk -f issues-txt-to-html.awk $< >$@
