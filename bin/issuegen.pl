@@ -1,8 +1,10 @@
 #!/usr/bin/perl
 
+use strict;
+
 # Color coding
 #   Note statuses will get lowercased before lookup
-%statusStyle = (
+my %statusStyle = (
   'accepted'     => 'a',
   'retracted'    => 'a',
   'rejected'     => 'r',
@@ -149,10 +151,11 @@ while (<IN>) {
 
   # Anchor issue number
   s/Issue (\d+)\./Issue \1. <a href='#issue-\1'>#<\/a>/;
-  $index = $1;
+  my $index = $1;
 
   # Color coding WG response
-  @lines = split /\n/;
+  my @lines = split /\n/;
+  my ($status, $code);
   foreach (@lines) {
     # Get Status
     if (/^Open/) {
@@ -187,7 +190,7 @@ sub header {
   chomp;
 
   # Extract title and URL
-  my $title, $url;
+  my ($title, $url);
   for (split /\n+/) {
     $title = $1 if (/^Title:\s+(.+)$/);
     $url   = $1 if (/^Draft:\s+(\S+)/);
@@ -197,7 +200,7 @@ sub header {
   # Process URL to get status, date, shorname
   die "Error: Draft URL wrong format.\n" unless
     ($url =~ /([A-Z]{2})-([a-z0-9-]+)-(\d{8})/);
-  ($status, $shortname, $date) = ($1, $2, $3);
+  my ($status, $shortname, $date) = ($1, $2, $3);
   $status = 'LCWD' if ('WD' eq $status && $inFile =~ /[lL][cC]/);
   $date = "$1-$2-$3" if ($date =~ /(\d{4})(\d{2})(\d{2})/);
 
