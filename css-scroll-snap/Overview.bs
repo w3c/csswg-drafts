@@ -225,10 +225,6 @@ Scroll Snapping Model {#snap-model}
 	as coordinates of the <a>scrollable area</a>
 	with the 'scroll-snap-points-x' and 'scroll-snap-points-y' properties.
 
-	Issue: Discuss inertial vs. semantic scrolling concepts (or drop from spec)
-
-	Issue: Discuss 1D vs 2D snapping behaviors... and scoping. (This is all related?)
-
 Scroll Snapping Container {#snap-container}
 =========================
 
@@ -499,67 +495,169 @@ Scroll Snapping Alignment: the 'scroll-snap-align' property {#scroll-snap-align}
 -->
 
 
-Scope of Snapping Influence {#scope}
-===========================
+Snapping Mechanics {#snap}
+==========================
 
-	Issue: Current spec doesn't define how to select which snap-point to snap to.
-	See <a href="https://lists.w3.org/Archives/Public/www-style/2015Jul/0325.html">https://lists.w3.org/Archives/Public/www-style/2015Jul/0325.html</a>
-	for a proposal to ignore snap positions far outside the viewport.
+	The precise model algorithm to select a <a>snap position</a> to snap to
+	is intentionally left mostly undefined,
+	so that user agents can take into account sophisticated models of user intention and interaction
+	and adjust how they respond over time,
+	to best serve the user.
 
-	Issue: UAs should be encouraged to ignore snap positions that require scrolling in two dimensions
-	when a one-dimensional scroll is triggered.
+	This section defines some useful concepts to aid in discussing scroll-snapping mechanics,
+	and provides some guidelines for what an effective scroll-snapping strategy might look like.
+	User agents are encouraged to adapt this guidance
+	and apply their own best judgement
+	when defining their own snapping behavior.
+	It also provides a small number of behavior requirements,
+	to ensure a minimum reasonable behavior that authors can depend on
+	when designing their interfaces with scroll-snapping in mind.
 
-	Issue: Define that <a>snap position</a> selection is based on the final scroll position that the scroll physics would land the scroller in after a fling.
+Types of Scrolling Gestures {#scroll-types}
+-------------------------------------------
 
-<!--
-Scoping Snaplines to Visible Objects: the 'scroll-snap-scope' property {#scroll-snap-scope}
----------------------------
+	There are at least three distinct form of scroll gestures that a user might perform on a page,
+	which can reasonably trigger different snapping behaviors:
 
-	<pre class="propdef">
-	Name: scroll-snap-scope
-	Value: infinite | finite
-	Initial: infinite
-	Applies to: all elements
-	Inherited: no
-	Computed value: as specified
-	Animatable: no
-	Media: interactive
-	</pre>
+	: <dfn export local-lt="explicit" lt="explicit scroll">explicit scrolling</dfn>
+	:: A scroll is <a>explicit</a> if the user is explicitly scrolling to a well-defined and obvious end-point.
+		This includes gestures such as:
 
-	When ''finite'' snapping is enabled,
-	the "gravitational field" of a snap alignment is two-dimensional:
-	distance to the snap position is calculated for both dimensions at once.
+		* a touch-based pan,
+			released without momentum
+		* manipulating the scrollbar "thumb" explicitly
+		* programmatically scrolling via APIs such as {{Window/scrollTo()}}.
 
-	In other words, if the snapping radius of influence is <var>r</var>,
-	in infinite snapping the box snaps along the y axis
-	whenever it is within <var>r</var> of its snapped y position,
-	regardless of its x position.
-	But in finite snapping,
-	the box snaps along the y axis
-	whenever it is within <var>r</var> of its snapped position
-	in both dimensions.
+	: <dfn export local-lt="inertial" lt="inertial scroll">inertial scrolling</dfn>
+	:: A scroll is <a>inertial</a> if it is a gesture where the user "flings" the scroll position,
+		indicating a direction and a momentum for the scroll,
+		but no well-defined and intentional end-point.
+		User agents tend to implement <a>inertial</a> scrolls
+		by simulating a "friction" force that gradually reduces the scroll's momentum,
+		or by otherwise gradually reducing the speed in a way feels "natural"
+		and respects the user's intention.
 
-	<div class="example">
-		For example, a small box is snapped to the center of the viewport.
-		It only snaps whenever it is < <var>r</var> distance in any direction
-		from its snap position in both dimensions.
-		In other words, it snaps whenever sqrt(<var>d<sub>x</sub></var><sup>2</sup> + <var>d<sub>y</sub></var><sup>2</sup>) &le; <var>r</var>
-		for <var>d<sub>x</sub></var>,<var>d<sub>y</sub></var> as distance to the snapped position in the x and y dimensions, respectively.
-	</div>
+		The scroll position that an <a>inertial</a> scroll would naturally land on
+		without further intervention is the <dfn noexport>natural end-point</dfn>.
 
-	<div class="example">
-		As another example, a small box is snapped to the edges of the viewport.
-		It only snaps whenever matching edges are within <var>r</var> of the respective viewport edges,
-		so e.g. whenever its top edge approaches the top of the viewport,
-		or its left edge approaches the left of the viewport;
-		but there is no snapping effect if those edges are > <var>r</var> outside the viewport.
-	</div>
+	: <dfn export local-lt="semantic" lt="semantic scroll">semantic scrolling</dfn>
+	:: A scroll is <a>semantic</a> if it expresses a preferred direction to scroll in,
+		but not a specific amount of scrolling,
+		or a specific "momentum" to a fling.
+		This is most commonly from pressing an arrow key;
+		for example, pressing the Down key indicates that you want to scroll down some amount.
 
-	Issue: This feature can be safely deferred to a future level, if necessary.
-	Alternately it can be dropped and ''finite'' snapping can be the default.
-	(We can't think of a use case for the infinite snapping model,
-	except perhaps UA performance.)
--->
+	Additionally, because page layouts usually align things vertically and/or horizontally,
+	UAs sometimes <dfn export>axis-lock</dfn> a scroll when the gesture triggering it
+	is sufficiently vertical or horizontal.
+	An <a>axis-locked</a> scroll is usually bound to only scroll along that axis;
+	this prevents,
+	for example,
+	a <em>nearly</em> horizontal fling gesture from gradually drifting up or down as well,
+	because it is very difficult to fling in a precisely horizontal line.
+
+Types of Snap Points {#snap-types}
+----------------------------------
+
+	There are two distinct forms of <dfn export lt="scroll snap point" local-lt="snap point">snap points</dfn> that a <a>scroll container</a> might contain:
+
+	: <dfn export local-lt="1d" lt="1d snap point">1d snap point</dfn>
+	:: A <a>1d snap point</a> indicates a desired <a>snap position</a>
+		in one axis of the <a>scroll container</a> only,
+		with no preference for what the other axis's position should be.
+
+		This is the “default” type of snap point
+		that most elements will want to use,
+		and so the ''scroll-snap-align'' property intentionally makes it the simplest to specify.
+
+		Note: An element can declare up to two <a>1d snap points</a>,
+		one in each axis.
+		These represent two independent <a>snap position</a> preferences.
+		If one of the element's snap points is chosen in one axis,
+		this has no bearing on the other--
+		it might be chosen,
+		or another element's snap-point might be chosen for that axis,
+		or that axis might not snap at all.
+
+	: <dfn export local-lt="2d" lt="2d snap point">2d snap point</dfn>
+	:: A <a>2d snap point</a> indicates a desired <a>snap position</a>
+		in both axises at once,
+		aligning a particular point in the element
+		with a corresponding point in the <a>scroll container</a>.
+
+		This type of snap point is intended for truly "two-dimensional" layouts,
+		such as cities on a map
+		(using ''proximity'' 2d snap points to snap a city to the center of the display when it gets close),
+		or when the aesthetics of the layout
+		dictate that an element truly should be laid out in a particular 2d position,
+		such as an image gallery
+		(using ''mandatory'' 2d snap points to force each image to be displayed centered on the screen).
+
+	Mixing <a>1d</a> and <a>2d</a> snap points within a single <a>scroll container</a> is discouraged,
+	as the behavior can be hard to predict.
+	Nevertheless, this specification provides guidance on how to deal with mixed <a>snap points</a>,
+	as the design of the properties does not prevent such a mixture.
+
+Choosing Snap Points {#choosing}
+--------------------------------
+
+	An element can have <a>snap points</a> scattered throughout its <a>scrollable area</a>.
+	A naive algorithm for selecting a <a>snap point</a>
+	can produce behavior that is unintuitive for users,
+	so care is required when designing a selection algorithm.
+	Here are a few pointers that can aid in the selection process:
+
+	* <a>Snap points</a> should be chosen to minimize the distance between the end-point
+		(or the <a>natural end-point</a>)
+		and the final snapped scroll position,
+		subject to the additional constraints listed in this section.
+
+	* <a>2d snap points</a> are all-or-nothing;
+		if a <a>2d snap point</a> is chosen to align to,
+		the <a>scroll container</a> must set its scroll position
+		according to the snap point's preferred <a>snap position</a> in <em>both</em> axises;
+		the <a>scroll container</a> <em>must not</em> "partially align" to a <a>2d snap point</a>,
+		taking its <a>snap position</a> in one axis
+		and aligning the other axis according to something else.
+
+	* If a scroll is <a>axis-locked</a>,
+		any <a>1d</a> snap points in the other axis should be ignored.
+		<a>2d</a> snap points should be penalized in the selection process
+		according to the amount of other-axis scrolling they would cause.
+
+	* <a>Snap points</a> should be ignored if their elements are far outside of the "corridor"
+		that the <a>scroll snap area</a> defines as it moves through the <a>scrollable area</a>
+		during an <a>inertial scroll</a>,
+		or a hypothetical "corridor" in the direction of a <a>semantic scroll</a>,
+		or the <a>scroll snap area</a> after an <a>explicit scroll</a>.
+		(This is to prevent a far-offscreen element
+		from having difficult-to-understand effects
+		on the scroll position.)
+
+	* User agents <em>must</em> ensure that a user can "escape" a snap point,
+		regardless of the scroll method.
+		For example, if the snap type is ''mandatory''
+		and the next snap point is more than two screen-widths away,
+		a naive "always snap to nearest" selection algorithm would "trap" the user
+		if they were panning with a touch gesture;
+		a sufficiently large distance would even trap fling scrolling!
+		Instead, a smarter algorithm that only "returned" to the starting snap point
+		if the end-point was a fairly small distance from it,
+		and otherwise ignored the starting snap point,
+		would give better behavior.
+
+		(This implies that a <a>semantic scroll</a> must always ignore the starting <a>snap point</a>.)
+
+	* A user agent <em>may</em> want to ignore ''mandatory'' snap points
+		that are sufficiently far away from the scroll's end point,
+		to ensure that users are able to see everything on the page
+		even if the page author did not use snap points well,
+		even if this means that a <a>scroll container</a> is not aligned to a snap point sometimes.
+
+		(This is already taken care of for overly-large elements,
+		which automatically add additional snap points to themselves
+		so a user can pan to see the entire element.)
+
 
 Group-based Snapping {#group}
 ========================
