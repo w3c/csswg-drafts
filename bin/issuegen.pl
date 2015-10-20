@@ -143,6 +143,24 @@ $/ = "----\n";
 while (<IN>) {
   chomp;
 
+  # Process headings
+  if (/^=/) {
+    s/=//g;
+    s/^\s+|\s+$//g ;
+    s/\{\s*(.+?)\s*\}//;
+    my $headerID;
+    if ($1) {
+      $headerID = $1;
+      $headerID =~ s/^#//;
+    }
+    else {
+      $headerID = lc;
+      $headerID =~ s/\s+/-/g;
+    }
+    print OUT "<h2 id=$headerID>" . $_ . "</h2>\n";
+    next;
+  }
+
   # Don't pipe code
   s/</&lt;/g;
 
