@@ -180,7 +180,7 @@ while (<IN>) {
       $status = 'open';
     }
     # Colorize WG response
-    if (/^(?:Closed|Open):\s+(\S+)$/) {
+    if (/^(?:Closed|Open):\s+(\S+)/) {
       $code = $statusStyle{lc $1};
       $_ = '<span class="' . $code . '">' . $_ . '</span>';
     }
