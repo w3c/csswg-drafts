@@ -208,17 +208,19 @@ sub header {
   chomp;
 
   # Extract title and URL
-  my ($title, $url);
+  my ($title, $url, $shortname);
   for (split /\n+/) {
     $title = $1 if (/^Title:\s+(.+)$/);
     $url   = $1 if (/^Draft:\s+(\S+)/);
+    $shortname = $1 if (/^Shortname:\s+(\S+)/);
   }
   die "Error: missing document URL or title.\n" unless ($url && $title);
 
   # Process URL to get status, date, shorname
   die "Error: Draft URL wrong format.\n" unless
     ($url =~ /([A-Z]{2})-([a-z0-9-]+)-(\d{8})/);
-  my ($status, $shortname, $date) = ($1, $2, $3);
+  $shortname = $2 unless ($shortname);
+  my ($status, $date) = ($1, $3);
   $status = 'LCWD' if ('WD' eq $status && $inFile =~ /[lL][cC]/);
   $date = "$1-$2-$3" if ($date =~ /(\d{4})(\d{2})(\d{2})/);
 
@@ -241,9 +243,9 @@ sub header {
 
 <h1>$title Disposition of Comments for $date $status</h1>
 
-<p>Last call document: <a href="$url">$url</a>
+<p>Dated Draft: <a href="$url">$url</a>
 
-<p>Editor's draft: <a href="http://dev.w3.org/csswg/$shortname/">http://dev.w3.org/csswg/$shortname/</a>
+<p>Editor's Draft: <a href="http://dev.w3.org/csswg/$shortname/">http://dev.w3.org/csswg/$shortname/</a>
 
 <p>The following color coding convention is used for comments:</p>
 
