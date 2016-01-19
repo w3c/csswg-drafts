@@ -217,12 +217,14 @@ sub header {
   die "Error: missing document URL or title.\n" unless ($url && $title);
 
   # Process URL to get status, date, shorname
-  die "Error: Draft URL wrong format.\n" unless
-    ($url =~ /([A-Z]{2})-([a-z0-9-]+)-(\d{8})/);
-  $shortname = $2 unless ($shortname);
-  my ($status, $date) = ($1, $3);
-  $status = 'LCWD' if ('WD' eq $status && $inFile =~ /[lL][cC]/);
-  $date = "$1-$2-$3" if ($date =~ /(\d{4})(\d{2})(\d{2})/);
+  my $status = 'Draft';
+  my $date = $1 if ($inFile =~ /([\d-]+)/);
+  if ($url =~ /([A-Z]{2})-([a-z0-9-]+)-(\d{8})/) {
+    $shortname = $2 unless ($shortname);
+    ($status, $date) = ($1, $3);
+    $status = 'LCWD' if ('WD' eq $status && $inFile =~ /[lL][cC]/);
+    $date = "$1-$2-$3" if ($date =~ /(\d{4})(\d{2})(\d{2})/);
+  }
 
   # Print it all out
   print OUT <<XXX;
@@ -245,7 +247,7 @@ sub header {
 
 <p>Dated Draft: <a href="$url">$url</a>
 
-<p>Editor's Draft: <a href="http://dev.w3.org/csswg/$shortname/">http://dev.w3.org/csswg/$shortname/</a>
+<p>Editor's Draft: <a href="http://drafts.csswg.org/$shortname/">http://drafts.csswg.org/$shortname/</a>
 
 <p>The following color coding convention is used for comments:</p>
 
