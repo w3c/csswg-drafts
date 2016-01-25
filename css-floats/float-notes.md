@@ -62,6 +62,7 @@ Syntaxes???
 
 3/4. float: <position> && <origin>? && [ next ?? <integer> ]
 (Intentional that you have to specify a particular or subsequent fragment to use this grammar clause.)
+<integer> must be positive.
 
 [Brad's thoughts on defining position](https://lists.w3.org/Archives/Public/www-style/2015Nov/0105.html)
 
