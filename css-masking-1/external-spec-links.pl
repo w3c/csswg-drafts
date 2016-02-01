@@ -12,7 +12,7 @@ use utf8;
 binmode(STDOUT, ":utf8");
 
 sub loaddefs {
-  readdefs('definitions-SVG11.xml', 'http://www.w3.org/TR/2011/REC-SVG11-20110816/');
+  readdefs('definitions-SVG11.xml', 'https://www.w3.org/TR/2011/REC-SVG11-20110816/');
   readdefs('definitions-masking.xml', '');
 }
 
