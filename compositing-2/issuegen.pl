@@ -21,7 +21,7 @@ if (!$inFile) {
   print "~~~~~~~~~~~~~~~~~~~~~ Template for issues-list.txt ~~~~~~~~~~~~~~~~~~~~~\n";
   print <<XXX;
 
-Draft:    http://www.w3.org/TR/2013/WD-css-text-decor-3-20130103/
+Draft:    https://www.w3.org/TR/2013/WD-css-text-decor-3-20130103/
 Title:    CSS Text Decoration Level 3
 ... anything else you want here, except 4 dashes ...
 
