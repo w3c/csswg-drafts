@@ -30,7 +30,7 @@ gulp.task("browser-sync", ["watch"], function () {
       baseDir: "..",
       directory: true,
     },
-    files: ["*.html"],
+    files: ["*.html", "!~*"],
     startPath: "css-snap-size/Overview.html",
   });
 });
@@ -40,42 +40,53 @@ var use_local_bikeshed = true;
 function bikeshed() {
   return new Promise(function (resolve, reject) {
     if (use_local_bikeshed)
-      bikeshed_local_or_online(resolve, reject);
+      bikeshed_local_or_online_with_cb(resolve, reject);
     else
-      bikeshed_online(resolve, reject);
+      bikeshed_online_with_cb(resolve, reject);
   });
 }
 
-function bikeshed_local_or_online(resolve, reject) {
+function bikeshed_local_or_online_with_cb(resolve, reject) {
   var spawn = require('child_process').spawn;
   spawn("bikeshed", [], {
     stdio: "inherit"
   }).on("error", function (e) {
     // ENOENT doesn't fire "close" so need to handle here.
-    console.log("bikeshed error:", e);
+    // console.log("bikeshed error:", e);
     if (e.code == "ENOENT") { // bikeshed not installed locally.
       console.log("Local bikeshed not found, switch to online version of bikeshed.");
       use_local_bikeshed = false; // prefer online for future calls.
-      bikeshed_online(resolve, reject);
+      bikeshed_online_with_cb(resolve, reject);
     } else
       reject(e);
   }).on("close", function (code) {
     if (!code)
       return resolve();
-    console.log("bikeshed (local) exited with code ", code);
+    console.log("Local bikeshed exited with code:", code);
     // No need to reject() because on("error") also fires.
   });
 }
 
-function bikeshed_online(resolve, reject) {
+function bikeshed_online_with_cb(resolve, reject) {
   var fs = require("fs");
   var request = require('request');
-  var req = request.post("http://api.csswg.org/bikeshed/", function (err, res, body) {
-    if (err)
-      reject(err);
-  });
-  req.form().append("file", fs.createReadStream("Overview.bs"));
-  req.pipe(fs.createWriteStream('Overview.html')).on("finish", function () {
-    resolve();
+  // gulp.watch() kicks in when pipe() creates the file,
+  // so write to a temp file and move it.
+  var tmp = "~Overview.html";
+  var req = request.post({
+    url: "http://api.csswg.org/bikeshed/",
+    formData: {
+      file: fs.createReadStream("Overview.bs"),
+    },
+  }).on("error", function (err) {
+    reject(err);
+  }).pipe(fs.createWriteStream(tmp))
+  .on("finish", function () {
+    fs.rename(tmp, "Overview.html", function (err) {
+      if (err)
+        reject(err);
+      else
+        resolve();
+    });
   });
 }
