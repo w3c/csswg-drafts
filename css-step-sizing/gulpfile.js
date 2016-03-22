@@ -31,7 +31,7 @@ gulp.task("preview", ["bikeshed", "watch"], function () {
       directory: true,
     },
     files: ["*.html", "!~*"],
-    startPath: "css-snap-size/Overview.html",
+    startPath: "css-step-sizing/Overview.html",
   });
 });
 
