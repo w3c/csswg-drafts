@@ -5,13 +5,13 @@
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
 #THE_YEAR = YYYY
-THE_YEAR = 2015
+THE_YEAR = 2016
 #THE_MONTH = MM
-THE_MONTH = 09
+THE_MONTH = 03
 #THE_MONTHNAME = MMMMM
-THE_MONTHNAME = September
+THE_MONTHNAME = March
 #THE_DAY = DD
-THE_DAY = 04
+THE_DAY = 29
 #THE_STATUS = FPWD
 THE_STATUS = ED
 #THE_STATUSNAME = First Public Working Draft
@@ -19,9 +19,9 @@ THE_STATUSNAME = Editors' Draft
 #THE_STYLE = WD
 THE_STYLE = ED
 
-PREV_YEAR = 2015
-PREV_MONTH = 06
-PREV_DAY = 02
+PREV_YEAR = 
+PREV_MONTH = 
+PREV_DAY = 
 PREV_STATUS = WD
 PREV_NAME = CSS22
 
@@ -29,9 +29,20 @@ PERMANENT_NAME = CSS22
 
 # A very visible warning after the first H1 on every page (or at the
 # location of the _THE_WARNING_ placeholder on some pages). Leave
-# empty if none is needed. (Escape any & as \&.)
+# empty if none is needed. (Escape any & as \&, # as \# and " as \")
 # 
-THE_WARNING =
+THE_WARNING = <DIV>							\
+ <INPUT ID=annoying-warning TYPE=CHECKBOX TITLE=\"hide note\">		\
+ <LABEL FOR=annoying-warning>(hide)</LABEL>				\
+  <DIV CLASS=annoying-warning>						\
+   <P><STRONG>Note:</STRONG> several sections of this specification	\
+   have been extended by other specifications. Please, see <a		\
+   href=\"https://www.w3.org/TR/CSS/\#css\" >\"Cascading Style Sheets	\
+   (CSS) \&mdash; The Official Definition\"</a> in the latest <CITE>CSS	\
+   Snapshot</CITE> for a list of specifications and the sections they	\
+   replace.	       	    	 		    		 	\
+  </DIV>								\
+ </DIV>
 
 # WEBROOT = /afs/w3.org/WWW
 WEBROOT = $(HOME)/WWW
@@ -260,7 +271,7 @@ LN= ln
 
 %.subtoc: %.srd Project.cfg
 	@echo "=========== making" $@
-	echo "<div class=\"subtoc\">" >$@
+	echo "<div id=\"toc\" class=\"subtoc\">" >$@
 	echo "<p><strong>Contents</strong>" >>$@
 	$(MKTOC) -l 2 -r $*.html $(HEADINGDB) >>$@
 	echo "</div>" >>$@
@@ -270,13 +281,15 @@ LN= ln
 # at the cost of possibly incorrect xrefs in the other .html files
 #
 #%.html: %.subtoc Project.cfg
-%.html: %.subtoc $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) Project.cfg build/warning #$(SPECSRCS:.src=.srd)
+%.html: %.subtoc $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) Project.cfg build/warning build/meta-viewport build/fixup-js #$(SPECSRCS:.src=.srd)
 	@echo "=========== making" $@
 	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- value-inst-/value-def- |\
 	$(ADDIDXANCH) -r $@ $(INDEXDB) - |\
 	$(ADDMARKUP) - |\
 	$(ADDLONGDESC) - |\
 	$(ADDNAVBAR) -r $@ |\
+	$(INSAFTER) - build/meta-viewport /TITLE - |\
+	$(INSAFTER) - build/fixup-js /TITLE - |\
 	$(INSAFTER) - build/warning /H1 - |\
 	$(INSAFTER) - $*.subtoc /H1 - |\
 	$(MKCHAIN) -r $@ - |\
@@ -323,6 +336,12 @@ all: build/blocks.ok $(SPECOBJS) images/pngs.ok \
 
 build/warning:
 	echo "_THE_WARNING_" >$@
+
+build/meta-viewport:
+	echo '<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">' >$@
+
+build/fixup-js:
+	echo '<script type="text/javascript" src="//www.w3.org/scripts/TR/2016/fixup.js"></script>' >$@
 
 #images/links.ok : $(IMAGES)
 #	-@(cd images; for i in *.gif; do $(LN) -s $$i "`basename $$i .gif`" 2>//dev/null; done)
@@ -458,9 +477,11 @@ cover.srd: cover.src build/contents.srb build/minicontents.srb
 	$(HIPP) $(INCLUDES) $<  |\
 	$(ADDCITE) -r $(REFS) $(REFSRCS) >$@
 
-cover.html: cover.srd Project.cfg
+cover.html: cover.srd Project.cfg build/meta-viewport build/fixup-js
 	@echo "=========== making" $@
 	$(ADDNAVBAR) -r $@ $< |\
+	$(INSAFTER) - build/meta-viewport /TITLE - |\
+	$(INSAFTER) - build/fixup-js /TITLE - |\
 	$(MKCHAIN) -r $@ - |\
 	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
 	       -e "s|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g" \
@@ -495,9 +516,11 @@ indexlist.srd:: build/indexlist.srb #indexlist.src build/blocks.ok
 #	@echo "=========== making" $@
 #	$(CP) $< $@
 
-indexlist.html: indexlist.srd build/indexlist.srb Project.cfg build/warning
+indexlist.html: indexlist.srd build/indexlist.srb Project.cfg build/warning build/meta-viewport build/fixup-js
 	@echo "=========== making" $@
 	$(ADDNAVBAR) -r $@ $< |\
+	$(INSAFTER) - build/meta-viewport /TITLE - |\
+	$(INSAFTER) - build/fixup-js /TITLE - |\
 	$(INSAFTER) - build/warning /H1 - |\
 	$(MKCHAIN) -r $@ - |\
 	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
