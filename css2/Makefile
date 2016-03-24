@@ -31,18 +31,18 @@ PERMANENT_NAME = CSS22
 # location of the _THE_WARNING_ placeholder on some pages). Leave
 # empty if none is needed. (Escape any & as \&, # as \# and " as \")
 # 
-THE_WARNING = <DIV>							\
- <INPUT ID=annoying-warning TYPE=CHECKBOX TITLE=\"hide note\">		\
- <LABEL FOR=annoying-warning>(hide)</LABEL>				\
-  <DIV CLASS=annoying-warning>						\
-   <P><STRONG>Note:</STRONG> several sections of this specification	\
-   have been extended by other specifications. Please, see <a		\
-   href=\"https://www.w3.org/TR/CSS/\#css\" >\"Cascading Style Sheets	\
-   (CSS) \&mdash; The Official Definition\"</a> in the latest <CITE>CSS	\
-   Snapshot</CITE> for a list of specifications and the sections they	\
-   replace.	       	    	 		    		 	\
-  </DIV>								\
- </DIV>
+# THE_WARNING = <DIV>							\
+#  <INPUT ID=annoying-warning TYPE=CHECKBOX TITLE=\"hide note\">		\
+#  <LABEL FOR=annoying-warning>(hide)</LABEL>				\
+#  <DIV CLASS=annoying-warning>						\
+#  <P><STRONG>Note:</STRONG> several sections of this specification	\
+#  have been extended by other specifications. Please, see <a		\
+#  href=\"https://www.w3.org/TR/CSS/\#css\" >\"Cascading Style Sheets	\
+#  (CSS) \&mdash; The Official Definition\"</a> in the latest <CITE>CSS	\
+#  Snapshot</CITE> for a list of specifications and the sections they	\
+#  replace.	       	    	 		    		 	\
+#  </DIV>									\
+#  </DIV>
 
 # WEBROOT = /afs/w3.org/WWW
 WEBROOT = $(HOME)/WWW
@@ -243,7 +243,6 @@ ADDLONGDESC = $(PERL) ./bin/addlongdesc
 
 # utility to generate the PostScript version
 #
-HTML2PS= $(PERL) bin/html2ps -d -f html2psrc2
 PDF2PS=pdftops
 #HTML2PDF=prince -i html
 
@@ -415,17 +414,6 @@ extras: css2.tgz
 # 	pdftk $+ cat output $@
 # css2.pdf: css2.html
 # 	prince -o $@ $<
-
-# css2.ps: build/blocks.ok $(SPECOBJS) images/pngs.ok $(IMAGES)
-# # Because of memory limitations in html2ps, use the
-# # automagic feature that any *.gif files are not
-# # converted to ps if there's a *.ps file in the same
-# # directory.
-# 	-@(cd images; for i in *.idraw; do $(LN) -s $$i "`basename $$i .idraw`.ps"; done)
-# 	$(HTML2PS) $(SPECOBJS) > $@
-
-#css2.ps: css2.pdf
-#	$(PDF2PS) $< $@
 
 css2.ps.gz: css2.ps
 	gzip <$< >$@
