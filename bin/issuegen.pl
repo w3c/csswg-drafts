@@ -46,8 +46,8 @@ if ($inFile eq 'help') {
 
 Welcome to fantasai's Issues List Generator!
 
-This is a script that converts a plaintext (.txt) issues list into a
-color-coded HTML file of the same name (but .html file extension).
+This is a script that converts a plaintext (.txt or .bsi) issues list
+into a color-coded HTML file of the same name (but .html file extension).
 The input is itself a presentable, easily-editable file designed
 mostly for the editor’s convenenience.
 
@@ -126,12 +126,11 @@ if ($inFile =~ /\.(.+)$/) {
   $outFile =~ s/\.$1/\.html/;
 }
 elsif ($inFile =~ /\.$/) { # tab completion case
-  $inFile .= 'txt';
+  $inFile .= 'txt' if (-e ($inFile . "txt"));
+  $inFile .= 'bsi' if (-e ($inFile . "bsi"));
   $outFile .= 'html';
 }
-else {
-  $inFile .= '.html';
-}
+
 open IN,  "<", $inFile  || die "Cannot open $inFile: $!";
 open OUT, ">", $outFile || die "Cannot open $outFile: $!";
 $/ = "----\n";
