@@ -3,6 +3,9 @@
 # Arnaud Le Hors - lehors@w3.org
 # $Id: htmlcat,v 1.4 2006-10-09 18:55:52 ihickson Exp $
 
+use lib 'bin';
+use utils;
+
 $PROGNAME = substr($0, rindex($0, "/") + 1);
 
 if (!$ARGV[0]) {
@@ -26,9 +29,27 @@ sub readfile {
     close(INPUT);
 }
 
-# 1st file: take everything up to the body end tag or the end otherwise
+# Convert a file name to the first anchor in that file (#q7.0)
+sub guess_anchor {
+  my ($file, $fragment) = @_;
+  my $chapno = $lookup{$file};
+  if (!defined $chapno) {return $file . $fragment;} # Not a chapter
+  elsif (defined $fragment) {return $fragment;}	    # Fragment of a chapter
+  else {return "#q" . $chapno . ".0";} # Guess anchor of first H1 in that file
+}
+
+# Read config file
+read_config('Project.cfg');
+
+# 1st file:
 readfile($ARGV[0]);
 $_ = $buf;
+# Remove navbar
+s/<div\b[^>]*\bclass=["']?navbar\b[^>]*>.*?<\/div>//sigo;
+s/<hr\b[^>]*\bclass=["']?navbar\b[^>]*>//sigo;
+# Fix local links: "foo.html" -> "#q7.0" and "foo.html#bar" -> "#bar"
+s/(href=")([a-z0-9]+\.html)(#[a-z0-9.-]+)?"/$1.guess_anchor($2, $3).'"'/gie;
+# take everything up to the body end tag or the end otherwise
 if (/<\/body>/sio) {
     print OUTPUT $`;
 } else {
@@ -40,8 +61,15 @@ shift;
 # then for each other given html file only take the body content
 foreach $file (@ARGV) {
     readfile($file);
-    # look for the beginning of the body content
     $_ = $buf;
+    # Remove navbar
+    s/<div\b[^>]*\bclass=["']?navbar\b[^>]*>.*?<\/div>//sigo;
+    s/<hr\b[^>]*\bclass=["']?navbar\b[^>]*>//sigo;
+    # Fix local links: "foo.html#bar" -> "#bar"
+    s/(href=")([a-z0-9]+\.html)(#[a-z0-9.-]+)?"/$1.guess_anchor($2, $3).'"'/gie;
+    # Remove warning
+    s/<!-- warning -->.*?<!-- \/warning -->//gs;
+    # look for the beginning of the body content
     if (/<body>(.*)/sio) {
 	$buf = $1;
     } elsif (/<\/head>/sio) {
