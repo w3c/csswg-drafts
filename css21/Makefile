@@ -44,8 +44,8 @@ THE_WARNING = <div>							\
    <p>The CSS Working Group is also developing 				\
    <a href=\"http://www.w3.org/TR/CSS22/\" >CSS level\&nbsp;2		\
    revision\&nbsp;2 (CSS\&nbsp;2.2).</a>				\
-  </DIV>								\
- </DIV>
+  </div>								\
+ </div>
 
 # WEBROOT = /afs/w3.org/WWW
 WEBROOT = $(HOME)/WWW
@@ -336,7 +336,9 @@ all: build/blocks.ok $(SPECOBJS) images/pngs.ok \
 #	$(IMAGES) issues.html errata-issues.html DOC/TODO.html
 
 build/warning:
-	echo "_THE_WARNING_" >$@
+	echo "<!-- warning -->" >$@
+	echo "_THE_WARNING_" >>$@
+	echo "<!-- /warning -->" >>$@
 
 #images/links.ok : $(IMAGES)
 #	-@(cd images; for i in *.gif; do $(LN) -s $$i "`basename $$i .gif`" 2>//dev/null; done)
@@ -404,11 +406,12 @@ errata.html : errata.src
 extras: css2.tgz
 
 # The sources are in ISO-8859-1, make them ASCII to avoid encoding problems
-%.pdf: %.html style/default.css; asc2xml < $< | xml2asc | prince -o $@ -
+%.pdf: %.html style/default.css style/prince.css
+	asc2xml < $< | xml2asc | prince -s style/prince.css -o $@ -
 %.ps: %.pdf; $(PDF2PS) $< $@
 
-css2.pdf: $(SPECOBJS:.html=.pdf)
-	pdftk $+ cat output $@
+css2.pdf: css2.html style/default.css style/prince.css
+	prince -s style/prince.css -o $@ $<
 
 # css2.ps: build/blocks.ok $(SPECOBJS) images/pngs.ok $(IMAGES)
 # # Because of memory limitations in html2ps, use the
@@ -432,8 +435,7 @@ css2.ps.gz: css2.ps
 #	$(HTML2PDF) $< $@
 
 css2.html html: $(SPECOBJS)
-	$(HTMLCAT) - $(SPECOBJS) | \
-	$(HTMLTRIM) div navbar - $@
+	$(HTMLCAT) - $(SPECOBJS) >$@
 
 # the following requires to be on unix and have Netscape running...
 #css2.txt txt: css2.html
@@ -466,7 +468,7 @@ $(PROPBLKSDIR)/blocks.ok: $(PROPSRC)
 	touch $@
 
 
-cover.srd: cover.src build/contents.srb build/minicontents.srb
+cover.srd: cover.src build/contents.srb build/minicontents.srb Makefile
 	@echo "=========== making" $@
 	$(HIPP) $(INCLUDES) $<  |\
 	$(ADDCITE) -r $(REFS) $(REFSRCS) >$@
@@ -666,8 +668,8 @@ depend:
 # Rules to make diff files relative to previous REC and WD.
 # htmldiff returns >0 if there are differences, so we ignore the exit code.
 
-PREVREC = ../../../TR/1998/REC-CSS2-19980512
-PREVWD = ../../../TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PREV_NAME)-$(PREV_DATE)
+PREVREC = ../../../WWW/TR/2011/REC-CSS2-20110607
+PREVWD = ../../../WWW/TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PREV_NAME)-$(PREV_DATE)
 HTMLDIFF = htmldiff -i -w '<del>' -x '</del>' -y '<ins>' -z '</ins>'
 
 diffs: $(SPECOBJS)
