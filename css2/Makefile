@@ -7,11 +7,11 @@
 #THE_YEAR = YYYY
 THE_YEAR = 2016
 #THE_MONTH = MM
-THE_MONTH = 03
+THE_MONTH = 04
 #THE_MONTHNAME = MMMMM
-THE_MONTHNAME = March
+THE_MONTHNAME = April
 #THE_DAY = DD
-THE_DAY = 29
+THE_DAY = 12
 #THE_STATUS = FPWD
 THE_STATUS = ED
 #THE_STATUSNAME = First Public Working Draft
@@ -66,7 +66,7 @@ ROOT = .
 
 # the following files are part of the CSS specification
 SRCS0 = \
-cover.src
+Overview.src
 
 SRCS1 = \
 about.src\
@@ -112,7 +112,7 @@ refs.html
 SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
 
 SPECOBJS= \
-cover.html\
+Overview.html\
 about.html\
 intro.html\
 conform.html\
@@ -142,7 +142,7 @@ leftblank.html\
 indexlist.html
 
 #IMAGES = images/*.gif images/*.png
-IMAGES = images/*.png images/*.jpg
+IMAGES = images/*.png
 LONGDESCS = images/longdesc/*.html
 STYLESHEETS= style/*.css
 
@@ -340,13 +340,13 @@ build/meta-viewport:
 	echo '<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">' >$@
 
 build/fixup-js:
-	echo '<script type="text/javascript" src="//www.w3.org/scripts/TR/2016/fixup.js"></script>' >$@
+	echo '<script type="text/javascript" src="https://www.w3.org/scripts/TR/2016/fixup.js"></script>' >$@
 
 #images/links.ok : $(IMAGES)
 #	-@(cd images; for i in *.gif; do $(LN) -s $$i "`basename $$i .gif`" 2>//dev/null; done)
 #	touch images/links.ok
 
-install: all css2.tgz css2.txt css2.zip css2.ps.gz css2.pdf $(INSTALLDIR)/.htaccess
+install: all css2.tgz css2.txt css2.zip css2.ps.gz css2.pdf # $(INSTALLDIR)/.htaccess
 	@if [ -z "$(INSTALLDIR)" ]; then\
 	  echo >&2;\
 	  echo "*** No target directory specified" >&2;\
@@ -359,12 +359,10 @@ install: all css2.tgz css2.txt css2.zip css2.ps.gz css2.pdf $(INSTALLDIR)/.htacc
 #	-$(RM) -f $(CSSGROUPDIR)/issues.html
 #	-$(RM) $(CSSGROUPDIR)/css2-issues.html
 #	$(LN) -s $(INSTALLDIR)/issues.html $(CSSGROUPDIR)/css2-issues.html
-	-$(RM) $(INSTALLDIR)/Overview.html
-	(cd $(INSTALLDIR); $(LN) -s cover.html Overview.html)
 
 $(INSTALLDIR)/.htaccess:
 	mkdir -p $(INSTALLDIR)
-	echo "DirectoryIndex cover.html" >$@
+#	echo "DirectoryIndex Overview.html" >$@
 	echo "<Files ~ \"\.html\">" >>$@
 	echo "ForceType 'text/html; charset=utf-8'" >>$@
 	echo "</Files>" >>$@
@@ -407,7 +405,8 @@ errata.html : errata.src
 
 extras: css2.tgz
 
-%.pdf: %.html style/default.css; prince -o $@ $<
+%.pdf: %.html style/default.css style/prince.css
+	prince -s style/prince.css -o $@ $<
 %.ps: %.pdf; $(PDF2PS) $< $@
 
 # css2.pdf: $(SPECOBJS:.html=.pdf)
@@ -460,12 +459,12 @@ $(PROPBLKSDIR)/blocks.ok: $(PROPSRC)
 	touch $@
 
 
-cover.srd: cover.src build/contents.srb build/minicontents.srb
+Overview.srd: Overview.src build/contents.srb build/minicontents.srb
 	@echo "=========== making" $@
 	$(HIPP) $(INCLUDES) $<  |\
 	$(ADDCITE) -r $(REFS) $(REFSRCS) >$@
 
-cover.html: cover.srd Project.cfg build/meta-viewport build/fixup-js
+Overview.html: Overview.srd Project.cfg build/meta-viewport build/fixup-js
 	@echo "=========== making" $@
 	$(ADDNAVBAR) -r $@ $< |\
 	$(INSAFTER) - build/meta-viewport /TITLE - |\
