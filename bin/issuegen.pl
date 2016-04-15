@@ -34,6 +34,7 @@ Summary:  [summary]
 From:     [name]
 Comment:  [url]
 Response: [url]
+Changes:  [changeset(s) or new section or left blank for “It's complicated.” ]
 Closed:   Accepted/OutOfScope/Invalid/Rejected/Retracted/Deferred ... or replace this line with "Open"
 Verified: [url]
 Resolved: Editorial/Bugfix (for obvious fixes)/Editor discretion/[url to minutes]
@@ -46,8 +47,8 @@ if ($inFile eq 'help') {
 
 Welcome to fantasai's Issues List Generator!
 
-This is a script that converts a plaintext (.txt) issues list into a
-color-coded HTML file of the same name (but .html file extension).
+This is a script that converts a plaintext (.txt or .bsi) issues list
+into a color-coded HTML file of the same name (but .html file extension).
 The input is itself a presentable, easily-editable file designed
 mostly for the editor’s convenenience.
 
@@ -83,6 +84,12 @@ made presenting information that reopens the issue; however the
 entire thread shouldn't be tracked, only key messages. The goal
 is to minimize the effort required for someone reviewing the issues
 to understand this issue and its resolution.
+
+Changes:  A reference to the diffs, or equivalently useful information
+          such as a link to the relevant section. Often left blank in
+          early-stage drafts (which have a lot of churn) or when
+          there's a long discussion involving multiple sets of changes
+          and it's therefore easier just to look at the result.
 
 Closed:   A status line on how the issue was closed. Triggers colors.
           Replacing "Closed" with "Open" marks the issue unresolved.
@@ -126,12 +133,11 @@ if ($inFile =~ /\.(.+)$/) {
   $outFile =~ s/\.$1/\.html/;
 }
 elsif ($inFile =~ /\.$/) { # tab completion case
-  $inFile .= 'txt';
+  $inFile .= 'txt' if (-e ($inFile . "txt"));
+  $inFile .= 'bsi' if (-e ($inFile . "bsi"));
   $outFile .= 'html';
 }
-else {
-  $inFile .= '.html';
-}
+
 open IN,  "<", $inFile  || die "Cannot open $inFile: $!";
 open OUT, ">", $outFile || die "Cannot open $outFile: $!";
 $/ = "----\n";

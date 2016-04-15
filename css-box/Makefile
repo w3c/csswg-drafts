@@ -44,6 +44,7 @@ cdate ?= $(date)
 	@touch $@
 	@curl -o $@ -s -L -F file=@$< -F md-date=$(cdate) -F md-status=$(status) \
 	 -F output=err -F paragraph=$(markup) $(opts) http://api.csswg.org/bikeshed/
+	@sed -i 's/\\033\[[0-9;]*m//g' $@
 
 # For Dispositions of Comments in css3-background:
 %.html: %.txt; awk -f issues-txt-to-html.awk $< >$@
@@ -63,7 +64,9 @@ all: check $(target).html
 # egrep will exit with a zero exit code if there is anything left
 check: $(target).err
 	@cat $<
-	@if egrep -qv '^(Warning:|\(Processed in .* seconds\)|No errors)' $<;\
+	@echo
+	@if egrep -qv '^(Warning:|\(Processed in .* seconds\)|No errors)' $< &&\
+	  ! egrep -q '[^A-Z]* Successfully generated' $<;\
 	 then false; else true; fi
 
 
