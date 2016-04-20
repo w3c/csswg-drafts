@@ -11,8 +11,8 @@ Previous Version: https://www.w3.org/TR/2014/WD-css-scoping-1-20140403/
 Editor: Tab Atkins Jr., Google, http://xanthir.com/contact/
 Editor: Elika J Etemad / fantasai, Invited Expert, http://fantasai.inkedblade.net/contact
 Abstract: This specification defines various scoping/encapsulation mechanisms for CSS, including scoped styles and the ''@scope'' rule, Shadow DOM selectors, and page/region-based styling.
+Ignored Terms: inherit, slot
 Ignored Vars: root elements
-Ignored Terms: tree-of-trees order, slot
 Issue Tracking: Bugzilla https://www.w3.org/Bugs/Public/buglist.cgi?component=Scoping&list_id=47685&product=CSS&resolution=---
 </pre>
 
@@ -20,7 +20,14 @@ Issue Tracking: Bugzilla https://www.w3.org/Bugs/Public/buglist.cgi?component=Sc
 spec:dom; type:dfn;
 	text:host
 	text:shadow root; for:/
+	text:root; for:tree
+	text:find slotables
+	text:find flattened slotables
 spec:html; type:element; text:style
+spec:selectors-4; type:dfn;
+	text: static profile
+	text: dynamic profile
+spec:cascade-4; type:dfn; text: inherit
 </pre>
 
 <h2 id="intro">
@@ -272,6 +279,17 @@ Informative Explanation of Shadow DOM</h3>
 	However, some of its <a>light tree</a> children
 	can be "pulled into" the <a>shadow tree</a>
 	by assigning them to <a>slots</a>.
+	This causes them to be treated as children of the <a>slot</a>
+	for CSS purposes.
+	The <a>slots</a> can then be assigned to <a>slots</a>
+	in deeper <a>shadow trees</a>;
+	luckily, <a>slots</a> themselves don't generate boxes by default,
+	so you don't get an unpredictable cascade of <{slot}> wrapper elements
+	disrupting your CSS.
+
+	If nothing is explicitly assigned to a <a>slot</a>,
+	the <a>slot's</a> own children are instead assigned to it,
+	as a sort of "default" contents.
 
 <h3 id='selectors'>
 Shadow DOM and Selectors</h3>
@@ -282,7 +300,7 @@ Matching Selectors Against Shadow Trees</h4>
 	When a selector is matched against a <a>shadow tree</a>,
 	the <a>selector match list</a>
 	is initially the <a>shadow host</a>,
-	followed by all the <a>top-level elements</a> of the <a>shadow tree</a>
+	followed by all children of the <a>shadow tree's</a> <a>shadow root</a>
 	and their descendants,
 	ordered by a pre-order traversal.
 
@@ -367,7 +385,7 @@ Selecting Into the Light: the '':host'', '':host()'', and '':host-context()'' ps
 	In any other context,
 	it matches nothing.
 
-	The <dfn selector id="selectordef-host-function" lt=':host()'>:host()</dfn> function pseudo-class
+	The <dfn selector id="selectordef-host-function">:host()</dfn> function pseudo-class
 	has the syntax:
 
 	<pre>:host( <<compound-selector>> )</pre>
@@ -418,21 +436,14 @@ Selecting Into the Light: the '':host'', '':host()'', and '':host-context()'' ps
 	which matches a particular selector.
 	Its syntax is:
 
-	<pre>:host-context( <<compound-selector>> )</pre>
+	<pre class=prod>:host-context( <<compound-selector>> )</pre>
 
 	When evaluated <a>in the context of a shadow tree</a>,
 	the '':host-context()'' pseudo-class matches the <a>shadow host</a>,
-	if the <a>shadow host</a> or one of its ancestors matches the provided <<compound-selector>>.
-	For the purpose of this pseudo-class,
-	the "ancestor" of an element is:
-
-	: if the element is <a>assigned to a slot</a>
-	:: the <a element>slot</a> element it is ultimately distributed to.
-	: if the element is a top-most element in a shadow tree
-	:: the <a>shadow host</a>
-	: otherwise
-	:: the element's parent,
-		if it has one.
+	if the <a>shadow host</a> or one of its <a>shadow-including ancestors</a>
+	matches the provided <<compound-selector>>.
+	In any other context,
+	it matches nothing.
 
 	Note: This means that the selector pierces through shadow boundaries on the way up,
 	looking for elements that match its argument,
@@ -453,7 +464,7 @@ Selecting Into the Light: the '':host'', '':host()'', and '':host-context()'' ps
 Selecting Slot-Assigned Content: the ''::slotted()'' pseudo-element</h4>
 
 	The <dfn selector>::slotted()</dfn> pseudo-element
-	represents the elements <a>assigned</a> to a <a>slot</a>.
+	represents the elements <a lt="find flattened slotables">assigned, after flattening,</a> to a <a>slot</a>.
 	This pseudo-element only exists on <a>slots</a>.
 
 	The ''::slotted()'' pseudo-element is an <em>alias</em> for other elements in the tree,
@@ -461,14 +472,11 @@ Selecting Slot-Assigned Content: the ''::slotted()'' pseudo-element</h4>
 
 	The grammar of the ''::slotted()'' pseudo-element is:
 
-	<pre class=prod>::slotted( <<compound-selector>>? )</pre>
-
-	If the <<compound-selector>> is omitted,
-	it defaults to the <a>universal selector</a>.
+	<pre class=prod>::slotted( <<compound-selector>> )</pre>
 
 	The ''::slotted()'' pseudo-element represents the elements that are:
 
-	* <a lt="find distributed slotables">distributed</a> to the <a>slot</a> that is ''::slotted''’s originating element
+	* <a lt="find flattened slotables">assigned, after flattening,</a> to the <a>slot</a> that is ''::slotted''’s originating element
 	* <a lt="match a selector against an element">matched</a> by its <<compound-selector>> argument
 
 	<div class="example">
@@ -491,13 +499,13 @@ Selecting Slot-Assigned Content: the ''::slotted()'' pseudo-element</h4>
 		</pre>
 
 		For a stylesheet within the <a>shadow tree</a>,
-		a selector like ''::slotted()''
+		a selector like ''::slotted(*)''
 		selects ''#one'' and ''#two'' only,
-		as they're the elements <a>assigned</a> to the sole <{slot}> element.
+		as they're the elements <a lt="find flattened slotables">assigned</a> to the sole <{slot}> element.
 		It will <em>not</em> select ''#three''
 		(no <code>slot</code> attribute)
 		nor ''#four''
-		(only direct <a>children</a> of a <a>shadow host</a> can be <a>assigned</a> to a <a>slot</a>).
+		(only direct <a>children</a> of a <a>shadow host</a> can be assigned to a <a>slot</a>).
 
 		A selector like ''::slotted(.foo)'',
 		on the other hand,
@@ -505,12 +513,19 @@ Selecting Slot-Assigned Content: the ''::slotted()'' pseudo-element</h4>
 		as it matches ''.foo'',
 		but ''#two'' doesn't.
 
-		Note: Note that a selector like ''::slotted()''
-		is equivalent to ''*::slotted'',
-		where the ''*'' selects many more elements that just the <{slot}> element.
+		Note: Note that a selector like ''::slotted(*)''
+		is equivalent to ''*::slotted(*)'',
+		where the ''*'' selects many more elements than just the <{slot}> element.
 		However, since only the <{slot}> elements are <a>slots</a>,
 		they're the only elements with a ''::slotted()'' pseudo-element as well.
 	</div>
+
+	Note: ''::slotted()'' can only represent the <em>elements</em>
+	assigned to the <a>slot</a>.
+	<a>Slots</a> can also be assigned text nodes,
+	which can't be selected by ''::slotted()''.
+	The only way to style assigned text nodes
+	is by styling the <a>slot</a> and relying on inheritance.
 
 <!--
 ██    ██    ██
@@ -563,6 +578,34 @@ Selecting Through Shadows: the ''>>>'' combinator</h4>
 	for example, the {{querySelector()}} method,
 	but is invalid when used in stylesheets.
 
+<!--
+ ██████     ███     ██████   ██████     ███    ████████  ████████
+██    ██   ██ ██   ██    ██ ██    ██   ██ ██   ██     ██ ██
+██        ██   ██  ██       ██        ██   ██  ██     ██ ██
+██       ██     ██  ██████  ██       ██     ██ ██     ██ ██████
+██       █████████       ██ ██       █████████ ██     ██ ██
+██    ██ ██     ██ ██    ██ ██    ██ ██     ██ ██     ██ ██
+ ██████  ██     ██  ██████   ██████  ██     ██ ████████  ████████
+-->
+
+<h3 id='shadow-cascading'>
+Shadow Trees and the Cascade</h3>
+
+	To address the desired cascading behavior of rules targetting elements in shadow roots,
+	this specification extends the <a href="https://drafts.csswg.org/css-cascade/#cascading">cascade order</a>
+	defined in the Cascade specification. [[!CSS3CASCADE]]
+
+	An additional cascade criteria must be added,
+	between Origin and Scope,
+	called Shadow Tree.
+
+	* When comparing two declarations
+		that have different <a>tree contexts</a>,
+		then for normal rules the declaration earlier in the <a>shadow-including tree order</a> wins,
+		and for important rules the declaration coming later in the <a>shadow-including tree order</a> wins.
+
+		Note: This is the <em>opposite</em> of how scoped styles work.
+
 <!-- Big Text: Flat Tree -->
 
 <h3 id='flattening' algorithm>
@@ -596,8 +639,12 @@ Flattening the DOM into an Element Tree</h3>
 					with <var>pending node</var> as their associated parent.
 				<dt><var>pending node</var> is a <a>slot</a>
 				<dd>
-					Find the <a>slotables</a> for whom <var>pending node</var> is their <a>final distributed slot</a>,
+					<a>Find slotables</a> for <var>pending node</var>,
 					and append them to <var>pending nodes</var>,
+					with <var>pending node</var> as their associated parent.
+
+					If no <a>slotables</a> were found for <var>pending node</var>,
+					instead append its <a>children</a> to <var>pending nodes</var>,
 					with <var>pending node</var> as their associated parent.
 				<dt>Otherwise,
 				<dd>
@@ -610,58 +657,37 @@ Flattening the DOM into an Element Tree</h3>
 	but <a>shadow hosts</a> are filled with their <a>shadow tree</a> children
 	instead of their <a>light tree</a> children
 	(and this proceeds recursively if the <a>shadow tree</a> contains any <a>shadow hosts</a>),
-	and <a>slots</a> get filled with the nodes that are distributed to them.
+	and <a>slots</a> get filled with the nodes that are assigned to them
+	(and this proceeds recursively if the <a>slots</a> are themselves
+	assigned to a <a>slot</a> in a deeper <a>shadow tree</a>).
+
+	Issue: A non-obvious result of this
+	is that elements assigned to a slot inherit from that slot,
+	not their light-tree parent
+	or any deeper slots their slot gets assigned to.
+	This means that text nodes are styled by the shadow tree of their parent,
+	with nobody else capable of intervening in any way.
+	Do we want an additional pseudo-element for targeting those text nodes
+	so they can be styled at all slot-assignment levels,
+	like normal elements can be?
+	This implies it needs to work for text nodes in the light tree
+	before they're assigned downwards,
+	so this can't just be a ''::slotted()'' variant.
+	Luckily, this is a long-standing request!
 
 <h4 id='slots-in-shadow-tree'>
 Slots and Slotted Elements in a Shadow Tree</h4>
 
-	<a>Slots</a> must act as if they were assigned ''display: contents'' in the <a>UA origin</a>.
+	<a>Slots</a> must act as if they were assigned ''display: contents''
+	via a rule in the <a>UA origin</a>.
 	This must be possible to override via 'display',
 	so they <em>do</em> generate boxes if desired.
 
-	Issue: Maybe gloss slots.
-	DOM needs to define the <a>final distributed slot</a> concept;
-	I can't easily derive it from the existing definitions.
-
-<!--
- ██████     ███     ██████   ██████     ███    ████████  ████████
-██    ██   ██ ██   ██    ██ ██    ██   ██ ██   ██     ██ ██
-██        ██   ██  ██       ██        ██   ██  ██     ██ ██
-██       ██     ██  ██████  ██       ██     ██ ██     ██ ██████
-██       █████████       ██ ██       █████████ ██     ██ ██
-██    ██ ██     ██ ██    ██ ██    ██ ██     ██ ██     ██ ██
- ██████  ██     ██  ██████   ██████  ██     ██ ████████  ████████
--->
-
-<h3 id='shadow-cascading'>
-Shadow Cascading & Inheritance</h3>
-
-<h4 id='cascading'>
-Cascading</h4>
-
-	To address the desired cascading behavior of rules targetting elements in shadow roots,
-	this specification extends the <a href="https://drafts.csswg.org/css-cascade/#cascading">cascade order</a>
-	defined in the Cascade specification. [[!CSS3CASCADE]]
-
-	An additional cascade criteria must be added,
-	between Origin and Scope,
-	called Shadow Tree.
-
-	* When comparing two declarations
-		that have different <a>tree contexts</a>,
-		then for normal rules the declaration earlier in the <a>shadow-including tree order</a> wins,
-		and for important rules the declaration coming later in the <a>shadow-including tree order</a> wins.
-
-		Note: This is the <em>opposite</em> of how scoped styles work.
-
-<h4 id='inheritance'>
-Inheritance</h4>
-
-	The <a>top-level elements</a> of a <a>shadow tree</a>
-	inherit from their <a>shadow host</a>.
-
-	Elements <a>assigned</a> to a slot inherit from their <a>final assigned slot</a>,
-	rather than from their normal parent.
+	Note: A non-obvious result of assigning elements to <a>slots</a>
+	is that they <a>inherit</a> from the <a>slot</a> they're assigned to.
+	Their original <a>light tree</a> parent,
+	and any deeper <a>slots</a> that their <a>slot</a> gets assigned to,
+	don't affect inheritance.
 
 <!--
 ████████ ████████     ███     ██████   ██     ██ ████████ ██    ██ ████████  ██████
@@ -868,4 +894,16 @@ Changes</h2>
 	<a href="https://www.w3.org/TR/2014/WD-css-scoping-1-20140403/">3 April 2014 Working Draft</a>.
 
 	* Renamed <css>::content</css> to ''::slotted''.
+	* Define the flattened tree
+	* Generally reorg and rebase the Shadow DOM section on top of current DOM.
+
+Privacy and Security Considerations {#priv-sec}
+===============================================
+
+This specification introduces Shadow DOM and some shadow-piercing capabilities,
+but this does not introduce any privacy or security issues--
+shadow DOM, as currently specified, is intentionally not a privacy/security boundary
+(and the parts of the UA that use shadow DOM and <em>do</em> have a privacy/security boundary
+implicitly rely on protections not yet specified,
+which protect them from the things defined in this specification).
 
