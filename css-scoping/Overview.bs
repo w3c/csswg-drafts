@@ -11,8 +11,8 @@ Previous Version: https://www.w3.org/TR/2014/WD-css-scoping-1-20140403/
 Editor: Tab Atkins Jr., Google, http://xanthir.com/contact/
 Editor: Elika J Etemad / fantasai, Invited Expert, http://fantasai.inkedblade.net/contact
 Abstract: This specification defines various scoping/encapsulation mechanisms for CSS, including scoped styles and the ''@scope'' rule, Shadow DOM selectors, and page/region-based styling.
+Ignored Terms: inherit, slot
 Ignored Vars: root elements
-Ignored Terms: tree-of-trees order, slot
 Issue Tracking: Bugzilla https://www.w3.org/Bugs/Public/buglist.cgi?component=Scoping&list_id=47685&product=CSS&resolution=---
 </pre>
 
@@ -20,7 +20,14 @@ Issue Tracking: Bugzilla https://www.w3.org/Bugs/Public/buglist.cgi?component=Sc
 spec:dom; type:dfn;
 	text:host
 	text:shadow root; for:/
+	text:root; for:tree
+	text:find slotables
+	text:find flattened slotables
 spec:html; type:element; text:style
+spec:selectors-4; type:dfn;
+	text: static profile
+	text: dynamic profile
+spec:cascade-4; type:dfn; text: inherit
 </pre>
 
 <h2 id="intro">
@@ -238,69 +245,73 @@ Selecting Outside the Scope: '':scope-context()'' pseudo-class</h4>
 <h2 id='shadow-dom'>
 Shadow Encapsulation</h2>
 
-	The Shadow DOM spec augments the DOM with several new concepts,
+<h3 id='shadow-gloss'>
+Informative Explanation of Shadow DOM</h3>
+
+	<em>The following is a non-normative explanation
+	of several concepts normatively defined in the DOM Standard [[!DOM]],
+	to aid in understanding what this spec defines
+	without having to fully grok the DOM Standard.</em>
+
+	In addition to the qualities of an element tree defined in [[SELECTORS4#data-model]],
+	the DOM Standard adds several new concepts related to <a>shadow trees</a>,
 	several of which are relevant to CSS.
 
-	A <a>shadow tree</a> is a document fragment
-	that can be attached to any element in the DOM.
-	The root of the <a>shadow tree</a> is a <a>shadow root</a>,
-	a non-element node which is associated with a <a>shadow host</a>.
-	An element can have any number of <a>shadow trees</a>,
-	which are ordered by creation time.
+	An element can host a <a>shadow tree</a>,
+	which is a special kind of document fragment
+	with a <a>shadow root</a>
+	(a non-element node)
+	at its root.
+	Children of the <a>shadow root</a> are ordinary elements and other nodes.
+	The element hosting the <a>shadow tree</a> is its <a>host</a>,
+	or <dfn export>shadow host</dfn>.
 
-	An element with a <a>shadow tree</a> is a <dfn export>shadow host</dfn>.
-	It is the <a>host</a> for its <a>shadow trees</a>.
+	The elements in a <a>shadow tree</a> are not <a>descendants</a> of the <a>shadow host</a> in general
+	(including for the purposes of Selectors like the <a>descendant combinator</a>).
+	However, the <a>shadow tree</a>,
+	when it exists,
+	is used in the construction of the <a>flattened element tree</a>,
+	which CSS uses for all purposes <em>after</em> Selectors
+	(including inheritance and box construction).
 
-	The descendants of a <a>shadow host</a>
-	(its <a>light tree</a>)
-	must not generate boxes in the formatting tree.
-	Instead, the contents of the <a>shadow tree</a> generate boxes
-	as if they were the contents of the <a>shadow host</a> instead.
+	Loosely, the <a>shadow tree</a> is treated as the <a>shadow host's</a> contents
+	instead of its normal <a>light tree</a> contents.
+	However, some of its <a>light tree</a> children
+	can be "pulled into" the <a>shadow tree</a>
+	by assigning them to <a>slots</a>.
+	This causes them to be treated as children of the <a>slot</a>
+	for CSS purposes.
+	The <a>slots</a> can then be assigned to <a>slots</a>
+	in deeper <a>shadow trees</a>;
+	luckily, <a>slots</a> themselves don't generate boxes by default,
+	so you don't get an unpredictable cascade of <{slot}> wrapper elements
+	disrupting your CSS.
 
-	In several instances in shadow DOM,
-	elements don't have element parents
-	(instead, they may have a <a>shadow root</a> as parent,
-		or something else).
-	An element without a parent,
-	or whose parent is not an element,
-	is called a <dfn export>top-level element</dfn>.
+	If nothing is explicitly assigned to a <a>slot</a>,
+	the <a>slot's</a> own children are instead assigned to it,
+	as a sort of "default" contents.
 
-	While a <a>shadow host's</a> <a>light tree</a> does not generate boxes normally,
-	its <a>light tree</a> direct <a>children</a> can be explicitly pulled into a <a>shadow tree</a>
-	and forced to render normally.
-	This is done by marking the child as <a>slotable</a>
-	and then,
-	in the <a>shadow tree</a>,
-	creating a <a>slot</a> set to receive the <a>slotable</a>,
-	making the element <dfn export lt="slot-assign|assigned to a slot|assigned to the slot" local-lt="assign">assigned to the slot</dfn>.
-	(Anonymous text nodes that are direct children are always <a>slotable</a>.)
+<h3 id='selectors'>
+Shadow DOM and Selectors</h3>
 
-	Note: The DOM specification [[!DOM]] defines how to make elements <a>slotable</a>,
-	what elements are <a>slots</a>,
-	and how the two are matched together.
-
-
-<h3 id='selectors-data-model'>
-Shadow DOM Selection Model</h3>
-
-	Elements in the DOM
-	have zero or more <a>shadow trees</a>.
-
-	Note: The "descendants" of an element
-	are based on the <a>light tree</a> children of the element,
-	which does not include the <a>shadow trees</a> of the element.
+<h4 id='selectors-data-model'>
+Matching Selectors Against Shadow Trees</h4>
 
 	When a selector is matched against a <a>shadow tree</a>,
 	the <a>selector match list</a>
 	is initially the <a>shadow host</a>,
-	followed by all the <a>top-level elements</a> of the <a>shadow tree</a>
+	followed by all children of the <a>shadow tree's</a> <a>shadow root</a>
 	and their descendants,
 	ordered by a pre-order traversal.
+
+	Note: Remember that the <a>descendants</a> of an element
+	are based on the <a>light tree</a> <a>children</a> of the element,
+	which does not include the <a>shadow trees</a> of the element.
 
 	When a selector is <a lt="match a selector against a tree">matched against a tree</a>,
 	its <dfn export>tree context</dfn> is the <a>root</a> of the <var>root elements</var> passed to the algorithm.
 	If the <a>tree context</a> is a <a>shadow root</a>,
-	that selector is being matched <dfn>in the context of a shadow tree</dfn>.
+	that selector is being matched <dfn export lt="in the context of a shadow tree|in the context of the shadow tree">in the context of a shadow tree</dfn>.
 
 	<div class="example">
 		For example,
@@ -313,24 +324,23 @@ Shadow DOM Selection Model</h3>
 	of the selector that was matched to apply them.
 
 <h4 id='host-element-in-tree'>
-Shadow Hosts in a Shadow Tree</h4>
+Selecting Shadow Hosts from within a Shadow Tree</h4>
 
-	A <a>shadow host</a> is outside of the <a>shadow trees</a> it hosts,
+	A <a>shadow host</a> is outside of the <a>shadow tree</a> it hosts,
+	and so would ordinarily be untargettable by any selectors evaluated <a>in the context of the shadow tree</a>
+	(as selectors are limited to a single tree),
 	but it is sometimes useful to be able to style it from inside the <a>shadow tree</a> context.
 
 	For the purpose of Selectors,
-	a <a>shadow host</a> also appears in each of its <a>shadow trees</a>,
+	a <a>shadow host</a> also appears in its <a>shadow tree</a>,
 	with the contents of the <a>shadow tree</a> treated as its children.
-	If an element has multiple <a>shadow trees</a>,
-	it appears in each <a>shadow tree's</a> context independently;
-	each <a>shadow tree</a> sees <em>itself</em> as the contents of the <a>shadow host</a>,
-	not the other <a>shadow trees</a>.
+	(In other words, the <a>shadow host</a> is treated as replacing the <a>shadow root</a> node.)
 
 	When considered within its own <a>shadow trees</a>,
 	the <a>shadow host</a> is <a>featureless</a>.
 	Only the '':host'', '':host()'', and '':host-context()'' pseudo-classes are allowed to match it.
 
-	<details class='why'>
+	<details class='note'>
 		<summary>Why is the shadow host so weird?</summary>
 
 		The <a>shadow host</a> lives outside the <a>shadow tree</a>,
@@ -338,7 +348,7 @@ Shadow Hosts in a Shadow Tree</h4>
 		not the component author.
 
 		It would not be very good if a component used a particular class name
-		internally in a <a>shadow tree</a>,
+		internally in a <a>shadow tree</a> stylesheet,
 		and the page author using the component accidentally <em>also</em>
 		used the the same class name and put it on the <a>shadow host</a>.
 		Such a situation would result in accidental styling
@@ -347,45 +357,14 @@ Shadow Hosts in a Shadow Tree</h4>
 
 		However, there are still some reasonable use-cases for letting a stylesheet in a <a>shadow tree</a>
 		style its <a>shadow host</a>.
+		(For example,
+		the component might want to be laid out as a flexbox,
+		requiring the <a>shadow host</a> to be set to ''display: flex''.)
 		So, to allow this situation but prevent accidental styling,
 		the <a>shadow host</a> appears but is completely featureless
-		and unselectable except through '':host''.
+		and unselectable except through '':host'' and its related functional forms,
+		which make it very explicit when you're trying to match against markup provided by the page author.
 	</details>
-
-<h4 id='slots-in-shadow-tree'>
-Slots and Slotted Elements in a Shadow Tree</h4>
-
-	<a>Slots</a> must act as if they were assigned ''display: contents'' in the <a>UA origin</a>.
-	This must be possible to override via 'display',
-	so they <em>do</em> generate boxes if desired.
-
-	If a <a>slot</a> is not <a>assigned</a> any of its <a>shadow host's</a> children,
-	that <a>slot's</a> own <a>children</a>
-	are <a>assigned</a> to it.
-	Otherwise, a <a>slot's</a> DOM <a>children</a>
-	must not generate any boxes,
-	as if they were ''display:none''.
-
-	<a>Slots</a> can, themselves, be <a>assigned</a> to a <a>slot</a> in a deeper shadow tree.
-	If this occurs,
-	the elements <a>assigned</a> to the first slot
-	are also treated as being <a>assigned</a> to the deeper <a>slot</a>.
-	The deepest <a>slot</a> that an element is <a>assigned</a> to is its <dfn export>final assigned slot</dfn>.
-
-	Elements <a>assigned</a> to a <a>slot</a>
-	must generate boxes as if they were children of their <a>final assigned slot</a>
-	(rather than children of their actual parent in a <a>shadow host's</a> <a>light tree</a>).
-
-
-<h3 id='selectors'>
-Shadow DOM Selectors</h3>
-
-	Shadow DOM defines a few new selectors
-	to help select elements in useful way related to Shadow DOM.
-
-	Issue: This section is still under discussion.
-	Feedback and advice on intuitive syntax for the following functionality
-	would be appreciated.
 
 <!--
  ██  ██     ██  ███████   ██████  ████████
@@ -406,7 +385,7 @@ Selecting Into the Light: the '':host'', '':host()'', and '':host-context()'' ps
 	In any other context,
 	it matches nothing.
 
-	The <dfn selector id="selectordef-host-function" lt=':host()'>:host()</dfn> function pseudo-class
+	The <dfn selector id="selectordef-host-function">:host()</dfn> function pseudo-class
 	has the syntax:
 
 	<pre>:host( <<compound-selector>> )</pre>
@@ -457,21 +436,14 @@ Selecting Into the Light: the '':host'', '':host()'', and '':host-context()'' ps
 	which matches a particular selector.
 	Its syntax is:
 
-	<pre>:host-context( <<compound-selector>> )</pre>
+	<pre class=prod>:host-context( <<compound-selector>> )</pre>
 
 	When evaluated <a>in the context of a shadow tree</a>,
 	the '':host-context()'' pseudo-class matches the <a>shadow host</a>,
-	if the <a>shadow host</a> or one of its ancestors matches the provided <<compound-selector>>.
-	For the purpose of this pseudo-class,
-	the "ancestor" of an element is:
-
-	: if the element is <a>assigned to a slot</a>
-	:: the <a element>slot</a> element it is ultimately distributed to.
-	: if the element is a top-most element in a shadow tree
-	:: the <a>shadow host</a>
-	: otherwise
-	:: the element's parent,
-		if it has one.
+	if the <a>shadow host</a> or one of its <a>shadow-including ancestors</a>
+	matches the provided <<compound-selector>>.
+	In any other context,
+	it matches nothing.
 
 	Note: This means that the selector pierces through shadow boundaries on the way up,
 	looking for elements that match its argument,
@@ -492,7 +464,7 @@ Selecting Into the Light: the '':host'', '':host()'', and '':host-context()'' ps
 Selecting Slot-Assigned Content: the ''::slotted()'' pseudo-element</h4>
 
 	The <dfn selector>::slotted()</dfn> pseudo-element
-	represents the elements <a>assigned</a> to a <a>slot</a>.
+	represents the elements <a lt="find flattened slotables">assigned, after flattening,</a> to a <a>slot</a>.
 	This pseudo-element only exists on <a>slots</a>.
 
 	The ''::slotted()'' pseudo-element is an <em>alias</em> for other elements in the tree,
@@ -500,14 +472,11 @@ Selecting Slot-Assigned Content: the ''::slotted()'' pseudo-element</h4>
 
 	The grammar of the ''::slotted()'' pseudo-element is:
 
-	<pre class=prod>::slotted( <<compound-selector>>? )</pre>
-
-	If the <<compound-selector>> is omitted,
-	it defaults to the <a>universal selector</a>.
+	<pre class=prod>::slotted( <<compound-selector>> )</pre>
 
 	The ''::slotted()'' pseudo-element represents the elements that are:
 
-	* <a>assigned</a> to its <a>originating element</a>
+	* <a lt="find flattened slotables">assigned, after flattening,</a> to the <a>slot</a> that is ''::slotted''’s originating element
 	* <a lt="match a selector against an element">matched</a> by its <<compound-selector>> argument
 
 	<div class="example">
@@ -530,13 +499,13 @@ Selecting Slot-Assigned Content: the ''::slotted()'' pseudo-element</h4>
 		</pre>
 
 		For a stylesheet within the <a>shadow tree</a>,
-		a selector like ''::slotted()''
+		a selector like ''::slotted(*)''
 		selects ''#one'' and ''#two'' only,
-		as they're the elements <a>assigned</a> to the sole <{slot}> element.
+		as they're the elements <a lt="find flattened slotables">assigned</a> to the sole <{slot}> element.
 		It will <em>not</em> select ''#three''
 		(no <code>slot</code> attribute)
 		nor ''#four''
-		(only direct <a>children</a> of a <a>shadow host</a> can be <a>assigned</a> to a <a>slot</a>).
+		(only direct <a>children</a> of a <a>shadow host</a> can be assigned to a <a>slot</a>).
 
 		A selector like ''::slotted(.foo)'',
 		on the other hand,
@@ -544,12 +513,19 @@ Selecting Slot-Assigned Content: the ''::slotted()'' pseudo-element</h4>
 		as it matches ''.foo'',
 		but ''#two'' doesn't.
 
-		Note: Note that a selector like ''::slotted()''
-		is equivalent to ''*::slotted'',
-		where the ''*'' selects many more elements that just the <{slot}> element.
+		Note: Note that a selector like ''::slotted(*)''
+		is equivalent to ''*::slotted(*)'',
+		where the ''*'' selects many more elements than just the <{slot}> element.
 		However, since only the <{slot}> elements are <a>slots</a>,
 		they're the only elements with a ''::slotted()'' pseudo-element as well.
 	</div>
+
+	Note: ''::slotted()'' can only represent the <em>elements</em>
+	assigned to the <a>slot</a>.
+	<a>Slots</a> can also be assigned text nodes,
+	which can't be selected by ''::slotted()''.
+	The only way to style assigned text nodes
+	is by styling the <a>slot</a> and relying on inheritance.
 
 <!--
 ██    ██    ██
@@ -563,8 +539,6 @@ Selecting Slot-Assigned Content: the ''::slotted()'' pseudo-element</h4>
 
 <h4 id='deep-combinator'>
 Selecting Through Shadows: the ''>>>'' combinator</h4>
-
-	Issue: It's currently disputed whether this combinator should exist.
 
 	When a <dfn selector id="selectordef-shadow-piercing-descendant-combinator">>>></dfn> combinator
 	(or <dfn export>shadow-piercing descendant combinator</dfn>)
@@ -598,6 +572,12 @@ Selecting Through Shadows: the ''>>>'' combinator</h4>
 		''#top'', ''#not-top'', <em>and</em> ''#nested''.
 	</div>
 
+	The <a>shadow-piercing descendant combinator</a> is part of the <a>static profile</a> of Selectors,
+	not the <a>dynamic profile</a>.
+	This means that it is usable in,
+	for example, the {{querySelector()}} method,
+	but is invalid when used in stylesheets.
+
 <!--
  ██████     ███     ██████   ██████     ███    ████████  ████████
 ██    ██   ██ ██   ██    ██ ██    ██   ██ ██   ██     ██ ██
@@ -609,10 +589,7 @@ Selecting Through Shadows: the ''>>>'' combinator</h4>
 -->
 
 <h3 id='shadow-cascading'>
-Shadow Cascading & Inheritance</h3>
-
-<h4 id='cascading'>
-Cascading</h4>
+Shadow Trees and the Cascade</h3>
 
 	To address the desired cascading behavior of rules targetting elements in shadow roots,
 	this specification extends the <a href="https://drafts.csswg.org/css-cascade/#cascading">cascade order</a>
@@ -629,14 +606,88 @@ Cascading</h4>
 
 		Note: This is the <em>opposite</em> of how scoped styles work.
 
-<h4 id='inheritance'>
-Inheritance</h4>
+<!-- Big Text: Flat Tree -->
 
-	The <a>top-level elements</a> of a <a>shadow tree</a>
-	inherit from their <a>shadow host</a>.
+<h3 id='flattening' algorithm>
+Flattening the DOM into an Element Tree</h3>
 
-	Elements <a>assigned</a> to a slot inherit from their <a>final assigned slot</a>,
-	rather than from their normal parent.
+	While Selectors operates on the DOM tree as the host language presents it,
+	with separate trees that are unreachable via the standard parent/<a>child</a> relationship,
+	the rest of CSS needs a single unified tree structure to work with.
+	This is called the <dfn export lt="flat tree|flattened element tree">flattened element tree</dfn>
+	(or <a>flat tree</a>),
+	and is constructed as follows:
+
+	1. Let <var>pending nodes</var> be a list of DOM nodes with associated parents,
+		initially containing just the document's <a>root</a> element with no associated parent.
+	2. Repeatedly execute the following substeps until <var>pending nodes</var> is empty:
+		1. Pop the first element from <var>pending nodes</var>,
+			and assign it to <var>pending node</var>.
+		2. Insert <var>pending node</var> into the <a>flat tree</a>
+			as a child of its associated parent.
+			(If it has no associated parent,
+			it's the document root--
+			just insert it into the <a>flat tree</a> as its root.)
+		3. Perform one of the following,
+			whichever is the first that matches:
+
+			<dl class=switch>
+				<dt><var>pending node</var> is a <a>shadow host</a>
+				<dd>
+					Append the child nodes of the <a>shadow root</a> of the <a>shadow tree</a> it hosts
+					to <var>pending nodes</var>,
+					with <var>pending node</var> as their associated parent.
+				<dt><var>pending node</var> is a <a>slot</a>
+				<dd>
+					<a>Find slotables</a> for <var>pending node</var>,
+					and append them to <var>pending nodes</var>,
+					with <var>pending node</var> as their associated parent.
+
+					If no <a>slotables</a> were found for <var>pending node</var>,
+					instead append its <a>children</a> to <var>pending nodes</var>,
+					with <var>pending node</var> as their associated parent.
+				<dt>Otherwise,
+				<dd>
+					Append the child nodes of <var>pending node</var>’s <a>light tree</a>
+					to <var>pending nodes</var>,
+					with <var>pending node</var> as their associated parent.
+			</dl>
+
+	Note: In other words, the <a>flat tree</a> is the top-level DOM tree,
+	but <a>shadow hosts</a> are filled with their <a>shadow tree</a> children
+	instead of their <a>light tree</a> children
+	(and this proceeds recursively if the <a>shadow tree</a> contains any <a>shadow hosts</a>),
+	and <a>slots</a> get filled with the nodes that are assigned to them
+	(and this proceeds recursively if the <a>slots</a> are themselves
+	assigned to a <a>slot</a> in a deeper <a>shadow tree</a>).
+
+	Issue: A non-obvious result of this
+	is that elements assigned to a slot inherit from that slot,
+	not their light-tree parent
+	or any deeper slots their slot gets assigned to.
+	This means that text nodes are styled by the shadow tree of their parent,
+	with nobody else capable of intervening in any way.
+	Do we want an additional pseudo-element for targeting those text nodes
+	so they can be styled at all slot-assignment levels,
+	like normal elements can be?
+	This implies it needs to work for text nodes in the light tree
+	before they're assigned downwards,
+	so this can't just be a ''::slotted()'' variant.
+	Luckily, this is a long-standing request!
+
+<h4 id='slots-in-shadow-tree'>
+Slots and Slotted Elements in a Shadow Tree</h4>
+
+	<a>Slots</a> must act as if they were assigned ''display: contents''
+	via a rule in the <a>UA origin</a>.
+	This must be possible to override via 'display',
+	so they <em>do</em> generate boxes if desired.
+
+	Note: A non-obvious result of assigning elements to <a>slots</a>
+	is that they <a>inherit</a> from the <a>slot</a> they're assigned to.
+	Their original <a>light tree</a> parent,
+	and any deeper <a>slots</a> that their <a>slot</a> gets assigned to,
+	don't affect inheritance.
 
 <!--
 ████████ ████████     ███     ██████   ██     ██ ████████ ██    ██ ████████  ██████
@@ -843,4 +894,16 @@ Changes</h2>
 	<a href="https://www.w3.org/TR/2014/WD-css-scoping-1-20140403/">3 April 2014 Working Draft</a>.
 
 	* Renamed <css>::content</css> to ''::slotted''.
+	* Define the flattened tree
+	* Generally reorg and rebase the Shadow DOM section on top of current DOM.
+
+Privacy and Security Considerations {#priv-sec}
+===============================================
+
+This specification introduces Shadow DOM and some shadow-piercing capabilities,
+but this does not introduce any privacy or security issues--
+shadow DOM, as currently specified, is intentionally not a privacy/security boundary
+(and the parts of the UA that use shadow DOM and <em>do</em> have a privacy/security boundary
+implicitly rely on protections not yet specified,
+which protect them from the things defined in this specification).
 
