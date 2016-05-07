@@ -50,6 +50,59 @@ function XYZ_to_lin_sRGB(XYZ) {
 	return math.multiply(M, XYZ).valueOf();
 }
 
+//Rec.2020-related functions
+
+function lin_2020(RGB) {
+	// convert an array of Rec.2020 RGB values in the range 0.0 - 1.0 
+	// to linear light (un-companded) form.
+	const α = 1.09929682680944 ;
+	const β = 0.018053968510807;
+	
+	return RGB.map(function (val) {
+		if (val < β * 4.5 ) {
+			return val / 4.5;
+		}
+		
+		return Math.pow((val + α -1 ) / α, 2.4);
+	});
+}
+//check with standard this really is 2.4 and 1/2.4, not 0.45 was wikipedia claims
+
+function gam_2020(RGB) {
+	// convert an array of linear-light Rec.2020 RGB  in the range 0.0-1.0
+	// to gamma corrected form
+	const α = 1.09929682680944 ;
+	const β = 0.018053968510807;
+	
+	return RGB.map(function (val) {
+		if (val > β ) {
+			return α * Math.pow(val, 1/2.4) - (α - 1);
+		}
+		
+		return 4.5 * val;
+	});
+}
+ 
+function lin_sRGB_to_XYZ(rgb) {
+	// convert an array of linear-light sRGB values to CIE XYZ
+	// using sRGB's own white, D65 (no chromatic adaptation)
+	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
+	var M = math.matrix([
+		[ // calculate per Libdbloom
+	]);
+	
+	return math.multiply(M, rgb).valueOf();
+}
+
+function XYZ_to_lin_sRGB(XYZ) {
+	// convert XYZ to linear-light sRGB
+	var M = math.matrix([
+		[ // calculate per Libdbloom
+	]);
+	
+	return math.multiply(M, XYZ).valueOf();
+}
+
 // Chromatic adaptation
 
 function D65_to_D50(XYZ) {
