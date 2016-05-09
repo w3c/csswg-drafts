@@ -83,21 +83,26 @@ function gam_2020(RGB) {
 	});
 }
  
-function lin_sRGB_to_XYZ(rgb) {
-	// convert an array of linear-light sRGB values to CIE XYZ
-	// using sRGB's own white, D65 (no chromatic adaptation)
+function lin_2020_to_XYZ(rgb) {
+	// convert an array of linear-light rec.2020 values to CIE XYZ
+	// using  D65 (no chromatic adaptation)
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	var M = math.matrix([
-		[ // calculate per Libdbloom
+		[0.6369580483012914, 0.14461690358620832,  0.1688809751641721],
+		[0.2627002120112671, 0.6779980715188708,   0.05930171646986196],
+		[0.000000000000000,  0.028072693049087428, 1.060985057710791]
 	]);
+	// 0 is actually calculated as  4.994106574466076e-17
 	
 	return math.multiply(M, rgb).valueOf();
 }
 
-function XYZ_to_lin_sRGB(XYZ) {
-	// convert XYZ to linear-light sRGB
+function XYZ_to_lin_2020(XYZ) {
+	// convert XYZ to linear-light rec.2020
 	var M = math.matrix([
-		[ // calculate per Libdbloom
+		[1.7166511879712674,   -0.35567078377639233, -0.25336628137365974],
+		[-0.6666843518324892,   1.6164812366349395,   0.01576854581391113],
+		[0.017639857445310783, -0.042770613257808524, 0.9421031212354738]
 	]);
 	
 	return math.multiply(M, XYZ).valueOf();
