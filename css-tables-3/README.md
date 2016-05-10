@@ -7,14 +7,18 @@ Issue 1.
 * **From:**     Florian Rivoal
 * **Comment:**  https://lists.w3.org/Archives/Public/www-style/2016Jan/0135.html
 * **Open:**     Under Review
+
 ----
+
 Issue 2.
 
 * **Summary:**  Rowspanning cells and border-collapse: collapse
 * **From:**     Gérard Talbot
 * **Comment:**  https://lists.w3.org/Archives/Public/www-style/2016Mar/0098.html
 * **Open:**     Under Review
+
 ----
+
 Issue 3.
 
 * **Summary:**  Table-row-group can be 0 or more rows
