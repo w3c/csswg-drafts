@@ -50,6 +50,53 @@ function XYZ_to_lin_sRGB(XYZ) {
 	return math.multiply(M, XYZ).valueOf();
 }
 
+// DCI P3-related functions
+
+
+function lin_P3(RGB) {
+	// convert an array of DCI P3 RGB values in the range 0.0 - 1.0 
+	// to linear light (un-companded) form.
+
+	return RGB.map(function (val) {
+		return Math.pow(val, 2.6);
+	});
+}
+
+function gam_P3(RGB) {
+	// convert an array of linear-light P3 RGB  in the range 0.0-1.0
+	// to gamma corrected form
+	
+	return RGB.map(function (val) {
+			return Math.pow(val, 1/2.6);
+		}
+	});
+}
+ 
+function lin_P3_to_XYZ(rgb) {
+	// convert an array of linear-light P3 values to CIE XYZ
+	// using  D65 (no chromatic adaptation)
+	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
+	var M = math.matrix([
+		[0.4865709486482162, 0.26566769316909306, 0.1982172852343625],
+		[0.2289745640697488, 0.6917385218365064,  0.079286914093745], 
+		[0.0000000000000000, 0.04511338185890264, 1.043944368900976]
+	]);
+	// 0 was computed as -3.972075516933488e-17
+	
+	return math.multiply(M, rgb).valueOf();
+}
+
+function XYZ_to_lin_P3(XYZ) {
+	// convert XYZ to linear-light P3
+	var M = math.matrix([
+		[ 2.493496911941425,   -0.9313836179191239, -0.40271078445071684],
+		[-0.8294889695615747,   1.7626640603183463,  0.023624685841943577],
+		[ 0.03584583024378447, -0.07617238926804182, 0.9568845240076872]
+	]);
+	
+	return math.multiply(M, XYZ).valueOf();
+}
+
 //Rec.2020-related functions
 
 function lin_2020(RGB) {
