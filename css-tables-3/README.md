@@ -26,3 +26,14 @@ Issue 3.
 * **Comment:**  https://lists.w3.org/Archives/Public/www-style/2016Mar/0098.html
 * **Comment:**  https://lists.w3.org/Archives/Public/www-style/2016Mar/0401.html
 * **Open:**     Under Review
+
+----
+
+Issue 4.
+
+* **Summary:**  Resolving a percentage against a generated table-cell
+* **From:**     Christian Biesinger
+* **Comment:**  https://lists.w3.org/Archives/Public/www-style/2016Apr/0285.html
+* **Comment:**  https://lists.w3.org/Archives/Public/www-style/2016Apr/0289.html
+* **Comment:**  https://lists.w3.org/Archives/Public/www-style/2016Apr/0310.html
+* **Open:**     Under Review
