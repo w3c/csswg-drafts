@@ -207,6 +207,7 @@ function XYZ_to_Lab(XYZ) {
 
 function Lab_to_XYZ(Lab) {
 	// Convert Lab to D50-adapted XYZ
+	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	var κ = 24389/27;   // 29^3/3^3
 	var ε = 216/24389;  // 6^3/29^3
 	var white = [0.9642, 1.0000, 0.8249]; // D50 reference white
@@ -219,9 +220,9 @@ function Lab_to_XYZ(Lab) {
 	
 	// compute xyz
 	var xyz = [
-		f[0] > ε       ? Math.pow(f[0],3)            : (116*f[0]-16)/κ,
-		Lab[0] > κ * ε ? Math.pow((Lab[0]+16)/116,3) : Lab[0]/κ,
-		f[2] > ε       ? Math.pow(f[2],3)            : (116*f[2]-16)/κ
+		Math.pow(f[0],3) > ε ?   Math.pow(f[0],3)            : (116*f[0]-16)/κ,
+		Lab[0] > κ * ε ?         Math.pow((Lab[0]+16)/116,3) : Lab[0]/κ,
+		Math.pow(f[2],3)  > ε ?  Math.pow(f[2],3)            : (116*f[2]-16)/κ
 	];
 	
 	// Compute XYZ by scaling xyz by reference white  
