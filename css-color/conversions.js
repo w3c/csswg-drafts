@@ -68,7 +68,6 @@ function gam_P3(RGB) {
 	
 	return RGB.map(function (val) {
 			return Math.pow(val, 1/2.6);
-		}
 	});
 }
  
