@@ -134,8 +134,7 @@ Animations</h2>
 	immediately in the case of a pseudo style rule such as hover, or may be
 	when the scripting engine returns control to the browser (in the case of
 	style applied by script). Note that dynamically updating keyframe style
-	rules does not start or restart an animation.
-
+	rules does not start or re-start an animation.
 
 	An animation applies to an element if its name appears as one of the
 	identifiers in the computed value of the 'animation-name' property and the
@@ -148,6 +147,22 @@ Animations</h2>
 	<a idl>animationend</a> event.
 	Conversely, extending the 'animation-delay' may cause an animation to
 	re-start and dispatch an <a idl>animationstart</a> event.
+
+	The same @keyframes rule name may be repeated within an 'animation-name'.
+	Changes to the 'animation-name' update existing animations by iterating over
+	the new list of animations from last to first, and, for each animation,
+	finding the <em>last</em> matching animation in the list of existing
+	animations.
+	If a match is found, the existing animation is updated using the animation
+	properties corresponding to its position in the new list of animations,
+	whilst maintaining its current playback time as described above.
+	The matching animation is removed from the existing list of animations such
+	that it will not match twice.
+	If a match is not found, a new animation is created.
+	As a result, updating 'animation-name' from &lsquo;a&rsquo; to
+	&lsquo;a, a&rsquo; will cause the existing animation for &lsquo;a&rsquo; to
+	become the <em>second</em> animation in the list and a new animation will be
+	created for the first item in the list.
 
 	<div class='example'>
 		<pre>
@@ -178,15 +193,6 @@ Animations</h2>
 
 	</div>
 
-	<p class="issue" id="issue-track-animation-state">
-	This specification should describe what information is part
-	of the state of running animations,
-	and how that information persists across changes to 'animation-name',
-	particularly when a name is repeated
-	within either the old or new value of 'animation-name'.
-	See <a href="https://lists.w3.org/Archives/Public/www-style/2016May/0111.html">www-style post</a> and other messages in the same thread.
-	</p>
-
 	Setting the 'display' property to ''display/none'' will terminate any running animation applied
 	to the element and its descendants. If an element has a 'display' of ''display/none'', updating
 	'display' to a value other than ''display/none'' will start all animations applied to the element
@@ -208,32 +214,86 @@ Keyframes</h2>
 	during the animation. The keyframes specify the behavior of one cycle of the animation;
 	the animation may iterate zero or more times.
 
-	Keyframes are specified using a specialized CSS at-rule. A <dfn>@keyframes</dfn> rule consists of the
-	keyword "@keyframes", followed by an identifier giving a name for the animation (which will
-	be referenced using 'animation-name'), followed by a set of style rules (delimited by curly
-	braces).
+	Keyframes are specified using the <dfn>@keyframes</dfn> at-rule,
+	defined as follows:
 
-	The keyframe selector for a keyframe style rule consists of a comma-separated list of
-	percentage values or the keywords ''from'' or ''to''. The selector is used to specify the
-	percentage along the duration of the animation that the keyframe represents. The keyframe
-	itself is specified by the block of property values declared on the selector. The keyword
-	''from'' is equivalent to the value ''0%''. The keyword ''to'' is equivalent to the value ''100%''.
-	<span class="note">Note that the percentage unit specifier must be used on percentage values.
-	Therefore, ''0'' is an invalid keyframe selector.</span>
+	<pre>
+		@keyframes = @keyframes <<keyframes-name>> { <<rule-list>> }
+
+		<dfn>&lt;keyframes-name></dfn> = <<custom-ident>> | <<string>>
+
+		<dfn>&lt;keyframe-block></dfn> = <<keyframe-selector>># { <<declaration-list>> }
+
+		<dfn>&lt;keyframe-selector></dfn> = from | to | <<percentage>>
+	</pre>
+
+	The <<rule-list>> inside of ''@keyframes'' can only contain <<keyframe-block>> rules.
+
+	The <<declaration-list>> inside of <<keyframe-block>> accepts any CSS property
+	except those defined in this specification,
+	but <em>does</em> accept the 'animation-play-state' property
+	and interprets it specially.
+	None of the properties interact with the cascade
+	(so using ''!important'' on them is invalid and will cause the property to be ignored).
+
+	A ''@keyframes'' block has a name given by the <<custom-ident>> or <<string>> in its prelude.
+	The two syntaxes are equivalent in functionality;
+	the name is the value of the ident or string.
+	As normal for <<custom-ident>>s and <<string>>s,
+	the names are fully <a>case-sensitive</a>;
+	two names are equal only if they are codepoint-by-codepoint equal.
+	The <<custom-ident>> additionally excludes the ''none'' keyword.
+
+	<div class=example>
+		For example, the following two ''@keyframes'' rules have the same name,
+		so the first will be ignored:
+
+		<pre class=lang-css>
+		@keyframes foo { ... }
+		@keyframes "foo" { ... }
+		</pre>
+
+		On the other hand,
+		the following ''@keyframes'' rule's name is <em>different</em> from the previous two rules:
+
+		<pre class=lang-css>
+		@keyframes FOO { ... }
+		</pre>
+
+		The following ''@keyframes'' rules are invalid
+		because they use disallowed <<custom-ident>> values:
+
+		<pre class=lang-css>
+		@keyframes initial { ... }
+		@keyframes None { ... }
+		</pre>
+
+		However, those names *can* be specified with a <<string>>,
+		so the following are both <em>valid</em>:
+
+		<pre class=lang-css>
+		@keyframes "initial" { ... }
+		@keyframes "None" { ... }
+	</div>
+
+	The <<keyframe-selector>> for a <<keyframe-block>> consists of a comma-separated list of percentage values or the keywords ''from'' or ''to''. The selector is used to specify the percentage along the duration of the animation that the keyframe represents. The keyframe itself is specified by the block of property values declared on the selector. The keyword ''from'' is equivalent to the value ''0%''. The keyword ''to'' is equivalent to the value ''100%''.
+	Values less than ''0%'' or higher than ''100%'' are invalid
+	and cause their <<keyframe-block>> to be ignored.
+
+	<span class="note">Note that the percentage unit specifier must be used on percentage values. Therefore, ''0'' is an invalid keyframe selector.</span>
 
 	If a ''0%'' or ''from'' keyframe is not specified, then the user agent constructs a ''0%'' keyframe
 	using the computed values of the properties being animated. If a ''100%'' or ''to'' keyframe is not
 	specified, then the user agent constructs a ''100%'' keyframe using the computed values of the
-	properties being animated. If a keyframe selector specifies negative percentage values or values
-	higher than ''100%'', then the keyframe will be ignored.
+	properties being animated.
 
-	The keyframe declaration block for a keyframe rule consists of properties and values. The properties
+	The <<keyframe-block>> contains properties and values. The properties
 	defined by this specification are ignored in these rules, with the exception of
-	'animation-timing-function', the behavior of which is described below. In addition, keyframe rule
-	declarations qualified with !important are ignored.
+	'animation-timing-function', the behavior of which is described below. In addition, properties qualified with !important are invalid and ignored.
 
-	The @keyframes rule that is used by an animation will be the last one encountered in sorted rules
-	order that matches the name of the animation specified by the 'animation-name' property.
+	If multiple ''@keyframes'' rules are defined with the same name,
+	the last one in document order wins,
+	and all preceding ones are ignored.
 
 	<div class='example'>
 		<pre>
@@ -327,20 +387,6 @@ Keyframes</h2>
 		</figure>
 	</div>
 
-	The following is the grammar for the keyframes rule:
-
-	<pre>
-		keyframes_rule: KEYFRAMES_SYM S+ IDENT S* '{' S* keyframes_blocks '}' S*;
-
-		keyframes_blocks: [ keyframe_selector '{' S* declaration? [ ';' S* declaration? ]* '}' S* ]* ;
-
-		keyframe_selector: [ FROM_SYM | TO_SYM | PERCENTAGE ] S* [ ',' S* [ FROM_SYM | TO_SYM | PERCENTAGE ] S* ]*;
-
-		@{K}{E}{Y}{F}{R}{A}{M}{E}{S}   {return KEYFRAMES_SYM;}
-		{F}{R}{O}{M}                   {return FROM_SYM;}
-		{T}{O}                         {return TO_SYM;}
-	</pre>
-
 	<p class="issue">
 		This specification needs to define
 		how the value is determined from the keyframes,
@@ -421,7 +467,7 @@ The 'animation-name' property</h3>
 
 	<pre class='propdef'>
 	Name: animation-name
-	Value: <<single-animation-name>>#
+	Value: [ none | <<keyframes-name>> ]#
 	Initial: none
 	Applies to: all elements, ::before and ::after pseudo-elements
 	Inherited: none
@@ -432,8 +478,6 @@ The 'animation-name' property</h3>
 	Canonical order: per grammar
 	</pre>
 
-	<dfn>&lt;single-animation-name></dfn> = none | <<custom-ident>>
-
 	The values of 'animation-name' have the following meanings:
 
 	<dl dfn-type=value dfn-for=animation-name>
@@ -442,13 +486,11 @@ The 'animation-name' property</h3>
 			No keyframes are specified at all, so there will be no animation.
 			Any other animations properties specified for this animation have no effect.
 
-		<dt><dfn><<custom-ident>></dfn>
+		<dt><dfn><<keyframes-name>></dfn>
 		<dd>
-			The animation will use the keyframes with the name specified by the <<custom-ident>>,
-			if they exist.If no such keyframes exist, there is no animation.
-
-			The <a href="https://www.w3.org/TR/css3-values/#common-keywords">CSS-wide keywords</a>
-			and keywords defined by this property are not valid animation names.
+			The animation will use the keyframes with the name specified by the <<keyframes-name>>,
+			if they exist.
+			If no ''@keyframes'' rule with tha name exists, there is no animation.
 	</dl>
 
 <h3 id="animation-duration">
@@ -1205,8 +1247,6 @@ Acknowledgements</h2>
 <h2 id="other-open-issues">Other open issues</h2>
 
 <p class="issue">Need to <a href="https://lists.w3.org/Archives/Public/www-style/2015Jul/0391.html">specify how keyframes interact</a>.</p>
-
-<p class="issue">Need to specify better handling of dynamic changes of animation-name; see <a href="https://twitter.com/estellevw/status/617525016104583168">conversation</a>.</p>
 
 <h2 id="wg-resolutions-pending">
 Working Group Resolutions that are pending editing</h2>
