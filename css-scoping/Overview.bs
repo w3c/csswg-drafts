@@ -1,5 +1,5 @@
-<h1>CSS Scoping Module Level 1</h1>
 <pre class='metadata'>
+Title: CSS Scoping Module Level 1
 Level: 1
 Shortname: css-scoping
 Group: CSSWG
@@ -10,10 +10,23 @@ ED: https://drafts.csswg.org/css-scoping/
 Previous Version: https://www.w3.org/TR/2014/WD-css-scoping-1-20140403/
 Editor: Tab Atkins Jr., Google, http://xanthir.com/contact/
 Editor: Elika J Etemad / fantasai, Invited Expert, http://fantasai.inkedblade.net/contact
-Abstract: This specification defines various scoping/encapsulation mechanisms for CSS, including scoped styles and the ''@scope'' rule, Shadow DOM selectors, and page/region-based styling.
-Ignored Terms: slot, shadowroot, scoped
-Link Defaults: selectors (dfn) child combinator, html (element) style
-Issue Tracking: Bugzilla https://www.w3.org/Bugs/Public/buglist.cgi?component=Scoping&list_id=47685&product=CSS&resolution=---
+Abstract: This specification defines scoping/encapsulation mechanisms for CSS, focusing on the Shadow DOM scoping mechanism.
+Ignored Terms: inherit, slot, custom elements, stylesheets
+Ignored Vars: root elements
+</pre>
+
+<pre class="link-defaults">
+spec:dom; type:dfn;
+	text:host
+	text:shadow root; for:/
+	text:root; for:tree
+	text:find slotables
+	text:find flattened slotables
+spec:html; type:element; text:style
+spec:selectors-4; type:dfn;
+	text: static profile
+	text: dynamic profile
+spec:cascade-4; type:dfn; text: inherit
 </pre>
 
 <h2 id="intro">
@@ -22,266 +35,175 @@ Introduction</h2>
 	...
 
 
-<h2 id='scope'>
-Scoped Styles</h2>
 
-	<a>Scoped</a> style rules apply only within a subtree of a document,
-	rather than matching against the entire document.
-	Scoping has two primary effects:
+<!--
+████████  ████████ ████████    ███    ██     ██ ██       ████████
+██     ██ ██       ██         ██ ██   ██     ██ ██          ██
+██     ██ ██       ██        ██   ██  ██     ██ ██          ██
+██     ██ ██████   ██████   ██     ██ ██     ██ ██          ██
+██     ██ ██       ██       █████████ ██     ██ ██          ██
+██     ██ ██       ██       ██     ██ ██     ██ ██          ██
+████████  ████████ ██       ██     ██  ███████  ████████    ██
+-->
 
-	* The selector of the <a>scoped</a> style rule is restricted to match only elements within scope.
-		See <a href="https://www.w3.org/TR/selectors4/#scoping">Scoped Selectors</a> in [[SELECTORS4]].
-	* The cascade prioritizes scoped rules over unscoped ones, regardless of specificity.
-		See <a href="https://www.w3.org/TR/css-cascade/#cascade-scope">Cascading by Scope</a> in [[CSS3CASCADE]].
+<h2 id='default-element-styles'>
+Default Styles for Custom Elements</h2>
 
-<h3 id='scoping-mechanisms'>
-Scoping Mechanisms</h3>
+	When defining <a>custom elements</a>,
+	one often wants to set up "default" styles for them,
+	akin to the user-agent styles that apply to built-in elements.
+	This is, unfortunately, hard to do in vanilla CSS,
+	due to issues of scoping and specificity--
+	the element in question might be used in <a>shadow trees</a>,
+	and thus is unreachable by any selector targeting it in the outermost document;
+	and selectors, even low-specificity ones like simple <a>type selectors</a>,
+	can accidentally override author-level styles meant to target the element.
 
-	Style rules can be scoped using constructs defined in the document language
-	or using the ''@scope'' rule in CSS.
+	To aid in this, this section defines a way
+	to create a stylesheet of "default element styles" for a given element.
+	This stylesheet applies across the entire document,
+	in all <a>shadow trees</a>,
+	and the rules in it apply at the <a>user agent origin</a>,
+	so author-level rules automatically win.
 
-	“Scoping” consists of three somewhat independent concepts,
-	which are in practice generally used together:
+	{{Window}}s gain a private slot <dfn attribute for=Window>\[[defaultElementStylesMap]]</dfn>
+	which is a map of <a for="Element">local names</a> to <a>stylesheets</a>.
 
-	* A declaration can be scoped to a <a>scoping root</a>,
-		which <a href="https://drafts.csswg.org/css-cascade/#cascade-scope">affects its cascading behavior</a>. [[!CSS3CASCADE]]
-		(Alternately, a style rule can be scoped to a <a>scoping root</a>,
-		which scopes all of the declarations it contains to that <a>scoping root</a>.)
+	These stylesheets must apply to every document in the window.
+	They must be interpreted as user agent stylesheets.
 
-	* A selector can be either <a>scope-contained</a> or <a>scope-filtered</a> to a <a>scoping root</a>,
-		which <a href="https://drafts.csswg.org/selectors/#evaluating-selectors">limits what elements it is allowed to match</a>. [[!SELECTORS4]]
+	Note: This implies, in particular,
+	that they apply to all <a>shadow trees</a> in every document,
+	and that the declarations in them are from the <a>user agent origin</a>.
 
-	* The '':scope'' pseudo-class matches whatever the context sets as the <a>:scope elements</a>,
-		and is used by several features, such as relative selectors.
-		In the absence of any anything explicitly setting the <a>:scope elements</a> to something,
-		the '':scope'' pseudo-class matches the selector's <a>scoping root</a>.
+	For the purpose of the <a>cascade</a>,
+	these stylesheets are ordered after the user agent's own stylesheets;
+	their relative ordering doesn't matter as it is not observable.
 
-<h4 id='scoping-markup'>
-Document Markup for Scoping</h4>
+	Within these stylesheets, <a>complex selectors</a> must be treated as invalid.
+	Every <a>compound selector</a> must be treated as containing an additional <a>type selector</a>
+	that selects elements with the <a for=Element>local name</a>
+	that the stylesheet is keyed with.
 
-	Document languages may define a mechanism for a stylesheet to be scoped to some element in the document.
-	For example, in HTML,
-	a <a element>style</a> element with a <a element-attr for="style">scoped</a> attribute
-	defines a stylesheet that is scoped to the <a element>style</a> element’s parent element.
-	[[HTML]]
+	Issue: Do we need to restrict the <a>at-rules</a> that can be used in these sheets?
+	For example, do we allow an ''@font-face''?
+	I'm going to leave it as allowed unless/until I hear complaints.
 
-	The element that the stylesheet is scoped to
-	is the <a>scoping root</a> for all the style rules in the stylesheet,
-	and selectors of style rules in the stylesheet
-	are <a>scope-contained</a> to the <a>scoping root</a>.
+	This specification does not define how to add to, remove from, or generally manipulate
+	the {{[[defaultElementStylesMap]]}}.
+	It is expected that other specifications,
+	such as [[DOM]],
+	will define ways to do so.
 
-<h4 id='scope-atrule'>
-CSS Syntax for Scoping: the ''@scope'' rule</h4>
-
-	The <dfn>@scope</dfn> at-rule allows authors to create scoped style rules using CSS syntax.
-	The syntax of the ''@scope'' rule is:
-
-	<pre class='prod'>
-	@scope <<selector>> {
-		<<stylesheet>>
-	}
-	</pre>
-
-	where the elements matched by the <<selector>>
-	are <a>scoping roots</a> for the style rules in <<stylesheet>>,
-	and selectors of style rules scoped by ''@scope'' are
-	<a>scope-contained</a> to their <a>scoping root</a>.
-
-	<p class="issue">
-	This rule makes it very easy for authors to create scoped style sheets,
-	which could affect the optimization strategies for implementing scoped styles.
-
-	If multiple elements match the <<selector>>,
-	the <<stylesheet>> is effectively duplicated
-	and scoped independently to each one.
-	Authors should avoid using overly-generic selectors
-	as it can have confusing interactions with the cascade.
-
-	<div class="example">
-		A scoped stylesheet is attached not only to the outermost scoping element,
-		but to all matching elements.
-		For example, given the style sheet below
-
-		<pre>
-		@scope div {
-			span {
-				color: blue;
-			}
-		}
-		@scope section {
-			span {
-				color: orange;
-			}
-		}
-		</pre>
-
-		and the following document fragment
-
-		<pre>
-		&lt;div>
-			&lt;section>
-				&lt;div>
-					&lt;span>text&lt;/span>
-				&lt;/div>
-			&lt;/section>
-		&lt;/div>
-		</pre>
-
-		the text will be blue.
-	</div>
-
-	''@scope'' rules can be nested.
-	In this case, just as with the nested style rules,
-	the selector of an outer ''@scope'' scope-contains
-	the selector of the inner one.
-
-	The specificity of selectors inside the ''@scope'' rule is calculated locally:
-	the selector specifying the scoping element is ignored.
-	However, because scoped styles override non-scoped styles,
-	style rules inside the ''@scope'' will override rules outside of it.
-
-	<div class="example">
-		In the following example, the text would be green:
-
-		<pre>
-			@scope aside {
-				p { color: green; }
-			}
-			aside#sidebar p { color: red; }
-		</pre>
-	</div>
-
-	Issue: If multiple ''@scope'' rules apply to an element,
-	should they be cascaded by specificity?
-
-<h3 id='scoping-context'>
-Querying the Scoping Context</h3>
-
-<h4 id='scope-pseudo'>
-Selecting the Scoping Root: '':scope'' pseudo-class</h4>
-
-	In a scoped stylesheet,
-	the '':scope'' pseudo-class,
-	defined in [[SELECTORS4]],
-	matches the <a>scoping root</a>.
-
-<h4 id='scope-content-pseudo'>
-Selecting Outside the Scope: '':scope-context()'' pseudo-class</h4>
-
-	<div class='issue'>
-		This would be defined similarly to '':host-context()'',
-		but matching the ancestors of the <a>scoping root</a> instead.
-
-		However, since for scoped stylesheets you may want the ability to match complex selectors against the outside tree,
-		rather than a single compound selector,
-		we may want to instead use a more general mechanism that doesn't syntactically invert the order of tree elements.
-
-		Possible ideas:
-
-		<pre>
-		:scope-context(<<selector>>) div {...}
-		scope(<<selector>>) div {...}
-		\scope <<selector>>\ div {...}
-		<<selector>> \scope\ div {...}
-		</pre>
-
-		This functionality would replace ''@global'', which is a poor excuse for a selector.
-	</div>
+<!--
+ ██████  ██     ██    ███    ████████   ███████  ██      ██
+██    ██ ██     ██   ██ ██   ██     ██ ██     ██ ██  ██  ██
+██       ██     ██  ██   ██  ██     ██ ██     ██ ██  ██  ██
+ ██████  █████████ ██     ██ ██     ██ ██     ██ ██  ██  ██
+      ██ ██     ██ █████████ ██     ██ ██     ██ ██  ██  ██
+██    ██ ██     ██ ██     ██ ██     ██ ██     ██ ██  ██  ██
+ ██████  ██     ██ ██     ██ ████████   ███████   ███  ███
+-->
 
 <h2 id='shadow-dom'>
 Shadow Encapsulation</h2>
 
-	The Shadow DOM spec augments the DOM with several new concepts,
+<h3 id='shadow-gloss'>
+Informative Explanation of Shadow DOM</h3>
+
+	<em>The following is a non-normative explanation
+	of several concepts normatively defined in the DOM Standard [[!DOM]],
+	to aid in understanding what this spec defines
+	without having to fully grok the DOM Standard.</em>
+
+	In addition to the qualities of an element tree defined in [[SELECTORS4#data-model]],
+	the DOM Standard adds several new concepts related to <a>shadow trees</a>,
 	several of which are relevant to CSS.
 
-	A <dfn export>shadow tree</dfn> is a document fragment
-	that can be attached to any element in the DOM.
-	The root of the <a>shadow tree</a> is a <dfn export>shadow root</dfn>,
-	a non-element node which is associated with a <a>shadow host</a>.
-	An element can have any number of <a>shadow trees</a>,
-	which are ordered by creation time.
-	The most recently-created <a>shadow tree</a> on an element
-	is the <dfn export>youngest shadow tree</dfn> for that element.
+	An element can host a <a>shadow tree</a>,
+	which is a special kind of document fragment
+	with a <a>shadow root</a>
+	(a non-element node)
+	at its root.
+	Children of the <a>shadow root</a> are ordinary elements and other nodes.
+	The element hosting the <a>shadow tree</a> is its <a>host</a>,
+	or <a>shadow host</a>.
 
-	An element with a <a>shadow tree</a> is a <dfn export>shadow host</dfn>.
-	It is the <dfn export>host element</dfn> for its shadow trees.
+	The elements in a <a>shadow tree</a> are not <a>descendants</a> of the <a>shadow host</a> in general
+	(including for the purposes of Selectors like the <a>descendant combinator</a>).
+	However, the <a>shadow tree</a>,
+	when it exists,
+	is used in the construction of the <a>flattened element tree</a>,
+	which CSS uses for all purposes <em>after</em> Selectors
+	(including inheritance and box construction).
 
-	The descendants of a <a>shadow host</a>
-	must not generate boxes in the formatting tree.
-	Instead, the contents of the <a>youngest shadow tree</a> generate boxes
-	as if they were the contents of the element instead.
+	Loosely, the <a>shadow tree</a> is treated as the <a>shadow host's</a> contents
+	instead of its normal <a>light tree</a> contents.
+	However, some of its <a>light tree</a> children
+	can be "pulled into" the <a>shadow tree</a>
+	by assigning them to <a>slots</a>.
+	This causes them to be treated as children of the <a>slot</a>
+	for CSS purposes.
+	The <a>slots</a> can then be assigned to <a>slots</a>
+	in deeper <a>shadow trees</a>;
+	luckily, <a>slots</a> themselves don't generate boxes by default,
+	so you don't get an unpredictable cascade of <{slot}> wrapper elements
+	disrupting your CSS.
 
-	In several instances in shadow DOM,
-	elements don't have element parents
-	(instead, they may have a <a>shadow root</a> as parent,
-		or something else).
-	An element without a parent,
-	or whose parent is not an element,
-	is called a <dfn export>top-level element</dfn>.
+	If nothing is explicitly assigned to a <a>slot</a>,
+	the <a>slot's</a> own children are instead assigned to it,
+	as a sort of "default" contents.
 
-	While the children of a <a>shadow host</a> do not generate boxes normally,
-	they can be explicitly pulled into a <a>shadow tree</a> and forced to render normally.
-	This is done by marking the elements as <dfn export>distributed nodes</dfn>
-	for an <dfn export>insertion point</dfn> element.
+<h3 id='selectors'>
+Shadow DOM and Selectors</h3>
 
-	This specification does not define how to mark elements as <a>distributed nodes</a>,
-	instead leaving that to the Shadow DOM spec.
-	At the time this spec is written, however,
-	only <a element>slot</a> elements in a <a>shadow tree</a> can be <a>insertion points</a>.
-
-	An <a>insertion point</a> must not generate any boxes.
-	Instead, its <a>distributed nodes</a> generate boxes as normal,
-	as if they all replaced the <a>insertion point</a> in-place.
-	<span class='note'>(Akin to the behavior of 'display-outside: contents'.)</span>
-
-<h3 id='selectors-data-model'>
-Shadow DOM Selection Model</h3>
-
-	Elements in the DOM
-	have zero or more <a>shadow trees</a>
-	and zero or more <a>distributed nodes</a>.
-
-	Note: The "descendants" of an element
-	are based on the children of the element,
-	which does not include the <a>shadow trees</a> or <a>distributed nodes</a> of the element.
+<h4 id='selectors-data-model'>
+Matching Selectors Against Shadow Trees</h4>
 
 	When a selector is matched against a <a>shadow tree</a>,
 	the <a>selector match list</a>
 	is initially the <a>shadow host</a>,
-	followed by all the <a>top-level elements</a> of the <a>shadow tree</a>
+	followed by all children of the <a>shadow tree's</a> <a>shadow root</a>
 	and their descendants,
 	ordered by a pre-order traversal.
 
-	A selector is <dfn>in the context of a shadow tree</dfn>
-	if it is in a stylesheet attached to the shadow tree
-	(that is, present in the <code>ShadowRoot.styleSheets</code> list),
-	or it is used in an API that is <dfn>rooted in a shadow tree</dfn>.
+	Note: Remember that the <a>descendants</a> of an element
+	are based on the <a>light tree</a> <a>children</a> of the element,
+	which does not include the <a>shadow trees</a> of the element.
 
-	<div class='issue'>
-		Need to get DOM to hook this term.
-		<code>querySelector()</code>/etc are <a>rooted in a shadow tree</a>
-		if they're called on a ShadowRoot or an element in a shadow tree.
+	When a selector is <a lt="match a selector against a tree">matched against a tree</a>,
+	its <dfn export>tree context</dfn> is the <a>root</a> of the <var>root elements</var> passed to the algorithm.
+	If the <a>tree context</a> is a <a>shadow root</a>,
+	that selector is being matched <dfn export lt="in the context of a shadow tree|in the context of the shadow tree">in the context of a shadow tree</dfn>.
+
+	<div class="example">
+		For example,
+		any selector in a stylesheet embedded in or linked from an an element in a <a>shadow tree</a>
+		is <a>in the context of a shadow tree</a>.
+		So is the argument to {{querySelector()}} when called from a <a>shadow root</a>.
 	</div>
 
-<h4 id='host-element-in-tree'>
-Host Elements in a Shadow Tree</h4>
+	Declarations inherit the <a>tree context</a>
+	of the selector that was matched to apply them.
 
-	A <a>shadow host</a> is outside of the <a>shadow trees</a> it hosts,
+<h4 id='host-element-in-tree'>
+Selecting Shadow Hosts from within a Shadow Tree</h4>
+
+	A <a>shadow host</a> is outside of the <a>shadow tree</a> it hosts,
+	and so would ordinarily be untargettable by any selectors evaluated <a>in the context of the shadow tree</a>
+	(as selectors are limited to a single tree),
 	but it is sometimes useful to be able to style it from inside the <a>shadow tree</a> context.
 
 	For the purpose of Selectors,
-	a <a>host element</a> also appears in each of its <a>shadow trees</a>,
+	a <a>shadow host</a> also appears in its <a>shadow tree</a>,
 	with the contents of the <a>shadow tree</a> treated as its children.
-	If an element has multiple <a>shadow trees</a>,
-	it appears in each <a>shadow tree's</a> context independently;
-	each <a>shadow tree</a> sees <em>itself</em> as the contents of the <a>host element</a>,
-	not the other <a>shadow trees</a>.
+	(In other words, the <a>shadow host</a> is treated as replacing the <a>shadow root</a> node.)
 
 	When considered within its own <a>shadow trees</a>,
-	the <a>host element</a> is <a>featureless</a>.
+	the <a>shadow host</a> is <a>featureless</a>.
 	Only the '':host'', '':host()'', and '':host-context()'' pseudo-classes are allowed to match it.
 
-	<details class='why'>
+	<details class='note'>
 		<summary>Why is the shadow host so weird?</summary>
 
 		The <a>shadow host</a> lives outside the <a>shadow tree</a>,
@@ -289,48 +211,51 @@ Host Elements in a Shadow Tree</h4>
 		not the component author.
 
 		It would not be very good if a component used a particular class name
-		internally in a <a>shadow tree</a>,
+		internally in a <a>shadow tree</a> stylesheet,
 		and the page author using the component accidentally <em>also</em>
-		used the the same class name and put it on the <a>host element</a>.
+		used the the same class name and put it on the <a>shadow host</a>.
 		Such a situation would result in accidental styling
 		that is impossible for the component author to predict,
 		and confusing for the page author to debug.
 
 		However, there are still some reasonable use-cases for letting a stylesheet in a <a>shadow tree</a>
-		style its <a>host element</a>.
+		style its <a>shadow host</a>.
+		(For example,
+		the component might want to be laid out as a flexbox,
+		requiring the <a>shadow host</a> to be set to ''display: flex''.)
 		So, to allow this situation but prevent accidental styling,
-		the <a>host element</a> appears but is completely featureless
-		and unselectable except through '':host''.
+		the <a>shadow host</a> appears but is completely featureless
+		and unselectable except through '':host'' and its related functional forms,
+		which make it very explicit when you're trying to match against markup provided by the page author.
 	</details>
 
-
-<h3 id='selectors'>
-Shadow DOM Selectors</h3>
-
-	Shadow DOM defines a few new selectors
-	to help select elements in useful way related to Shadow DOM.
-
-	Issue: This section is still under discussion.
-	Feedback and advice on intuitive syntax for the following functionality
-	would be appreciated.
+<!--
+ ██  ██     ██  ███████   ██████  ████████
+████ ██     ██ ██     ██ ██    ██    ██
+ ██  ██     ██ ██     ██ ██          ██
+     █████████ ██     ██  ██████     ██
+ ██  ██     ██ ██     ██       ██    ██
+████ ██     ██ ██     ██ ██    ██    ██
+ ██  ██     ██  ███████   ██████     ██
+-->
 
 <h4 id='host-selector'>
 Selecting Into the Light: the '':host'', '':host()'', and '':host-context()'' pseudo-classes</h4>
 
 	The <dfn selector>:host</dfn> pseudo-class,
 	when evaluated <a>in the context of a shadow tree</a>,
-	matches the <a>shadow tree's</a> <a>host element</a>.
+	matches the <a>shadow tree's</a> <a>shadow host</a>.
 	In any other context,
 	it matches nothing.
 
-	The <dfn selector id="selectordef-host-function" lt=':host()'>:host()</dfn> function pseudo-class
+	The <dfn selector id="selectordef-host-function">:host()</dfn> function pseudo-class
 	has the syntax:
 
 	<pre>:host( <<compound-selector>> )</pre>
 
 	When evaluated <a>in the context of a shadow tree</a>,
-	it matches the <a>shadow tree's</a> <a>host element</a>
-	if the <a>host element</a>,
+	it matches the <a>shadow tree's</a> <a>shadow host</a>
+	if the <a>shadow host</a>,
 	in its normal context,
 	matches the selector argument.
 	In any other context,
@@ -374,93 +299,48 @@ Selecting Into the Light: the '':host'', '':host()'', and '':host-context()'' ps
 	which matches a particular selector.
 	Its syntax is:
 
-	<pre>:host-context( <<compound-selector>> )</pre>
+	<pre class=prod>:host-context( <<compound-selector>> )</pre>
 
 	When evaluated <a>in the context of a shadow tree</a>,
-	the '':host-context()'' pseudo-class matches the <a>host element</a>,
-	if the <a>host element</a> or one of its ancestors matches the provided <<compound-selector>>.
-	For the purpose of this pseudo-class,
-	the "ancestor" of an element is:
-
-	: if the element is a <a>distributed node</a>
-	:: the <a element>slot</a> element it is ultimately distributed to.
-	: if the element is a top-most element in a shadow tree
-	:: the <a>host element</a>
-	: otherwise
-	:: the element's parent,
-		if it has one.
+	the '':host-context()'' pseudo-class matches the <a>shadow host</a>,
+	if the <a>shadow host</a> or one of its <a>shadow-including ancestors</a>
+	matches the provided <<compound-selector>>.
+	In any other context,
+	it matches nothing.
 
 	Note: This means that the selector pierces through shadow boundaries on the way up,
 	looking for elements that match its argument,
 	until it reaches the document root.
 
-<h4 id='shadow-pseudoelement'>
-Selecting Into the Dark: the ''::shadow'' pseudo-element</h4>
 
-	Issue: It's been suggested to remove this feature.
+<!--
+ ██   ██   ██████  ██        ███████  ████████ ████████ ████████ ████████
+████ ████ ██    ██ ██       ██     ██    ██       ██    ██       ██     ██
+ ██   ██  ██       ██       ██     ██    ██       ██    ██       ██     ██
+           ██████  ██       ██     ██    ██       ██    ██████   ██     ██
+ ██   ██        ██ ██       ██     ██    ██       ██    ██       ██     ██
+████ ████ ██    ██ ██       ██     ██    ██       ██    ██       ██     ██
+ ██   ██   ██████  ████████  ███████     ██       ██    ████████ ████████
+-->
 
-	If an element has at least one <a>shadow tree</a>,
-	the <dfn>::shadow</dfn> pseudo-element matches the <a>shadow roots</a> themselves.
-	In HTML, the <a>shadow root</a> is represented by {{ShadowRoot}} objects.
+<h4 id='slotted-pseudo'>
+Selecting Slot-Assigned Content: the ''::slotted()'' pseudo-element</h4>
 
-	The ''::shadow'' pseudo-element must not generate boxes,
-	unless specified otherwise in another specification.
-	However, for the purpose of Selectors,
-	the ''::shadow'' pseudo-element is considered to be the root of the <a>shadow tree</a>,
-	with the <a>top-level elements</a> in the <a>shadow tree</a> the direct children of the ''::shadow'' pseudo-element.
+	The <dfn selector>::slotted()</dfn> pseudo-element
+	represents the elements <a lt="find flattened slotables">assigned, after flattening,</a> to a <a>slot</a>.
+	This pseudo-element only exists on <a>slots</a>.
 
-	<div class='example'>
-		For example, say you had a component with a <a>shadow tree</a> like the following:
+	The ''::slotted()'' pseudo-element is an <em>alias</em> for other elements in the tree,
+	and does not generate any boxes itself.
 
-		<pre>
-			&lt;x-foo>
-				&lt;"shadow tree">
-					&lt;div>
-						&lt;span id="not-top">...&lt;/span>
-					&lt;/div>
-					&lt;span id="top">...&lt;/span>
-				&lt;/>
-			&lt;/x-foo>
-		</pre>
+	The grammar of the ''::slotted()'' pseudo-element is:
 
-		For a stylesheet in the outer document,
-		''x-foo::shadow > span'' matches ''#top'',
-		but not ''#not-top'',
-		because it's not a <a>top-level element</a> in the <a>shadow tree</a>.
+	<pre class=prod>::slotted( <<compound-selector>> )</pre>
 
-		If one wanted to target ''#not-top'',
-		one way to do it would be with ''x-foo::shadow > div > span''.
-		However, this introduces a strong dependency on the internal structure of the component;
-		in most cases, it's better to use the descendant combinator,
-		like ''x-foo::shadow span'',
-		to select all the elements of some type in the <a>shadow tree</a>.
-	</div>
+	The ''::slotted()'' pseudo-element represents the elements that are:
 
-	<div class='example'>
-		If an element has multiple <a>shadow trees</a>,
-		a ''::shadow'' pseudo-element selects <em>all</em> of the corresponding <a>shadow roots</a>.
-
-		Similarly,
-		inside of a <a>shadow tree</a>,
-		a selector like '':host::shadow div'' selects the <a element>div</a> elements in <em>all</em> the <a>shadow trees</a> on the element,
-		not just the one containing that selector.
-	</div>
-
-
-
-<h4 id='content-combinator'>
-Selecting Shadow-Projected Content: the ''::slotted'' pseudo-element</h4>
-
-	Issue: It's been proposed to restrict this to child elements only.
-
-	The <dfn selector>::slotted</dfn> pseudo-element
-	matches the list of <a>distributed nodes</a> itself,
-	on elements that have them.
-
-	The ''::slotted'' pseudo-element must not generate boxes,
-	unless specified otherwise in another specification.
-	However, for the purpose of Selectors,
-	the ''::slotted'' pseudo-element is considered to be a parent of the <a>distributed nodes</a>.
+	* <a lt="find flattened slotables">assigned, after flattening,</a> to the <a>slot</a> that is ''::slotted''’s originating element
+	* <a lt="match a selector against an element">matched</a> by its <<compound-selector>> argument
 
 	<div class="example">
 		For example, say you had a component with both children and a shadow tree,
@@ -468,43 +348,60 @@ Selecting Shadow-Projected Content: the ''::slotted'' pseudo-element</h4>
 
 		<pre>
 			&lt;x-foo>
-				&lt;div id="one" class="foo">...&lt;/div>
-				&lt;div id="two">...&lt;/div>
+				&lt;div id="one" slot="foo" class="foo">...&lt;/div>
+				&lt;div id="two" slot="foo">...&lt;/div>
 				&lt;div id="three" class="foo">
-					&lt;div id="four">...&lt;/div>
+					&lt;div id="four" slot="foo">...&lt;/div>
 				&lt;/div>
 				&lt;"shadow tree">
 					&lt;div id="five">...&lt;/div>
 					&lt;div id="six">...&lt;/div>
-					&lt;content select=".foo">&lt;/content>
+					&lt;slot name="foo">&lt;/slot>
 				&lt;/"shadow tree">
 			&lt;/x-foo>
 		</pre>
 
 		For a stylesheet within the <a>shadow tree</a>,
-		a selector like ''::slotted div''
-		selects ''#one'', ''#three'', and ''#four'',
-		as they're the elements distributed by the sole <a element>slot</a> element,
-		but not ''#two''.
+		a selector like ''::slotted(*)''
+		selects ''#one'' and ''#two'' only,
+		as they're the elements <a lt="find flattened slotables">assigned</a> to the sole <{slot}> element.
+		It will <em>not</em> select ''#three''
+		(no <code>slot</code> attribute)
+		nor ''#four''
+		(only direct <a>children</a> of a <a>shadow host</a> can be assigned to a <a>slot</a>).
 
-		If only the <a>top-level elements</a> distributed the <a element>slot</a> element are desired,
-		a <a>child combinator</a> can be used,
-		like ''::slotted > div'',
-		which will exclude ''#four''
-		as it's not treated as a child of the ''::slotted'' pseudo-element.
+		A selector like ''::slotted(.foo)'',
+		on the other hand,
+		will only select ''#one'',
+		as it matches ''.foo'',
+		but ''#two'' doesn't.
 
-		Note: Note that a selector like ''::slotted div''
-		is equivalent to ''*::slotted div'',
-		where the ''*'' selects many more elements that just the <a element>slot</a> element.
-		However, since only the <a element>slot</a> element has <a>distributed nodes</a>,
-		it's the only element that has a ''::slotted'' pseudo-element as well.
+		Note: Note that a selector like ''::slotted(*)''
+		is equivalent to ''*::slotted(*)'',
+		where the ''*'' selects many more elements than just the <{slot}> element.
+		However, since only the <{slot}> elements are <a>slots</a>,
+		they're the only elements with a ''::slotted()'' pseudo-element as well.
 	</div>
 
+	Note: ''::slotted()'' can only represent the <em>elements</em>
+	assigned to the <a>slot</a>.
+	<a>Slots</a> can also be assigned text nodes,
+	which can't be selected by ''::slotted()''.
+	The only way to style assigned text nodes
+	is by styling the <a>slot</a> and relying on inheritance.
+
+<!--
+██    ██    ██
+ ██    ██    ██
+  ██    ██    ██
+   ██    ██    ██
+  ██    ██    ██
+ ██    ██    ██
+██    ██    ██
+-->
 
 <h4 id='deep-combinator'>
 Selecting Through Shadows: the ''>>>'' combinator</h4>
-
-	Issue: It's currently disputed whether this combinator should exist.
 
 	When a <dfn selector id="selectordef-shadow-piercing-descendant-combinator">>>></dfn> combinator
 	(or <dfn export>shadow-piercing descendant combinator</dfn>)
@@ -538,13 +435,24 @@ Selecting Through Shadows: the ''>>>'' combinator</h4>
 		''#top'', ''#not-top'', <em>and</em> ''#nested''.
 	</div>
 
+	The <a>shadow-piercing descendant combinator</a> is part of the <a>static profile</a> of Selectors,
+	not the <a>dynamic profile</a>.
+	This means that it is usable in,
+	for example, the {{querySelector()}} method,
+	but is invalid when used in stylesheets.
 
+<!--
+ ██████     ███     ██████   ██████     ███    ████████  ████████
+██    ██   ██ ██   ██    ██ ██    ██   ██ ██   ██     ██ ██
+██        ██   ██  ██       ██        ██   ██  ██     ██ ██
+██       ██     ██  ██████  ██       ██     ██ ██     ██ ██████
+██       █████████       ██ ██       █████████ ██     ██ ██
+██    ██ ██     ██ ██    ██ ██    ██ ██     ██ ██     ██ ██
+ ██████  ██     ██  ██████   ██████  ██     ██ ████████  ████████
+-->
 
 <h3 id='shadow-cascading'>
-Shadow Cascading & Inheritance</h3>
-
-<h4 id='cascading'>
-Cascading</h4>
+Shadow Trees and the Cascade</h3>
 
 	To address the desired cascading behavior of rules targetting elements in shadow roots,
 	this specification extends the <a href="https://drafts.csswg.org/css-cascade/#cascading">cascade order</a>
@@ -554,221 +462,103 @@ Cascading</h4>
 	between Origin and Scope,
 	called Shadow Tree.
 
-	* When comparing two declarations,
-		if one of them is in a <a>shadow tree</a>
-		and the other is in a document that contains that <a>shadow tree</a>,
-		then for normal rules the declaration from the outer document wins,
-		and for important rules the declaration from the <a>shadow tree</a> wins.
+	* When comparing two declarations
+		that have different <a>tree contexts</a>,
+		then for normal rules the declaration earlier in the <a>shadow-including tree order</a> wins,
+		and for important rules the declaration coming later in the <a>shadow-including tree order</a> wins.
 
 		Note: This is the <em>opposite</em> of how scoped styles work.
 
-	* When comparing two declarations,
-		if both are in <a>shadow trees</a> with the same <a>host element</a>,
-		then for normal rules the declaration from the <a>shadow tree</a> that was created most recently wins,
-		and for important rules the declaration from the <a>shadow tree</a> that was created less recently wins.
+<!--
+████████ ██          ███    ████████       ████████ ████████  ████████ ████████
+██       ██         ██ ██      ██             ██    ██     ██ ██       ██
+██       ██        ██   ██     ██             ██    ██     ██ ██       ██
+██████   ██       ██     ██    ██             ██    ████████  ██████   ██████
+██       ██       █████████    ██             ██    ██   ██   ██       ██
+██       ██       ██     ██    ██             ██    ██    ██  ██       ██
+██       ████████ ██     ██    ██             ██    ██     ██ ████████ ████████
+-->
 
-	When calculating <a href="https://drafts.csswg.org/css-cascade/#cascade-order">Order of Appearance</a>,
-	the tree of trees,
-	defined by the Shadow DOM specification,
-	is used to calculate ordering.
+<h3 id='flattening' algorithm>
+Flattening the DOM into an Element Tree</h3>
 
-<h4 id='inheritance'>
-Inheritance</h4>
+	While Selectors operates on the DOM tree as the host language presents it,
+	with separate trees that are unreachable via the standard parent/<a>child</a> relationship,
+	the rest of CSS needs a single unified tree structure to work with.
+	This is called the <dfn export lt="flat tree|flattened element tree">flattened element tree</dfn>
+	(or <a>flat tree</a>),
+	and is constructed as follows:
 
-	The <a>top-level elements</a> of a <a>shadow tree</a>
-	inherit from their <a>host element</a>.
+	1. Let <var>pending nodes</var> be a list of DOM nodes with associated parents,
+		initially containing just the document's <a>root</a> element with no associated parent.
+	2. Repeatedly execute the following substeps until <var>pending nodes</var> is empty:
+		1. Pop the first element from <var>pending nodes</var>,
+			and assign it to <var>pending node</var>.
+		2. Insert <var>pending node</var> into the <a>flat tree</a>
+			as a child of its associated parent.
+			(If it has no associated parent,
+			it's the document root--
+			just insert it into the <a>flat tree</a> as its root.)
+		3. Perform one of the following,
+			whichever is the first that matches:
 
-	<a>Distributed nodes</a> inherit from the parent of the <a element>slot</a> element they are ultimately distributed to,
-	rather than from their normal parent.
+			<dl class=switch>
+				<dt><var>pending node</var> is a <a>shadow host</a>
+				<dd>
+					Append the child nodes of the <a>shadow root</a> of the <a>shadow tree</a> it hosts
+					to <var>pending nodes</var>,
+					with <var>pending node</var> as their associated parent.
+				<dt><var>pending node</var> is a <a>slot</a>
+				<dd>
+					<a>Find slotables</a> for <var>pending node</var>,
+					and append them to <var>pending nodes</var>,
+					with <var>pending node</var> as their associated parent.
 
+					If no <a>slotables</a> were found for <var>pending node</var>,
+					instead append its <a>children</a> to <var>pending nodes</var>,
+					with <var>pending node</var> as their associated parent.
+				<dt>Otherwise,
+				<dd>
+					Append the child nodes of <var>pending node</var>’s <a>light tree</a>
+					to <var>pending nodes</var>,
+					with <var>pending node</var> as their associated parent.
+			</dl>
 
-<h2 id="fragment-scoping">
-Fragmented Styling</h2>
+	Note: In other words, the <a>flat tree</a> is the top-level DOM tree,
+	but <a>shadow hosts</a> are filled with their <a>shadow tree</a> children
+	instead of their <a>light tree</a> children
+	(and this proceeds recursively if the <a>shadow tree</a> contains any <a>shadow hosts</a>),
+	and <a>slots</a> get filled with the nodes that are assigned to them
+	(and this proceeds recursively if the <a>slots</a> are themselves
+	assigned to a <a>slot</a> in a deeper <a>shadow tree</a>).
 
-	Fragmented content can be styled differently
-	based on which line, column, page, region, etc.
-	it appears in.
-	This is done by using an appropriate <dfn export>fragment pseudo-element</dfn>,
-	which allows targetting individual fragments of an element
-	rather than the entire element.
+	Issue: A non-obvious result of this
+	is that elements assigned to a slot inherit from that slot,
+	not their light-tree parent
+	or any deeper slots their slot gets assigned to.
+	This means that text nodes are styled by the shadow tree of their parent,
+	with nobody else capable of intervening in any way.
+	Do we want an additional pseudo-element for targeting those text nodes
+	so they can be styled at all slot-assignment levels,
+	like normal elements can be?
+	This implies it needs to work for text nodes in the light tree
+	before they're assigned downwards,
+	so this can't just be a ''::slotted()'' variant.
+	Luckily, this is a long-standing request!
 
-	<div class="example">
-		In our example,
-		the designer wants to make
-		text flowing into #region1
-		dark blue and bold.
-		This design can be expressed as shown below.
+<h4 id='slots-in-shadow-tree'>
+Slots and Slotted Elements in a Shadow Tree</h4>
 
-		<pre>
-		#region1::region p {
-			color: #0C3D5F;
-			font-weight: bold;
-		}
-		</pre>
+	<a>Slots</a> must act as if they were assigned ''display: contents''
+	via a rule in the <a>UA origin</a>.
+	This must be possible to override via 'display',
+	so they <em>do</em> generate boxes if desired.
 
-		The ''::region'' pseudo-element
-		is followed by a ''p'' relative selector in this example.
-		The color and font-weight declarations will apply
-		to any fragments of paragraphs that are
-		displayed in ''#region1''.
-		The following figure shows how
-		the rendering changes
-		if we apply this styling specific to ''#region1''.
-		Note how less text fits into this box
-		now that the 'font-weight!!property' is
-		bold instead of normal.
-
-		<figure>
-			<img src="images/region-styling.png" width="450" alt= "Illustrate how changing region styling affects the flow of content.">
-
-			<figcaption>Different rendering with a different region styling</figcaption>
-		</figure>
-	</div>
-
-	Note: This feature is an extension of ''::first-line'' styling.
-
-<h3 id="the-region-pseudo-element">
-Region-based Styling: the ''::region'' pseudo-element</h3>
-
-	<div class="issue">
-		Extend this to specify:
-
-		* ''&lt;region-element-selector>::region''
-		* ''&lt;paginated-element-selector>::page(&lt;page-selector>)''
-		* ''&lt;multicol-element>::column(&lt;AnB>)''
-		* ''&lt;fragmented-element-selector>::nth-fragment(&lt;AnB>)''
-		* ''::first-line''
-	</div>
-
-	A ::region pseudo-element represents a relationship between
-	a selector that matches a <span>CSS Region</span>,
-	and a relative selector that matches some named flow content.
-	This allows style declarations to be applied
-	to fragments of named flow content flowing
-	into particular regions.
-
-	<pre>
-	&lt;region selector&gt;::region &lt;content selector&gt;  {
-		... CSS styling declarations ...
-	}
-	</pre>
-
-	When the ::region pseudo-element is appended to a
-	<a href="https://www.w3.org/TR/css3-selectors/#selector-syntax">selector</a>
-	that matches one or more CSS Regions,
-	this creates a 'flow fragment' selector.
-	The flow fragment selector specifies
-	which range of elements in the flow
-	can be matched by the relative selector.
-	The relative selector can match elements
-	in the range(s) (see [[!DOM]]) of the named flow
-	that are displayed fully or partially
-	in the selected region(s).
-
-	Elements that are fully or partially
-	in the flow fragment range may match the relative selector.
-	However, the style declarations only apply
-	to the fragment of the element
-	that is displayed in the corresponding region(s).
-
-	Only a limited list of properties apply to a ::region pseudo-element:
-
-	Issue: Either this list should be all functionally inheritable properties,
-	or all properties.
-	Why is it a seemingly-arbitrary subset of all properties, including box properties?
-
-	1. <a href="https://www.w3.org/TR/CSS2/fonts.html">font properties</a></li>
-	2. <a href="https://www.w3.org/TR/CSS2/colors.html">color property</a></li>
-	3. <a href="https://www.w3.org/TR/css3-color/#transparency">opacity property</a></li>
-	4. <a href="https://www.w3.org/TR/css3-background/#backgrounds">background property</a></li>
-	5. 'word-spacing'</li>
-	6. 'letter-spacing'</li>
-	7. 'text-decoration'</li>
-	8. 'text-transform'</li>
-	9. 'line-height'</li>
-	10. <a href="https://www.w3.org/TR/css3-text/#justification">alignment and justification properties</a></li>
-	11. <a href="https://www.w3.org/TR/css3-background/#borders">border properties</a></li>
-	12. <a href="https://www.w3.org/TR/css3-background/#corners">rounded corner properties</a></li>
-	13. <a href="https://www.w3.org/TR/css3-background/#border-images">border images properties</a></li>
-	14. <a href="https://www.w3.org/TR/CSS2/box.html#margin-properties">margin properties</a></li>
-	15. <a href="https://www.w3.org/TR/CSS2/box.html#padding-properties">padding properties</a></li>
-	16. 'text-shadow'</li>
-	17. 'box-shadow'</li>
-	18. 'box-decoration-break'</li>
-	19. 'width'</li>
-
-	<div class="example" id="region-style-example">
-		In the following example, the <span>named flow</span> “article-flow” flows
-		into “region-1” and “region-2”.
-		<pre>
-		&lt;style&gt;
-		  #div-1 {
-			<strong>flow-into: article-flow;</strong>
-		  }
-
-		  #region-1, #region-2 {
-			<strong>flow-from: article-flow;</strong>
-		  }
-
-		  /* region styling */
-		  <strong>#region-1::region p </strong> {
-			margin-right: 5em;
-		  }
-		&lt;/style&gt;
-
-		&lt;body&gt;
-		  &lt;div id="div-1"&gt;
-			  &lt;p id="p-1"&gt;...&lt;/p&gt;
-			  &lt;p id="p-2"&gt;...&lt;/p&gt;
-		  &lt;/div&gt;
-		  &lt;div id="region-1"&gt;&lt;/div&gt;
-		  &lt;div id="region-2"&gt;&lt;/div&gt;
-		&lt;/body&gt;
-		</pre>
-
-		<div id="region_styling_illustration">
-			<img id="region_styling_img_2" src="images/region-styling-2.png" alt= "Example showing how a named flow content fits into regions to illustrate region styling.">
-
-			<ul class="swatch-list">
-				<li><span class="swatch" style= "background:#1C75BC">&nbsp;</span>div div-1
-				<li><span class="swatch" style= "background:crimson">&nbsp;</span>paragraph p-1
-				<li><span class="swatch" style= "background:white">&nbsp;</span>paragraph p-2
-				<li><span class="swatch" style= "background:#E6E7E8">&nbsp;</span>range of flow that fits into region-1
-				<li><span class="swatch" style= "background:#BCBEC0">&nbsp;</span>range of flow that fits into region-2
-			</ul>
-		</div>
-
-		The region styling applies
-		to flow content that fits in ''region-1''.
-		The relative selector matches ''p-1'' and ''p-2''
-		because these paragraphs
-		flow into ''region-1''.
-		Only the fragment of ''p-2''
-		that flows into ''region-1''
-		is styled with the pseudo-element.
-	</div>
-
-	All of the selectors
-	in a ::region pseudo-element
-	contribute to its <a href="https://www.w3.org/TR/css3-selectors/#specificity">specificity</a>.
-	So the specificity of the ::region pseudo-element
-	in the example above would combine
-	the id selector's specificity
-	with the specificity of the type selector,
-	resulting in a specificity of 101.
-
-	Selectors that match a given element or element fragment (as described above),
-	participate in the <a href="https://www.w3.org/TR/2011/REC-CSS2-20110607/cascade.html#cascading-order">CSS Cascading
-	order</a> as defined in [[!CSS21]].
-
-	Note: Region styling does not apply to nested regions. For example, if a region
-	''A'' receives content from a flow that contains region ''B'', the content that
-	flows into ''B'' does not receive the region styling specified for region ''A''.
-
-	Issue: We'll need some way to query the styles of a fragment in a particular region.
-	<code>getComputedStyle()</code> isn't enough,
-	because an element can exist in multiple regions, for example,
-	with each fragment receiving different styles.
+	Note: A non-obvious result of assigning elements to <a>slots</a>
+	is that they <a>inherit</a> from the <a>slot</a> they're assigned to.
+	Their original <a>light tree</a> parent,
+	and any deeper <a>slots</a> that their <a>slot</a> gets assigned to,
+	don't affect inheritance.
 
 <h2 id="changes">
 Changes</h2>
@@ -777,4 +567,19 @@ Changes</h2>
 	<a href="https://www.w3.org/TR/2014/WD-css-scoping-1-20140403/">3 April 2014 Working Draft</a>.
 
 	* Renamed <css>::content</css> to ''::slotted''.
+	* Define the flattened tree
+	* Generally reorg and rebase the Shadow DOM section on top of current DOM.
+	* Punt <css>@scope</css> and related things,
+		and <css>::region</css> and related things,
+		to the next level of the draft.
+
+Privacy and Security Considerations {#priv-sec}
+===============================================
+
+This specification introduces Shadow DOM and some shadow-piercing capabilities,
+but this does not introduce any privacy or security issues--
+shadow DOM, as currently specified, is intentionally not a privacy/security boundary
+(and the parts of the UA that use shadow DOM and <em>do</em> have a privacy/security boundary
+implicitly rely on protections not yet specified,
+which protect them from the things defined in this specification).
 

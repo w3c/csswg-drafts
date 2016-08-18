@@ -34,7 +34,7 @@ Strong Containment: the 'contain' property</h2>
 
 	<pre class='propdef'>
 		Name: contain
-		Value: none | strict | [ layout || style || paint ]
+		Value: none | strict | content | [ size || layout || style || paint ]
 		Initial: none
 		Inherited: no
 		Applies to: all elements
@@ -59,21 +59,42 @@ Strong Containment: the 'contain' property</h2>
 		<dt><dfn>strict</dfn>
 		<dd>
 			This value turns on all forms of <a>containment</a> for the element.
-			In other words, it behaves the same as ''contain: layout style paint;'',
+			In other words, it behaves the same as ''contain: size layout style paint;'',
 			so that its contents are guaranteed to have no effect on the rest of the page outside the element's bounds.
+
+		<dt><dfn>content</dfn>
+		<dd>
+			This value turns on all forms of <a>containment</a> <em>except</em> <a>size containment</a> for the element.
+			In other words, it behaves the same as ''contain: layout style paint;''.
+
+			Note: ''contain: content'' is reasonably "safe" to apply widely;
+			its effects are fairly minor in practice,
+			and most content won't run afoul of its restrictions.
+			However, because it doesn't apply <a>size containment</a>,
+			the element can still respond to the size of its contents,
+			which can cause layout-invalidation to percolate further up the tree than desired.
+			Use ''contain: strict'' when possible,
+			to gain as much containment as you can.
+
+		<dt><dfn>size</dfn>
+		<dd>
+			The value turns on <a>size containment</a> for the element.
+			This ensures that the containing element can be laid out
+			without needing to examine its descendants.
 
 		<dt><dfn>layout</dfn>
 		<dd>
 			This value turns on <a>layout containment</a> for the element.
-			The ensures that the containing element "traps" any layout-related effects of its descendants,
-			so the rest of the document is guaranteed to not be affected by the layout of the containing element's descendants.
+			This ensures that the containing element is <em>totally opaque</em> for layout purposes;
+			nothing outside can affect its internal layout,
+			and vice versa.
 
 		<dt><dfn>style</dfn>
 		<dd>
 			This value turns on <a>style containment</a> for the element.
 			This ensures that,
 			for properties which can have effects on more than just an element and its descendants,
-			those effects dont' escape the containing element.
+			those effects don't escape the containing element.
 
 		<dt><dfn>paint</dfn>
 		<dd>
@@ -109,8 +130,10 @@ Strong Containment: the 'contain' property</h2>
 
 		There are probably a <em>lot</em> of messages displayed on the site,
 		but each is independent and won't affect anything else on the site.
-		As such, each can be marked with ''contain: strict'' to communicate this to the user agent,
+		As such, each can be marked with ''contain: content'' to communicate this to the user agent,
 		so it can optimize the page and skip a lot of computation for messages that are off-screen.
+		If the size of each message is known ahead of time,
+		''contain: strict'' can be applied to communicate further restrictions.
 	</div>
 
 
@@ -123,12 +146,10 @@ Types of Containment</h2>
 	and helps authors compose their page out of functional units,
 	as it limits how widely an effect a given change can have on a document.
 
-	Issue: What other effects need to be built into the containment types?
+<h3 id='containment-size'>
+Size Containment</h3>
 
-<h3 id='containment-layout'>
-Layout Containment</h3>
-
-	Giving an element <dfn export>layout containment</dfn> has the following effects:
+	Giving an element <dfn export>size containment</dfn> has the following effect:
 
 	1. When laying out the containing element,
 		it must be treated as having no contents.
@@ -136,12 +157,39 @@ Layout Containment</h3>
 		After layout of the element is complete,
 		its contents must then be laid out into the containing element's resolved size.
 
-	2. The element must be a <a>formatting context</a>.
+	By itself, <a>size containment</a> does not offer much optimization opportunity.
+	Its primary benefit on its own is that tools which want to lay out the containing element's contents
+	based on the containing element's size
+	(such as a JS library implementing the "container query" concept)
+	can do so without fear of "infinite loops",
+	where having a child's size respond to the size of the containing element
+	causes the containing element's size to change as well,
+	possibly triggering <em>further</em> changes in how the child sizes itself
+	and possibly thus more changes to the containing element's size,
+	ad infinitum.
+
+	When paired with <a>layout containment</a>, though,
+	possible optimizations that can be enabled include (but are not limited to):
+
+	1. When the style or contents of a descendant of the containing element is changed,
+		calculating what part of the DOM tree is "dirtied" and might need to be re-laid out
+		can stop at the containing element.
+
+	2. When laying out the page,
+		if the containing element is off-screen or obscured,
+		the layout of its contents can be delayed or done at a lower priority.
+
+<h3 id='containment-layout'>
+Layout Containment</h3>
+
+	Giving an element <dfn export>layout containment</dfn> has the following effects:
+
+	1. The element must be a <a>formatting context</a>.
 
 		Issue: This needs to specify how it becomes a formatting
 		context (and which type it becomes).
 
-	3. If a <a>fragmentation context</a> participates in <a>layout containment</a>,
+	2. If a <a>fragmentation context</a> participates in <a>layout containment</a>,
 		the first element with <a>layout containment</a>
 		affecting the <a>fragmentation context</a>
 		must “trap” the remainder of the <a>fragmented flow</a>.
@@ -172,7 +220,7 @@ Layout Containment</h3>
 				would otherwise have been ''continue/auto'' or ''continue/fragments'',
 				it must instead compute to ''continue/overflow''.
 
-	4. If the contents of the element overflow the element,
+	3. If the contents of the element overflow the element,
 		they must not project any "geometry" beyond the element's normal bounds.
 		In particular, any overflow must not be capable of causing the element's ancestors to overflow;
 		as far as the ancestors are concerned,
@@ -180,18 +228,20 @@ Layout Containment</h3>
 
 	Possible optimizations that can be enabled by <a>layout containment</a> include (but are not limited to):
 
-	1. When the style or contents of a descendant of the containing element is changed,
-		calculating what part of the DOM tree is "dirtied" and might need to be re-laid out
-		can stop at the containing element.
-
-	2. When laying out the page,
-		if the containing element is off-screen or obscured,
-		the layout of its contents can be delayed or done at a lower priority.
-
-	3. When laying out the page,
+	1. When laying out the page,
 		the contents of separate containing elements
 		can be laid out in parallel,
 		as they're guaranteed not to affect each other.
+
+	2. When laying out the page,
+		if the containing element is off-screen or obscured
+		and the layout of the visible parts of the screen do not depend on the size of the containing element
+		(for example, if the containing element is near the end of a block container,
+		and you're viewing the beginning of the block container),
+		the layout of the containing elements' contents can be delayed or done at a lower priority.
+
+		(When paired with <a>size containment</a>,
+		this optimization can be applied more liberally.)
 
 <h3 id='containment-style'>
 Style Containment</h3>
