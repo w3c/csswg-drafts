@@ -24,16 +24,16 @@ markup ?= html
 cdate ?= $(date)
 
 
-%.html: %.src.html
-	@echo "Calling post-processor to generate $@..."
-	@curl -K ~/.curl-w3.org -s -S -F output=html -F file=@$< \
-	-F group=$(group) -F method=file -F date=$(cdate) -F status=$(status) \
-	$(opts) -o $@ https://www.w3.org/Style/Group/process.cgi
-%.err: %.src.html
-	@echo "Calling post-processor to check $<..."
-	@curl -K ~/.curl-w3.org -s -S -F output=err -F file=@$< \
-	-F group=$(group) -F method=file -F date=$(cdate) -F status=$(status) \
-	$(opts) -o $@ https://www.w3.org/Style/Group/process.cgi
+# %.html: %.src.html
+# 	@echo "Calling post-processor to generate $@..."
+# 	@curl -K ~/.curl-w3.org -s -S -F output=html -F file=@$< \
+# 	-F group=$(group) -F method=file -F date=$(cdate) -F status=$(status) \
+# 	$(opts) -o $@ https://www.w3.org/Style/Group/process.cgi
+# %.err: %.src.html
+# 	@echo "Calling post-processor to check $<..."
+# 	@curl -K ~/.curl-w3.org -s -S -F output=err -F file=@$< \
+# 	-F group=$(group) -F method=file -F date=$(cdate) -F status=$(status) \
+# 	$(opts) -o $@ https://www.w3.org/Style/Group/process.cgi
 %.html: %.bs
 	@echo "- Calling Bikeshed to generate $@..."
 	@curl -o $@ -s -L -F file=@$< -F md-date=$(cdate) -F md-status=$(status) \
