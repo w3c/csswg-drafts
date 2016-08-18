@@ -440,7 +440,7 @@ spec:css21; type:property; text:max-width
 					under the assumption their parent has a zero width and overflow:visible.
 					The largest such width will be known as <a href="#capmin">CAPMIN</a>.
 
-				<li><b>Determine the amount of rows/columns the table requires.</b><br/>
+				<li><b>Determine the number of rows/columns the table requires.</b><br/>
 					This is done by executing the steps described in [[#dimensioning-the-row-column-grid]].
 				
 				<li><b>&lbrack;A&rbrack; If the row/column grid has at least one <a>slot</a>:</b>
@@ -448,7 +448,7 @@ spec:css21; type:property; text:max-width
 						<li><b>Ensure each cell <a>slot</a> is occupied by at least one cell.</b><br/>
 							This is done by executing the steps described in [[#missing-cells-fixup]].
 					
-						<li><b>Compute the minimun width of each row/column.</b><br/>
+						<li><b>Compute the minimum width of each row/column.</b><br/>
 							This is done by executing the steps described in [[#content-measure]].
 							
 						<li><b>Compute the width of the table.</b><br/>
@@ -506,18 +506,31 @@ spec:css21; type:property; text:max-width
 			the amount of rows and columns defined in a table can be determined from the
 			table structure.
 
-		<div class="note">
-			In the following algorithm, "Map $box to a HTML element if needed" means:
-			<li>Let $elm be the HTML equivalent tag name of the display type of $box,
+		<p>
+			Both dimensioning the row/column grid and assigning table-cells their slot(s) in that grid
+				do require running the HTML Algorithms for tables. 
+			CSS Boxes that do not originate from HTML tables need to be converted to their equivalent
+				before we can apply this algorithm.
+
+		<h4 id="mapping-css-boxes-to-html-elements">Mapping CSS Boxes to HTML Elements</h4>
+
+		<p>
+			In the following algorithm, "Mapping a |xyz| box to a HTML element if needed" means:
+
+		<ul><li>Let <code>&lt;|xyz|&gt;</code> be the HTML equivalent of |xyz| box 'display' type,
 				as defined in <a href="#display-types">the display types list</a>:
 				<ul class="compact" style="margin:0 !important">
-					<li>If $box originates from an HTML $elm element,
+					<li>If the |xyz| box originates from an HTML <code>&lt;|xyz|&gt;</code> element,
 						<ul><li>Clone that element and its attributes (but not its descendants) and return it;</ul>
 					<li>Else,
-						<ul><li>Create a new HTML $elm element with no attribute and return it</ul>
+						<ul><li>Create a new HTML <code>&lt;|xyz|&gt;</code> element with no attribute and return it</ul>
 				</ul>
-			In both cases, save the relationship between the newly created element and $box.
-		</div>
+
+			<li>In both cases, save the relationship between the newly created <code>&lt;|xyz|&gt;</code> element and its |xyz| box, 
+					to be able to invert it to map the html results back to css boxes.
+		</ul>
+
+		<h4 id="html-table-slot-assignation-algorithm">Detailled algorithm</h4>
 
 		<p>
 			To find out how many columns and rows the row/column grid of a table contains,
@@ -547,19 +560,25 @@ spec:css21; type:property; text:max-width
 
 		<p>
 			Once this is done, apply the <a href="https://www.w3.org/TR/html5/tabular-data.html#forming-a-table">HTML5 Table Formatting algorithm</a>.
+
+		<p class="note">
+			The HTML algorithms sometimes generates more tracks than necessary to layout the table properly.
+			Those tracks have historically been ignored by user agents, 
+			so the next step just gets rid of them entirely to avoid dealing with them as exceptions later in the spec.
 			
 		<p>
-			Modify the obtained row/column grid such that
-				consecutive tracks spanned by the same set of cells
-				are merged into one single track
-				for the purpose of computing the layout of the table
-				if there is no table-column/table-row element defining them explicitly
-					(except possibly the first track of the sequence);
-				if table-root is layouted <a>in fixed mode</a>,
-					columns are however never merged together.
+			Modify iteratively the obtained grid by merging consecutive tracks as follows: 
+			As long as there exists an <a>eligible track</a> in the obtained row/column grid such that
+				there is no table-column/table-row box defining the said track explicitly, and
+				both the said track and the previous one are spanned by the exact same set of cells,
+				those two tracks must be merged into one single track for the purpose of computing the layout of the table.
 			Change the spanning of the cells contained in those tracks
-				accordingly so that no difference is shown.
+				accordingly so that no difference would be detectable in terms of slot assignment.
 			<span class="hint">(see <a href="#spanning-ghost-rows">spanning-ghost-rows test cases</a>)</span>
+
+		<p>
+			For tables <a>in auto mode</a>, every track is an <dfn>eligible track</dfn> for the purpose of the track-merging algorithm.
+			For tables <a>in fixed mode</a>, only rows are eligible to be merged that way; which means that every column is preserved.
 				
 		<p>
 			Finally, assign to the <a>table-root</a> element its correct amount of rows and columns (from its mapped element),
@@ -613,10 +632,10 @@ spec:css21; type:property; text:max-width
 		<p>
 			Once the amount of columns in a table is known, any table-row-group element must be modified such that
 				each of its rows contains enough cells to fill all the columns of the table, when taking spanning into account.
-			New table-cell pseudo-elements must be appended to its rows content until this condition is met.
+			New table-cell anonymous boxes must be appended to its rows content until this condition is met.
 
 		<p>
-			Beside their display type, those pseudo-elements do not receive any specific or default styling,
+			Beside their display type, those anonymous boxes do not receive any specific or default styling,
 				except where otherwise mentioned by this specification
 				(meaning 
 					their background is “transparent”, 
@@ -629,6 +648,7 @@ spec:css21; type:property; text:max-width
 		<p>
 			This section covers the flags which modify the way tables are being laid out.
 			There are three major flags for table layout: 'table-layout', 'border-collapse', and 'caption-side'.
+			The 'border-collapse' flag has an optional 'border-spacing' parameter.
 
 		<!--------------------------------------------------------------------------------->
 		<h4 id="table-layout-property">The Table-Layout property</h4>
@@ -674,13 +694,41 @@ spec:css21; type:property; text:max-width
 
 			<p>
 				When the 'border-collapse' property has <code>collapse</code> as its value,
-				other properties like 'border-spacing' are not applied (see [[#collapsed-style-overrides]]),
-				and borders of adjacent cells are merged together such that each cell draws only half of the shared border
+				the borders of adjacent cells are merged together such that each cell draws only half of the shared border.
+				As a result, some other properties like 'border-spacing' will not applied in this case (see [[#collapsed-style-overrides]]),
 				(see [[#border-collapsing]]).
 
 			<p>
-				A <a>table-root</a> element is said to be <dfn>layouted <dfn>in collapsed mode</dfn></dfn> in this case.
-				Otherwhise, the <a>table-root</a> element is said to be <dfn>layouted <dfn>in separated mode</dfn></dfn>.
+				A <a>table-root</a> element is said to be <dfn>layouted <dfn>in collapsed-borders mode</dfn></dfn> in this case.
+				Otherwhise, the <a>table-root</a> element is said to be <dfn>layouted <dfn>in separated-borders mode</dfn></dfn>.
+
+			<!--------------------------------------------------------------------------------->
+			<h5 id="border-spacing-property">The Border-Spacing property</h5>
+
+			<pre class='propdef'>
+				Name: border-spacing
+				Value: <​length​>{1,2}
+				Initial: 0px 0px
+				Applies To: table-root elements when 'border-collapse' is <code>separate</code>.
+				Inherited: yes
+				Computed Value: two absolute lengths
+				Media: visual
+				Animatable: yes
+			</pre>
+
+			<p>
+				The lengths specify the distance that separates adjoining cell borders <a>in separated-borders mode</a>.
+
+			<p>
+				If one length is specified, it gives both the horizontal and vertical spacing.
+				If two are specified, the first gives the horizontal spacing and the second the vertical spacing.
+
+			<p>
+				Lengths may not be negative.
+
+			<p>
+				See [[#computing-undistributable-space]] for details on how this affects the table layout.
+
 
 		<!--------------------------------------------------------------------------------->
 		<h4 id="caption-side-property">The Caption-Side property</h4>
@@ -754,14 +802,19 @@ spec:css21; type:property; text:max-width
 				The following rules apply to all table elements, irrespective of the layout mode in use:
 
 			<ul>
-			<li>The used value of 'display' for <a>table-track</a> and <a>table-track-grouping</a> elements is forced to contents.
-				This has the effect of not generating a box for these elements, 
-					and making their table-cell children direct layout children of their parent <a>table-root</a> element.
+				<li>All css properties of <a>table-track</a> and <a>table-track-grouping</a> elements are ignored, 
+					except when explicitely specified by this specification.
 
-				<li>The used value of 'margin' for <a>table-cell</a> elements is forced to 0px.
+				<li>The 'margin' of <a>table-cell</a> elements is ignored (as if it was set to 0px).
 
-				<li>The used value of 'background' longhands for <a>table-cell</a> elements
-					is computed using a special background painting algorithm described in [[#drawing-cell-backgrounds]].
+				<li>The 'background' of <a>table-cell</a> elements
+					are painted using a special background painting algorithm described in [[#drawing-cell-backgrounds]].
+				
+				<li>The 'opacity' of <a>table-cell</a> elements
+					applies using a special value combining its parent values, as described in [[#TODO]].
+
+				<li>The 'transform' of <a>table-cell</a> elements
+					applies using a special value combinin its parent values, as described in [[#TODO]].
 			</ul>
 
 
@@ -769,36 +822,27 @@ spec:css21; type:property; text:max-width
 		<h4 id="collapsed-style-overrides">Overrides applying in collapsed-borders mode</h4>
 
 			<p>
-				When a table is layouted <a>in collapsed mode</a>, the following rules apply:
+				When a table is layouted <a>in collapsed-borders mode</a>, the following rules apply:
 
 			<ul>
-				<li>The used value of 'padding' for the <a>table-root</a> element is forced to 0px.
+				<li>The 'padding' of the <a>table-root</a> element is ignored (as if it was set to 0px).
 
-				<li>The used value of 'border-spacing' for the <a>table-root</a> element is forced to 0px.
+				<li>The 'border-spacing' of the <a>table-root</a> element is ignored (as if it was set to 0px.
 
-				<li>The used value of 'border-radius' for <a>table-cell</a> elements
-					is forced to 0px for all corners which are not shared with the <a>table-root</a> element.
-					For corners shared with the <a>table-root</a> element,
-						the used value of the corresponding border-…-radius property is set to
-						the used value of the corresponding property on the parent <a>table-root</a> element
-						if that value is bigger than the value which would be used otherwise.
-					Next, set the used values of the table-root element border radiuses
-						to the ones of their corresponding table-cell
-						(this will prevent the table radius to grow bigger than the corresponding cell).
-
+				<li>The 'border-radius' of both <a>table-root</a> and <a>table-non-root</a> elements
+					is ignored (as it it was set to 0px).
 				<div class="issue">
-					This does not seem to be correct in either case, the cell border radius wins based on
-					this <a href="http://codepen.io/gregwhitworth/pen/LGWWZB" target="_blank">test</a>.
-					Border-radius only works in IE/Edge and does not work in FF/Chrome.
+					This is a spec breaking change from the previous spec, but not a real breaking change.
+					Border-radius only (incorrectly) works in IE/Edge and does not work in FF/Chrome.
 					<span class="highlight">
 						Actually, this isn't even totally true, as box-shadow shows:
 						https://jsfiddle.net/wazhrfe3/1/
 					</span>
 				</div>
 
-				<li>The used value of 'border' longhands for <a>table-root</a> element
+				<li>The values used for the layout and rendering of the borders of the <a>table-root</a> element
 						and the <a>table-cell</a> elements it contains are
-						computed using a special conflict resolution algorithm described in [[#border-collapsing]].
+						determined using a special conflict resolution algorithm described in [[#border-collapsing]].
 			</ul>
 
 
@@ -855,7 +899,7 @@ spec:css21; type:property; text:max-width
 		<h4 id="conflict-resolution-for-collapsed-borders">Conflict Resolution for Collapsed Borders</h4>
 
 		<p>
-			When they are layouted <a>in collapsed mode</a>,
+			When they are layouted <a>in collapsed-borders mode</a>,
 				<a>table-root</a> and <a>table-cell</a> elements sharing a border attempt to unify their borders
 				so that they render using the same style, width, and color (whenever this is possible).
 			This is accomplished by running the following algorithm.
@@ -1055,28 +1099,15 @@ spec:css21; type:property; text:max-width
 		<h4 id="computing-undistributable-space">Computing Undistributable Space</h3>
 
 			<p>
-				This section will deal with the border spacings of the separated border mode.
-
-			<pre class='propdef'>
-				Name: border-spacing
-				Value: <​length​> <​length​>?
-				Initial: 0px 0px
-				Applies To: table-root elements when 'border-collapse' is <code>separate</code>.
-				Inherited: yes
-				Computed Value: two absolute lengths
-				Media: visual
-				Animatable: yes
-			</pre>
+				This section will deal with the undistributable space of the table.
 
 			<p>
-				The lengths specify the distance that separates adjoining cell borders.
+				The <dfn>undistributable space</dfn> of the table is the sum of 
+					the distances between the borders of consecutive table-cells
+					(and between the border of the table-root and the table-cells).
 
 			<p>
-				If one length is specified, it gives both the horizontal and vertical spacing.
-				If two are specified, the first gives the horizontal spacing and the second the vertical spacing.
-
-			<p>
-				Lengths may not be negative.
+				The distance between the borders of two consecutive table-cells is the 'border-spacing', if any.
 
 			<p>
 				The distance between 
@@ -1084,7 +1115,7 @@ spec:css21; type:property; text:max-width
 					the borders of the cells on the edge of the table
 				is 
 					the table's padding for that side, 
-					plus the relevant border spacing distance.
+					plus the relevant border spacing distance (if any).
 
 			<div class="example">
 				For example, on the right hand side, the distance is padding-right + horizontal border-spacing.
@@ -1111,8 +1142,8 @@ spec:css21; type:property; text:max-width
 						(along with zero values for margin-left and margin-right)
 						defined as follows:
 					<ul>
-						<li><a>In separated mode</a>: the computed horizontal padding and border of the table-cell
-						<li><a>In collapsed mode</a>: the computed horizontal padding of the cell and, for border values,
+						<li><a>In separated-borders mode</a>: the computed horizontal padding and border of the table-cell
+						<li><a>In collapsed-borders mode</a>: the computed horizontal padding of the cell and, for border values,
 							the used border-width values of the cell (half the winning border-width)
 					</ul>
 
@@ -1124,8 +1155,8 @@ spec:css21; type:property; text:max-width
 						(along with zero values for margin-left and margin-right)
 						defined as follows:
 					<ul>
-						<li><a>In separated mode</a>: the computed horizontal padding and border of the table-root
-						<li><a>In collapsed mode</a>: the used border-width values of the cell (half the winning border-width)
+						<li><a>In separated-borders mode</a>: the computed horizontal padding and border of the table-root
+						<li><a>In collapsed-borders mode</a>: the used border-width values of the cell (half the winning border-width)
 							<div class="issue">
 								Is this the correct way to account for the various changes 
 								that have gone into CSS2.1 
@@ -1146,7 +1177,7 @@ spec:css21; type:property; text:max-width
 				<dt><dfn>total horizontal border spacing</dfn></dt>
 				<dd>The total horizontal border spacing is defined for each table:
 					<ul>
-						<li>For tables layouted <a>in separated mode</a> containing at least one column,
+						<li>For tables layouted <a>in separated-borders mode</a> containing at least one column,
 							the horizontal component of the computed value of the border-spacing property times one plus
 							the number of columns in the table
 						<li>Otherwise, 0
@@ -1468,12 +1499,12 @@ spec:css21; type:property; text:max-width
 					that contains the caption formatted as "display: block".
 				
 			<p>
-				The <dfn id="gridmin">row/column-grid width minimun (GRIDMIN)</dfn> width is
+				The <dfn id="gridmin">row/column-grid width minimum (GRIDMIN)</dfn> width is
 					the sum of the <a>min-content width</a> of all the columns
 					plus cell spacing or borders.
 					
 			<p>
-				The <dfn id="gridmax">row/column-grid width maximun (GRIDMAX)</dfn> width is
+				The <dfn id="gridmax">row/column-grid width maximum (GRIDMAX)</dfn> width is
 					the sum of the <a>max-content width</a> of all the columns 
 					plus cell spacing or borders.
 
@@ -1501,7 +1532,7 @@ spec:css21; type:property; text:max-width
 			</ul>
 			
 			<p>
-				The <a>assignable table width</a> can easily be computed from the table used width.
+				The <a>assignable table width</a> can easily be determined from the table used width.
 				This is the width that we will be able to allocate to the columns.
 			
 			<div class="note">
@@ -1617,7 +1648,7 @@ spec:css21; type:property; text:max-width
 
 			<p>
 				Ideally, each column should get its preferred width (usually its <a>max-content width</a>).
-				However, the <a>assignable table width</a> computed before
+				However, the <a>assignable table width</a> calculated before
 					may not be big or small enough to achieve this result,
 					in which case the user agent must assign adhoc widths to columns
 					as described in the width distribution algorith.
@@ -1878,8 +1909,8 @@ spec:css21; type:property; text:max-width
 			<p>
 				The <strong>minimum height of a table-row</strong> is the maximum of:
 				<ul><li>the row's computed 'height' (if definite, percentages being considered 0px)
-					<li>the computed 'height' of each cell in the row (if definite, percentages being considered 0px), and 
-					<li>the minimum height (<a>ROWMIN</a>) required by the cells.</ul>
+					<li>the computed 'height' of each cell spanning the current row exclusively (if definite, percentages being treated as 0px), and 
+					<li>the minimum height (<a>ROWMIN</a>) required by the cells spanning the row.</ul>
 			<p>
 				<dfn id="ROWMIN">ROWMIN</dfn> is defined as the sum of the <a href="#TODO">minimum height of the rows</a> 
 					after a first row layout pass.
@@ -1893,7 +1924,7 @@ spec:css21; type:property; text:max-width
 				is different from what is needed to fill the table height,
 					the height distribution algorithm defined <a href="#height-distribution-algorithm">below</a> is applied
 					(either to size rows intermediately between their first minimum height and their new,
-					or to increase the heights of rows beyond their new minimun height;
+					or to increase the heights of rows beyond their new minimum height;
 					in neither case, this will have an impact on the baseline of the rows).
 					
 			<div class="advisement">
@@ -1911,7 +1942,7 @@ spec:css21; type:property; text:max-width
 		<h4 id="row-layout">Row layout</h3>
 		
 			<p>
-				The <strong>minimun height of a row</strong> (without spanning-related height distribution)
+				The <strong>minimum height of a row</strong> (without spanning-related height distribution)
 					is defined as the height of 
 					an hypothetical linebox containing the cells originating in the row
 					and where cells spanning multiple rows are considered having a height of 0px
@@ -2169,13 +2200,13 @@ spec:css21; type:property; text:max-width
 			<p>
 				Its <strong>base size</strong> is the size it would have got 
 					if the table didn’t have a specified height 
-					(the one it was assigned when ROWMIN was computed).
+					(the one it was assigned when ROWMIN was evaluated).
 					
 			<p>
 				Its <strong>reference size</strong> is the largest of 
 				<ul><li>its initial base height and 
 					<li>its new base height 
-						(the one computed during the second layout pass, 
+						(the one evaluated during the second layout pass, 
 						where percentages used in rowgroups/rows/cells' specified heights 
 						were resolved according to the table height, 
 						instead of being ignored as 0px).</ul>
@@ -2345,7 +2376,7 @@ spec:css21; type:property; text:max-width
 				independently of where cells end up actually being drawn.
 
 	<!--------------------------------------------------------------------------------->
-	<h3 id="empty-cell-rendering">Empty cell rendering (separated mode)</h3>
+	<h3 id="empty-cell-rendering">Empty cell rendering (separated-borders mode)</h3>
 
 		<p>
 			Cells are <dfn id="empty-cell">empty</dfn> unless they contain one or more of the following:
@@ -2366,11 +2397,11 @@ spec:css21; type:property; text:max-width
 		</pre>
 
 		<p>
-			<a>In collapsed mode</a>,
+			<a>In collapsed-borders mode</a>,
 				this property has no effect.
 
 		<p>
-			<a>In separated mode</a>,
+			<a>In separated-borders mode</a>,
 				this property controls the rendering of borders and backgrounds
 				around cells that have no visible content.
 
@@ -2447,10 +2478,10 @@ spec:css21; type:property; text:max-width
 					does not interesct with the table paddings (this includes border-spacings at the edge of the table).
 				
 		<!--------------------------------------------------------------------------------->
-		<h5 id="drawing-collapsed-borders-1">Changes in collapsed mode</h3>
+		<h5 id="drawing-collapsed-borders-1">Changes in collapsed-borders mode</h3>
 
 			<p>
-				When a table is layouted <a>in collapsed mode</a>,
+				When a table is layouted <a>in collapsed-borders mode</a>,
 					the rendering of its borders on and those of its table-cells is modified.
 				The following rules describe in which way.
 				
@@ -2459,7 +2490,7 @@ spec:css21; type:property; text:max-width
 					still apply if they are not overriden.
 					
 			<p>
-				Borders of a <a>table-root</a> element are not layouted <a>in collapsed mode</a>,
+				Borders of a <a>table-root</a> element are not layouted <a>in collapsed-borders mode</a>,
 					except if the 'border-image' property is set (or if the table has no cell).
 					
 			<p>
@@ -2530,7 +2561,7 @@ spec:css21; type:property; text:max-width
 			<p>
 				As the figure above shows, although all rows contain the same number of cells,
 					not every cell may have specified content.
-				<a>In separated mode</a>, if the value of their 'empty-cells' property is <code>hide</code>, 
+				<a>In separated-borders mode</a>, if the value of their 'empty-cells' property is <code>hide</code>, 
 					these "empty" cells are not rendered at all,
 					as if <code>visibility: hidden</code> was specified on them,
 					letting the table background show through.
@@ -2539,13 +2570,13 @@ spec:css21; type:property; text:max-width
 		<h4 id="drawing-cell-borders">Drawing cell borders</h4>
 		
 			<p>
-				In separated mode, borders of table cells are rendered as usual. 
+				In separated-borders mode, borders of table cells are rendered as usual. 
 								
 			<!--------------------------------------------------------------------------------->
-			<h5 id="drawing-collapsed-borders-2">Changes in collapsed mode</h3>
+			<h5 id="drawing-collapsed-borders-2">Changes in collapsed-borders mode</h3>
 
 			<p>
-				Borders of a <a>table-cell</a> element are rendered <a>in collapsed mode</a>
+				Borders of a <a>table-cell</a> element are rendered <a>in collapsed-borders mode</a>
 					as if the cell border was twice as big as its used value specify,
 					and as if that excess was rendered in the margin area of the cell,
 					with the added constraint that
@@ -2562,10 +2593,10 @@ spec:css21; type:property; text:max-width
 					<span class="hint">See [[#paint-order]] and [[#border-conflict-resolution-algorithm]].</span>
 
 		<!--------------------------------------------------------------------------------->
-		<h4 id="border-style-overrides">Border styles (collapsed mode)</h4>
+		<h4 id="border-style-overrides">Border styles (collapsed-borders mode)</h4>
 
 			<p>
-				Some of the values of the 'border-style' have different meanings in tables <a>in collapsed mode</a> than for other elements.
+				Some of the values of the 'border-style' have different meanings in tables <a>in collapsed-borders mode</a> than for other elements.
 				Those definitions override the default behavior for 'border-style' values.
 
 				: hidden
