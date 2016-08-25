@@ -274,7 +274,8 @@ LN= ln
 	echo "<p><strong>Contents</strong>" >>$@
 	$(MKTOC) -l 2 -r $*.html $(HEADINGDB) >>$@
 	echo "</div>" >>$@
-	if [ `cat $@ | wc -l` = 3 ]; then $(RM) $@; touch $@; fi
+	if [ `cat $@ | wc -l` = 3 ]; then $(SED) -i -e 's|^<p><strong>Contents</strong>||' $@; fi
+#	if [ `cat $@ | wc -l` = 3 ]; then $(RM) $@; touch $@; fi
 
 # Use the shorter line to avoid regenerating all .html if one .src changed,
 # at the cost of possibly incorrect xrefs in the other .html files
@@ -503,12 +504,13 @@ indexlist.srd:: build/indexlist.srb #indexlist.src build/blocks.ok
 #	@echo "=========== making" $@
 #	$(CP) $< $@
 
-indexlist.html: indexlist.srd build/indexlist.srb Project.cfg build/warning build/meta-viewport build/fixup-js
+indexlist.html: indexlist.srd build/indexlist.srb Project.cfg build/warning build/meta-viewport build/fixup-js indexlist.subtoc
 	@echo "=========== making" $@
 	$(ADDNAVBAR) -r $@ $< |\
 	$(INSAFTER) - build/meta-viewport /TITLE - |\
 	$(INSAFTER) - build/fixup-js /TITLE - |\
 	$(INSAFTER) - build/warning /H1 - |\
+	$(INSAFTER) - $*.subtoc /H1 - |\
 	$(MKCHAIN) -r $@ - |\
 	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
 	       -e "s|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g" \

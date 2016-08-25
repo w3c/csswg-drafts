@@ -12,8 +12,8 @@ THE_MONTH = 06
 THE_MONTHNAME = June
 #THE_DAY = DD
 THE_DAY = 07
-#THE_STATUS = ED
-THE_STATUS = REC
+#THE_STATUS = REC
+THE_STATUS = ED
 #THE_STATUSNAME = Recommendation
 THE_STATUSNAME = Editors Draft
 #THE_STYLE = REC
@@ -435,7 +435,7 @@ css2.ps.gz: css2.ps
 #	$(HTML2PDF) $< $@
 
 css2.html html: $(SPECOBJS)
-	$(HTMLCAT) - $(SPECOBJS) >$@
+	$(HTMLCAT) - $(SPECOBJS) | asc2xml | xml2asc >$@
 
 # the following requires to be on unix and have Netscape running...
 #css2.txt txt: css2.html
