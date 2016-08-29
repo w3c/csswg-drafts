@@ -19,6 +19,10 @@ if [ "$TRAVIS_PULL_REQUEST" != "false" ] || [ "$TRAVIS_BRANCH" != "master" ]; th
   ok_exit "Pull request / commit to branch, not committing changes"
 fi
 
+git checkout -f master
+
+bikeshed spec Overview.bs index.html || error_exit "Error rebuilding spec on master"
+
 git status .
 git diff
 
