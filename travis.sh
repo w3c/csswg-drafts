@@ -23,9 +23,6 @@ git checkout -f master
 
 bikeshed spec Overview.bs index.html || error_exit "Error rebuilding spec on master"
 
-git status .
-git diff
-
 if [ -z `git diff --exit-code` ]; then
   ok_exit "index.html is already up-to-date"
 fi
@@ -36,7 +33,7 @@ SSH_REPO=${REPO/https:\/\/github.com\//git@github.com:}
 git config --global user.name "$COMMIT_USER (via Travis)"
 git config --global user.email "$COMMIT_EMAIL"
 
-COMMIT_MESSAGE=$(echo -e "Running bikeshed on '$TRAVIS_COMMIT_MSG'\n\nGenerated from:\n";
+COMMIT_MESSAGE=$(echo -e "Bikeshed update for '$TRAVIS_COMMIT_MSG' [ci skip]\n\nGenerated from:\n";
                git log $TRAVIS_COMMIT_RANGE)
 
 git commit -am "$COMMIT_MESSAGE"
