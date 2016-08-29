@@ -12,7 +12,7 @@ function ok_exit
   exit 0
 }
 
-bikeshed Overview.bs index.html || error_exit "Error building spec"
+bikeshed spec Overview.bs index.html || error_exit "Error building spec"
 
 if [ "$TRAVIS_PULL_REQUEST" == "false" ] && [ "$TRAVIS_BRANCH" == "master" ]; then
   git diff --exit-code || ok_exit "index.html is up to date"
