@@ -200,6 +200,8 @@ partial interface DocumentTimeline {
 
 <pre class="idl">
 enum ScrollDirection {
+  "block",
+  "inline",
   "horizontal",
   "vertical"
 };
@@ -207,6 +209,12 @@ enum ScrollDirection {
 
 The {{ScrollDirection}} enumeration specifies a direction of scroll of a
 scrollable element.
+
+:   <code>block</code>
+::  Selects the direction along the [=block axis=]
+
+:   <code>inline</code>
+::  Selects the direction along the [=inline axis=]
 
 :   <code>horizontal</code>
 ::  Selects the horizontal direction
@@ -216,8 +224,8 @@ scrollable element.
 
 <div class="issue">
 
-This should use logical directions such as "block" and "inline", but
-should it support physical directions as well?
+Should the physical directions ("horizontal" and "vertical") be removed, leaving 
+only the logical directions ("block" and "inline")?
 
 We should add an "auto" value here that means, "If only one direction is
 scrollable use that direction, otherwise use the block direction".
@@ -285,12 +293,7 @@ element.
 :   <dfn attribute for=ScrollTrigger>scrollSource</dfn>
 ::  The scrollable element whose scrolling activates and deactivates the trigger.
 
-    Issue: Is this required? If so, we should mark it as <code>required</code>
-    in the IDL (and remove <code>optional</code> from the
-    <code>options</code> parameter to the {{ScrollTrigger()}}
-    constructor). If not, we should define the behavior when {{scrollSource}} is
-    not specified (e.g. using the document element, or perhaps the nearest
-    ancestor scroll container).
+    If this is not specified, the document element is used.
 
 :   <dfn attribute for=ScrollTrigger>kind</dfn>
 ::  Determines the way in which scrolling {{scrollSource}} activates and deactivates
@@ -314,13 +317,10 @@ element.
 
     If a value for {{orientation}} is not specified, and {{scrollSource}} is only scrollable
     in one direction, that direction is used; if {{scrollSource}} is scrollable
-    in both directions, an unspecified direction is used.
+    in both directions, the {{block}} direction is used.
 
     Issue: I think we should simply define a suitable "auto" value and make that
     the default value in the {{ScrollTriggerOptions}} dictionary.
-    Also, we shouldn't have unspecified behavior (since, in practice, the
-    most popular rendering engine at the time ends up becoming the spec for any
-    undefined behavior, so we may as well spec it).
 
 :   <dfn attribute for=ScrollTrigger>scrollOffset</dfn>
 ::  The scroll offset, in the direction specified by {{orientation}}, that triggers 
@@ -375,7 +375,7 @@ CSS Animations [[CSS3-ANIMATIONS]] with the 'animation-trigger' property.
 <pre class='propdef'>
 Name: animation-trigger
 Value: <<single-animation-trigger>>#
-Initial: auto
+Initial: none
 Applies to: all elements, ::before and ::after pseudo-elements
 Inherited: none
 Animatable: no
@@ -385,9 +385,9 @@ Computed value: As specified
 Canonical order: per grammar
 </pre>
 
-<dfn>&lt;single-animation-trigger></dfn> = auto | <<scroll-trigger>>
+<dfn>&lt;single-animation-trigger></dfn> = none | <<scroll-trigger>>
 
-<dfn>&lt;scroll-trigger></dfn> = scroll(element(<<id-selector>>), <<scroll-direction>> [, <<scroll-offset>> [, <<scroll-offset>>]])
+<dfn>&lt;scroll-trigger></dfn> = scroll([element(<<id-selector>>), [,<<scroll-direction>> [, <<scroll-offset>> [, <<scroll-offset>>]]]])
 
 <dfn>&lt;scroll-direction></dfn> = auto | horizontal | vertical
 
@@ -402,35 +402,24 @@ element, with the triggers matched up with animations as described
 Each value has type <<single-animation-trigger>>, whose possible values have the
 following effects:
 
-:   auto
+:   <dfn value for=animation-trigger>none</dfn>
 ::  The animation's [=timeline=] has no {{AnimationTimeline/trigger|trigger}}.
-
-    Issue: Is &lsquo;none&rsquo; better here? I'm not sure what is more
-    idiomatic CSS.
 
 :   <<scroll-trigger>>
 ::  The animation's [=timeline=] has a {{ScrollTrigger}}.
 
     The trigger's {{ScrollTrigger/scrollSource}} is the [=scroll container=] identified
-    by the <<id-selector>>.
+    by the <<id-selector>>, defaulting to the element's nearest scrollable ancestor.
 
-    Issue: Should it be possible to omit the scroll container and use the
-    initial container block? I think Apple's proposal did this? Also, in
-    the example below we have to assume the HTML element has an ID attached
-    to handle this case which seems unfortunate.
-
-    The trigger's {{ScrollTrigger/orientation}} is determined by the provided
-    <<scroll-direction>>.
-
-    Issue: Should it be possible to omit the scroll-direction and have it
-    default to &lsquo;auto&rsquo;?
+    The <<scroll-direction>>, if provided, determines the trigger's {{ScrollTrigger/orientation}}.
 
     The first <<scroll-offset>>, if provided, determines the trigger's {{ScrollTrigger/scrollOffset}}.
 
     The second <<scroll-offset>>, if provided, determines the trigger's {{ScrollTrigger/endScrollOffset}}.
 
-Issue: It's not possible to specify the {{ScrollTrigger/kind}}. Is that ok?
-In any case, we need to define what value to use for {{ScrollTrigger/kind}}.
+    The trigger's {{ScrollTrigger/kind}} is {{ScrollTriggerKind/range}}.
+
+    Issue: Should we allow overriding the kind to {{ScrollTriggerKind/offset}}?
 
 ## ''@trigger'' rules ## {#trigger-rules}
 
@@ -569,10 +558,8 @@ A <dfn>scroll timeline</dfn> is an {{AnimationTimeline}} whose time values are d
 not by wall-clock time, but by the progress of scrolling in a [=scroll container=].
 
 A {{ScrollTimeline}} must have a {{AnimationTimeline/trigger}}, it must be of type
-{{ScrollTrigger}}, and the trigger's {{kind}} must be {{range}}.
-
-Issue: What happens if it doesn't? Throw a <strong>TypeError</strong> from the
-constructor?
+{{ScrollTrigger}}, and the trigger's {{kind}} must be {{range}}. If these criteria
+are not met, a <strong>TypeError</strong> is thrown from the constructor.
 
 The scroll container whose scrolling drives the timeline is the trigger's 
 {{scrollSource}}. The direction of scrolling that drives the timeline is the 
@@ -713,13 +700,12 @@ following effects:
 
 :   auto
 ::  The animation's [=timeline=] is a {{DocumentTimeline}} 
-    (possibly with a {{AnimationTimeline/trigger}}) specified using 'animation-trigger'.
 
-    Issue: We probably need to specify somewhere that if 'animation-trigger' is
-    &lsquo;auto&rsquo; (or &lsquo;none&rsquo; if we decide to rename that value)
-    that we use the <a>default document timeline</a> but otherwise we generate
-    a new {{DocumentTimeline}} with the appropriate trigger. Or do we re-use
-    {{DocumentTimeline}} objects when the trigger is the same?
+    If 'animation-trigger' is ''animation-trigger/none'', the <a>default document timeline</a> is used;
+    otherwise, a new {{DocumentTimeline}} with the appropriate 
+    {{AnimationTimeline/trigger}} is generated.
+
+    Issue: Do we re-use {{DocumentTimeline}} objects when the trigger is the same?
 
 :   scroll([<<time>> [, <<single-animation-fill-mode>>]])
 ::  The animation's [=timeline=] is a {{ScrollTimeline}}.
@@ -729,15 +715,8 @@ following effects:
     The <<single-animation-fill-mode>> value, if specified, determines the timeline's
     {{ScrollTimeline/fill}}.
 
-    The animation's timeline must also have a {{ScrollTrigger}}, defined using the JS API
-    or using the 'animation-trigger' property.
-
-    Issue: How would it be possible to define the trigger using JS and
-    associate it with the timeline if the timeline is created from CSS?
-    Would it be possible to use all default values for 'animation-trigger' so
-    that you can simply write <code>animation-timeline: scroll()</code> and
-    the animation tracks the scroll position of the document element?
-    (Or nearest ancestor scroll container if that makes more sense)
+    If a {{ScrollTrigger}} isn't specified using the 'animation-trigger' property, the animation's
+    timeline is given a default {{ScrollTrigger}}, as if via <code>animation-trigger: scroll()</code>.
 
 ## Examples ## {#timeline-examples}
 
@@ -851,6 +830,6 @@ rendered scroll offset of a scroll container may not be consistent with the stat
 of an animation driven by scrolling that scroll container. However, this will
 only occur in situations where the animation's effect changes the scroll offset
 of that same scroll container (in other words, in situations where the animation's
-author is asking for trobule). In normal situations, including - importantly - 
+author is asking for trouble). In normal situations, including - importantly - 
 when scrolling happens in response to input events, the rendered scroll offset
 and the state of scroll-driven animations will be consistent in each frame.
