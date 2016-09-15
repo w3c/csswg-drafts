@@ -1,5 +1,3 @@
-Curated use cases:
-
 1. Scroll-triggered animations
 ---------------------------------
 
