@@ -9,10 +9,29 @@
     padding: 0.2em 1em;
     border: 1px solid black;
   }
+  table.play-state-transitions th {
+    text-align: center;
+  }
   table.play-state-transitions th.rowgroup {
     transform: rotate(-180deg);
     writing-mode: vertical-lr;
     padding-left: 5px;
+  }
+
+  table.event-state-transitions {
+    width: 100%;
+    border-spacing: 0px;
+    border-collapse: collapse;
+  }
+  table.event-state-transitions th:first-child {
+    width: 30%;
+  }
+  table.event-state-transitions th {
+    text-align: center;
+  }
+  table.event-state-transitions td {
+    padding: 0.2em 1em;
+    border: 1px solid black;
   }
 </style>
 
@@ -39,14 +58,24 @@ urlPrefix: https://w3c.github.io/web-animations/; type: method; for: Animation; 
 urlPrefix: https://w3c.github.io/web-animations/; type: method; for: KeyframeEffectReadOnly; spec: web-animations
     text: getFrames()
 urlPrefix: https://w3c.github.io/web-animations/; type: dfn; spec: web-animations
+    text: active duration
+    text: active phase
+    text: active time
+    text: after phase
     text: animation
-    text: animation playback rate
     text: animation class
+    text: animation effect
+    text: animation playback rate
+    text: before phase
     text: composite operation
     text: current iteration
     text: current time
+    text: fill mode
     text: global animation list
     text: idle play state
+    text: idle phase
+    text: iteration duration
+    text: iteration start
     text: pause an animation
     text: play an animation
     text: sampling
@@ -360,66 +389,147 @@ keyframe specifying each property.
 
 # Animation Events # {#events}
 
-## Types of <code>AnimationEvent</code> ## {#event-animationevent}
-
-The <em>additional</em> types of animation events that can occur are:
-
-	<dl dfn-type=event dfn-for=animationevent>
-		<dt><dfn>animationcancel</dfn>
-		<dd>
-			The <a idl>animationcancel</a> event occurs when the animation stops running in a way that does not fire an <a idl>animationend</a> event, such as a change in the 'animation-name' that removes the animation, or the animating element or one of its ancestors becoming ''display:none''.
-			<ul>
-				<li>Bubbles: Yes</li>
-				<li>Cancelable: No</li>
-				<li>Context Info: animationName, elapsedTime, pseudoElement</li>
-			</ul>
-	</dl>
-
 ## Event dispatch ## {#event-dispatch}
 
 Note, this is a more general description of event dispatch than that of CSS
 Animations Level 1 [[CSS3-ANIMATIONS]] since it must account for the
-possibility of animations being seeked using the Web Animations API
+possibility of animations being seeked or reversed using the Web Animations API
 [[WEB-ANIMATIONS]].
 
-For the purpose of determining which events to dispatch, an animation can
-be considered to be in one of four mutually-exclusive <dfn
-lt="event state">event states</dfn> determined using the following procedure:
+For the purpose of determining which events to dispatch, the
+[[web-animations#animation-effect-phases-and-states|phases]] defined in
+the Web Animations model are used. These definitions apply to an <a>animation
+effect</a>, however, for the purpose of dispatching events, we consider a
+CSS Animation to have the same phase as its <a>target effect</a>. For example,
+a CSS Animation is in the <a>before phase</a> if its <a>target effect</a>
+is in the <a>before phase</a>. A CSS Animation that does not have a <a>target
+effect</a> is considered to be in the <a>idle phase</a>.
 
-1.  If the animation is <a lt="idle play state">idle</a> or has no <a>target
-    effect</a> it is <dfn>idle</dfn>.
-1.  Otherwise, if the animation has a <a>current time</a> less than the
-    <a>start delay</a> of its <a>target effect</a>, or, if the animation's
-    <a lt="animation playback rate">playback rate</a> is less than zero and
-    it has a <a>current time</a> less than <em>or equal</em> to the
-    <a>start delay</a> of its <a>target effect</a>, it is
-    <dfn>left-active</dfn>.
-1.  Otherwise, if the animation has a <a>current time</a> greater than its
-    <a>target effect end</a>, or, if the animation's
-    <a lt="animation playback rate">playback rate</a> is greater than or equal
-    to zero and it has a <a>current time</a> greater than <em>or equal</em> to
-    its <a>target effect end</a>, it is <dfn>right-active</dfn>.
-1.  Otherwise, it is <dfn>active</dfn>.
+Similarly, subsequent references to the <a>start delay</a>, <a>active
+duration</a>, <a>current iteration</a>, <a>iteration start</a>, and
+<a>iteration duration</a> of a CSS animation should be understood to refer
+to the corresponding properties of the animation's <a>target effect</a>.
 
-Each time the animation is <a lt="sampling">sampled</a>, the events to
-dispatch are determined by comparing the <a>event state</a> before and
+For calculating the {{AnimationEvent/elapsedTime}} of each event, the following
+definitions are used:
+
+*   <dfn>interval start</dfn> =
+    <code>max(min(-<a>start delay</a>, <a>active duration</a>), 0)</code>
+*   <dfn>interval end</dfn> =
+    <code>max(min(<a>target effect end</a> - <a>start delay</a>,
+                  <a>active duration</a>), 0)</code>
+
+Each time an animation is <a lt="sampling">sampled</a>, the events to
+dispatch are determined by comparing the animation's phase before and
 after the sample as follows:
 
-:    not <a>active</a> &rarr; <a>active</a>
-::   <a idl>animationstart</a>
-:    <a>left-active</a> &rarr; <a>right-active</a>
-:    <a>right-active</a> &rarr; <a>left-active</a>
-::   <a idl>animationstart</a>, <a idl>animationend</a>
-:    <a>active</a> &rarr; <a>left-active</a>
-:    <a>active</a> &rarr; <a>right-active</a>
-::   <a idl>animationend</a>
-:    <a>active</a> &rarr; <a>active</a>
-::   <a idl>animationiteration</a> <em>if</em> there has been a change to the
-     <a>current iteration</a> of the animation's <a>target effect</a>.
-:    not <a>idle</a> &rarr; <a>idle</a>
-::   <a idl>animationcancel</a>
+<table class="event-state-transitions">
+  <thead>
+    <tr>
+      <th>Change</th>
+      <th>Events dispatched</th>
+      <th><dfn>Elapsed time</dfn> (ms)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a lt="idle phase">idle</a> &rarr;
+          <a lt="active phase">active</a></td>
+      <td><a idl>animationstart</a></td>
+      <td>If the <a>animation playback rate</a> is &ge; 0,
+          use the <a>interval start</a>, otherwise use the
+          <a>interval end</a>.
+      </td>
+    </tr>
+    <tr>
+      <td><a lt="before phase">before</a> &rarr;
+          <a lt="active phase">active</a></td>
+      <td><a idl>animationstart</a></td>
+      <td><a>interval start</a></td>
+    </tr>
+    <tr>
+      <td><a lt="after phase">after</a> &rarr;
+          <a lt="active phase">active</a></td>
+      <td><a idl>animationstart</a></td>
+      <td><a>interval end</a></td>
+    </tr>
+    <tr>
+      <td rowspan="2"><a lt="before phase">before</a> &rarr;
+                      <a lt="after phase">after</a> <a
+                      href="#multiple-events-note">&#x66d;</a></td>
+      <td><a idl>animationstart</a></td>
+      <td><a>interval start</a></td>
+    </tr>
+    <tr>
+      <td><a idl>animationend</a></td>
+      <td><a>interval end</a></td>
+    </tr>
+    <tr>
+      <td rowspan="2"><a lt="after phase">after</a> &rarr;
+                      <a lt="before phase">before</a> <a
+                      href="#multiple-events-note">&#x66d;</a></td>
+      <td><a idl>animationstart</a></td>
+      <td><a>interval end</a></td>
+    </tr>
+    <tr>
+      <td><a idl>animationend</a></td>
+      <td><a>interval start</a></td>
+    </tr>
+    <tr>
+      <td><a lt="active phase">active</a> &rarr;
+          <a lt="before phase">before</a></td>
+      <td><a idl>animationend</a></td>
+      <td><a>interval start</a></td>
+    </tr>
+    <tr>
+      <td><a lt="active phase">active</a> &rarr;
+          <a lt="after phase">after</a></td>
+      <td><a idl>animationend</a></td>
+      <td><a>interval end</a></td>
+    </tr>
+    <tr>
+      <td><a lt="active phase">active</a> &rarr;
+          <a lt="active phase">active</a>
+          <em>and</em>
+          the <a>current iteration</a> of the animation's <a>target effect</a>
+          has changed since the previous sample
+      </td>
+      <td><a idl>animationiteration</a></td>
+      <td>(See below)
+          <a href="#animation-iteration-elapsed-time">&dagger;</a></td>
+    </tr>
+    <tr>
+      <td>Not <a lt="idle phase">idle</a> &rarr;
+          <a lt="idle phase">idle</a></td>
+      <td><a idl>animationcancel</a></td>
+      <td>The <a>active time</a> of the animation at the moment it was cancelled
+          calculated using a <a>fill mode</a> of both.</td>
+    </tr>
+  </tbody>
+</table>
 
-Issue: Define the value of <code>elapsedTime</code> for each case.
+<p id="multiple-events-note">&#x66d; Where multiple events are listed for
+a state change, all events are dispatched in the order listed and in immediate
+succession.</p>
+
+<p id="animation-iteration-elapsed-time">&dagger; The <a>elapsed time</a> for
+an <a idl>animationiteration</a> event is defined as follows:</p>
+
+1.  Let <var>previous current iteration</var> be the <a>current iteration</a>
+    from the previous sample.
+
+1.  If <var>previous current iteration</var> is greater than <a>current
+    iteration</a>, let <var>iteration boundary</var> be <code><a>current
+    iteration</a> + 1</code>, otherwise let it be <a>current iteration</a>.
+
+1.  The <a>elapsed time</a> is the result of evaluating
+    <code>(<var>iteration boundary</var> - <a>iteration start</a>) &times;
+    <a>iteration duration</a>)</code>.
+
+Since the <a>elapsed time</a> defined in the table and procedure above is
+expressed in milliseconds, it must be divided by 1,000 to produce a value in
+seconds before being assigned to the {{AnimationEvent/elapsedTime}} member of
+the {{AnimationEvent}}.
 
 # DOM Interfaces # {#interface-dom}
 

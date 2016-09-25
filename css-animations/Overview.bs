@@ -50,6 +50,7 @@ urlPrefix: https://html.spec.whatwg.org/multipage/infrastructure.html; type: dfn
 </pre>
 <pre class="link-defaults">
 spec:cssom-1; type:interface; text:CSSRule
+spec:html; type:dfn; text:case-sensitive
 </pre>
 
 <h2 id="intro">
@@ -241,7 +242,7 @@ Keyframes</h2>
 	As normal for <<custom-ident>>s and <<string>>s,
 	the names are fully <a>case-sensitive</a>;
 	two names are equal only if they are codepoint-by-codepoint equal.
-	The <<custom-ident>> additionally excludes the ''none'' keyword.
+	The <<custom-ident>> additionally excludes the ''animation-name/none'' keyword.
 
 	<div class=example>
 		For example, the following two ''@keyframes'' rules have the same name,
@@ -823,7 +824,7 @@ The 'animation' shorthand property</h3>
 	Canonical order: per grammar
 	</pre>
 
-	<dfn>&lt;single-animation></dfn> = <<time>> || <<single-timing-function>> || <<time>> || <<single-animation-iteration-count>> || <<single-animation-direction>> || <<single-animation-fill-mode>> || <<single-animation-play-state>> || <<single-animation-name>>
+	<dfn>&lt;single-animation></dfn> = <<time>> || <<single-timing-function>> || <<time>> || <<single-animation-iteration-count>> || <<single-animation-direction>> || <<single-animation-fill-mode>> || <<single-animation-play-state>> || [ none | <<keyframes-name>> ]
 
 	Note that order is important within each animation definition: the first value in each
 	<<single-animation>> that can be parsed as a <<time>> is assigned to the 'animation-duration',
@@ -831,7 +832,7 @@ The 'animation' shorthand property</h3>
 	'animation-delay'.
 
 	Note that order is also important within each animation definition for distinguishing
-	<<single-animation-name>> values from other keywords. When parsing, keywords that are valid for
+	<<keyframes-name>> values from other keywords. When parsing, keywords that are valid for
 	properties other than 'animation-name'
 	whose values were not found earlier in the shorthand
 	must be accepted for those properties rather than for
@@ -900,9 +901,8 @@ Attributes</h4>
 		<dt><dfn>elapsedTime</dfn>, of type float, readonly
 		<dd>
 			The amount of time the animation has been running, in seconds, when this event fired,
-			excluding any time the animation was paused. For an ''animationstart'' event, the
-			elapsedTime is zero unless there was a negative value for 'animation-delay', in which
-			case the event will be fired with an elapsedTime of (-1 * delay).
+			excluding any time the animation was paused. The precise calculation for
+			of this member is defined along with each event type.
 		<dt><dfn>pseudoElement</dfn>, of type <a interface>DOMString</a>, readonly
 		<dd>
 			The name (beginning with two colons) of the CSS pseudo-element on which the animation
@@ -923,18 +923,26 @@ Types of <code>AnimationEvent</code></h3>
 		<dd>
 			The <a idl>animationstart</a> event occurs at the start of the animation.
 			If there is an 'animation-delay' then this event will fire once the delay
-			period has expired. A negative delay will cause the event to fire with
-			an elapsedTime equal to the absolute value of the delay; in this case the
-			event will fire whether 'animation-play-state' is set to ''running'' or ''paused''.
+			period has expired.
+			<p>
+			A negative delay will cause the event to fire with
+			an {{AnimationEvent/elapsedTime}} equal to the absolute value of the delay
+			capped to the <a>active duration</a> of the animation, that is,
+			<code>min(max(-'animation-delay', 0), <a>active duration</a>)</code>; in
+			this case the event will fire whether 'animation-play-state' is set to
+			''running'' or ''paused''.
+			</p>
 			<ul>
 				<li>Bubbles: Yes</li>
 				<li>Cancelable: No</li>
-				<li>Context Info: animationName, pseudoElement</li>
+				<li>Context Info: animationName, elapsedTime, pseudoElement</li>
 			</ul>
 
 		<dt><dfn>animationend</dfn>
 		<dd>
 			The <a idl>animationend</a> event occurs when the animation finishes.
+			In this case the value of the {{AnimationEvent/elapsedTime}} member of
+			the event is equal to the <a>active duration</a>.
 			<ul>
 				<li>Bubbles: Yes</li>
 				<li>Cancelable: No</li>
@@ -947,6 +955,37 @@ Types of <code>AnimationEvent</code></h3>
 			animation, except when an animationend event would fire at the same time.
 			This means that this event does not occur for animations with an iteration
 			count of one or less.
+
+			<p>The {{AnimationEvent/elapsedTime}} member in this case is equal to the
+			product of the <var>current iteration</var> and 'animation-duration' where
+			the <var>current iteration</var> is the zero-based index of the new
+			iteration. For example, assuming no negative 'animation-delay', after one
+			iteration completes the <var>current iteration</var> would be one.</p>
+
+			<ul>
+				<li>Bubbles: Yes</li>
+				<li>Cancelable: No</li>
+				<li>Context Info: animationName, elapsedTime, pseudoElement</li>
+			</ul>
+
+		<dt><dfn>animationcancel</dfn>
+		<dd>
+			The <a idl>animationcancel</a> event occurs when the animation stops
+			running in a way that does not fire an <a idl>animationend</a> event, such
+			as a change in the 'animation-name' that removes the animation, or the
+			animating element or one of its ancestors becoming ''display:none''.
+
+			<p>The {{AnimationEvent/elapsedTime}} member for this event indicates
+			the number of seconds that had elapsed since the beginning of the
+			animation at the moment when the animation was cancelled.
+			This excludes any time where the animation was paused. If the animation
+			had a negative 'animation-delay', the beginning of the animation is the
+			moment equal to the absolute value of 'animation-delay' seconds
+			<em>prior</em> to when the animation was actually triggered.
+			Alternatively, if the animation had a positive 'animation-delay' and the
+			event is fired before the animation's delay has expired, the
+			{{AnimationEvent/elapsedTime}} will be zero.</p>
+
 			<ul>
 				<li>Bubbles: Yes</li>
 				<li>Cancelable: No</li>
@@ -954,7 +993,10 @@ Types of <code>AnimationEvent</code></h3>
 			</ul>
 	</dl>
 
-### Event handlers on elements, <code>Document</code> objects, and <code>Window</code> objects ### {#event-handlers-on-elements-document-objects-and-window-objects}
+
+<h3 id="event-handlers-on-elements-document-objects-and-window-objects">Event
+handlers on elements, <code>Document</code> objects, and <code>Window</code>
+objects</h3>
 
 The following are the <a>event handlers</a> (and their corresponding <a>event
 handler event types</a>) that must be supported by all <a>HTML elements</a>, as
@@ -978,6 +1020,10 @@ objects, as <a>event handler IDL attributes</a>:
   <tr>
     <td><dfn>onanimationend</dfn></td>
     <td><dfn><a idl>animationend</a></dfn></td>
+  </tr>
+  <tr>
+    <td><dfn>onanimationcancel</dfn></td>
+    <td><dfn><a idl>animationcancel</a></dfn></td>
   </tr>
 </table>
 
@@ -1213,7 +1259,8 @@ Extensions to the <code>GlobalEventHandlers</code> Interface</h3>
 
 This specification extends the {{GlobalEventHandlers}} interface from HTML to
 add <a>event handler IDL attributes</a> for <a href="#events">animation
-events</a> as defined in [[#event-handlers-on-elements-document-objects-and-window-objects]].
+events</a> as defined in
+[[#event-handlers-on-elements-document-objects-and-window-objects]].
 
 <h4 id="interface-globaleventhandlers-idl">
 IDL Definition</h4>
@@ -1223,6 +1270,7 @@ partial interface GlobalEventHandlers {
   attribute EventHandler onanimationstart;
   attribute EventHandler onanimationiteration;
   attribute EventHandler onanimationend;
+  attribute EventHandler onanimationcancel;
 };
 </pre>
 
