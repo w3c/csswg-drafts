@@ -1,5 +1,23 @@
 <h1>CSS Transitions Level 2</h1>
 
+<style type="text/css">
+  table.event-state-transitions {
+    width: 100%;
+    border-spacing: 0px;
+    border-collapse: collapse;
+  }
+  table.event-state-transitions th:first-child {
+    width: 30%;
+  }
+  table.event-state-transitions th {
+    text-align: center;
+  }
+  table.event-state-transitions td {
+    padding: 0.2em 1em;
+    border: 1px solid black;
+  }
+</style>
+
 <pre class='metadata'>
 Status: ED
 Work Status: Exploring
@@ -17,14 +35,21 @@ urlPrefix: https://w3c.github.io/web-animations/; type: interface; spec: web-ani
     text: Animation
 urlPrefix: https://w3c.github.io/web-animations/; type: dfn; spec: web-animations
     text: active duration
+    text: active time
     text: animation
     text: animation class
+    text: animation playback rate
+    text: current iteration
+    text: fill mode
     text: global animation list
     text: idle play state
+    text: iteration duration
+    text: iteration start
+    text: pending play state
+    text: sampling
     text: start delay
     text: target effect
-urlPrefix: https://drafts.csswg.org/css-animations-2/; type: dfn; spec: css-animations-2
-    text: interval end
+    text: target effect end
 </pre>
 <pre class=link-defaults>
 spec:css-transitions-1; type:value; text:all
@@ -130,6 +155,170 @@ to the <a>global animation list</a> at the moment they are constructed.
 
 # Transition Events # {#transition-events}
 
+## Event dispatch ## {#event-dispatch}
+
+Note, this is a more general description of event dispatch than that of CSS
+Transitions Level 1 [[CSS3-TRANSITIONS]] since it must account for the
+possibility of animations being seeked or reversed using the Web Animations API
+[[WEB-ANIMATIONS]]. Furthermore, it is possible using the Web Animations API
+to substitute the transition effect with an entirely different effect with
+properties not normally used with transitions (e.g. an effect that repeats
+multiple times) and hence this section provides a generic definition that
+accounts for the full complexity of the Web Animations model.
+
+To avoid firing redundant events, the set of events to dispatch is based
+on comparing the <a lt="transition phase">phase</a> of the transition in the
+previous <a lt="sampling">sample</a> (animation frame) to its current state.
+
+The <dfn>transition phase</dfn> of a transition is initially &lsquo;idle&rsquo;
+and is updated on each sample according to the first matching condition from
+below:
+
+<dl class=switch>
+   <dt>If the transition has no <a>target effect</a>,
+   <dd>The transition phase is &lsquo;idle&rsquo;.
+   <dt>If the transition is <a lt="pending play state">pending</a> and its
+       phase was previously &lsquo;idle&rsquo; or &lsquo;pending&rsquo;,
+   <dd>The transition phase is &lsquo;pending&rsquo;.
+   <dt>Otherwise,
+   <dd>The transition phase is the
+       [[web-animations#animation-effect-phases-and-states|phase]] of its
+       <a>target effect</a>.
+</dl>
+
+For calculating the {{TransitionEvent/elapsedTime}} of each event, the following
+definitions are used:
+
+*   <dfn>interval start</dfn> =
+    <code>max(min(-<a>start delay</a>, <a>active duration</a>), 0)</code>
+*   <dfn>interval end</dfn> =
+    <code>max(min(<a>target effect end</a> - <a>start delay</a>,
+                  <a>active duration</a>), 0)</code>
+
+In the above formulae, references to the <a>start delay</a>, <a>active
+duration</a>, <a>current iteration</a>, <a>iteration start</a>, and
+<a>iteration duration</a> of a transition should be understood to refer
+to the corresponding properties of the transition's <a>target effect</a>.
+
+Each time an animation is <a lt="sampling">sampled</a>, the events to
+dispatch are determined by comparing the <a>transition phase</a> before and
+after the sample as follows:
+
+<table class="event-state-transitions">
+  <thead>
+    <tr>
+      <th>Change</th>
+      <th>Events dispatched</th>
+      <th><dfn>Elapsed time</dfn> (ms)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>idle &rarr; <em>not</em> idle <a
+          href="#idle-to-active-note">&#x66d;</a></td>
+      <td><a idl>transitionrun</a></td>
+      <td>If the <a>animation playback rate</a> is &ge; 0,
+          use the <a>interval start</a>, otherwise use the
+          <a>interval end</a>.
+      </td>
+    </tr>
+    <tr>
+      <td>idle <em>or</em> pending &rarr; active <a
+          href="#idle-to-active-note">&#x66d;</a></td>
+      <td><a idl>transitionstart</a></td>
+      <td>If the <a>animation playback rate</a> is &ge; 0,
+          use the <a>interval start</a>, otherwise use the
+          <a>interval end</a>.
+      </td>
+    </tr>
+    <tr>
+      <td>before &rarr; active</td>
+      <td><a idl>transitionstart</a></td>
+      <td><a>interval start</a></td>
+    </tr>
+    <tr>
+      <td rowspan="2">before &rarr; after <a
+                      href="#multiple-events-note">&dagger;</a></td>
+      <td><a idl>transitionstart</a></td>
+      <td><a>interval start</a></td>
+    </tr>
+    <tr>
+      <td><a idl>transitionend</a></td>
+      <td><a>interval end</a></td>
+    </tr>
+    <tr>
+      <td>active &rarr; after</td>
+      <td><a idl>transitionend</a></td>
+      <td><a>interval end</a></td>
+    </tr>
+    <tr>
+      <td>active &rarr; before</td>
+      <td><a idl>transitionend</a></td>
+      <td><a>interval start</a></td>
+    </tr>
+    <tr>
+      <td>after &rarr; active</td>
+      <td><a idl>transitionstart</a></td>
+      <td><a>interval end</a></td>
+    </tr>
+    <tr>
+      <td rowspan="2">after &rarr; before <a
+                      href="#multiple-events-note">&dagger;</a></td>
+      <td><a idl>transitionstart</a></td>
+      <td><a>interval end</a></td>
+    </tr>
+    <tr>
+      <td><a idl>transitionend</a></td>
+      <td><a>interval start</a></td>
+    </tr>
+    <tr>
+      <td><em>not</em> idle <em>or</em> after &rarr; idle</td>
+      <td><a idl>transitioncancel</a></td>
+      <td>The <a>active time</a> of the animation at the moment it was cancelled
+          calculated using a <a>fill mode</a> of both.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p id="idle-to-active-note">&#x66d; If the transition phase changes from
+&lsquo;idle&rsquo; to &lsquo;active&rsquo; then <em>both</em> {{transitionrun}}
+run and {{transitionstart}} events are queued, in that order.</p>
+
+<p id="multiple-events-note">&dagger; Where multiple events are listed for
+a state change, all events are dispatched in the order listed and in immediate
+succession.</p>
+
+Since the <a>elapsed time</a> defined in the table and procedure above is
+expressed in milliseconds, it must be divided by 1,000 to produce a value in
+seconds before being assigned to the {{TransitionEvent/elapsedTime}} member of
+the {{TransitionEvent}}.
+
+<div class="note">
+
+  The above state transition chart ensures that, with the exception of
+  transitions that are paused or have an infinite running time, the following
+  invariants hold:
+
+  * For every {{transitionrun}} event there will be a exactly one
+    {{transitionend}} <em>or</em> {{transitioncancel}} and never both.
+  * For every {{transitionstart}} event there will be a exactly one
+    {{transitionend}} <em>or</em> {{transitioncancel}} and never both.
+  * Every {{transitionend}} event is preceded by a corresponding
+    {{transitionstart}} event.
+
+  The typical sequences of events, then, are as follows:
+
+  * Regular playback: {{transitionrun}}, {{transitionstart}}, {{transitionend}}.
+  * Interrupted playback: {{transitionrun}}, {{transitionstart}},
+    {{transitioncancel}}.
+  * Interrupted playback during delay or pending phase: {{transitionrun}},
+    {{transitioncancel}}.
+  * Reversed playback after completion: {{transitionrun}}, {{transitionstart}},
+    {{transitionend}}, {{transitionstart}}, {{transitionend}}.
+
+</div>
+
+
 ## Types of <code>TransitionEvent</code> ## {#transition-event-types}
 
 	<p>The <em>additional</em> types of transition events that can occur are:</p>
@@ -162,7 +351,7 @@ to the <a>global animation list</a> at the moment they are constructed.
 
       Note: This calculation is roughly equivalent to saying,
       &ldquo;The <code>elapsedTime</code> is zero unless there is
-      a negative 'transition-delay', in which cse the <code>elapsedTime</code>
+      a negative 'transition-delay', in which case the <code>elapsedTime</code>
       is the absolute value of the 'transition-delay'.&rdquo;
       However, it produces more useful results in some edge cases such as
       when the there is a negative delay greater in magnitude than the
