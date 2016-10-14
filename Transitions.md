@@ -4,7 +4,8 @@
 
 ###Open
 
-_(none)_
+CSS Table
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2016OctDec/0025.html) 14 Oct 2016
 
 ###Closed
 
