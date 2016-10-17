@@ -5,7 +5,8 @@
 ###Open
 
 CSS Table
-* [transition request](https://lists.w3.org/Archives/Member/chairs/2016OctDec/0025.html) 14 Oct 2016
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2016OctDec/0027.html) 17 Oct 2016
+* next step: fix bikeshed link errors, publication request
 
 ###Closed
 
@@ -22,7 +23,7 @@ Paint API
 CSS Scroll Snapping
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2016OctDec/0000.html) 03 Oct 2016
 * transition approved, 13 Oct 2016
-* publication request sent, 17 Oct 2016
+* [publication request](https://lists.w3.org/Archives/Member/w3c-css-wg/2016OctDec/0055.html) sent, 17 Oct 2016
 * next step: publication, Tue 18 Oct 2016
 
 ###Closed
