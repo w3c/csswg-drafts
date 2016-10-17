@@ -22,6 +22,7 @@ Paint API
 CSS Scroll Snapping
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2016OctDec/0000.html) 03 Oct 2016
 * transition approved, 13 Oct 2016
+* publication request sent, 17 Oct 2016
 * next step: publication, Tue 18 Oct 2016
 
 ###Closed
