@@ -18,7 +18,12 @@ _(none)_
 
 Paint API
 * [group decision](https://lists.w3.org/Archives/Public/public-houdini/2016Oct/0001.html) 09 Oct 2016
-* next step: transition request
+* next step: create [transition request](https://services.w3.org/xslt?xmlfile=https://www.w3.org/2005/08/01-transitions2015.html&xslfile=https://www.w3.org/2005/08/transitions2015.xsl&docstatus=cr-tr). 
+  * No changes section since FPWD
+  * [17 Open issues](https://github.com/w3c/css-houdini-drafts/labels/css-paint-api-1)
+  * No disposition of comments
+  * Evidence of wide review
+  * Implementation status and test suite?
 
 CSS Scroll Snapping
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2016OctDec/0000.html) 03 Oct 2016
