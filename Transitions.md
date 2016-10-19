@@ -6,7 +6,7 @@
 
 CSS Table
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2016OctDec/0027.html) 17 Oct 2016
-* next step: fix bikeshed link errors, publication request
+* next step: fix bikeshed link errors and crash :( , publication request
 
 ###Closed
 
