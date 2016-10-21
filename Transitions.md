@@ -6,7 +6,9 @@
 
 CSS Table
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2016OctDec/0027.html) 17 Oct 2016
-* next step: fix bikeshed link errors and crash :( , publication request
+* investigate fix bikeshed link errors and crash :( (done)
+* next step: publication request
+
 
 ###Closed
 
@@ -25,14 +27,16 @@ Paint API
   * Evidence of wide review
   * Implementation status and test suite?
 
+
+
+###Closed
+
 CSS Scroll Snapping
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2016OctDec/0000.html) 03 Oct 2016
 * transition approved, 13 Oct 2016
 * [publication request](https://lists.w3.org/Archives/Member/w3c-css-wg/2016OctDec/0055.html) sent, 17 Oct 2016
 * webmaster bumped to Thurs 20 Oct 2016
-* next step: publication, Thurs 20 Oct 2016
-
-###Closed
+* [done](https://www.w3.org/TR/css-scroll-snap-1/), Thurs 20 Oct 2016
 
 CSS Values & Units 3  [done](https://www.w3.org/TR/css-values-3/), 29 September 2016
 
