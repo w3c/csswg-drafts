@@ -4,15 +4,18 @@
 
 ###Open
 
-CSS Table
-* [transition request](https://lists.w3.org/Archives/Member/chairs/2016OctDec/0027.html) 17 Oct 2016
-* investigate fix bikeshed link errors and crash :( (done)
-* next step: publication request
+
+_(none)_
 
 
 ###Closed
 
-_(none)_
+CSS Table
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2016OctDec/0027.html) 17 Oct 2016
+* investigate fix bikeshed link errors and crash :( (done)
+* publication request done
+* [done] (https://www.w3.org/TR/2016/WD-css-tables-3-20161025/) 25 Oct 2016
+
 
 ##Candidate Recommendation
 
