@@ -25,7 +25,7 @@ PREV_DAY =
 PREV_STATUS = WD
 PREV_NAME = CSS22
 
-PERMANENT_NAME = CSS23
+PERMANENT_NAME = CSS22
 
 # A very visible warning after the first H1 on every page (or at the
 # location of the _THE_WARNING_ placeholder on some pages). Leave
@@ -209,7 +209,7 @@ ADDLINKS= $(PERL) ./bin/addlinks
 # extract properties from db.
 PEXTR= $(PERL) ./bin/pextr
 # extract issues from issues db.
-ISSUES= bin/issues
+# ISSUES= bin/issues
 # extract issues from errata-issues db.
 ERRATA= bin/errata
 # extract issues from todo db.
