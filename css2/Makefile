@@ -25,7 +25,7 @@ PREV_DAY =
 PREV_STATUS = WD
 PREV_NAME = CSS22
 
-PERMANENT_NAME = CSS22
+PERMANENT_NAME = CSS23
 
 # A very visible warning after the first H1 on every page (or at the
 # location of the _THE_WARNING_ placeholder on some pages). Leave
