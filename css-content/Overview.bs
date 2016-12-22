@@ -85,24 +85,30 @@ Introduction</h2>
 Inserting and replacing content with the 'content' property</h2>
 
 	<pre class='propdef'>
-		 Name: content
-		 Value: [ <<image>> ',' ]* [ normal | none | <<content-list>> ] [/ <<string>> ]?
-		 Initial: normal
-		 Applies To: ''::before'', ''::after'', ''::marker'',	and page margin boxes. Image and url values can apply to all elements.
-		 Inherited: no
-		 Percentages: n/a
-		 Computed Value: As specified below.
-		 Media: all
+		Name: content
+		Value: normal | none | [ <<content-replacement>> | <<content-list>> ] [/ <<string>> ]?
+		Initial: normal
+		Applies To: all elements, tree-abiding pseudo-elements, and page margin boxes
+		Inherited: no
+		Percentages: n/a
+		Computed Value: As specified below
+		Media: all
 	</pre>
 
 
-	The 'content' property dictates what is rendered inside the element or pseudo-element.
-	It takes a comma separated list of URIs,
-	followed by a space separated list of tokens,
-	followed by an optional slash and string indicating alternative text.
-	If there are multiple URIs provided,
-	then each is tried in turn until a value which is both available and supported is found.
-	The last value is used as a fallback if the others fail.
+	The 'content' property dictates what is rendered inside an element or pseudo-element.
+
+	For elements, it has only one purpose:
+	specifying that the element renders as normal,
+	or replacing the element with an image
+	(and possibly some associated "alt text").
+
+	For pseudo-elements and margin boxes,
+	it is more powerful.
+	It controls whether the element renders at all,
+	can replace the element with an image,
+	or replace it with arbitrary inline content
+	(text and images).
 
 	<dl>
 		<dt><dfn>normal</dfn>
@@ -120,21 +126,80 @@ Inserting and replacing content with the 'content' property</h2>
 
 			In neither case does it prevent any pseudo-elements which have this element or pseudo-element as an <a>originating element</a> from being generated.
 
+		<dt><dfn><<content-replacement>></dfn>
+		<dd id=replaced>
+			Equal to:
+
+			<pre class=prod><<image>></pre>
+
+			Makes the element or pseudo-element a <a>replaced element</a>,
+			filled with the specified <<image>>.
+			Its normal contents are suppressed
+			and do not generate boxes,
+			as if they were ''display: none''.
+
+			If the <<image>> represents an <a>invalid image</a>,
+			then it must be treated as instead representing an image with zero intrinsic width and height,
+			filled with transparent black.
+
+			Issue: The above <a>invalid image</a> behavior appears to be what Chrome is doing.
+			Is this okay?
+			Is there a better behavior we can/should use?
+
+			Issue: "Zero intrinsic width and height" gives it an undefined aspect ratio,
+			and sizing behavior is thus... undefined.
+			At least, if you give it an explicit width or height,
+			the other dimension remains at zero in Chrome.
+			This might need to be explicitly defined over in the Images spec;
+			needs some investigation around whether browsers act this way for 0x0 SVGs and rasters.
+
+			Note: Replaced elements use different layout rules than normal elements.
+			(In effect, it becomes equivalent to an HTML <{img}> element.)
+
+			Note: Replaced elements do not have ''::before'' or ''::after'' pseudo-elements;
+			the 'content' property replaces their entire contents.
+
 		<dt><dfn type><<content-list>></dfn>
 		<dd>
-			[ <<string>> | contents |	<<uri>> | <<quote>> | ''document-url'' | <<target>> | ''leader()'' ]+
+			Equal to:
 
-			See sections below for details on each of these.
+			<pre class=prod>
+			[ <<string>> | contents | <<image>> | <<quote>> | ''document-url'' | <<target>> | ''leader()'' ]+
+			</pre>
+
+			Replaces the element's contents with oen or more anonymous inline boxes
+			corresponding to the specified values,
+			in the order specified.
+			Its normal contents are suppressed
+			and do not generate boxes,
+			as if they were ''display: none''.
+
+			Each value contributes an inline box to the element's contents.
+			For <<image>>, this is an inline anonymous replaced element;
+			for the others, it's an anonymous inline run of text.
+
+			If an <<image>> represents an <a>invalid image</a>,
+			the user agent must do one of the following:
+
+			* "Skip" the <<image>>, generating nothing for it.
+			* Display some indication that the image can't be displayed in place of the <<image>>,
+				such as a "broken image" icon.
+
+			This specification intentionally does not define which behavior a user agent must use,
+			but it must use one or the other consistently.
+
+			Note: If the value of <<content-list>> is a single <<image>>,
+			it must instead be interpreted as a <<content-replacement>>.
+
+		<dt><dfn>/ <<string>></dfn>
+		<dd>
+			Specifies the "alt text" for the element.
+			See [[#alt]] for details.
+			If omitted,
+			the element has no "alt text".
 	</dl>
 
 	Issue: Should the contents keyword be replaced with ''content()''?
-
-	<p id="replaced">
-		If the computed value of the part of the 'content' property that ends up being used is a single URI,
-		then the element or pseudo-element is a replaced element.
-		The box model defines different rules for the layout of replaced elements than normal elements.
-		Replaced elements do not have '::before' and '::after' pseudo-elements;
-		the 'content' property in the case of replaced content replaces the entire contents of the element's box.
 
 <h3 id="accessibility">
 Accessibility of Generated Content</h3>
@@ -188,9 +253,10 @@ Alternative Text for Speech</h3>
 	<!--end copy from CSS-PSEUDO-->
 
 <h2 id="content-values">
-Content Values and Functions</h2>
+<<content-list>> Values and Functions</h2>
 
-	The 'content' property can be used to add many different types of content to a document,
+	The <<content-list>> value is used in 'content'
+	to fill an element with one or more anonymous inline boxes,
 	including images, strings, the values of counters, and the text value of elements.
 	In this section we enumerate the possibilities.
 
@@ -201,65 +267,36 @@ String</h3>
 	<dl dfn-for="content, <content-list>" dfn-type=value>
 		<dt><dfn><<string>></dfn>
 		<dd>
-			The element or pseudo-element contains the specified string.
-			Occurrences of <a>white space</a> characters in the string
-			are handled according to the properties given in the [[CSS3TEXT]] module.
+			Represents an anonymous inline box filled with the specified text.
 
+			Note: <a>White space</a> in the string is handled the same as in literal text,
+			and controlled by the properties in [[CSS-TEXT-3]] and elsewhere.
+			In particular, <a>white space</a> character can collapse,
+			even across multiple strings,
+			such as in ''content: "First  " "  Second";'',
+			which by default will render similar to <code>"First Second"</code>
+			(with a single visible space between the two words).
 	</dl>
 
 <h3 id="content-uri">
-URI</h3>
+<<image>></h3>
 
-	<dl dfn-type=value dfn-for=content>
-		<dt><<uri>></dt>
+	<dl dfn-type=value dfn-for="<content-list>">
+		<dt><dfn><<image>></dfn></dt>
 		<dd>
-			For URIs other than URIs in the last comma separated section of the value,
-			if the URI is available and the format is supported,
-			then the element or pseudo-element becomes a replaced element,
-			otherwise, the next item in the comma separated list is used, if any.
+			Represents an anonymous inline replaced element
+			filled with the specified <<image>>.
+
+			If the <<image>> represents an <a>invalid image</a>,
+			this value instead represents nothing.
+			(No inline content is added to the element,
+			as if this value were "skipped".)
 	</dl>
 
-	<div class="example">
-		<pre>
-		h1 { content: url(header/mng), url(header/png), none; }
-		</pre>
-	</div>
-
-	In the example above,
-	if <code>header/mng</code> wasn't in a supported format,
-	then <code>header/png</code> would have been used instead.
-	In the example above, if <code>header/png</code> wasn't available either,
-	then the <code>&lt;h1&gt;</code> element would be empty,
-	as the last alternative is ''content/none''.
-
-	To make an element fallback on its contents, you have to explicitly give ''content/contents'' as a fallback:
-
-	<div class="example">
-		<pre>content: url(1), url(2), url(3), contents;</pre>
-	</div>
-
-	Issue: What happens when no formats are supported,
-	and the author does not explicitly indicate a fallback?
-	Why doesn't an element fallback to ''content/contents'' unless an author explicitly says so?
-
-	If the URI is part of the last comma separated value in the list, as the second URI in the following example:
-
-	<div class="example">
-		<pre>h1 { content: url(welcome), "Welcome to: " url(logo); }</pre>
-	</div>
-
-	...then if the file is available and the format is supported,
-	then an anonymous replaced inline element is inserted,
-	otherwise the image is ignored (as if it hadn't been given at all).
-
-	Issue: There appears to be some change from [[CSS21]] which says,
-	"If the user agent cannot display the resource
-	it must either leave it out as if it were not specified
-	or display some indication that the resource cannot be displayed."
-	Are we now saying that a user agent cannot display a missing image graphic in this situation?
-
-	When a URI is used as replaced content,
-	it <a href="#replaced">affects the generation</a> of ''::before'' and ''::after'' pseudo-elements.
+	Issue: CSS2.1 explicitly allowed the UA to substitute a broken image icon
+	if the image was invalid.
+	However, no browser appears to do this.
+	Is this removal okay?
 
 
 <h3 id="element-content">
@@ -947,8 +984,8 @@ The string-set property</h4>
 	</div>
 
 
-<h4 id="string-function">The ''string()'' function
-</h4>
+<h4 id="string-function">
+The ''string()'' function</h4>
 
 	<pre class="prod">
 		<dfn>string()</dfn> = string( <<custom-ident>> , [ first | start | last | first-except ]? )
