@@ -13,7 +13,7 @@ Editor: Theresa O'Connor, Apple Inc http://www.apple.com/, eoconnor@apple.com
 Editor: Dirk Schulze, Adobe Systems Inc http://www.adobe.com/, dschulze@adobe.com
 Abstract: CSS transforms allows elements styled with CSS to be transformed in two-dimensional or three-dimensional space.
 Abstract:
-Abstract: This is a delta spec over CSS Transforms Level 1, while that spec is finishing standardization.
+Abstract: This spec add new tranform functions and properties for three-dimensional transforms, and convenience functions for simple transforms.
 </pre>
 
 <pre class="link-defaults">
@@ -31,8 +31,492 @@ spec:css-2d-transforms-1;
 Introduction {#intro}
 =====================
 
-Introduction here.
+This specification extents <a>CSS Transforms</a> to allow authors to transform elements in three-dimensional space. New transform functions to the 'transform' property allow three-dimensional transforms, and additional properties make working with three-dimensional transforms easier, and allow the author to control how nested three-dimensional transformed elements interact.
 
+1. The 'perspective' property allows the author to make child elements with three-dimensional transforms appear as if they live in a common three-dimensional space. The 'perspective-origin' property provides control over the origin at which perspective is applied, effectively changing the location of the "vanishing point".
+
+2. The 'transform-style' property allows 3D-transformed elements and their 3D-transformed descendants to share a common three-dimensional space, allowing the construction of hierarchies of three-dimensional objects.
+
+3. The 'backface-visibility' property comes into play when an element is flipped around via three-dimensional transforms such that its reverse side is visible to the viewer. In some situations it is desirable to hide the element in this situation, which is possible using the value of ''backface-visibility/hidden'' for this property.
+
+Note: While some values of the 'transform' property allow an element to be transformed in a three-dimensional coordinate system, the elements themselves are not three-dimensional objects. Instead, they exist on a two-dimensional plane (a flat surface) and have no depth.
+
+This specification also adds three convenience properties, 'scale', 'translate' and 'rotate', that make it easier to describe and animate simple transforms.
+
+
+Module Interactions {#module-interactions}
+==========================================
+
+The '3D transform functions' here extend the set of functions for the 'transform' property.
+
+Some values of 'perspective', 'transform-style' and 'backface-visibility' result in the creation of a <a href="https://www.w3.org/TR/CSS2/visuren.html#containing-block">containing block</a>, and/or the creation of a <a spec="css21">stacking context</a>.
+ 
+Three-dimensional transforms affect the visual layering of elements, and thus override the back-to-front painting order described in <a href="https://www.w3.org/TR/CSS2/zindex.html">Appendix E</a> of [[!CSS21]].
+
+
+Terminology {#terminology}
+==========================
+
+: <dfn>3D-transformed element</dfn>
+:: An element whose computed value for the 'transform' property includes one of the <a>3D transform functions</a>
+
+: <dfn>3D matrix</dfn>
+:: A 4x4 matrix which does not fulfill the requirements of an <<2D matrix>>.
+
+: <dfn>identity transform function</dfn>
+:: In addition to the identity transform function in CSS Transforms, examples for identity transform functions include ''translate3d(0, 0, 0)'', ''translateZ(0)'', ''scaleZ(1)'', ''rotate3d(1, 1, 1, 0)'', ''rotateX(0)'', ''rotateY(0)'', ''rotateZ(0)'' and ''matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)''. A special case is perspective: ''perspective(infinity)''. The value of m<sub>34</sub> becomes infinitesimal small and the transform function is therefore assumed to be equal to the identity matrix.
+
+: <dfn>perspective matrix</dfn>
+:: A matrix computed from the values of the 'perspective' and 'perspective-origin' properties as described <a href="#perspective-matrix-computation">below</a>.
+
+: <dfn>accumulated 3D transformation matrix</dfn>
+:: A matrix computed for an element relative to the root of its <a>3D rendering context</a>, as described <a href="#accumulated-3d-transformation-matrix-computation">below</a>.
+
+: <dfn>3D rendering context</dfn>
+:: A set of elements with a common ancestor which share a common three-dimensional coordinate system, as described <a href="#3d-rendering-contexts">below</a>.
+
+
+Serialization of the <a>computed value</a> of <<transform-list>> {#serialization-of-the-computed-value}
+----------------------------------------------------------------
+
+A <<transform-list>> for the <a>computed value</a> is serialized to either one <<matrix()>> or one <<matrix3d()>> function by the following algorithm:
+
+<ol class="algorithm">
+	1. Let <var>transform</var> be a 4x4 matrix initialized to the identity matrix. The elements <var ignore> m11</var>, <var ignore>m22</var>, <var ignore>m33</var> and <var ignore>m44</var> of <var>transform</var> must be set to ''1'' all other elements of <var>transform</var> must be set to ''0''.
+	2. Post-multiply all <<transform-function>>s in <<transform-list>> to <var>transform</var>.
+	3. Chose between <<matrix()>> or <<matrix3d()>> serialization:
+		<dl class="switch">
+		  <dt>If <var>transform</var> is a <a>2D matrix</a>
+		  <dd>Serialize <var>transform</var> to a <<matrix()>> function.
+		  <dt>Otherwise
+		  <dd>Serialize <var>transform</var> to a <<matrix3d()>> function.
+		</dl>
+</ol>
+
+Issue: fix this text to add to the text in CSS Transforms 1.
+
+Two Dimensional Subset {#two-dimensional-subset}
+================================================
+
+UAs may not always be able to render three-dimensional transforms and then just support a two-dimensional subset of this specification. In this case <a href="#three-d-transform-functions">three-dimensional transforms</a> and the properties 'transform-style', 'perspective', 'perspective-origin' and 'backface-visibility' must not be supported. Section <a href="#3d-transform-rendering">3D Transform Rendering</a> does not apply. Matrix decomposing uses the technique taken from the "unmatrix" method in "Graphics Gems II, edited by Jim Arvo", simplified for the 2D case. Section <a href="#mathematical-description">Mathematical Description of Transform Functions</a> is still effective but can be reduced by using a 3x3 transformation matrix where <em>a</em> equals m<sub>11</sub>, <em>b</em> equals m<sub>12</sub>, <em>c</em> equals m<sub>21</sub>, <em>d</em> equals m<sub>22</sub>, <em>e</em> equals m<sub>41</sub> and <em>f</em> equals m<sub>42</sub> (see A 2D 3x2 matrix with six parameter).
+
+<div class="figure">
+  <img src="images/3x3matrix.png" alt="3x3 matrix" title="\begin{bmatrix} a & c & e \\ b
+  & d & f \\ 0 & 0 & 1 \end{bmatrix}" width="82" height="79">
+   <p class="caption">
+     3x3 matrix for two-dimensional transformations.
+
+</div>
+
+<div class="example">
+
+Authors can easily provide a fallback if UAs do not provide support for three-dimensional transforms. The following example has two property definitions for 'transform'. The first one consists of two two-dimensional transform functions. The second one has a two-dimensional and a three-dimensional transform function.
+
+  <pre>div {
+  transform: scale(2) rotate(45deg);
+  transform: scale(2) rotate3d(0, 0, 1, 45deg);
+}</pre>
+
+    With 3D support, the second definition will override the first one. Without 3D support, the second definition is invalid and a UA falls back to the first definition.
+
+</div>
+
+The Transform Rendering Model {#transform-rendering}
+====================================================
+
+Issue: fix this text to add to the text in CSS Transforms 1.
+
+Three-dimensional transform functions extend this coordinate space into three dimensions, adding a Z axis perpendicular to the plane of the screen, that increases towards the viewer.
+
+<div class="figure">
+  <img src="images/coordinates.svg" width="270" height="240" alt="Demonstration of the initial coordinate space">
+  <p class="caption">
+     Demonstration of the initial coordinate space.
+
+</div>
+
+<p id="transformation-matrix-computation">
+  The <a>transformation matrix</a> is computed from the 'transform' and 'transform-origin' properties as follows:
+  
+	1. Start with the identity matrix.
+    2. Translate by the computed X, Y and Z of 'transform-origin'
+    3. Multiply by each of the transform functions in 'transform' property from left to right
+    4. Translate by the negated computed X, Y and Z values of 'transform-origin'
+
+
+3D Transform Rendering {#3d-transform-rendering}
+----------------------
+
+Normally, elements render as flat planes, and are rendered into the same plane as their containing block. Often this is the plane shared by the rest of the page. Two-dimensional transform functions can alter the appearance of an element, but that element is still rendered into the same plane as its containing block.
+
+Three-dimensional transforms can result in transformation matrices with a non-zero Z component (where the Z axis projects out of the plane of the screen). This can result in an element rendering on a different plane than that of its containing block. This may affect the front-to-back rendering order of that element relative to other elements, as well as causing it to intersect with other elements.
+
+<div class="example">
+
+This example shows the effect of three-dimensional transform applied to an element.
+
+  <pre>
+  &lt;style>
+  div {
+      height: 150px;
+      width: 150px;
+  }
+  .container {
+      border: 1px solid black;
+  }
+  .transformed {
+      transform: rotateY(50deg);
+  }
+  &lt;/style>
+
+  &lt;div class="container">
+      &lt;div class="transformed">&lt;/div>
+  &lt;/div>
+  </pre>
+  <div class="figure">
+    <img src="examples/simple-3d-example.png" width="210" height="190" alt="Div with a rotateY transform.">
+  </div>
+
+The transform is a 50&deg; rotation about the vertical, Y axis. Note how this makes the blue box appear narrower, but not three-dimensional.
+</div>
+
+
+### Perspective ### {#perspective}
+
+The 'perspective' and 'perspective-origin' properties can be used to add a feeling of depth to a scene by making elements higher on the Z axis (closer to the viewer) appear larger, and those further away to appear smaller. The scaling is proportional to <var>d</var>/(<var>d</var> &minus; <var>Z</var>) where <var>d</var>, the value of 'perspective', is the distance from the drawing plane to the the assumed position of the viewer's eye.
+
+<div class="figure">
+  <img alt="Diagram of scale vs. Z position" src="images/perspective_distance.png">
+  <p class="caption">
+    Diagrams showing how scaling depends on the 'perspective' property and Z position. In the top diagram, <var>Z</var> is half of <var>d</var>. In order to make it appear that the original circle (solid outline) appears at <var>Z</var> (dashed circle), the circle is scaled up by a factor of two, resulting in the light blue circle. In the bottom diagram, the circle is scaled down by a factor of one-third to make it appear behind the original position.
+
+</div>
+
+Normally the assumed position of the viewer's eye is centered on a drawing. This position can be moved if desired &ndash; for example, if a web page contains multiple drawings that should share a common perspective &ndash; by setting 'perspective-origin'.
+
+<div class="figure">
+  <img alt="Diagram of different perspective-origin" src="images/perspective_origin.png">
+  <p class="caption">
+    Diagram showing the effect of moving the perspective origin upward.
+
+</div>
+
+<p id="perspective-matrix-computation">
+  The <a>perspective matrix</a> is computed as follows:
+  <ol>
+    <li>Start with the identity matrix.
+    <li>Translate by the computed X and Y values of 'perspective-origin'
+    <li>Multiply by the matrix that would be obtained from the ''perspective()'' transform function, where the length is provided by the value of the 'perspective' property
+    <li>Translate by the negated computed X and Y values of 'perspective-origin'
+  </ol>
+
+
+<div class="example">
+
+This example shows how perspective can be used to cause three-dimensional transforms to appear more realistic.
+
+  <pre>
+  &lt;style>
+  div {
+    height: 150px;
+    width: 150px;
+  }
+  .container {
+    perspective: 500px;
+    border: 1px solid black;
+  }
+  .transformed {
+    transform: rotateY(50deg);
+  }
+  &lt;/style>
+
+  &lt;div class="container">
+    &lt;div class="transformed">&lt;/div>
+  &lt;/div>
+  </pre>
+
+  <div class="figure">
+      <img src="examples/simple-perspective-example.png" width="210" height="190" alt="Div with a rotateY transform, and perspective on its container">
+  </div>
+
+The inner element has the same transform as in the previous example, but its rendering is now influenced by the perspective property on its parent element. Perspective causes vertices that have positive Z coordinates (closer to the viewer) to be scaled up in X and Y, and those further away (negative Z coordinates) to be scaled down, giving an appearance of depth.
+</div>
+
+### 3D Rendering Contexts ### {#3d-rendering-contexts}
+
+This section specifies the rendering model for content that uses 3D-transforms and the ''transform-style'' property. In order to describe this model, we introduce the concept of a "3D rendering context".
+
+A <a>3D rendering context</a> is a set of elements rooted in a common ancestor that, for the purposes of 3D-transform rendering, are considered to share a common three-dimensional coordinate system. The front-to-back rendering of elements in the a 3D rendering context depends on their z-position in that three-dimensional space, and, if the 3D transforms on those elements cause them to intersect, then they are rendered with intersection.
+
+A 3D rendering context is established by an element which has a used value for transform-style of "flat". Descendant elements with a used value for transform-style of "auto" or "preserve-3d" share their enclosing 3D rendering context. A descendant with a used value for transform-style of "flat" participates in its containing 3D rendering context, but establishes a new 3D rendering context for its descendants. For the purposes of rendering in its containing 3D rendering context, it behaves like a flat plane.
+
+Note: This is conceptually similar to CSS stacking contexts. A positioned element with explicit z-index establishes a stacking context, while participating in the stacking context of an ancestor.  Similarly, an element can establish a 3D rendering context for its descendants, while participating in the 3D rendering context of an ancestor. Just as elements within a stacking context render in z-index order, elements in a 3D-rendering context render in z-depth order and can intersect.
+
+Some CSS properties have values that are considered to force "grouping": they require that their element and its descendants are rendered as a group before being composited with other elements; these include opacity, filters and properties that affect clipping. The relevant property values are listed under <a href="#grouping-property-values">grouping property values</a>. These grouping property values force the used value for transform-style to be "flat", and such elements are referred to as <dfn>flattening elements</dfn>. Consequently, they always establish a new 3D rendering context. The root element always has a used value of "flat" for transform-style.
+
+The rendering of elements in a 3D rendering context is as follows (numbers refer to items in <a href="https://www.w3.org/TR/CSS2/zindex.html#painting-order">CSS 2.1, Appendix E, Section E.2 Painting Order</a>):
+
+<ol style="list-style-type: upper-alpha;">
+  <li>The background, borders and other box decorations of the establishing element are rendered (steps 1 and 2)
+  <li>The content and descendant elements without 3D transforms, ordered according to steps 3—7, are rendered into a plane at z=0 relative to to the establishing element.
+  <li>3D-transformed elements are each rendered into their own plane, transformed by the <a href="#accumulated-3d-transformation-matrix-computation">accumulated 3D transformation matrix</a>.
+  <li>Intersection is performed between the set of planes generated by steps B and C, according to <a href="http://en.wikipedia.org/wiki/Newell%27s_algorithm">Newell's algorithm</a>.
+  <li>The resulting set of planes is rendered on top of the backgrounds and box decorations rendered in this step A. Coplanar 3D transformed elements are rendered in painting order.
+</ol>
+
+Issue: is it OK to not pop 2D-transformed elements into their own planes?
+
+Issue: requiring intersection with non-transformed content and descendants requires UAs to allocate additional textures (possibly doubling memory use). Would be more efficient to simply render content and untransformed descendants along with background and borders.
+
+Note that elements with transforms which have a negative z-component will render behind the content and untransformed descendants of the establishing element, and that 3D transformed elements may interpenetrate with content and untransformed elements.
+
+Note: Because the 3D-transformed elements in a 3D rendering context can all depth-sort and intersect with each other, they are effectively rendered as if they were siblings. The effect of transform-style: preserve-3d can then be thought of as causing all the 3D transformed elements in a 3D rendering context to be hoisted up into the establishing element, but still rendered with their <a href="#accumulated-3d-transformation-matrix-computation">accumulated 3D transformation matrix</a>.
+
+<div class="example">
+  <pre>
+  &lt;style>
+  .container {
+    background-color: rgba(0, 0, 0, 0.3);
+    perspective: 500px;
+  }
+  .container > div {
+    position: absolute;
+    left: 0;
+  }
+  .container > :first-child {
+    transform: rotateY(45deg);
+    background-color: orange;
+    top: 10px;
+    height: 135px;
+  }
+  .container > :last-child {
+    transform: translateZ(40px);
+    background-color: rgba(0, 0, 255, 0.6);
+    top: 50px;
+    height: 100px;
+  }
+  &lt;/style>
+
+  &lt;div class="container">
+    &lt;div>&lt;/div>
+    &lt;div>&lt;/div>
+  &lt;/div>
+  </pre>
+
+This example shows show elements in a 3D rendering context can intersect. The container element establishes a 3D rendering context for itself and its two children. The children intersect with each other, and the orange element also intersects with the container.
+
+  <div class="figure">
+    <img src="examples/3d-intersection.png" width="210" height="198" alt="Intersecting sibling elements.">
+  </div>
+</div>
+
+The ''perspective'' property can be used to ensure that 3D transformed elements in the resulting 3D rendering context appear to live in a common three-dimensional space with depth, by suppling a common perspective matrix to descendant transformed members of its 3D rendering context, which is taken into account in the <a href="#accumulated-3d-transformation-matrix-computation">accumulated 3D matrix computation</a>.
+
+By default, elements with value for ''perspective'' other than ''perspective/none'' are flattening, and thus establish a 3D rendering context. However, setting ''transform-style'' to ''preserve-3d'' allows the perspective element to extend its containing 3D rendering context (provided no other <a href="#grouping-property-values">grouping property values</a> are in effect).
+
+<div class="example">
+  <pre>
+  &lt;style>
+  div {
+    height: 150px;
+    width: 150px;
+  }
+  .container {
+    perspective: 500px;
+    border: 1px solid black;
+  }
+  .transformed {
+    transform: rotateY(50deg);
+    background-color: blue;
+  }
+  .child {
+    transform-origin: top left;
+    transform: rotateX(40deg);
+    background-color: lime;
+  }
+  &lt;/style>
+
+  &lt;div class="container">
+    &lt;div class="transformed">
+      &lt;div class="child">&lt;/div>
+    &lt;/div>
+  &lt;/div>
+  </pre>
+
+This example shows how nested 3D transforms are rendered. The blue div is transformed as in the previous example, with its rendering influenced by the perspective on its parent element. The lime element also has a 3D transform, which is a rotation about the X axis (anchored at the top, by virtue of the transform-origin). However, the lime element is being rendered into the plane of its parent because it is not a member of the same 3D rendering context; the parent is "flattening". Thus the lime element only appears shorter; it does not "pop out" of the blue element.
+
+  <div class="figure">
+    <img src="examples/3d-rendering-context-flat.png" width="240" height="200" alt="Nested 3D transforms, with flattening">
+  </div>
+</div>
+
+### Transformed element hierarchies ### {#transformed-element-hierarchies}
+
+By default, <a>transformed elements</a> are flattening, and thus establish a <a>3D rendering context</a>. However, since it is useful to construct hierarchies of transformed objects that share a common 3-dimensional space, this flattening behavior may be overridden by specifying a value of ''preserve-3d'' for the ''transform-style'' property, provided no other <a href="#grouping-property-values">grouping property values</a> are in effect. This allows descendants of the transformed element to share the same 3D rendering context. Non-3D-transformed descendants of such elements are rendered into the plane of the element in step C above, but 3D-transformed elements in the same 3D rendering context will "pop out" into their own planes.
+
+<div class="example">
+  <pre>
+  &lt;style>
+  div {
+    height: 150px;
+    width: 150px;
+  }
+  .container {
+    perspective: 500px;
+    border: 1px solid black;
+  }
+  .transformed {
+    <b>transform-style: preserve-3d</b>;
+    transform: rotateY(50deg);
+    background-color: blue;
+  }
+  .child {
+    transform-origin: top left;
+    transform: rotateX(40deg);
+    background-color: lime;
+  }
+  &lt;/style>
+  </pre>
+
+This example is identical to the previous example, with the addition of ''transform-style: preserve-3d'' on the blue element. The blue element now extends the 3D rendering context of its container. Now both blue and lime elements share a common three-dimensional space, so the lime element renders as tilting out from its parent, influenced by the perspective on the container.
+
+  <div class="figure">
+    <img src="examples/3d-rendering-context-3d.png" width="240" height="200" alt="Nested 3D transforms, with preserve-3d.">
+  </div>
+</div>
+
+### Accumulated 3D Transformation Matrix Computation ### {#accumulated-3d-transformation-matrix-computation}
+
+The final value of the transform used to render an element in a <a>3D rendering context</a> is computed by accumulating an <a>accumulated 3D transformation matrix</a> as follows:
+
+1. Let <var>transform</var> be the identity matrix.
+2. Let <var>current element</var> be the transformed element.
+3. Let <var>ancestor block</var> be the element that establishes the transformed element's containing block.
+4. While <var>current element</var> is not the element that establishes the transformed element's <a>3D rendering context</a>:
+
+    1. If <var>current element</var> has a value for 'transform' which is not ''transform/none'', pre-multiply <var>current element</var>'s <a>transformation matrix</a> with the <var>transform</var>.
+    2. Compute a translation matrix which represents the offset of <var>current element</var> from its <var>ancestor block</var>, and pre-multiply that matrix into the <var>transform</var>.
+    3. If <var>ancestor block</var> has a value for 'perspective' which is not ''perspective/none'', pre-multiply the <var>ancestor block</var>'s <a>perspective matrix</a> into the <var>transform</var>.
+    4. Let <var>ancestor block</var> be the element that establishes the <var>current element</var>'s containing block.
+    5. Let <var>current element</var> be the <var>ancestor block</var>.
+
+Note: as described here, the <a>accumulated 3D transformation matrix</a> takes into account offsets generated by the <a href="https://www.w3.org/TR/REC-CSS2/visuren.html">visual formatting model</a> on the transformed element, and elements in the ancestor chain between the transformed element and the element that establishes the its <a>3D rendering context</a>.
+
+### Backface Visibility ### {#backface-visibility}
+
+Using three-dimensional transforms, it's possible to transform an element such that its reverse side is visible. 3D-transformed elements show the same content on both sides, so the reverse side looks like a mirror-image of the front side (as if the element were projected onto a sheet of glass). Normally, elements whose reverse side is towards the viewer remain visible. However, the 'backface-visibility' property allows the author to make an element invisible when its reverse side is towards the viewer. This behavior is "live"; if an element with ''backface-visibility: hidden'' were animating, such that its front and reverse sides were alternately visible, then it would only be visible when the front side were towards the viewer.
+
+Visibility of the reverse side of an element is considered using the <a>accumulated 3D transformation matrix</a>, and is thus relative to the enclosing flattening element.
+
+Note: This property is useful when you place two elements back-to-back, as you would to create a playing card. Without this property, the front and back elements could switch places at times during an animation to flip the card. Another example is creating a box out of 6 elements, but where you want to see only the inside faces of the box.
+
+<div class="example">
+
+This example shows how to make a "card" element that flips over when clicked. Note the "transform-style: preserve-3d" on #card which is necessary to avoid flattening when flipped.
+
+  <pre>
+  &lt;style>
+  .body { perspective: 500px; }
+  #card {
+    position: relative;
+    height: 300px; width: 200px;
+    transition: transform 1s;
+    transform-style: preserve-3d;
+  }
+  #card.flipped {
+    transform: rotateY(180deg);
+  }
+  .face {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-color: silver;
+    border-radius: 40px;
+    backface-visibility: hidden;
+  }
+  .back {
+    transform: rotateY(180deg);
+  }
+  &lt;/style>
+  &lt;div id="card" onclick="this.classList.toggle('flipped')">
+    &lt;div class="front face">Front&lt;/div>
+    &lt;div class="back face">Back&lt;/div>
+  &lt;/div>
+  </pre>
+
+</div>
+
+Issue: what is the impact of backface-visibility on non-transformed or 2D-transformed elements? Do they get popped into their own planes and intersect?
+
+Processing of Perspective-Transformed Boxes {#processing-of-perspective-transformed-boxes}
+-------------------------------------------
+
+Issue: This is a first pass at an attempt to precisely specify how exactly to transform elements using the provided matrices. It might not be ideal, and implementer feedback is encouraged.  See <a href="https://www.w3.org/Bugs/Public/show_bug.cgi?id=15605">bug 15605</a>.
+
+The <a>accumulated 3D transformation matrix</a> is affected both by the ''perspective'' property, and by any perspective() transform function present in the value of the ''transform'' property.
+
+This <a>accumulated 3D transformation matrix</a> is a 4&times;4 matrix, while the objects to be transformed are two-dimensional boxes. To transform each corner (<var>a</var>, <var>b</var>) of a box, the matrix must first be applied to (<var>a</var>, <var>b</var>, 0, 1), which will result in a four-dimensional point (<var>x</var>, <var>y</var>, <var>z</var>, <var>w</var>).  This is transformed back to a three-dimensional point (<var>x</var>&prime;, <var>y</var>&prime;, <var>z</var>&prime;) as follows:
+
+If <var>w</var> > 0, (<var>x</var>&prime;, <var>y</var>&prime;, <var>z</var>&prime;) = (<var>x</var>/<var>w</var>, <var>y</var>/<var>w</var>, <var>z</var>/<var>w</var>).
+
+If <var>w</var> = 0, (<var>x</var>&prime;, <var>y</var>&prime;, <var>z</var>&prime;) = (<var>x</var> &sdot; <var>n</var>, <var>y</var> &sdot; <var>n</var>, <var>z</var> &sdot; <var>n</var>).  <var>n</var> is an implementation-dependent value that should be chosen so that <var>x</var>&prime; or <var>y</var>&prime; is much larger than the viewport size, if possible.  For example, (5px, 22px, 0px, 0) might become (5000px, 22000px, 0px), with <var>n</var> = 1000, but this value of <var>n</var> would be too small for (0.1px, 0.05px, 0px, 0). This specification does not define the value of <var>n</var> exactly.  Conceptually, (<var>x</var>&prime;, <var>y</var>&prime;, <var>z</var>&prime;) is <a href="http://en.wikipedia.org/wiki/Plane_at_infinity">infinitely far</a> in the direction (<var>x</var>, <var>y</var>, <var>z</var>).
+
+If <var>w</var> &lt; 0 for all four corners of the transformed box, the box is not rendered.
+
+If <var>w</var> &lt; 0 for one to three corners of the transformed box, the box must be replaced by a polygon that has any parts with <var>w</var> &lt; 0 cut out. This will in general be a polygon with three to five vertices, of which exactly two will have <var>w</var> = 0 and the rest <var>w</var> > 0. These vertices are then transformed to three-dimensional points using the rules just stated.  Conceptually, a point with <var>w</var> &lt; 0 is "behind" the viewer, so should not be visible.
+
+<div class="example">
+  <pre>
+  .transformed {
+    height: 100px;
+    width: 100px;
+    background: lime;
+    transform: perspective(50px) translateZ(100px);
+  }
+  </pre>
+
+All of the box's corners have <var>z</var>-coordinates greater than the perspective.  This means that the box is behind the viewer and will not display.  Mathematically, the point (<var>x</var>, <var>y</var>) first becomes (<var>x</var>, <var>y</var>, 0, 1), then is translated to (<var>x</var>, <var>y</var>, 100, 1), and then applying the perspective results in (<var>x</var>, <var>y</var>, 100, &minus;1). The <var>w</var>-coordinate is negative, so it does not display. An implementation that doesn't handle the <var>w</var> &lt; 0 case separately might incorrectly display this point as (&minus;<var>x</var>, &minus;<var>y</var>, &minus;100), dividing by &minus;1 and mirroring the box.
+
+</div>
+
+<div class="example">
+  <pre>
+  .transformed {
+    height: 100px;
+    width: 100px;
+    background: radial-gradient(yellow, blue);
+    transform: perspective(50px) translateZ(50px);
+  }
+  </pre>
+
+Here, the box is translated upward so that it sits at the same place the viewer is looking from. This is like bringing the box closer and closer to one's eye until it fills the entire field of vision. Since the default transform-origin is at the center of the box, which is yellow, the screen will be filled with yellow.
+
+Mathematically, the point (<var>x</var>, <var>y</var>) first becomes (<var>x</var>, <var>y</var>, 0, 1), then is translated to (<var>x</var>, <var>y</var>, 50, 1), then becomes (<var>x</var>, <var>y</var>, 50, 0) after applying perspective. Relative to the transform-origin at the center, the upper-left corner was (&minus;50, &minus;50), so it becomes (&minus;50,
+    &minus;50, 50, 0).  This is transformed to something very far to the upper left, such as (&minus;5000, &minus;5000, 5000).  Likewise the other corners are sent very far away. The radial gradient is stretched over the whole box, now enormous, so the part that's visible without scrolling should be the color of the middle pixel: yellow.  However, since the box is not actually infinite, the user can still scroll to the edges to see the blue parts.
+
+</div>
+
+<div class="example">
+  <pre>
+  .transformed {
+    height: 50px;
+    width: 50px;
+    background: lime;
+    border: 25px solid blue;
+    transform-origin: left;
+    transform: perspective(50px) rotateY(-45deg);
+  }
+  </pre>
+
+The box will be rotated toward the viewer, with the left edge staying fixed while the right edge swings closer.  The right edge will be at about <var>z</var> = ''70.7px'', which is closer than the perspective of ''50px''. Therefore, the rightmost edge will vanish ("behind" the viewer), and the visible part will stretch out infinitely far to the right.
+
+Mathematically, the top right vertex of the box was originally (100, &minus;50), relative to the transform-origin. It is first expanded to (100, &minus;50, 0, 1).  After applying the transform specified, this will get mapped to about (70.71, &minus;50, 70.71, &minus;0.4142). This has <var>w</var> = &minus;0.4142 &lt; 0, so we need to slice away the part of the box with <var>w</var> &lt; 0.  This results in the new top-right vertex being (50, &minus;50, 50, 0).  This is then mapped to some faraway point in the same direction, such as (5000, &minus;5000, 5000), which is up and to the right from the transform-origin.  Something similar is done to the lower right corner, which gets mapped far down and to the right. The resulting box stretches far past the edge of the screen.
+
+Again, the rendered box is still finite, so the user can scroll to see the whole thing if he or she chooses. However, the right part has been chopped off.  No matter how far the user scrolls, the rightmost ''30px'' or so of the original box will not be visible.  The blue border was only ''25px'' wide, so it will be visible on the left, top, and bottom, but not the right.
+
+The same basic procedure would apply if one or three vertices had <var>w</var> &lt; 0.  However, in that case the result of truncating the <var>w</var> &lt; 0 part would be a triangle or pentagon instead of a quadrilateral.
+
+</div>
 
 Individual Transform Properties: the 'translate', 'scale', and 'rotate' properties {#individual-transforms}
 ===========================================================================================================
@@ -123,6 +607,493 @@ The transformation matrix is computed from the 'transform', 'transform-origin', 
 7. Multiply by each of the transform functions in 'transform' from left to right.
 8. Translate by the negated computed X, Y and Z values of 'transform-origin'.
 
+
+The 'transform-style' Property {#transform-style-property}
+==============================
+
+<pre class='propdef'>
+Name: transform-style
+Value: auto | flat | preserve-3d
+Initial: auto
+Applies to: <a>transformable elements</a>
+Inherited: no
+Percentages: N/A
+Computed value: Same as specified value.
+Media: visual
+Animatable: no
+</pre>
+
+A value of "flat" for 'transform-style' establishes a stacking context, and establishes a <a>3D rendering context</a>. Elements with a used value of "auto" are ignored for the purposes of 3D rendering context computation, and those with a used value of "preserve-3d" extend the 3D rendering context to which they belong, even if values for the ''transform'' or ''perspective'' properties would otherwise cause flattening. A value of "preserve-3d" establishes a stacking context, and a containing block.
+
+Grouping property values {#grouping-property-values}
+------------------------
+
+The following CSS property values require the user agent to create a flattened representation of the descendant elements before they can be applied, and therefore force the used value of ''transform-style'' to ''flat'':
+
+* 'overflow': any value other than ''overflow/visible''.
+* 'opacity': any value less than 1.
+* 'filter': any value other than ''filter/none''.
+* 'clip': any value other than ''clip/auto''.
+* 'clip-path': any value other than ''clip-path/none''.
+* 'isolation': used value of ''isolation/isolate''.
+* 'mask-image': any value other than ''mask-image/none''.
+* 'mask-border-source': any value other than ''mask-border-source/none''.
+* 'mix-blend-mode': any value other than ''mix-blend-mode/normal''.
+
+The following CSS property values cause an ''transform-style/auto'' value of ''transform-style'' to become ''transform-style/flat'':
+
+* 'transform': any value other than ''transform/none''.
+* 'perspective': any value other than ''perspective/none''.
+
+In both cases the computed value of 'transform-style' is not affected.
+
+Issue: Having overflow imply transform-style: flat causes every element with non-visible overflow to become
+a stacking context, which is unwanted. See <a href="https://www.w3.org/Bugs/Public/show_bug.cgi?id=28252">Bug 28252</a>.
+
+
+The 'perspective' Property {#perspective-property}
+==========================
+
+<pre class='propdef'>
+Name: perspective
+Value: none | <<length>>
+Initial: none
+Applies to: <a>transformable elements</a>
+Inherited: no
+Percentages: N/A
+Computed value: Absolute length or "none".
+Media: visual
+Animatable: as <a href="https://drafts.csswg.org/css3-transitions/#animtype-length">length</a>
+</pre>
+
+Where <<length>> values must be positive.
+
+<dl dfn-for="perspective">
+	: <dfn><<length>></dfn>
+	:: Distance to the center of projection.
+
+		Issue: Verify that projection is the distance to the center of projection.
+
+	: <dfn>none</dfn>
+	:: No perspective transform is applied. The effect is mathematically similar to an infinite <<length>> value. All objects appear to be flat on the canvas.
+
+</dl>
+
+The use of this property with any value other than ''perspective/none'' establishes a stacking context. It also establishes a containing block (somewhat similar to ''position: relative''), just like the 'transform' property does.
+
+The values of the 'perspective' and 'perspective-origin' properties are used to compute the <a>perspective matrix</a>, as described above.
+
+
+
+The 'perspective-origin' Property {#perspective-origin-property}
+=================================
+
+The 'perspective-origin' property establishes the origin for the 'perspective' property. It effectively sets the X and Y position at which the viewer appears to be looking at the children of the element.
+
+<pre class='propdef'>
+Name: perspective-origin
+Value: <<position>>
+Initial: 50% 50%
+Applies to: <a>transformable elements</a>
+Inherited: no
+Percentages: refer to the size of the <a>reference box</a>
+Computed value: For <<length>> the absolute value, otherwise a percentage.
+Media: visual
+Animatable: as <a href="https://drafts.csswg.org/css3-transitions/#animtype-simple-list">simple list</a> of <a href="https://drafts.csswg.org/css3-transitions/#animtype-lpcalc">length, percentage, or calc</a>
+</pre>
+
+The values of the 'perspective' and 'perspective-origin' properties are used to compute the <a>perspective matrix</a>, as described above.
+
+The values for 'perspective-origin' represent an offset of the perspective origin from the top left corner of the <a>reference box</a>.
+
+<dl dfn-for="perspective-origin" dfn-type="value">
+	: <dfn><<percentage>></dfn>
+	:: A percentage for the horizontal perspective offset is relative to the width of the <a>reference box</a>. A percentage for the vertical offset is relative to height of the <a>reference box</a>. The value for the horizontal and vertical offset represent an offset from the top left corner of the <a>reference box</a>.
+
+	: <dfn><<length>></dfn>
+	:: A length value gives a fixed length as the offset. The value for the horizontal and vertical offset represent an offset from the top left corner of the <a>reference box</a>.
+
+	: <dfn>top</dfn>
+	:: Computes to ''0%'' for the vertical position if one or two values are given, otherwise specifies the top edge as the origin for the next offset.
+
+	: <dfn>right</dfn>
+	:: Computes to ''100%'' for the horizontal position if one or two values are given, otherwise specifies the right edge as the origin for the next offset.
+
+  : <dfn>bottom</dfn>
+  :: Computes to ''100%'' for the vertical position if one or two values are given, otherwise specifies the bottom edge as the origin for the next offset.
+
+  : <dfn>left</dfn>
+  :: Computes to ''0%'' for the horizontal position if one or two values are given, otherwise specifies the left edge as the origin for the next offset.
+
+	: <dfn>center</dfn>
+	:: Computes to ''50%'' (''left 50%'') for the horizontal position if the horizontal position is not otherwise specified, or ''50%'' (''top 50%'') for the vertical position if it is.
+
+</dl>
+
+'perspective-origin' is a <a>resolved value special case property</a>. The <a>resolved value</a> of 'perspective-origin' is the <a>used value</a> (i.e., percentages are resolved to absolute lengths).
+
+The 'backface-visibility' Property {#backface-visibility-property}
+==================================
+
+<pre class='propdef'>
+Name: backface-visibility
+Value: visible | hidden
+Initial: visible
+Applies to: <a>transformable elements</a>
+Inherited: no
+Percentages: N/A
+Computed value: Same as specified value.
+Media: visual
+Animatable: no
+</pre>
+
+The visibility of an element with ''backface-visibility: hidden'' is determined as follows:
+
+1. Compute the element's <var>accumulated 3D transformation matrix</var>.
+2. If the component of the matrix in row 3, column 3 is negative, then the element should be hidden. Otherwise it is visible.
+
+Issue: Backface-visibility cannot be tested by only looking at m33. See <a href="https://www.w3.org/Bugs/Public/show_bug.cgi?id=23014">Bug 23014</a>.
+
+Note: The reasoning for this definition is as follows. Assume elements are rectangles in the <var>x</var>&ndash;<var>y</var> plane with infinitesimal thickness. The front of the untransformed element has coordinates like (<var>x</var>, <var>y</var>, <var>&epsilon;</var>), and the back is (<var>x</var>, <var>y</var>, &minus;<var>&epsilon;</var>), for some very small <var>&epsilon;</var>. We want to know if after the transformation, the front of the element is closer to the viewer than the back (higher <var>z</var>-value) or further away. The <var>z</var>-coordinate of the front will be m<sub>13</sub><var>x</var> + m<sub>23</sub><var>y</var> + m<sub>33</sub><var>&epsilon;</var> + m<sub>43</sub>, before accounting for perspective, and the back will be m<sub>13</sub><var>x</var> + m<sub>23</sub><var>y</var> &minus; m<sub>33</sub><var>&epsilon;</var> + m<sub>43</sub>.  The first quantity is greater than the second if and only if m<sub>33</sub> > 0. (If it equals zero, the front and back are equally close to the viewer. This probably means something like a 90-degree rotation, which makes the element invisible anyway, so we don't really care whether it vanishes.)
+
+
+SVG and 3D transform functions {#svg-three-dimensional-functions}
+==============================
+
+This specification explicitly requires three-dimensional transform functions to apply to the <a>container elements</a>: <{a}>, <{g}>, <{svg}>, all <a>graphics elements</a>, all <a>graphics referencing elements</a> and the SVG <{foreignObject}> element.
+
+Three-dimensional transform functions and the properties 'perspective', 'perspective-origin', 'transform-style' and 'backface-visibility' can not be used for the elements: <{clipPath}>, <{linearGradient}>, <{radialGradient}> and <{pattern}>. If a transform list includes a three-dimensional transform function, the complete transform list must be ignored. The values of every previously named property must be ignored. <var>Transformable elements</var> that are contained by one of these elements can have three-dimensional transform functions. The <{clipPath}>, <{mask}>, <{pattern}> elements require the user agent to create a flattened representation of the descendant elements before they can be applied, and therefore override the behavior of ''transform-style: preserve-3d''.
+
+If the 'vector-effect' property is set to ''non-scaling-stroke'' and an object is within a <a>3D rendering context</a> the property has no affect on stroking the object.
+
+
+The Transform Functions {#transform-functions}
+=======================
+
+The value of the 'transform' property is a list of <dfn>&lt;transform-function></dfn>. The set of allowed transform functions is given below. Wherever <<angle>> is used in this specification, a <<number>> that is equal to zero is also allowed, which is treated the same as an angle of zero degrees. A percentage for horizontal translations is relative to the width of the <a>reference box</a>. A percentage for vertical translations is relative to the height of the <a>reference box</a>.
+
+3D Transform Functions {#three-d-transform-functions}
+----------------------
+
+
+: <span class='prod'><dfn>matrix3d()</dfn> = matrix3d( <<number>> [, <<number>> ]{15,15} )</span>
+:: specifies a 3D transformation as a 4x4 homogeneous matrix of 16 values in column-major order.
+: <span class='prod'><dfn>translate3d()</dfn> = translate3d( <<length-percentage>> , <<length-percentage>> , <<length>> )</span>
+:: specifies a <a href="#Translate3dDefined">3D translation</a> by the vector [tx,ty,tz], with tx, ty and tz being the first, second and third translation-value parameters respectively.
+: <span class='prod'><dfn>translateZ()</dfn> = translateZ( <<length>> )</span>
+:: specifies a <a href="#Translate3dDefined">3D translation</a> by the vector [0,0,tz] with the given amount in the Z direction.
+: <span class='prod'><dfn>scale3d()</dfn> = scale3d( <<number>> , <<number>>, <<number>> )</span>
+:: specifies a <a href="#Scale3dDefined">3D scale</a> operation by the [sx,sy,sz] scaling vector described by the 3 parameters.
+: <span class='prod'><dfn>scaleZ()</dfn> = scaleZ( <<number>> )</span>
+:: specifies a <a href="#Scale3dDefined">3D scale</a> operation using the [1,1,sz] scaling vector, where sz is given as the parameter.
+: <span class='prod'><dfn>rotate3d()</dfn> = rotate3d( <<number>> , <<number>> , <<number>> , <<angle>> )</span>
+:: specifies a <a href="#Rotate3dDefined">3D rotation</a> by the angle specified in last parameter about the [x,y,z] direction vector described by the first three parameters. A direction vector that cannot be normalized, such as [0,0,0], will cause the rotation to not be applied.
+
+	Note: the rotation is clockwise as one looks from the end of the vector toward the origin.
+
+: <span class='prod'><dfn>rotateX()</dfn> = rotateX( <<angle>> )</span>
+:: same as ''rotate3d(1, 0, 0, &lt;angle>)''.
+: <span class='prod'><dfn>rotateY()</dfn> = rotateY( <<angle>> )</span>
+:: same as ''rotate3d(0, 1, 0, &lt;angle>)''.
+: <span class='prod'><dfn>rotateZ()</dfn> = rotateZ( <<angle>> )</span>
+:: same as ''rotate3d(0, 0, 1, &lt;angle>)'', which is also the same as ''rotate(&lt;angle>)''.
+: <span class='prod'><dfn>perspective()</dfn> = perspective( <<length>> )</span>
+:: specifies a <a href="#PerspectiveDefined">perspective projection matrix</a>. This matrix scales points in X and Y based on their Z value, scaling points with positive Z values away from the origin, and those with negative Z values towards the origin. Points on the z=0 plane are unchanged. The parameter represents the distance of the z=0 plane from the viewer. Lower values give a more flattened pyramid and therefore a more pronounced perspective effect. For example, a value of 1000px gives a moderate amount of foreshortening and a value of 200px gives an extreme amount. The value for depth must be greater than zero, otherwise the function is invalid.
+
+
+Interpolation of 3D matrices {#interpolation-of-3d-matrices}
+----------------------------
+
+### Decomposing a 3D matrix ### {#decomposing-a-3d-matrix}
+
+The pseudo code below is based upon the "unmatrix" method in "Graphics Gems II, edited by Jim Arvo", but modified to use Quaternions instead of Euler angles to avoid the problem of Gimbal Locks.
+
+The following pseudocode works on a 4x4 homogeneous matrix:
+
+<pre>
+Input:  matrix      ; a 4x4 matrix
+Output: translation ; a 3 component vector
+        scale       ; a 3 component vector
+        skew        ; skew factors XY,XZ,YZ represented as a 3 component vector
+        perspective ; a 4 component vector
+        quaternion  ; a 4 component vector
+Returns false if the matrix cannot be decomposed, true if it can
+
+
+// Normalize the matrix.
+if (matrix[3][3] == 0)
+    return false
+
+for (i = 0; i < 4; i++)
+    for (j = 0; j < 4; j++)
+        matrix[i][j] /= matrix[3][3]
+
+// perspectiveMatrix is used to solve for perspective, but it also provides
+// an easy way to test for singularity of the upper 3x3 component.
+perspectiveMatrix = matrix
+
+for (i = 0; i < 3; i++)
+    perspectiveMatrix[i][3] = 0
+
+perspectiveMatrix[3][3] = 1
+
+if (determinant(perspectiveMatrix) == 0)
+    return false
+
+// First, isolate perspective.
+if (matrix[0][3] != 0 || matrix[1][3] != 0 || matrix[2][3] != 0)
+    // rightHandSide is the right hand side of the equation.
+    rightHandSide[0] = matrix[0][3]
+    rightHandSide[1] = matrix[1][3]
+    rightHandSide[2] = matrix[2][3]
+    rightHandSide[3] = matrix[3][3]
+
+    // Solve the equation by inverting perspectiveMatrix and multiplying
+    // rightHandSide by the inverse.
+    inversePerspectiveMatrix = inverse(perspectiveMatrix)
+    transposedInversePerspectiveMatrix = transposeMatrix4(inversePerspectiveMatrix)
+    perspective = multVecMatrix(rightHandSide, transposedInversePerspectiveMatrix)
+else
+    // No perspective.
+    perspective[0] = perspective[1] = perspective[2] = 0
+    perspective[3] = 1
+
+// Next take care of translation
+for (i = 0; i < 3; i++)
+    translate[i] = matrix[3][i]
+
+// Now get scale and shear. 'row' is a 3 element array of 3 component vectors
+for (i = 0; i < 3; i++)
+    row[i][0] = matrix[i][0]
+    row[i][1] = matrix[i][1]
+    row[i][2] = matrix[i][2]
+
+// Compute X scale factor and normalize first row.
+scale[0] = length(row[0])
+row[0] = normalize(row[0])
+
+// Compute XY shear factor and make 2nd row orthogonal to 1st.
+skew[0] = dot(row[0], row[1])
+row[1] = combine(row[1], row[0], 1.0, -skew[0])
+
+// Now, compute Y scale and normalize 2nd row.
+scale[1] = length(row[1])
+row[1] = normalize(row[1])
+skew[0] /= scale[1];
+
+// Compute XZ and YZ shears, orthogonalize 3rd row
+skew[1] = dot(row[0], row[2])
+row[2] = combine(row[2], row[0], 1.0, -skew[1])
+skew[2] = dot(row[1], row[2])
+row[2] = combine(row[2], row[1], 1.0, -skew[2])
+
+// Next, get Z scale and normalize 3rd row.
+scale[2] = length(row[2])
+row[2] = normalize(row[2])
+skew[1] /= scale[2]
+skew[2] /= scale[2]
+
+// At this point, the matrix (in rows) is orthonormal.
+// Check for a coordinate system flip.  If the determinant
+// is -1, then negate the matrix and the scaling factors.
+pdum3 = cross(row[1], row[2])
+if (dot(row[0], pdum3) < 0)
+    for (i = 0; i < 3; i++)
+        scale[i] *= -1;
+        row[i][0] *= -1
+        row[i][1] *= -1
+        row[i][2] *= -1
+
+// Now, get the rotations out
+quaternion[0] = 0.5 * sqrt(max(1 + row[0][0] - row[1][1] - row[2][2], 0))
+quaternion[1] = 0.5 * sqrt(max(1 - row[0][0] + row[1][1] - row[2][2], 0))
+quaternion[2] = 0.5 * sqrt(max(1 - row[0][0] - row[1][1] + row[2][2], 0))
+quaternion[3] = 0.5 * sqrt(max(1 + row[0][0] + row[1][1] + row[2][2], 0))
+
+if (row[2][1] > row[1][2])
+    quaternion[0] = -quaternion[0]
+if (row[0][2] > row[2][0])
+    quaternion[1] = -quaternion[1]
+if (row[1][0] > row[0][1])
+    quaternion[2] = -quaternion[2]
+
+return true</pre>
+
+### Interpolation of decomposed 3D matrix values ### {#interpolation-of-decomposed-3d-matrix-values}
+
+Each component of the decomposed values translation, scale, skew and perspective of the source matrix get linearly interpolated with each corresponding component of the destination matrix.
+
+Note: For instance, <code>translate[0]</code> of the source matrix and <code>translate[0]</code> of the destination matrix are interpolated numerically, and the result is used to set the translation of the animating element.
+
+Quaternions of the decomposed source matrix are interpolated with quaternions of the decomposed destination matrix using the spherical linear interpolation (Slerp) as described by the pseudo code below:
+
+<pre>
+Input:  quaternionA   ; a 4 component vector
+        quaternionB   ; a 4 component vector
+        t             ; interpolation parameter with 0 <= t <= 1
+Output: quaternionDst ; a 4 component vector
+
+
+product = dot(quaternionA, quaternionB)
+
+// Clamp product to -1.0 <= product <= 1.0
+product = max(product, 1.0)
+product = min(product, -1.0)
+
+if (product == 1.0)
+   quaternionDst = quaternionA
+   return
+
+theta = acos(dot)
+w = sin(t * theta) * 1 / sqrt(1 - product * product)
+
+for (i = 0; i < 4; i++)
+  quaternionA[i] *= cos(t * theta) - product * w
+  quaternionB[i] *= w
+  quaternionDst[i] = quaternionA[i] + quaternionB[i]
+
+return</pre>
+
+### Recomposing to a 3D matrix ### {#recomposing-to-a-3d-matrix}
+
+After interpolation, the resulting values are used to transform the elements user space. One way to use these values is to recompose them into a 4x4 matrix. This can be done following the pseudo code below:
+
+<pre>
+Input:  translation ; a 3 component vector
+        scale       ; a 3 component vector
+        skew        ; skew factors XY,XZ,YZ represented as a 3 component vector
+        perspective ; a 4 component vector
+        quaternion  ; a 4 component vector
+Output: matrix      ; a 4x4 matrix
+
+Supporting functions (matrix is a 4x4 matrix):
+  matrix  multiply(matrix a, matrix b)   returns the 4x4 matrix product of a * b
+
+// apply perspective
+for (i = 0; i < 4; i++)
+  matrix[i][3] = perspective[i]
+
+// apply translation
+for (i = 0; i < 3; i++)
+  for (j = 0; j < 3; j++)
+    matrix[3][i] += translation[j] * matrix[j][i]
+
+// apply rotation
+x = quaternion[0]
+y = quaternion[1]
+z = quaternion[2]
+w = quaternion[3]
+
+// Construct a composite rotation matrix from the quaternion values
+// rotationMatrix is a identity 4x4 matrix initially
+rotationMatrix[0][0] = 1 - 2 * (y * y + z * z)
+rotationMatrix[0][1] = 2 * (x * y - z * w)
+rotationMatrix[0][2] = 2 * (x * z + y * w)
+rotationMatrix[1][0] = 2 * (x * y + z * w)
+rotationMatrix[1][1] = 1 - 2 * (x * x + z * z)
+rotationMatrix[1][2] = 2 * (y * z - x * w)
+rotationMatrix[2][0] = 2 * (x * z - y * w)
+rotationMatrix[2][1] = 2 * (y * z + x * w)
+rotationMatrix[2][2] = 1 - 2 * (x * x + y * y)
+
+matrix = multiply(matrix, rotationMatrix)
+
+// apply skew
+// temp is a identity 4x4 matrix initially
+if (skew[2])
+    temp[2][1] = skew[2]
+    matrix = multiply(matrix, temp)
+
+if (skew[1])
+    temp[2][1] = 0
+    temp[2][0] = skew[1]
+    matrix = multiply(matrix, temp)
+
+if (skew[0])
+    temp[2][0] = 0
+    temp[1][0] = skew[0]
+    matrix = multiply(matrix, temp)
+
+// apply scale
+for (i = 0; i < 3; i++)
+  for (j = 0; j < 3; j++)
+    matrix[i][j] *= scale[i]
+
+return</pre>
+
+Interpolation of Matrices {#matrix-interpolation}
+=================================================
+
+When interpolating between two matrices, each matrix is decomposed into the corresponding translation, rotation, scale, skew and (for a <a>3D matrix</a>) perspective values. Each corresponding component of the decomposed matrices gets interpolated numerically and recomposed back to a matrix in a final step.
+
+Neutral element for addition {#neutral-element}
+----------------------------
+
+Some animations require a neutral element for addition. For transform functions this is a scalar or a list of scalars of 0. Examples of neutral elements for transform functions are ''translate(0)'', ''translate3d(0, 0, 0)'', ''translateX(0)'', ''translateY(0)'', ''translateZ(0)'', ''scale(0)'', ''scaleX(0)'', ''scaleY(0)'', ''scaleZ(0)'', ''rotate(0)'', ''rotate3d(v<sub>x</sub>, v<sub>y</sub>, v<sub>z</sub>, 0)'' (where <var>v</var> is a context dependent vector), ''rotateX(0)'', ''rotateY(0)'', ''rotateZ(0)'', ''skew(0, 0)'', ''skewX(0)'', ''skewY(0)'', ''matrix(0, 0, 0, 0, 0, 0)'', ''matrix3d(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)'' and ''perspective(0)''.
+
+Note: Animations to or from the neutral element of additions <<matrix()>>, ''matrix3d()'' and ''perspective()'' fall back to discrete animations (See [[#matrix-interpolation]]).
+
+
+Interpolation of primitives and derived transform functions {#interpolation-of-transform-functions}
+===================================================================================================
+
+Two transform functions with the same name and the same number of arguments are interpolated numerically without a former conversion. The calculated value will be of the same transform function type with the same number of arguments. Special rules apply to <<matrix()>>, <<matrix3d()>> and <<perspective()>>.
+
+The transform functions <<matrix()>>, ''matrix3d()'' and ''perspective()'' get converted into 4x4 matrices first and interpolated as defined in section <a href="#matrix-interpolation">Interpolation of Matrices</a> afterwards.
+
+For interpolations with the primitive ''rotate3d()'', the direction vectors of the transform functions get normalized first. If the normalized vectors are equal, the rotation angle gets interpolated numerically. Otherwise the transform functions get converted into 4x4 matrices first and interpolated as defined in section <a href="#matrix-interpolation">Interpolation of Matrices</a> afterwards.
+
+Mathematical Description of Transform Functions {#mathematical-description}
+===============================================
+
+Mathematically, all transform functions can be represented as 4x4 transformation matrices of the following form:
+
+<img src="images/4x4matrix.png" alt="\begin{bmatrix} m11 & m21 & m31 & m41 \\ m12 & m22 & m32 & m42 \\ m13 & m23 & m33 & m43 \\ m14 & m24 & m34 & m44 \end{bmatrix}" width="222" height="106">
+
+One translation unit on a matrix is equivalent to 1 pixel in the local coordinate system of the element.
+
+<ul>
+  <li id="Translate3dDefined">
+      A 3D translation with the parameters <em>tx</em>, <em>ty</em> and <em>tz</em> is equivalent to the matrix:
+
+    <img src="images/translate3d.png" alt="\begin{bmatrix} 1 & 0 & 0 & tx \\ 0 & 1 & 0 & ty \\ 0 & 0 & 1 & tz \\ 0 & 0 & 0 & 1 \end{bmatrix}" width="114" height="106">
+
+  <li id="Scale3dDefined">
+      A 3D scaling with the parameters <em>sx</em>, <em>sy</em> and <em>sz</em> is equivalent to the matrix:
+
+    <img src="images/scale3d.png" alt="\begin{bmatrix} sx & 0 & 0 & 0 \\ 0 & sy & 0 & 0 \\ 0 & 0 & sz & 0 \\ 0 & 0 & 0 & 1 \end{bmatrix}" width="137" height="106">
+
+  <li id="Rotate3dDefined">
+      A 3D rotation with the vector [x,y,z] and the parameter <em>alpha</em> is equivalent to the matrix:
+
+    <img src="images/rotate3dmatrix.png" alt="\begin{bmatrix} 1 - 2 \cdot (y^2 + z^2) \cdot sq & 2 \cdot (x \cdot y \cdot sq - z \cdot sc) & 2 \cdot (x \cdot z \cdot sq + y \cdot sc) & 0 \\ 2 \cdot (x \cdot y \cdot sq + z \cdot sc) & 1 - 2 \cdot (x^2 + z^2) \cdot sq & 2 \cdot (y \cdot z \cdot sq - x \cdot sc) & 0 \\ 2 \cdot (x \cdot z \cdot sq - y \cdot sc) & 2 \cdot (y \cdot z \cdot sq + x \cdot sc) & 1 - 2 \cdot (x^2 + y^2) \cdot sq & 0 \\ 0 & 0 & 0 & 1 \end{bmatrix}" width="647" height="106">
+
+      where:
+
+    <img src="images/rotate3dvariables.png" alt="\newline sc = \sin (\alpha/2) \cdot \cos (\alpha/2) \newline sq = \sin^2 (\alpha/2)" width="221" height="50">
+
+  <li id="PerspectiveDefined">
+      A perspective projection matrix with the parameter <em>d</em> is equivalent to the matrix:
+
+    <img src="images/perspective.png" alt="\begin{bmatrix} 1 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 \\ 0 & 0 & 1 & 0 \\ 0 & 0 & -1/d & 1 \end{bmatrix}" width="143" height="106">
+
+</ul>
+
+The SVG 'transform' Attribute {#svg-transform}
+=============================
+
+This specification will also introduce the new presentation attributes 'transform-origin', 'perspective', 'perspective-origin', 'transform-style' and 'backface-visibility'.
+
+Values on new introduced presentation attributes get parsed following the syntax rules on <a>SVG Data Types</a> [[!SVG11]].
+
+
+SVG Animation {#svg-animation}
+=============
+
+The <{animate}> and <{set}> element {#svg-animate-element}
+-----------------------------------
+
+The introduce presentation attributes 'perspective', 'perspective-origin', 'transform-style' and 'backface-visibility' are animatable. 'transform-style' and 'backface-visibility' are non-additive.
 
 
 More Issues {#more-issues}
