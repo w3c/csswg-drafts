@@ -27,8 +27,14 @@ Paint API
   * No changes section since FPWD
   * [17 Open issues](https://github.com/w3c/css-houdini-drafts/labels/css-paint-api-1)
   * No disposition of comments
-  * Evidence of wide review
+  * No evidence of wide review
   * Implementation status and test suite?
+  * Waiting for editors to respond on these
+  
+Scroll Snap (updated CR)
+* group decision 2017-01-04
+  * RESOLVED: Re-publish Scroll Snap CR with these changes
+              (https://github.com/w3c/csswg-drafts/commit/7a20d00238aac3ddbdd8d5dd7e74ff81dd29ba76)
 
 
 
