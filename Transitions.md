@@ -55,7 +55,9 @@ CSS Grid Layout 1 [done](https://www.w3.org/TR/css-grid-1/), 29 September 2016
 
 ###Open
 
-_(none)_
+Writing Modes
+  * working out how to move at-risk features to leve 4, and keep in level 3 but as MAY
+  * working on the tests and finalizing the test report
 
 ###Closed
 
