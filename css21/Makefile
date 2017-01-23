@@ -4,14 +4,14 @@
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
-#THE_YEAR = YYYY
-THE_YEAR = 2011
-#THE_MONTH = MM
-THE_MONTH = 06
-#THE_MONTHNAME = MMMMM
-THE_MONTHNAME = June
-#THE_DAY = DD
-THE_DAY = 07
+THE_YEAR = YYYY
+#THE_YEAR = 2011
+THE_MONTH = MM
+#THE_MONTH = 06
+THE_MONTHNAME = MMMMM
+#THE_MONTHNAME = June
+THE_DAY = DD
+#THE_DAY = 07
 #THE_STATUS = REC
 THE_STATUS = ED
 #THE_STATUSNAME = Recommendation
