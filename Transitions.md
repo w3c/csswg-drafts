@@ -36,6 +36,9 @@ Scroll Snap (updated CR)
   * RESOLVED: Re-publish Scroll Snap CR with these changes
               (https://github.com/w3c/csswg-drafts/commit/7a20d00238aac3ddbdd8d5dd7e74ff81dd29ba76)
 
+CSS Basic UI 3 (updated CR)
+* group decision?
+* changes [look ok](https://drafts.csswg.org/css-ui-3/#changes)
 
 
 ###Closed
