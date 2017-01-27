@@ -1,5 +1,16 @@
 #W3C Transition status
 
+##First Working Group Note
+
+###Open
+
+CSS-2017
+* [Publication request sent](https://lists.w3.org/Archives/Team/webreq/2017Jan/0072.html)
+
+###Closed
+
+_(none)_
+
 ##First Public Working Draft
 
 ###Open
