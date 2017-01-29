@@ -1,4 +1,4 @@
-# Candidates for CSS Snapshot 2017
+﻿# Candidates for CSS Snapshot 2017
 
 ## Already listed in Snapshot 2015
 

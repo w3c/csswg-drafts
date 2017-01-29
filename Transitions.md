@@ -1,5 +1,16 @@
 #W3C Transition status
 
+##First Working Group Note
+
+###Open
+
+CSS-2017
+* [Publication request sent](https://lists.w3.org/Archives/Team/webreq/2017Jan/0072.html)
+
+###Closed
+
+_(none)_
+
 ##First Public Working Draft
 
 ###Open
@@ -36,6 +47,9 @@ Scroll Snap (updated CR)
   * RESOLVED: Re-publish Scroll Snap CR with these changes
               (https://github.com/w3c/csswg-drafts/commit/7a20d00238aac3ddbdd8d5dd7e74ff81dd29ba76)
 
+CSS Basic UI 3 (updated CR)
+* group decision?
+* changes [look ok](https://drafts.csswg.org/css-ui-3/#changes)
 
 
 ###Closed
