@@ -4,12 +4,13 @@
 
 ###Open
 
-CSS-2017
-* [Publication request sent](https://lists.w3.org/Archives/Team/webreq/2017Jan/0072.html)
+_(none)_
 
 ###Closed
 
-_(none)_
+CSS-2017
+* [Publication request sent](https://lists.w3.org/Archives/Team/webreq/2017Jan/0072.html)
+* [done](https://www.w3.org/TR/css-2017/)
 
 ##First Public Working Draft
 
