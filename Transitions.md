@@ -48,8 +48,9 @@ Scroll Snap (updated CR)
               (https://github.com/w3c/csswg-drafts/commit/7a20d00238aac3ddbdd8d5dd7e74ff81dd29ba76)
 
 CSS Basic UI 3 (updated CR)
-* group decision?
+* group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-17-37)
 * changes [look ok](https://drafts.csswg.org/css-ui-3/#changes)
+* [Disposition of Comments](https://drafts.csswg.org/css-ui-3/issues-2015-2017.html)
 
 
 ###Closed
