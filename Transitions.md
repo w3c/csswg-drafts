@@ -53,6 +53,15 @@ CSS Basic UI 3 (updated CR)
 * changes [look ok](https://drafts.csswg.org/css-ui-3/#changes)
 * [Disposition of Comments](https://drafts.csswg.org/css-ui-3/issues-2015-2017.html)
 
+CSS Break & CSS Grid (updated CRs)
+* no new features, one-line fix from Sizing, no exclusion period
+
+CSS Display 
+* group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-42-48)
+* changes
+* Disposition of Comments
+* Bert handling publication
+
 
 ###Closed
 
