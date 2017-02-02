@@ -43,23 +43,25 @@ Paint API
   * Implementation status and test suite?
   * Waiting for editors to respond on these
   
-Scroll Snap (updated CR)
+Scroll Snap (updated CR, non-substantive)
 * group decision 2017-01-04
   * RESOLVED: Re-publish Scroll Snap CR with these changes
               (https://github.com/w3c/csswg-drafts/commit/7a20d00238aac3ddbdd8d5dd7e74ff81dd29ba76)
+
+CSS Break & CSS Grid (updated CRs, non-substantive)
+* no new features, one-line fix from Sizing, no exclusion period
 
 CSS Basic UI 3 (updated CR)
 * group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-17-37)
 * changes [look ok](https://drafts.csswg.org/css-ui-3/#changes)
 * [Disposition of Comments](https://drafts.csswg.org/css-ui-3/issues-2015-2017.html)
-
-CSS Break & CSS Grid (updated CRs)
-* no new features, one-line fix from Sizing, no exclusion period
+* next step: transition request
 
 CSS Display 
 * group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-42-48)
 * changes
 * Disposition of Comments
+* next step: transition request
 * Bert handling publication
 
 
