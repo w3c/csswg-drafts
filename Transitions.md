@@ -17,7 +17,8 @@ CSS-2017
 ###Open
 
 
-_(none)_
+CSS Timing
+* [wg decision](https://www.w3.org/2017/02/15-css-irc#T17-06-44) 2017-02-15
 
 
 ###Closed
