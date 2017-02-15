@@ -58,6 +58,8 @@ CSS Display
 * next step: transition request
 * Bert handling publication
 
+CSS Speech (updated CR, has technical changes)
+* group decision [15 Feb 2017](https://www.w3.org/2017/02/15-css-irc#T17-39-53)
 
 ###Closed
 
