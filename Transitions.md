@@ -57,9 +57,10 @@ CSS Basic UI 3 (updated CR)
 * group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-17-37)
 * changes [look ok](https://drafts.csswg.org/css-ui-3/#changes)
 * [Disposition of Comments](https://drafts.csswg.org/css-ui-3/issues-2015-2017.html)
-* need to clean up some normativ references to specs which don't havce FPWD. Mailed editor.
+* need to clean up some normative references to specs which don't havce FPWD. Mailed editor. Done.
 * transition request [16 Feb 2017](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0060.html)
-* next step: transition decision
+* transition decision [17 Feb 2017](https://lists.w3.org/Archives/Team/w3t-comm/2017Feb/0208.html)
+* next step: publication, after 23 Feb (one week from transition request)
 
 CSS Display 
 * group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-42-48)
