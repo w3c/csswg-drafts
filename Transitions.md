@@ -26,7 +26,8 @@ CSS Timing
 
 CSS Contain
 * [wg decision](https://lists.w3.org/Archives/Public/www-style/2016May/0210.html) 2016-05-09 San Francisco f2f, subject to edits being made
-* next step: transition request
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0064.html) 17 Feb 2017
+* next step: transition decision
 
 ###Closed
 
