@@ -17,7 +17,8 @@ CSS-2017
 ###Open
 
 
-_(none)_
+CSS Timing
+* [wg decision](https://www.w3.org/2017/02/15-css-irc#T17-06-44) 2017-02-15
 
 
 ###Closed
@@ -43,19 +44,14 @@ Paint API
   * Implementation status and test suite?
   * Waiting for editors to respond on these
   
-Scroll Snap (updated CR, non-substantive)
-* group decision 2017-01-04
-  * RESOLVED: Re-publish Scroll Snap CR with these changes
-              (https://github.com/w3c/csswg-drafts/commit/7a20d00238aac3ddbdd8d5dd7e74ff81dd29ba76)
-
-CSS Break & CSS Grid (updated CRs, non-substantive)
-* no new features, one-line fix from Sizing, no exclusion period
 
 CSS Basic UI 3 (updated CR)
 * group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-17-37)
 * changes [look ok](https://drafts.csswg.org/css-ui-3/#changes)
 * [Disposition of Comments](https://drafts.csswg.org/css-ui-3/issues-2015-2017.html)
-* next step: transition request
+* need to clean up some normativ references to specs which don't havce FPWD. Mailed editor.
+* transition request [16 Feb 2017](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0060.html)
+* next step: transition decision
 
 CSS Display 
 * group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-42-48)
@@ -64,8 +60,20 @@ CSS Display
 * next step: transition request
 * Bert handling publication
 
+CSS Speech (updated CR, has technical changes)
+* group decision [15 Feb 2017](https://www.w3.org/2017/02/15-css-irc#T17-39-53)
 
 ###Closed
+
+CSS Break & CSS Grid (updated CRs, non-substantive)
+* no new features, one-line fix from Sizing, no exclusion period
+* [done](https://www.w3.org/TR/css-break-3/) and [done](https://www.w3.org/TR/css-grid-1/) 9 Feb 2017
+
+Scroll Snap (updated CR, non-substantive)
+* group decision 2017-01-04
+* RESOLVED: Re-publish Scroll Snap CR with these changes
+              (https://github.com/w3c/csswg-drafts/commit/7a20d00238aac3ddbdd8d5dd7e74ff81dd29ba76)
+* [done](https://www.w3.org/TR/css-scroll-snap-1/) 9 Feb 2017   
 
 CSS Scroll Snapping
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2016OctDec/0000.html) 03 Oct 2016
