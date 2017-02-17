@@ -15,4 +15,3 @@ General CSSWG discussion can be found on the public
 For an index of all specifications, see:
 
         http://dev.w3.org/csswg/
-
