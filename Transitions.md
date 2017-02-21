@@ -16,22 +16,23 @@ CSS-2017
 
 ###Open
 
+_(none)_
+
+###Closed
 
 CSS Timing
 * [wg decision](https://www.w3.org/2017/02/15-css-irc#T17-06-44) 2017-02-15
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0061.html) 16 Feb 2017
 * [approval](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0063.html) 17 Feb 2017
 * [publication request](https://lists.w3.org/Archives/Team/webreq/2017Feb/0054.html) 17 Feb 2017
-* next step: publication on Tue 21 Feb 2017
+* [done](https://www.w3.org/TR/2017/WD-css-timing-1-20170221/) Tue 21 Feb 2017
 
 CSS Contain
 * [wg decision](https://lists.w3.org/Archives/Public/www-style/2016May/0210.html) 2016-05-09 San Francisco f2f, subject to edits being made
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0064.html) 17 Feb 2017
 * [approval](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0065.html) 17 Feb 2017
 * [publication request](https://lists.w3.org/Archives/Team/webreq/2017Feb/0055.html) 17 Feb 2017
-* next step: publication on Tue 21 Feb 2017
-
-###Closed
+* [done(https://www.w3.org/TR/2017/WD-css-contain-1-20170221/) Tue 21 Feb 2017
 
 CSS Table
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2016OctDec/0027.html) 17 Oct 2016
