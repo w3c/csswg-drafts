@@ -16,12 +16,23 @@ CSS-2017
 
 ###Open
 
+_(none)_
+
+###Closed
 
 CSS Timing
 * [wg decision](https://www.w3.org/2017/02/15-css-irc#T17-06-44) 2017-02-15
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0061.html) 16 Feb 2017
+* [approval](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0063.html) 17 Feb 2017
+* [publication request](https://lists.w3.org/Archives/Team/webreq/2017Feb/0054.html) 17 Feb 2017
+* [done](https://www.w3.org/TR/2017/WD-css-timing-1-20170221/) Tue 21 Feb 2017
 
-
-###Closed
+CSS Contain
+* [wg decision](https://lists.w3.org/Archives/Public/www-style/2016May/0210.html) 2016-05-09 San Francisco f2f, subject to edits being made
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0064.html) 17 Feb 2017
+* [approval](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0065.html) 17 Feb 2017
+* [publication request](https://lists.w3.org/Archives/Team/webreq/2017Feb/0055.html) 17 Feb 2017
+* [done(https://www.w3.org/TR/2017/WD-css-contain-1-20170221/) Tue 21 Feb 2017
 
 CSS Table
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2016OctDec/0027.html) 17 Oct 2016
@@ -49,8 +60,10 @@ CSS Basic UI 3 (updated CR)
 * group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-17-37)
 * changes [look ok](https://drafts.csswg.org/css-ui-3/#changes)
 * [Disposition of Comments](https://drafts.csswg.org/css-ui-3/issues-2015-2017.html)
-* need to clean up some normativ references to specs which don't havce FPWD. Mailed editor.
-* next step: transition request
+* need to clean up some normative references to specs which don't havce FPWD. Mailed editor. Done.
+* transition request [16 Feb 2017](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0060.html)
+* transition decision [17 Feb 2017](https://lists.w3.org/Archives/Team/w3t-comm/2017Feb/0208.html)
+* next step: publication, after 23 Feb (one week from transition request)
 
 CSS Display 
 * group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-42-48)
