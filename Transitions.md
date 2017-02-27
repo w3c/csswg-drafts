@@ -63,7 +63,8 @@ CSS Basic UI 3 (updated CR)
 * need to clean up some normative references to specs which don't havce FPWD. Mailed editor. Done.
 * transition request [16 Feb 2017](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0060.html)
 * transition decision [17 Feb 2017](https://lists.w3.org/Archives/Team/w3t-comm/2017Feb/0208.html)
-* next step: publication, after 23 Feb (one week from transition request)
+* publication request sent [27 Feb 2017](https://lists.w3.org/Archives/Team/webreq/2017Feb/0089.html)
+* next step: publication 28 Feb, after 23 Feb (one week from transition request)
 
 CSS Display 
 * group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-42-48)
