@@ -51,7 +51,8 @@ Paint API
   * No changes section since FPWD
   * [17 Open issues](https://github.com/w3c/css-houdini-drafts/labels/css-paint-api-1)
   * No disposition of comments
-  * No evidence of wide review
+  * Evidence of wide review?
+   * [TAG review](https://github.com/w3ctag/spec-reviews/issues/140)
   * Implementation status and test suite?
   * Waiting for editors to respond on these
   
