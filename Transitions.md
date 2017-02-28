@@ -17,8 +17,8 @@ CSS-2017
 ###Open
 
 CSS Rhythm
-* [transition request](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0104.html)
-* [approval](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0105.html)
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0104.html) 28 Feb 2017
+* [approval](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0105.html) 28 Feb 2017
 * next step: publication request
 
 ###Closed
