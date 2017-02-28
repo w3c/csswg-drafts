@@ -16,7 +16,10 @@ CSS-2017
 
 ###Open
 
-_(none)_
+CSS Rhythm
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0104.html)
+* [approval](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0105.html)
+* next step: publication request
 
 ###Closed
 
