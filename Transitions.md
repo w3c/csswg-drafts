@@ -16,7 +16,10 @@ CSS-2017
 
 ###Open
 
-_(none)_
+CSS Rhythm
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0104.html) 28 Feb 2017
+* [approval](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0105.html) 28 Feb 2017
+* next step: publication request
 
 ###Closed
 
@@ -51,7 +54,8 @@ Paint API
   * No changes section since FPWD
   * [17 Open issues](https://github.com/w3c/css-houdini-drafts/labels/css-paint-api-1)
   * No disposition of comments
-  * No evidence of wide review
+  * Evidence of wide review?
+   * [TAG review](https://github.com/w3ctag/spec-reviews/issues/140)
   * Implementation status and test suite?
   * Waiting for editors to respond on these
   
@@ -63,7 +67,8 @@ CSS Basic UI 3 (updated CR)
 * need to clean up some normative references to specs which don't havce FPWD. Mailed editor. Done.
 * transition request [16 Feb 2017](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0060.html)
 * transition decision [17 Feb 2017](https://lists.w3.org/Archives/Team/w3t-comm/2017Feb/0208.html)
-* next step: publication, after 23 Feb (one week from transition request)
+* publication request sent [27 Feb 2017](https://lists.w3.org/Archives/Team/webreq/2017Feb/0089.html)
+* next step: publication 28 Feb, after 23 Feb (one week from transition request)
 
 CSS Display 
 * group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-42-48)
