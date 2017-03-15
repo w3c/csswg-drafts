@@ -58,17 +58,7 @@ Paint API
    * [TAG review](https://github.com/w3ctag/spec-reviews/issues/140)
   * Implementation status and test suite?
   * Waiting for editors to respond on these
-  
 
-CSS Basic UI 3 (updated CR)
-* group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-17-37)
-* changes [look ok](https://drafts.csswg.org/css-ui-3/#changes)
-* [Disposition of Comments](https://drafts.csswg.org/css-ui-3/issues-2015-2017.html)
-* need to clean up some normative references to specs which don't havce FPWD. Mailed editor. Done.
-* transition request [16 Feb 2017](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0060.html)
-* transition decision [17 Feb 2017](https://lists.w3.org/Archives/Team/w3t-comm/2017Feb/0208.html)
-* publication request sent [27 Feb 2017](https://lists.w3.org/Archives/Team/webreq/2017Feb/0089.html)
-* next step: publication 28 Feb, after 23 Feb (one week from transition request)
 
 CSS Display 
 * group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-42-48)
@@ -81,6 +71,16 @@ CSS Speech (updated CR, has technical changes)
 * group decision [15 Feb 2017](https://www.w3.org/2017/02/15-css-irc#T17-39-53)
 
 ###Closed
+
+CSS Basic UI 3 (updated CR)
+* group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-17-37)
+* changes [look ok](https://drafts.csswg.org/css-ui-3/#changes)
+* [Disposition of Comments](https://drafts.csswg.org/css-ui-3/issues-2015-2017.html)
+* need to clean up some normative references to specs which don't havce FPWD. Mailed editor. Done.
+* transition request [16 Feb 2017](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0060.html)
+* transition decision [17 Feb 2017](https://lists.w3.org/Archives/Team/w3t-comm/2017Feb/0208.html)
+* publication request sent [27 Feb 2017](https://lists.w3.org/Archives/Team/webreq/2017Feb/0089.html)
+* [done](https://www.w3.org/TR/2017/CR-css-ui-3-20170302/) 02 Mar 2017
 
 CSS Break & CSS Grid (updated CRs, non-substantive)
 * no new features, one-line fix from Sizing, no exclusion period
