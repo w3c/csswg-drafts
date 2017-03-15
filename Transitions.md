@@ -1,12 +1,12 @@
-#W3C Transition status
+# W3C Transition status
 
-##First Working Group Note
+## First Working Group Note
 
-###Open
+### Open
 
 _(none)_
 
-###Closed
+### Closed
 
 CSS-2017
 * [Publication request sent](https://lists.w3.org/Archives/Team/webreq/2017Jan/0072.html)
@@ -14,14 +14,14 @@ CSS-2017
 
 ##First Public Working Draft
 
-###Open
+### Open
 
 CSS Rhythm
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0104.html) 28 Feb 2017
 * [approval](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0105.html) 28 Feb 2017
 * next step: publication request
 
-###Closed
+### Closed
 
 CSS Timing
 * [wg decision](https://www.w3.org/2017/02/15-css-irc#T17-06-44) 2017-02-15
@@ -44,9 +44,9 @@ CSS Table
 * [done] (https://www.w3.org/TR/2016/WD-css-tables-3-20161025/) 25 Oct 2016
 
 
-##Candidate Recommendation
+## Candidate Recommendation
 
-###Open
+### Open
 
 Paint API
 * [group decision](https://lists.w3.org/Archives/Public/public-houdini/2016Oct/0001.html) 09 Oct 2016, (pending edits)
@@ -70,7 +70,7 @@ CSS Display
 CSS Speech (updated CR, has technical changes)
 * group decision [15 Feb 2017](https://www.w3.org/2017/02/15-css-irc#T17-39-53)
 
-###Closed
+### Closed
 
 CSS Basic UI 3 (updated CR)
 * group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-17-37)
@@ -103,14 +103,14 @@ CSS Values & Units 3  [done](https://www.w3.org/TR/css-values-3/), 29 September 
 
 CSS Grid Layout 1 [done](https://www.w3.org/TR/css-grid-1/), 29 September 2016
 
-##Proposed Recommendation
+## Proposed Recommendation
 
-###Open
+### Open
 
 Writing Modes
   * working out how to move at-risk features to leve 4, and keep in level 3 but as MAY
   * working on the tests and finalizing the test report
 
-###Closed
+### Closed
 
 _(none)_
