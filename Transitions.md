@@ -62,16 +62,18 @@ Paint API
 
 CSS Display 
 * group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-42-48)
-* changes
-* Disposition of Comments
+* changes ?
+* Disposition of Comments ?
 * next step: transition request
-* Bert handling publication
+* Bert handling transition and publication
 
 CSS Speech (updated CR, has technical changes)
 * group decision [15 Feb 2017](https://www.w3.org/2017/02/15-css-irc#T17-39-53)
 
 CSS Grid (updated CR, with subgrid moved to Grid 2)
 * group decision [15 Mar 2017](https://www.w3.org/2017/03/15-css-irc#T16-42-41)
+* [Disposition of Comments](https://drafts.csswg.org/css-grid-1/issues-cr-2016)
+* [Changes](https://drafts.csswg.org/css-grid/#changes)
 * next step: write transition request
 
 ### Closed
