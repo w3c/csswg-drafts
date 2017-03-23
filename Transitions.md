@@ -12,16 +12,20 @@ CSS-2017
 * [Publication request sent](https://lists.w3.org/Archives/Team/webreq/2017Jan/0072.html)
 * [done](https://www.w3.org/TR/css-2017/)
 
-##First Public Working Draft
+## First Public Working Draft
 
 ### Open
+
+Fill-Stroke (aka Paint)
+* [wg decision] https://www.w3.org/2017/03/22-css-irc#T16-31-40
+
+
+### Closed
 
 CSS Rhythm
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0104.html) 28 Feb 2017
 * [approval](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0105.html) 28 Feb 2017
-* next step: publication request
-
-### Closed
+* [done](https://www.w3.org/TR/2017/WD-css-rhythm-1-20170302/) 2 Mar 2017
 
 CSS Timing
 * [wg decision](https://www.w3.org/2017/02/15-css-irc#T17-06-44) 2017-02-15
