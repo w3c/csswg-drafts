@@ -174,7 +174,7 @@ while (<IN>) {
   s/(http\S+)/<a href='\1'>\1<\/a>/g;
 
   # Anchor issue number
-  s/Issue (\d+)\./Issue \1. <a href='#issue-\1'>#<\/a>/;
+  s/Issue (\w+)\./Issue \1. <a href='#issue-\1'>#<\/a>/;
   my $index = $1;
 
   # Color coding WG response
