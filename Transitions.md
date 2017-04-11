@@ -79,9 +79,10 @@ CSS Speech (updated CR, has technical changes)
 
 CSS Grid (updated CR, with subgrid moved to Grid 2)
 * group decision [15 Mar 2017](https://www.w3.org/2017/03/15-css-irc#T16-42-41)
-* [Disposition of Comments](https://drafts.csswg.org/css-grid-1/issues-cr-2016)
+* [Disposition of Comments](https://drafts.csswg.org/css-grid-1/issues-cr-2016) one open issue
 * [Changes](https://drafts.csswg.org/css-grid/#changes)
-* next step: write transition request
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0015.html) 11 April 2017
+* next step: transition decision
 
 ### Closed
 
