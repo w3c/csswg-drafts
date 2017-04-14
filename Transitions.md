@@ -16,14 +16,16 @@ CSS-2017
 
 ### Open
 
+_(none)_
+
+### Closed
+
 Fill-Stroke (aka Paint)
 * [wg decision](https://www.w3.org/2017/03/22-css-irc#T16-31-40)
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2017JanMar/att-0160/00-part)
 * [approval](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0161.html)
 * [publication request](https://lists.w3.org/Archives/Team/webreq/2017Apr/0017.html) 11 April 2017
-
-
-### Closed
+* [done](https://www.w3.org/TR/2017/WD-fill-stroke-3-20170413/) 13 April 2017
 
 CSS Rhythm
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0104.html) 28 Feb 2017
