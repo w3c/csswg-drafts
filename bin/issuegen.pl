@@ -172,6 +172,10 @@ while (<IN>) {
 
   # Linkify URLs
   s/(http\S+)/<a href='\1'>\1<\/a>/g;
+  # Add thread link
+  s/>(http[s]?:\/\/lists.w3.org\/Archives\/Public\/)(\S+)<\/a>/>\1\2<\/a> (<a href="https:\/\/www.w3.org\/Mail\/flatten\/index?subject=https\%3A\%2F\%2Flists.w3.org\%2FArchives\%2FPublic\%2F\2">thread<\/a>)/g;
+
+
 
   # Anchor issue number
   s/Issue (\w+)\./Issue \1. <a href='#issue-\1'>#<\/a>/;
