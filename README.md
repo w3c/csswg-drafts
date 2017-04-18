@@ -3,7 +3,7 @@
 
 # Problem
 
-Scroll chaining is the process of propagating the scroll to the the nearest scrollable parent element once an scrollable reaches its limit. Scroll chaining is not always desirable. For example consider a fixed/absolute position scroller whose scroll should not chain to parent scroller i.e., the document. You can find this UX pattern used in most chat boxes that live at the bottom of the page such as in Facebook or Gmail UI.
+Scroll chaining is the process of propagating the scroll to the the nearest scrollable parent element once a scrollable reaches its limit. Scroll chaining is not always desirable. For example consider a fixed/absolute position scroller whose scroll should not chain to parent scroller, i.e. the document. You can find this UX pattern used in most chat boxes that live at the bottom of the page such as in Facebook or Gmail UI.
 
 To give you a sense of how popular preventing scroll chaining may be, according to my quick http-archive search -ms-scroll-chaining: none is used in 0.4% of top 300K pages despite being limited in functionality and only supported on IE/Edge.
 
@@ -24,13 +24,13 @@ The property can also hint at the overscroll behavior that the browser should ta
 
 The proposal for the syntax is:
 ```
-croll-boundary-behavior{-x,-y}: auto | contain | none
+scroll-boundary-behavior{-x,-y}: auto | contain | none
 ```
 
 where:
-  auto - Allow the default behavior for the user agent.
-  contain - Hint to disable scroll chaining. The user agent may show an appropriate overscroll affordance. If the scroll chaining would trigger a non-scroll action, such as a navigation action, this property should be a hint to disable it.
-  none - Same as contain but also hint that no overscroll affordance should be triggered.
+* auto - Allow the default behavior for the user agent.
+* contain - Hint to disable scroll chaining. The user agent may show an appropriate overscroll affordance. If the scroll chaining would trigger a non-scroll action, such as a navigation action, this property should be a hint to disable it.
+* none - Same as contain but also hint that no overscroll affordance should be triggered.
 
 This should apply to all, non-programatic, user scroll actions.
 
