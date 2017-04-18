@@ -36,6 +36,8 @@ This should apply to all, non-programatic, user scroll actions.
 
 # Issues to file
 
-Should the property disable scroll chaining through itself to an ancestor if scrolling is initiated from a children.
-What if the property is attached to a potentially scrollable element without a scrollbox?
-What if the property is attached to a non-potentially scrollable element?
+* Should the property disable scroll chaining through itself to an ancestor if scrolling is initiated from a children?
+
+* What if the property is attached to a potentially scrollable element without a scrollbox?
+
+* What if the property is attached to a non-potentially scrollable element?
