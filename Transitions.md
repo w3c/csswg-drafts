@@ -16,7 +16,8 @@ CSS-2017
 
 ### Open
 
-_(none)_
+CSS Fonts 4
+* [wg decision](https://www.w3.org/2017/04/19-css-irc#T06-11-40) 19 April 2017
 
 ### Closed
 
