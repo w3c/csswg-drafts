@@ -21,7 +21,7 @@ $(LINKEDFILE) : $(SOURCEFILE)
 
 $(OUTPUTFILE): $(LINKEDFILE)
 ifneq (,$(REMOTE))
-	curl $(REMOTE_PREPROCESSOR_URL) -F file=@$(LINKEDFILE) > "$@"
+	curl $(REMOTE_PREPROCESSOR_URL) -F file=@$(LINKEDFILE) -F force=1 > "$@"
 else
 	$(PREPROCESSOR) -f spec "$<" "$@"
 endif
