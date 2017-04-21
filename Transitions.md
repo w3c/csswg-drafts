@@ -87,6 +87,9 @@ CSS Grid (updated CR, with subgrid moved to Grid 2)
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0015.html) 11 April 2017
 * next step: transition decision
 
+CSS Contain
+* [group decision](https://www.w3.org/2017/04/21-css-irc#T07-18-13) 21April 2017
+
 ### Closed
 
 CSS Basic UI 3 (updated CR)
