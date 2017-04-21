@@ -929,6 +929,27 @@ var _ = $.extend(Mavo, {
 	},
 
 	/**
+	 * toJSON without cycles
+	 */
+	safeToJSON: function(o) {
+		var cache = new WeakSet();
+
+		return JSON.stringify(o, (key, value) => {
+			if (typeof value === "object" && value !== null) {
+				// No circular reference found
+
+				if (cache.has(value)) {
+					return; // Circular reference found!
+				}
+
+				cache.add(value);
+			}
+
+			return value;
+		});
+	},
+
+	/**
 	 * Array utlities
 	 */
 
@@ -944,12 +965,6 @@ var _ = $.extend(Mavo, {
 			arr.splice(index, 1);
 		}
 	},
-
-	/**
-	 * Do two arrays have a non-empty intersection?
-	 * @return {Boolean}
-	 */
-	hasIntersection: (arr1, arr2) => arr1 && arr2 && !arr1.every(el => arr2.indexOf(el) == -1),
 
 	// Recursively flatten a multi-dimensional array
 	flatten: arr => {
@@ -1120,25 +1135,8 @@ var _ = $.extend(Mavo, {
 		}
 	},
 
-	/**
-	 * Deep clone an object. Only supports object literals, arrays, and primitives
-	 */
 	clone: function(o) {
-		var cache = new WeakSet();
-
-		return JSON.parse(JSON.stringify(o, (key, value) => {
-			if (typeof value === "object" && value !== null) {
-				// No circular reference found
-
-				if (cache.has(value)) {
-					return; // Circular reference found!
-				}
-
-				cache.add(value);
-			}
-
-			return value;
-		}));
+		return JSON.parse(_.safeToJSON(o));
 	},
 
 	// Credit: https://remysharp.com/2010/07/21/throttling-function-calls
@@ -2051,11 +2049,10 @@ var _ = Mavo.Backend = $.Class({
 		this.permissions = new Mavo.Permissions();
 	},
 
-	get: function() {
-		var url = new URL(this.url);
+	get: function(url = new URL(this.url)) {
 		url.searchParams.set("timestamp", Date.now()); // ensure fresh copy
 
-		return $.fetch(this.url.href).then(xhr => Promise.resolve(xhr.responseText), () => Promise.resolve(null));
+		return $.fetch(url.href).then(xhr => Promise.resolve(xhr.responseText), () => Promise.resolve(null));
 	},
 
 	load: function() {
@@ -2737,6 +2734,85 @@ var _ = Mavo.Node = $.Class({
 		return !!this.parentGroup && this.parentGroup.isDeleted();
 	},
 
+	relativizeData: function(data, options = {live: true}) {
+		return new Proxy(data, {
+			get: (data, property, proxy) => {
+				// Checking if property is in proxy might add it to the data
+				if (property in data || (property in proxy && property in data)) {
+					var ret = data[property];
+
+					return ret;
+				}
+			},
+
+			has: (data, property) => {
+				if (property in data) {
+					return true;
+				}
+
+				// Property does not exist, look for it elsewhere
+
+				// Special values
+				switch (property) {
+					case "$index":
+						data[property] = this.index || 0;
+						return true; // if index is 0 it's falsy and has would return false!
+					case "$next":
+					case "$previous":
+						if (this.closestCollection) {
+							data[property] = this.closestCollection.getData(options)[this.index + (property == "$next"? 1 : -1)];
+							return true;
+						}
+
+						data[property] = null;
+						return false;
+				}
+
+				if (this instanceof Mavo.Group && property == this.property && this.collection) {
+					data[property] = data;
+					return true;
+				}
+
+				// First look in ancestors
+				var ret = this.walkUp(group => {
+					if (property in group.children) {
+						return group.children[property];
+					};
+				});
+
+				if (ret === undefined) {
+					// Still not found, look in descendants
+					ret = this.find(property);
+				}
+
+				if (ret !== undefined) {
+					if (Array.isArray(ret)) {
+						ret = ret.map(item => item.getData(options))
+								 .filter(item => item !== null);
+					}
+					else if (ret instanceof Mavo.Node) {
+						ret = ret.getData(options);
+					}
+
+					data[property] = ret;
+
+					return true;
+				}
+
+				// Does it reference another Mavo?
+				if (property in Mavo.all && Mavo.all[property].root) {
+					return data[property] = Mavo.all[property].root.getData(options);
+				}
+
+				return false;
+			},
+
+			set: function(data, property, value) {
+				throw Error("You can’t set data via expressions.");
+			}
+		});
+	},
+
 	lazy: {
 		closestCollection: function() {
 			return this.getClosestCollection();
@@ -2948,7 +3024,9 @@ var _ = Mavo.Group = $.Class({
 					var collection = existing;
 
 					if (!(existing instanceof Mavo.Collection)) {
+
 						collection = new Mavo.Collection(existing.element, this.mavo, constructorOptions);
+
 						this.children[property] = existing.collection = collection;
 						collection.add(existing);
 					}
@@ -2998,11 +3076,11 @@ var _ = Mavo.Group = $.Class({
 
 		env.data = this.data? Mavo.clone(Mavo.subset(this.data, this.inPath)) : {};
 
-		for (let property in this.children) {
-			let obj = this.children[property];
+		for (var property in this.children) {
+			var obj = this.children[property];
 
 			if (obj.saved || env.options.live) {
-				let data = obj.getData(o);
+				var data = obj.getData(o);
 
 				if (data !== null || env.options.live) {
 					env.data[obj.property] = data;
@@ -3081,7 +3159,7 @@ var _ = Mavo.Group = $.Class({
 		if (this.super.edit.call(this) === false) {
 			return false;
 		}
-		
+
 		this.propagate("edit");
 	},
 
@@ -3100,10 +3178,19 @@ var _ = Mavo.Group = $.Class({
 		// What if data is not an object?
 		if (typeof data !== "object") {
 			// Data is a primitive, render it on this.property or failing that, any writable property
-			var score = prop => (prop == this.property)
-				+ (!this.children[prop].expressionText)
-				+ (this.children[prop] instanceof Mavo.Primitive);
-			var property = Object.keys(this.children).sort((prop1, prop2) => score(prop1) - score(prop2)).reverse()[0];
+			if (this.property in this.children) {
+				var property = this.property;
+			}
+			else {
+				var type = $.type(data);
+				var score = prop => (this.children[prop] instanceof Mavo.Primitive) + (this.children[prop].datatype == type);
+
+				var property = Object.keys(this.children)
+					.filter(p => !this.children[p].expressionText)
+					.sort((prop1, prop2) => score(prop1) - score(prop2))
+					.reverse()[0];
+
+			}
 
 			data = {[property]: data};
 
@@ -3122,9 +3209,9 @@ var _ = Mavo.Group = $.Class({
 			// since nothing else will and they can still be referenced in expressions
 			var oldData = Mavo.subset(this.oldData, this.inPath);
 
-			for (let property in data) {
+			for (var property in data) {
 				if (!(property in this.children)) {
-					let value = data[property];
+					var value = data[property];
 
 					if (typeof value != "object" && (!oldData || oldData[property] != value)) {
 						this.dataChanged("propertychange", {property});
@@ -4046,8 +4133,9 @@ Object.defineProperties(_, {
 	},
 	"search": {
 		value: function(element, attribute, datatype) {
-			var matches = _.matches(element, attribute, datatype);
 
+			var matches = _.matches(element, attribute, datatype);
+			
 			return matches[matches.length - 1] || { attribute };
 		}
 	},
@@ -4510,7 +4598,7 @@ var _ = Mavo.Collection = $.Class({
 
 		if (this.mutable) {
 			var item = this.createItem(this.element);
-			this.add(item);
+			this.add(item, undefined, {silent: true});
 			this.itemTemplate = item.template || item;
 		}
 
@@ -4621,18 +4709,18 @@ var _ = Mavo.Collection = $.Class({
 			add: env.item
 		});
 
-		requestAnimationFrame(() => {
-			if (!o.silent) {
+		if (this.mavo.expressions.active && !o.silent) {
+			requestAnimationFrame(() => {
 				env.changed.forEach(i => {
 					i.dataChanged(i == env.item && env.previousIndex === undefined? "add" : "move");
 					i.unsavedChanges = true;
 				});
 
 				this.unsavedChanges = this.mavo.unsavedChanges = true;
-			}
 
-			this.mavo.expressions.update(env.item.element);
-		});
+				this.mavo.expressions.update(env.item.element);
+			});
+		}
 
 		Mavo.hooks.run("collection-add-end", env);
 
@@ -5235,18 +5323,18 @@ var _ = Mavo.Expression = $.Class({
 			return true;
 		}
 
-		if (Mavo.hasIntersection(evt.properties, this.identifiers)) {
+		if (Mavo.Functions.intersects(evt.properties, this.identifiers)) {
 			return true;
 		}
 
 		if (evt.action != "propertychange") {
-			if (Mavo.hasIntersection(["$index", "$all", "$previous", "$next"], this.identifiers)) {
+			if (Mavo.Functions.intersects(["$index", "$previous", "$next"], this.identifiers)) {
 				return true;
 			}
 
 			var collection = evt.node.collection || evt.node;
 
-			if (Mavo.hasIntersection(collection.properties, this.identifiers)) {
+			if (Mavo.Functions.intersects(collection.properties, this.identifiers)) {
 				return true;
 			}
 		}
@@ -5481,6 +5569,7 @@ var _ = Mavo.DOMExpression = $.Class({
 
 		this.mavo.treeBuilt.then(() => {
 			if (!this.template) {
+				// Only collection items and groups can have their own expressions arrays
 				this.item = Mavo.Node.get(this.element.closest(Mavo.selectors.multiple + ", " + Mavo.selectors.group));
 				this.item.expressions = [...(this.item.expressions || []), this];
 			}
@@ -5500,7 +5589,7 @@ var _ = Mavo.DOMExpression = $.Class({
 	update: function(data = this.data, event) {
 		var env = {context: this, ret: {}, event};
 		var parentEnv = env;
-		
+
 		this.data = data;
 
 		env.ret = {};
@@ -5659,6 +5748,10 @@ var _ = Mavo.Expressions = $.Class({
 	update: function(evt) {
 		var root, rootGroup;
 
+		if (!this.active) {
+			return;
+		}
+
 		if (evt instanceof Element) {
 			root = evt.closest(Mavo.selectors.group);
 			evt = null;
@@ -5667,16 +5760,28 @@ var _ = Mavo.Expressions = $.Class({
 		root = root || this.mavo.element;
 		rootGroup = Mavo.Node.get(root);
 
-		var data = rootGroup.getData({live: true});
+		var allData = rootGroup.getData({live: true});
 
 		rootGroup.walk((obj, path) => {
-			if (obj.expressions && obj.expressions.length && !obj.isDeleted()) {
-				let env = { context: this, data: $.value(data, ...path) };
+			var data = $.value(allData, ...path);
 
-				Mavo.hooks.run("expressions-update-start", env);
+			if (obj.expressions && obj.expressions.length && !obj.isDeleted()) {
+				if (typeof data != "object") {
+					var parentData = $.value(allData, ...path.slice(0, -1));
+
+					data = {
+						[Symbol.toPrimitive]: () => data,
+						[obj.property]: data
+					};
+
+					if (self.Proxy) {
+						data = obj.relativizeData(data);
+					}
+				}
+
 				for (let et of obj.expressions) {
 					if (et.changedBy(evt)) {
-						et.update(env.data, evt);
+						et.update(data, evt);
 					}
 				}
 			}
@@ -5746,92 +5851,10 @@ var _ = Mavo.Expressions = $.Class({
 
 if (self.Proxy) {
 	Mavo.hooks.add("node-getdata-end", function(env) {
-		if (env.options.live && (env.data && (typeof env.data === "object" || this.collection))) {
+		if (env.options.live && (env.data || env.data === 0 || env.data === "") && (typeof env.data === "object")) {
 			var data = env.data;
 
-			if (typeof env.data !== "object") {
-				env.data = {
-					[Symbol.toPrimitive]: () => data,
-					[this.property]: data
-				};
-			}
-
-			env.data = new Proxy(env.data, {
-				get: (data, property, proxy) => {
-					// Checking if property is in proxy might add it to the data
-					if (property in data || (property in proxy && property in data)) {
-						return data[property];
-					}
-				},
-
-				has: (data, property) => {
-					if (property in data) {
-						return true;
-					}
-
-					// Property does not exist, look for it elsewhere
-
-					switch(property) {
-						case "$index":
-							data[property] = this.index || 0;
-							return true; // if index is 0 it's falsy and has would return false!
-						case "$all":
-							return data[property] = this.closestCollection? this.closestCollection.getData(env.options) : [env.data];
-						case "$next":
-						case "$previous":
-							if (this.closestCollection) {
-								return data[property] = this.closestCollection.getData(env.options)[this.index + (property == "$next"? 1 : -1)];
-							}
-
-							data[property] = null;
-							return null;
-						case "$edit":
-							data[property] = this.editing;
-							return true;
-					}
-
-					if (this instanceof Mavo.Group && property == this.property && this.collection) {
-						return data[property] = env.data;
-					}
-
-					// First look in ancestors
-					var ret = this.walkUp(group => {
-						if (property in group.children) {
-							return group.children[property];
-						};
-					});
-
-					if (ret === undefined) {
-						// Still not found, look in descendants
-						ret = this.find(property);
-					}
-
-					if (ret !== undefined) {
-						if (Array.isArray(ret)) {
-							ret = ret.map(item => item.getData(env.options))
-									 .filter(item => item !== null);
-						}
-						else if (ret instanceof Mavo.Node) {
-							ret = ret.getData(env.options);
-						}
-
-						data[property] = ret;
-
-						return true;
-					}
-
-					// Does it reference another Mavo?
-					if (property in Mavo.all && Mavo.all[property].root) {
-						return data[property] = Mavo.all[property].root.getData(env.options);
-					}
-
-					return false;
-				},
-
-				set: function(data, property, value) {
-					throw Error("You can’t set data via expressions.");
-				}
-			});
+			env.data = this.relativizeData(data);
 		}
 	});
 }
@@ -6035,12 +6058,26 @@ var _ = Mavo.Functions = {
 			return obj[property];
 		}
 
-		if (Array.isArray(obj) && isNaN(property) && typeof obj[0] === "object") {
-			// Array and non-numerical property, try by id
-			for (var i=0; i<obj.length; i++) {
-				if (obj[i] && obj[i].id == property) {
-					return obj[i];
+		if (Array.isArray(obj) && isNaN(property)) {
+			// Array and non-numerical property
+			for (var first of obj) {
+				if (first && typeof first === "object") {
+					break;
 				}
+			}
+
+			if (first) {
+				if ("id" in first) {
+					// Try by id?
+					for (var i=0; i<obj.length; i++) {
+						if (obj[i] && obj[i].id == property) {
+							return _.get(obj, i);
+						}
+					}
+				}
+
+				// Still here, get that property from the objects inside
+				return obj.map(e => _.get(e, property));
 			}
 		}
 
@@ -6049,8 +6086,18 @@ var _ = Mavo.Functions = {
 	},
 
 	unique: function(arr) {
+		if (!Array.isArray(arr)) {
+			return arr;
+		}
+
 		return [...new Set(arr)];
 	},
+
+	/**
+	 * Do two arrays have a non-empty intersection?
+	 * @return {Boolean}
+	 */
+	intersects: (arr1, arr2) => arr1 && arr2 && !arr1.every(el => arr2.indexOf(el) == -1),
 
 	/*********************
 	 * Number functions
@@ -6739,8 +6786,17 @@ var _ = Mavo.Backend.register($.Class({
 	},
 
 	get: function() {
-		return this.request(this.apiCall)
-		       .then(response => Promise.resolve(this.repo? _.atob(response.content) : response));
+		if (this.isAuthenticated() || !this.path) {
+			// Authenticated or raw API call
+			return this.request(this.apiCall)
+			       .then(response => Promise.resolve(this.repo? _.atob(response.content) : response));
+		}
+		else {
+			// Unauthenticated, use simple GET request to avoid rate limit
+			var url = new URL(`https://raw.githubusercontent.com/${this.username}/${this.repo}/${this.branch || "master"}/${this.path}`);
+
+			return this.super.get.call(this, url);
+		}
 	},
 
 	upload: function(file, path = this.path) {
