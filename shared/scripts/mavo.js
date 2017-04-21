@@ -1,6 +1,654 @@
 !function(){"use strict";function t(e,r,s){return r=void 0===r?1:r,s=s||r+1,1>=s-r?function(){if(arguments.length<=r||"string"===n.type(arguments[r]))return e.apply(this,arguments);var t,s=arguments[r];for(var i in s){var o=Array.from(arguments);o.splice(r,1,i,s[i]),t=e.apply(this,o)}return t}:t(t(e,r+1,s),r,s-1)}function e(t,n,s){var i=r(s);if("string"===i){var o=Object.getOwnPropertyDescriptor(n,s);!o||o.writable&&o.configurable&&o.enumerable&&!o.get&&!o.set?t[s]=n[s]:(delete t[s],Object.defineProperty(t,s,o))}else if("array"===i)s.forEach(function(r){r in n&&e(t,n,r)});else for(var a in n)s&&("regexp"===i&&!s.test(a)||"function"===i&&!s.call(n,a))||e(t,n,a);return t}function r(t){if(null===t)return"null";if(void 0===t)return"undefined";var e=(Object.prototype.toString.call(t).match(/^\[object\s+(.*?)\]$/)[1]||"").toLowerCase();return"number"==e&&isNaN(t)?"nan":e}var n=self.Bliss=e(function(t,e){return 2==arguments.length&&!e||!t?null:"string"===n.type(t)?(e||document).querySelector(t):t||null},self.Bliss);e(n,{extend:e,overload:t,type:r,property:n.property||"_",sources:{},noop:function(){},$:function(t,e){return t instanceof Node||t instanceof Window?[t]:2!=arguments.length||e?Array.from("string"==typeof t?(e||document).querySelectorAll(t):t||[]):[]},defined:function(){for(var t=0;t<arguments.length;t++)if(void 0!==arguments[t])return arguments[t]},create:function(t,e){return t instanceof Node?n.set(t,e):(1===arguments.length&&("string"===n.type(t)?e={}:(e=t,t=e.tag,e=n.extend({},e,function(t){return"tag"!==t}))),n.set(document.createElement(t||"div"),e))},each:function(t,e,r){r=r||{};for(var n in t)r[n]=e.call(t,n,t[n]);return r},ready:function(t){return t=t||document,new Promise(function(e,r){"loading"!==t.readyState?e():t.addEventListener("DOMContentLoaded",function(){e()})})},Class:function(t){var e,r=["constructor","extends","abstract","static"].concat(Object.keys(n.classProps)),s=t.hasOwnProperty("constructor")?t.constructor:n.noop;2==arguments.length?(e=arguments[0],t=arguments[1]):(e=function(){if(this.constructor.__abstract&&this.constructor===e)throw new Error("Abstract classes cannot be directly instantiated.");e["super"]&&e["super"].apply(this,arguments),s.apply(this,arguments)},e["super"]=t["extends"]||null,e.prototype=n.extend(Object.create(e["super"]?e["super"].prototype:Object),{constructor:e}),e.prototype["super"]=e["super"]?e["super"].prototype:null,e.__abstract=!!t["abstract"]);var i=function(t){return this.hasOwnProperty(t)&&-1===r.indexOf(t)};if(t["static"]){n.extend(e,t["static"],i);for(var o in n.classProps)o in t["static"]&&n.classProps[o](e,t["static"][o])}n.extend(e.prototype,t,i);for(var o in n.classProps)o in t&&n.classProps[o](e.prototype,t[o]);return e},classProps:{lazy:t(function(t,e,r){return Object.defineProperty(t,e,{get:function(){var t=r.call(this);return Object.defineProperty(this,e,{value:t,configurable:!0,enumerable:!0,writable:!0}),t},set:function(t){Object.defineProperty(this,e,{value:t,configurable:!0,enumerable:!0,writable:!0})},configurable:!0,enumerable:!0}),t}),live:t(function(t,e,r){return"function"===n.type(r)&&(r={set:r}),Object.defineProperty(t,e,{get:function(){var t=this["_"+e],n=r.get&&r.get.call(this,t);return void 0!==n?n:t},set:function(t){var n=this["_"+e],s=r.set&&r.set.call(this,t,n);this["_"+e]=void 0!==s?s:t},configurable:r.configurable,enumerable:r.enumerable}),t})},include:function(){var t=arguments[arguments.length-1],e=2===arguments.length?arguments[0]:!1,r=document.createElement("script");return e?Promise.resolve():new Promise(function(e,s){n.set(r,{async:!0,onload:function(){e(),n.remove(r)},onerror:function(){s()},src:t,inside:document.head})})},fetch:function(t,r){if(!t)throw new TypeError("URL parameter is mandatory and cannot be "+t);var s=e({url:new URL(t,location),data:"",method:"GET",headers:{},xhr:new XMLHttpRequest},r);s.method=s.method.toUpperCase(),n.hooks.run("fetch-args",s),"GET"===s.method&&s.data&&(s.url.search+=s.data),document.body.setAttribute("data-loading",s.url),s.xhr.open(s.method,s.url.href,s.async!==!1,s.user,s.password);for(var i in r)if(i in s.xhr)try{s.xhr[i]=r[i]}catch(o){self.console&&console.error(o)}"GET"===s.method||s.headers["Content-type"]||s.headers["Content-Type"]||s.xhr.setRequestHeader("Content-type","application/x-www-form-urlencoded");for(var a in s.headers)s.xhr.setRequestHeader(a,s.headers[a]);return new Promise(function(t,e){s.xhr.onload=function(){document.body.removeAttribute("data-loading"),0===s.xhr.status||s.xhr.status>=200&&s.xhr.status<300||304===s.xhr.status?t(s.xhr):e(n.extend(Error(s.xhr.statusText),{xhr:s.xhr,get status(){return this.xhr.status}}))},s.xhr.onerror=function(){document.body.removeAttribute("data-loading"),e(n.extend(Error("Network Error"),{xhr:s.xhr}))},s.xhr.ontimeout=function(){document.body.removeAttribute("data-loading"),e(n.extend(Error("Network Timeout"),{xhr:s.xhr}))},s.xhr.send("GET"===s.method?null:s.data)})},value:function(t){var e="string"!==n.type(t);return n.$(arguments).slice(+e).reduce(function(t,e){return t&&t[e]},e?t:self)}}),n.Hooks=new n.Class({add:function(t,e,r){if("string"==typeof arguments[0])(Array.isArray(t)?t:[t]).forEach(function(t){this[t]=this[t]||[],e&&this[t][r?"unshift":"push"](e)},this);else for(var t in arguments[0])this.add(t,arguments[0][t],arguments[1])},run:function(t,e){this[t]=this[t]||[],this[t].forEach(function(t){t.call(e&&e.context?e.context:e,e)})}}),n.hooks=new n.Hooks;var s=n.property;n.Element=function(t){this.subject=t,this.data={},this.bliss={}},n.Element.prototype={set:t(function(t,e){t in n.setProps?n.setProps[t].call(this,e):t in this?this[t]=e:this.setAttribute(t,e)},0),transition:function(t,e){return e=+e||400,new Promise(function(r,s){if("transition"in this.style){var i=n.extend({},this.style,/^transition(Duration|Property)$/);n.style(this,{transitionDuration:(e||400)+"ms",transitionProperty:Object.keys(t).join(", ")}),n.once(this,"transitionend",function(){clearTimeout(o),n.style(this,i),r(this)});var o=setTimeout(r,e+50,this);n.style(this,t)}else n.style(this,t),r(this)}.bind(this))},fire:function(t,e){var r=document.createEvent("HTMLEvents");return r.initEvent(t,!0,!0),this.dispatchEvent(n.extend(r,e))},unbind:t(function(t,e){(t||"").split(/\s+/).forEach(function(t){if(s in this&&(t.indexOf(".")>-1||!e)){t=(t||"").split(".");var r=t[1];t=t[0];var n=this[s].bliss.listeners=this[s].bliss.listeners||{};for(var i in n)if(!t||i===t)for(var o,a=0;o=n[i][a];a++)r&&r!==o.className||e&&e!==o.callback||(this.removeEventListener(i,o.callback,o.capture),a--)}else this.removeEventListener(t,e)},this)},0)},n.setProps={style:function(t){for(var e in t)e in this.style?this.style[e]=t[e]:this.style.setProperty(e,t[e])},attributes:function(t){for(var e in t)this.setAttribute(e,t[e])},properties:function(t){n.extend(this,t)},events:function(t){if(t&&t.addEventListener){var e=this;if(t[s]&&t[s].bliss){var r=t[s].bliss.listeners;for(var i in r)r[i].forEach(function(t){e.addEventListener(i,t.callback,t.capture)})}for(var o in t)0===o.indexOf("on")&&(this[o]=t[o])}else if(arguments.length>1&&"string"===n.type(t)){var a=arguments[1],u=arguments[2];t.split(/\s+/).forEach(function(t){this.addEventListener(t,a,u)},this)}else for(var c in t)n.events(this,c,t[c])},once:t(function(t,e){t=t.split(/\s+/);var r=this,n=function(){return t.forEach(function(t){r.removeEventListener(t,n)}),e.apply(r,arguments)};t.forEach(function(t){r.addEventListener(t,n)})},0),delegate:t(function(t,e,r){this.addEventListener(t,function(t){t.target.closest(e)&&r.call(this,t)})},0,2),contents:function(t){(t||0===t)&&(Array.isArray(t)?t:[t]).forEach(function(t){var e=n.type(t);/^(string|number)$/.test(e)?t=document.createTextNode(t+""):"object"===e&&(t=n.create(t)),t instanceof Node&&this.appendChild(t)},this)},inside:function(t){t.appendChild(this)},before:function(t){t.parentNode.insertBefore(this,t)},after:function(t){t.parentNode.insertBefore(this,t.nextSibling)},start:function(t){t.insertBefore(this,t.firstChild)},around:function(t){t.parentNode&&n.before(this,t),(/^template$/i.test(this.nodeName)?this.content||this:this).appendChild(t)}},n.Array=function(t){this.subject=t},n.Array.prototype={all:function(t){var e=$$(arguments).slice(1);return this[t].apply(this,e)}},n.add=t(function(t,e,r,s){r=n.extend({$:!0,element:!0,array:!0},r),"function"==n.type(e)&&(!r.element||t in n.Element.prototype&&s||(n.Element.prototype[t]=function(){return this.subject&&n.defined(e.apply(this.subject,arguments),this.subject)}),!r.array||t in n.Array.prototype&&s||(n.Array.prototype[t]=function(){var t=arguments;return this.subject.map(function(r){return r&&n.defined(e.apply(r,t),r)})}),r.$&&(n.sources[t]=n[t]=e,(r.array||r.element)&&(n[t]=function(){var e=[].slice.apply(arguments),s=e.shift(),i=r.array&&Array.isArray(s)?"Array":"Element";return n[i].prototype[t].apply({subject:s},e)})))},0),n.add(n.Array.prototype,{element:!1}),n.add(n.Element.prototype),n.add(n.setProps),n.add(n.classProps,{element:!1,array:!1});var i=document.createElement("_");n.add(n.extend({},HTMLElement.prototype,function(t){return"function"===n.type(i[t])}),null,!0)}(),function(t){"use strict";if(Bliss&&!Bliss.shy){var e=Bliss.property;if(t.add({clone:function(){var e=this.cloneNode(!0),r=t.$("*",e).concat(e);return t.$("*",this).concat(this).forEach(function(e,n,s){t.events(r[n],e),r[n]._.data=t.extend({},e._.data)}),e}},{array:!1}),Object.defineProperty(Node.prototype,e,{get:function o(){return Object.defineProperty(Node.prototype,e,{get:void 0}),Object.defineProperty(this,e,{value:new t.Element(this)}),Object.defineProperty(Node.prototype,e,{get:o}),this[e]},configurable:!0}),Object.defineProperty(Array.prototype,e,{get:function(){return Object.defineProperty(this,e,{value:new t.Array(this)}),this[e]},configurable:!0}),self.EventTarget&&"addEventListener"in EventTarget.prototype){var r=EventTarget.prototype.addEventListener,n=EventTarget.prototype.removeEventListener,s=function(t,e,r){return r.callback===t&&r.capture==e},i=function(){return!s.apply(this,arguments)};EventTarget.prototype.addEventListener=function(t,n,i){if(this&&this[e]&&this[e].bliss&&n){var o=this[e].bliss.listeners=this[e].bliss.listeners||{};if(t.indexOf(".")>-1){t=t.split(".");var a=t[1];t=t[0]}o[t]=o[t]||[],0===o[t].filter(s.bind(null,n,i)).length&&o[t].push({callback:n,capture:i,className:a})}return r.call(this,t,n,i)},EventTarget.prototype.removeEventListener=function(t,r,s){if(this&&this[e]&&this[e].bliss&&r){var o=this[e].bliss.listeners=this[e].bliss.listeners||{};o[t]&&(o[t]=o[t].filter(i.bind(null,r,s)))}return n.call(this,t,r,s)}}self.$=self.$||t,self.$$=self.$$||t.$}}(Bliss);
+//     JavaScript Expression Parser (JSEP) <%= version %>
+//     JSEP may be freely distributed under the MIT License
+//     http://jsep.from.so/
+
+/*global module: true, exports: true, console: true */
+(function (root) {
+	'use strict';
+	// Node Types
+	// ----------
+	
+	// This is the full set of types that any JSEP node can be.
+	// Store them here to save space when minified
+	var COMPOUND = 'Compound',
+		IDENTIFIER = 'Identifier',
+		MEMBER_EXP = 'MemberExpression',
+		LITERAL = 'Literal',
+		THIS_EXP = 'ThisExpression',
+		CALL_EXP = 'CallExpression',
+		UNARY_EXP = 'UnaryExpression',
+		BINARY_EXP = 'BinaryExpression',
+		LOGICAL_EXP = 'LogicalExpression',
+		CONDITIONAL_EXP = 'ConditionalExpression',
+		ARRAY_EXP = 'ArrayExpression',
+
+		PERIOD_CODE = 46, // '.'
+		COMMA_CODE  = 44, // ','
+		SQUOTE_CODE = 39, // single quote
+		DQUOTE_CODE = 34, // double quotes
+		OPAREN_CODE = 40, // (
+		CPAREN_CODE = 41, // )
+		OBRACK_CODE = 91, // [
+		CBRACK_CODE = 93, // ]
+		QUMARK_CODE = 63, // ?
+		SEMCOL_CODE = 59, // ;
+		COLON_CODE  = 58, // :
+
+		throwError = function(message, index) {
+			var error = new Error(message + ' at character ' + index);
+			error.index = index;
+			error.description = message;
+			throw error;
+		},
+
+	// Operations
+	// ----------
+	
+	// Set `t` to `true` to save space (when minified, not gzipped)
+		t = true,
+	// Use a quickly-accessible map to store all of the unary operators
+	// Values are set to `true` (it really doesn't matter)
+		unary_ops = {'-': t, '!': t, '~': t, '+': t},
+	// Also use a map for the binary operations but set their values to their
+	// binary precedence for quick reference:
+	// see [Order of operations](http://en.wikipedia.org/wiki/Order_of_operations#Programming_language)
+		binary_ops = {
+			'||': 1, '&&': 2, '|': 3,  '^': 4,  '&': 5,
+			'==': 6, '!=': 6, '===': 6, '!==': 6,
+			'<': 7,  '>': 7,  '<=': 7,  '>=': 7, 
+			'<<':8,  '>>': 8, '>>>': 8,
+			'+': 9, '-': 9,
+			'*': 10, '/': 10, '%': 10
+		},
+	// Get return the longest key length of any object
+		getMaxKeyLen = function(obj) {
+			var max_len = 0, len;
+			for(var key in obj) {
+				if((len = key.length) > max_len && obj.hasOwnProperty(key)) {
+					max_len = len;
+				}
+			}
+			return max_len;
+		},
+		max_unop_len = getMaxKeyLen(unary_ops),
+		max_binop_len = getMaxKeyLen(binary_ops),
+	// Literals
+	// ----------
+	// Store the values to return for the various literals we may encounter
+		literals = {
+			'true': true,
+			'false': false,
+			'null': null
+		},
+	// Except for `this`, which is special. This could be changed to something like `'self'` as well
+		this_str = 'this',
+	// Returns the precedence of a binary operator or `0` if it isn't a binary operator
+		binaryPrecedence = function(op_val) {
+			return binary_ops[op_val] || 0;
+		},
+	// Utility function (gets called from multiple places)
+	// Also note that `a && b` and `a || b` are *logical* expressions, not binary expressions
+		createBinaryExpression = function (operator, left, right) {
+			var type = (operator === '||' || operator === '&&') ? LOGICAL_EXP : BINARY_EXP;
+			return {
+				type: type,
+				operator: operator,
+				left: left,
+				right: right
+			};
+		},
+		// `ch` is a character code in the next three functions
+		isDecimalDigit = function(ch) {
+			return (ch >= 48 && ch <= 57); // 0...9
+		},
+		isIdentifierStart = function(ch) {
+			return (ch === 36) || (ch === 95) || // `$` and `_`
+					(ch >= 65 && ch <= 90) || // A...Z
+					(ch >= 97 && ch <= 122) || // a...z
+                    (ch >= 128 && !binary_ops[String.fromCharCode(ch)]); // any non-ASCII that is not an operator
+		},
+		isIdentifierPart = function(ch) {
+			return (ch === 36) || (ch === 95) || // `$` and `_`
+					(ch >= 65 && ch <= 90) || // A...Z
+					(ch >= 97 && ch <= 122) || // a...z
+					(ch >= 48 && ch <= 57) || // 0...9
+                    (ch >= 128 && !binary_ops[String.fromCharCode(ch)]); // any non-ASCII that is not an operator
+		},
+
+		// Parsing
+		// -------
+		// `expr` is a string with the passed in expression
+		jsep = function(expr) {
+			// `index` stores the character number we are currently at while `length` is a constant
+			// All of the gobbles below will modify `index` as we move along
+			var index = 0,
+				charAtFunc = expr.charAt,
+				charCodeAtFunc = expr.charCodeAt,
+				exprI = function(i) { return charAtFunc.call(expr, i); },
+				exprICode = function(i) { return charCodeAtFunc.call(expr, i); },
+				length = expr.length,
+
+				// Push `index` up to the next non-space character
+				gobbleSpaces = function() {
+					var ch = exprICode(index);
+					// space or tab
+					while(ch === 32 || ch === 9) {
+						ch = exprICode(++index);
+					}
+				},
+				
+				// The main parsing function. Much of this code is dedicated to ternary expressions
+				gobbleExpression = function() {
+					var test = gobbleBinaryExpression(),
+						consequent, alternate;
+					gobbleSpaces();
+					if(exprICode(index) === QUMARK_CODE) {
+						// Ternary expression: test ? consequent : alternate
+						index++;
+						consequent = gobbleExpression();
+						if(!consequent) {
+							throwError('Expected expression', index);
+						}
+						gobbleSpaces();
+						if(exprICode(index) === COLON_CODE) {
+							index++;
+							alternate = gobbleExpression();
+							if(!alternate) {
+								throwError('Expected expression', index);
+							}
+							return {
+								type: CONDITIONAL_EXP,
+								test: test,
+								consequent: consequent,
+								alternate: alternate
+							};
+						} else {
+							throwError('Expected :', index);
+						}
+					} else {
+						return test;
+					}
+				},
+
+				// Search for the operation portion of the string (e.g. `+`, `===`)
+				// Start by taking the longest possible binary operations (3 characters: `===`, `!==`, `>>>`)
+				// and move down from 3 to 2 to 1 character until a matching binary operation is found
+				// then, return that binary operation
+				gobbleBinaryOp = function() {
+					gobbleSpaces();
+					var biop, to_check = expr.substr(index, max_binop_len), tc_len = to_check.length;
+					while(tc_len > 0) {
+						if(binary_ops.hasOwnProperty(to_check)) {
+							index += tc_len;
+							return to_check;
+						}
+						to_check = to_check.substr(0, --tc_len);
+					}
+					return false;
+				},
+
+				// This function is responsible for gobbling an individual expression,
+				// e.g. `1`, `1+2`, `a+(b*2)-Math.sqrt(2)`
+				gobbleBinaryExpression = function() {
+					var ch_i, node, biop, prec, stack, biop_info, left, right, i;
+
+					// First, try to get the leftmost thing
+					// Then, check to see if there's a binary operator operating on that leftmost thing
+					left = gobbleToken();
+					biop = gobbleBinaryOp();
+
+					// If there wasn't a binary operator, just return the leftmost node
+					if(!biop) {
+						return left;
+					}
+
+					// Otherwise, we need to start a stack to properly place the binary operations in their
+					// precedence structure
+					biop_info = { value: biop, prec: binaryPrecedence(biop)};
+
+					right = gobbleToken();
+					if(!right) {
+						throwError("Expected expression after " + biop, index);
+					}
+					stack = [left, biop_info, right];
+
+					// Properly deal with precedence using [recursive descent](http://www.engr.mun.ca/~theo/Misc/exp_parsing.htm)
+					while((biop = gobbleBinaryOp())) {
+						prec = binaryPrecedence(biop);
+
+						if(prec === 0) {
+							break;
+						}
+						biop_info = { value: biop, prec: prec };
+
+						// Reduce: make a binary expression from the three topmost entries.
+						while ((stack.length > 2) && (prec <= stack[stack.length - 2].prec)) {
+							right = stack.pop();
+							biop = stack.pop().value;
+							left = stack.pop();
+							node = createBinaryExpression(biop, left, right);
+							stack.push(node);
+						}
+
+						node = gobbleToken();
+						if(!node) {
+							throwError("Expected expression after " + biop, index);
+						}
+						stack.push(biop_info, node);
+					}
+
+					i = stack.length - 1;
+					node = stack[i];
+					while(i > 1) {
+						node = createBinaryExpression(stack[i - 1].value, stack[i - 2], node); 
+						i -= 2;
+					}
+					return node;
+				},
+
+				// An individual part of a binary expression:
+				// e.g. `foo.bar(baz)`, `1`, `"abc"`, `(a % 2)` (because it's in parenthesis)
+				gobbleToken = function() {
+					var ch, to_check, tc_len;
+					
+					gobbleSpaces();
+					ch = exprICode(index);
+
+					if(isDecimalDigit(ch) || ch === PERIOD_CODE) {
+						// Char code 46 is a dot `.` which can start off a numeric literal
+						return gobbleNumericLiteral();
+					} else if(ch === SQUOTE_CODE || ch === DQUOTE_CODE) {
+						// Single or double quotes
+						return gobbleStringLiteral();
+					} else if(isIdentifierStart(ch) || ch === OPAREN_CODE) { // open parenthesis
+						// `foo`, `bar.baz`
+						return gobbleVariable();
+					} else if (ch === OBRACK_CODE) {
+						return gobbleArray();
+					} else {
+						to_check = expr.substr(index, max_unop_len);
+						tc_len = to_check.length;
+						while(tc_len > 0) {
+							if(unary_ops.hasOwnProperty(to_check)) {
+								index += tc_len;
+								return {
+									type: UNARY_EXP,
+									operator: to_check,
+									argument: gobbleToken(),
+									prefix: true
+								};
+							}
+							to_check = to_check.substr(0, --tc_len);
+						}
+						
+						return false;
+					}
+				},
+				// Parse simple numeric literals: `12`, `3.4`, `.5`. Do this by using a string to
+				// keep track of everything in the numeric literal and then calling `parseFloat` on that string
+				gobbleNumericLiteral = function() {
+					var number = '', ch, chCode;
+					while(isDecimalDigit(exprICode(index))) {
+						number += exprI(index++);
+					}
+
+					if(exprICode(index) === PERIOD_CODE) { // can start with a decimal marker
+						number += exprI(index++);
+
+						while(isDecimalDigit(exprICode(index))) {
+							number += exprI(index++);
+						}
+					}
+					
+					ch = exprI(index);
+					if(ch === 'e' || ch === 'E') { // exponent marker
+						number += exprI(index++);
+						ch = exprI(index);
+						if(ch === '+' || ch === '-') { // exponent sign
+							number += exprI(index++);
+						}
+						while(isDecimalDigit(exprICode(index))) { //exponent itself
+							number += exprI(index++);
+						}
+						if(!isDecimalDigit(exprICode(index-1)) ) {
+							throwError('Expected exponent (' + number + exprI(index) + ')', index);
+						}
+					}
+					
+
+					chCode = exprICode(index);
+					// Check to make sure this isn't a variable name that start with a number (123abc)
+					if(isIdentifierStart(chCode)) {
+						throwError('Variable names cannot start with a number (' +
+									number + exprI(index) + ')', index);
+					} else if(chCode === PERIOD_CODE) {
+						throwError('Unexpected period', index);
+					}
+
+					return {
+						type: LITERAL,
+						value: parseFloat(number),
+						raw: number
+					};
+				},
+
+				// Parses a string literal, staring with single or double quotes with basic support for escape codes
+				// e.g. `"hello world"`, `'this is\nJSEP'`
+				gobbleStringLiteral = function() {
+					var str = '', quote = exprI(index++), closed = false, ch;
+
+					while(index < length) {
+						ch = exprI(index++);
+						if(ch === quote) {
+							closed = true;
+							break;
+						} else if(ch === '\\') {
+							// Check for all of the common escape codes
+							ch = exprI(index++);
+							switch(ch) {
+								case 'n': str += '\n'; break;
+								case 'r': str += '\r'; break;
+								case 't': str += '\t'; break;
+								case 'b': str += '\b'; break;
+								case 'f': str += '\f'; break;
+								case 'v': str += '\x0B'; break;
+								default : str += '\\' + ch;
+							}
+						} else {
+							str += ch;
+						}
+					}
+
+					if(!closed) {
+						throwError('Unclosed quote after "'+str+'"', index);
+					}
+
+					return {
+						type: LITERAL,
+						value: str,
+						raw: quote + str + quote
+					};
+				},
+				
+				// Gobbles only identifiers
+				// e.g.: `foo`, `_value`, `$x1`
+				// Also, this function checks if that identifier is a literal:
+				// (e.g. `true`, `false`, `null`) or `this`
+				gobbleIdentifier = function() {
+					var ch = exprICode(index), start = index, identifier;
+
+					if(isIdentifierStart(ch)) {
+						index++;
+					} else {
+						throwError('Unexpected ' + exprI(index), index);
+					}
+
+					while(index < length) {
+						ch = exprICode(index);
+						if(isIdentifierPart(ch)) {
+							index++;
+						} else {
+							break;
+						}
+					}
+					identifier = expr.slice(start, index);
+
+					if(literals.hasOwnProperty(identifier)) {
+						return {
+							type: LITERAL,
+							value: literals[identifier],
+							raw: identifier
+						};
+					} else if(identifier === this_str) {
+						return { type: THIS_EXP };
+					} else {
+						return {
+							type: IDENTIFIER,
+							name: identifier
+						};
+					}
+				},
+
+				// Gobbles a list of arguments within the context of a function call
+				// or array literal. This function also assumes that the opening character
+				// `(` or `[` has already been gobbled, and gobbles expressions and commas
+				// until the terminator character `)` or `]` is encountered.
+				// e.g. `foo(bar, baz)`, `my_func()`, or `[bar, baz]`
+				gobbleArguments = function(termination) {
+					var ch_i, args = [], node, closed = false;
+					while(index < length) {
+						gobbleSpaces();
+						ch_i = exprICode(index);
+						if(ch_i === termination) { // done parsing
+							closed = true;
+							index++;
+							break;
+						} else if (ch_i === COMMA_CODE) { // between expressions
+							index++;
+						} else {
+							node = gobbleExpression();
+							if(!node || node.type === COMPOUND) {
+								throwError('Expected comma', index);
+							}
+							args.push(node);
+						}
+					}
+					if (!closed) {
+						throwError('Expected ' + String.fromCharCode(termination), index);
+					}
+					return args;
+				},
+
+				// Gobble a non-literal variable name. This variable name may include properties
+				// e.g. `foo`, `bar.baz`, `foo['bar'].baz`
+				// It also gobbles function calls:
+				// e.g. `Math.acos(obj.angle)`
+				gobbleVariable = function() {
+					var ch_i, node;
+					ch_i = exprICode(index);
+						
+					if(ch_i === OPAREN_CODE) {
+						node = gobbleGroup();
+					} else {
+						node = gobbleIdentifier();
+					}
+					gobbleSpaces();
+					ch_i = exprICode(index);
+					while(ch_i === PERIOD_CODE || ch_i === OBRACK_CODE || ch_i === OPAREN_CODE) {
+						index++;
+						if(ch_i === PERIOD_CODE) {
+							gobbleSpaces();
+							node = {
+								type: MEMBER_EXP,
+								computed: false,
+								object: node,
+								property: gobbleIdentifier()
+							};
+						} else if(ch_i === OBRACK_CODE) {
+							node = {
+								type: MEMBER_EXP,
+								computed: true,
+								object: node,
+								property: gobbleExpression()
+							};
+							gobbleSpaces();
+							ch_i = exprICode(index);
+							if(ch_i !== CBRACK_CODE) {
+								throwError('Unclosed [', index);
+							}
+							index++;
+						} else if(ch_i === OPAREN_CODE) {
+							// A function call is being made; gobble all the arguments
+							node = {
+								type: CALL_EXP,
+								'arguments': gobbleArguments(CPAREN_CODE),
+								callee: node
+							};
+						}
+						gobbleSpaces();
+						ch_i = exprICode(index);
+					}
+					return node;
+				},
+
+				// Responsible for parsing a group of things within parentheses `()`
+				// This function assumes that it needs to gobble the opening parenthesis
+				// and then tries to gobble everything within that parenthesis, assuming
+				// that the next thing it should see is the close parenthesis. If not,
+				// then the expression probably doesn't have a `)`
+				gobbleGroup = function() {
+					index++;
+					var node = gobbleExpression();
+					gobbleSpaces();
+					if(exprICode(index) === CPAREN_CODE) {
+						index++;
+						return node;
+					} else {
+						throwError('Unclosed (', index);
+					}
+				},
+
+				// Responsible for parsing Array literals `[1, 2, 3]`
+				// This function assumes that it needs to gobble the opening bracket
+				// and then tries to gobble the expressions as arguments.
+				gobbleArray = function() {
+					index++;
+					return {
+						type: ARRAY_EXP,
+						elements: gobbleArguments(CBRACK_CODE)
+					};
+				},
+
+				nodes = [], ch_i, node;
+				
+			while(index < length) {
+				ch_i = exprICode(index);
+
+				// Expressions can be separated by semicolons, commas, or just inferred without any
+				// separators
+				if(ch_i === SEMCOL_CODE || ch_i === COMMA_CODE) {
+					index++; // ignore separators
+				} else {
+					// Try to gobble each expression individually
+					if((node = gobbleExpression())) {
+						nodes.push(node);
+					// If we weren't able to find a binary expression and are out of room, then
+					// the expression passed in probably has too much
+					} else if(index < length) {
+						throwError('Unexpected "' + exprI(index) + '"', index);
+					}
+				}
+			}
+
+			// If there's only one expression just try returning the expression
+			if(nodes.length === 1) {
+				return nodes[0];
+			} else {
+				return {
+					type: COMPOUND,
+					body: nodes
+				};
+			}
+		};
+
+	// To be filled in by the template
+	jsep.version = '<%= version %>';
+	jsep.toString = function() { return 'JavaScript Expression Parser (JSEP) v' + jsep.version; };
+
+	/**
+	 * @method jsep.addUnaryOp
+	 * @param {string} op_name The name of the unary op to add
+	 * @return jsep
+	 */
+	jsep.addUnaryOp = function(op_name) {
+		max_unop_len = Math.max(op_name.length, max_unop_len);
+		unary_ops[op_name] = t; return this;
+	};
+
+	/**
+	 * @method jsep.addBinaryOp
+	 * @param {string} op_name The name of the binary op to add
+	 * @param {number} precedence The precedence of the binary op (can be a float)
+	 * @return jsep
+	 */
+	jsep.addBinaryOp = function(op_name, precedence) {
+		max_binop_len = Math.max(op_name.length, max_binop_len);
+		binary_ops[op_name] = precedence;
+		return this;
+	};
+
+	/**
+	 * @method jsep.addLiteral
+	 * @param {string} literal_name The name of the literal to add
+	 * @param {*} literal_value The value of the literal
+	 * @return jsep
+	 */
+	jsep.addLiteral = function(literal_name, literal_value) {
+		literals[literal_name] = literal_value;
+		return this;
+	};
+
+	/**
+	 * @method jsep.removeUnaryOp
+	 * @param {string} op_name The name of the unary op to remove
+	 * @return jsep
+	 */
+	jsep.removeUnaryOp = function(op_name) {
+		delete unary_ops[op_name];
+		if(op_name.length === max_unop_len) {
+			max_unop_len = getMaxKeyLen(unary_ops);
+		}
+		return this;
+	};
+
+	/**
+	 * @method jsep.removeBinaryOp
+	 * @param {string} op_name The name of the binary op to remove
+	 * @return jsep
+	 */
+	jsep.removeBinaryOp = function(op_name) {
+		delete binary_ops[op_name];
+		if(op_name.length === max_binop_len) {
+			max_binop_len = getMaxKeyLen(binary_ops);
+		}
+		return this;
+	};
+
+	/**
+	 * @method jsep.removeLiteral
+	 * @param {string} literal_name The name of the literal to remove
+	 * @return jsep
+	 */
+	jsep.removeLiteral = function(literal_name) {
+		delete literals[literal_name];
+		return this;
+	};
+
+	// In desktop environments, have a way to restore the old value for `jsep`
+	if (typeof exports === 'undefined') {
+		var old_jsep = root.jsep;
+		// The star of the show! It's a function!
+		root.jsep = jsep;
+		// And a courteous function willing to move out of the way for other similarly-named objects!
+		jsep.noConflict = function() {
+			if(root.jsep === jsep) {
+				root.jsep = old_jsep;
+			}
+			return jsep;
+		};
+	} else {
+		// In Node.JS environments
+		if (typeof module !== 'undefined' && module.exports) {
+			exports = module.exports = jsep;
+		} else {
+			exports.parse = jsep;
+		}
+	}
+}(this));
+
 /* jsep v0.3.1 (http://jsep.from.so/) */
-!function(a){"use strict";var b="Compound",c="Identifier",d="MemberExpression",e="Literal",f="ThisExpression",g="CallExpression",h="UnaryExpression",i="BinaryExpression",j="LogicalExpression",k="ConditionalExpression",l="ArrayExpression",m=46,n=44,o=39,p=34,q=40,r=41,s=91,t=93,u=63,v=59,w=58,x=function(a,b){var c=new Error(a+" at character "+b);throw c.index=b,c.description=a,c},y=!0,z={"-":y,"!":y,"~":y,"+":y},A={"||":1,"&&":2,"|":3,"^":4,"&":5,"==":6,"!=":6,"===":6,"!==":6,"<":7,">":7,"<=":7,">=":7,"<<":8,">>":8,">>>":8,"+":9,"-":9,"*":10,"/":10,"%":10},B=function(a){var b,c=0;for(var d in a)(b=d.length)>c&&a.hasOwnProperty(d)&&(c=b);return c},C=B(z),D=B(A),E={"true":!0,"false":!1,"null":null},F="this",G=function(a){return A[a]||0},H=function(a,b,c){var d="||"===a||"&&"===a?j:i;return{type:d,operator:a,left:b,right:c}},I=function(a){return a>=48&&a<=57},J=function(a){return 36===a||95===a||a>=65&&a<=90||a>=97&&a<=122||a>=128&&!A[String.fromCharCode(a)]},K=function(a){return 36===a||95===a||a>=65&&a<=90||a>=97&&a<=122||a>=48&&a<=57||a>=128&&!A[String.fromCharCode(a)]},L=function(a){for(var i,j,y=0,B=a.charAt,L=a.charCodeAt,M=function(b){return B.call(a,b)},N=function(b){return L.call(a,b)},O=a.length,P=function(){for(var a=N(y);32===a||9===a;)a=N(++y)},Q=function(){var a,b,c=S();return P(),N(y)!==u?c:(y++,a=Q(),a||x("Expected expression",y),P(),N(y)===w?(y++,b=Q(),b||x("Expected expression",y),{type:k,test:c,consequent:a,alternate:b}):void x("Expected :",y))},R=function(){P();for(var b=a.substr(y,D),c=b.length;c>0;){if(A.hasOwnProperty(b))return y+=c,b;b=b.substr(0,--c)}return!1},S=function(){var a,b,c,d,e,f,g,h;if(f=T(),b=R(),!b)return f;for(e={value:b,prec:G(b)},g=T(),g||x("Expected expression after "+b,y),d=[f,e,g];(b=R())&&(c=G(b),0!==c);){for(e={value:b,prec:c};d.length>2&&c<=d[d.length-2].prec;)g=d.pop(),b=d.pop().value,f=d.pop(),a=H(b,f,g),d.push(a);a=T(),a||x("Expected expression after "+b,y),d.push(e,a)}for(h=d.length-1,a=d[h];h>1;)a=H(d[h-1].value,d[h-2],a),h-=2;return a},T=function(){var b,c,d;if(P(),b=N(y),I(b)||b===m)return U();if(b===o||b===p)return V();if(J(b)||b===q)return Y();if(b===s)return $();for(c=a.substr(y,C),d=c.length;d>0;){if(z.hasOwnProperty(c))return y+=d,{type:h,operator:c,argument:T(),prefix:!0};c=c.substr(0,--d)}return!1},U=function(){for(var a,b,c="";I(N(y));)c+=M(y++);if(N(y)===m)for(c+=M(y++);I(N(y));)c+=M(y++);if(a=M(y),"e"===a||"E"===a){for(c+=M(y++),a=M(y),"+"!==a&&"-"!==a||(c+=M(y++));I(N(y));)c+=M(y++);I(N(y-1))||x("Expected exponent ("+c+M(y)+")",y)}return b=N(y),J(b)?x("Variable names cannot start with a number ("+c+M(y)+")",y):b===m&&x("Unexpected period",y),{type:e,value:parseFloat(c),raw:c}},V=function(){for(var a,b="",c=M(y++),d=!1;y<O;){if(a=M(y++),a===c){d=!0;break}if("\\"===a)switch(a=M(y++)){case"n":b+="\n";break;case"r":b+="\r";break;case"t":b+="\t";break;case"b":b+="\b";break;case"f":b+="\f";break;case"v":b+="\x0B";break;default:b+="\\"+a}else b+=a}return d||x('Unclosed quote after "'+b+'"',y),{type:e,value:b,raw:c+b+c}},W=function(){var b,d=N(y),g=y;for(J(d)?y++:x("Unexpected "+M(y),y);y<O&&(d=N(y),K(d));)y++;return b=a.slice(g,y),E.hasOwnProperty(b)?{type:e,value:E[b],raw:b}:b===F?{type:f}:{type:c,name:b}},X=function(a){for(var c,d,e=[],f=!1;y<O;){if(P(),c=N(y),c===a){f=!0,y++;break}c===n?y++:(d=Q(),d&&d.type!==b||x("Expected comma",y),e.push(d))}return f||x("Expected "+String.fromCharCode(a),y),e},Y=function(){var a,b;for(a=N(y),b=a===q?Z():W(),P(),a=N(y);a===m||a===s||a===q;)y++,a===m?(P(),b={type:d,computed:!1,object:b,property:W()}):a===s?(b={type:d,computed:!0,object:b,property:Q()},P(),a=N(y),a!==t&&x("Unclosed [",y),y++):a===q&&(b={type:g,arguments:X(r),callee:b}),P(),a=N(y);return b},Z=function(){y++;var a=Q();return P(),N(y)===r?(y++,a):void x("Unclosed (",y)},$=function(){return y++,{type:l,elements:X(t)}},_=[];y<O;)i=N(y),i===v||i===n?y++:(j=Q())?_.push(j):y<O&&x('Unexpected "'+M(y)+'"',y);return 1===_.length?_[0]:{type:b,body:_}};if(L.version="0.3.1",L.toString=function(){return"JavaScript Expression Parser (JSEP) v"+L.version},L.addUnaryOp=function(a){return C=Math.max(a.length,C),z[a]=y,this},L.addBinaryOp=function(a,b){return D=Math.max(a.length,D),A[a]=b,this},L.addLiteral=function(a,b){return E[a]=b,this},L.removeUnaryOp=function(a){return delete z[a],a.length===C&&(C=B(z)),this},L.removeBinaryOp=function(a){return delete A[a],a.length===D&&(D=B(A)),this},L.removeLiteral=function(a){return delete E[a],this},"undefined"==typeof exports){var M=a.jsep;a.jsep=L,L.noConflict=function(){return a.jsep===L&&(a.jsep=M),L}}else"undefined"!=typeof module&&module.exports?exports=module.exports=L:exports.parse=L}(this);
+!function(a){"use strict";var b="Compound",c="Identifier",d="MemberExpression",e="Literal",f="ThisExpression",g="CallExpression",h="UnaryExpression",i="BinaryExpression",j="LogicalExpression",k="ConditionalExpression",l="ArrayExpression",m=46,n=44,o=39,p=34,q=40,r=41,s=91,t=93,u=63,v=59,w=58,x=function(a,b){var c=new Error(a+" at character "+b);throw c.index=b,c.description=a,c},y=!0,z={"-":y,"!":y,"~":y,"+":y},A={"||":1,"&&":2,"|":3,"^":4,"&":5,"==":6,"!=":6,"===":6,"!==":6,"<":7,">":7,"<=":7,">=":7,"<<":8,">>":8,">>>":8,"+":9,"-":9,"*":10,"/":10,"%":10},B=function(a){var b,c=0;for(var d in a)(b=d.length)>c&&a.hasOwnProperty(d)&&(c=b);return c},C=B(z),D=B(A),E={"true":!0,"false":!1,"null":null},F="this",G=function(a){return A[a]||0},H=function(a,b,c){var d="||"===a||"&&"===a?j:i;return{type:d,operator:a,left:b,right:c}},I=function(a){return a>=48&&a<=57},J=function(a){return 36===a||95===a||a>=65&&a<=90||a>=97&&a<=122||a>=128&&!A[String.fromCharCode(a)]},K=function(a){return 36===a||95===a||a>=65&&a<=90||a>=97&&a<=122||a>=48&&a<=57||a>=128&&!A[String.fromCharCode(a)]},L=function(a){for(var i,j,y=0,B=a.charAt,L=a.charCodeAt,M=function(b){return B.call(a,b)},N=function(b){return L.call(a,b)},O=a.length,P=function(){for(var a=N(y);32===a||9===a||10===a||13===a;)a=N(++y)},Q=function(){var a,b,c=S();return P(),N(y)!==u?c:(y++,a=Q(),a||x("Expected expression",y),P(),N(y)===w?(y++,b=Q(),b||x("Expected expression",y),{type:k,test:c,consequent:a,alternate:b}):void x("Expected :",y))},R=function(){P();for(var b=a.substr(y,D),c=b.length;c>0;){if(A.hasOwnProperty(b))return y+=c,b;b=b.substr(0,--c)}return!1},S=function(){var a,b,c,d,e,f,g,h;if(f=T(),b=R(),!b)return f;for(e={value:b,prec:G(b)},g=T(),g||x("Expected expression after "+b,y),d=[f,e,g];(b=R())&&(c=G(b),0!==c);){for(e={value:b,prec:c};d.length>2&&c<=d[d.length-2].prec;)g=d.pop(),b=d.pop().value,f=d.pop(),a=H(b,f,g),d.push(a);a=T(),a||x("Expected expression after "+b,y),d.push(e,a)}for(h=d.length-1,a=d[h];h>1;)a=H(d[h-1].value,d[h-2],a),h-=2;return a},T=function(){var b,c,d;if(P(),b=N(y),I(b)||b===m)return U();if(b===o||b===p)return V();if(J(b)||b===q)return Y();if(b===s)return $();for(c=a.substr(y,C),d=c.length;d>0;){if(z.hasOwnProperty(c))return y+=d,{type:h,operator:c,argument:T(),prefix:!0};c=c.substr(0,--d)}return!1},U=function(){for(var a,b,c="";I(N(y));)c+=M(y++);if(N(y)===m)for(c+=M(y++);I(N(y));)c+=M(y++);if(a=M(y),"e"===a||"E"===a){for(c+=M(y++),a=M(y),"+"!==a&&"-"!==a||(c+=M(y++));I(N(y));)c+=M(y++);I(N(y-1))||x("Expected exponent ("+c+M(y)+")",y)}return b=N(y),J(b)?x("Variable names cannot start with a number ("+c+M(y)+")",y):b===m&&x("Unexpected period",y),{type:e,value:parseFloat(c),raw:c}},V=function(){for(var a,b="",c=M(y++),d=!1;y<O;){if(a=M(y++),a===c){d=!0;break}if("\\"===a)switch(a=M(y++)){case"n":b+="\n";break;case"r":b+="\r";break;case"t":b+="\t";break;case"b":b+="\b";break;case"f":b+="\f";break;case"v":b+="\x0B";break;default:b+="\\"+a}else b+=a}return d||x('Unclosed quote after "'+b+'"',y),{type:e,value:b,raw:c+b+c}},W=function(){var b,d=N(y),g=y;for(J(d)?y++:x("Unexpected "+M(y),y);y<O&&(d=N(y),K(d));)y++;return b=a.slice(g,y),E.hasOwnProperty(b)?{type:e,value:E[b],raw:b}:b===F?{type:f}:{type:c,name:b}},X=function(a){for(var c,d,e=[],f=!1;y<O;){if(P(),c=N(y),c===a){f=!0,y++;break}c===n?y++:(d=Q(),d&&d.type!==b||x("Expected comma",y),e.push(d))}return f||x("Expected "+String.fromCharCode(a),y),e},Y=function(){var a,b;for(a=N(y),b=a===q?Z():W(),P(),a=N(y);a===m||a===s||a===q;)y++,a===m?(P(),b={type:d,computed:!1,object:b,property:W()}):a===s?(b={type:d,computed:!0,object:b,property:Q()},P(),a=N(y),a!==t&&x("Unclosed [",y),y++):a===q&&(b={type:g,arguments:X(r),callee:b}),P(),a=N(y);return b},Z=function(){y++;var a=Q();return P(),N(y)===r?(y++,a):void x("Unclosed (",y)},$=function(){return y++,{type:l,elements:X(t)}},_=[];y<O;)i=N(y),i===v||i===n?y++:(j=Q())?_.push(j):y<O&&x('Unexpected "'+M(y)+'"',y);return 1===_.length?_[0]:{type:b,body:_}};if(L.version="0.3.1",L.toString=function(){return"JavaScript Expression Parser (JSEP) v"+L.version},L.addUnaryOp=function(a){return C=Math.max(a.length,C),z[a]=y,this},L.addBinaryOp=function(a,b){return D=Math.max(a.length,D),A[a]=b,this},L.addLiteral=function(a,b){return E[a]=b,this},L.removeUnaryOp=function(a){return delete z[a],a.length===C&&(C=B(z)),this},L.removeBinaryOp=function(a){return delete A[a],a.length===D&&(D=B(A)),this},L.removeLiteral=function(a){return delete E[a],this},"undefined"==typeof exports){var M=a.jsep;a.jsep=L,L.noConflict=function(){return a.jsep===L&&(a.jsep=M),L}}else"undefined"!=typeof module&&module.exports?exports=module.exports=L:exports.parse=L}(this);
 //# sourceMappingURL=jsep.min.js.map
 /*
  * Stretchy: Form element autosizing, the way it should be.
@@ -2466,18 +3114,18 @@ var _ = Mavo.Node = $.Class({
 
 		_.all.set(element, [...(_.all.get(this.element) || []), this]);
 
+		this.mavo = mavo;
+		this.group = this.parentGroup = env.options.group;
+
 		this.template = env.options.template;
 
 		if (this.template) {
-			// TODO remove if this is deleted
 			this.template.copies.push(this);
 		}
 		else {
+			// First (or only) of its kind
 			this.copies = [];
 		}
-
-		this.mavo = mavo;
-		this.group = this.parentGroup = env.options.group;
 
 		if (!this.fromTemplate("property", "type")) {
 			this.property = _.getProperty(element);
@@ -2716,9 +3364,15 @@ var _ = Mavo.Node = $.Class({
 	},
 
 	getClosestCollection: function() {
-		return this.collection ||
-			   this.group.collection ||
-			   (this.parentGroup? this.parentGroup.closestCollection : null);
+		if (this.collection && this.collection.mutable) {
+			return this.collection;
+		}
+
+		if (this.group.collection && this.group.collection.mutable) {
+			return this.group.collection;
+		}
+
+		return this.parentGroup? this.parentGroup.closestCollection : null;
 	},
 
 	/**
@@ -3011,38 +3665,30 @@ var _ = Mavo.Group = $.Class({
 
 		// Create Mavo objects for all properties in this group (primitives or groups),
 		// but not properties in descendant groups (they will be handled by their group)
-		$$(Mavo.selectors.property, this.element).forEach(element => {
-			var property = Mavo.Node.getProperty(element);
+		var properties = $$(Mavo.selectors.property, this.element).filter(element => {
+			return this.element === element.parentNode.closest(Mavo.selectors.group);
+		});
 
-			if (this.contains(element)) {
-				var existing = this.children[property];
-				var template = this.template? this.template.children[property] : null;
-				var constructorOptions = {template, group: this};
+		var propertyNames = properties.map(element => Mavo.Node.getProperty(element));
 
-				if (existing) {
-					// Twogroups with the same property, convert to static collection
-					var collection = existing;
+		properties.forEach((element, i) => {
+			var property = propertyNames[i];
+			var template = this.template? this.template.children[property] : null;
+			var options = {template, group: this};
 
-					if (!(existing instanceof Mavo.Collection)) {
-
-						collection = new Mavo.Collection(existing.element, this.mavo, constructorOptions);
-
-						this.children[property] = existing.collection = collection;
-						collection.add(existing);
-					}
-
-					if (!collection.mutable && Mavo.is("multiple", element)) {
-						collection.mutable = true;
-					}
-
-					collection.add(element);
-				}
-				else {
-					// No existing properties with this id, normal case
-					var obj = Mavo.Node.create(element, this.mavo, constructorOptions);
-
-					this.children[property] = obj;
-				}
+			if (this.children[property]) {
+				// Already exists, must be a collection
+				var collection = this.children[property];
+				collection.add(element);
+				collection.mutable = collection.mutable || Mavo.is("multiple", element);
+			}
+			else if (propertyNames.indexOf(property) != propertyNames.lastIndexOf(property)) {
+				// There are duplicates, so this should be a collection.
+				this.children[property] = new Mavo.Collection(element, this.mavo, options);
+			}
+			else {
+				// Normal case
+				this.children[property] = Mavo.Node.create(element, this.mavo, options);
 			}
 		});
 
@@ -3221,15 +3867,6 @@ var _ = Mavo.Group = $.Class({
 		}
 	},
 
-	// Check if this group contains a property
-	contains: function(property) {
-		if (property instanceof Mavo.Node) {
-			return property.parentGroup === this;
-		}
-
-		return property.parentNode && (this.element === property.parentNode.closest(Mavo.selectors.group));
-	},
-
 	static: {
 		all: new WeakMap(),
 
@@ -3353,7 +3990,16 @@ var _ = Mavo.Primitive = $.Class({
 			});
 		}
 
-		this.initialValue = (!this.template && this.default === undefined? this.templateValue : this.default) || this.emptyValue;
+		if (this.default === undefined && (!this.template || !this.closestCollection)) {
+			this.initialValue = this.templateValue;
+		}
+		else {
+			this.initialValue = this.default;
+		}
+
+		if (this.initialValue === undefined) {
+			this.initialValue = this.emptyValue;
+		}
 
 		this.setValue(this.initialValue, {silent: true});
 
@@ -4596,11 +5242,9 @@ var _ = Mavo.Collection = $.Class({
 			this.templateElement = this.templateElement.cloneNode(true);
 		}
 
-		if (this.mutable) {
-			var item = this.createItem(this.element);
-			this.add(item, undefined, {silent: true});
-			this.itemTemplate = item.template || item;
-		}
+		var item = this.createItem(this.element);
+		this.add(item, undefined, {silent: true});
+		this.itemTemplate = item.template || item;
 
 		this.postInit();
 
@@ -4832,11 +5476,13 @@ var _ = Mavo.Collection = $.Class({
 	},
 
 	editItem: function(item) {
-		if (!item.itemControls) {
-			item.itemControls = new Mavo.UI.Itembar(item);
-		}
+		if (this.mutable) {
+			if (!item.itemControls) {
+				item.itemControls = new Mavo.UI.Itembar(item);
+			}
 
-		item.itemControls.add();
+			item.itemControls.add();
+		}
 
 		item.edit();
 	},
@@ -4855,16 +5501,16 @@ var _ = Mavo.Collection = $.Class({
 				$[this.bottomUp? "before" : "after"](this.addButton, rel);
 			}
 
-			// Insert item controls
-			this.propagate(item => {
-				this.editItem(item);
-			});
-
 			// Set up drag & drop
 			_.dragula.then(() => {
 				this.getDragula();
 			});
 		}
+
+		// Edit items, maybe insert item bar
+		this.propagate(item => {
+			this.editItem(item);
+		});
 	},
 
 	done: function() {
@@ -4960,8 +5606,6 @@ var _ = Mavo.Collection = $.Class({
 
 					var env = {context: this, item};
 					Mavo.hooks.run("collection-add-end", env);
-
-					item.dataChanged("add");
 				}
 
 				if (this.bottomUp) {
@@ -4969,6 +5613,10 @@ var _ = Mavo.Collection = $.Class({
 				}
 				else {
 					$.before(fragment, this.marker);
+				}
+
+				for (var j = i; j < this.children.length; j++) {
+					this.children[j].dataChanged("add");
 				}
 			}
 		}
@@ -5179,10 +5827,9 @@ var _ = Mavo.UI.Itembar = $.Class({
 		this.item = item;
 
 		this.element = $$(`.mv-item-bar:not([mv-rel]), .mv-item-bar[mv-rel="${this.item.property}"]`, this.item.element).filter(el => {
-
-								   // Remove item controls meant for other collections
-								   return el.closest(Mavo.selectors.multiple) == this.item.element && !Mavo.data(el, "item");
-							   })[0];
+				// Remove item controls meant for other collections
+				return el.closest(Mavo.selectors.multiple) == this.item.element && !Mavo.data(el, "item");
+			})[0];
 
 		this.element = this.element || $.create({
 			className: "mv-item-bar mv-ui"
