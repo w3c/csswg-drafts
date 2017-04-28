@@ -85,7 +85,8 @@ CSS Grid (updated CR, with subgrid moved to Grid 2)
 * [Disposition of Comments](https://drafts.csswg.org/css-grid-1/issues-cr-2016) one open issue
 * [Changes](https://drafts.csswg.org/css-grid/#changes)
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0015.html) 11 April 2017
-* next step: transition decision
+* [transition decision](https://lists.w3.org/Archives/Team/w3t-comm/2017Apr/0225.html) 18 April 2017
+* next step: publication
 
 CSS Contain
 * [group decision](https://www.w3.org/2017/04/21-css-irc#T07-18-13) 21April 2017
