@@ -16,5 +16,5 @@ To read the specifications in this repository, see them at the
 [index of all specifications](https://drafts.csswg.org/).
 
 Also see the related repositories:
-* [fxtf-drafts github repository](https://github.com/w3c/fxtf-drafts/) [fxtf mercurial repository](http://hg.fxtf.org/drafts/) [FX Task Force generated specification index](https://drafts.fxtf.org/)
-* [css-houdini-drafts github repository](https://github.com/w3c/css-houdini-drafts/) [css-houdini mercurial repository](http://hg.css-houdini.org/drafts/) [CSS-TAG Houdini Task Force generated specification index](https://drafts.css-houdini.org/)
+* [fxtf-drafts github repository](https://github.com/w3c/fxtf-drafts/) - [fxtf mercurial repository](http://hg.fxtf.org/drafts/) - [FX Task Force generated specification index](https://drafts.fxtf.org/)
+* [css-houdini-drafts github repository](https://github.com/w3c/css-houdini-drafts/) - [css-houdini mercurial repository](http://hg.css-houdini.org/drafts/) - [CSS-TAG Houdini Task Force generated specification index](https://drafts.css-houdini.org/)
