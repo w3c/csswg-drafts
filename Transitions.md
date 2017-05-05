@@ -16,8 +16,14 @@ CSS-2017
 
 ### Open
 
+CSS logical
+* [wg decision](https://lists.w3.org/Archives/Public/www-style/2017May/0010.html)  04 May 2017
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0045.html) 05 May 2017
+* next step: response to transition request
+
 CSS Fonts 4
 * [wg decision](https://www.w3.org/2017/04/19-css-irc#T06-11-40) 19 April 2017
+* next step: wait for any sections that get moved from Fonts 3.
 
 ### Closed
 
