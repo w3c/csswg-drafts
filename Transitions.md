@@ -85,6 +85,7 @@ CSS Display
 
 CSS Speech (updated CR, has technical changes)
 * group decision [15 Feb 2017](https://www.w3.org/2017/02/15-css-irc#T17-39-53)
+* should be published as a NOTE because no implementations
 
 CSS Grid (updated CR, with subgrid moved to Grid 2)
 * group decision [15 Mar 2017](https://www.w3.org/2017/03/15-css-irc#T16-42-41)
@@ -92,7 +93,7 @@ CSS Grid (updated CR, with subgrid moved to Grid 2)
 * [Changes](https://drafts.csswg.org/css-grid/#changes)
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0015.html) 11 April 2017
 * [transition decision](https://lists.w3.org/Archives/Team/w3t-comm/2017Apr/0225.html) 18 April 2017
-* next step: publication
+* pubication requested for 9 May 2017
 
 CSS Contain
 * [group decision](https://www.w3.org/2017/04/21-css-irc#T07-18-13) 21April 2017
