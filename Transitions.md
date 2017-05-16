@@ -141,9 +141,26 @@ CSS Grid Layout 1 [done](https://www.w3.org/TR/css-grid-1/), 29 September 2016
 ### Open
 
 Writing Modes
-  * working out how to move at-risk features to leve 4, and keep in level 3 but as MAY
+  * working out how to move at-risk features to level 4, and keep in level 3 but as MAY
   * working on the tests and finalizing the test report
+  
+CSS Fonts 3
+  * working out how to move at-risk features to level 4
+  * fuller test coverage
 
 ### Closed
 
 _(none)_
+
+## Modified Recommendation (Editorial)
+
+### Open
+
+Selectors 3
+  * [wide review](https://github.com/w3c/csswg-drafts/issues/1382), ongoing
+  
+### Closed
+
+_(none)_
+  
+  
