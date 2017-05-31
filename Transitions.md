@@ -26,6 +26,10 @@ CSS Fonts 4
 * [wg decision](https://www.w3.org/2017/04/19-css-irc#T06-11-40) 19 April 2017
 * next step: wait for any sections that get moved from Fonts 3.
 
+CSS Overflow Level 4
+* [wg decision](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May
+* next step: transition request for FPWD
+
 ### Closed
 
 Fill-Stroke (aka Paint)
