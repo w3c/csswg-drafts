@@ -147,6 +147,7 @@ CSS Grid Layout 1 [done](https://www.w3.org/TR/css-grid-1/), 29 September 2016
 Writing Modes
   * working out how to move at-risk features to level 4, and keep in level 3 but as MAY
   * working on the tests and finalizing the test report
+  * [wg resolution](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May 2017
   
 CSS Fonts 3
   * working out how to move at-risk features to level 4
