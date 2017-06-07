@@ -371,12 +371,12 @@ sub elementSummary {
       $model .= '<ul class=no-bullets>';
       for my $cat (@{$elements{$name}{elementcategories}}) {
         $model .= "<li><a href='$elementCategories{$cat}{href}'>$cat</a> <span class=expanding> — ";
-        $model .= join(', ', map { "<a href='$elements{$_}{href}'><span class=element-name>&lt;$_></span></a>" }
+        $model .= join(', ', map { "<a element>$_</a>" }
                              @{$elementCategories{$cat}{elements}});
         $model .= '</span></li>';
       }
       for my $elementName (@{$elements{$name}{elements}}) {
-        $model .= "<li><a href='$elements{$elementName}{href}'><span class=element-name>&lt;$elementName></span></a></li>";
+        $model .= "<li><a element>$elementName</a></li>";
       }
       $model .= '</ul>';
     }
@@ -388,7 +388,7 @@ sub elementSummary {
     for my $cat (@{$elements{$name}{attributecategories}}) {
       if ($cat eq 'presentation') {
         $attributes .= "<li><a href='$attributeCategories{$cat}{href}'>$cat attributes</a><span class=expanding> — ";
-        $attributes .= join(', ', map { "<a property>$_</a>" }
+        $attributes .= join(', ', map { "'$_'" }
                             sort keys(%properties));
         $attributes .= '</span></li>';
       } elsif ($cat eq 'filter primitive') {
