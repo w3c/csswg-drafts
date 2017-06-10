@@ -1048,6 +1048,128 @@ at least as dark as its predecessor. Only values greater than 0 and less than 10
 	</pre>
 	</div>
 
+<h2 id="font-rendering-controls">Font Rendering Controls</h2>
+
+<h3 id="font-rendering-controls-introduction">Introduction to Font Rendering Controls</h3>
+
+	When using downloadable webfonts via ''@font-face'',
+	the user agent needs to know what to do while the font is actively loading.
+	Most web browsers have adopted some form of timeout:
+
+	<table class='data'>
+		<thead>
+			<tr>
+				<th>Browser
+				<th>Timeout
+				<th>Fallback
+				<th>Swap
+		<tbody>
+			<tr>
+				<th>Chrome 35+
+				<td>3 seconds
+				<td>yes
+				<td>yes
+			<tr>
+				<th>Opera
+				<td>3 seconds
+				<td>yes
+				<td>yes
+			<tr>
+				<th>Firefox
+				<td>3 seconds
+				<td>yes
+				<td>yes
+			<tr>
+				<th>Internet Explorer
+				<td>0 seconds
+				<td>yes
+				<td>yes
+			<tr>
+				<th>Safari
+				<td>3 seconds
+				<td>yes
+				<td>yes
+	</table>
+
+	* Chrome and Firefox have a 3 second timeout after which the text is shown with the fallback font.
+		Eventually, a swap occurs:
+		the text is re-rendered with the intended font once it becomes available.
+	* Internet Explorer has a 0 second timeout which results in immediate text rendering:
+		if the requested font is not yet available,
+		fallback is used,
+		and text is rerendered later once the requested font becomes available.
+
+	While these default behaviors are reasonable,
+	they're unfortunately inconsistent across browsers.
+	Worse, no single approach is sufficient to cover the range of use-cases
+	required by modern user-experience&ndash; and performance&ndash;conscious applications.
+
+	The Font Loading API [[CSS-FONT-LOADING-3]] allows a developer to override some of the above behaviors,
+	but that requires scripting,
+	a non-trivial amount of effort,
+	and ultimately doesn't provide sufficient hooks to cover <em>all</em> reasonable cases.
+	Additionally,
+	the developer needs to either inline the loading script into their page
+	or load an external library,
+	introducing additional network latency before the fonts can be loaded
+	and delaying text rendering.
+
+	Design/performance-conscious web developers have a good sense for the relative importance of a given web font for the intended user experience.
+	This specification provides them the ability to control font timeout and rendering behavior.
+	Specifically, it lets developers:
+
+	* Define the font display policy when text is ready to be painted: block, or paint with fallback.
+	* Define the font display policy once the desired font is available: rerender text with the new font, or leave it with the fallback.
+	* Define custom timeout values for each font.
+	* Define custom display and timeout policies per element.
+
+<h3 id="font-display-timeline">The Font Display Timeline</h3>
+
+	At the moment the user agent first attempts to use a given downloaded font face on a page,
+	the font face's <dfn export local-lt="timer">font download timer</dfn> is started.
+	This timer advances through three periods of time associated with the font face--
+	the <a>block period</a>, the <a>swap period</a>, and the <a>failure period</a>--
+	which dictate the rendering behavior of any elements using the font face:
+
+	* The first period is the <dfn export local-lt="block period">font block period</dfn>.
+		During this period,
+		if the font face is not loaded,
+		any element attempting to use it must instead <a>render with an invisible fallback font face</a>.
+		If the font face successfully loads during the <a>block period</a>,
+		the font face is then used normally.
+	* The second period, occuring immediately after the <a>block period</a>,
+		is the <dfn export local-lt="swap period">font swap period</dfn>.
+		During this period,
+		if the font face is not loaded,
+		any element attempting to use it must instead <a>render with a fallback font face</a>.
+		If the font face successfully loads during the <a>swap period</a>,
+		the font face is then used normally.
+	* The third period, occuring immediately after the <a>swap period</a>,
+		is the <dfn export local-lt="failure period">font failure period</dfn>.
+		If the font face is not yet loaded when this period starts,
+		it's marked as a failed load,
+		causing normal font fallback.
+		Otherwise, the font face is used normally.
+
+	To <dfn export>render with a fallback font face</dfn> for a given element,
+	the user agent must find the first font face specified in the element's 'font-family!!property' list
+	which is already loaded,
+	and use that for rendering text.
+	Doing this must not trigger loads of any of the fallback fonts.
+
+	To <dfn export>render with an invisible fallback font face</dfn> for a given element,
+	find a font face as per "<a>render with a fallback font face</a>".
+	Create an anonymous font face with the same metrics as the selected font face
+	but with all glyphs "invisible" (containing no "ink"),
+	and use that for rendering text.
+	Doing this must not trigger loads of any of the fallback fonts.
+
+	Issue: ''fallback'' and ''optional'' can result in some faces in a family being used
+	while others are required to fallback,
+	giving a "ransom note" look.
+	Perhaps require that all fonts in a family have the same behavior (all swapped in, or all fallback)?
+	See also the @font-feature-values for controlling the behavior on a font family basis.
+
 <h2 id="font-resources">Font Resources</h2>
 
 <h3 id="font-face-rule">The <dfn id="at-font-face-rule" style="font-weight: inherit; font-style: inherit"><code>@font-face</code></dfn> rule</h3>
@@ -1248,6 +1370,11 @@ at least as dark as its predecessor. Only values greater than 0 and less than 10
 			  <td>.ttf, .otf</td>
 			</tr>
 			<tr>
+			  <th>"woff2"</th>
+			  <td><a href="https://www.w3.org/TR/WOFF2/">WOFF File Format 2.0 (Web Open Font Format)</a></td>
+			  <td>.woff2</td>
+			</tr>
+			<tr>
 			  <th>"embedded-opentype"</th>
 			  <td><a href="https://www.w3.org/Submission/2008/SUBM-EOT-20080305/">Embedded OpenType</a></td>
 			  <td>.eot</td>
@@ -1272,6 +1399,11 @@ at least as dark as its predecessor. Only values greater than 0 and less than 10
 			  <td><a href="https://www.microsoft.com/typography/otspec/default.htm">OpenType with associated variations support</a></td>
 			  <td>.ttf, .otf</td>
 			</tr>
+			<tr>
+			  <th>"woff2-variations"</th>
+			  <td><a href="https://www.w3.org/TR/WOFF2/">WOFF File Format 2.0 (Web Open Font Format) with associated variations support</a></td>
+			  <td>.woff2</td>
+			</tr>
 		</tbody>
 	</table>
 
@@ -1281,8 +1413,8 @@ at least as dark as its predecessor. Only values greater than 0 and less than 10
 	Postscript CFF style glyph data or that it contains OpenType layout
 	information (see <a href="#platform-props-to-css">Appendix A</a> for more background on this).
 
-	A value of "woff-variations", "truetype-variations", or "opentype-variations" imply support
-	of the "woff", "truetype", or "opentype" formats respectively along with additional support for
+	A value of "woff-variations", "truetype-variations", "opentype-variations", or "woff2-variations" imply support
+	of the "woff", "truetype", "opentype", or "woff2" formats respectively along with additional support for
 	font variations. Web authors can specify this format to indicate that variation support is required
 	for correct rendering of a font. This mechanism can be used for gracefully falling back to an
 	ancillary font when variation support is not present.
@@ -1510,6 +1642,172 @@ at least as dark as its predecessor. Only values greater than 0 and less than 10
 		face within a font family.</p>
 	</div>
 
+<h3 id="font-display-desc">Controlling Font Display Per Font-Face: the 'font-display' descriptor</h3>
+
+	The '@font-face/font-display' descriptor for ''@font-face''
+	determines how a font face is displayed,
+	based on whether and when it is downloaded and ready to use.
+
+	<pre class='descdef'>
+	Name: font-display
+	Value: auto | block | swap | fallback | optional
+	Initial: auto
+	For: @font-face
+	</pre>
+
+	Note: For all of these values,
+	user agents may use slightly different durations,
+	or more sophisticated behaviors that can't be directly expressed in the 'font-display' syntax,
+	in order to provide more useful behavior for their users.
+	They may also provide the ability for users to override author-chosen behavior
+	with something more desirable;
+	for example, forcing all fonts to have a ''0s'' <a>block period</a>.
+
+	<dl dfn-type="value" dfn-for="@font-face/font-display">
+		<dt><dfn>auto</dfn>
+		<dd>
+			The font display policy is user-agent-defined.
+
+			Note: Many browsers have a default policy similar to that specified by ''block''.
+
+		<dt><dfn>block</dfn>
+		<dd>
+			Gives the font face a short <a>block period</a>
+			(''3s'' is recommended in most cases)
+			and an infinite <a>swap period</a>.
+
+			Note: In other words, the browser draws "invisible" text at first if it's not loaded,
+			but swaps the font face in as soon as it loads.
+
+			This value must only be used when rendering text in a particular font is required for the page to be usable.
+			It must only be used for small pieces of text.
+
+			<div class="example">
+				For example, badly designed "icon fonts" might associate a "⎙" (print) icon
+				with an unrelated character like "C",
+				so if the text is displayed with a fallback font instead
+				there will be confusing letters scattered around the page
+				rather than the desired icon.
+				In this case, temporary blank spots are better than using a fallback font.
+
+				(However, the fallback font is used <em>eventually</em>,
+				as having confusing letters scattered around the page
+				is better than having links and such never show up at all.)
+			</div>
+
+		<dt><dfn>swap</dfn>
+		<dd>
+			Gives the font face a ''0s'' <a>block period</a>
+			and an infinite <a>swap period</a>.
+
+			Note: In other words, the browser draws the text immediately with a fallback if the font face isn't loaded,
+			but swaps the font face in as soon as it loads.
+
+			This value should only be used when rendering text in a particular font is very important for the page,
+			but rendering in any font will still get a correct message across.
+			It should only be used for small pieces of text.
+
+			<div class='example'>
+				For example,
+				if a website has a custom font for rendering their logo,
+				rendering that logo correctly is fairly important for branding purposes,
+				but displaying the logo in any font will at least get the point across without confusion.
+			</div>
+
+		<dt><dfn>fallback</dfn>
+		<dd>
+			Gives the font face an extremely small <a>block period</a>
+			(''100ms'' or less is recommended in most cases)
+			and a short <a>swap period</a>
+			(''3s'' is recommended in most cases).
+
+			Note: In other words, the font face is rendered with a fallback at first if it's not loaded,
+			but it's swapped in as soon as it loads.
+			However, if too much time passes,
+			the fallback will be used for the rest of the page's lifetime instead.
+
+			This value should be used for body text,
+			or any other text where the use of the chosen font is useful and desired,
+			but it's acceptable for the user to see the text in a fallback font.
+			This value is appropriate to use for large pieces of text.
+
+			<div class="example">
+				For example,
+				in large pieces of body text,
+				it's most important just to get the text rendered quickly,
+				so the user can begin to read as quickly as possible.
+				Further, once the user has started reading,
+				they shouldn't be disturbed by the text suddenly "shifting"
+				as a new font is swapped in,
+				as that's distracting and annoying to re-find where one was in the text.
+			</div>
+
+		<dt><dfn>optional</dfn>
+		<dd>
+			Gives the font face an extremely small <a>block period</a>
+			(''100ms'' or less is recommended in most cases)
+			and a ''0s'' <a>swap period</a>.
+
+			If the font is not retrieved before the two durations expire,
+			the user agent may choose to abort the font download,
+			or download it with a very low priority.
+			If the user agent believes it would be useful for the user,
+			it may avoid even starting the font download,
+			and proceed immediately to using a fallback font.
+
+			Note: In other words, the font is used if it's already downloaded and available,
+			but otherwise a fallback is used for the rest of the page's lifetime instead.
+			The font might download in the background and be available to future page loads,
+			but if the user-agent detects that the user has very limited bandwidth,
+			it might choose to simply never download and use the font.
+
+			This value should be used for body text,
+			or any other text where the chosen font is purely a decorative "nice-to-have".
+			It should be used anytime it is more important that the web page render quickly on first visit,
+			than it is that the user wait a longer time to see everything perfect immediately.
+
+			<div class='example'>
+				For example, body text is perfectly readable in one of the browser default fonts,
+				though a downloadable font face may be more attractive
+				and mesh with the site's aesthetics better.
+				First time visitors to a site generally care far more about the site being quickly usable
+				than they do about the finer points of its display,
+				and ''optional'' provides a good behavior for them.
+				If they return later,
+				the desired font faces might have finished downloading,
+				giving them the "intended" experience without slowing down
+				either their first or subsequent visits.
+
+				Users on very slow connections might not ever receive the "intended" experience,
+				but ''optional'' ensures they can actually <em>use</em> the site,
+				rather than quitting and going elsewhere because the site takes too long to load.
+			</div>
+	</dl>
+
+	<div class='issue'>
+		These names aren't great.
+		It would probably be better to use "intent" names
+		that immediately capture the intended usage of each.
+		Some suggestions:
+
+		* required / important / preferable / optional
+	</div>
+
+<h4 id="font-display-font-feature-values">Controlling Font Display Per Font-Family via ''@font-feature-values''</h4>
+	The '@font-feature-values/font-display' descriptor for ''@font-feature-values'' determines how a font family is displayed, by setting the "default" font-display value for @font-face rules targeting the same font family.
+	When font-display is omitted in an @font-face rule, the user agent uses the font-display value set via the @font-feature-values/font-display for the relevant font-family if one is set, and otherwise defaults to "font-display: auto".
+
+	This mechanism can be used to set a default display policy for an entire font-family, and enables developers to set a display policy for @font-face rules that are not directly under their control.
+	For example, when a font is served by a third-party font foundry, the developer does not control the @font-face rules but is still able to set a default font-display policy for the provided font-family.
+	The ability to set a default policy for an entire font-family is also useful to avoid the ransom note effect (i.e. mismatched font faces) because the display policy is then applied to the entire font family.
+
+	<pre class='descdef'>
+	Name: font-display
+	Value: auto | block | swap | fallback | optional
+	Initial: auto
+	For: @font-feature-values
+	</pre>
+
 <h2 id="font-matching-algorithm">Font Matching Algorithm</h2>
 
 	The algorithm below describes how fonts are associated with
@@ -1538,7 +1836,7 @@ at least as dark as its predecessor. Only values greater than 0 and less than 10
 	Authors should take care to ensure that names use a character sequence
 	consistent with the actual font family name, particularly when using
 	combining characters such as diacritical marks. For example, a family
-	name that contains an uppercase A (U+0041) followed by a combining
+	name that contains a lowercase a (U+0061) followed by a combining
 	ring (U+030A) will <strong>not</strong> match a name that looks
 	identical but which uses the precomposed lowercase a-ring character
 	(U+00E5) instead of the combining sequence.</p>
@@ -1636,7 +1934,7 @@ at least as dark as its predecessor. Only values greater than 0 and less than 10
 		are removed from the matching set. If there is no face
 		which contains the desired value, a stretch value is chosen using the rules below:
 		  <ul>
-		    <li>If the desired stretch value is less than 100, stretch values below the
+		    <li>If the desired stretch value is less than or equal to 100, stretch values below the
 		    desired stretch value are checked in descending order followed by
 		    stretch values above the desired stretch value in ascending order until a
 		    match is found.</li>
@@ -2398,6 +2696,31 @@ at least as dark as its predecessor. Only values greater than 0 and less than 10
 	</pre>
 	</div>
 
+<h2 id="object-model">Object Model</h2>
+
+	The contents of <code>@font-face</code> rules can be accessed via
+	the following extensions to the CSS Object Model.
+
+<h3 id="om-fontface">The <code>CSSFontFaceRule</code> interface</h3>
+
+	The <dfn>CSSFontFaceRule</dfn> interface represents a <<@font-face>> rule.
+
+	<pre class="idl">
+	interface CSSFontFaceRule : CSSRule {
+	  attribute DOMString family;
+	  attribute DOMString src;
+	  attribute DOMString style;
+	  attribute DOMString weight;
+	  attribute DOMString stretch;
+	  attribute DOMString unicodeRange;
+	  attribute DOMString variant;
+	  attribute DOMString featureSettings;
+	};</pre>
+
+	The DOM Level 2 Style specification [[DOM-LEVEL-2-STYLE]] defined
+	a different variant of this rule.
+	This definition supercedes that one.
+
 <h2 id="platform-props-to-css" class="no-num">Appendix A: Mapping platform font properties to CSS properties</h2>
 
     Issue: Import from level 3
@@ -2409,3 +2732,5 @@ at least as dark as its predecessor. Only values greater than 0 and less than 10
 	Peter Constable for assorted language fixes.
 
 	Optical sizing <a href="#optical-size-example">image</a> prepared by Nick Sherman.
+
+	Special thanks to Tab Atkins, Jr. for providing the text for the section on <a href="#font-rendering-controls">Font Rendering Controls</a> as well as the section on the 'font-display' descriptor. Special thanks to Ilya Grigorik and David Kuettel for their help in developing these sections.
