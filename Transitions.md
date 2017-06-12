@@ -98,6 +98,7 @@ CSS Contain
 * [Disposition of comments](https://drafts.csswg.org/css-contain/issues-2017.html)
 * [Changes] https://drafts.csswg.org/css-contain/#2017-04-19-changes
 * [Transition request](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0057.html) 8 May 2017
+* next step: waiting for confirmation that issues raised on transition call are resolved.
 
 ### Closed
 
