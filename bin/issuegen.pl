@@ -173,6 +173,12 @@ while (<IN>) {
   # Linkify URLs
   s/(http\S+)/<a href='\1'>\1<\/a>/g;
 
+  # Add thread links
+  s/>(http[s]?:\/\/lists.w3.org\/Archives\/Public\/)(\S+)<\/a>/>\1\2<\/a> <a href="https:\/\/www.w3.org\/Mail\/flatten\/index?subject=https\%3A\%2F\%2Flists.w3.org\%2FArchives\%2FPublic\%2F\2"><abbr title="Thread">&#x2208;<\/abbr><\/a>/g;
+
+  # Add mid links
+  s/>(http[s]?:\/\/www.w3.org\/mid\/)(\S+)<\/a>/>\1\2<\/a> <a href="mid:\2"><abbr title="Open Message">&#x2386;<\/abbr><\/a>/g;
+
   # Anchor issue number
   s/Issue (\w+)\./Issue \1. <a href='#issue-\1'>#<\/a>/;
   my $index = $1;
@@ -247,6 +253,8 @@ sub header {
   :not(pre).fo { background: red        }
   .open   { border: solid red; }
   :target { box-shadow: 0.25em 0.25em 0.25em;  }
+  a[href^=mid], a[href~=flatten] { text-decoration: none; }
+  abbr { font-weight: bold; }
 </style>
 
 <h1>$title Disposition of Comments for $date $status</h1>

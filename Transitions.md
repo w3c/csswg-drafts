@@ -16,11 +16,29 @@ CSS-2017
 
 ### Open
 
-Fill-Stroke (aka Paint)
-* [wg decision] https://www.w3.org/2017/03/22-css-irc#T16-31-40
+CSS Fonts 4
+* [wg decision](https://www.w3.org/2017/04/19-css-irc#T06-11-40) 19 April 2017
+* next step: wait for any sections that get moved from Fonts 3.
 
+CSS Overflow Level 4
+* [wg decision](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0122.html) 12 Jun 2017
+* next step: approval
 
 ### Closed
+
+CSS logical (bert handling)
+* [wg decision](https://lists.w3.org/Archives/Public/www-style/2017May/0010.html)  04 May 2017
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0045.html) 05 May 2017
+* [transition response](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0059.html) 09 May 2017
+* [done](https://www.w3.org/TR/2017/WD-css-logical-1-20170518/) 18 May 2017
+
+Fill-Stroke (aka Paint)
+* [wg decision](https://www.w3.org/2017/03/22-css-irc#T16-31-40)
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2017JanMar/att-0160/00-part)
+* [approval](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0161.html)
+* [publication request](https://lists.w3.org/Archives/Team/webreq/2017Apr/0017.html) 11 April 2017
+* [done](https://www.w3.org/TR/2017/WD-fill-stroke-3-20170413/) 13 April 2017
 
 CSS Rhythm
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2017JanMar/0104.html) 28 Feb 2017
@@ -73,14 +91,25 @@ CSS Display
 
 CSS Speech (updated CR, has technical changes)
 * group decision [15 Feb 2017](https://www.w3.org/2017/02/15-css-irc#T17-39-53)
+* should be published as a NOTE because no implementations
+
+
+CSS Contain
+* [group decision](https://www.w3.org/2017/04/21-css-irc#T07-18-13) 21April 2017
+* [Disposition of comments](https://drafts.csswg.org/css-contain/issues-2017.html)
+* [Changes] https://drafts.csswg.org/css-contain/#2017-04-19-changes
+* [Transition request](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0057.html) 8 May 2017
+* next step: waiting for confirmation that issues raised on transition call are resolved.
+
+### Closed
 
 CSS Grid (updated CR, with subgrid moved to Grid 2)
 * group decision [15 Mar 2017](https://www.w3.org/2017/03/15-css-irc#T16-42-41)
-* [Disposition of Comments](https://drafts.csswg.org/css-grid-1/issues-cr-2016)
+* [Disposition of Comments](https://drafts.csswg.org/css-grid-1/issues-cr-2016) one open issue
 * [Changes](https://drafts.csswg.org/css-grid/#changes)
-* next step: write transition request
-
-### Closed
+* [Transition request](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0015.html) 11 April 2017
+* [Transition decision](https://lists.w3.org/Archives/Team/w3t-comm/2017Apr/0225.html) 18 April 2017
+* [done](https://www.w3.org/TR/2017/CR-css-grid-1-20170509/) 9 May 2017
 
 CSS Basic UI 3 (updated CR)
 * group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-17-37)
@@ -118,9 +147,27 @@ CSS Grid Layout 1 [done](https://www.w3.org/TR/css-grid-1/), 29 September 2016
 ### Open
 
 Writing Modes
-  * working out how to move at-risk features to leve 4, and keep in level 3 but as MAY
+  * working out how to move at-risk features to level 4, and keep in level 3 but as MAY
   * working on the tests and finalizing the test report
+  * [wg resolution](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May 2017
+  
+CSS Fonts 3
+  * working out how to move at-risk features to level 4
+  * fuller test coverage
 
 ### Closed
 
 _(none)_
+
+## Modified Recommendation (Editorial)
+
+### Open
+
+Selectors 3
+  * [wide review](https://github.com/w3c/csswg-drafts/issues/1382), ongoing
+  
+### Closed
+
+_(none)_
+  
+  
