@@ -23,7 +23,8 @@ CSS Fonts 4
 CSS Overflow Level 4
 * [wg decision](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0122.html) 12 Jun 2017
-* next step: approval
+* [approval](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0124.html) 12 Jun 2017
+* next step: publication (requested for 04 July, publishing moratorium)
 
 ### Closed
 
