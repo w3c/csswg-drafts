@@ -18,7 +18,9 @@ CSS-2017
 
 CSS Fonts 4
 * [wg decision](https://www.w3.org/2017/04/19-css-irc#T06-11-40) 19 April 2017
-* next step: wait for any sections that get moved from Fonts 3.
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2017JulSep/0000.html) 06 July 2017
+* [publication request](https://lists.w3.org/Archives/Team/webreq/2017Jul/0007.html) 07 July 2017
+* next step: publication, expected 11 July
 
 CSS Overflow Level 4
 * [wg decision](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May
