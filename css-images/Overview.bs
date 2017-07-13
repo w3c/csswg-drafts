@@ -18,6 +18,7 @@ Abstract: This module contains the features of CSS level 3 relating to the <<ima
 	and several properties controlling the interaction of replaced elements and CSS's layout models.
 At Risk: 'image-orientation'
 At Risk: [[#interpolating-gradients]]
+At Risk: recursive interpolation of ''cross-fade()'' arguments
 Issue Tracking: Tracker http://www.w3.org/Style/CSS/Tracker/products/27
 Previous Version: https://www.w3.org/TR/2012/CR-css3-images-20120417/
 Previous Version: https://www.w3.org/TR/2012/WD-css3-images-20120112/
@@ -871,15 +872,6 @@ Gradient Color-Stops {#color-stop-syntax}
 		then, for each run of adjacent <a>color stops</a> without positions,
 		set their positions so that they are evenly spaced between the preceding and following <a>color stops</a> with positions.
 
-	Issue: This requires us to wait until <em>after</em> layout to do fix-up,
-	because implied-position stops (set by step 3)
-	may depend on stops that need layout information to place,
-	and which may be corrected by step 2.
-	Swapping steps 2 and 3 would let us interpolate <a>color stops</a> purely at computed-value time,
-	which is a nice plus,
-	at the cost of changing behavior from level 3 for some edge cases that triggered fixup.
-	Make sure this is handled well in the serialization rules.
-
 	At each <a>color stop</a> position,
 	the line is the color of the <a>color stop</a>.
 	Between two <a>color stops</a>,
@@ -965,6 +957,11 @@ Gradient Color-Stops {#color-stop-syntax}
 	the blue <a>color stop's</a> position would be equivalent to "75px",
 	which precedes the yellow <a>color stop</a>,
 	and would be corrected to a position of 100px.
+	Additionally, since the relative ordering of such color stops
+	cannot be determined without performing layout,
+	they will not interpolate smoothly in
+	<a href="http://www.w3.org/TR/css-animations/">animations</a>
+	or <a href="http://www.w3.org/TR/css-transitions/">transitions</a>.
 
 	Note: The definition and implications of "premultiplied" color spaces are given elsewhere in the technical literature,
 	but a quick primer is given here to illuminate the process.
@@ -1631,14 +1628,15 @@ Interpolation {#interpolation}
 
 	If an algorithm below simply states that two values should be "interpolated" or "transitioned" without further details,
 	then the value should be interpolated as described by the Transitions spec.
-	Otherwise, the algorithm may reference a variable "t" in its detailed description of the interpolation.
+	Otherwise, the algorithm may reference a variable <var>t</var>
+	in its detailed description of the interpolation.
 	This is a number which starts at 0% and goes to 100%,
 	and is set to a value that represents the progress through the transition,
 	based on the duration of the transition,
 	the elapsed time,
 	and the timing function in use.
 	For example, with a linear timing function and a 1s duration,
-	after .3s t is equal to 30%.
+	after .3s <var>t</var> is equal to 30%.
 
 Interpolating <<image>> {#interpolating-images}
 -----------------------------------------------
@@ -1653,7 +1651,7 @@ Interpolating <<image>> {#interpolating-images}
 
 	In specific terms,
 	at each point in the interpolation
-	the image is equal to <code>cross-fade( (100% - t) <var>start image</var>, <var>end image</var>)</code>.
+	the image is equal to <code>cross-fade( (100% - <var>t</var>) <var>start image</var>, <var>end image</var>)</code>.
 
 	Issue: Special-case interpolating to/from no image,
 	like "background-image: url(foo);" to "background-image: none;".
@@ -1662,11 +1660,8 @@ Interpolating <<image>> {#interpolating-images}
 Interpolating cross-fade() {#interpolating-image-combinations}
 --------------------------------------------------------------
 
-	If both the starting and ending images are <a>cross-fade()</a>s
-	which differ only by by their <<percentage>>,
-	they must be interpolated by interpolating their <<percentage>>.
-	Otherwise, they must be interpolated as generic <<image>>s.
-
+	The three components of ''cross-fade()'' are interpolated independently.
+	Note this may result in nested ''cross-fade()'' notations.
 
 Interpolating <<gradient>> {#interpolating-gradients}
 -----------------------------------------------------
@@ -1687,24 +1682,24 @@ Interpolating <<gradient>> {#interpolating-gradients}
 		but not from a ''linear-gradient()'' to a ''radial-gradient()'' or a ''repeating-linear-gradient()''.)
 
 	2. Both the starting and ending gradient must have the same number of <<color-stop>>s.
-		<span class='note'>Note that one can pad a gradient with additional <<color-stop>>s placed atop each other,
-		if necessary to make two gradients have the same number of <<color-stop>>s.)</span>
-
-		For this purpose, all repeating gradients are considered to have "infinite" color stops,
+		For this purpose, all repeating gradients are considered to have infinite color stops,
 		and thus all repeating gradients match in this respect.
 
-	If the two gradients satisfy both of those constraints,
+	3. Neither gradient uses a combination of <<length>> and <<percentage>> color stops.
+
+	If the two gradients satisfy all of those constraints,
 	they must be interpolated as described below.
-	If not, they must be interpolated as a generic <<image>>.
+	If they fail the third one only,
+	they must be abruptly transitioned at 50%.
+	If they fail either of the first two constraints,
+	they must be interpolated using ''cross-fade()''
+	as for generic images.
 
 	1. Convert both the start and end gradients to their explicit forms:
 
 		: For linear gradients:
 		:: * If the direction is specified as an <<angle>>,
 				it is already in its explicit form.
-
-			* If the direction is specified as a <<zero>>,
-				change its direction to ''0deg''.
 
 			* Otherwise,
 				change its direction to an <<angle>> in [''0deg'',''360deg'')
