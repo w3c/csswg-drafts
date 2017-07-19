@@ -45,7 +45,8 @@ CSS Contain
 * confirmed, issues raised on transition call are resolved 7 July 2017
 * next step: publication request
 
-
+CSS Scroll snap (updated CR with technical changes)
+* [group decision](http://www.w3.org/2017/07/19-css-irc#T16-30-17) 19 July 2017
 
 ## Proposed Recommendation
 
