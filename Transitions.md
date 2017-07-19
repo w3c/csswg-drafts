@@ -6,11 +6,7 @@ _(none)_
 
 ## First Public Working Draft
 
-CSS Fonts 4
-* [wg decision](https://www.w3.org/2017/04/19-css-irc#T06-11-40) 19 April 2017
-* [transition request](https://lists.w3.org/Archives/Member/chairs/2017JulSep/0000.html) 06 July 2017
-* [publication request](https://lists.w3.org/Archives/Team/webreq/2017Jul/0007.html) 07 July 2017
-* next step: publication, expected 11 July
+_(none)_
 
 ## Candidate Recommendation
 
@@ -79,7 +75,13 @@ CSS-2017
 * [Publication request sent](https://lists.w3.org/Archives/Team/webreq/2017Jan/0072.html)
 * [done](https://www.w3.org/TR/css-2017/)
 
-### Closed
+## First Public Working Draft
+
+CSS Fonts 4
+* [wg decision](https://www.w3.org/2017/04/19-css-irc#T06-11-40) 19 April 2017
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2017JulSep/0000.html) 06 July 2017
+* [publication request](https://lists.w3.org/Archives/Team/webreq/2017Jul/0007.html) 07 July 2017
+* [done](https://www.w3.org/TR/2017/WD-css-fonts-4-20170711/) 11 July 2017
 
 CSS Overflow Level 4
 * [wg decision](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May
