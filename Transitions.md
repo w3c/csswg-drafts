@@ -24,8 +24,8 @@ Paint API
 CSS Display 
 * group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-42-48)
 * changes ?
-* Disposition of Comments ?
-* next step: transition request
+* Disposition of Comments ? ton of comments filed after group decision
+* next step: discuss remaining issues at Paris 2017 f2f, re-request after f2f
 * Bert handling transition and publication
 
 CSS Speech (updated CR, has technical changes)
