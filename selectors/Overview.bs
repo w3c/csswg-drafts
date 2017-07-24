@@ -902,8 +902,7 @@ Internal Structure</h4>
 	so some of these currently-invalid selectors (e.g. ''::first-line :any-link'')
 	may become valid in the future.
 
-	The children of such <a>pseudo-elements</a> can simultaneously be children of other elements, too,
-	turning the <a>selector match list</a> into a directed acyclic graph.
+	The children of such <a>pseudo-elements</a> can simultaneously be children of other elements, too.
 	However, at least in CSS, their rendering must be defined so as to maintain the tree-ness of the <a>box tree</a>.
 
 	<div class='example'>
@@ -3223,95 +3222,6 @@ API Hooks</h2>
 	To aid in the writing of specs that use Selectors concepts,
 	this section defines several API hooks that can be invoked by other specifications.
 
-<h3 id='evaluating-selectors'>
-Evaluating a Selector</h3>
-
-	This section describes how to <dfn export>evaluate a selector</dfn> against a set of elements.
-
-	APIs using this algorithm must provide a selector,
-	and one or more <var>root elements</var>
-	indicating the <a>trees</a> that will be searched by the selector.
-	All of the <var>root elements</var> must share the same <a for=tree>root</a>,
-	or else calling this algorithm is invalid.
-
-	Callers may optionally provide:
-
-	<ul>
-		<li>
-			a <a>scoping root</a>,
-			indicating that the selector is <a>scoped</a>.
-			If not specified, the selector defaults to being unscoped.
-
-		<li>
-			a set of <a>:scope elements</a>,
-			for resolving the '':scope'' pseudo-class against.
-			If not specified,
-			the set defaults to being empty.
-
-			If the selector is a <a>relative selector</a>,
-			the set of <a>:scope elements</a> must not be empty.
-
-			Note: Note that if the selector is scoped,
-			the scoping root is automatically taken as the <a>:scope element</a>,
-			so it doesn't have to be provided explicitly
-			unless a different result is desired.
-
-		<li>
-			which <a>pseudo-elements</a> are allowed to show up in the match list, if any.
-			If not specified, this defaults to allowing all pseudo-elements.
-	</ul>
-
-	A <a>selector</a> is evaluated against some initial list of elements:
-	the <dfn export>selector match list</dfn>.
-	The <a>selector match list</a> is initially populated with the <var>root elements</var>
-	provided to the algorithm,
-	and all their <a>descendants</a>.
-
-	The selector is processed from left to right in order,
-	with <a>simple selectors</a> filtering the <a>selector match list</a>,
-	and <a>combinators</a> and <a>pseudo-elements</a> changing the <a>selector match list</a> into something new.
-
-	If the selector is <a>scoped</a>,
-	then after the selector is finished processing,
-	the <a>selector match list</a> must be filtered
-	to contain only elements that are <a>descendants</a> of the <a>scoping root</a>.
-
-	After the selector is finished matching,
-	the <a>selector match list</a> must be filtered
-	to only contain elements and <a>pseudo-elements</a>
-	allowed by the invoker of this algorithm.
-
-	When this process is done, the elements in the <a>selector match list</a>
-	are the elements said to match the selector.
-	If the order of elements matter,
-	they must be sorted in <a>shadow-including tree order</a>,
-	unless otherwise specified.
-
-	<div class='example'>
-		For example, to evaluate the selector "div > i.name" against a document,
-		the <a>selector match list</a> is first set to all the elements in the entire document.
-		Then, the "div" type selector is evaluated, filtering the <a>selector match list</a>
-		to only contain elements with a tagname of "div".
-		Then, the ">" child combinator is evaluated, transforming the <a>selector match list</a>
-		by replacing each element currently in it with the element's children.
-		Then, the "i" type selector is evaluated, filtering the <a>selector match list</a>
-		to only contain elements with a tagname of "i".
-		Finally, the ".name" class selector is evaluated, filtering the <a>selector match list</a>
-		to only contain elements with a class of "name".
-	</div>
-
-	Note: Many implementations of selectors instead evaluate them right to left,
-	as it's more efficient to do so in many cases.
-	This, as usual, is completely valid,
-	as long as it results in the same elements being returned
-	as the spec's algorithm would.
-
-	Issue: The relative position of pseudo-elements in the <a>selector match list</a> is undefined.
-	There's not yet a context that exposes this information,
-	but we need to decide on something eventually,
-	before something <em>is</em> exposed.
-
-
 <h3 id='parse-selector' algorithm>
 Parse A Selector</h3>
 
@@ -3366,13 +3276,100 @@ Parse A Relative Selector</h3>
 			Return <var>selector</var>.
 	</ol>
 
+<h3 id='match-against-element' algorithm>
+Match a Selector Against an Element</h3>
+
+	This section defines how to <dfn export>match a selector against an element</dfn>.
+
+	APIs using this algorithm must provide a <var>selector</var> and an <var>element</var>.
+
+	Callers may optionally provide:
+
+	<ul>
+		<li>
+			a set of <a>:scope elements</a>,
+			for resolving the '':scope'' pseudo-class against.
+			If not specified,
+			the set defaults to being empty.
+
+			Issue: Should it instead default to the root element,
+			to match the definition of '':scope''?
+
+			If the selector is a <a>relative selector</a>,
+			the set of <a>:scope elements</a> must not be empty.
+	</ul>
+
+	This algorithm returns either success or failure.
+
+	For each <a>complex selector</a> in the given <var>selector</var>
+	(which is taken to be a <a>list of complex selectors</a>),
+	match the complex selector against <var>element</var>,
+	as described in the following paragraph.
+	If the matching returns success for any complex selector,
+	then the algorithm return success; otherwise it returns failure.
+
+	To <dfn>match a complex selector against an element</dfn>,
+	process it <a>compound selector</a> at a time,
+	in right-to-left order.
+	This process is defined recursively as follows:
+
+	<ul>
+		<li>If any simple selectors in the rightmost compound selector
+		does not match the element, return failure.
+
+		<li>Otherwise, if there is only one compound selector in the
+		complex selector, return success.
+
+		<li>Otherwise, consider all possible elements
+		that could be related to this element by the rightmost <a>combinator</a>.
+		If the operation of matching the selector consisting of this selector
+		with the rightmost compound selector and rightmost combinator removed
+		against any one of these elements returns success, then return success.
+		Otherwise, return failure.
+	</ul>
+
+<h3 id='match-against-pseudo-element' algorithm>
+Match a Selector Against a Pseudo-element</h3>
+
+	This section defines how to <dfn export>match a selector against a pseudo-element</dfn>.
+
+	APIs using this algorithm must provide a <var>selector</var>
+	and a <var>pseudo-element</var>.
+	They may optionally provide the same things they may optionally provide
+	to the algorithm to <a>match a selector against an element</a>.
+
+	This algorithm returns success or failure.
+
+	For each <a>complex selector</a> in the given <var>selector</var>, if both:
+	<ul>
+		<li>the rightmost <a>simple selector</a> in the complex selector
+		matches <var>pseudo-element</var>, and
+
+		<li>the result of running <a>match a complex selector against an element</a>
+		on the remainder of the <a>complex selector</a>
+		(with just the rightmost simple selector
+		of its rightmost complex selector removed),
+		<var>pseudo-element</var>'s corresponding element,
+		and any optional parameters provided to this algorithm
+		returns success,
+	</ul>
+	then return success.
+
+	Otherwise
+	(that is, if this doesn't happen for any of the complex selectors in <var>selector</var>),
+	return failure.
+
 <h3 id='match-against-tree' algorithm>
-Match a Selector Against A Tree</h3>
+Match a Selector Against a Tree</h3>
 
 	This section defines how to <dfn export>match a selector against a tree</dfn>.
 
-	APIs calling this algorithm must provide a <var>selector</var>,
-	and a set of <var>root elements</var> of the trees to be matched against.
+	APIs using this algorithm must provide a selector,
+	and one or more <var>root elements</var>
+	indicating the <a>trees</a> that will be searched by the selector.
+	All of the <var>root elements</var> must share the same <a for=tree>root</a>,
+	or else calling this algorithm is invalid.
+
 	They may optionally provide:
 
 	<ul>
@@ -3381,6 +3378,8 @@ Match a Selector Against A Tree</h3>
 			indicating the selector is <a>scoped</a>.
 			If not specified,
 			the <var>selector</var> defaults to being unscoped.
+
+			Issue: This is now redundant with the <var>root elements</var>.
 
 		<li>
 			A set of <a>:scope elements</a>,
@@ -3391,45 +3390,62 @@ Match a Selector Against A Tree</h3>
 			otherwise,
 			it defaults to the <var>root elements</var>.
 
+			Note: Note that if the selector is scoped,
+			the scoping root is automatically taken as the <a>:scope element</a>,
+			so it doesn't have to be provided explicitly
+			unless a different result is desired.
+
 		<li>
 			Which <a>pseudo-elements</a> are allowed to show up in the match list.
 			If not specified, this defaults to allowing all pseudo-elements.
+
+			Issue: Only the ''::before'' and ''::after'' pseudo-elements are really
+			handled in any way remotely like this.
 	</ul>
 
-	This algorithm returns a (possible empty) list of elements.
+	This algorithm returns a (possibly empty) list of elements.
 
 	<ol>
-		<li>
-			<a>Evaluate a selector</a> with the same arguments provided to this algorithm,
-			and return the result.
-	</ol>
-
-<h3 id='match-against-element' algorithm>
-Match a Selector Against an Element</h3>
-
-	This section defines how to <dfn export>match a selector against an element</dfn>.
-
-	APIs calling this algorithm must provide a <var>selector</var> and an <var>element</var>.
-	They may optionally provide the same optional arguments as described in the algorithm to <a>match a selector against a tree</a>.
-
-	This algorithm returns either success or failure.
-
-	<ol>
-		<li>
-			Let <var>root element</var> be the "root ancestor" of <var>element</var>:
-			the element found by traversing parent links from <var>element</var>
-			until an element without a parent is encountered.
 
 		<li>
-			<a>Evaluate a selector</a> with <var>selector</var> and <var>root element</var>,
-			and any optional arguments passed to this algorithm.
-			Let <var>matched elements</var> be the result.
+			Start with a list of <var>candidate elements</var>,
+			which are the the <var>root elements</var>
+			and all of their descendant elements,
+			sorted in <a>shadow-including tree order</a>,
+			unless otherwise specified.
 
 		<li>
-			If <var>element</var> is in <var>matched elements</var>,
-			return success.
-			Otherwise,
-			return failure.
+			If an optional scoping root was provided,
+			then remove from the <var>candidate elements</var>
+			any elements that are not
+			<a>descendants</a> of the <a>scoping root</a>.
+
+		<li>
+			Initialize the <var>selector match list</var> to empty.
+
+		<li>
+			For each <var>element</var> in the set of
+			<var>candidate elements</var>:
+
+			<ol>
+				<li>
+				If the result of <a>match a selector against an element</a>
+				for <var>element</var> and <var>selector</var> is success,
+				add <var>element</var> to the <var>selector match list</var>.
+
+				<li>
+				For each possible pseudo-element associated with <var>element</var>
+				that is one of the pseudo-elements allowed to show up in the match list,
+				if the result of <a>match a selector against a pseudo-element</a>
+				for the pseudo-element and <var>selector</var> is success,
+				add the pseudo-element to the <var>selector match list</var>.
+
+				Issue: The relative position of pseudo-elements
+				in <var>selector match list</var> is undefined.
+				There's not yet a context that exposes this information,
+				but we need to decide on something eventually,
+				before something <em>is</em> exposed.
+
 	</ol>
 
 <h2 id='dom-mapping'>
@@ -3558,8 +3574,13 @@ Changes</h2>
 
 				Issue: Need to define tree for XML.
 				<li>[[#api-hooks]]
-
-				Issue: <a href="https://github.com/w3c/csswg-drafts/issues/720">selector matching should be specified as being from right to left, not left to right</a>
+					<ul>
+						<li>Note that earlier versions of this section defined a section on <dfn id="evaluating-selectors">evaluating a selector</dfn>,
+						but that section is no longer present.
+						Specifications referencing that section should instead reference
+						the algorithm to <a>match a selector against a tree</a>.
+					</ul>
+				</li>
 			</ul>
 		<li>Removed restriction on combinators within '':matches()'', '':not()'', '':nth-match()'', and '':nth-last-match()''.
 
