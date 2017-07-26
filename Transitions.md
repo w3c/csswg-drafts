@@ -2,11 +2,74 @@
 
 ## First Working Group Note
 
-### Open
+_(none)_
+
+## First Public Working Draft
 
 _(none)_
 
-### Closed
+## Candidate Recommendation
+
+Paint API
+* [group decision](https://lists.w3.org/Archives/Public/public-houdini/2016Oct/0001.html) 09 Oct 2016, (pending edits)
+* next step: create [transition request](https://services.w3.org/xslt?xmlfile=https://www.w3.org/2005/08/01-transitions2015.html&xslfile=https://www.w3.org/2005/08/transitions2015.xsl&docstatus=cr-tr). 
+  * No changes section since FPWD
+  * [17 Open issues](https://github.com/w3c/css-houdini-drafts/labels/css-paint-api-1)
+  * No disposition of comments
+  * Evidence of wide review?
+   * [TAG review](https://github.com/w3ctag/spec-reviews/issues/140)
+  * Implementation status and test suite?
+  * Waiting for editors to respond on these
+
+CSS Display 
+* group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-42-48)
+* changes ?
+* Disposition of Comments ? ton of comments filed after group decision
+* next step: discuss remaining issues at Paris 2017 f2f, re-request after f2f
+* Bert handling transition and publication
+
+CSS Speech (updated CR, has technical changes)
+* group decision [15 Feb 2017](https://www.w3.org/2017/02/15-css-irc#T17-39-53)
+* should be published as a NOTE because no implementations
+
+
+CSS Contain
+* [group decision](https://www.w3.org/2017/04/21-css-irc#T07-18-13) 21April 2017
+* [Disposition of comments](https://drafts.csswg.org/css-contain/issues-2017.html)
+* [Changes] https://drafts.csswg.org/css-contain/#2017-04-19-changes
+* [Transition request](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0057.html) 8 May 2017
+* confirmed, issues raised on transition call are resolved 7 July 2017
+* next step: publication request
+
+CSS Scroll snap (updated CR with technical changes)
+* [group decision](http://www.w3.org/2017/07/19-css-irc#T16-30-17) 19 July 2017
+
+## Proposed Recommendation
+
+Writing Modes
+  * working out how to move at-risk features to level 4, and keep in level 3 but as MAY
+  * working on the tests and finalizing the test report
+  * [wg resolution](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May 2017
+  
+CSS Fonts 3
+  * working out how to move at-risk features to level 4
+  * fuller test coverage
+
+
+## Modified Recommendation (Editorial)
+
+Selectors 3
+  * [wide review](https://github.com/w3c/csswg-drafts/issues/1382), ongoing
+  
+  
+  
+  
+  
+  
+  
+ # Closed
+ 
+ ## First Working Group Note
 
 CSS-2017
 * [Publication request sent](https://lists.w3.org/Archives/Team/webreq/2017Jan/0072.html)
@@ -14,19 +77,17 @@ CSS-2017
 
 ## First Public Working Draft
 
-### Open
-
 CSS Fonts 4
 * [wg decision](https://www.w3.org/2017/04/19-css-irc#T06-11-40) 19 April 2017
-* next step: wait for any sections that get moved from Fonts 3.
+* [transition request](https://lists.w3.org/Archives/Member/chairs/2017JulSep/0000.html) 06 July 2017
+* [publication request](https://lists.w3.org/Archives/Team/webreq/2017Jul/0007.html) 07 July 2017
+* [done](https://www.w3.org/TR/2017/WD-css-fonts-4-20170711/) 11 July 2017
 
 CSS Overflow Level 4
 * [wg decision](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May
 * [transition request](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0122.html) 12 Jun 2017
 * [approval](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0124.html) 12 Jun 2017
-* next step: publication (requested for 04 July, publishing moratorium)
-
-### Closed
+* [done](https://www.w3.org/TR/css-overflow-4/) 13 June 2017
 
 CSS logical (bert handling)
 * [wg decision](https://lists.w3.org/Archives/Public/www-style/2017May/0010.html)  04 May 2017
@@ -66,43 +127,7 @@ CSS Table
 * publication request done
 * [done] (https://www.w3.org/TR/2016/WD-css-tables-3-20161025/) 25 Oct 2016
 
-
 ## Candidate Recommendation
-
-### Open
-
-Paint API
-* [group decision](https://lists.w3.org/Archives/Public/public-houdini/2016Oct/0001.html) 09 Oct 2016, (pending edits)
-* next step: create [transition request](https://services.w3.org/xslt?xmlfile=https://www.w3.org/2005/08/01-transitions2015.html&xslfile=https://www.w3.org/2005/08/transitions2015.xsl&docstatus=cr-tr). 
-  * No changes section since FPWD
-  * [17 Open issues](https://github.com/w3c/css-houdini-drafts/labels/css-paint-api-1)
-  * No disposition of comments
-  * Evidence of wide review?
-   * [TAG review](https://github.com/w3ctag/spec-reviews/issues/140)
-  * Implementation status and test suite?
-  * Waiting for editors to respond on these
-
-
-CSS Display 
-* group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-42-48)
-* changes ?
-* Disposition of Comments ?
-* next step: transition request
-* Bert handling transition and publication
-
-CSS Speech (updated CR, has technical changes)
-* group decision [15 Feb 2017](https://www.w3.org/2017/02/15-css-irc#T17-39-53)
-* should be published as a NOTE because no implementations
-
-
-CSS Contain
-* [group decision](https://www.w3.org/2017/04/21-css-irc#T07-18-13) 21April 2017
-* [Disposition of comments](https://drafts.csswg.org/css-contain/issues-2017.html)
-* [Changes] https://drafts.csswg.org/css-contain/#2017-04-19-changes
-* [Transition request](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0057.html) 8 May 2017
-* next step: waiting for confirmation that issues raised on transition call are resolved.
-
-### Closed
 
 CSS Grid (updated CR, with subgrid moved to Grid 2)
 * group decision [15 Mar 2017](https://www.w3.org/2017/03/15-css-irc#T16-42-41)
@@ -145,30 +170,8 @@ CSS Grid Layout 1 [done](https://www.w3.org/TR/css-grid-1/), 29 September 2016
 
 ## Proposed Recommendation
 
-### Open
-
-Writing Modes
-  * working out how to move at-risk features to level 4, and keep in level 3 but as MAY
-  * working on the tests and finalizing the test report
-  * [wg resolution](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May 2017
-  
-CSS Fonts 3
-  * working out how to move at-risk features to level 4
-  * fuller test coverage
-
-### Closed
-
 _(none)_
 
 ## Modified Recommendation (Editorial)
 
-### Open
-
-Selectors 3
-  * [wide review](https://github.com/w3c/csswg-drafts/issues/1382), ongoing
-  
-### Closed
-
 _(none)_
-  
-  
