@@ -96,6 +96,9 @@ sub read_config {
 		$src_ext = $words[1];
 		last;
 	    };
+	    /^\@def$/o and do {	# Externally defined terms, see mkextdb
+	        last;
+	    };
 	    /^\#/o and do {	# Comment
 		last;
 	    };

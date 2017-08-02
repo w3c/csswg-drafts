@@ -167,7 +167,9 @@ SED = sed
 PERL= perl
 NSGMLS=onsgmls
 HTMLDECL = sgml/HTML4.decl
-LINKLINT=$(PERL) bin/linklint
+# LINKLINT=$(PERL) bin/linklint -doc linklint
+# LINKLINT=linklint -doc linklint
+LINKLINT = bin/checklink --suppress-temp-redirects -q -D 2
 # SPELL = ispell -l -p css.dico
 SPELL = aspell -H -p css.dico list
 DIFF = diff
@@ -241,6 +243,8 @@ RMIMGEXT = $(PERL) ./bin/rmimgext
 ADDMARKUP = $(PERL) ./bin/addmarkup
 # Add longdesc descriptions to images
 ADDLONGDESC = $(PERL) ./bin/addlongdesc
+# Add external links to anchor database
+MKEXTDB = $(PERL) ./bin/mkextdb
 
 # utility to generate the PostScript version
 #
@@ -282,7 +286,7 @@ LN= ln
 # at the cost of possibly incorrect xrefs in the other .html files
 #
 #%.html: %.subtoc Project.cfg
-%.html: %.subtoc $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) Project.cfg build/warning build/meta-viewport build/fixup-js #$(SPECSRCS:.src=.srd)
+%.html: %.subtoc $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) Project.cfg build/warning build/meta-viewport build/fixup-js #$(SPECSRCS:.src=.srd) $(VALUEDB)
 	@echo "=========== making" $@
 	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- value-inst-/value-def- |\
 	$(ADDIDXANCH) -r $@ $(INDEXDB) - |\
@@ -451,6 +455,10 @@ css2.zip: $(ALLOBJS)
 
 #### Section generate property tables from property database.
 
+$(VALUEDB): Project.cfg
+	@echo "Initializing external definition links using" $<
+	$(MKEXTDB) $@ $<
+
 build/blocks.ok: $(PROPBLKSDIR)/blocks.ok
 	touch $@
 
@@ -604,7 +612,7 @@ checksample: sample.src $(PROPSRC)
 checklnx: all
 	-@echo "# Begin checking links."
 	-@$(RM) linklint
-	$(LINKLINT) -doc linklint $(SPECOBJS)
+	$(LINKLINT) $(SPECOBJS)
 	-@echo "# End checking links."
 
 ### check property instances
