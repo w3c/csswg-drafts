@@ -33,14 +33,6 @@ CSS Speech (updated CR, has technical changes)
 * should be published as a NOTE because no implementations
 
 
-CSS Contain
-* [group decision](https://www.w3.org/2017/04/21-css-irc#T07-18-13) 21April 2017
-* [Disposition of comments](https://drafts.csswg.org/css-contain/issues-2017.html)
-* [Changes] https://drafts.csswg.org/css-contain/#2017-04-19-changes
-* [Transition request](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0057.html) 8 May 2017
-* confirmed, issues raised on transition call are resolved 7 July 2017
-* next step: publication request
-
 CSS Scroll snap (updated CR with technical changes)
 * [group decision](http://www.w3.org/2017/07/19-css-irc#T16-30-17) 19 July 2017
 
@@ -49,7 +41,8 @@ CSS Scroll snap (updated CR with technical changes)
 Writing Modes
   * working out how to move at-risk features to level 4, and keep in level 3 but as MAY
   * working on the tests and finalizing the test report
-  * [wg resolution](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May 2017
+  * [wg resolution for PR](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May 2017
+  * [wg resolution for updated CR](https://github.com/w3c/csswg-drafts/issues/1391#issuecomment-320215251) 04 Aug 2017
   
 CSS Fonts 3
   * working out how to move at-risk features to level 4
@@ -130,6 +123,14 @@ CSS Table
 * [done] (https://www.w3.org/TR/2016/WD-css-tables-3-20161025/) 25 Oct 2016
 
 ## Candidate Recommendation
+
+CSS Contain
+* [group decision](https://www.w3.org/2017/04/21-css-irc#T07-18-13) 21April 2017
+* [Disposition of comments](https://drafts.csswg.org/css-contain/issues-2017.html)
+* [Changes] https://drafts.csswg.org/css-contain/#2017-04-19-changes
+* [Transition request](https://lists.w3.org/Archives/Member/chairs/2017AprJun/0057.html) 8 May 2017
+* confirmed, issues raised on transition call are resolved 7 July 2017
+* [done](https://www.w3.org/TR/2017/CR-css-contain-1-20170808/) 07 Aug 2017
 
 CSS Grid (updated CR, with subgrid moved to Grid 2)
 * group decision [15 Mar 2017](https://www.w3.org/2017/03/15-css-irc#T16-42-41)
