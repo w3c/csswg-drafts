@@ -32,7 +32,7 @@ corresponding spec change. If testing is not practical, please explain why and i
 [file an issue](https://github.com/w3c/web-platform-tests/issues/new) to follow up later. Add the
 `type:untestable` or `type:missing-coverage` label as appropriate.
 
-The pre-CR specifications are currently:
+The pre-CR specifications with this testing requirement are currently:
 
 * cssom
 * cssom-view
