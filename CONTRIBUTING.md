@@ -20,3 +20,19 @@ If you added a contributor by mistake, you can remove them in a comment with:
 
 If you are making a pull request on behalf of someone else but you had no part in designing the 
 feature, you can remove yourself with the above syntax.
+
+# Tests
+
+For normative changes for any specification in
+[CR or later](https://www.w3.org/Style/CSS/current-work) as well as the pre-CR specifications listed
+below, a corresponding [web-platform-tests](https://github.com/w3c/web-platform-tests) PR must be
+provided, except if testing is not practical; for other specifications it is usually appreciated.
+Typically, both PRs will be merged at the same time. Note that a test change that contradicts the
+spec should not be merged before the corresponding spec change. If testing is not practical, please
+explain why and if appropriate [file an issue](https://github.com/w3c/web-platform-tests/issues/new)
+to follow up later. Add the `type:untestable` or `type:missing-coverage` label as appropriate.
+
+The pre-CR specifications with this testing requirement are currently:
+
+* cssom
+* cssom-view
