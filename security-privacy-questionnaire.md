@@ -28,7 +28,7 @@ Source: https://www.w3.org/TR/security-privacy-questionnaire/
 |3.13 Does this specification distinguish between behavior in first-party and third-party contexts?| NO |
 |3.14 How should this specification work in the context of a user agent’s "incognito" mode?| SAME|
 |3.15 Does this specification persist data to a user’s local device?| NO |
-|3.16 Does this specification have a "Security Considerations" and "Privacy Considerations" section?| NO |
+|3.16 Does this specification have a "Security Considerations" and "Privacy Considerations" section?| YES |
 |3.17 Does this specification allow downgrading default security characteristics?| NO |
 
 ## Additional Clarifications
