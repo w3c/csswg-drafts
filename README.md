@@ -1,5 +1,7 @@
-# Boundary Scroll Action
+# Scroll Boundary Behavior
 ---
+# Draft Specification
+https://wicg.github.io/scroll-boundary-behavior
 
 # Problem
 
@@ -33,11 +35,3 @@ where:
 * none - Same as contain but also hint that no overscroll affordance should be triggered.
 
 This should apply to all, non-programatic, user scroll actions.
-
-# Issues to file
-
-* Should the property disable scroll chaining through itself to an ancestor if scrolling is initiated from a child element?
-
-* What if the property is attached to a potentially scrollable element without a scrollbox?
-
-* What if the property is attached to an element which is not scrollable?
