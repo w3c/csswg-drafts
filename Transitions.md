@@ -24,7 +24,7 @@ Paint API
 CSS Display 
 * group decision [01 Feb 2017](https://www.w3.org/2017/02/01-css-irc#T17-42-48)
 * changes ?
-* Disposition of Comments ? ton of comments filed after group decision
+* Disposition of Comments ? ton of comments filed after group decision, [27 open issues](https://github.com/w3c/csswg-drafts/labels/css-display-3)
 * next step: discuss remaining issues at Paris 2017 f2f, re-request after f2f
 * Bert handling transition and publication
 
@@ -32,17 +32,15 @@ CSS Speech (updated CR, has technical changes)
 * group decision [15 Feb 2017](https://www.w3.org/2017/02/15-css-irc#T17-39-53)
 * should be published as a NOTE because no implementations
 
-
-CSS Scroll snap (updated CR with technical changes)
-* [group decision](http://www.w3.org/2017/07/19-css-irc#T16-30-17) 19 July 2017
-
-## Proposed Recommendation
-
-Writing Modes
+Writing Modes (updated CR with technical changes)
   * working out how to move at-risk features to level 4, and keep in level 3 but as MAY
   * working on the tests and finalizing the test report
   * [wg resolution for PR](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May 2017
   * [wg resolution for updated CR](https://github.com/w3c/csswg-drafts/issues/1391#issuecomment-320215251) 04 Aug 2017
+  * next steps: update DoC and changes section, write transition request
+
+
+## Proposed Recommendation
   
 CSS Fonts 3
   * working out how to move at-risk features to level 4
@@ -53,6 +51,8 @@ CSS Fonts 3
 
 Selectors 3
   * [wide review](https://github.com/w3c/csswg-drafts/issues/1382), ongoing
+  
+  
   
   
   
@@ -123,6 +123,13 @@ CSS Table
 * [done] (https://www.w3.org/TR/2016/WD-css-tables-3-20161025/) 25 Oct 2016
 
 ## Candidate Recommendation
+
+Media Queries 4
+* [done](https://www.w3.org/TR/2017/CR-mediaqueries-4-20170905/) 5 Sep 2017
+
+CSS Scroll snap (updated CR with technical changes)
+* [group decision](http://www.w3.org/2017/07/19-css-irc#T16-30-17) 19 July 2017
+* [done](https://www.w3.org/TR/2017/CR-css-scroll-snap-1-20170824/) 24 Aug 2017
 
 CSS Contain
 * [group decision](https://www.w3.org/2017/04/21-css-irc#T07-18-13) 21April 2017
