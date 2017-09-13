@@ -5,7 +5,9 @@
 ## Document title, URIs, and estimated publication date
 
 CSS Flexible Box Layout Module Level 1
+
 https://drafts.csswg.org/css-flexbox/
+
 First Tuesday or Thursday after a sucessful transition decision
 
 ## The document Abstract and Status sections
