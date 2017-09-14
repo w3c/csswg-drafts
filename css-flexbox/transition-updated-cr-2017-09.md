@@ -73,7 +73,7 @@ an updated CR to allow wider review of the updated document, while this issue is
 
 ## Formal Objections
 
- :boom: maybe, see #401
+ :boom: maybe, see [#401](https://github.com/w3c/csswg-drafts/issues/401)
 
 ## Implementation
 
