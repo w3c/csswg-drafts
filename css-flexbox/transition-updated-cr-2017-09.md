@@ -22,7 +22,8 @@ First Tuesday or Thursday after a sucessful transition decision
 
 ## Decision to request transition
 
-:boom: waiting for minutes of 13 Sept 2017 telcon
+RESOLVED: Publish an updated CR of Flexbox.
+[minutes, 13 Sept 2017 telcon](https://lists.w3.org/Archives/Public/www-style/2017Sep/0028.html)
 
 ## Changes
 
