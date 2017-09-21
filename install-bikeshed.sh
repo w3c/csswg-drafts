@@ -10,7 +10,7 @@ echo "Installing bikeshed dependencies..."
 sudo apt-get install python2.7 python-dev libxslt1-dev libxml2-dev || error_exit "Error installing Python and dependencies"
 sudo pip install lxml || error_exit "Error installing pip libxml"
 sudo pip install lxml --upgrade || error_exit "Error upgrading libxml"
-sudo pip install setuptools --upgrade || error_exit "Error upgrading setuptools"
+sudo pip install --ignore-installed six || "Error upgrading six"
 sudo pip install pygments || error_exit "Error installing Pygments"
 
 cd ..
