@@ -69,11 +69,11 @@ The [Disposition of Comments](https://drafts.csswg.org/css-flexbox-1/issues-cr-2
 [Issue 34](https://github.com/w3c/csswg-drafts/issues/1322) is still open. The CSS WG would like to publish 
 an updated CR to allow wider review of the updated document, while this issue is further discussed.
 
-:boom: issue 42 is still marked as open. 
+:boom: issue 42 is still marked as open, but the issue is closed and verified 
 
 ## Formal Objections
 
- :boom: maybe, see [#401](https://github.com/w3c/csswg-drafts/issues/401)
+None
 
 ## Implementation
 
