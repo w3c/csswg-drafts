@@ -95,7 +95,7 @@ The [testsuite](https://test.csswg.org/harness/results/css-writing-modes-3_dev/g
 An [analysis of the test results](https://drafts.csswg.org/css-writing-modes-3/implementation-report.html) is also available
   
 
-:boom:  the tests for features moved to Level 4 are still marked as level 3 tests, so need to be edited to make them Level 4 tests
+:boom:  the tests for features moved to Level 4 are still marked as level 3 tests, so need to be edited to make them Level 4 tests during the CR period
 
 ## Patent disclosures
 
