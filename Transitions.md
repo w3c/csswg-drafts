@@ -45,7 +45,7 @@ Flexbox (updated CR with technical changes)
   
  Backgrounds & Borders (updated CR with technical changes)
   * [group decision](https://lists.w3.org/Archives/Public/www-style/2017Sep/0054.html)
-  * next step: Thierry writing transition request
+  * [transition request](https://github.com/w3c/csswg-drafts/blob/master/css-backgrounds/transition-updated-cr-2017-09.md). @@ Email needs to be sent by Thierry.
 
 ## Proposed Recommendation
   
