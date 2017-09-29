@@ -56,9 +56,8 @@ It was returned to Last Call WD in February 2014 to process further comments due
 
 
 
-@@@@ There has now been additional implementation feedback 
-from multiple browsers. All current feedback (bar one item, see below) has 
-been addressed and collected in the latest Disposition 
+@@@@ There has now been additional implementation feedback from multiple browsers. 
+All current feedback has been addressed and collected in the latest Disposition 
 of Comments, so we would like to publish a new CR.@@@@@
 
 @@@@--> Is there a new 2017 disposition of comments ??
