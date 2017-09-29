@@ -56,11 +56,11 @@ It was returned to Last Call WD in February 2014 to process further comments due
 
 
 
-@@@@ There has now been additional implementation feedback from multiple browsers. 
+@@@ TBD @@@ There has now been additional implementation feedback from multiple browsers. 
 All current feedback has been addressed and collected in the latest Disposition 
 of Comments, so we would like to publish a new CR.@@@@@
 
-@@@@--> Is there a new 2017 disposition of comments ??
+@@@ TBD @@@--> Is there a new 2017 disposition of comments ??
 
 ## Issues addressed
 
@@ -71,7 +71,7 @@ All are resolved except;
 [Issue 12](https://github.com/w3c/csswg-drafts/issues/1219) is still open. It is an option to generate caniuse panels for Editor's draft only .
 The issue was RESOLVED: Add caniuse panels to CSS EDs.
 
---> issue 12 is still marked as open, but the issue is closed and verified .
+:boom:  issue 12 is still marked as open, but the issue is closed and verified .
 
 ## Formal Objections
 
@@ -84,6 +84,7 @@ https://test.csswg.org/suites/css3-background/nightly-unstable/
 The [testsuite](https://test.csswg.org/harness/results/css3-background_dev/grouped/) shows that
 506 of 601 required tests meet CR exit criteria.
 
+:boom: @@@ TBD @@@  any other changes in the changes section invalidated existing tests, or need new tests?
 
 ## Patent disclosures
 
