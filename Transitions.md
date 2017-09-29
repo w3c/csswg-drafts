@@ -83,7 +83,7 @@ CSS Fonts 4
 * [publication request](https://lists.w3.org/Archives/Team/webreq/2017Jul/0007.html) 07 July 2017
 * [done](https://www.w3.org/TR/2017/WD-css-fonts-4-20170711/) 11 July 2017
 
-### Closed
+## Candidate Recommendation
 
 CSS Overflow Level 4
 * [wg decision](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May
