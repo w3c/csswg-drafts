@@ -42,6 +42,8 @@ Writing Modes (updated CR with technical changes)
 Flexbox (updated CR with technical changes)
   * [group decision](https://lists.w3.org/Archives/Public/www-style/2017Sep/0028.html) 13 Sept 2017
   * [transition request](https://github.com/w3c/csswg-drafts/blob/master/css-flexbox/transition-updated-cr-2017-09.md) [26 Sept 2017](https://lists.w3.org/Archives/Member/chairs/2017JulSep/0184.html)
+  * [transition decision](https://lists.w3.org/Archives/Member/chairs/2017JulSep/0205.html) 29 Sept 2017
+  * next step: publication, Tues 3 Oct 2017
   
  Backgrounds & Borders (updated CR with technical changes)
   * [group decision](https://lists.w3.org/Archives/Public/www-style/2017Sep/0054.html)
