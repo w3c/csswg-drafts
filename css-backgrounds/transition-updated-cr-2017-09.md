@@ -45,7 +45,7 @@ The following normative references are not yet at CR:
 * CSS Overflow Module Level 3   (WD)
 * CSS Level 2 Revision 2 (CSS 2.2) Specification  (FPWD)
 
-These are primarily to link to the latest definitions of each term.  (??@@@@@@@@@@)
+These are primarily to link to the latest definitions of each term.  (@@@to be checked)
 
 ## Wide Review
 
@@ -61,7 +61,7 @@ from multiple browsers. All current feedback (bar one item, see below) has
 been addressed and collected in the latest Disposition 
 of Comments, so we would like to publish a new CR.@@@@@
 
-@@@@--> Is there a new 2016 disposition of comments ??
+@@@@--> Is there a new 2017 disposition of comments ??
 
 ## Issues addressed
 
