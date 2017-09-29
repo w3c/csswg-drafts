@@ -56,11 +56,11 @@ It was returned to Last Call WD in February 2014 to process further comments due
 
 
 
-@@@ TBD @@@ There has now been additional implementation feedback from multiple browsers. 
+There has now been additional implementation feedback from multiple browsers. 
 All current feedback has been addressed and collected in the latest Disposition 
-of Comments, so we would like to publish a new CR.@@@@@
+of Comments, so we would like to publish a new CR.
 
-@@@ TBD @@@--> Is there a new 2017 disposition of comments ??
+
 
 ## Issues addressed
 
@@ -83,8 +83,6 @@ https://test.csswg.org/suites/css3-background/nightly-unstable/
 
 The [testsuite](https://test.csswg.org/harness/results/css3-background_dev/grouped/) shows that
 506 of 601 required tests meet CR exit criteria.
-
-:boom: @@@ TBD @@@  any other changes in the changes section invalidated existing tests, or need new tests?
 
 ## Patent disclosures
 
