@@ -16,8 +16,9 @@ First Tuesday or Thursday after a sucessful transition decision.
 
 [status (as ED)](https://drafts.csswg.org/css-backgrounds-3/#status)
 
-## Link to previous transition @@@@@@@
+## Link to previous transition 
 
+Transition request: CSS Backgrounds and Borders Module level 3 to CR
 [25 aug 2014](https://lists.w3.org/Archives/Member/chairs/2014JulSep/0095.html) (W3C Member only)
 
 ## Decision to request transition
