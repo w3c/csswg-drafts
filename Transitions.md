@@ -37,7 +37,7 @@ Writing Modes (updated CR with technical changes)
   * working on the tests and finalizing the test report
   * [wg resolution for PR](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May 2017
   * [wg resolution for updated CR](https://github.com/w3c/csswg-drafts/issues/1391#issuecomment-320215251) 04 Aug 2017
-  * next step: transition request
+  * [draft transition request](https://github.com/w3c/csswg-drafts/blob/master/css-writing-modes-3/transition-updated-cr-2017-09.md)
   
 Flexbox (updated CR with technical changes)
   * [group decision](https://lists.w3.org/Archives/Public/www-style/2017Sep/0028.html) 13 Sept 2017
