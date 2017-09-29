@@ -61,15 +61,15 @@ from multiple browsers. All current feedback (bar one item, see below) has
 been addressed and collected in the latest Disposition 
 of Comments, so we would like to publish a new CR.@@@@@
 
---> Is there a new 2016 disposition of comments ??
+@@@@--> Is there a new 2016 disposition of comments ??
 
 ## Issues addressed
 
 The [Disposition of Comments](https://drafts.csswg.org/css-backgrounds-3/issues-cr-2014) shows 14 issues.
 
-All are resolved exept; 
+All are resolved except; 
 
-[Issue 12](https://github.com/w3c/csswg-drafts/issues/1219) is still open. It is an Option to generate caniuse panels for Editor's draft only 
+[Issue 12](https://github.com/w3c/csswg-drafts/issues/1219) is still open. It is an option to generate caniuse panels for Editor's draft only .
 The issue was RESOLVED: Add caniuse panels to CSS EDs.
 
 --> issue 12 is still marked as open, but the issue is closed and verified .
