@@ -1,0 +1,268 @@
+<pre class=metadata>
+Title: CSS Scroll Anchoring Module Level 1
+Shortname: css-scroll-anchoring
+Level: 1
+Group: csswg
+Status: ED
+Work Status: Revising
+ED: https://drafts.csswg.org/css-scroll-anchoring
+Editor: Steve Kobes, Google
+Editor: Tab Atkins-Bittner, Google, http://xanthir.com/contact/, w3cid 42199
+Abstract: Changes in DOM elements above the visible region of a <a>scrolling box</a> can result in the page moving
+Abstract: while the user is in the middle of consuming the content.
+Abstract:
+Abstract: This spec proposes a mechanism to mitigate this jarring user experience
+Abstract: by keeping track of the position of an anchor node and adjusting the scroll offset accordingly.
+Abstract:
+Abstract: This spec also proposes an API for web developers to opt-out of this behavior.
+</pre>
+
+<pre class=link-defaults>
+spec:css22;
+	type:property;
+		text:max-height
+		text:min-height
+		text:height
+		text:max-width
+		text:min-width
+		text:width
+	type:dfn; text:line box
+</pre>
+
+<h2 id=intro>
+Introduction</h2>
+
+Today, users of the web are often distracted by content moving around
+due to changes that occur outside the viewport.
+Examples include script inserting an iframe containing an ad,
+or non-sized images loading on a slow network.
+
+Historically the browser's default behavior has been
+to preserve the absolute scroll position when such changes occur.
+This means that to avoid shifting content,
+the webpage can attempt to reserve space on the page
+for anything that will load later.
+In practice, few websites do this consistently.
+
+Scroll anchoring aims to minimize surprising content shifts.
+It does this by adjusting the scroll position
+to compensate for the changes outside the viewport.
+
+The <a href="https://github.com/WICG/ScrollAnchoring/blob/master/explainer.md">explainer document</a>
+gives an informal overview of scroll anchoring.
+
+<h2 id='description'>
+Description</h2>
+
+Scroll anchoring works by selecting a DOM node (the <dfn export for=scroll-anchoring>anchor node</dfn>)
+whose movement is used to determine adjustments to the scroll position.
+
+<h3 id='anchor-node-selection'>
+Anchor Node Selection</h3>
+
+Each <a>scrolling box</a> aims to select an <a>anchor node</a>
+that is deep in the DOM
+and close to the block start edge of its <a>optimal viewing region</a>.
+
+Note: If the user agent does not support the 'scroll-padding' property,
+the optimal viewing region of the scrolling box is equivalent to its <a>content area</a>.
+
+The anchor node is either a non-anonymous <a>block box</a> or a <a>text node</a>.
+The anchor node is always a <a>descendant</a> of the <a>scrolling box</a>.
+In some cases, a scrolling box may not select any anchor node.
+
+<div algorithm>
+	The <dfn id="anchoring-algorithm">anchor node selection algorithm</dfn>
+	for a scrolling box |S| is as follows:
+
+	1. If |S| is associated with an element
+		whose computed value of the 'overflow-anchor' property is ''overflow-anchor/none'',
+		then do not select an anchor node for |S|.
+	2. Otherwise, for each DOM child |N| of the element or document associated with |S|,
+		perform the <a>candidate examination algorithm</a> for |N| in |S|,
+		and terminate if it selects an anchor node.
+</div>
+
+<div algorithm>
+	The <dfn id="candidate-examination">candidate examination algorithm</dfn>
+	for a candidate DOM node |N| in a scrolling box |S| is as follows:
+
+	1. If |N| is an <a>excluded subtree</a>,
+		or if |N| is <a>fully clipped</a> in |S|,
+		then do nothing (|N| and its descendants are skipped).
+	2. If |N| is <a>fully visible</a> in |S|,
+		select |N| as the anchor node.
+	3. If N is <a>partially visible</a>:
+		1. For each DOM child |C| of |N|,
+			perform the <a>candidate examination algorithm</a> for |C| in |S|,
+			and terminate if it selects an anchor node.
+		2. For each absolutely-positioned element |A|
+			whose <a>containing block</a> is |N|,
+			but whose DOM parent is not |N|,
+			perform the <a>candidate examination algorithm</a> for |A| in |S|,
+			and terminate if it selects an anchor node.
+		3. Select |N| as the anchor node.
+			(If this step is reached,
+			no suitable anchor node was found among |N|’s descendants.)
+
+		Note: Deeper nodes are preferred to minimize the possibility of content changing
+		inside the anchor node but outside the viewport, which would cause visible
+		content to shift without triggering any scroll anchoring adjustment.
+</div>
+
+Conceptually, a new anchor node is computed for every scrolling box
+whenever the scroll position of any scrolling box changes.
+(As a performance optimization,
+the implementation may wait until the anchor node is needed before computing it.)
+
+<div algorithm>
+	A DOM node |N| is an <dfn>excluded subtree</dfn>
+	if it is an element and any of the following conditions holds:
+
+	* |N|’s computed value of the 'display' property is ''display/none''.
+	* |N|’s computed value of the 'position' property is ''position/fixed''.
+	* |N|’s computed value of the 'position' property is ''position/absolute''
+		and |N|’s <a>containing block</a> is an ancestor of the scrolling box.
+	* |N|’s computed value of the 'overflow-anchor' property is ''overflow-anchor/none''.
+</div>
+
+<div algorithm>
+	A DOM node |N| is <dfn>fully visible</dfn> in a scrolling box |S|
+	if |N|’s <a>scroll anchoring bounding rect</a> is entirely within the <a>optimal viewing region</a> of |S|.
+</div>
+
+<div algorithm>
+	A DOM node |N| is <dfn>fully clipped</dfn> in a scrolling box |S|
+	if |N|’s <a>scroll anchoring bounding rect</a> is entirely outside the <a>optimal viewing region</a> of |S|.
+</div>
+
+<div algorithm>
+	A DOM node |N| is <dfn>partially visible</dfn> in a scrolling box |S|
+	if |N| is neither <a>fully visible</a> in |S| nor <a>fully clipped</a> in |S|.
+</div>
+
+<div algorithm>
+	The <dfn>scroll anchoring bounding rect</dfn> of a DOM node |N|
+	is |N|’s <a>scrollable overflow rectangle</a> if |N| is a <a>block box</a>,
+	or the bounding rect of its <a>line boxes</a> if |N| is a text node.
+</div>
+
+<h3 id="scroll-adjustment">
+Scroll Adjustment</h3>
+
+If an anchor node was selected,
+then when the anchor node moves,
+the browser computes the previous offset <code>y0</code>, and the current offset <code>y1</code>,
+of the block start edge of the anchor node's <a>scroll anchoring bounding rect</a>,
+relative to the block start edge of the scrolling content in the <a>block flow direction</a> of the scroller.
+
+It then queues an adjustment to the scroll position of <code>y1 - y0</code>,
+in the block flow direction,
+to be performed at the end of the <a>suppression window</a>.
+
+The scroll adjustment is a type of [[cssom-view-1#scrolling-events#scrolling]] as defined by [[!CSSOM-VIEW]],
+and generates <a event lt=scroll>scroll events</a> in the manner described there.
+
+<h4 id="suppression-windows">
+Suppression Window</h4>
+
+Every movement of an anchor node occurs within a window of time
+called the <dfn>suppression window</dfn>,
+defined as follows:
+
+* The suppression window begins at the start of the current iteration of the
+	<a href="https://html.spec.whatwg.org/multipage/webappapis.html#processing-model-8">HTML Processing Model</a> event loop,
+	or at the end of the most recently completed suppression window,
+	whichever is more recent.
+* The suppression window ends at the end of the current iteration of the
+	<a href="https://html.spec.whatwg.org/multipage/webappapis.html#processing-model-8">HTML Processing Model</a> event loop,
+	or immediately before the next operation whose result or side effects
+	would differ as a result of a change in the scroll position
+	(for example, an invocation of {{Element/getBoundingClientRect()}}),
+	whichever comes sooner.
+
+Note: The suppression window boundaries should be incorporated into the HTML standard once the
+scroll anchoring API is stabilized.
+
+More than one anchor node movement may occur within the same suppression window.
+
+At the end of a suppression window,
+the user agent performs all scroll adjustments that were queued during the window
+and not suppressed by any <a>suppression trigger</a> during the window.
+
+<h4 id="suppression-triggers">
+Suppression Triggers</h4>
+
+A <dfn>suppression trigger</dfn> is an operation
+that suppresses the scroll anchoring adjustment for an anchor node movement,
+if it occurs within the suppression window for that movement.
+These triggers are:
+
+* Any change to the computed value of any of the following properties,
+	on any element in the path from the anchor node to the scrollable element (or document),
+	inclusive of both:
+
+	* 'top', 'left', 'right', or 'bottom'
+	* 'margin' or its longhands
+	* 'padding' or its longhands
+	* 'width', 'height', 'min-width', 'max-width', 'min-height', or 'max-height'
+	* 'position'
+	* 'transform'
+
+* Any change to the computed value of the 'position' property
+	on any element within the scrollable element (or document),
+	such that the element becomes or stops being absolutely positioned.
+	Note that this trigger applies regardless of whether the modified element is
+	on the path from the anchor node to the scrollable element.
+
+Note: Suppression triggers exist for compatibility with existing web content that has negative
+interactions with scroll anchoring due to shifting content in scroll event handlers.
+
+<h2 id="exclusion-api">
+Exclusion API</h2>
+
+Scroll anchoring aims to be the default mode of behavior when launched,
+so that users benefit from it even on legacy content.
+'overflow-anchor' can disable scroll anchoring in part or all of a webpage (opt out),
+or exclude portions of the DOM from the anchor node selection algorithm.
+
+<pre class=propdef>
+Name: overflow-anchor
+Value: auto | none
+Initial: auto
+Inherited: no
+</pre>
+
+Values are defined as follows:
+
+<dl dfn-type=value dfn-for=overflow-anchor>
+	: <dfn>auto</dfn>
+	::
+		Declares that the element
+		is potentially eligible to participate in the <a>anchor node selection algorithm</a>
+		for any scrolling box created by the element or an ancestor.
+
+	: <dfn>none</dfn>
+	::
+		Declares that the element and its descendants
+		(that aren't nested inside of another scrolling element)
+		are <em>not</em> eligible to participate in the <a>anchor node selection algorithm</a>
+		for any scrolling box created by the element or an ancestor.
+</dl>
+
+Note: It is not possible to turn scroll anchoring "back on"
+for descendants of a ''overflow-anchor: none'' element.
+However, descendant <a>scroll containers</a> automatically "turn it back on"
+(for their own scrolling box)
+unless they explicitly have ''overflow-anchor: none'' set on them as well.
+
+Note: The <code>overflow-anchor</code> property was also proposed (with different values)
+for <a href="http://tabatkins.github.io/specs/css-sticky-scrollbars/">CSS Sticky Scrollbars</a>,
+which has now been <a href="https://tabatkins.github.io/specs/css-sticky-scrollbars/#intro">superseded</a>.
+
+<h2 id='priv-sec'>
+Privacy and Security Considerations</h2>
+
+This specification,
+as it only adjusts how we compute scroll positions,
+introduces no new privacy or security considerations.
