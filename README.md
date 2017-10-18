@@ -28,19 +28,19 @@ The history of WebKit, Blink, Gekco, and W3C
   - In several references below, you can get the help to understand the Snav operations.
 
 **Q. Isn’t it enough just using the relevant Web frameworks?**
-  - Due to no support from web engine, severel Web frameworks and extensions for the Snav exist for now. [js-spatial-navigation](https://github.com/luke-chang/js-spatial-navigation) by Mozilla seems one of the frameworks and the quality would be good to support the features of Snav. [Spotlight library](https://github.com/enyojs/spotlight) by LGE is an instance of the frameworks for the Snav, even though it'll deprecated soon. However, the support of Snav from Web frameworks has some limits. blahblah (aligning scrolling, particularily using native focus method for a11y)
+  - Severel Web frameworks and extensions for the Snav have been provided so far due to no support from web engines. For examples, [js-spatial-navigation](https://github.com/luke-chang/js-spatial-navigation) made by Mozilla seems one of the frameworks and the quality would be good to support the features of Snav. [Spotlight library](https://github.com/enyojs/spotlight) made by LGE is an instance of the frameworks for the Snav, even though it was deprecated now. However, the support of Snav from Web frameworks has some limits. blahblah (aligning scrolling, particularily using native focus method for a11y)
 
 **Q. The Snav seems not the general feature esp. in mobile with no physical key-based interface.**
-  - Honestly, the mobile has been a first citizen of Snav about 10 years old. Before touch-based interface, the majority of interface for mobile was key-based methods. We're familiar with the kind of mobile phone named feature phone. In the future, the input methods for smart devices will be changed a lot, but the basic interfaces like key based will never disappear. It would be the most intuitive method with a strong feedback after pushing a key, while we couldn't imagine a touch-based keyboard without any physical keys.
-  
-**Q. The future input methods such as voice command, hand gesture, eyes direction will be promising. Why we should consider the new key-based input methods for the 4-way directional key navigation.**
-  - As AI would be more and more promising technologies these days, the voice command has been anticipated to be used widely. It's true, but...
+  - Honestly, the mobile has been a first citizen of Snav about 10 years old. Before touch-based interface, the majority of interface for mobile was key-based methods. We're familiar with kind of mobile phone named a feature phone. In the future, the input methods for smart devices will be changed to something like voice command, hand gesture, and eyes direction, but the key-based interfaces will never disappear, even though it'll be used as a secondary method. It would be the most intuitive method with a strong feedback after pushing a key, while we couldn't imagine a touch-based keyboard without any physical keys.
+
+**Q. Put the question on issues of this repository :D**
+  - Everything for Snav is welcome
 
 ## Reference
 - JavaScript Spatial Navigation (Mozilla)
   - https://github.com/luke-chang/js-spatial-navigation
 - Spotlight library for spatial navigation (LG Electronics)
-  - https://github.com/enyojs/spotlight **(deprecated)**
+  - https://github.com/enyojs/spotlight **(deprecated)**
 - Implementing TV remote control navigation (MDN)
   - https://developer.mozilla.org/en-US/docs/Mozilla/Firefox_OS_for_TV/TV_remote_control_navigation
 - Focus navigation with keyboard, gamepad, and accessibility tools (MS)
