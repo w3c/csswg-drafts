@@ -3,7 +3,7 @@ To support the spatial navigation in the Web, we need to develop several standar
 
 ## Options for enabling the spatial navigation mode
 It makes author set the spatial navigation mode. The following API could be considered for the options.
-  - HTML: <meta name="device" content="type=tv, input=remote-controller">
+  - HTML: &lt;meta name="device" content="type=tv, input=remote-controller"&gt;
   - CSS: arrow-key-behavior: auto | navigation | scroll" or "spatial-mode: always | none
   - JS: setSpatialNavigation(true)
   
