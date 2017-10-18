@@ -250,7 +250,7 @@ sub header {
   .d  { background: #8CCBF2    }
   .oi { background: #E0CB52    }
   .r  { background: orange     }
-  .fo { background: red        }
+  .fo { background: #f66       }
   pre.a  { background: #E9FBE9 }
   pre.d  { background: #DEF    }
   pre.oi { background: #FCFAEE }
