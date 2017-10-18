@@ -1,7 +1,7 @@
 # Spatial Navigation
 This is the repository for making the Web excellently embrace the spatial navigation features so that the Web technology can be propagated into several industries such as TV, IVI, game console, and upcoming smart devices.
 
-This repository consists of the basic description for spatial navigation, landscapes of the relevant industries, and the current status for [W3C standardization](explainer.md) and [Web engine implementation](impl.md) such as Blink, WebKit, Gecko, and EdgeHTML, while the relevant issues would be discussed in W3C working groups and Web engine open source communities.
+This repository consists of the basic description for spatial navigation, landscapes of the relevant industries, and the current status for [W3C standardization](explainer.md) and [Web engine implementation](implStatus.md) such as Blink, WebKit, Gecko, and EdgeHTML, while the relevant issues would be discussed in W3C working groups and Web engine open source communities.
 
 You're welcome to contribute! If you have something to say for the spatial navigation, please kindly put it on [issues](https://github.com/lgeweb/spatial-navigation/issues) of this repository. Let's make the Web to be extensible for the several industries!
 
@@ -16,7 +16,7 @@ Use cases description
 Industry description
 
 ## Mission
-explainer link
+Prior to the mission explanation, we are required how the arrow keys works in the Web. 
 
 ## History
 The history of WebKit, Blink, Gekco, and W3C
@@ -25,15 +25,20 @@ The history of WebKit, Blink, Gekco, and W3C
 **Q. I’m not sure how the spatial (directional) navigation behavior work.**
   - You can see the video that shows the Snav behavior in the YouTube page ([link](https://www.youtube.com/watch?v=TzDtcX9urUg)).
   - You can see the brief description for the Snav in Wikipedia ([link](https://en.wikipedia.org/wiki/Spatial_navigation)).
-  - In several references below, you can get the help to understand the Snav operations.
+  - In several references below, you can get the help to understand the Snav operations well.
 
 **Q. Isn’t it enough just using the relevant Web frameworks?**
-  - Severel Web frameworks and extensions for the Snav have been provided so far due to no support from web engines. For examples, [js-spatial-navigation](https://github.com/luke-chang/js-spatial-navigation) made by Mozilla seems one of the frameworks and the quality would be good to support the features of Snav. [Spotlight library](https://github.com/enyojs/spotlight) made by LGE is an instance of the frameworks for the Snav, even though it was deprecated now. However, the support of Snav from Web frameworks has some limits. blahblah (aligning scrolling, particularily using native focus method for a11y)
+  - Severel Web frameworks and extensions for the Snav have been provided so far due to no support from web engines. For examples, [js-spatial-navigation](https://github.com/luke-chang/js-spatial-navigation) made by Mozilla seems one of the frameworks and the quality would be good to support the features of Snav. [Spotlight library](https://github.com/enyojs/spotlight) made by LGE is also an instance of the frameworks for the Snav, even though it was deprecated now. However, the support of Snav from Web frameworks has some limits as follows:
+    1. difficult to align native scroll behavior when moving the focus to an element out of view
+    2. difficult to align native focus method for a11y support
+    3. performance degradation due to the expensive cost of DOM Access
+    4. inconsistency of user experience (various sort of frameworks)
+    5. impossible to control isolated frames like iframe and shadow DOM
 
 **Q. The Snav seems not the general feature esp. in mobile with no physical key-based interface.**
   - Honestly, the mobile has been a first citizen of Snav about 10 years old. Before touch-based interface, the majority of interface for mobile was key-based methods. We're familiar with kind of mobile phone named a feature phone. In the future, the input methods for smart devices will be changed to something like voice command, hand gesture, and eyes direction, but the key-based interfaces will never disappear, even though it'll be used as a secondary method. It would be the most intuitive method with a strong feedback after pushing a key, while we couldn't imagine a touch-based keyboard without any physical keys.
 
-**Q. Put the question on issues of this repository :D**
+**Q. Put any question on [issues](https://github.com/lgeweb/spatial-navigation/issues) of this repository :D**
   - Everything for Snav is welcome
 
 ## Reference
