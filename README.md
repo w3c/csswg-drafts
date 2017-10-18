@@ -3,9 +3,7 @@ This is the repository for making the Web excellently embrace the spatial naviga
 
 This repository consists of the basic description for spatial navigation, landscapes of the relevant industries, and the current status for [W3C standardization](explainer.md) and [Web engine implementation](impl.md) such as Blink, WebKit, Gecko, and EdgeHTML, while the relevant issues would be discussed in W3C working groups and Web engine open source communities.
 
-You're welcome to contribute! Let's make the Web to be extensible!
-
-If you have something to say for the spatial navigation, please kindly put it on the issues of this repository.
+You're welcome to contribute! If you have something to say for the spatial navigation, please kindly put it on the issues of this repository. Let's make the Web to be extensible!
 
 ## Overview
 **Spatial navigation (aka Snav)** is the ability to navigate between focusable elements based on their position within a structured document. Spatial navigation is often called the directional navigation which enables four directional navigation. Users are usually familiar with the 2-way navigation using tab key for the forward direction and shift+tab key for the backward direction, but not familiar with the 4-way navigation using arrow keys.
