@@ -28,6 +28,9 @@ blah
 3. overriding methods
 blah
 
+See the [explainer](explainer.md) for the details of W3C standardization.
+See the [implStatus](implStatus.md) for the details of the implementation status from Web engines.
+
 ## History
 The history of WebKit, Blink, and Gekco implementation..
 
