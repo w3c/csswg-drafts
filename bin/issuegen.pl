@@ -246,11 +246,16 @@ sub header {
 <style type="text/css">
   pre { border: solid thin silver; padding: 0.2em; white-space: normal; }
   pre > span { display: block; white-space: pre; }
-  :not(pre).a  { background: lightgreen }
-  :not(pre).d  { background: lightblue  }
-  :not(pre).oi { background: yellow     }
-  :not(pre).r  { background: orange     }
-  :not(pre).fo { background: red        }
+  .a  { background: #52E052    }
+  .d  { background: #8CCBF2    }
+  .oi { background: #E0CB52    }
+  .r  { background: orange     }
+  .fo { background: red        }
+  pre.a  { background: #E9FBE9 }
+  pre.d  { background: #DEF    }
+  pre.oi { background: #FCFAEE }
+  pre.r  { background: #FFEECC }
+  pre.fo { background: #FBE9E9 }
   .open   { border: solid red; }
   :target { box-shadow: 0.25em 0.25em 0.25em;  }
   a[href^=mid], a[href~=flatten] { text-decoration: none; }
