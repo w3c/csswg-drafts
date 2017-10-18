@@ -11,15 +11,27 @@ You're welcome to contribute! If you have something to say for the spatial navig
 Regarding TV remote control, game console pad, IVI jog dial with 4-way keys, and Web accessibility, spatial navigation has been a rising important input mechanism in several industries. If the Web can embrace the spatial navigation and effectively support the functionalities in Web engines and W3C APIs, it will be more promising technology for existing products as mentioned above and various upcoming products.
 
 ## Motivation
-Technical description
-Use cases description
-Industry description
+The story of industries..
+
+The list of use cases..
 
 ## Mission
-Prior to the mission explanation, we are required how the arrow keys works in the Web. 
+Prior to the mission explanation, we are required how the arrow keys works in the Web. If you're watching this page in a normal HD monitor with PC, not mobile, please push a down key in your keyboard. What happens? Basically, scrolling downward would be triggered. That's the default behavior of arrow keys in the Web, only when the browsing context is overflowed in the direction. In spatial navigation mode, the default behavior of arrow keys is changed from scrolling to focus moving so that users can use the arrow keys to navigate between focusable elements based on their position.
+
+To support the functionality of the spatial navigation, we should consider the following three factors:
+1. Options to enable the spatial navigation mode
+blah
+
+2. heuristic algorithm
+blah
+
+3. overriding methods
+blah
 
 ## History
-The history of WebKit, Blink, Gekco, and W3C
+The history of WebKit, Blink, and Gekco implementation..
+
+The history of CSS WG discussion..
 
 ## FAQ
 **Q. I’m not sure how the spatial (directional) navigation behavior work.**
