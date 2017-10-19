@@ -18,23 +18,14 @@ The list of use cases..
 ## Mission
 Prior to the mission explanation, we are required how the arrow keys works in the Web. If you're watching this page in a normal HD monitor with PC, not mobile, please push a down key in your keyboard. What happens? Basically, scrolling downward would be triggered. That's the default behavior of arrow keys in the Web, only when the browsing context is overflowed in the direction. In spatial navigation mode, the default behavior of arrow keys is changed from scrolling to focus moving so that users can use the arrow keys to navigate between focusable elements based on their position.
 
-To support the functionality of the spatial navigation, we should consider the following three factors:
-1. Options to enable the spatial navigation mode
-blah
+To support the functionality of the spatial navigation, we should consider the following three steps:
+1. Options for enabling the spatial navigation mode
+2. A heuristic algorithm for spatial navigation in Web engines
+3. Overriding methods on top of the heuristic algorithm
 
-2. heuristic algorithm
-blah
-
-3. overriding methods
-blah
-
-See the [explainer](explainer.md) for the details of W3C standardization.
-See the [implStatus](implStatus.md) for the details of the implementation status from Web engines.
-
-## History
-The history of WebKit, Blink, and Gekco implementation..
-
-The history of CSS WG discussion..
+See the [explainer](explainer.md) for the details of W3C standardization for #1 and #3 above.
+ 
+See the [implStatus](implStatus.md) for the details of the implementation in Web engines for #2 above.
 
 ## FAQ
 **Q. I’m not sure how the spatial (directional) navigation behavior work.**
@@ -60,7 +51,7 @@ The history of CSS WG discussion..
 - JavaScript Spatial Navigation (Mozilla)
   - https://github.com/luke-chang/js-spatial-navigation
 - Spotlight library for spatial navigation (LG Electronics)
-  - https://github.com/enyojs/spotlight **(deprecated)**
+  - https://github.com/enyojs/spotlight (deprecated)
 - Implementing TV remote control navigation (MDN)
   - https://developer.mozilla.org/en-US/docs/Mozilla/Firefox_OS_for_TV/TV_remote_control_navigation
 - Focus navigation with keyboard, gamepad, and accessibility tools (MS)
