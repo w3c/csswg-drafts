@@ -1,26 +1,23 @@
 # Spatial Navigation
 This is the repository for making the Web excellently embrace the spatial navigation features so that the Web technology can be propagated into several industries such as TV, IVI, game console, and upcoming smart devices.
 
-This repository consists of the basic description for spatial navigation, landscapes of the relevant industries, and the current status for [W3C standardization](explainer.md) and [Web engine implementation](implStatus.md) such as Blink, WebKit, Gecko, and EdgeHTML, while the relevant issues would be discussed in W3C working groups and Web engine open source communities.
+This repository consists of the basic description for the spatial navigation, landscapes of the relevant industries, and the current status of [W3C standardization](explainer.md) and [Web engine implementation](implStatus.md) such as Blink, WebKit, Gecko, and EdgeHTML, while the relevant issues would be discussed in W3C working groups and Web engine open source communities.
 
 You're welcome to contribute! If you have something to say for the spatial navigation, please kindly put it on [issues](https://github.com/lgeweb/spatial-navigation/issues) of this repository. Let's make the Web to be extensible for the several industries!
 
 ## Overview
 **Spatial navigation (aka Snav)** is the ability to navigate between focusable elements based on their position within a structured document. Spatial navigation is often called the directional navigation which enables four directional navigation. Users are usually familiar with the 2-way navigation using tab key for the forward direction and shift+tab key for the backward direction, but not familiar with the 4-way navigation using arrow keys.
 
-Regarding TV remote control, game console pad, IVI jog dial with 4-way keys, and Web accessibility, spatial navigation has been a rising important input mechanism in several industries. If the Web can embrace the spatial navigation and effectively support the functionalities in Web engines and W3C APIs, it will be more promising technology for existing products as mentioned above and various upcoming products.
-
-## Motivation
-The story of industries..
-
-The list of use cases..
+Regarding TV remote control, game console pad, IVI jog dial with 4-way keys, and Web accessibility, the spatial navigation has been a rising important input mechanism in several industries. If the Web can embrace the spatial navigation and effectively support the functionalities in Web engines and W3C APIs, it will be more promising technology for existing products as mentioned above and various upcoming products.
 
 ## Mission
-Prior to the mission explanation, we are required how the arrow keys works in the Web. If you're watching this page in a normal HD monitor with PC, not mobile, please push a down key in your keyboard. What happens? Basically, scrolling downward would be triggered. That's the default behavior of arrow keys in the Web, only when the browsing context is overflowed in the direction. In spatial navigation mode, the default behavior of arrow keys is changed from scrolling to focus moving so that users can use the arrow keys to navigate between focusable elements based on their position.
+Prior to the mission explanation, we are required how the arrow keys works in the Web. If you're watching this page in a normal HD monitor with PC, not mobile, please push a down key in your keyboard. What happens? Basically, scrolling downward would be triggered. That's the default behavior of arrow keys in the Web, only when the browsing context is overflowed in the direction.
 
-To support the functionality of the spatial navigation, we should consider the following three steps:
+In spatial navigation mode, the default behavior of arrow keys is changed from scrolling to focus moving so that users can use the arrow keys to navigate between focusable elements based on their position.
+
+To support the functionalities of the spatial navigation, we should consider the following three steps:
 1. Options for enabling the spatial navigation mode
-2. A heuristic algorithm for spatial navigation in Web engines
+2. A heuristic algorithm for the spatial navigation in Web engines
 3. Overriding methods on top of the heuristic algorithm
 
 See the [explainer](explainer.md) for the details of W3C standardization for #1 and #3 above.
