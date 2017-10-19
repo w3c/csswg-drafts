@@ -1,7 +1,7 @@
 # Spatial Navigation
 This is the repository for making the Web excellently embrace the spatial navigation features so that the Web technology can be propagated into several industries such as TV, IVI, game console, and upcoming smart devices.
 
-This repository consists of the basic description for the spatial navigation, landscapes of the relevant industries, and the current status of [W3C standardization](explainer.md) and [Web engine implementation](implStatus.md) such as Blink, WebKit, Gecko, and EdgeHTML, while the relevant issues would be discussed in W3C working groups and Web engine open source communities.
+This repository consists of the basic description for the spatial navigation, landscapes of the relevant industries, and the current status of [W3C standardization](explainer.md) and [Implementation of Web engines](implStatus.md) such as Blink, WebKit, Gecko, and EdgeHTML, while the relevant issues would be discussed in W3C working groups and Web engine open source communities.
 
 You're welcome to contribute! If you have something to say for the spatial navigation, please kindly put it on [issues](https://github.com/lgeweb/spatial-navigation/issues) of this repository. Let's make the Web to be extensible for the several industries!
 
