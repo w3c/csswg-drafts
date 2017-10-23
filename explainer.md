@@ -3,9 +3,9 @@ To support the spatial navigation in the Web, we need to develop several standar
 
 ## Enabling the spatial navigation mode
 It makes author set the spatial navigation mode. The following API could be considered for the possibilities to support the feature:
-  - HTML: &lt;meta name="device" content="type=tv, input=remote-controller"&gt;
+  - HTML: &lt;meta name="input" content="remote-controller"&gt;
   - CSS: arrow-key-behavior: auto | navigation | scroll" or "spatial-mode: always | none
-  - JS: setSpatialNavigation(true)
+  - JS: setSpatialNavigationEnabled(true)
   
 ## Overriding methods on top of the heuristic algorithm
 Developers can customize the spatial navigation with CSS properties by overriding the heuristic spatial navigation.
