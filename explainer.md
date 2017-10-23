@@ -69,7 +69,7 @@ nav-rule: auto | projection | direction | nearest
   - Applied to the containing block, so all focusable elements in the DOM subtree rooted at the applied element follow the specified rule for the spatial navigation.
   - Overridden by nav-left/right/top/bottom properties.
   - Override the Heuristic Spatial Navigation if it is supported.
-  - If the `nav-rule` property is applied to the element E, the DOM subtree rooted at E in the scrollable area created by E follows the focus moving algorithm as below.
+- If the `nav-rule` property is applied to the element E, the DOM subtree rooted at E in the scrollable area created by E follows the focus moving algorithm as below.
     - Let E has child nodes A, B, C, and D which are `width: 50px; height: 50px;`.
     - Let the upper edge of the A is positioned `100px` down from the upper edge of the E and the leftside edge of the A is positioned `100px` to the right from the leftside edge of the E.
     - Let the upper edge of the B is positioned `50px` down from the upper edge of the E and the leftside edge of the B is positioned `250px` to the right from the leftside edge of the E.
