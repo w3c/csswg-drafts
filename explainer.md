@@ -4,11 +4,18 @@ To support the spatial navigation in the Web, we need to develop several standar
 ## API enabling the spatial navigation mode
 It makes author set the spatial navigation mode. The following API could be considered for the possibilities to support the feature:
   - HTML: &lt;meta name="input" content="remote-controller"&gt;
-    - If the using input device matches with the specified value of the content, the spatial navigation mode is enabled.
-  - CSS: "arrow-key-behavior: auto | navigation | scroll" or "spatial-mode: always | none"
-    - auto: The directional navigational input responses as the UA-defined manner.
-    - navigation: The directional navigational input responses as the spatial navigation mode.
-    - scroll: The directional navigational input responses for controlling the scrollbar.
+    - If the using input device matches with the specified value of the content, the spatial navigation mode is enabled.
+  - CSS: If the property is applied to the element, the DOM subtree rooted at the element can be managed by the spatial nagivation or not.
+    - arrow-key-behavior: auto | navigation | scroll
+      - auto: The directional navigational input responses as the UA-defined manner.
+      - navigation: The directional navigational input responses as the spatial navigation mode.
+      - scroll: The directional navigational input responses for controlling the scrollbar.
+      
+    or
+      
+    - spatial-mode: always | none
+      - always: The spatial navigation mode is enabled.
+      - none: The spatial navigation mode is disabled.
   - JS: setSpatialNavigationEnabled(boolean)
     - If the parameter is 'true', the spatial navigation mode is enabled.
     - Otherwise, the spatial navigation mode is enabled and the directional navigational input responses as the UA-defined manner.
@@ -38,10 +45,11 @@ The following properties are proposed to embrace the developer’s intention and
       - projection: Moves the focus to the first element encountered when projecting the edge of the currently focused element to the edge of the applied element in the direction of navigation.
       - direction : Moves the focus to the first element encountered when projecting the edge of the applied element from the currently focused element in the direction of navigation.
       - nearest: Moves the focus to the closest element based on the shortest 2D distance and the distance is measured depending on the center of each element.
-    - If the `nav-rule` property is applied to the element E, the DOM subtree rooted at E in the scrollable area created by E follows the focus moving algorithm as below.
+      
+    If the `nav-rule` property is applied to the element E, the DOM subtree rooted at E in the scrollable area created by E follows the focus moving algorithm as below.
       - Let E has child nodes A, B, C, and D which are `width: 50px; height: 50px;`.
-      - Let the upper edge of the A is positioned 100px down from the upper edge of the E and the leftside edge of the A is positioned 100px to the right from the leftside edge of the E.
-      - Let the upper edge of the B is positioned 50px down from the upper edge of the E and the leftside edge of the B is positioned 250px to the right from the leftside edge of the E.
+      - Let the upper edge of the A is positioned 100px down from the upper edge of the E and the leftside edge of the A is positioned 100px to the right from the leftside edge of the E.
+      - Let the upper edge of the B is positioned 50px down from the upper edge of the E and the leftside edge of the B is positioned 250px to the right from the leftside edge of the E.
       - Let the upper edge of the C is positioned 250px down from the upper edge of the E and the leftside edge of the C is positioned 200px to the right from the leftside edge of the E.
       - Let the upper edge of the D is positioned 100px down from the upper edge of the E and the leftside edge of the D is positioned 500px to the right from the leftside edge of the E.
       - Let the initial focus goes to A among the DOM subtree rooted at E.
@@ -57,7 +65,7 @@ The following properties are proposed to embrace the developer’s intention and
       - auto: The UA automatically determines where to move the focus when the focus reaches to the end of the page.
       - no-repeat: Disables the focus looping
       - repeat: Enables the focus looping
-    - If `nav-loop: repeat` is applied to the element E, the DOM subtree rooted at E is eligible to participate in the focus looping for any scrollable area created by E.
+    If `nav-loop: repeat` is applied to the element E, the DOM subtree rooted at E is eligible to participate in the focus looping for any scrollable area created by E.
       - Let the element A is the first child node and the element Z is the last child node in the DOM subtree rooted at E. If the current focused element is Z and there is an input from the down-arrow key, the focus is moved to A.
 
 ## Issues
