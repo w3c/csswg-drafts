@@ -3,7 +3,7 @@ To support the spatial navigation in the Web, we need to develop several standar
 
 ## API enabling the spatial navigation mode
 It makes author set the spatial navigation mode. The following API could be considered for the possibilities to support the feature:
-  - HTML: &lt;meta name="input" content="remote-controller"&gt;
+  - HTML: `&lt;meta name="input" content="remote-controller"&gt;`
     - If the using input device matches with the specified value of the content, the spatial navigation mode is enabled.
   - CSS:
   
@@ -53,10 +53,10 @@ The following properties are proposed to embrace the developer’s intention and
     
     If the `nav-rule` property is applied to the element E, the DOM subtree rooted at E in the scrollable area created by E follows the focus moving algorithm as below.
       - Let E has child nodes A, B, C, and D which are `width: 50px; height: 50px;`.
-      - Let the upper edge of the A is positioned 100px down from the upper edge of the E and the leftside edge of the A is positioned 100px to the right from the leftside edge of the E.
-      - Let the upper edge of the B is positioned 50px down from the upper edge of the E and the leftside edge of the B is positioned 250px to the right from the leftside edge of the E.
-      - Let the upper edge of the C is positioned 250px down from the upper edge of the E and the leftside edge of the C is positioned 200px to the right from the leftside edge of the E.
-      - Let the upper edge of the D is positioned 100px down from the upper edge of the E and the leftside edge of the D is positioned 500px to the right from the leftside edge of the E.
+      - Let the upper edge of the A is positioned `100px` down from the upper edge of the E and the leftside edge of the A is positioned `100px` to the right from the leftside edge of the E.
+      - Let the upper edge of the B is positioned `50px` down from the upper edge of the E and the leftside edge of the B is positioned `250px` to the right from the leftside edge of the E.
+      - Let the upper edge of the C is positioned `250px` down from the upper edge of the E and the leftside edge of the C is positioned `200px` to the right from the leftside edge of the E.
+      - Let the upper edge of the D is positioned `100px` down from the upper edge of the E and the leftside edge of the D is positioned `500px` to the right from the leftside edge of the E.
       - Let the initial focus goes to A among the DOM subtree rooted at E.
       - `nav-rule: projection` is applied to the element E and the current focused element is A, the focus moves to D when there is an input from the right-arrow key.
       - `nav-rule: direction` is applied to the element E and the current focused element is A, the focus moves to C when there is an input from the right-arrow key.
@@ -79,7 +79,7 @@ The following properties are proposed to embrace the developer’s intention and
       - Let the element A is the first child node and the element Z is the last child node in the DOM subtree rooted at E. If the current focused element is Z and there is an input from the down-arrow key, the focus is moved to A.
 
 ## Issues
-- Why CSS properties instead of HTML attributes (like tabindex)?
+- Why CSS properties instead of HTML attributes (like `tabindex`)?
 - How can the feature be made to be composable.  Eg. in a world of custom elements and frameworks like polymer, how can you reason about spatial navigation without having global knowledge of the whole page?  Eg. could we instead make the properties define local spatial navigation (eg. between components) while allowing components to define navigation behavior inside of themselves?
 
 ## Future work
