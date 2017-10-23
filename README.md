@@ -6,7 +6,7 @@ This repository consists of the basic description for the spatial navigation, la
 You're welcome to contribute! If you have something to say for the spatial navigation, please kindly put it on [issues](https://github.com/lgeweb/spatial-navigation/issues) of this repository or send it via [email](mailto://lgewst@gmail.com). Let's make the Web to be extensible for the several industries!
 
 ## Overview
-**Spatial navigation (aka Snav)** is the ability to navigate the focus between focusable elements based on their position within a structured document. Spatial navigation is often called 'directional navigation' which enables four(4) directional navigation. Users are usually familiar with the 2-way navigation using tab key for the forward direction and shift+tab key for the backward direction, but not familiar with the 4-way navigation using arrow keys.
+**Spatial navigation (aka Snav)** is the ability to navigate between focusable elements based on their position within a structured document. Spatial navigation is often called 'directional navigation' which enables four(4) directional navigation. Users are usually familiar with the 2-way navigation using tab key for the forward direction and shift+tab key for the backward direction, but not familiar with the 4-way navigation using arrow keys.
 
 Regarding TV remote control, game console pad, IVI jog dial with 4-way keys, and Web accessibility, the spatial navigation has been a rising important input mechanism in several industries. If the Web can embrace the spatial navigation and effectively support the functionalities in Web engines and W3C APIs, it will be more promising technology for existing products as mentioned above and various upcoming smart devices.
 
@@ -14,7 +14,7 @@ Regarding TV remote control, game console pad, IVI jog dial with 4-way keys, and
 Prior to the mission explanation, we need to understand how the arrow keys works currently in the Web. If you're watching this page in a normal HD monitor and desktop, not mobile, please push a down-arrow key in your keyboard. What happens? Basically, scrolling downward would be triggered. That's the default behavior of arrow keys in the Web, only when the page is scrollable in the direction.
 
 In spatial navigation mode, the default behavior of arrow keys is changed from scrolling behavior to focus moving so that users can use the arrow keys to navigate between focusable elements based on their position. To support the functionalities of the spatial navigation, we should consider the following three steps:
-1. The API for enabling the spatial navigation mode
+1. The new API for enabling the spatial navigation mode (HTML/CSS/JS)
 2. A heuristic algorithm for the spatial navigation in Web engines
 3. Overriding methods on top of the heuristic algorithm
 
@@ -33,7 +33,7 @@ See the [implStatus](implStatus.md) for the details of the implementation in Web
   - Difficult to align native scroll behavior when moving the focus to an element out of view
   - Difficult to align native focus method for a11y support
   - Performance degradation due to the expensive cost of DOM Access
-  - Inconsistency of user experience (various sort of frameworks)
+  - Inconsistency of user experience (various kinds of frameworks)
   - Impossible to control isolated frames like iframe and shadow DOM
 
 **Q. The Snav seems not the general feature esp. in mobile with no physical key-based interface.**
