@@ -1,7 +1,7 @@
 # Proposed APIs for the spatial navigation
 To support the spatial navigation in the Web, we need to develop several standard APIs. The API seems to be discussed with the suitable working groups in W3C (mainly in CSS WG). In this explainer page, the latest status of the spatial navigation would be summarized so that the overall progress could be tracked at a glance.
 
-## API enabling the spatial navigation mode
+## API for enabling the spatial navigation mode
 It makes author set the spatial navigation mode. The following API could be considered for the possibilities to support the feature:
   - HTML: &lt;meta name="input" content="remote-controller"&gt;
     - If the using input device matches with the specified value of the content, the spatial navigation mode is enabled.
