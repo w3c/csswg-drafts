@@ -3,7 +3,7 @@ To support the spatial navigation in the Web, we need to develop several standar
 
 ## API enabling the spatial navigation mode
 It makes author set the spatial navigation mode. The following API could be considered for the possibilities to support the feature:
-  - HTML: `&lt;meta name="input" content="remote-controller"&gt;`
+  - HTML: &lt;meta name="input" content="remote-controller"&gt;
     - If the using input device matches with the specified value of the content, the spatial navigation mode is enabled.
   - CSS:
   
