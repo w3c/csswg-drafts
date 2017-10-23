@@ -58,7 +58,7 @@ The following properties are proposed to embrace the developer’s intention and
       - Let the upper edge of the C is positioned `250px` down from the upper edge of the E and the leftside edge of the C is positioned `200px` to the right from the leftside edge of the E.
       - Let the upper edge of the D is positioned `100px` down from the upper edge of the E and the leftside edge of the D is positioned `500px` to the right from the leftside edge of the E.
       - Let the initial focus goes to A among the DOM subtree rooted at E.
-      - If the current focused element is A and there is an input from the right-arrow key,
+      - If the current focused element is A and there is an input from the :arrow_right: (right-arrow key),
         - If `nav-rule: projection` is applied to the element E, the focus moves to D.
         - If `nav-rule: direction` is applied to the element E, the focus moves to C.
         - Otherwise `nav-rule: nearest` is applied to the element E, the focus moves to B.
@@ -77,7 +77,7 @@ The following properties are proposed to embrace the developer’s intention and
       
     If `nav-loop: repeat` is applied to the element E, the DOM subtree rooted at E is eligible to participate in the focus looping for any scrollable area created by E.
       - Let the element A is the first child node and the element Z is the last child node in the DOM subtree rooted at E.
-      - If the current focused element is Z and there is an input from the down-arrow key, the focus is moved to A.
+      - If the current focused element is Z and there is an input from the :arrow_down: (down-arrow key), the focus is moved to A.
 
 ## Issues
 - Why CSS properties instead of HTML attributes (like `tabindex`)?
