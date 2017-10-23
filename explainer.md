@@ -41,7 +41,7 @@ The following properties are proposed to embrace the developer’s intention and
    
     This property can customize the spatial navigation of the group of elements in response to the directional navigational input.
     - value: auto | projection | direction | nearest
-      - auto: The UA automatically determines which element to navigate the focus
+      - auto: The UA automatically determines which element to navigate the focus.
       - projection: Moves the focus to the first element encountered when projecting the edge of the currently focused element to the edge of the applied element in the direction of navigation.
       - direction : Moves the focus to the first element encountered when projecting the edge of the applied element from the currently focused element in the direction of navigation.
       - nearest: Moves the focus to the closest element based on the shortest 2D distance and the distance is measured depending on the center of each element.
