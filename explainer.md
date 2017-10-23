@@ -68,7 +68,7 @@ The following properties are proposed to embrace the developer’s intention and
     This property enables the ability about the focus looping (moving the focus when the focus reaches to the end of the page).
     
     The sequential focus navigation by tab key supports the focus looping, but the heuristic spatial navigation implemented in blink doesn’t support it.
-    It would be useful to have the focus looping feature in the spatial navigation, specially for the single page with long-scroll. 
+    It would be useful to have the focus looping feature in the spatial navigation, especially for the single page with long-scroll. 
     
     - value: auto | no-repeat | repeat
       - auto: The UA automatically determines where to move the focus when the focus reaches to the end of the page.
