@@ -76,7 +76,8 @@ The following properties are proposed to embrace the developer’s intention and
       - repeat: Enables the focus looping
       
     If `nav-loop: repeat` is applied to the element E, the DOM subtree rooted at E is eligible to participate in the focus looping for any scrollable area created by E.
-      - Let the element A is the first child node and the element Z is the last child node in the DOM subtree rooted at E. If the current focused element is Z and there is an input from the down-arrow key, the focus is moved to A.
+      - Let the element A is the first child node and the element Z is the last child node in the DOM subtree rooted at E.
+      - If the current focused element is Z and there is an input from the down-arrow key, the focus is moved to A.
 
 ## Issues
 - Why CSS properties instead of HTML attributes (like `tabindex`)?
