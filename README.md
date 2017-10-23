@@ -13,9 +13,7 @@ Regarding TV remote control, game console pad, IVI jog dial with 4-way keys, and
 ## Mission
 Prior to the mission explanation, we need to understand how the arrow keys works currently in the Web. If you're watching this page in a normal HD monitor and desktop, not mobile, please push a down key in your keyboard. What happens? Basically, scrolling downward would be triggered. That's the default behavior of arrow keys in the Web, only when the browsing context is overflowed in the direction.
 
-In spatial navigation mode, the default behavior of arrow keys is changed from scrolling behavior to focus moving so that users can use the arrow keys to navigate between focusable elements based on their position.
-
-To support the functionalities of the spatial navigation, we should consider the following three steps:
+In spatial navigation mode, the default behavior of arrow keys is changed from scrolling behavior to focus moving so that users can use the arrow keys to navigate between focusable elements based on their position. To support the functionalities of the spatial navigation, we should consider the following three steps:
 1. Options for enabling the spatial navigation mode
 2. A heuristic algorithm for the spatial navigation in Web engines
 3. Overriding methods on top of the heuristic algorithm
@@ -31,9 +29,7 @@ See the [implStatus](implStatus.md) for the details of the implementation in Web
 - In several references below, you can get the help to understand the Snav operations well.
 
 **Q. Isn’t it enough just using the relevant Web frameworks?**
-- Severel Web frameworks and extensions for the Snav have been provided so far due to no support from web engines. For examples, [js-spatial-navigation](https://github.com/luke-chang/js-spatial-navigation) made by Mozilla seems one of the frameworks and the quality would be good to support the features of Snav. [Spotlight library](https://github.com/enyojs/spotlight) made by LGE is also an instance of the frameworks for the Snav, even though it was deprecated now.
-
-However, the support of Snav from Web frameworks has some limits as follows:
+- Severel Web frameworks and extensions for the Snav have been provided so far due to no support from web engines. For examples, [js-spatial-navigation](https://github.com/luke-chang/js-spatial-navigation) made by Mozilla seems one of the frameworks and the quality would be good to support the features of Snav. [Spotlight library](https://github.com/enyojs/spotlight) made by LGE is also an instance of the frameworks for the Snav, even though it was deprecated now. However, the support of Snav from Web frameworks has some limits as follows:
   - difficult to align native scroll behavior when moving the focus to an element out of view
   - difficult to align native focus method for a11y support
   - performance degradation due to the expensive cost of DOM Access
@@ -41,9 +37,9 @@ However, the support of Snav from Web frameworks has some limits as follows:
   - impossible to control isolated frames like iframe and shadow DOM
 
 **Q. The Snav seems not the general feature esp. in mobile with no physical key-based interface.**
-Honestly, the mobile has been a first citizen of Snav about 10 years old. Before touch-based interface, the majority of interface for mobile was key-based input methods. We're familiar with kind of mobile phone named a feature phone and it has been supported in several developing contries such as South America, Africa even until now.
+- Honestly, the mobile has been a first citizen of Snav about 10 years old. Before touch-based interface, the majority of interface for mobile was key-based input methods. We're familiar with kind of mobile phone named a feature phone and it has been supported in several developing contries such as South America, Africa even until now.
 
-In the future, the input method for smart devices will be changed to something like voice command, hand gesture, and eyes direction, but the key-based interfaces will never disappear, even though it'll be used as a secondary method. The key-based interface used to be evaluated as one of the most intuitive methods with a strong sense feedback of finger after pushing a key, while we couldn't imagine a touch-based keyboard without any physical keys.
+- In the future, the input method for smart devices will be changed to something like voice command, hand gesture, and eyes direction, but the key-based interfaces will never disappear, even though it'll be used as a secondary method. The key-based interface used to be evaluated as one of the most intuitive methods with a strong sense feedback of finger after pushing a key, while we couldn't imagine a touch-based keyboard without any physical keys.
 
 **Q. Put any question on [issues](https://github.com/lgeweb/spatial-navigation/issues) of this repository :D**
 - Everything for Snav is welcome!
