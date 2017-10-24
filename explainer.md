@@ -48,7 +48,7 @@ There were the properties about the directional focus navigation in the CSS Basi
 // nav-right, nav-down, nav-left have same values as nav-up below
 nav-up: auto | <id> [ current | root | <target-name> ]?
 ```  
-- The properties determine which element to navigate the focus in response to the directional navigational input. This is applied to each element which can be focused.
+- The properties determine which element to navigate the focus in response to pressing the arrow keys. This is applied to each element which can be focused.
 - Note
   - Able to use even if the heuristic spatial navigation is not supported.
   - Override the heuristic spatial navigation if it is supported.
@@ -57,7 +57,7 @@ nav-up: auto | <id> [ current | root | <target-name> ]?
 The following properties are proposed to provide ways for customization of the spatial navigation.
 
 #### `nav-rule` property (CSSUI4)
-- This property can customize the spatial navigation of the group of elements in response to the directional navigational input.
+- This property can customize the spatial navigation of the group of elements in response to pressing the arrow keys.
 ```css
 nav-rule: auto | projection | direction | nearest
 ```
