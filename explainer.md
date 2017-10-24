@@ -13,7 +13,7 @@ It makes author set the spatial navigation mode. The following APIs could be con
 ```
 
 #### * CSS properties
-- If the proposed property below is applied to the element, the DOM subtree rooted at the element can be managed by the spatial nagivation.
+- If the proposed property below is applied to the element, the DOM subtree rooted at the element can be managed by the spatial navigation.
 ```css
 // CSS property 1
 arrow-key-behavior: auto | navigation | scroll
@@ -46,7 +46,7 @@ There were the properties about the directional focus navigation in the CSS Basi
 // nav-right, nav-down, nav-left have same values as nav-up below
 nav-up: auto | <id> [ current | root | <target-name> ]?
 ```  
-- The properites determine which element to navigate the focus in response to the directional navigational input. This is applied to the each element which can be focused.
+- The properties determine which element to navigate the focus in response to the directional navigational input. This is applied to each element which can be focused.
 - Note
   - Able to use even if the heuristic spatial navigation is not supported.
   - Override the heuristic spatial navigation if it is supported.
@@ -71,37 +71,37 @@ nav-rule: auto | projection | direction | nearest
   - Override the Heuristic Spatial Navigation if it is supported.
 - If the `nav-rule` property is applied to the element E, the DOM subtree rooted at E in the scrollable area created by E follows the focus moving algorithm as below.
     - Let E has child nodes A, B, C, and D which are `width: 50px; height: 50px;`.
-    - Let the upper edge of the A is positioned `100px` down from the upper edge of the E and the leftside edge of the A is positioned `100px` to the right from the leftside edge of the E.
-    - Let the upper edge of the B is positioned `50px` down from the upper edge of the E and the leftside edge of the B is positioned `250px` to the right from the leftside edge of the E.
-    - Let the upper edge of the C is positioned `250px` down from the upper edge of the E and the leftside edge of the C is positioned `200px` to the right from the leftside edge of the E.
-    - Let the upper edge of the D is positioned `100px` down from the upper edge of the E and the leftside edge of the D is positioned `500px` to the right from the leftside edge of the E.
+    - Let the upper edge of the A is positioned `100px` down from the upper edge of the E, and the left-side edge of the A is positioned `100px` to the right from the left-side edge of the E.
+    - Let the upper edge of the B is positioned `50px` down from the upper edge of the E, and the left-side edge of the B is positioned `250px` to the right from the left-side edge of the E.
+    - Let the upper edge of the C is positioned `250px` down from the upper edge of the E, and the left-side edge of the C is positioned `200px` to the right from the left-side edge of the E.
+    - Let the upper edge of the D is positioned `100px` down from the upper edge of the E, and the left-side edge of the D is positioned `500px` to the right from the left-side edge of the E.
     - Let the initial focus goes to A among the DOM subtree rooted at E.
-    - If the current focused element is A and there is an input from the :arrow_right: (right-arrow key),
+    - If the currently focused element is A and there is input from the :arrow_right: (right-arrow key),
       - If `nav-rule: projection` is applied to the element E, the focus moves to D.
       - If `nav-rule: direction` is applied to the element E, the focus moves to C.
       - Otherwise `nav-rule: nearest` is applied to the element E, the focus moves to B.
       
 #### `nav-loop` property (CSSUI4)
-- This property enables the ability about the focus looping (moving the focus when the focus reaches to the end of the page).
-- The sequential focus navigation by tab key supports the focus looping, but the heuristic spatial navigation implemented in blink doesn’t support it.
+- This property enables the ability about the focus looping (moving the focus when the focus reaches the end of the page).
+- The sequential focus navigation by tab key supports the focus looping, but the heuristic spatial navigation implemented in blink does not support it.
 - It would be useful to have the focus looping feature in the spatial navigation, especially for the single page with long-scroll. 
 ```css
 nav-loop: auto | no-repeat | repeat
 ```
 - The meaning of `nav-loop` values
-  - auto: The UA automatically determines where to move the focus when the focus reaches to the end of the page.
+  - auto: The UA automatically determines where to move the focus when the focus reaches the end of the page.
   - no-repeat: Disables the focus looping
   - repeat: Enables the focus looping
 
 - If `nav-loop: repeat` is applied to the element E, the DOM subtree rooted at E is eligible to participate in the focus looping for any scrollable area created by E.
-  - Let the element A is the first child node and the element Z is the last child node in the DOM subtree rooted at E.
-  - If the current focused element is Z and there is an input from the :arrow_down: (down-arrow key), the focus is moved to A.
+  - Let the element A is the first child node, and the element Z is the last child node in the DOM subtree rooted at E.
+  - If the currently focused element is Z and there is an input from the :arrow_down: (down-arrow key), the focus is moved to A.
 
 ## Issues
 - Why CSS properties instead of HTML attributes (like `tabindex` as a DOM attribute)?
-- How can the feature be made to be composable.
-  - Eg. in a world of custom elements and frameworks like polymer, how can you reason about spatial navigation without having global knowledge of the whole page?
-  - Eg. could we instead make the properties define local spatial navigation (eg. between components) while allowing components to define navigation behavior inside of themselves?
+- How can the feature be made to be composable?
+  - E.g. in a world of custom elements and frameworks like polymer, how can you reason about spatial navigation without having global knowledge of the whole page?
+  - E.g. could we instead make the properties define local spatial navigation (e.g. between components) while allowing components to determine navigation behavior inside of themselves?
 
 ## Future work
 Solving unreachability, saving last focus, group concept, aligning with scrolling, pointer/key mode selection
