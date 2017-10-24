@@ -1,4 +1,6 @@
 # Proposed APIs for the spatial navigation
+<b>NOTE: This is an unofficial proposal draft.</b>
+
 To support the spatial navigation in the Web, we need to develop several standard APIs. The APIs seem to be discussed with the suitable working groups in W3C (mainly in CSS WG). In this explainer page, the latest status of the spatial navigation would be summarized so that the overall progress could be tracked at a glance.
 
 ## API for enabling the spatial navigation mode
@@ -37,7 +39,7 @@ setSpatialNavigationEnabled(boolean)
 - Otherwise, the arrow keys work as the UA-defined manner.
   
 ## Overriding methods on top of the heuristic algorithm
-Developers can customize the spatial navigation with CSS properties while overriding the heuristic spatial navigation.
+Developers can customize the spatial navigation with CSS properties by overriding the heuristic spatial navigation.
 
 ### Current Approach
 There were the properties about the directional focus navigation in the CSS Basic User Interface Module Level 4.
