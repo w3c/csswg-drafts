@@ -6,14 +6,6 @@ To support the spatial navigation in the Web, we need to develop several standar
 ## API for enabling the spatial navigation mode
 It makes author set the spatial navigation mode. The following APIs could be considered for the possibilities to support the feature:
 
-#### * HTML meta tag
-- If the input device in use matches with the specified value of the content, the spatial navigation mode is enabled.
-- The values for the spatial navigation could be specified as follows: remote-controller, game-pad, jog-dial, etc.
-```html
-<!-- HTML meta tag -->
-<meta name="input" content="remote-controller">;
-```
-
 #### * CSS properties
 - If the proposed property below is applied to the element, the DOM subtree rooted at the element can be managed by the spatial navigation.
 ```css
