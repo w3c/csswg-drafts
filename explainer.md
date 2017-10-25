@@ -6,21 +6,15 @@ To support the spatial navigation in the Web, we need to develop several standar
 ## API for enabling the spatial navigation mode
 It makes author set the spatial navigation mode. The following APIs could be considered for the possibilities to support the feature:
 
-#### * CSS properties
+#### * CSS property
 - If the proposed property below is applied to the element, the DOM subtree rooted at the element can be managed by the spatial navigation.
 ```css
-// CSS property 1
+// CSS property
 arrow-key-behavior: auto | navigation | scroll
 ```
 - auto: The arrow keys work as the UA-defined manner.
 - navigation: The arrow keys work for the spatial navigation.
 - scroll: The arrow keys work for scrolling.
-```css
-// CSS property 2
-spatial-mode: always | none
-```
-- always: The spatial navigation mode is enabled.
-- none: The spatial navigation mode is disabled.
 
 #### * DOM method (JS)
 ```javascript
