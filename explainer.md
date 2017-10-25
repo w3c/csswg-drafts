@@ -38,6 +38,12 @@ nav-up: auto | <id> [ current | root | <target-name> ]?
 - Note
   - Able to use even if the heuristic spatial navigation is not supported.
   - Override the heuristic spatial navigation if it is supported.
+- Issues
+  - Why CSS properties instead of HTML attributes (like `tabindex` as a DOM attribute)?
+  - How can the feature be made to be composable?
+    - E.g. in a world of custom elements and frameworks like polymer, how can you reason about spatial navigation without having global knowledge of the whole page?
+    - E.g. could we instead make the properties define local spatial navigation (e.g. between components) while allowing components to determine navigation behavior inside of themselves?
+
 
 ### Proposal
 The following properties are proposed to provide ways for customization of the spatial navigation.
@@ -84,12 +90,6 @@ nav-loop: auto | no-repeat | repeat
 - If `nav-loop: repeat` is applied to the element E, the DOM subtree rooted at E is eligible to participate in the focus looping for any scrollable area created by E.
   - Let the element A is the first child node, and the element Z is the last child node in the DOM subtree rooted at E.
   - If the currently focused element is Z and there is an input from the :arrow_down: (down-arrow key), the focus is moved to A.
-
-## Issues
-- Why CSS properties instead of HTML attributes (like `tabindex` as a DOM attribute)?
-- How can the feature be made to be composable?
-  - E.g. in a world of custom elements and frameworks like polymer, how can you reason about spatial navigation without having global knowledge of the whole page?
-  - E.g. could we instead make the properties define local spatial navigation (e.g. between components) while allowing components to determine navigation behavior inside of themselves?
 
 ## Future work
 Solving unreachability, saving last focus, group concept, aligning with scrolling, pointer/key mode selection
