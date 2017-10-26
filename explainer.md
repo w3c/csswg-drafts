@@ -64,16 +64,25 @@ nav-rule: auto | projection | direction | nearest
   - Overridden by nav-left/right/top/bottom properties.
   - Override the Heuristic Spatial Navigation if it is supported.
 - If the `nav-rule` property is applied to the element E, the focus moves in the DOM subtree rooted at E in the scrollable area created by E as below.
-    - Let E has child nodes A, B, C, and D which are `width: 50px; height: 50px;`.
-    - Let the upper edge of the A is positioned `100px` down from the upper edge of the E, and the left-side edge of the A is positioned `100px` to the right from the left-side edge of the E.
-    - Let the upper edge of the B is positioned `50px` down from the upper edge of the E, and the left-side edge of the B is positioned `250px` to the right from the left-side edge of the E.
-    - Let the upper edge of the C is positioned `250px` down from the upper edge of the E, and the left-side edge of the C is positioned `200px` to the right from the left-side edge of the E.
-    - Let the upper edge of the D is positioned `100px` down from the upper edge of the E, and the left-side edge of the D is positioned `500px` to the right from the left-side edge of the E.
-    - Let the initial focus goes to A among the DOM subtree rooted at E.
+    ![A full round trip from UI element to accessibility node to assistive technology to user to user keypress to accessibility API action method back to UI element](images/nav-rule-example.png)
+    ```html
+    // HTML
+    <div id="E">
+        <div id="A" tabindex="1" style="top: 100px; left: 50px;">A</div>
+        <div id="B" tabindex="1" style="top: 250px; left: 150px;">B</div>
+        <div id="C" tabindex="1" style="top: 50px; left: 200px;">C</div>
+        <div id="D" tabindex="1" style="top: 100px; left: 300px;">D</div>
+    </div>
+    ```
+    ```css
+    // CSS
+    #E { width: 400px; height: 300px; }
+    #A, #B, #C, #D { width: 50px; height: 50px; }
+    ```
     - If the currently focused element is A and there is input from the :arrow_right: (right-arrow key),
       - If `nav-rule: projection` is applied to the element E, the focus moves to D.
-      - If `nav-rule: direction` is applied to the element E, the focus moves to C.
-      - Otherwise `nav-rule: nearest` is applied to the element E, the focus moves to B.
+      - If `nav-rule: direction` is applied to the element E, the focus moves to B.
+      - Otherwise `nav-rule: nearest` is applied to the element E, the focus moves to C.
       
 #### `nav-loop` property (CSSUI4)
 - This property enables the ability about the focus looping (moving the focus when the focus reaches the end of the page).
