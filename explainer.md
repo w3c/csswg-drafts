@@ -40,6 +40,7 @@ nav-up: auto | <id> [ current | root | <target-name> ]?
   - Override the heuristic spatial navigation if it is supported.
 - Issues
   - Why CSS properties instead of HTML attributes (like `tabindex` as a DOM attribute)?
+  - How does the feature interact with the existing definition of focus and what is or isn't focusable?
   - How can the feature be made to be composable?
     - E.g. in a world of custom elements and frameworks like polymer, how can you reason about spatial navigation without having global knowledge of the whole page?
     - E.g. could we instead make the properties define local spatial navigation (e.g. between components) while allowing components to determine navigation behavior inside of themselves?
