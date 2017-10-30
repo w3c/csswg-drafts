@@ -1,4 +1,5 @@
 (from [pr transitions](https://www.w3.org/Guide/transitions?profile=PR) )
+<!-- read that link to understand how to fill in the template -->
 
 # Transition request for PR: TITLE.
 
@@ -16,10 +17,6 @@ First Tuesday or Thursday after a sucessful transition decision.
 
 [status (as ED)](https://drafts.csswg.org/DIRECTORY/#status)
 
-## Link to previous transition
-
-Transition request: EMAIL-TITLE
-[25 aug 2014](https://lists.w3.org/Archives/Member/chairs/LINK-TO-PREVIOUS-TRANSITION) (W3C Member only)
 
 ## Decision to request transition
 
@@ -30,6 +27,7 @@ Transition request: EMAIL-TITLE
 ## Changes
 
 [Changes since the DATE Candidate Recommendation](https://drafts.csswg.org/DIRECTORY/#changes)
+<!-- no substantive chnges -->
 
 ## Requirements satisfied
 
@@ -37,6 +35,8 @@ There is no specific requirements document for this specification. The work
 is within the scope defined in the CSS WG's charter,
 
 ## Dependencies met (or not)
+
+<!--  no normative references to a Rescinded Recommendation -->
 
 The following normative references are not yet at CR:
 
@@ -67,7 +67,7 @@ None
 
 ## Implementation
 
-[Test reults](https://test.csswg.org/suites/TEST_DIR/nightly-unstable/)
+[Final implementation report](https://test.csswg.org/suites/TEST_DIR/nightly-unstable/)
 
 The [testsuite](https://test.csswg.org/harness/results/TEST_DIR/grouped/) shows that
 NUMBER of TOTAL required tests meet CR exit criteria.
