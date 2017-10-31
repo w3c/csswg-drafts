@@ -1,4 +1,4 @@
-# Scroll Boundary Behavior
+# Overscroll Behavior
 ---
 # Draft Specification
 https://wicg.github.io/scroll-boundary-behavior
@@ -26,7 +26,7 @@ The property can also hint at the overscroll behavior that the browser should ta
 
 The proposal for the syntax is:
 ```
-scroll-boundary-behavior{-x,-y}: auto | contain | none
+overscroll-behavior{-x,-y}: auto | contain | none
 ```
 
 where:
