@@ -41,15 +41,21 @@ Writing Modes (updated CR with technical changes)
  
   
 CSS UI 4 (was PR, now updated CR with technical changes)
-  * [group decision]()
+  * [group decision](https://lists.w3.org/Archives/Public/www-style/2017Oct/0044.html) 25 Oct 2017
   * advised to go to CR because of two small substantive changes, [timeline](https://w3c.github.io/spec-releases/milestones/?cr=2017-11-14&noFPWD=true) 31 Oct 2017
-  * next step: CR transition request
-
+  * next step: Chris writing CR transition request
+  
+CSS Fonts 3 (was PR, now updated CR with technical changes)
+  * moved at-risk features to level 4
+  * fuller test coverage
+  * [group decision](https://lists.w3.org/Archives/Public/www-style/2017Oct/0044.html) 25 Oct 2017
+  * next step: Miles updating changes section
+  * next step: Chris writing transition request
+  
+  
 ## Proposed Recommendation
   
-CSS Fonts 3
-  * working out how to move at-risk features to level 4
-  * fuller test coverage
+
 
 
 ## Modified Recommendation (Editorial)
