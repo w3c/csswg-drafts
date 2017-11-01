@@ -55,3 +55,5 @@ See the [implStatus](implStatus.md) for the details of the implementation in Web
   - https://docs.microsoft.com/en-us/windows/uwp/input-and-devices/managing-focus-navigation
 - Designing for Xbox and TV (MS)
   - https://docs.microsoft.com/en-us/windows/uwp/input-and-devices/designing-for-tv
+- Spatial Navigation in the Web (slides presented in BlinkOn 8)
+  - https://docs.google.com/presentation/d/1x4RaJIzTYeX0-nySVuq0TThe5shfmOsjbGIMrZJLBTE/edit
