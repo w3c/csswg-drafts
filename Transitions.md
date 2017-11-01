@@ -38,16 +38,12 @@ Writing Modes (updated CR with technical changes)
   * [wg resolution for PR](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May 2017
   * [wg resolution for updated CR](https://github.com/w3c/csswg-drafts/issues/1391#issuecomment-320215251) 04 Aug 2017
   * [draft transition request](https://github.com/w3c/csswg-drafts/blob/master/css-writing-modes-3/transition-updated-cr-2017-09.md)
+ 
   
-Flexbox (updated CR with technical changes)
-  * [group decision](https://lists.w3.org/Archives/Public/www-style/2017Sep/0028.html) 13 Sept 2017
-  * [transition request](https://github.com/w3c/csswg-drafts/blob/master/css-flexbox/transition-updated-cr-2017-09.md) [26 Sept 2017](https://lists.w3.org/Archives/Member/chairs/2017JulSep/0184.html)
-  * [transition decision](https://lists.w3.org/Archives/Member/chairs/2017JulSep/0205.html) 29 Sept 2017
-  * next step: publication, Tues 17 Oct 2017
-  
- Backgrounds & Borders (updated CR with technical changes)
-  * [group decision](https://lists.w3.org/Archives/Public/www-style/2017Sep/0054.html)
-  * [transition request](https://github.com/w3c/csswg-drafts/blob/master/css-backgrounds/transition-updated-cr-2017-09.md). @@ Email needs to be sent by Thierry.
+CSS UI 4 (was PR, now updated CR with technical changes)
+  * [group decision]()
+  * advised to go to CR because of two small substantive changes, [timeline](https://w3c.github.io/spec-releases/milestones/?cr=2017-11-14&noFPWD=true) 31 Oct 2017
+  * next step: CR transition request
 
 ## Proposed Recommendation
   
@@ -130,6 +126,17 @@ CSS Table
 * [done] (https://www.w3.org/TR/2016/WD-css-tables-3-20161025/) 25 Oct 2016
 
 ## Candidate Recommendation
+
+Flexbox (updated CR with technical changes)
+  * [group decision](https://lists.w3.org/Archives/Public/www-style/2017Sep/0028.html) 13 Sept 2017
+  * [transition request](https://github.com/w3c/csswg-drafts/blob/master/css-flexbox/transition-updated-cr-2017-09.md) [26 Sept 2017](https://lists.w3.org/Archives/Member/chairs/2017JulSep/0184.html)
+  * [transition decision](https://lists.w3.org/Archives/Member/chairs/2017JulSep/0205.html) 29 Sept 2017
+  * [done](https://www.w3.org/TR/2017/CR-css-flexbox-1-20171019/) 19 Oct 2017
+  
+ Backgrounds & Borders (updated CR with technical changes)
+  * [group decision](https://lists.w3.org/Archives/Public/www-style/2017Sep/0054.html)
+  * [transition request](https://github.com/w3c/csswg-drafts/blob/master/css-backgrounds/transition-updated-cr-2017-09.md). 
+  * [done](https://www.w3.org/TR/2017/CR-css-backgrounds-3-20171017/) 17 Oct 2017
 
 Media Queries 4
 * [done](https://www.w3.org/TR/2017/CR-mediaqueries-4-20170905/) 5 Sep 2017
