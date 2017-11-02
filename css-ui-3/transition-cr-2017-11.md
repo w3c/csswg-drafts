@@ -1,7 +1,7 @@
 (from [pr transitions](https://www.w3.org/Guide/transitions?profile=PR) )
 <!-- read that link to understand how to fill in the template -->
 
-# Transition request for CR: CSS-UI-3
+# Transition request for Updated CR: CSS-UI-3
 
 ## Document title, URIs, and estimated publication date
 
@@ -43,7 +43,11 @@ Zero known implementations (Gecko/Edge/Webkit/Blink/Presto) conformed with the p
 while multiple implementations pass tests and interoperate with the change,
 and all others for which conformance was not affected (did not pass before or after) agreed to update to conform to the new wording (over the old).
 
+<!-- Only relevant for the PR transition
+
 Thus the editors and WG believe all four normative changes fall within the bounds allowed for a CR->PR transition.
+
+-->
 
 ## Requirements satisfied
 
