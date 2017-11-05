@@ -74,45 +74,37 @@ function getFirstCandidates(direction, index, candidateList){
     id: null,
     edgeX: null,
     edgeY: null,
-    distance: null
+    distance: null,
+    centerX: null,
+    centerY: null
   };
 
-  if (direction == keyCodes.up) {
-    box.id = allElements[index].id;
+  box.id = allElements[index].id;
+  box.centerX = getPosition(allElements[index]).x + allElements[index].getBoundingClientRect().width/2;
+  box.centerY = getPosition(allElements[index]).y + allElements[index].getBoundingClientRect().height/2;
 
+  if (direction == keyCodes.up) {
     //get the bottom edge for measuring distance
     box.edgeX = getPosition(allElements[index]).x;
     box.edgeY = getPosition(allElements[index]).y + allElements[index].getBoundingClientRect().height;
-
-    candidateList.push(box);
   }
   else if(direction == keyCodes.down){
-    box.id = allElements[index].id;
-
     //get the upper edge for measuring distance
     box.edgeX = getPosition(allElements[index]).x;
     box.edgeY = getPosition(allElements[index]).y;
-
-    candidateElements.push(box);
   }
   else if(direction == keyCodes.left){
-    box.id = allElements[index].id;
-
     //get the right edge for measuring distance
     box.edgeX = getPosition(allElements[index]).x + allElements[index].getBoundingClientRect().width;
     box.edgeY = getPosition(allElements[index]).y;
-
-    candidateList.push(box);
   }
   else if(direction == keyCodes.right){
-    box.id = allElements[index].id;
-
     //get the left edge for measuring distance
     box.edgeX = getPosition(allElements[index]).x;
     box.edgeY = getPosition(allElements[index]).y;
-
-    candidateList.push(box);
   }
+
+  candidateList.push(box);
 }
 
 function getNearestCandidate(candidateList){
@@ -120,8 +112,8 @@ function getNearestCandidate(candidateList){
     return;
 
   for (var i = 0; i < candidateList.length; i++){
-    candidateList[i].distance = Math.sqrt(Math.pow(Math.abs(candidateList[i].edgeX-focusedElement.centerX),2)
-                                          + Math.pow(Math.abs(candidateList[i].edgeY-focusedElement.centerY),2));
+    candidateList[i].distance = Math.sqrt(Math.pow(Math.abs(candidateList[i].centerX-focusedElement.centerX),2)
+                                          + Math.pow(Math.abs(candidateList[i].centerY-focusedElement.centerY),2));
   }
 
   candidateList.sort(function(a, b) { // sorting with distance in increasing order
