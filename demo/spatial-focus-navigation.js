@@ -1,6 +1,8 @@
 var focusedElement = {
   box: null,
   position: null,
+  centerX: null,
+  centerY: null,
   size: null
 };
 
@@ -71,7 +73,8 @@ function getFirstCandidates(direction, index, candidateList){
   var box = {
     id: null,
     edgeX: null,
-    edgeY: null
+    edgeY: null,
+    distance: null
   };
 
   if (direction == keyCodes.up) {
@@ -110,6 +113,41 @@ function getFirstCandidates(direction, index, candidateList){
 
     candidateList.push(box);
   }
+}
+
+function getNearestCandidate(candidateList){
+  if (candidateList.length == 0) //No focusable elements
+    return;
+
+  for (var i = 0; i < candidateList.length; i++){
+    candidateList[i].distance = Math.sqrt(Math.pow(Math.abs(candidateList[i].edgeX-focusedElement.centerX),2)
+                                          + Math.pow(Math.abs(candidateList[i].edgeY-focusedElement.centerY),2));
+  }
+
+  candidateList.sort(function(a, b) { // sorting with distance in increasing order
+    return a.distance < b.distance ? -1 : a.distance > b.distance ? 1 : 0;
+  });
+
+  for (var i = candidateList.length-1; i > 0; i--){
+    if (candidateList[0].distance < candidateList[i].distance)
+      candidateList.pop();
+  }
+
+  candidateList.sort(function(a, b) { // sorting with y position in increasing order
+    return a.edgeY < b.edgeY ? -1 : a.edgeY > b.edgeY ? 1 : 0;
+  });
+
+  candidateList.sort(function(a, b) { // sorting with x position in increasing order
+    return a.edgeX < b.edgeX ? -1 : a.edgeX > b.edgeX ? 1 : 0;
+  });
+
+  targetElement = document.getElementById(candidateList[0].id);
+
+  if(targetElement){
+    console.log("Target Element: "+targetElement.id);
+  }
+  else
+    console.log("No focusable elements!");
 }
 
 function getFinalCandidate(direction, candidateList){
@@ -221,6 +259,12 @@ function getUpElement(){
   candidateElements = new Array();
   //if Nearest Element
   if (navRule == "Nearest"){
+    for (var i = 0; i < allElements.length; i++){
+      if (getPosition(allElements[i]).y + allElements[i].getBoundingClientRect().height < focusedElement.position.y){
+        getFirstCandidates(keyCodes.up, i, candidateElements);
+      }
+    }
+    getNearestCandidate(candidateElements);
 
   } else if (navRule == "Projection"){
     for (var i = 0; i < allElements.length; i++){
@@ -250,6 +294,11 @@ function getDownElement(){
   candidateElements = new Array();
   //if Nearest Element
   if (navRule == "Nearest"){
+    for (var i = 0; i < allElements.length; i++){
+      if (getPosition(allElements[i]).y > focusedElement.position.y + focusedElement.size.height)
+        getFirstCandidates(keyCodes.down, i, candidateElements);
+    }
+    getNearestCandidate(candidateElements);
 
   } else if (navRule == "Projection"){
     for (var i = 0; i < allElements.length; i++){
@@ -279,6 +328,11 @@ function getLeftElement(){
 
   //if Nearest Element
   if (navRule == "Nearest"){
+    for (var i = 0; i < allElements.length; i++){
+      if (getPosition(allElements[i]).x + allElements[i].getBoundingClientRect().width < focusedElement.position.x)
+        getFirstCandidates(keyCodes.up, i, candidateElements);
+    }
+    getNearestCandidate(candidateElements);
 
   } else if (navRule == "Projection"){
     for (var i = 0; i < allElements.length; i++){
@@ -308,6 +362,11 @@ function getRightElement(){
 
   //if Nearest Element
   if (navRule == "Nearest"){
+    for (var i = 0; i < allElements.length; i++){
+      if (getPosition(allElements[i]).x > focusedElement.position.x + focusedElement.size.width)
+        getFirstCandidates(keyCodes.right, i, candidateElements);
+    }
+    getNearestCandidate(candidateElements);
 
   } else if (navRule == "Projection"){
     for (var i = 0; i < allElements.length; i++){
@@ -353,11 +412,12 @@ function getFocusedElement(){
   focusedElement.box = document.activeElement;
   focusedElement.position = getPosition(focusedElement.box);
 
-  console.log("x: "+focusedElement.position.x + ", y: "+focusedElement.position.y);
-
   focusedElement.size = focusedElement.box.getBoundingClientRect();
+  focusedElement.centerX = focusedElement.position.x + focusedElement.size.width/2;
+  focusedElement.centerY = focusedElement.position.y + focusedElement.size.height/2;
 
   console.log("width: "+focusedElement.size.width + ", height: "+focusedElement.size.height);
+  console.log("x: "+focusedElement.centerX + ", y: "+focusedElement.centerY);
 }
 
 function init() {
