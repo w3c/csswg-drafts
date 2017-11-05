@@ -16,9 +16,18 @@ var keyCodes = {
   down: 40
 };
 
-var flag = "Projection";
+var navRule;
 
-//var day = {"sun", "mon", "tue", "wed", "thu", "fri", "sat"};
+function getOption() {
+  navRule = document.getElementById('ruleType').options[document.getElementById('ruleType').selectedIndex].value;
+  console.log('Default Navigation Rule: '+ navRule);
+
+  document.getElementById('ruleType').addEventListener('change', function(){
+  	navRule = this.options[this.selectedIndex].value;
+
+    console.log('Navigation Rule: '+ navRule);
+  });
+}
 
 function getPosition(el) {
   var xPos = 0;
@@ -211,9 +220,9 @@ function getUpElement(){
   console.log("Up");
   candidateElements = new Array();
   //if Nearest Element
-  if (flag == "Nearest"){
+  if (navRule == "Nearest"){
 
-  } else if (flag == "Projection"){
+  } else if (navRule == "Projection"){
     for (var i = 0; i < allElements.length; i++){
       if (getPosition(allElements[i]).y + allElements[i].getBoundingClientRect().height < focusedElement.position.y){
         if ((getPosition(allElements[i]).x <= focusedElement.position.x + focusedElement.size.width) &&
@@ -225,7 +234,7 @@ function getUpElement(){
 
     getFinalCandidate(keyCodes.up, candidateElements);
 
-  } else if (flag == "Direction"){
+  } else if (navRule == "Direction"){
     for (var i = 0; i < allElements.length; i++){
       if (getPosition(allElements[i]).y + allElements[i].getBoundingClientRect().height < focusedElement.position.y){
         getFirstCandidates(keyCodes.up, i, candidateElements);
@@ -240,9 +249,9 @@ function getDownElement(){
   console.log("Down");
   candidateElements = new Array();
   //if Nearest Element
-  if (flag == "Nearest"){
+  if (navRule == "Nearest"){
 
-  } else if (flag == "Projection"){
+  } else if (navRule == "Projection"){
     for (var i = 0; i < allElements.length; i++){
       if (getPosition(allElements[i]).y > focusedElement.position.y + focusedElement.size.height){
         if ((getPosition(allElements[i]).x <= focusedElement.position.x + focusedElement.size.width) &&
@@ -254,7 +263,7 @@ function getDownElement(){
 
     getFinalCandidate(keyCodes.down, candidateElements);
 
-  } else if (flag == "Direction"){
+  } else if (navRule == "Direction"){
     for (var i = 0; i < allElements.length; i++){
       if (getPosition(allElements[i]).y > focusedElement.position.y + focusedElement.size.height)
         getFirstCandidates(keyCodes.down, i, candidateElements);
@@ -269,9 +278,9 @@ function getLeftElement(){
   candidateElements = new Array();
 
   //if Nearest Element
-  if (flag == "Nearest"){
+  if (navRule == "Nearest"){
 
-  } else if (flag == "Projection"){
+  } else if (navRule == "Projection"){
     for (var i = 0; i < allElements.length; i++){
       if (getPosition(allElements[i]).x + allElements[i].getBoundingClientRect().width < focusedElement.position.x){
         if ((getPosition(allElements[i]).y <= focusedElement.position.y + focusedElement.size.height) &&
@@ -283,7 +292,7 @@ function getLeftElement(){
 
     getFinalCandidate(keyCodes.left, candidateElements);
 
-  } else if (flag == "Direction"){
+  } else if (navRule == "Direction"){
     for (var i = 0; i < allElements.length; i++){
       if (getPosition(allElements[i]).x + allElements[i].getBoundingClientRect().width < focusedElement.position.x)
         getFirstCandidates(keyCodes.up, i, candidateElements);
@@ -298,9 +307,9 @@ function getRightElement(){
   candidateElements = new Array();
 
   //if Nearest Element
-  if (flag == "Nearest"){
+  if (navRule == "Nearest"){
 
-  } else if (flag == "Projection"){
+  } else if (navRule == "Projection"){
     for (var i = 0; i < allElements.length; i++){
       if (getPosition(allElements[i]).x > focusedElement.position.x + focusedElement.size.width){
         if ((getPosition(allElements[i]).y <= focusedElement.position.y + focusedElement.size.height) &&
@@ -312,7 +321,7 @@ function getRightElement(){
 
     getFinalCandidate(keyCodes.right, candidateElements);
 
-  } else if (flag == "Direction"){
+  } else if (navRule == "Direction"){
     for (var i = 0; i < allElements.length; i++){
       if (getPosition(allElements[i]).x > focusedElement.position.x + focusedElement.size.width)
         getFirstCandidates(keyCodes.right, i, candidateElements);
@@ -357,6 +366,7 @@ function init() {
   console.log("Num of all items: "+ allElements.length);
 
   getPressedKey();
+  getOption();
 }
 
 window.onload = init;
