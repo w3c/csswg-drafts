@@ -6,7 +6,6 @@ var focusedElement = {
   size: null
 };
 
-var pressedKey = false;
 var targetElement;
 var allElements;
 var candidateElements;
@@ -160,8 +159,6 @@ function getFinalCandidate(direction, candidateList){
       return;
 
     } else {
-      console.log("candidate: "+candidateList.length+ ", first: "+candidateList[0].id);
-
       candidateList.sort(function(a, b) { // sorting with x position in increasing order
         return a.edgeX < b.edgeX ? -1 : a.edgeX > b.edgeX ? 1 : 0;
       });
@@ -183,8 +180,6 @@ function getFinalCandidate(direction, candidateList){
       return;
 
     } else {
-      console.log("candidate: "+candidateList.length + ", first: "+candidateList[0].id);
-
       candidateList.sort(function(a, b) { // sorting with y position in increasing order
         return a.edgeX < b.edgeX ? -1 : a.edgeX > b.edgeX ? 1 : 0;
       });
@@ -206,8 +201,6 @@ function getFinalCandidate(direction, candidateList){
       return;
 
     } else {
-      console.log("candidate: "+candidateList.length+ ", first: "+candidateList[0].id);
-
       candidateList.sort(function(a, b) { // sorting with y position in increasing order
         return a.edgeY < b.edgeY ? -1 : a.edgeY > b.edgeY ? 1 : 0;
       });
@@ -229,8 +222,6 @@ function getFinalCandidate(direction, candidateList){
       return;
 
     } else {
-      console.log("candidate: "+candidateList.length+ ", first: "+candidateList[0].id);
-
       candidateList.sort(function(a, b) { // sorting with y position in increasing order
         return a.edgeY < b.edgeY ? -1 : a.edgeY > b.edgeY ? 1 : 0;
       });
@@ -390,8 +381,6 @@ function getPressedKey(){
     }
 
     getFocusedElement();
-
-    pressedKey = e.keyCode;
     getNextFocusableElement(e.keyCode);
 
     if(targetElement){
@@ -407,15 +396,40 @@ function getFocusedElement(){
   focusedElement.size = focusedElement.box.getBoundingClientRect();
   focusedElement.centerX = focusedElement.position.x + focusedElement.size.width/2;
   focusedElement.centerY = focusedElement.position.y + focusedElement.size.height/2;
+}
 
-  console.log("width: "+focusedElement.size.width + ", height: "+focusedElement.size.height);
-  console.log("x: "+focusedElement.centerX + ", y: "+focusedElement.centerY);
+function setInitialFocus(){
+  var initialFocusCandidates = Array.from(allElements);
+
+  // select most upper element
+  initialFocusCandidates.sort(function(a, b) {
+    return getPosition(a).y < getPosition(b).y ? -1 : getPosition(a).y > getPosition(b).y ? 1 : 0;
+  });
+
+  for (var i= initialFocusCandidates.length-1; i > 0; i--){
+    if (getPosition(initialFocusCandidates[i]).y > getPosition(initialFocusCandidates[0]).y)
+      initialFocusCandidates.pop();
+  }
+
+  if (initialFocusCandidates.length == 0){
+    return;
+  }
+  else {
+    //select most left side element
+    initialFocusCandidates.sort(function(a, b) {
+      return getPosition(a).x < getPosition(b).x ? -1 : getPosition(a).x > getPosition(b).x ? 1 : 0;
+    });
+
+    initialFocusCandidates[0].focus();
+    console.log("Initial focused element = id: " + initialFocusCandidates[0].id +
+                ", x: "+getPosition(initialFocusCandidates[0]).x +
+                ", y: "+getPosition(initialFocusCandidates[0]).y);
+  }
 }
 
 function init() {
   allElements = document.querySelectorAll('.schedule');
-
-  console.log("Num of all items: "+ allElements.length);
+  setInitialFocus();
 
   getPressedKey();
   getOption();
