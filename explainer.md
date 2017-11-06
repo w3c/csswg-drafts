@@ -102,5 +102,8 @@ nav-loop: auto | no-repeat | repeat
   - Let the element A is the first child node, and the element Z is the last child node in the DOM subtree rooted at E.
   - If the currently focused element is Z and there is an input from the :arrow_down: (down-arrow key), the focus is moved to A.
 
+## Demo
+[Calender App using the proposed spatial navigation features](https://lgeweb.github.io/spatial-navigation/demo/)
+
 ## Future work
 Solving unreachability, saving last focus, group concept, aligning with scrolling, pointer/key mode selection
