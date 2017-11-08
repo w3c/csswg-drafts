@@ -18,15 +18,25 @@ var keyCodes = {
 };
 
 var navRule;
+var navloop;
 
 function getOption() {
   navRule = document.getElementById('ruleType').options[document.getElementById('ruleType').selectedIndex].value;
   console.log('Default Navigation Rule: '+ navRule);
 
+  navloop = document.getElementById('loopType').checked;
+  console.log('Default Navigation Loop: '+ navloop);
+
   document.getElementById('ruleType').addEventListener('change', function(){
   	navRule = this.options[this.selectedIndex].value;
 
     console.log('Navigation Rule: '+ navRule);
+  });
+
+  document.getElementById('loopType').addEventListener('change', function(){
+    navloop = this.checked;
+
+    console.log('Navigation Loop: '+ navloop);
   });
 }
 
@@ -142,8 +152,12 @@ function getNearestCandidate(candidateList){
 }
 
 function getFinalCandidate(direction, candidateList){
-  if (candidateList.length == 0) //No focusable elements
-    return;
+  if (candidateList.length == 0) { //No focusable elements
+    if(navloop)
+      getLoopedElement(direction);
+    else
+      return;
+  }
 
   if (direction == keyCodes.up) {
     candidateList.sort(function(a, b) { // sorting with y position in decreasing order
@@ -231,6 +245,7 @@ function getFinalCandidate(direction, candidateList){
   }
 
   if(targetElement){
+    console.log("Current Element: "+focusedElement.box.id);
     console.log("Target Element: "+targetElement.id);
   }
   else
@@ -371,6 +386,45 @@ function getRightElement(){
 
     getFinalCandidate(keyCodes.right, candidateElements);
   }
+}
+
+function getLoopedElement(direction){
+  candidateElements = new Array();
+
+  if (direction == keyCodes.down || direction == keyCodes.up){
+    for (var i = 0; i < allElements.length-1; i++){
+      if ((focusedElement.position.x == getPosition(allElements[i]).x) &&
+            (focusedElement.box.id != allElements[i].id))
+        candidateElements.push(allElements[i]);
+    }
+
+    candidateElements.sort(function(a, b) { // sorting with y position in increasing order
+      return getPosition(a).y < getPosition(b).y ? -1 : getPosition(a).y > getPosition(b).y ? 1 : 0;
+    });
+
+    if (direction == keyCodes.down)
+      targetElement = candidateElements[0];
+    else if (direction == keyCodes.up)
+      targetElement = candidateElements[candidateElements.length-1];
+  }
+  else if (direction == keyCodes.left || direction == keyCodes.right){
+    for (var i = 0; i < allElements.length-1; i++){
+      if ((focusedElement.position.y == getPosition(allElements[i]).y) &&
+            (focusedElement.box.id != allElements[i].id))
+        candidateElements.push(allElements[i]);
+    }
+
+    candidateElements.sort(function(a, b) { // sorting with x position in increasing order
+      return getPosition(a).x < getPosition(b).x ? -1 : getPosition(a).x > getPosition(b).x ? 1 : 0;
+    });
+
+    if (direction == keyCodes.right)
+      targetElement = candidateElements[0];
+    else if (direction == keyCodes.left)
+      targetElement = candidateElements[candidateElements.length-1];
+  }
+
+  console.log("Target Element: "+targetElement.id);
 }
 
 function getPressedKey(){
