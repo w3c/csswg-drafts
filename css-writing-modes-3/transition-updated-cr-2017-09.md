@@ -74,7 +74,7 @@ following articles which explain how to use CSS Writing Modes 3.
 The [Disposition of Comments](https://drafts.csswg.org/css-writing-modes-3/issues-cr-2015) 
 
 Of the 22 issues raised, 12 were accepted. Three were rejected, and for two of them the commenter indicated they were satisfied. 
-Five comments were invalid. One, calling for a Japanese translation of the specification to be linked, was 
+Five comments were invalid. One comment was later retracted. One, calling for a Japanese translation of the specification to be linked, was 
 rejected as out of scope (translations may be provided by third parties of W3C Recommendations, following the usual procedure). 
 
 ## Formal Objections
