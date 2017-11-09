@@ -73,10 +73,8 @@ following articles which explain how to use CSS Writing Modes 3.
 
 The [Disposition of Comments](https://drafts.csswg.org/css-writing-modes-3/issues-cr-2015) 
 
-:boom: or is it this one [Disposition of Comments on GH](https://github.com/w3c/csswg-drafts/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Acss-writing-modes-3%20)
-
-Of the 23 issues raised, 12 were accepted. Three were rejected, and the commenter indicated they were satisfied. 
-Three comments were invalid. One, calling for a Japanese translation of the specification to be linked, was 
+Of the 22 issues raised, 12 were accepted. Three were rejected, and for two of them the commenter indicated they were satisfied. 
+Five comments were invalid. One, calling for a Japanese translation of the specification to be linked, was 
 rejected as out of scope (translations may be provided by third parties of W3C Recommendations, following the usual procedure). 
 
 ## Formal Objections
