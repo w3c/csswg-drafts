@@ -1,6 +1,6 @@
 (from [updated cr transitions](https://www.w3.org/Guide/transitions?profile=CR&cr=substantive) )
 
-# Transition request for updated CR: Flexbox 
+# Transition request for updated CR: Writing Modes 3
 
 ## Document title, URIs, and estimated publication date
 
