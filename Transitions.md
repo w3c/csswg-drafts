@@ -38,12 +38,6 @@ Writing Modes (updated CR with technical changes)
   * [wg resolution for PR](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May 2017
   * [wg resolution for updated CR](https://github.com/w3c/csswg-drafts/issues/1391#issuecomment-320215251) 04 Aug 2017
   * [transition request](https://github.com/w3c/csswg-drafts/blob/master/css-writing-modes-3/transition-updated-cr-2017-09.md) sent [09 Nov 2017](https://lists.w3.org/Archives/Member/chairs/2017OctDec/0134.html)
- 
-  
-CSS UI 4 (was PR, now updated CR with technical changes)
-  * [group decision](https://lists.w3.org/Archives/Public/www-style/2017Oct/0044.html) 25 Oct 2017
-  * advised to go to CR because of two small substantive changes, [timeline](https://w3c.github.io/spec-releases/milestones/?cr=2017-11-14&noFPWD=true) 31 Oct 2017
-  * next step: Chris writing CR transition request
   
 CSS Fonts 3 (was PR, now updated CR with technical changes)
   * moved at-risk features to level 4
@@ -55,7 +49,10 @@ CSS Fonts 3 (was PR, now updated CR with technical changes)
   
 ## Proposed Recommendation
   
-
+CSS UI 3 (was PR, now updated CR with technical changes)
+  * [group decision](https://lists.w3.org/Archives/Public/www-style/2017Oct/0044.html) 25 Oct 2017
+  * advised to go to CR because of two small substantive changes, now shooting for PR again [timeline](https://w3c.github.io/spec-releases/milestones/?cr=2017-11-14&noFPWD=true) 31 Oct 2017
+  * [transition request](https://github.com/w3c/csswg-drafts/blob/master/css-writing-modes-3/transition-updated-cr-2017-09.md) sent [08 Nov 2017](https://lists.w3.org/Archives/Member/chairs/2017OctDec/0135.html)
 
 
 ## Modified Recommendation (Editorial)
