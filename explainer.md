@@ -103,8 +103,8 @@ nav-loop: auto | no-repeat | repeat
   - If the currently focused element is Z and there is an input from the :arrow_down: (down-arrow key), the focus is moved to A.
 
 ## Demo
-- [Calendar App using the proposed spatial navigation features](https://lgeweb.github.io/spatial-navigation/demo/)
-- [Test cases for the heuristic spatial navigation](https://lgeweb.github.io/spatial-navigation/demo/heuristic/heuristic_testcases)
+- [Calendar App using the proposed spatial navigation features](https://wicg.github.io/spatial-navigation/demo/)
+- [Test cases for the heuristic spatial navigation](https://wicg.github.io/spatial-navigation/demo/heuristic/heuristic_testcases)
 
 ## Future work
 Solving unreachability, saving last focus, group concept, aligning with scrolling, pointer/key mode selection
