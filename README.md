@@ -1,7 +1,7 @@
 # Overscroll Behavior
 ---
 # Draft Specification
-https://wicg.github.io/scroll-boundary-behavior
+https://wicg.github.io/overscroll-behavior/
 
 # Problem
 
