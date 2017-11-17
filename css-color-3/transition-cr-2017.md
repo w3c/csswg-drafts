@@ -1,4 +1,4 @@
-(from [updated cr transitions](https://www.w3.org/Guide/transitions?profile=CR) )
+(from [cr intended ER transitions](https://www.w3.org/Guide/transitions?profile=CR&cr=rec-update) )
 
 # Transition request for CR: CSS Color 3
 
