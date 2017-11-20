@@ -3,7 +3,7 @@ This is a repository for making the Web excellently embrace the spatial navigati
 
 This repository consists of the basic description for the spatial navigation, landscapes of the relevant industries, and the current status of [W3C standardization](explainer.md) and [Implementation of Web engines](implStatus.md) such as Blink, WebKit, Gecko, and EdgeHTML, while the relevant issues would be discussed in W3C working groups and Web engine open source communities.
 
-You're welcome to contribute! If you have something to say for the spatial navigation, please kindly put it on [issues](https://github.com/lgeweb/spatial-navigation/issues) of this repository or send it via [email](mailto://lgewst@gmail.com). Let's make the Web to be extensible for the several industries!
+You're welcome to contribute! If you have something to say for the spatial navigation, please kindly put it on [issues](https://github.com/WICG/spatial-navigation/issues) of this repository or send it via [email](mailto://lgewst@gmail.com). Let's make the Web to be extensible for the several industries!
 
 ## Overview
 **Spatial navigation (aka Spatnav)** is the ability to navigate between focusable elements based on their position within a structured document. Spatial navigation is often called 'directional navigation' which enables four(4) directional navigation. Users are usually familiar with the 2-way navigation using tab key for the forward direction and shift+tab key for the backward direction, but not familiar with the 4-way navigation using arrow keys.
@@ -41,7 +41,7 @@ See the [implStatus](implStatus.md) for the details of the implementation in Web
 
 - In the future, the input method for smart devices will change to something like voice command, hand gesture, and gaze direction, but the key-based interface will never disappear, even though it'll be used as a secondary method. The key-based interface used to be evaluated as one of the most intuitive ways with a strong sense feedback of finger after pushing a key, while we couldn't imagine a touch-based keyboard without any physical keys.
 
-**Q. Put any question on [issues](https://github.com/lgeweb/spatial-navigation/issues) of this repository :D**
+**Q. Put any question on [issues](https://github.com/WICG/spatial-navigation/issues) of this repository :D**
 - Everything for Spatnav is welcome!
 
 ## Reference
