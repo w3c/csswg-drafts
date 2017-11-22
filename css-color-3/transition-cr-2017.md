@@ -18,9 +18,9 @@ First Tuesday or Thursday after a sucessful transition decision.
 
 ## Decision to request transition
 
-  - RESOLVED: QUOTE-FROM-MINUTES
+  - RESOLUTION: Publish new CR of Color L3
 
-[minutes, 27 Sept 2017 telcon](https://lists.w3.org/Archives/Public/www-style/WHATEVER)
+[minutes, 22 Nov 2017 telcon](https://www.w3.org/2017/11/22-css-minutes.html#item03)
 
 ## Changes
 
@@ -33,28 +33,17 @@ is within the scope defined in the CSS WG's charter.
 
 ## Dependencies met (or not)
 
-The following normative references are not yet at CR:
+All normative references are either W3C Recommendations, or other International Standards.
 
-* LIST
-* THEM
-
-These are primarily to link to the latest definitions of each term.
 
 ## Wide Review
 
-DESCRIBE
+The one substantive erratum has been agreed by the CSS WG and by browser vendors; there are now two implementations which conform to it, and others are expected to follow suit.
 
-There has now been additional implementation feedback from multiple browsers.
-All current feedback has been addressed and collected in the latest Disposition
-of Comments, so we would like to publish a new CR.
 
 ## Issues addressed
 
-The [Disposition of Comments](https://drafts.csswg.org/DIRECTORY/ISSUES) shows COUNT issues.
-
-All are resolved.
-
-IF THERE ARE OPEN ISSUES, EXPLAIN WHY A NEW CR IS NEEDED
+All issues which would result in a new feature were deferred to CSS Color 4, so there are [no open CSS Color 3 issues](https://github.com/w3c/csswg-drafts/labels/css-color-3) and thus, no Disposition of Comments.
 
 ## Formal Objections
 
@@ -62,10 +51,12 @@ None
 
 ## Implementation
 
-[Test reults](https://test.csswg.org/suites/TEST_DIR/nightly-unstable/)
+[Test suite](https://test.csswg.org/harness/suite/css-color-3_dev/)
 
-The [testsuite](https://test.csswg.org/harness/results/TEST_DIR/grouped/) shows that
-NUMBER of TOTAL required tests meet CR exit criteria.
+The [implementatin report](https://test.csswg.org/harness/results/css-color-3_dev/grouped/) shows that
+75 of 75 required tests meet CR exit criteria.
+
+More relevantly for this transition, there is [one test](https://test.csswg.org/harness/test/css-color-3_dev/single/t44-currentcolor-inherited-c/) for the substantive change, which is [passed by two implementations](https://test.csswg.org/harness/results/css-color-3_dev/grouped/t44-currentcolor-inherited-c/).
 
 ## Patent disclosures
 
