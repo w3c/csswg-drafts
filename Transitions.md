@@ -39,7 +39,7 @@ Writing Modes (updated CR with technical changes)
   * [wg resolution for updated CR](https://github.com/w3c/csswg-drafts/issues/1391#issuecomment-320215251) 04 Aug 2017
   * [transition request](https://github.com/w3c/csswg-drafts/blob/master/css-writing-modes-3/transition-updated-cr-2017-09.md) sent [09 Nov 2017](https://lists.w3.org/Archives/Member/chairs/2017OctDec/0134.html)
   * [approved](https://lists.w3.org/Archives/Member/chairs/2017OctDec/0142.html) 21 Nov 2017
-  * next step: publication
+  * next step: [waiting for editors to fix broken links and bad html](https://lists.w3.org/Archives/Member/w3c-css-wg/2017OctDec/0133.html) 21 Nov 2017
   
 CSS Fonts 3 (was PR, now updated CR with technical changes)
   * moved at-risk features to level 4
@@ -47,6 +47,7 @@ CSS Fonts 3 (was PR, now updated CR with technical changes)
   * [group decision](https://lists.w3.org/Archives/Public/www-style/2017Oct/0044.html) 25 Oct 2017
   * next step: Miles updating changes section
   * next step: Chris writing transition request
+  * next step: No disposition of comments, [22 open issues](https://github.com/w3c/csswg-drafts/labels/css-fonts-3)
   
  CSS Color 3
  * next step: write transition to CR from Rec; no new features, one normative change from errata
