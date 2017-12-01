@@ -50,7 +50,7 @@ CSS Fonts 3 (was PR, now updated CR with technical changes)
   * next step: No disposition of comments, [22 open issues](https://github.com/w3c/csswg-drafts/labels/css-fonts-3)
   
  CSS Color 3
- * next step: write transition to CR from Rec; no new features, one normative change from errata
+ * [Transition to CR from Rec; no new features, one normative change from errata](https://lists.w3.org/Archives/Member/chairs/2017OctDec/0145.html) 22 Nov 2017
   
 ## Proposed Recommendation
   
