@@ -42,7 +42,7 @@ There are no normative references which are not yet at CR or above.
 
 ## Wide Review
 
-DESCRIBE
+See the Disposition of comments.
 
 There has now been additional implementation feedback from multiple browsers.
 All current feedback has been addressed and collected in the latest Disposition
@@ -50,11 +50,9 @@ of Comments, so we would like to publish a new CR.
 
 ## Issues addressed
 
-The [Disposition of Comments](https://drafts.csswg.org/DIRECTORY/ISSUES) shows COUNT issues.
+The [Disposition of Comments](https://drafts.csswg.org/issues?spec=css-fonts-3&doc=cr-2017) shows 34 issues. Of those 12 are still open; 11 were accepted, 6 deferred to Fonts 4, 3 were invalid or duplicates and two were rejected (one because we can't change this due to web compatibility, and one because it is fixed in Fonts 4).
 
-All are resolved.
-
-IF THERE ARE OPEN ISSUES, EXPLAIN WHY A NEW CR IS NEEDED
+Despite there being open issues, it has been a very long tme since the /TR version of the spec was updated and we want to publish an update while we work on the remaining issues.
 
 ## Formal Objections
 
@@ -62,10 +60,10 @@ None
 
 ## Implementation
 
-[Test reults](https://test.csswg.org/suites/TEST_DIR/nightly-unstable/)
+[Test suite](https://test.csswg.org/harness/suite/css-fonts-3_dev/)
 
-The [testsuite](https://test.csswg.org/harness/results/TEST_DIR/grouped/) shows that
-NUMBER of TOTAL required tests meet CR exit criteria.
+The [testsuite](https://test.csswg.org/harness/results/css-fonts-3_dev/grouped/) shows that
+459 of 487 required tests meet CR exit criteria. Most of the 28 failing tests relate to a feature which we have marked as at-risk and expect to move to Fonts 4.
 
 ## Patent disclosures
 
