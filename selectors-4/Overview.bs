@@ -27,6 +27,12 @@ Ignored Vars: identifier, extended filtering
 </pre>
 <pre class=link-defaults>
 spec:css-syntax-3; type:dfn; text:identifier
+spec:css-color-4; type:property; text:color
+spec:css-pseudo-4; type:selector;
+	text: ::first-line
+	text: ::first-letter
+	text: ::before
+	text: ::after
 </pre>
 
 <style>
@@ -1906,35 +1912,187 @@ The Hyperlink Pseudo-class: '':any-link''</h3>
 <h3 id="link">
 The Link History Pseudo-classes: '':link'' and '':visited''</h3>
 
-	User agents commonly display unvisited <a href="#the-any-link-pseudo">hyperlinks</a> differently from
-	previously visited ones. Selectors
-	provides the pseudo-classes <dfn id='link-pseudo'>:link</dfn> and
-	<dfn id='visited-pseudo'>:visited</dfn> to distinguish them:
+	User agents commonly display unvisited <a href="#the-any-link-pseudo">hyperlinks</a>
+	differently from previously visited ones.
+	Selectors provides the pseudo-classes
+	<dfn id='link-pseudo'>:link</dfn> and <dfn id='visited-pseudo'>:visited</dfn>
+	to distinguish them.
+	Roughly:
 
-	<ul>
-		<li>The '':link'' pseudo-class applies to links that have
+	* The '':link'' pseudo-class applies to links that have
 		not yet been visited.
-		<li>The '':visited'' pseudo-class applies once the link has
+	* The '':visited'' pseudo-class applies once the link has
 		been visited by the user.
-	</ul>
 
 	After some amount of time, user agents may choose to return a
 	visited link to the (unvisited) '':link'' state.
 
-	The two states are mutually exclusive.
+	The two states are mutually exclusive
+	(no element can ever match '':link:visited''),
+	but their actual interaction is more complex than that,
+	for privacy reasons explained below.
 
-	<div class="example">
-		The following selector represents links carrying class
-		<code>footnote</code> and already visited:
+	In full, the behavior is actually that the '':link'' pseudo-class applies to all links,
+	but the '':visited'' pseudo-class applies the following behavior and restrictions:
 
-		<pre>.footnote:visited </pre>
+	<div algorithm=":visited styling">
+		To <dfn>apply :visited styling</dfn> to an element |el|:
+
+		1. Check to see if |el| has a <a>relevant link</a>.
+			The <dfn for=":visited">relevant link</dfn> for an element
+			is the element itself,
+			if it's an element that would match '':link'',
+			or else the closest ancestor that would match '':link''.
+
+			If |el| does not have a <a>relevant link</a>,
+			then '':visited'' has no effect on the element.
+
+		2. Otherwise, compute |el|’s style,
+			treating only its <a>relevant link</a> as matching '':visited''
+			(and thus, not '':link'').
+			All other links must be treated as matching '':link''.
+
+		3. From the styling results,
+			record the values of the <dfn lt="allowed :visited property">allowed :visited properties</dfn>:
+
+			* 'color'
+			* 'background-color'
+			* the 'border-color' sub-properties
+			* 'outline-color'
+			* 'column-rule-color'
+			* 'fill-color'
+			* 'stroke-color'
+
+			These are |el|’s <dfn dfn lt=":visited style">:visited styles</dfn>.
+
+		4. If |el|’s <a>relevant link</a> is actually visited,
+			then for the <a>allowed :visited properties</a>,
+			use |el|’s <a>:visited styles</a> for any purposes
+			that won't allow the document itself to tell what the style is;
+			in all other contexts,
+			use the normal, all-'':link'', styling.
 	</div>
 
-	Since it is possible for style sheet authors to abuse the :link and :visited pseudo-classes
-	to determine which sites a user has visited without the user's consent,
-	UAs may treat all links as unvisited links
-	or implement other measures to preserve the user's privacy
-	while rendering visited and unvisited links differently.
+	<div class="example">
+		For example, with the following common example style sheet:
+
+		<pre class=lang-css>
+		:link { color: blue; }
+		:visited { color: purple; }
+		</pre>
+
+		Visited links show up as purple only for rendering to the screen.
+		If the document uses JS to query the element’s style,
+		it will instead report ''color: blue'',
+		as if the element only matched '':link''.
+
+		Similarly, if HTML's <{canvas}> element develops an ability to render HTML to the canvas with CSS styling,
+		then either the links would be styled blue
+		(because by default, <{canvas}> gives the document the ability to inspect the results),
+		or the visited links will be purple,
+		but <{canvas}> will restrict the page's ability to inspect the pixels of the result.
+	</div>
+
+	<div class=example>
+		The special '':visited'' behavior also means
+		that a single element might be styled by a mix of '':link'' and '':visited'' rules.
+		For example:
+
+		<pre class=lang-css>
+		:link {
+			color: blue;
+			background-image: url("unvisited.png");
+		}
+		:visited {
+			color: purple;
+			background-image: url("visited.png");
+		}
+		</pre>
+
+		With this style sheet,
+		a visited link will be colored purple,
+		but have the "unvisited.png" background,
+		because 'background-image' is not one of the <a>allowed :visited properties</a>,
+		and so whatever value it gets from a '':visited'' style
+		is not recorded in the element's <a>:visited styles</a>.
+	</div>
+
+	<div class=example>
+		Another consequence of the special '':visited'' behavior
+		is that some selectors that look reasonable
+		will never match.
+		For example:
+
+		<pre class=lang-css>
+		:visited + span { color: red; }
+		</pre>
+
+		Even tho this style sheet is applying an <a>allowed :visited property</a> to the <code>span</code> element,
+		the <code>span</code>’s <a>relevant link</a> can never be its previous sibling
+		(it can only be the <code>span</code> or one of its ancestors).
+		Since the [=apply :visited styling|:visible styling algorithm=]
+		only checks if the element's <a>relevant link</a> is '':visited''
+		(and treats all other links on the page as unvisited),
+		this selector will never actually match anything.
+	</div>
+
+	<details class=note>
+		<summary>Why does '':visited'' have this strange behavior and restrictions?</summary>
+
+		Originally, '':link'' and '':visited'' did indeed work in the simple way
+		described at the beginning of this chapter,
+		like two ordinary mutually-exclusive pseudo-classes.
+		It was eventually discovered, however,
+		that this allowed pages to determine what other sites a user had visited,
+		by listing a bunch of links off-screen
+		and using JS to tell whether they were styled with '':link'' or '':visited''.
+
+		This was bad both for user's privacy
+		(for obvious reasons, sharing a user's browsing history with everyone is bad)
+		and for their security
+		(phishing attacks could, for example, tell which bank website a user visited,
+		and render their phishing page to match that bank specifically,
+		making it more likely to fool the user).
+
+		Rendering visited links in a different style was too useful to throw away entirely,
+		so instead user agents developed the above algorithm
+		to "lie" about the style in some contexts,
+		but still rendering the link with '':visited'' styles normally,
+		without paying too much extra computation time.
+
+		The very limited list of <a>allowed :visited properties</a>
+		further limits the possibility of a page figuring things out.
+		If '':visited'' could apply any property,
+		pages could still,
+		for example,
+		apply a particular 'background-image' only when a link is visited,
+		and then record whether that image was loaded from their server,
+		giving them the exact information we were trying to hide!
+		Similarly, any layout-affecting property,
+		like 'width',
+		might affect the positions of <em>other</em> elements on the page;
+		lying about these knock-on effects to hide the styling
+		would be much more expensive for the user agent.
+		Limiting it just a handful of properties that can only apply colors
+		ensures that as little information is leakable as possible.
+	</details>
+
+	User agents may treat all links as unvisited at all times.
+	(In particular, they can offer a user preference for this,
+	allowing the user to decide whether the benefit of seeing when a link has been visited
+	is more or less important
+	than the possibility of that information being leaked to random pages on the internet.)
+
+	If the user agent uses some form of "link pre-loading"
+	to find resource urls in a stylesheet
+	and begin loading them before it's known that they'll actually be used on the page,
+	they might find a url that would only be applied by an element matching '':visited''
+	(which is impossible, as '':visited'' rules can't cause any properties to apply that load images).
+	User agents with this behavior must ensure that either
+	such urls are <em>never</em> loaded (preferable),
+	or at least that such urls are loaded at the same time
+	regardless of whether a link is visited or not.
+
 
 <h3 id="the-target-pseudo">
 The Target Pseudo-class: '':target''</h3>
@@ -3293,7 +3451,7 @@ Grammar</h2>
 	in a <<complex-selector>>.
 	In some circumstances,
 	it can be followed by more <<pseudo-element-selector>>s or <<pseudo-class-selector>>s
-	in the same <<compount-selector>>,
+	in the same <<compound-selector>>,
 	but these are specified on a case-by-case basis.
 	(For example, the <a>user-action pseudo-classes</a> are allowed after any <a>pseudo-element</a>,
 	and the <a>tree-abiding pseudo-elements</a>
