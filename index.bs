@@ -1,0 +1,194 @@
+<pre class='metadata'>
+Title: Spatial Navigation
+Shortname: spatnav
+Level: 1
+Status: ED
+Group: WICG
+URL: http://wicg.github.io/spatial-navigation
+Editor: Jihye Hong, LG Electronics, jh.hong@lge.com
+Editor: Florian Rivoal, Invited Expert, https://florian.rivoal.net
+Abstract: This specification defines a general model for navigating the focus using the arrow keys,
+	as well as related CSS and JavaScript features.
+</pre>
+
+<h2 id="intro">
+Introduction</h2>
+
+Issue: Add general introduction about spatial (and sequential) navigation here,
+probably borrowing a lot from the explainer.
+
+As a general principle,
+keyboard navigation,
+and spatial navigation in particular,
+should be possible to control without JavaScript;
+declarative solutions are prefered,
+and since spatial navigation depends on layout,
+that means CSS is typically the right place to define
+spatial navigation related features.
+However, in the spirit of the <a href="https://github.com/extensibleweb/manifesto">Extensible Web Manifesto</a>,
+we feel it is important to provide the right JavaScript primitives
+to let authors experiment and explore the problem space.
+More declarative features may be added later,
+based on feedback and experience acquired through such JavaScript usage.
+
+<h2 id=activation>
+Activating Spatial Navigation: the 'arrow-key-behavior' property</h2>
+
+Historically, most browsers have not offered features to let users move the focus directionally.
+Some, such as TV browsers, have controlled spatial navigation using the arrow keys out of necessity,
+since no other input mechanism is available on a typical TV remove control.
+
+Others, have enabled different key combinations to control spatial navigation,
+such as pressing the <code class=key>SHIFT</code> key together with arrow keys.
+
+While arrow keys are well suited for this,
+pressing them (on devices that have such keys)
+has generally triggered other behavior,
+such as scrolling.
+
+The 'arrow-key-behavior' property enables an author to declare
+that their document, or part of their document,
+has been authored with spatinal navigation in mind,
+and the UA can bind the arrow keys to spatial navigation
+without risk of interering with other behavior.
+
+<pre class='propdef'>
+Name: arrow-key-behavior
+Value: auto | mixed | spat-nav
+Initial: auto
+Inherited: yes
+</pre>
+
+Issue: This could also be named <code>spat-nav: auto | mixed | focus</code>,
+or some other name. Bikeshedding welcome.
+
+How spatial navigation is activated is determined by the value of the 'arrow-key-behavior' property
+on the currently focused element,
+or by the value on the root element if no element is focused.
+
+Issue: How about iframes?
+
+Issue: Should we start from the selection rather than from the root when no element is focused?
+Does that depend on whether the selection is collapsed or not?
+
+<dl dfn-for=arrow-key-behavior>
+	<dt><dfn>auto</dfn>
+	<dd>The User Agent defines which keys,
+	if any, 
+	control spatial navigation.
+
+	On devices such as TVs which do not have any pointing input device
+	and which also lack a <code class=key>Tab</code> key to control sequential navigation,
+	it is recommended that arrow keys be used for that purpose without any modifier key.
+	On devices with a full keyboard,
+	the User Agent may use a combination of arrow keys with a modifier key.
+	<dt><dfn>mixed</dfn>
+	<dd>The User Agent must trigger spatial navigation
+	<strong>in <a>mixed mode</a></strong>
+	when the user presses arrow keys.
+
+	Additionally, User Agents which allow spatial navigation to be controled
+	by keys other than arrow keys without a modifier key
+	when the value of 'arrow-key-behavior' is auto
+	must continue to do so.
+	<dt><dfn>focus-nav</dfn>
+	<dd>The User Agent must trigger spatial navigation
+	<strong>in <a>strict mode</a></strong>
+	when the user presses arrow keys.
+
+	Additionally, User Agents which allow spatial navigation to be controled
+	by keys other than arrow keys without a modifier key
+	when the value of 'arrow-key-behavior' is auto
+	must continue to do so.
+</dl>
+
+Note: The difference between <a>strict mode</a> and <a>mixed mode</a>
+is that the former only moves the focus,
+while the later moves the focus if an appropriate target is visible but scrolls otherwise.
+See [[#processing-model]].
+
+
+Issue: do we need ''mixed''?
+It sounds like a generally desirable thing,
+but authors should be able to achieve the same thing
+by calling preventDefault in the event handler for {{FocusNavigationEvent}}
+after checking for visibility of the element to which the focus is about to move.
+
+
+<h2 id="js-api">
+Controlling Spatial Navigation in JavaScript</h2>
+
+<pre class=idl>
+enum NavigationDirection { "up", "down", "left", "right", "prev", "next" };
+
+dictionary FindFocusableOptions {
+  required NavigationDirection dir;
+};
+
+partial interface Element {
+  Element? findFocusable(FindFocusableOptions arg);
+};
+
+[Constructor(DOMString type, optional FocusNavigationEventInit eventInitDict)]
+interface FocusNavigationEvent : UIEvent {
+  readonly attribute NavigationDirection dir;
+  readonly attribute EventTarget? relatedTarget;
+};
+
+dictionary FocusNavigationEventInit : UIEventInit {
+  required NavigationDirection dir;
+  EventTarget? relatedTarget = null;
+};
+
+</pre>
+
+Calling {{findFocusable()}} on an element
+allows the author to find which element would be focused, if any,
+if the user were to attempt spatial (in the case of {{NavigationDirection/up}}, {{NavigationDirection/down}}, {{NavigationDirection/right}}, or {{NavigationDirection/left}})
+or sequential (in the case of {{NavigationDirection/prev}} or {{NavigationDirection/next}})
+navigation while that element has the focus.
+
+Note: The way the direction is expressed allows us to expand to more than 4-way navigation
+later of if this is found necessary.
+More directional keywords or a numerical angle could be added.
+
+<dl>
+<dt>{{FocusNavigationEvent}} . {{FocusNavigationEvent/dir}}
+<dd>The direction of the navigation initiated by the user
+<dt>{{FocusNavigationEvent}} . {{FocusNavigationEvent/relatedTarget}}
+<dd>The element to which the focus will be moved at the end of the event handler,
+as determined by the <a>focus navigation heuristic</a>
+</dl>
+
+Issue: Should we add an additional (optional) attribute to {{FindFocusableOptions}}
+to pick between ''mixed'' and ''focus-nav''?
+
+<h2 id=processing-model>
+Processing Model</h2>
+
+<h3 id=events>
+Event Sequence</h3>
+
+When the user performs performs an action that triggers spatial nagivation
+(typically pressing an arrow key),
+the sequence is as follows:
+
+* The corresponding UI event is fired
+* If `preventDefault()` is not called during that event's handler, then
+
+    * Find where the focus should go, based on the <a>focus navigation heuristic</a>
+    * `FocusNavigationEvent` event is fired
+    * If `preventDefault()` is not called during that event's handler, the element is focused, as if the `focus()` method had been called on it.
+
+<h3 id=heuristic>
+Focus Navigation Heuristic</h3>
+
+The <dfn>focus navigation heuristic</dfn> determines which element should be focused next
+when the user invokes either spatial or sequential navigation.
+
+Issue: Add the details. Link to HTML for the logic on sequential navigation.
+Include <dfn>strict mode</dfn> and <dfn>mixed mode</dfn> giving different results when
+there is no appropirate target without scrolling.
+
+</div>
+
