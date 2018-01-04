@@ -6,6 +6,7 @@ _(none)_
 
 ## First Public Working Draft
 
+
 _(none)_
 
 ## Candidate Recommendation
@@ -31,26 +32,15 @@ CSS Display
 CSS Speech (updated CR, has technical changes)
 * group decision [15 Feb 2017](https://www.w3.org/2017/02/15-css-irc#T17-39-53)
 * should be published as a NOTE because no implementations
-
-Writing Modes (updated CR with technical changes)
-  * working out how to move at-risk features to level 4, and keep in level 3 but as MAY
-  * working on the tests and finalizing the test report
-  * [wg resolution for PR](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May 2017
-  * [wg resolution for updated CR](https://github.com/w3c/csswg-drafts/issues/1391#issuecomment-320215251) 04 Aug 2017
-  * [transition request](https://github.com/w3c/csswg-drafts/blob/master/css-writing-modes-3/transition-updated-cr-2017-09.md) sent [09 Nov 2017](https://lists.w3.org/Archives/Member/chairs/2017OctDec/0134.html)
-  * [approved](https://lists.w3.org/Archives/Member/chairs/2017OctDec/0142.html) 21 Nov 2017
-  * next step: [waiting for editors to fix broken links and bad html](https://lists.w3.org/Archives/Member/w3c-css-wg/2017OctDec/0133.html) 21 Nov 2017
   
 CSS Fonts 3 (was PR, now updated CR with technical changes)
   * moved at-risk features to level 4
   * fuller test coverage
   * [group decision](https://lists.w3.org/Archives/Public/www-style/2017Oct/0044.html) 25 Oct 2017
-  * next step: Miles updating changes section
-  * next step: Chris writing transition request
-  * next step: No disposition of comments, [22 open issues](https://github.com/w3c/csswg-drafts/labels/css-fonts-3)
+  * Myles updating changes section
+  * next step: Chris writing [transition request]()
+  * [Disposition of comments]()
   
- CSS Color 3
- * [Transition to CR from Rec; no new features, one normative change from errata](https://lists.w3.org/Archives/Member/chairs/2017OctDec/0145.html) 22 Nov 2017
   
 ## Proposed Recommendation
   
@@ -83,6 +73,10 @@ CSS-2017
 * [done](https://www.w3.org/TR/css-2017/)
 
 ## First Public Working Draft
+
+Writing Modes 4
+* [group decision]() when?
+* [done](https://www.w3.org/TR/2017/WD-css-writing-modes-4-20171207/) 7 December 2017
 
 CSS Fonts 4
 * [wg decision](https://www.w3.org/2017/04/19-css-irc#T06-11-40) 19 April 2017
@@ -136,6 +130,22 @@ CSS Table
 
 ## Candidate Recommendation
 
+Writing Modes 3 (updated CR with technical changes)
+  * working out how to move at-risk features to level 4, and keep in level 3 but as MAY
+  * working on the tests and finalizing the test report
+  * [wg resolution for PR](https://lists.w3.org/Archives/Public/www-style/2017May/0032.html) 17 May 2017
+  * [wg resolution for updated CR](https://github.com/w3c/csswg-drafts/issues/1391#issuecomment-320215251) 04 Aug 2017
+  * [transition request](https://github.com/w3c/csswg-drafts/blob/master/css-writing-modes-3/transition-updated-cr-2017-09.md) sent [09 Nov 2017](https://lists.w3.org/Archives/Member/chairs/2017OctDec/0134.html)
+  * [approved](https://lists.w3.org/Archives/Member/chairs/2017OctDec/0142.html) 21 Nov 2017
+  * next step: [waiting for editors to fix broken links and bad html](https://lists.w3.org/Archives/Member/w3c-css-wg/2017OctDec/0133.html) 21 Nov 2017 done 05 Dec 2017
+  * [publication request](https://lists.w3.org/Archives/Team/webreq/2017Dec/0007.html) 06 Dec 2017
+  * [done](https://www.w3.org/TR/2017/CR-css-writing-modes-3-20171207/) 07 Dec 2017
+
+CSS Color 3
+ * [Transition to CR from Rec; no new features, one normative change from errata](https://lists.w3.org/Archives/Member/chairs/2017OctDec/0145.html) 22 Nov 2017
+ * [approved](https://lists.w3.org/Archives/Member/chairs/2017OctDec/0154.html) 01 Dec 2017
+ * [done](https://www.w3.org/TR/2017/CR-css-color-3-20171205/) 05 Dec 2017
+ 
 Flexbox (updated CR with technical changes)
   * [group decision](https://lists.w3.org/Archives/Public/www-style/2017Sep/0028.html) 13 Sept 2017
   * [transition request](https://github.com/w3c/csswg-drafts/blob/master/css-flexbox/transition-updated-cr-2017-09.md) [26 Sept 2017](https://lists.w3.org/Archives/Member/chairs/2017JulSep/0184.html)

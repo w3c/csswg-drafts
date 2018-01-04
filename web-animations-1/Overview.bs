@@ -1122,8 +1122,32 @@ as CSS Animations [[CSS-ANIMATIONS-1]].
     <var>animation</var> is described as having a
     <dfn>pending play task</dfn>.
 
-    A user agent MAY execute the above task immediately (if it
-    determines <var>animation</var> is immediately <a>ready</a>).
+    If a user agent determines that |animation| is immediately <a>ready</a>, it
+    may schedule the above task as a microtask such that it runs at the next
+    <a lt="perform a microtask checkpoint">microtask checkpoint</a>, but it must
+    <em>not</em> perform the task synchronously.
+
+    <div class="note">
+
+    The above requirement to run the <a>pending play task</a> asynchronously
+    ensures that code such as the following behaves consistently between
+    implementations:
+
+    <div class='example'><pre class='lang-javascript'>
+    animation.play();
+    animation.ready.then(
+      () => { console.log('Playback commenced'); },
+      () => { console.log('Playback was canceled'); }
+    );
+    // Suppose some condition requires playback to be canceled...
+    animation.cancel();
+    // "Playback was canceled" will be printed to the console.
+    </pre></div>
+
+    In the above code, were the [=pending play task=] run synchronously, the
+    [=current ready promise=] would not be rejected.
+
+    </div>
 
 1.  Run the procedure to <a>update an animation's finished state</a> for
     <var>animation</var> with the <var>did seek</var> flag set to false, and
@@ -1209,6 +1233,10 @@ follows:
     <var>animation</var> is described as having a <dfn>pending pause task</dfn>.
     While the task is running, however, <var>animation</var> does
     <em>not</em> have a <a>pending pause task</a>.
+
+    As with the [=pending play task=], the user agent must run the [=pending
+    pause task=] asynchronously, although that may be as soon as the next <a
+    lt="perform a microtask checkpoint">microtask checkpoint</a>.
 
 1.  Run the procedure to <a>update an animation's finished state</a> for
     <var>animation</var> with the <var>did seek</var> flag set to false,
@@ -3727,7 +3755,7 @@ API by the {{Animation}} interface.
 <pre class='idl'>
 [Exposed=Window,
  Constructor (optional AnimationEffectReadOnly? effect = null,
-              optional AnimationTimeline? timeline)]
+              optional AnimationTimeline? timeline = null)]
 interface Animation : EventTarget {
              attribute DOMString                id;
              attribute AnimationEffectReadOnly? effect;
@@ -3758,10 +3786,7 @@ interface Animation : EventTarget {
     1.  Let <var>animation</var> be a new {{Animation}} object.
     2.  Run the procedure to <a>set the timeline of an animation</a> on
         <var>animation</var> passing <var>timeline</var> as the <var>new
-        timeline</var> or, if a <var>timeline</var> argument is not provided,
-        passing the <a>default document timeline</a> of the {{Document}}
-        <a lt="document associated with a window">associated</a> with the
-        {{Window}} that is the <a>current global object</a>.
+        timeline</var>.
     3.  Run the procedure to <a>set the target effect of an animation</a> on
         <var>animation</var> passing <var>source</var> as the <var>new
         effect</var>.
@@ -3776,11 +3801,8 @@ interface Animation : EventTarget {
     :   <dfn argument
         for="Animation/Animation(effect, timeline)"
         lt="timeline">timeline</dfn>
-    ::  An optional value which, if provided, specifies the <a>timeline</a>
+    ::  An optional value which, if not null, specifies the <a>timeline</a>
         with which to associate the newly-created <a>animation</a>.
-        If not provided, the <a>default document timeline</a> of the
-        {{Document}} <a lt="document associated with a window">associated</a>
-        with the {{Window}} that is the <a>current global object</a> is used.
 
     </div>
 
@@ -4042,7 +4064,7 @@ interface AnimationEffectTimingReadOnly {
 ::  The <a>timing function</a> used to scale the time to
     produce easing effects.
 
-    The syntax of the string is defined by the <<single-timing-function>>
+    The syntax of the string is defined by the <<timing-function>>
     production [[!CSS-TIMING-1]].
 
 </div>
@@ -4809,7 +4831,7 @@ The following methods all accept a set of keyframes as an argument:
 *   the {{KeyframeEffect(target, keyframes, options)}} constructor,
 *   the {{KeyframeEffect/setKeyframes()}} method on the {{KeyframeEffect}}
     interface,
-*   the {{Animatable/animate()}} method of the {{Animatable}} interface.
+*   the {{Animatable/animate()}} method of the {{Animatable}} interface mixin.
 
 This argument may be specified in the one of two forms as illustrated below.
 
@@ -4898,7 +4920,7 @@ This is independent from the <a>timing function</a> that applies to the
 entire <a>iteration duration</a> of the <a>keyframe effect</a> as specified
 using a {{KeyframeEffectOptions}} object (or {{KeyframeAnimationOptions}}
 object when using the {{Animatable/animate()}} method of the {{Animatable}}
-interface).
+interface mixin).
 
 In the following example, the two statements produce different results.
 
@@ -5206,7 +5228,7 @@ keyframes using the following procedure:
 
         1.  Assign each value in <var>offsets</var> to the <a>keyframe
             offset</a> of the <a>keyframe</a> with corresponding position in
-            <var>property keyframes</var> until the end of either sequence is
+            <var>processed keyframes</var> until the end of either sequence is
             reached.
 
         1.  Let <var>easings</var> be a sequence of <code>DOMString</code>
@@ -5229,14 +5251,14 @@ keyframes using the following procedure:
             of length one containing the single value &ldquo;linear&rdquo;, i.e.
             &laquo;&nbsp;"linear"&nbsp;&raquo;.
 
-        1.  If <var>easings</var> has fewer items than <var>property
+        1.  If <var>easings</var> has fewer items than <var>processed
             keyframes</var>, repeat the elements in <var>easings</var>
             successively starting from the beginning of the list until
-            <var>easings</var> has as many items as <var>property
+            <var>easings</var> has as many items as <var>processed
             keyframes</var>.
 
             <div class=example>
-            For example, if <var>property-indexed keyframe</var> has
+            For example, if <var>processed keyframes</var> has
             five items, and <var>easings</var> is the sequence
             &laquo;&nbsp;"ease-in", "ease-out"&nbsp;&raquo;,
             <var>easings</var> would be repeated to become
@@ -5244,14 +5266,14 @@ keyframes using the following procedure:
             "ease-in"&nbsp;&raquo;.
             </div>
 
-        1.  If <var>easings</var> has more items than <var>property
+        1.  If <var>easings</var> has more items than <var>processed
             keyframes</var>, store the excess items as <var>unused
             easings</var>.
 
         1.  Assign each value in <var>easings</var> to a property named
             &ldquo;easing&rdquo; on the <a>keyframe</a> with the corresponding
-            position in <var>property keyframes</var> until the end of
-            <var>property keyframes</var> is reached.
+            position in <var>processed keyframes</var> until the end of
+            <var>processed keyframes</var> is reached.
 
         1.  If the &ldquo;composite&rdquo; member of the <var>property-indexed
             keyframe</var> is <em>not</em> an empty sequence:
@@ -5264,16 +5286,16 @@ keyframes using the following procedure:
                 the value of the &ldquo;composite&rdquo; as its single item.
 
             1.  As with <var>easings</var>, if <var>composite modes</var>
-                has fewer items than <var>property keyframes</var>, repeat the
+                has fewer items than <var>processed keyframes</var>, repeat the
                 elements in <var>composite modes</var> successively starting
                 from the beginning of the list until <var>composite modes</var>
-                has as many items as <var>property keyframes</var>.
+                has as many items as <var>processed keyframes</var>.
 
             1.  Assign each value in <var>composite modes</var> to the
                 <a>keyframe-specific composite operation</a> on the
-                <a>keyframe</a> with the corresponding position in <var>property
-                keyframes</var> until the end of <var>property keyframes</var>
-                is reached.
+                <a>keyframe</a> with the corresponding position in
+                <var>processed keyframes</var> until the end of <var>processed
+                keyframes</var> is reached.
 
     </div>
 
@@ -5422,14 +5444,13 @@ enum CompositeOperation {"replace", "add", "accumulate"};
     lt="animation accumulation">accumulated</a> on to the
     <a>underlying value</a>.
 
-<h3 id="the-animatable-interface">The <code>Animatable</code> interface</h3>
+<h3 id="the-animatable-interface-mixin">The <code>Animatable</code> interface mixin</h3>
 
 Objects that may be the target of an {{KeyframeEffectReadOnly}} object implement
-the {{Animatable}} interface.
+the {{Animatable}} interface mixin.
 
 <pre class='idl'>
-[NoInterfaceObject]
-interface Animatable {
+interface mixin Animatable {
     Animation           animate (object? keyframes,
                                  optional (unrestricted double or KeyframeAnimationOptions) options);
     sequence&lt;Animation&gt; getAnimations ();
@@ -5566,9 +5587,9 @@ partial interface Document {
     that have yet to be processed.
 
     Issue(2054): Both this method and {{Animatable/getAnimations()}} on the
-                 {{Animatable}} interface require retaining forwards-filling
-                 <a>animation effects</a> and their <a>animations</a>
-                 such that a document that
+                 {{Animatable}} interface mixin require retaining
+                 forwards-filling <a>animation effects</a> and their
+                 <a>animations</a> such that a document that
                  repeatedly produces forwards-filling animations will consume
                  memory in an unbounded fashion.
                  We may need to revise this definition (previously these methods
@@ -5584,7 +5605,7 @@ Since DOM Elements may be the target of an animation,
 the {{Element}} interface [[!DOM]] is extended as follows:
 
 <pre class="idl">
-Element implements Animatable;
+Element includes Animatable;
 </pre>
 
 This allows the following kind of usage.
@@ -5600,7 +5621,7 @@ Since <a>keyframe effects</a> may also target pseudo-elements, the
 animatable.
 
 <pre class="idl">
-CSSPseudoElement implements Animatable;
+CSSPseudoElement includes Animatable;
 </pre>
 
 <h3 id="the-animationplaybackevent-interface">The <code>AnimationPlaybackEvent</code> interface</h3>
@@ -5849,9 +5870,10 @@ The following changes have been made since the <a
 *   Dropped global clock definition and added the [=update animations
     and send events=] procedure so that the updating of animations can be
     integrated with HTML's [=update the rendering=] procedure.
+*   Clarified that the [=pending play task=] and [=pending pause task=] must be
+    run asynchronously.
 *   Fixed a mistake in the calculation of the <a>hold time</a> when an pause
     operation completes (see [[#pausing-an-animation-section]]).
-*   Added a definition for the <a>idle phase</a>.
 *   Adjusted the procedure to <a>update an animation's finished state</a> to
     accommodate timelines that change direction.
 *   Clarified behavior of the procedure to <a>reverse an animation</a> when
@@ -5860,6 +5882,7 @@ The following changes have been made since the <a
     {{Animation/pending}} member to the {{Animation}} interface.
 *   Introduced a general [=pending animation event queue=] and defined how
     different types of animation events are sorted.
+*   Added a definition for the <a>idle phase</a>.
 *   In the procedure to calculate the <a>simple iteration progress</a>, made
     a negative end delay not trigger the behavior where the end of the last
     iteration is used instead of the beginning of the next iteration.
@@ -5871,6 +5894,10 @@ The following changes have been made since the <a
 *   Added special handling to allow animating the 'offset' property from the
     programming interface using <code>cssOffset</code> to avoid conflict with
     the attribute name used to specify keyframe offsets.
+*   Updated the {{Animation/Animation(effect, timeline)}} constructor to use
+    <code class=es-value>null</code> as the default value when |timeline| is not
+    specified rather than automatically using the appropriate [=default document
+    timeline=].
 *   Updated the procedure to <a>process a keyframes argument</a> to allow
     specifying <code>offset</code>, <code>composite</code> and mulitple
     <code>easing</code> values.
@@ -5882,6 +5909,8 @@ The following changes have been made since the <a
     from <code>Animatable?</code> to <code>(Element or CSSPseudoElement)?</code>
     (<a href="https://github.com/w3c/web-animations/issues/186">#186</a>).
 *   Dropped the <code>SharedKeyframeList</code> interface.
+*   Converted {{Animatable}} from a <code>[NoInterfaceObject]</code> interface
+    to an [=interface mixin=].
 
 The <a
   href="https://github.com/w3c/csswg-drafts/commits/master/web-animations-1">changelog</a>
