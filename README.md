@@ -51,9 +51,11 @@ See the [implStatus](implStatus.md) for the details of the implementation in Web
   - https://github.com/enyojs/spotlight (deprecated)
 - Implementing TV remote control navigation (MDN)
   - https://developer.mozilla.org/en-US/docs/Mozilla/Firefox_OS_for_TV/TV_remote_control_navigation
+- Spatial Navigation in the Web (slides presented in BlinkOn 8)
+  - https://docs.google.com/presentation/d/1x4RaJIzTYeX0-nySVuq0TThe5shfmOsjbGIMrZJLBTE/edit
+- Focus interaction in UIKit (Apple)
+  - https://developer.apple.com/documentation/uikit/focus_interactions
 - Focus navigation with keyboard, gamepad, and accessibility tools (MS)
   - https://docs.microsoft.com/en-us/windows/uwp/input-and-devices/managing-focus-navigation
 - Designing for Xbox and TV (MS)
   - https://docs.microsoft.com/en-us/windows/uwp/input-and-devices/designing-for-tv
-- Spatial Navigation in the Web (slides presented in BlinkOn 8)
-  - https://docs.google.com/presentation/d/1x4RaJIzTYeX0-nySVuq0TThe5shfmOsjbGIMrZJLBTE/edit
