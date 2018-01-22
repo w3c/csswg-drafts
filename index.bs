@@ -27,6 +27,9 @@ spec: html; urlPrefix: https://html.spec.whatwg.org/multipage/;
 spec: dom; urlPrefix: https://dom.spec.whatwg.org/
     type: dfn;
         text: document element
+spec: overscroll-behavior; urlPrefix: https://wicg.github.io/overscroll-behavior/;
+    type: dfn;
+        text: scroll boundary
 </pre>
 
 <h2 id="intro">
@@ -162,7 +165,7 @@ Inherited: no
 Controlling Spatial Navigation in JavaScript</h2>
 
 <pre class=idl>
-enum NavigationDirection { "up", "down", "left", "right", "prev", "next" };
+enum NavigationDirection { "up", "down", "left", "right", "forward", "backward" };
 
 dictionary FindFocusableOptions {
   required NavigationDirection dir;
@@ -172,13 +175,13 @@ partial interface Element {
   Element? findFocusable(FindFocusableOptions arg);
 };
 
-[Constructor(DOMString type, optional FocusNavigationEventInit eventInitDict)]
-interface FocusNavigationEvent : UIEvent {
+[Constructor(DOMString type, optional NavigationEventInit eventInitDict)]
+interface NavigationEvent : UIEvent {
   readonly attribute NavigationDirection dir;
   readonly attribute EventTarget? relatedTarget;
 };
 
-dictionary FocusNavigationEventInit : UIEventInit {
+dictionary NavigationEventInit : UIEventInit {
   required NavigationDirection dir;
   EventTarget? relatedTarget = null;
 };
@@ -188,20 +191,34 @@ dictionary FocusNavigationEventInit : UIEventInit {
 Calling {{findFocusable()}} on an element
 allows the author to find which element would be focused, if any,
 if the user were to attempt spatial (in the case of {{NavigationDirection/up}}, {{NavigationDirection/down}}, {{NavigationDirection/right}}, or {{NavigationDirection/left}})
-or sequential (in the case of {{NavigationDirection/prev}} or {{NavigationDirection/next}})
+or sequential (in the case of {{NavigationDirection/forward}} or {{NavigationDirection/backward}})
 navigation while that element has the focus.
 
 Note: The way the direction is expressed allows us to expand to more than 4-way navigation
 later of if this is found necessary.
 More directional keywords or a numerical angle could be added.
 
-<dl>
-<dt>{{FocusNavigationEvent}} . {{FocusNavigationEvent/dir}}
-<dd>The direction of the navigation initiated by the user
-<dt>{{FocusNavigationEvent}} . {{FocusNavigationEvent/relatedTarget}}
-<dd>The element to which the focus will be moved at the end of the event handler,
-as determined by the <a>focus navigation heuristic</a>
-</dl>
+<table class="complex data">
+  <thead>
+    <tr>
+      <th>Event type
+      <th>Description
+      <th>{{NavigationEvent/dir}}
+      <th>{{NavigationEvent/relatedTarget}}
+  </thead>
+  <tbody>
+    <tr>
+      <td><dfn event for=NavigationEvent>beforenavfocus</dfn>
+      <td>Fired when spatial or sequential navigation will result in changing the focus.
+      <td rowspan=2>The intended direction of the navigation as requested by the user
+      <td>The <a>DOM anchor</a> of the <a>focusable area</a> that will be focused
+    <tr>
+      <td><dfn event for=NavigationEvent>beforenavscroll</dfn>
+      <td>Fired when spatial navigation has will result in scrolling.
+      <td>The scrollable element that will be scrolled
+  </tbody>
+</table>
+
 
 <h2 id=processing-model>
 Processing Model</h2>
@@ -214,20 +231,18 @@ this topic.
 <h3 id=triggering>
 Triggering Navigation</h3>
 
-Issue: This section should be an extension of [[!UI-EVENTS]]'s processing model
+Issue: The following should be a extension of [[!UI-EVENTS]]'s processing model
 (or a monkey-patch over it if it were not extensible),
 but [[UI-EVENTS]] does not have a fully defined processing model.
 It does define the events, but does not define the algorithm which
 is supposed to dispatch them and respond to cancelation and so on.
-Therefore, this is being written as a (rough sketch) of what that
+Therefore, this is is being written as (a rough sketch of) what that
 model should be.
 Once this is sufficiently detailed and tested, this should be turned into
 a pull request against [[UI-EVENTS]].
 
-Issue: Notwithstanding the previous issue, this is currently written
-using insufficient detail and using insufficiently precise terminology.
-This should be refined into a proper algorithm.
-
+Issue: The following currently does not account
+for <a href="https://github.com/WICG/overscroll-behavior">the proposed overscroll-behavior specification</a>.
 
 When the user presses a key on the keyboard,
 the following steps are run to <dfn>react to key presses</dfn>.
@@ -250,69 +265,123 @@ the following steps are run to <dfn>react to key presses</dfn>.
 5. else if the key is enter and the target has an activation behavior,
     then initiate that action and then return
     <span class=issue>… more of the same, handling all sorts of keys in various situations …</span>
-6. else if the key is tab (or shift tab), invoke the part of HTML on
-    sequential navigation
+6. else, if the {{KeyboardEvent/key}} is <code class=key>"Tab"</code>
+    and all of {{KeyboardEvent/ctrlKey}}, {{KeyboardEvent/altKey}} and {{KeyboardEvent/metaKey}} are <code>false</code>,
+    run the <a>navigation steps</a> on <var>eventTarget</var>
+    in the <code>forward</code> direction if {{KeyboardEvent/shiftKey}} is <code>false</code>
+    or in the <code>backward</code> direction if it is <code>true</code>,
+    then return
 7. else, if the key is an arrow key
+    1. Let <var>dir</var> be:
+        * <code>up</code>    if the {{KeyboardEvent/key}} is <code class=key>"ArrowUp"</code>
+        * <code>down</code>  if the {{KeyboardEvent/key}} is <code class=key>"ArrowDown"</code>
+        * <code>left</code>  if the {{KeyboardEvent/key}} is <code class=key>"ArrowLeft"</code>
+        * <code>right</code> if the {{KeyboardEvent/key}} is <code class=key>"ArrowRight"</code>
 
-    1. if the target is a (form) control that reacts to arrow keys, do that then
-        return (define a nice hook so that elements can be specified to eat arrow
-        keys)
-    2. else, if the target is scrollable and not scrolled to the max, scroll it
-        (with appropriate references to CSSOM-View) then return
-    3. [Insert spatnav here]
-    4. else, if the nearest scrollable ancestor is not scrolled to the max,
+    2. if the target is a (form) control that reacts to arrow keys,
+        do that then return
+
+        Issue: define a nice hook so that elements can be specified to react to arrow keys
+    3. else, if <var>eventTarget</var> is a <a>scroll container</a> that <a>can be manually scrolled</a>
+        <a>directionally scroll the element</a> <var>eventTarget</var> in the direction <var>dir</var>
+        then return.
+    4. [Insert spatnav here]
+    5. else, if the nearest scrollable ancestor is not scrolled to the max,
         scroll that then return
-    5. else recurse the previous step up the tree until you find a scrollable ancestor that
+    6. else recurse the previous step up the tree until you find a scrollable ancestor that
         can scroll or you hit the root
 
         Issue: This is how chrome does it, Firefox doesn't recurse
 
 </div>
 
+<div algorithm>
 
-<h3 id=events>
-Event Sequence</h3>
+Issue: Terminology like this should be in [[CSSOM-VIEW-1]], [[CSS-OVERFLOW-3]], [[CSS-SCROLL-SNAP-1]].
 
-Issue: This section is a vague draft, that should be refined and incorporated into the previous section.
+An element <var>e</var> <dfn>can be manually scrolled</dfn> in a given direction <var>d</var> if:
+* The <a>principal box</a> established by <var>e</var> is a <a>scroll container</a>, and
+* if <var>d</var> is <code>up</code> or <code>down</code>, the computed value of the 'overflow-y' property is not ''overflow/hidden'', and
+* if <var>d</var> is <code>left</code> or <code>right</code>, the computed value of the 'overflow-x' property is not ''overflow/hidden'', and
+* <var>e</var> is not at the <a>scroll boundary</a> in the direction <var>d</var>
+* Issue: Take mandatory scroll snappoints into account
 
-When the user performs an action that triggers spatial navigation
-(typically pressing an arrow key),
-the sequence is as follows:
+</div>
 
-<ol>
-  <li>The corresponding UI Event (keydown in the case of arrow keys) gets dispatched
 
-  <li>If the <a>canceled flag</a> is set, return
+<div algorithm="to run the navigation steps">
+To run the <dfn>navigation steps</dfn> in <var>direction</var> on <var>eventTarget</var>, do the following:
 
-  <li>else,
+If <var>direction</var> is <code>forward</code> or <code>backward</code>,
+run step 1 through 9 of <a href="https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation">the HTML steps for sequential navigation</a>,
+with one change:
+between step 5 and 6, add the following:
 
-    <ol>
-      <li>if the focused element has some action associated with pressing that
-          key (e.g. it is scrollable and pressing down makes it scroll down,
-          or it is an editable element with a caret that can be moved), do
-          that
+> 5.5. if <var>candidate</var> is not <code>null</code>,
+> <a>Fire an event</a> named <a event>beforenavfocus</a> at <var>eventTarget</var> using {{NavigationEvent}}
+> with its {{NavigationEvent/dir}} set to <var>direction</var> and {{NavigationEvent/relatedTarget}} set to <var>candidate</var>
+> and return if the result is false
+>
+> Issue: This is a monkeypatch on [[HTML]].
+> Eventually this should be upstreamed:
+> modify the steps as described here,
+> and give them a name (“the sequential navigation steps”?) so that they can be invoked.
 
-      <li>else,
-        <ol>
-          <li>run the spatial navigation search algorithm,
-              and let <var>candidate</var> be the result
+Then, return.
 
-          <li>dispatch a {{FocusNavigationEvent}} on the currently focused
-              element, with <var>candidate</var> as the <a>relatedTarget</a>
+Else (<a>assert</a>: <var>direction</var> is one of <code>up</code>, <code>down</code>, <code>left</code>, or <code>right</code>),
+run the <a>spatial navigation steps</a> in <var>direction</var> on <var>eventTarget</var>.
+</div>
 
-          <li>if {{preventDefault()}} gets called, return
+<div algorithm="to run the spatial navigation steps">
+To run the <dfn>spatial navigation steps</dfn> in <var>direction</var> on <var>eventTarget</var>, do the following:
+1. Let <var>container</var> be the nearest ancestor of <var>eventTarget</var> that is a <a>spatnav container</a>.
+2. <i>Loop</i>: Let <var>candidates</var> be the result of <a>findinding candidates</a> [ with ..... ]
+3. If <var>candidates</var> is <code>null</code>:
+    * If <var>container</var> [ is a scroller and it can scroll ],
+        1. <a>Fire an event</a> named <a event>beforenavscroll</a> at <var>eventTarget</var> using {{NavigationEvent}}
+            with its {{NavigationEvent/dir}} set to <var>direction</var> and {{NavigationEvent/relatedTarget}} set to <var>container</var>,
+            and let <var>allowScroll</var> be the result.
+        2. If <var>allowScroll</var> is <code>true</code>,
+            then return <a>Directionally scroll the element</a> <var>container</var> in <var>direction</var> the return,
+            else return.
+    * Else, if <var>container</var> is the <a>document element</a> of the <a>top-level browsing context</a>,
+        then return.
+        The User Agent may transfer focus to its own controls (if any) honouring <var>direction</var>.
+    * Else, if <var>container</var> is the <a>document element</a> of a <a>nested browsing context</a> then:
+        1. Set <var>eventTarget</var> to <var>container</var>'s <a>browsing context container</a>
+        2. Set <var>container</var> to the nearest ancestor of <var>eventTarget</var> that is a <a>spatnav container</a>.
+        3. Return to the step labeled <i>loop</i>.
+    * Else, set <var>container</var> to its closest ancester that is itself a <a>spatnav container</a>
+        and return to the step labeled <i>loop</i>.
+2. Let <var>bestCandidate</var> be the result of <a>selecting the best candidate</a> with  [....]
+3. <a>Fire an event</a> named <a event>beforenavfocus</a> at <var>eventTarget</var> using {{NavigationEvent}}
+    with its {{NavigationEvent/dir}} set to <var>direction</var> and {{NavigationEvent/relatedTarget}} set to <var>bestCandidate</var>,
+    and let <var>allowFocusChange</var> be the result.
+4. If <var>allowFocusChange</var> is <code>false</code>, return
+5. Run the <a>focusing steps</a> for <var>bestCandidate</var> and return
 
-          <li>if <var>candidate</var> is not null,
-            <ol>
-              <li>Invoke the thing (what's that thing?) that will prevent
-	          parents of the currently focused element to react to the
-		  down key, such as scrolling if they are scrollers
+</div>
 
-              <li>run the <a>focusing steps</a> for <var>candidate</var>
-            </ol>
-        </ol>
-    </ol>
-</ol>
+<div algorithm="to directionally scroll an element">
+
+Issue: [[CSSOM-VIEW-1]] should probably define
+how to perform a scroll in a given direction without an explicit position.
+Until then, we roll our own.
+
+To <dfn lt="directionally scroll an element | directionally scroll the element">directionally scroll an element</dfn> <var>e</var> in direction <var>dir</var>:
+
+1. Let <var>d</var> be a User Agent defined distance.
+2. Let <var>x</var> be <var>e</var>’s current scroll position on the x axis.
+3. Let <var>y</var> be <var>e</var>’s current scroll position on the y axis.
+4. Use the <a spec=CSSOM-VIEW-1>scroll an element</a> algorithm from [[!CSSOM-VIEW-1]] on <var>e</var> to
+    * (<var>x</var>, <var>y</var> - <var>d</var>) if <var>dir</var> is <code>up</code>
+    * (<var>x</var>, <var>y</var> + <var>d</var>) if <var>dir</var> is <code>down</code>
+    * (<var>x</var> - <var>d</var>, <var>y</var>) if <var>dir</var> is <code>left</code>
+    * (<var>x</var> + <var>d</var>, <var>y</var>) if <var>dir</var> is <code>right</code>
+
+</div>
+
 
 <h3 id=heuristic>
 Focus Navigation Heuristic</h3>
@@ -332,7 +401,7 @@ the <dfn>focus navigation heuristic</dfn> runs these steps:
 
 3. Find <a>spatial navigation focus containers</a>.
 
-    1. If the <a>starting point</a> has an ancestor element which is specified 'arrow-key-behavior' with the value of 'create',
+    1. If the <a>starting point</a> has an ancestor element which is specified 'arrow-key-behavior' with the value of ''create'',
 		   then let <a>spatial navigation focus containers</a> be the ancestor element.
     2. Otherwise, if the <a>starting point</a> is in a <a>scroll container</a>, then
 		   let <a>spatial navigation focus container</a> be the <a>scroll container</a>.
@@ -346,7 +415,7 @@ the <dfn>focus navigation heuristic</dfn> runs these steps:
     4. Otherwise, if the down arrow key is pressed, let <var>direction</var> is downward.
 
 5. Let the <dfn>focus target</dfn> be the result of running the <a>spatial navigation search algorithm</a> with
-<a>starting point</a> and <var>direction</var>.
+    <a>starting point</a> and <var>direction</var>.
 
 6. Move focus to the <a>focus target</a>.
 
@@ -403,5 +472,3 @@ by another <a href="https://html.spec.whatwg.org/#focusable-area">focusable area
 
 The <a>focus navigation heuristic</a> determines which element should be focused next
 when the user invokes either spatial or sequential navigation.
-
-Issue: Add the details. Link to HTML for the logic on sequential navigation.
