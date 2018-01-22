@@ -3,26 +3,26 @@
 
 To support the spatial navigation in the Web, we need to develop several standard APIs. The APIs seem to be discussed with the suitable working groups in W3C (mainly in CSS WG). In this explainer page, the latest status of the spatial navigation would be summarized so that the overall progress could be tracked at a glance.
 
-## API for enabling the spatial navigation mode
+## Enabling the spatial navigation mode
 It makes author set the spatial navigation mode. The following APIs could be considered for the possibilities to support the feature:
 
 #### * CSS property
 - If the proposed property below is applied to the element, the DOM subtree rooted at the element can be managed by the spatial navigation.
 ```css
 // CSS property
-arrow-key-behavior: auto | navigation | scroll
+arrow-key-behavior: auto | focus-nav
 ```
 - auto: The arrow keys work as the UA-defined manner.
-- navigation: The arrow keys work for the spatial navigation.
-- scroll: The arrow keys work for scrolling.
+- focus-nav: The arrow keys work for the spatial navigation.
 
-#### * DOM method (JS)
-```javascript
-// JavaScript
-setSpatialNavigationEnabled(boolean)
+##  Establishing focus navigation containers
+- If the proposed property below is applied to the element, the local logical grouping is created with the DOM subtree rooted at the element.
+```css
+// CSS property
+spatnav-container: auto | create
 ```
-- If the parameter is `true`, the spatial navigation mode is enabled.
-- Otherwise, the arrow keys work as the UA-defined manner.
+- auto: If the element is either the document element of a browsing context’s document (not limited to the top-level browsing context) or a scroll container then it establishes a spatial navigation focus container, otherwise it does not. 
+- create: The element establishes a spatial navigation focus container.
   
 ## Overriding methods on top of the heuristic algorithm
 Developers can customize the spatial navigation with CSS properties by overriding the heuristic spatial navigation.
