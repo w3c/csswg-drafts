@@ -21,6 +21,7 @@ spec: html; urlPrefix: https://html.spec.whatwg.org/multipage/;
             text: DOM anchor
             text: focusable area
             text: currently focused area of a top-level browsing context
+            text: sequential focus navigation order
     urlPrefix: dom.html
         type: dfn;
             text: the body element; url: #the-body-element-2
@@ -30,6 +31,10 @@ spec: dom; urlPrefix: https://dom.spec.whatwg.org/
 spec: overscroll-behavior; urlPrefix: https://wicg.github.io/overscroll-behavior/;
     type: dfn;
         text: scroll boundary
+spec: css2; urlPrefix: https://drafts.csswg.org/css2/
+    urlPrefix: box.html
+        type: dfn;
+            text: border box; url: #x14
 </pre>
 <style>
 code.key {
@@ -458,7 +463,10 @@ run the <a>spatial navigation steps</a> in <var>direction</var> on <var>eventTar
 <div algorithm="to run the spatial navigation steps">
 To run the <dfn>spatial navigation steps</dfn> in <var>direction</var> on <var>eventTarget</var>, do the following:
 1. Let <var>container</var> be the nearest ancestor of <var>eventTarget</var> that is a <a>spatnav container</a>.
-2. <i>Loop</i>: Let <var>candidates</var> be the result of <a>findinding candidates</a> [ with ..... ]
+2. <i>Loop</i>: Let <var>candidates</var> be the result of <a>finding candidates</a>
+    within <var>container</var>
+    in <var>direction</var>
+    starting from <var>eventTarget</var>
 3. If <var>candidates</var> is <code>null</code>:
     * If <var>container</var> is a <a>scroll container</a> that <a>can be manually scrolled</a>:
         1. <a>Fire an event</a> named <a event>beforenavscroll</a> at <var>eventTarget</var> using {{NavigationEvent}}
@@ -489,92 +497,98 @@ To run the <dfn>spatial navigation steps</dfn> in <var>direction</var> on <var>e
 
 </div>
 
-<h3 id=heuristic>
-Focus Navigation Heuristic</h3>
+<h3 id=heuristics>
+Focus Navigation Heuristics</h3>
 
-When the user requests that move focus on the top-level browsing context,
-the <dfn>focus navigation heuristic</dfn> runs these steps:
+Note: The following algorithms are inspired from Chrome's implementation
+as well as from the <a href="https://www.w3.org/TR/WICD/#focus-handling">old WICD Spec</a>.
+Implementors who find better approaches or refinements to these approaches are strongly
+encouraged to provide feedback and help improve this specification
+in order to maximize interoperability.
+In particular, divergences in how User Agents <a>find candidates</a>
+may cause some elements to be focusable in some User Agents but not in others,
+which would be bad for users.
 
-1. Find a spatial navigation <dfn>starting point</dfn>.
+<div algorithm="to find candidates">
 
-    1. If there is a currently focused area, it is the <a>starting point</a>.
-    2. Otherwise, if there is a previously focused area, it is the <a>starting point</a>.
-    3. Otherwise, among all the <a href="https://html.spec.whatwg.org/#focusable-area">focusable areas</a>,
-		   the <a href="https://html.spec.whatwg.org/#focusable-area">focusable area</a> on the topmost and the leftmost in the current level of browsing context is
-			 the <a>starting point</a>.
+To <dfn lt="find candidates | finding candidates">find candidates</dfn> within a <a>spatnav container</a> <var>C</var>,
+in direction <var>D</var>,
+starting from <var>starting point</var>,
+follow the following steps:
 
-2. Move focus to the <a>starting point</a>.
+1. Let <var>focusables</var> be the <a spec=infra for="/">set</a> of all the <a>focusable areas</a> that are descentants of <var>C</var>.
+2. The UA should <a spec=infra for=set>remove</a> from <var>focusables</var> elements whose <a element-attr spec=html><code>tabindex</code></a> attribute is set to a negative value.
 
-3. Find <a>spatial navigation focus containers</a>.
+    Note: This is a "SHOULD" in order to mirror the exclusion of elements with negative tabindex
+    from the <a>sequential focus navigation order</a> as defined in [[HTML#the-tabindex-attribute]].
+3. Let <var>visibles</var> be the subset of the elements in <var>focusables</var>
+    whose <a>border box</a>
+    is at least partly within the <var>C</var>'s <a>scrollport</a>.
 
-    1. If the <a>starting point</a> has an ancestor element which is specified 'spatnav-container' with the value of ''create'',
-		   then let <a>spatial navigation focus containers</a> be the ancestor element.
-    2. Otherwise, if the <a>starting point</a> is in a <a>scroll container</a>, then
-		   let <a>spatial navigation focus container</a> be the <a>scroll container</a>.
-    3. Otherwise, let <a>spatial navigation focus containers</a> be the document element of a browsing context.
+    Issue: CSS should have a term for “border box taking into account corner shaping properties like border-radius”.
 
-4. Get the <var>direction</var> of the spatial navigation.
+    Issue: Should that be C's <a>optimal viewing region</a> instead?
+    Probably not, given the next step, but maybe.
+4. Remove from <var>visibles</var> elements are <a>obscured</a> by another element:
+    If an element could be be hit by a hit test due to some other element(s) overlapping it,
+    it is said to be <dfn>obscured</dfn>.
 
-    1. If the right arrow key is pressed, let <var>direction</var> is rightward.
-    2. Otherwise, if the left arrow key is pressed, let <var>direction</var> is leftward.
-    3. Otherwise, if the up arrow key is pressed, let <var>direction</var> is upward.
-    4. Otherwise, if the down arrow key is pressed, let <var>direction</var> is downward.
+    Note: Spatial navigation is often an afterthough for many web authors,
+    if it is remembered at all.
+    If elements which cannot be focused or activated clicking / pointing
+    could be focused by spatial navigation,
+    there would be a risk that activating them would violate the author's assumptions
+    of what events can happen in certain states of the web page.
+    For instance, if the submit button of a form can be focused and activated even though
+    there is a dialog over it,
+    this may cause a bug in the application.
+    While careful authors sould use the inert attribute (or similar practices) to prevent such problems,
+    but this specification aims to make spatial navigation robust even in the eventuality
+    that authors forget to do so.
 
-5. Let the <dfn>focus target</dfn> be the result of running the <a>spatial navigation search algorithm</a> with
-    <a>starting point</a> and <var>direction</var>.
+    Issue: Some CSS spec needs to define hit testing.
+5. Let <var>candidates</var> be the subset of the elements in <var>visibles</var>
+    whose <a>principal box</a>'s geometric center is within the closed half plane
+    whose boundary goes through the geometric center of <var>starting point</var>
+    and is perpanticular to <var>D</var>.
+6. Return <var>candidates</var>.
 
-6. Move focus to the <a>focus target</a>.
+    Note: <var>candidates</var> may be <code>null</code>.
 
-Issue: How can arrow keys behave when the <a>spatial navigation focus container</a> is a <a>scroll container</a>?
+</div>
 
-The <dfn>spatial navigation search algorithm</dfn> consists of the following steps.
+<div algorithm="to select the best candidate">
 
-This algorithm takes two arguments: <a>starting point</a> and <var>direction</var>.
+To <dfn lt="select the best candidate | selecting the best candidate">select the best candidate</dfn>
+within a <a spec=infra for="/">set</a> of <var>candidates</var>
+in direction <var>dir</var>,
+starting from <var>starting point</var>,
+follow the following steps:
 
-Note: The <a href="https://html.spec.whatwg.org/#focusable-area">focusable area</a> which is overlapped
-by another <a href="https://html.spec.whatwg.org/#focusable-area">focusable area</a> is also a candidate.
+1. If <var>candidates</var> is <a spec=infra for=set>empty</a>, return <code>null</code>
+2. If <var>candidates</var> contains a single item, return that item
+3. For each <var>candidate</var> in <var>candidates</var>,
+    find the points <var>P1</var> inside the <a>border box</a> of <var>starting point</var>
+    and <var>P2</var> inside the <a>border box</a> of <var>candidate</var>
+    that minimize the <var>distance</var> between these two points,
+    when <var>distance</var> is defined as follows:
 
-1. Find candidates which satisfy the conditions below:
-		* It should be a <a href="https://html.spec.whatwg.org/#focusable-area">focusable area</a>.
-		* It should be visible within the viewport.
-		* It should be a child element of the <a>spatial navigation focus container</a>.
-		* The position of the center point of it should be in <var>D</var> direction
-							of that of the <a>starting point</a>.
-		* The position value of the edge of it should be in <var>D</var> direction
-							of that of the <a>starting point</a>.
+    <dl>
+      <dt><var>distance</var>:
+        <dd><var>A</var> + <var>B</var> + <var>C</var> - <var>D</var>
 
-2. If candidates are not null, then find the <a>focus target</a>.
+      <dt><var>A</var>:
+        <dd>The euclidian distance between <var>P1</var> and <var>P2</var>.
 
-    1. Find the combination of the vertex on the <a>starting point</a> and the vertex on the
-		    candidate which makes the shortest distance between two vertices.
+      <dt><var>B</var>:
+        <dd>The absolute distance in the <var>dir</var> direction between <var>P1</var> and <var>P2</var>.
 
-		    * Select <var>vertex V1</var> from the <a>starting point</a>.
-		    * Select <var>vertex V2</var> from the candidate.
+      <dt><var>C</var>:
+        <dd>The absolute distance in the direction which is orthogonal to <var>dir</var> between <var>P1</var> and <var>P2</var>.
 
-    2. Calculate the <a>distance</a> between <var>vertex V1</var> and <var>vertex V2</var> for each candidate.
+      <dt><var>D</var>:
+        <dd>The square root of the area of intersection between the <a>border boxes</a> of <var>candidate</var> and <var>starting point</var>
+    </dl>
+4. Return the item of the <var>candidates</var> set that has the smallest <var>distance</var>
 
-		    The Distance function is:
-
-		    <dfn>distance</dfn> = <var>A</var> + <var>B</var> + <var>C</var> - <var>D</var></code>
-
-		    Note: This refers to the <a href="https://www.w3.org/TR/WICD/#focus-handling">old WICD Spec</a>
-
-		    <var>A</var> : The euclidian distance between <var>vertex V1</var> and <var>vertex V2</var>.
-
-		    <var>B</var> : The absolute distance in the navigation direction between <var>vertex V1</var> and
-				<var>vertex V2</var>.
-
-		    <var>C</var> : The absolute distance in the direction which is orthogonal to the navigation
-				direction between <var>vertex V1</var> and <var>vertex V2</var>.
-
-		    <var>D</var> : The square root of the overlapped area between the candidate and the
-				<a>starting point</a>.
-
-    3. Select the element which distance is the least among the candidates.
-
-3. Otherwise, then let the <a>focus target</a> be the <a>starting point</a>.
-
-4. Return the <a>focus target</a>.
-
-The <a>focus navigation heuristic</a> determines which element should be focused next
-when the user invokes either spatial or sequential navigation.
+</div>
