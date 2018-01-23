@@ -31,95 +31,182 @@ spec: overscroll-behavior; urlPrefix: https://wicg.github.io/overscroll-behavior
     type: dfn;
         text: scroll boundary
 </pre>
+<style>
+code.key {
+  border: solid 1px;
+  border-radius: 0.5ch;
+  padding: 1px 5px;
+}
+</style>
 
-<h2 id="intro">
+<h2 id="intro" class=non-normative>
 Introduction</h2>
 
-Issue: Add general introduction about spatial (and sequential) navigation here,
-probably borrowing a lot from the explainer.
+<em>This section is not normative.</em>
 
-As a general principle,
+Historically, most browsers have not offered features to let users move the focus directionally.
+Some, such as TV browsers, have enabled users to move the focus using the arrow keys out of necessity,
+since no other input mechanism is available on a typical TV remote control.
+
+Others, have enabled different key combinations to control spatial navigation,
+such as pressing the <code class=key>Shift</code> key together with arrow keys.
+
+This ability to move around the page directionally is called <dfn lt="spatial navigation | spatnav" export>spatial navigation</dfn>
+(or <strong>spatnav</strong> for short).
+
+While arrow keys are naturally suited to control spatial navigation,
+pressing them (on devices that have such keys)
+has generally triggered other behavior,
+such as scrolling.
+This specification introduces CSS properties and Javascript APIs
+enabling authors to turn on spatial navigation using arrow keys
+and to control its behavior.
+
+Note: As a general principle,
 keyboard navigation,
 and spatial navigation in particular,
-should be possible to control without JavaScript;
-declarative solutions are preferred,
-and since spatial navigation depends on layout,
-that means CSS is typically the right place to define
-spatial navigation related features.
+should be possible to control without JavaScript,
+and declarative solutions are therefore preferred.
+Since spatial navigation depends on layout,
+that means CSS is typically the right mechanism to define
+spatial navigation related controls.
 However, in the spirit of the <a href="https://github.com/extensibleweb/manifesto">Extensible Web Manifesto</a>,
 we feel it is important to provide the right JavaScript primitives
 to let authors experiment and explore the problem space.
 More declarative features may be added later,
 based on feedback and experience acquired through such JavaScript usage.
 
+
 <h2 id=interaction>
 Module interaction</h2>
 
-This document depends on the Infra Standard. [[!infra]]
+This document depends on the Infra Standard [[!infra]].
 
 The keywords "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" are to be interpreted as described in RFC 2119. [[!RFC2119]]
+
+
+<h2 id=overview class=non-normative>
+Overview</h2>
+
+<em>This section is not normative.</em>
+
+When spatial navigation is <a for=spatnav>active</a>,
+pressing an arrow key will either
+move the focus from its current location to a new focusable item in the direction requested,
+or scroll if there is no appropriate item.
+
+More specifically,
+the User Agent will first search for visible and focusable items
+in the direction indicated
+within the current <a>spatial navigation focus container</a>
+(by default the root element, scrollable elements, and iframes,
+but other elements can be made into <a>spatial navigation focus containers</a>
+using the 'spatnav-container' property).
+
+If it finds any, it will pick the best one for that direction,
+and move the focus there.
+
+If it does not, it will scroll the <a>spatial navigation focus container</a> in the requested direction
+instead of moving focus.
+Doing so may uncover focusable elements
+which would then be eligible targets to move the focus to
+next time spatial navigation in the same direction is requested.
+
+If the <a>spatial navigation focus container</a> cannot be scrolled,
+either because it is not a scrollable element
+or because it is already scrolled to the maximum in that direction,
+the User Agent will select the next <a>spatial navigation focus container</a> up the ancestry chain,
+and repeat the process of
+looking for eligible focus targets,
+selecting the best one if there's any,
+scrolling if not,
+going up the ancestry chain if it cannot scroll,
+until it has either moved focus,
+scrolled,
+or reached the root.
+
+At key points during this search for the appropriate response to the spatial navigation request,
+the User Agent will fires events.
+These enable authors to prevent the upcomming action
+(by calling {{preventDefault()}}),
+and if desired to provide an alternate action,
+such as using calling the {{HTMLElement/focus()}} method on a different
+element of the author's choosing.
+
+The following table summarises the events that may be sent:
+
+<table class="complex data">
+  <thead>
+    <tr>
+      <td colspan=2></td>
+      <th colspan=2>Attributes of the event
+    <tr>
+      <th>Event type
+      <th>Description
+      <th>{{NavigationEvent/dir}}
+      <th>{{NavigationEvent/relatedTarget}}
+  </thead>
+  <tbody>
+    <tr>
+      <td><dfn event for=NavigationEvent>beforenavfocus</dfn>
+      <td>Fired before spatial or <a href="https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation">sequential</a> navigation changes the focus.
+      <td rowspan=2>The intended direction of the navigation as requested by the user
+      <td>The <a>DOM anchor</a> of the <a>focusable area</a> that will be focused
+    <tr>
+      <td><dfn event for=NavigationEvent>beforenavscroll</dfn>
+      <td>Fired before spatial navigation triggers scrolling
+      <td>The element that will be scrolled
+  </tbody>
+</table>
+
 
 <h2 id=declarative>
 Controlling spatial navigation through declarative means</h2>
 
 <h3 id=activation>
-Activating Spatial Navigation: the 'arrow-key-behavior' property</h3>
+Activating Spatial Navigation: the 'spatial-navigation' property</h3>
 
-Historically, most browsers have not offered features to let users move the focus directionally.
-Some, such as TV browsers, have controlled spatial navigation using the arrow keys out of necessity,
-since no other input mechanism is available on a typical TV remote control.
+Spatial navigation is said to be <dfn for=spatnav>available</dfn>
+when there is a mechanism available to the user to invoke spatial navigation.
 
-Others, have enabled different key combinations to control spatial navigation,
-such as pressing the <code class=key>SHIFT</code> key together with arrow keys.
+Spatial navigation is said to be <dfn for=spatnav>active</dfn> on an element
+when the user can invoke spatial navigation
+by pressing the arrow keys without modifier keys
+when that element is focused.
 
-While arrow keys are well suited for this,
-pressing them (on devices that have such keys)
-has generally triggered other behavior,
-such as scrolling.
-
-The 'arrow-key-behavior' property enables an author to declare
+The 'spatial-navigation' property enables the author to declare
 that their document, or part of their document,
 has been authored with spatial navigation in mind,
-and the User Agent can bind the arrow keys to spatial navigation
+and the User Agent can make spatial navigation <a for=spatnav>active</a>
 without risk of interfering with other behavior.
 
 <pre class='propdef'>
-Name: arrow-key-behavior
-Value: auto | focus-nav
+Name: spatial-navigation
+Value: auto | active
 Initial: auto
 Inherited: yes
 </pre>
 
-Issue: This could also be named <code>spat-nav: auto | focus</code>,
-or some other name. Bikeshedding welcome.
 
-How spatial navigation is activated is determined by the value of the 'arrow-key-behavior' property
-on the currently focused element,
-or by the value on the root element if no element is focused.
-
-Issue: How about iframes?
-Also, should we start from the selection rather than from the root when no element is focused?
-Does that depend on whether the selection is collapsed or not?
-
-<dl dfn-for=arrow-key-behavior>
+<dl dfn-for=spatial-navigation dfn-type=value>
 	<dt><dfn>auto</dfn>
-	<dd>The User Agent defines which keys,
-	if any, control spatial navigation.
+	<dd>The User Agent defines
+	whether spatial navigation is <a>available</a>,
+	and if so, which UI mechanisms may trigger the <a>spatial navigation steps</a>
+	(e.g. certain key combinations, gestures, buttons in the UI, voice commands…).
 
-	On devices such as TVs which do not have any pointing input device
-	and which also lack a <code class=key>Tab</code> key to control
+	On devices which do not have any pointing input device,
+	and especially on devices such as TVs which also lack a <code class=key>Tab</code> key to control
 	<a herf="https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation">sequential focus navigation</a>,
-	it is recommended that arrow keys be used for that purpose without any modifier key.
-	On devices with a full keyboard,
-	the User Agent may use a combination of arrow keys with a modifier key.
+	User Agents should make spatial navigation <a>active</a>.
 
-	<dt><dfn>focus-nav</dfn>
-	<dd>The User Agent must trigger spatial navigation
-	when the user presses arrow keys without modifier keys.
+	<dt><dfn>active</dfn>
+	<dd>The User Agent must make spatial navigation <a>active</a>
+	on the element.
 
-	Additionally, User Agents which allow spatial navigation to be controlled
-	by keys other than arrow keys without a modifier key
-	when the value of 'arrow-key-behavior' is auto
+	Additionally, User Agents which make spatial navigation <a>available</a>
+	by other mechanisms
+	when the value of 'spatial-navigation' is ''spatial-navigation/auto''
 	must continue to do so.
 </dl>
 
@@ -137,9 +224,6 @@ if a suitable one cannot be found inside it.
 Such groupings are called <dfn lt="spatial navigation focus container | spatial navigation focus containers | spatnav container | spatnav containers">spatial navigation focus containers</dfn> (or <strong>spatnav containers</strong> for short),
 and are controlled by the 'spatnav-container' property.
 
-See [[#heuristic]] for details of how <a>spatial navigation focus containers</a>
-affects which element gets focused.
-
 <pre class='propdef'>
 Name: spatnav-container
 Value: auto | create
@@ -147,7 +231,14 @@ Initial: auto
 Inherited: no
 </pre>
 
-<dl dfn-for=spatnav-container>
+Issue: Bikeshedding: Are we OK with abbreviations?
+Should this be spatial-navigation-container?
+Is that too long, or does it make it seem like a longhand?
+Should we go with navigation-container instead?
+Doesn't that suggest it would do something for sequential navigation too?
+
+
+<dl dfn-for=spatnav-container dfn-type=value>
 	<dt><dfn>auto</dfn>
 	<dd>If the element is either
 	the <a>document element</a> of a <a for="/">browsing context</a>'s <a>document</a>
@@ -161,19 +252,16 @@ Inherited: no
 	<dd>The element establishes a <a>spatial navigation focus container</a>
 </dl>
 
+See [[#overview]] for a high level description of how <a>spatial navigation focus containers</a>
+affects the behavior of spatial navigation,
+and [[#processing-model]] for details.
+
+
 <h2 id="js-api">
-Controlling Spatial Navigation in JavaScript</h2>
+Javascript API</h2>
 
 <pre class=idl>
 enum NavigationDirection { "up", "down", "left", "right", "forward", "backward" };
-
-dictionary FindFocusableOptions {
-  required NavigationDirection dir;
-};
-
-partial interface Element {
-  Element? findFocusable(FindFocusableOptions arg);
-};
 
 [Constructor(DOMString type, optional NavigationEventInit eventInitDict)]
 interface NavigationEvent : UIEvent {
@@ -185,7 +273,23 @@ dictionary NavigationEventInit : UIEventInit {
   required NavigationDirection dir;
   EventTarget? relatedTarget = null;
 };
+</pre>
 
+Note: The way the direction is expressed allows us to expand to more than 4-way navigation
+later of if this is found necessary.
+More directional keywords or a numerical angle could be added.
+
+See [[#overview]] for a high level description of the various types of {{NavigationEvent}} which may be dispatched,
+and [[#processing-model]] for details.
+
+<pre class=idl>
+dictionary FindFocusableOptions {
+  required NavigationDirection dir;
+};
+
+partial interface Element {
+  Element? findFocusable(FindFocusableOptions arg);
+};
 </pre>
 
 Calling {{findFocusable()}} on an element
@@ -194,42 +298,31 @@ if the user were to attempt spatial (in the case of {{NavigationDirection/up}}, 
 or sequential (in the case of {{NavigationDirection/forward}} or {{NavigationDirection/backward}})
 navigation while that element has the focus.
 
-Note: The way the direction is expressed allows us to expand to more than 4-way navigation
-later of if this is found necessary.
-More directional keywords or a numerical angle could be added.
-
-<table class="complex data">
-  <thead>
-    <tr>
-      <th>Event type
-      <th>Description
-      <th>{{NavigationEvent/dir}}
-      <th>{{NavigationEvent/relatedTarget}}
-  </thead>
-  <tbody>
-    <tr>
-      <td><dfn event for=NavigationEvent>beforenavfocus</dfn>
-      <td>Fired when spatial or sequential navigation will result in changing the focus.
-      <td rowspan=2>The intended direction of the navigation as requested by the user
-      <td>The <a>DOM anchor</a> of the <a>focusable area</a> that will be focused
-    <tr>
-      <td><dfn event for=NavigationEvent>beforenavscroll</dfn>
-      <td>Fired when spatial navigation has will result in scrolling.
-      <td>The scrollable element that will be scrolled
-  </tbody>
-</table>
-
 
 <h2 id=processing-model>
 Processing Model</h2>
 
-Note: This section is mostly monkey patches on other specs,
+The [[#overview]] section gives a high level idea of how spatial navigation works,
+to help readers of this specification build a general mental model.
+It uses intuitive but imprecise terminology,
+and glosses over many details
+for the sake of readability.
+
+This section defines the corresponding normative behavior
+and aims for as much detail as necessary
+to fully define the behavior.
+
+Note: Much of section is monkey patches on other specs,
 and should in the long term be integrated back into them.
 This is all specified here for now in order to explore and incubate
 this topic.
 
 Issue: The following currently does not account
 for <a href="https://github.com/WICG/overscroll-behavior">the proposed overscroll-behavior specification</a>.
+
+
+<h3 id=key-presses>
+Handling key presses</h3>
 
 <div algorithm="react to key presses">
 
@@ -281,8 +374,7 @@ the following steps are run to <dfn>react to key presses</dfn>.
     3. Else, if <var>eventTarget</var> is a <a>scroll container</a> that <a>can be manually scrolled</a> in <var>dir</var>
         <a>directionally scroll the element</a> <var>eventTarget</var> in the direction <var>dir</var>
         then return.
-    4. Else, if the computed value of ''arrow-key-behavior'' is ''focus-nav'',
-        or if the User Agent allow spatial navigation with arrow keys even when the computed value is ''arrow-key-behavior/auto'',
+    4. Else, if spatial navigation is <a for=spatnav>active</a>
         run the <a>navigation steps</a> on <var>eventTarget</var> in direction <var>dir</var>,
         then return
     5. Else, let <var>ancestor</var> be the nearest ancestor of <var>eventTarget</var> that is a <a>scroll container</a> that <a>can be scrolled manually</a>,
@@ -301,6 +393,9 @@ the following steps are run to <dfn>react to key presses</dfn>.
 
 </div>
 
+<h3 id=scrolling>
+Scrolling</h3>
+
 <div algorithm>
 
 Issue: Terminology like this should be in [[CSSOM-VIEW-1]], [[CSS-OVERFLOW-3]], [[CSS-SCROLL-SNAP-1]].
@@ -314,6 +409,27 @@ An element <var>e</var> <dfn lt="can be manually scrolled | can be scrolled manu
 
 </div>
 
+<div algorithm="to directionally scroll an element">
+
+Issue: [[CSSOM-VIEW-1]] should probably define
+how to perform a scroll in a given direction without an explicit position.
+Until then, we roll our own.
+
+To <dfn lt="directionally scroll an element | directionally scroll the element">directionally scroll an element</dfn> <var>e</var> in direction <var>dir</var>:
+
+1. Let <var>d</var> be a User Agent defined distance.
+2. Let <var>x</var> be <var>e</var>’s current scroll position on the x axis.
+3. Let <var>y</var> be <var>e</var>’s current scroll position on the y axis.
+4. Use the <a spec=CSSOM-VIEW-1>scroll an element</a> algorithm from [[!CSSOM-VIEW-1]] on <var>e</var> to
+    * (<var>x</var>, <var>y</var> - <var>d</var>) if <var>dir</var> is <code>up</code>
+    * (<var>x</var>, <var>y</var> + <var>d</var>) if <var>dir</var> is <code>down</code>
+    * (<var>x</var> - <var>d</var>, <var>y</var>) if <var>dir</var> is <code>left</code>
+    * (<var>x</var> + <var>d</var>, <var>y</var>) if <var>dir</var> is <code>right</code>
+
+</div>
+
+<h3 id=nav>
+Navigation</h3>
 
 <div algorithm="to run the navigation steps">
 To run the <dfn>navigation steps</dfn> in <var>direction</var> on <var>eventTarget</var>, do the following:
@@ -358,6 +474,8 @@ To run the <dfn>spatial navigation steps</dfn> in <var>direction</var> on <var>e
         1. Set <var>eventTarget</var> to <var>container</var>'s <a>browsing context container</a>
         2. Set <var>container</var> to the nearest ancestor of <var>eventTarget</var> that is a <a>spatnav container</a>.
         3. Return to the step labeled <i>loop</i>.
+
+	Issue: is it sane from a security standpoint that this propagates up from iframes?
     * Else, set <var>container</var> to its closest ancester that is itself a <a>spatnav container</a>
         and return to the step labeled <i>loop</i>.
 
@@ -370,26 +488,6 @@ To run the <dfn>spatial navigation steps</dfn> in <var>direction</var> on <var>e
 5. Run the <a>focusing steps</a> for <var>bestCandidate</var> and return
 
 </div>
-
-<div algorithm="to directionally scroll an element">
-
-Issue: [[CSSOM-VIEW-1]] should probably define
-how to perform a scroll in a given direction without an explicit position.
-Until then, we roll our own.
-
-To <dfn lt="directionally scroll an element | directionally scroll the element">directionally scroll an element</dfn> <var>e</var> in direction <var>dir</var>:
-
-1. Let <var>d</var> be a User Agent defined distance.
-2. Let <var>x</var> be <var>e</var>’s current scroll position on the x axis.
-3. Let <var>y</var> be <var>e</var>’s current scroll position on the y axis.
-4. Use the <a spec=CSSOM-VIEW-1>scroll an element</a> algorithm from [[!CSSOM-VIEW-1]] on <var>e</var> to
-    * (<var>x</var>, <var>y</var> - <var>d</var>) if <var>dir</var> is <code>up</code>
-    * (<var>x</var>, <var>y</var> + <var>d</var>) if <var>dir</var> is <code>down</code>
-    * (<var>x</var> - <var>d</var>, <var>y</var>) if <var>dir</var> is <code>left</code>
-    * (<var>x</var> + <var>d</var>, <var>y</var>) if <var>dir</var> is <code>right</code>
-
-</div>
-
 
 <h3 id=heuristic>
 Focus Navigation Heuristic</h3>
@@ -409,7 +507,7 @@ the <dfn>focus navigation heuristic</dfn> runs these steps:
 
 3. Find <a>spatial navigation focus containers</a>.
 
-    1. If the <a>starting point</a> has an ancestor element which is specified 'arrow-key-behavior' with the value of ''create'',
+    1. If the <a>starting point</a> has an ancestor element which is specified 'spatnav-container' with the value of ''create'',
 		   then let <a>spatial navigation focus containers</a> be the ancestor element.
     2. Otherwise, if the <a>starting point</a> is in a <a>scroll container</a>, then
 		   let <a>spatial navigation focus container</a> be the <a>scroll container</a>.
