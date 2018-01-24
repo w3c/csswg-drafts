@@ -51,95 +51,6 @@ Introduction {#intro}
  ██████   ███████  ████████   ██████   ██     ██ ████ ████████
 -->
 
-<h2 id="subgrid-per-axis">
-Subgrids: per-axis proposal</h2>
-
-<div class="issue">
-	There is a proposal to have ''subgrid'' be instead a keyword
-	for 'grid-template-rows' and 'grid-template-columns',
-	which would allow subgridding to apply to a single axis,
-	not only both axes simultaneously.
-	The same constraints apply as specified for dual-axis subgrids via 'display',
-	but only to the subgridded dimension.
-
-	As with the ''display: subgrid'' proposal,
-	placement of all grid items, including subgrids and their sub-items,
-	occurs before sizing,
-	and track sizing in each axis is handled in independent steps
-	as per the Grid Sizing Algorithm.
-	In the case of a single-axis subgrid,
-	the track sizing in a subgridded dimension treats each item in a given track in that axis
-	as part of the parent grid;
-	and in the other axis, the subgrid item is treated as a nested grid.
-
-	For example, suppose we have a parent grid container A
-	which contains an item B that has subgridded columns
-	and contains a grandchild C that has subgridded rows
-	and grandchild C' that is simply a nested grid.
-	When A sizes its columns it treats B's items slotted into to A's corresponding columns,
-	but when A sizes its rows it treates B as a single item
-	(a grid container with its own rows and some items including items C and C').
-	Similarly when B sizes its rows,
-	it treats C's items as slotted into B's rows,
-	but when B sizes its columns,
-	it treats C as a single item,
-	just as it does with C'.
-	There is no relationship between C's rows and A's rows,
-	because the rows in B are nested, not subgridded.
-
-	At a high level, the grid algorithm is:
-
-	<ol>
-		<li>Size the columns
-		<li>Size the rows
-		<li>Adjust the columns (if needed based on final row sizes)
-	</ol>
-
-	The grid sizing algorithm in this example would thus look like this:
-	<ol>
-		<li>Resolve sizes of A’s grid columns,
-		using the sizes of A’s grid items,
-		treating B as empty but treating its children (including C and C') as items in grid A.
-
-		The grid algorithm simply recurses into C'.
-		For C, it's more complicated:
-
-		<ol>
-			<li>Size C's columns
-			<li>Size C's rows by sizing B's rows
-			<li>Adjust C's columns
-			<li>Return C's final column sizes.
-		</ol>
-
-		A correct size for B's rows requires C's final column sizes,
-		because the row size depends on the column size,
-		and thus B's rows could very well depend on C's final column sizes.
-		To break this cyclic dependency, we need to split the algorithm to depend on the initial approximation of C's final column sizes, and do the adjustment pass later.
-		So for C, we need to recurse into column sizing only, and pass that initial size up to A for its initial column sizing.
-
-		When we size B's rows later on, we will size C's rows (which are subgridded),
-		and finish up C's sizing by finalizing its columns.
-		If this resulted in a change, we have the opportunity
-		to trigger an adjustment pass for A's columns during its adjustment pass.
-
-		<li>Next, resolve sizes of A's rows,
-		using the sizes of A’s grid items,
-		treating B as a single item.
-
-		Since B, as a subgrid, has its sizing is split out into the multiple passes,
-		the grid algorithm issues only a row-sizing recursion into B:
-		Size B’s rows, treating C’ as a single item, requesting its final size,
-		and treating C as an empty item and hoisting its children as items in grid B.
-
-		B returns its final row size, which factors into A’s row sizing pass.
-
-		<li>Last, finalize A’s column sizes.
-		If C’s final size changes as a result of the row-sizing pass through B,
-		this should trigger a resizing of B’s columns,
-		which should trigger a resizing pass on A’s column.
-	</ol>
-</div>
-
 <h2 id="subgrids">
 Subgrids</h2>
 
@@ -226,7 +137,7 @@ Establishing a Subgrid: Per-Axis Proposal</h3>
 	New values: subgrid
 	</pre>
 
-	<dl dfn-for="display" dfn-type=value>
+	<dl dfn-for="grid-template-rows, grid-template-columns" dfn-type=value>
 		<dt><dfn>subgrid</dfn>
 		<dd>
 			Tracks are <a>subgridded</a> in this axis:
@@ -237,8 +148,8 @@ Establishing a Subgrid: Per-Axis Proposal</h3>
 
 	Issue: This syntax allows for subgrids which are subgridded in one <em>or</em> both axes.
 
-<h2 id="subgrid-rules">
-Subgrid Rules</h2>
+<h3 id="subgrid-items">
+Characteristics of a Subgrid Item</h3>
 
 	Note: <ins>Insertions</ins> are differences between the dual-axis and per-axis proposals.
 
@@ -333,6 +244,241 @@ Subgrid Rules</h2>
 			(Note: the act of scrolling does not affect layout.)
 			Overflow must otherwise be treated as ''visible''.
 	</ul>
+
+<h3 id="subgrid-sizing">
+Subgrid Sizing Algorithm</h3>
+
+	Note: Placement of all grid items,
+	including subgrids and their sub-items,
+	occurs before sizing.
+
+	Issue: In this section, which is itself a diff,
+	<i>italics</i> indicate additional prose
+	specific to <a href="#subgrid-per-axis">per-axis subgrids</a>.
+
+	Track sizing in a subgridded dimension
+	treats each item in a given track in that axis
+	as members of the parent grid.
+	This interlacing requires that grid sizing
+	drills down per axis into subgrids,
+	rather than completing both axes in its recursion.
+	Thus the <a href="https://www.w3.org/TR/css-grid-1/#algo-overview">Grid Sizing Algorithm</a>
+	is modified as follows:
+
+	<blockquote>
+
+	<ol>
+		<li>
+			First, the <a>track sizing algorithm</a> is used to resolve the sizes of the <a>grid columns</a>.
+
+			<ins>
+
+			<p>In this process,
+			any <a>grid item</a> which is subgridded
+			in the <a>grid container</a>’s <a>inline axis</a>
+			is treated as empty
+			and its <a>grid items</a> (the grandchildren)
+			are treated as direct children of the <a>grid container</a> (their grandparent).
+			This introspection is recursive.
+
+			<p><i>Items which are subgridded only in the <a>block axis</a>,
+			and whose <a>grid container</a> size in the <a>inline axis</a>
+			depends on the size of its contents
+			are also introspected:
+			since the size of the item in this dimension
+			can be dependent on the sizing of its subgridded tracks in the other,
+			the size contribution of any such item to this grid’s column sizing
+			(see <a href="https://www.w3.org/TR/css-grid-1/#algo-content">Resolve Intrinsic Track Sizes</a>)
+			is taken under the provision
+			of having determined its track sizing only up to the same point
+			in the Grid Sizing Algorithm as this parent grid itself.
+			E.g. for the first pass through this step,
+			the item will have its tracks sized only through this first step;
+			if a second pass of this step is triggered then
+			the item will have completed a first pass through steps 1-3
+			as well as the second pass of this step
+			prior to returning its size for consideration in this grid’s column sizing.
+			Again, this introspection is recursive.</i></p>
+
+			</ins>
+
+			If calculating the layout of a <a>grid item</a> in this step
+			depends on the <a>available space</a> in the <a>block axis</a>,
+			assume the <a>available space</a> that it would have
+			if any row with a <a>definite</a> <a>max track sizing function</a>
+			had that size and all other rows were infinite.
+
+		<li>
+			Next, the <a>track sizing algorithm</a> resolves the sizes of the <a>grid rows</a>,
+			using the <a>grid column</a> sizes calculated in the previous step.
+
+			<ins>
+
+			<p>In this process,
+			any <a>grid item</a> which is subgridded
+			in the <a>grid container</a>’s <a>block axis</a>
+			is treated as empty
+			and its <a>grid items</a> (the grandchildren)
+			are treated as direct children of the <a>grid container</a> (their grandparent).
+			This introspection is recursive.
+
+			<p><i>As with sizing columns,
+			items which are subgridded only in the <a>inline axis</a>,
+			and whose <a>grid container</a> size in the <a>block axis</a>
+			depends on the size of its contents
+			are also introspected.
+			(As with sizing columns,
+			the size contribution to this grid’s row sizing
+			is taken under the provision
+			of having determined its track sizing
+			only up to this corresponding point in the algorithm;
+			and again, this introspection is recursive.)</i></p>
+			</ins>
+
+		<li>
+			Then, if the <a>min-content contribution</a> of any grid items have changed
+			based on the row sizes calculated in step 2,
+			steps 1 and 2 are repeated with the new <a>min-content contribution</a>
+			and <a>max-content contribution</a> (once only).
+
+			<div class="note">
+				This cycle is necessary for cases where the <a>inline size</a> of a <a>grid item</a>
+				depends on the <a>block size</a> of its <a>grid area</a>.
+				Examples include wrapped column <a>flex containers</a> (''flex-flow: column wrap''),
+				<a>orthogonal flows</a> ('writing-mode'),
+				and <a spec=css-multicol>multi-column elements</a>.
+			</div>
+
+		<li>
+			Finally, the <a>grid container</a> is sized
+			using the resulting size of the <a>grid</a> as its content size,
+			and the tracks are aligned within the <a>grid container</a>
+			according to the 'align-content' and 'justify-content' properties.
+
+			Note: This can introduce extra space between tracks,
+			potentially enlarging the grid area of any grid items spanning the gaps
+			beyond the space allotted to during track sizing.
+	</ol>
+
+	Once the size of each <a>grid area</a> is thus established,
+	the <a>grid items</a> are laid out into their respective containing blocks.
+	The <a>grid area’s</a> width and height are considered <a>definite</a> for this purpose.
+
+	Note: Since formulas calculated using only definite sizes,
+	such as the <a>stretch fit</a> formula,
+	are also definite,
+	the size of a grid item which is stretched
+	is also considered definite.
+
+	</blockquote>
+
+	Issue: Note, this means that a subgrid establishing an orthogonal flow
+	would have the order of its track sizing inverted compared to a nested grid.
+	We could simplify this by saying that an orthogonal flow
+	cannot establish a subgrid; it can only be a nested grid.
+
+	<i>The following example illustrates how per-axis subgrids are sized:</i>
+
+	<div class="example" style="font-style: italic">
+		For example, suppose we have a parent grid container <var>A</var>
+		which contains an item <var>B</var> that has subgridded columns
+		and contains a grandchild <var>B</var> that has subgridded rows
+		and grandchild <var>D</var> that is simply a nested grid.
+
+		<xmp>
+			<grid-A>
+				<grid-B subgrid=columns>
+					<grid-C subgrid=rows/>
+					<grid-D>
+				</grid-B>
+			<grid-A>
+		</xmp>
+
+		When <var>A</var> sizes its columns
+		it treats <var>B</var>'s items
+		as slotted into to <var>A</var>'s corresponding columns,
+		but when <var>A</var> sizes its rows
+		it treates <var>B</var> as a single item
+		(a grid container with its own rows and some items including items <var>C</var> and <var>D</var>).
+		Similarly when <var>B</var> sizes its rows,
+		it treats <var>C</var>'s items as slotted into <var>B</var>'s rows,
+		but when <var>B</var> sizes its columns,
+		it treats <var>C</var> as a single item,
+		just as it does with <var>D</var>.
+		There is no relationship between <var>C</var>'s rows and <var>A</var>'s rows,
+		because the rows in <var>B</var> are nested, not subgridded.
+
+		At a high level, the grid algorithm is:
+
+		<ol>
+			<li>Size the columns
+			<li>Size the rows
+			<li>Adjust the columns (if needed based on final row sizes)
+		</ol>
+
+		The grid sizing algorithm in this example would thus look like this:
+		<ol>
+			<li>
+				<strong>Resolve sizes of <var>A</var>’s grid columns,
+				using the sizes of <var>A</var>’s grid items,
+				treating <var>B</var> as empty
+				but treating its children
+				(including <var>C</var> and <var>D</var>)
+				as items in grid <var>A</var>.</strong>
+
+				The grid algorithm simply recurses into <var>D</var>.
+				For <var>C</var>, it's more complicated:
+
+				<ol>
+					<li>Size <var>C</var>'s columns.
+					<li>Size <var>C</var>'s rows by sizing <var>B</var>'s rows.
+					<li>Adjust <var>C</var>'s columns.
+					<li>Return <var>C</var>'s final column sizes.
+				</ol>
+
+				A correct size for <var>B</var>'s rows
+				requires <var>C</var>'s final column sizes,
+				because the row size depends on the column size,
+				and thus <var>B</var>'s rows could very well depend
+				on <var>C</var>'s final column sizes.
+				To break this cyclic dependency,
+				we need to split the algorithm to depend on
+				the initial approximation of <var>C</var>'s final column sizes,
+				and do the adjustment pass later.
+				So for <var>C</var>, we need to recurse into column sizing only,
+				and pass that initial size up to <var>A</var>
+				for its initial column sizing.
+
+				When we size <var>B</var>'s rows later on,
+				we will size <var>C</var>'s rows (which are subgridded),
+				and finish up <var>C</var>'s sizing by finalizing its columns.
+				If this resulted in a change, we have the opportunity
+				to trigger an adjustment pass for <var>A</var>'s columns
+				during its adjustment pass.
+
+			<li>
+				<strong>Next, resolve sizes of <var>A</var>'s rows,
+				using the sizes of <var>A</var>’s grid items,
+				treating <var>B</var> as a single item.</strong>
+
+				Since <var>B</var>, as a subgrid,
+				has its sizing is split out into the multiple passes,
+				the grid algorithm issues only a row-sizing recursion into <var>B</var>:
+				Size <var>B</var>’s rows, treating D as a single item, requesting its final size,
+				and treating <var>C</var> as an empty item
+				and hoisting its children as items into grid <var>B</var>.
+
+				<var>B</var> returns its final row size,
+				which factors into <var>A</var>’s row sizing pass.
+
+			<li>
+				<strong>Last, finalize <var>A</var>’s column sizes.</strong>
+				If <var>C</var>’s final size changes
+				as a result of the row-sizing pass through <var>B</var>,
+				this should trigger a resizing of <var>B</var>’s columns,
+				which should trigger a resizing pass on <var>A</var>’s column.
+		</ol>
+	</div>
 
 <h2 id=alignment>
 Aspect-ratio&ndash;controlled Gutters</h2>
