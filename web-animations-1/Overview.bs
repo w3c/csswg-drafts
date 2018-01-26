@@ -305,7 +305,7 @@ elem.getAnimations().filter(
     )
 ).forEach(animation =&gt; {
   animation.currentTime = 0;
-  animation.playbackRate = 0.5;
+  animation.updatePlaybackRate(0.5);
 });
     </pre>
     </div>
@@ -809,6 +809,7 @@ The procedure to <dfn>reset an animation's pending tasks</dfn> for
     <a>pending pause task</a>, abort this procedure.
 1.  If <var>animation</var> has a <a>pending play task</a>, cancel that task.
 1.  If <var>animation</var> has a <a>pending pause task</a>, cancel that task.
+1.  [=Apply any pending playback rate=] on |animation|.
 1.  <a lt="reject a Promise">Reject</a> <var>animation</var>'s <a>current ready
     promise</a> with a DOMException named "AbortError".
 1.  Let <var>animation</var>'s <a>current ready promise</a> be the result of
@@ -915,6 +916,7 @@ The procedure to <dfn>set the current time</dfn> of an animation,
     complete the pause operation by performing the following steps:
     1.  Set <var>animation</var>'s <a>hold time</a> to <var>seek time</var>.
     1.  Make <var>animation</var>'s [=start time=] <a>unresolved</a>.
+    1.  [=Apply any pending playback rate=] to |animation|.
     1.  Cancel the <a>pending pause task</a>.
     1.  <a lt="resolve a Promise">Resolve</a> <var>animation</var>'s
         <a>current ready promise</a> with <var>animation</var>.
@@ -952,6 +954,8 @@ is as follows:
     <a>unresolved</a>.
 
 1.  Set <var>animation</var>'s [=start time=] to <var>new start time</var>.
+
+1.  [=Apply any pending playback rate=] on |animation|.
 
 1.  Update <var>animation</var>'s <a>hold time</a> based on the first matching
     condition from the following,
@@ -1081,12 +1085,14 @@ as CSS Animations [[CSS-ANIMATIONS-1]].
     <var>animation</var> has a <a>pending pause task</a>, and false otherwise.
 1.  Let <var>has pending ready promise</var> be a boolean flag that is
     initially false.
+1.  Let |effective playback rate| be |animation|'s [=pending playback rate=], if
+    set, otherwise let it be |animation|'s [=playback rate=].
 1.  Perform the steps corresponding to the <em>first</em> matching
     condition from the following, if any:
 
     <div class="switch">
 
-    :   If [=playback rate=] &gt; 0,
+    :   If |effective playback rate| &gt; 0,
         the <var>auto-rewind</var> flag is true and <em>either</em>
         <var>animation</var>'s:
 
@@ -1095,7 +1101,7 @@ as CSS Animations [[CSS-ANIMATIONS-1]].
         *   <a>current time</a> &ge; <a>target effect end</a>,
 
     ::  Set <var>animation</var>'s <a>hold time</a> to zero.
-    :   If [=playback rate=] &lt; 0,
+    :   If |effective playback rate| &lt; 0,
         the <var>auto-rewind</var> flag is true and <em>either</em>
         <var>animation</var>'s:
 
@@ -1108,7 +1114,7 @@ as CSS Animations [[CSS-ANIMATIONS-1]].
         abort these steps.
         Otherwise, set <var>animation</var>'s <a>hold time</a> to <a>target
         effect end</a>.
-    :   If [=playback rate=] = 0 and <var>animation</var>'s
+    :   If |effective playback rate| = 0 and <var>animation</var>'s
         <a>current time</a> is <a>unresolved</a>,
     ::  Set <var>animation</var>'s <a>hold time</a> to zero.
 
@@ -1120,8 +1126,13 @@ as CSS Animations [[CSS-ANIMATIONS-1]].
     1.  Cancel that task.
     1.  Set <var>has pending ready promise</var> to true.
 
-1.  If <var>animation</var>'s <a>hold time</a> is <a>unresolved</a>
-    and <var>aborted pause</var> is false, abort this procedure.
+1.  If the following three conditions are <em>all</em> satisfied:
+
+    * |animation|'s [=hold time=] is [=unresolved=], and
+    * |aborted pause| is false, and
+    * |animation| does <em>not</em> have a [=pending playback rate=],
+
+    abort this procedure.
 
 1.  If <var>animation</var>'s <a>hold time</a> is <a lt=unresolved>resolved</a>,
     let its [=start time=] be <a>unresolved</a>.
@@ -1133,30 +1144,58 @@ as CSS Animations [[CSS-ANIMATIONS-1]].
 1.  Schedule a task to run as soon as <var>animation</var> is <a>ready</a>.
     The task shall perform the following steps:
 
+    1.  Assert that at least one of |animation|'s [=start time=] or [=hold
+        time=] is <a lt=unresolved>resolved</a>.
+
     1.  Let <var>ready time</var> be the <a>time value</a> of
         the <a>timeline</a> associated with <var>animation</var> at the moment
         when <var>animation</var> became <a>ready</a>.
 
-    1.  If <var>animation</var>'s [=start time=] is
-        <a>unresolved</a>, perform the following steps:
+    1.  Perform the steps corresponding to the first matching condition below,
+        if any:
 
-        1.  Let <var>new start time</var> be the result of evaluating
-            <code>|ready time| - [=hold time=] / [=playback rate=]</code> for
-            |animation|.
-            If the [=playback rate=] is zero, let <var>new start
-            time</var> be simply <var>ready time</var>.
-        1.  If <var>animation</var>'s [=playback rate=] is not 0, make
-            <var>animation</var>'s <a>hold time</a> <a>unresolved</a>.
-        1.  Set the [=start time=] of <var>animation</var>
-            to <var>new start time</var>.
+        <div class="switch">
 
-        Issue(2073): If <em>both</em> the [=start time=] and <a>hold time</a>
-                     are specified, we should probably calculate the [=start
-                     time=] from the <a>hold time</a> instead of using it
-                     as-is.
+        :   If |animation|'s [=hold time=] is <a lt=unresolved>resolved</a>,
+
+        ::  1.  [=Apply any pending playback rate=] on |animation|.
+
+            1.  Let |new start time| be the result of evaluating
+                <code>|ready time| - [=hold time=] / [=playback rate=]</code>
+                for |animation|.
+                If the [=playback rate=] is zero, let
+                |new start time| be simply |ready time|.
+
+            1.  Set the [=start time=] of |animation| to |new start time|.
+
+            1.  If |animation|'s [=playback rate=] is not 0, make |animation|'s
+                [=hold time=] [=unresolved=].
+
+        :   If |animation|'s [=start time=] is resolved and |animation| has
+            a [=pending playback rate=],
+
+        ::  1.  Let |current time to match| be the result of evaluating
+                <code>(|ready time| - [=start time=]) &times;
+                [=playback rate=]</code> for |animation|.
+
+            1.  [=Apply any pending playback rate=] on |animation|.
+
+            1.  If |animation|'s [=playback rate=] is zero, let |animation|'s
+                [=hold time=] be |current time to match|.
+
+            1.  Let |new start time| be the result of evaluating
+                <code>|ready time| - |current time to match| /
+                [=playback rate=]</code> for |animation|.
+                If the [=playback rate=] is zero, let |new start time| be simply
+                |ready time|.
+
+            1.  Set the [=start time=] of |animation| to |new start time|.
+
+        </div>
 
     1.  <a lt="resolve a Promise">Resolve</a> <var>animation</var>'s <a>current
         ready promise</a> with <var>animation</var>.
+
     1.  Run the procedure to <a>update an animation's finished state</a> for
         <var>animation</var> with the <var>did seek</var> flag set to false,
         and the <var>synchronously notify</var> flag set to false.
@@ -1270,6 +1309,8 @@ follows:
         has a <a>pending play task</a>.
         In either case we want to preserve the <a>hold time</a> as we
         enter the <a lt="paused play state">paused</a> state.
+
+    1.  [=Apply any pending playback rate=] on |animation|.
 
     1.  Make <var>animation</var>'s [=start time=] unresolved.
 
@@ -1556,11 +1597,16 @@ An animation can be advanced to the natural end of its current playback
 direction by using the procedure to <dfn>finish an animation</dfn>
 for <var>animation</var> defined below:
 
-1.  If [=playback rate=] is zero,
-    or if [=playback rate=] &gt; 0 and <a>target effect end</a> is
+1.  Let |effective playback rate| be |animation|'s [=pending playback rate=], if
+    set, otherwise let it be |animation|'s [=playback rate=].
+
+1.  If the |effective playback rate| is zero,
+    or if |effective playback rate| &gt; 0 and <a>target effect end</a> is
     infinity,
     <a>throw</a> an <span class=exceptionname>InvalidStateError</span> and
     abort these steps.
+
+1.  [=Apply any pending playback rate=] to |animation|.
 
 1.  Set <var>limit</var> as follows:
 
@@ -1681,29 +1727,102 @@ Setting an animation's [=playback rate=]
 to zero effectively pauses the animation (however, the <a>play state</a>
 does not necessarily become <a lt="paused play state">paused</a>).
 
-<h5 id="updating-the-playback-rate-of-an-animation">Updating the playback rate of an animation</h5>
-
-Changes to the [=playback rate=] trigger a compensatory seek so that that the
-animation's <a>current time</a> is unaffected by the change to the playback
-rate.
+<h5 id="setting-the-playback-rate-of-an-animation">Setting the playback rate of an animation</h5>
 
 The procedure to <dfn>set the playback rate</dfn> of
 an <a>animation</a>, <var>animation</var> to <var>new playback rate</var>
 is as follows:
 
-1.  Let <var>previous time</var> be the value of the
-    <a>current time</a> of <var>animation</var> before changing the
-    [=playback rate=].
-2.  Set the [=playback rate=] to <var>new playback rate</var>.
-3.  If <var>previous time</var> is <a lt="unresolved">resolved</a>,
-    <a>set the current time</a> of <var>animation</var> to
-    <var>previous time</var>.
+1.  Clear any [=pending playback rate=] on |animation|.
 
-The procedure to <dfn>silently set the playback rate</dfn>
-of <a>animation</a>, <var>animation</var> to <var>new playback rate</var>
-is identical to the above procedure except that rather than invoking
-the procedure to <a>set the current time</a> in the final step, the
-procedure to <a>silently set the current time</a> is invoked instead.
+1.  Set the [=playback rate=] of <a>animation</a> to <var>new playback
+    rate</var>.
+
+1.  Run the procedure to <a>update an animation's finished state</a> for
+    <var>animation</var> with the <var>did seek</var> flag set to true, and
+    the <var>synchronously notify</var> flag set to false.
+
+    Note: We don't need to update the <a>previous current time</a> before
+    calling this since we set the <var>did seek</var> flag to true meaning we
+    will ignore the <a>previous current time</a>.
+
+<h5 id="performing-seamless-updates-to-the-playback-rate-of-an-animation">Performing seamless updates to the playback rate of an animation</h5>
+
+For an animation whose <a>current time</a> is not zero, the procedure to <a>set
+the playback rate</a> may result in a sharp change to the animation's
+current time causing the animation to jump.
+
+In order to produce seamless changes to the [=playback rate=] of an
+[=animation=], animation's may have a <dfn>pending playback rate</dfn> that
+defines a playback rate to be applied after any necessary synchronization has
+taken place (for the case of animations running in a different thread or
+process).
+
+When an [=animation=], |animation|, is to <dfn>apply any pending playback
+rate</dfn> the following steps are performed:
+
+1.  If |animation| does not have a [=pending playback rate=], abort these steps.
+
+1.  Set |animation|'s [=playback rate=] to its [=pending playback rate=].
+
+1.  Clear |animation|'s [=pending playback rate=].
+
+The procedure to <dfn>seamlessly update the playback rate</dfn> an
+[=animation=], |animation|, to |new playback rate| preserving its [=current
+time=] is as follows:
+
+1.  Let |animation|'s [=pending playback rate=] be |new playback rate|.
+
+1.  Perform the steps corresponding to the first matching condition from below:
+
+    <div class="switch">
+
+    :   If |animation| has a [=pending play task=] or a [=pending pause task=],
+
+    ::  Abort these steps.
+
+        Note: The different types of pending tasks will apply the [=pending
+        playback rate=] when they run so there is no further action required in
+        this case.
+
+    :   If |animation|'s [=play state=] is <a lt="idle play state">idle</a>
+        or <a lt="paused play state">paused</a>,
+
+    ::  [=Apply any pending playback rate=] on |animation|.
+
+    :   If |animation|'s [=play state=] is <a lt="finished play
+        state">finished</a>,
+
+    ::  1.  Let the |unconstrained current time| be the result of calculating
+            the [=current time=] of |animation| substituting an [=unresolved=]
+            time value for the [=hold time=].
+
+        1.  Let |animation|'s [=start time=] be
+            the result of evaluating the following expression:
+
+             <blockquote>
+               <code>|timeline time| - (|unconstrained current time|
+               / [=pending playback rate=])</code>
+              </blockquote>
+
+            Where |timeline time| is the current <a>time value</a> of
+            the <a>timeline</a> associated with |animation|.
+
+            If [=pending playback rate=] is zero, let |animation|'s
+            [=start time=] be |timeline time|.
+
+        1.  [=Apply any pending playback rate=] on |animation|.
+
+        1.  Run the procedure to [=update an animation's finished state=] for
+            |animation| with the <var>did seek</var> flag set to false,
+            and the <var>synchronously notify</var> flag set to false.
+
+    :   Otherwise,
+
+    ::  Run the procedure to [=play an animation=] for |animation| with the
+        |auto-rewind| flag set to false.
+
+    </div>
 
 <h4 id="reversing-an-animation-section">Reversing an animation</h4>
 
@@ -1714,22 +1833,22 @@ The procedure to <dfn>reverse an animation</dfn> of <a>animation</a>
     associated <a>timeline</a> is <a lt="inactive timeline">inactive</a>
     <a>throw</a> an <span class=exceptionname>InvalidStateError</span> and
     abort these steps.
-2.  <a>Silently set the playback rate</a> of
-    <var>animation</var> to <code>&minus;[=playback rate=]</code>.
 
-    <div class="note">
-        This must be done silently or else we may end up resolving
-        the <a>current ready promise</a> when we do the compensatory
-        seek despite the fact that we will most likely still have a
-        pending task queued at the end of the operation.
-    </div>
-3.  Run the steps to <a>play an animation</a> for <var>animation</var>
+1.  Let |original pending playback rate| be |animation|'s [=pending playback
+    rate=].
+
+1.  Let |effective playback rate| be |animation|'s [=pending playback rate=] if
+    it has one, or |animation|'s [=playback rate=] otherwise.
+
+1.  Let |animation|'s [=pending playback rate=] be <code>&minus;|effective
+    playback rate|</code>.
+
+1.  Run the steps to <a>play an animation</a> for <var>animation</var>
     with the <var>auto-rewind</var> flag set to true.
 
-    If the steps to <a>play an animation</a> throw an exception, restore the
-    original [=playback rate=] by re-running the procedure to
-    <a>silently set the playback rate</a> with the original
-    [=playback rate=].
+    If the steps to <a>play an animation</a> throw an exception, set
+    |animation|'s [=pending playback rate=] to |original pending playback rate|
+    and propagate the exception.
 
 <h4 id="play-states">Play states</h4>
 
@@ -3813,6 +3932,7 @@ interface Animation : EventTarget {
     void finish ();
     void play ();
     void pause ();
+    void updatePlaybackRate (double playbackRate);
     void reverse ();
 };
 </pre>
@@ -3879,6 +3999,22 @@ interface Animation : EventTarget {
 ::  The [=playback rate=] of this animation.
     Setting this attribute follows the procedure to <a>set the playback rate</a>
     of this object to the new value.
+
+    <div class=note>
+
+    Setting this attribute is only intended for low-level synchronization
+    of animations.
+    It does <em>not</em> preserve the {{Animation/currentTime}} of the animation
+    nor make any attempt to synchronize with the playback state of animations
+    running on a separate process or thread.
+    As a result, setting the {{Animation/playbackRate}} for an in-flight
+    animation may cause it to jump.
+
+    To set the the [=playback rate=] for an in-flight animation such that it
+    continues to play from its current position, use {{updatePlaybackRate()}}.
+
+    </div>
+
 :   <dfn attribute for=Animation>playState</dfn>
 ::  The <a>play state</a> of this animation.
 :   <dfn attribute for=Animation>pending</dfn>
@@ -3921,6 +4057,20 @@ interface Animation : EventTarget {
 :   <dfn method for=Animation lt='pause()'>void pause()</dfn>
 ::  Suspends the playback of this animation by running the procedure to
     <a>pause an animation</a> for this object.
+:   <dfn method for=Animation lt='updatePlaybackRate(playbackRate)'>void updatePlaybackRate(playbackRate)</dfn>
+::  Updates the [=playback rate=] of this
+    animation such that it maintains its <a>current time</a> by performing the
+    <a>seamlessly update the playback rate</a> procedure, passing
+    {{Animation/updatePlaybackRate(playbackRate)/playbackRate}} as the <var>new
+    playback rate</var>.
+
+    <div class="parameters">
+
+    :   <dfn argument for="Animation/updatePlaybackRate(playbackRate)"
+        lt="playbackRate">playbackRate</dfn>
+    ::  A finite real number specifying the updated playback rate to use.
+
+    </div>
 :   <dfn method for=Animation lt='reverse()'>void reverse()</dfn>
 ::  Inverts the [=playback rate=] of this animation and plays it using the
     <a>reverse an animation</a> procedure for this object.
@@ -5918,6 +6068,8 @@ The following changes have been made since the <a
     operation completes (see [[#pausing-an-animation-section]]).
 *   Adjusted the procedure to <a>update an animation's finished state</a> to
     accommodate timelines that change direction.
+*   Introduced an asynchronous procedure for updating an [=animation=]'s
+    [=playback rate=]: [=seamlessly update the playback rate=].
 *   Clarified behavior of the procedure to <a>reverse an animation</a> when
     playing the animation causes an exception to be thrown.
 *   Removed the &ldquo;pending&rdquo; play state and added the
@@ -5933,6 +6085,11 @@ The following changes have been made since the <a
     (<a href="https://github.com/w3c/web-animations/issues/201">#201</a>).
 *   Dropped keyframe spacing, distance calculation, and retention of invalid
     keyframe property values.
+*   Made setting {{Animation/playbackRate}} not perform a compensatory seek
+    (i.e. not maintain the current time) and introduced
+    {{Animation/updatePlaybackRate(playbackRate)}} instead which maintains the
+    current time and synchronizes with animations running on another thread or
+    process.
 *   Added special handling to allow animating the 'offset' property from the
     programming interface using <code>cssOffset</code> to avoid conflict with
     the attribute name used to specify keyframe offsets.
