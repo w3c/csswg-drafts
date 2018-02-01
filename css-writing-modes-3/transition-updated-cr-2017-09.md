@@ -1,6 +1,6 @@
 (from [updated cr transitions](https://www.w3.org/Guide/transitions?profile=CR&cr=substantive) )
 
-# Transition request for updated CR: Flexbox 
+# Transition request for updated CR: Writing Modes 3
 
 ## Document title, URIs, and estimated publication date
 
@@ -73,10 +73,8 @@ following articles which explain how to use CSS Writing Modes 3.
 
 The [Disposition of Comments](https://drafts.csswg.org/css-writing-modes-3/issues-cr-2015) 
 
-:boom: or is it this one [Disposition of Comments on GH](https://github.com/w3c/csswg-drafts/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Acss-writing-modes-3%20)
-
-Of the 23 issues raised, 12 were accepted. Three were rejected, and the commenter indicated they were satisfied. 
-Three comments were invalid. One, calling for a Japanese translation of the specification to be linked, was 
+Of the 22 issues raised, 12 were accepted. Three were rejected, and for two of them the commenter indicated they were satisfied. 
+Five comments were invalid. One comment was later retracted. One, calling for a Japanese translation of the specification to be linked, was 
 rejected as out of scope (translations may be provided by third parties of W3C Recommendations, following the usual procedure). 
 
 ## Formal Objections
@@ -95,7 +93,7 @@ The [testsuite](https://test.csswg.org/harness/results/css-writing-modes-3_dev/g
 An [analysis of the test results](https://drafts.csswg.org/css-writing-modes-3/implementation-report.html) is also available
   
 
-:boom:  the tests for features moved to Level 4 are still marked as level 3 tests, so need to be edited to make them Level 4 tests during the CR period
+:boom:  the tests for features moved to Level 4 are still marked as level 3 tests, so need to be edited to make them Level 4 tests during the CR period, once Writing Modes 4 is published. All tests with `srl` or `slr` in the filename are so affected.
 
 ## Patent disclosures
 

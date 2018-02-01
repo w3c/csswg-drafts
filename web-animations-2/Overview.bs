@@ -1,0 +1,2174 @@
+<h1>Web Animations Level 2</h1>
+<pre class='metadata'>
+Status: UD
+Warning: not ready
+Work Status: Exploring
+Shortname: web-animations
+ED: https://drafts.csswg.org/web-animations-2/
+Version history: https://github.com/w3c/csswg-drafts/commits/master/web-animations-1
+Level: 2
+
+Group: fxtf
+!Participate: <a href="https://github.com/w3c/csswg-drafts/tree/master/web-animations-2">Fix the text through GitHub</a>
+!Participate: Join the &lsquo;waapi&rsquo; channel on the <a href="https://damp-lake-50659.herokuapp.com/">Animation at Work</a> slack
+!Participate: IRC: <a href="ircs://irc.w3.org:6667/webanimations">#webanimations</a> on W3C's IRC
+Repository: w3c/csswg-drafts
+!Issue Tracking: <a href="https://github.com/w3c/csswg-drafts/labels/web-animations-2">GitHub</a>
+
+Editor: Brian Birtles 43194, Mozilla, bbirtles@mozilla.com
+Editor: Shane Stephens 47691, Google Inc, shans@google.com
+Editor: Douglas Stockwell, Google Inc, dstockwell@google.com
+Abstract: This specification defines a model for synchronization and
+    timing of changes to the presentation of a Web page.
+    This specification also defines an application programming interface
+    for interacting with this model and it is expected that further
+    specifications will define declarative means for exposing these
+    features.
+Ignored Vars: auto-rewind, current direction, index, initial progress,
+    timeline, new timeline, t, going forwards
+</pre>
+<pre class="anchors">
+urlPrefix: https://drafts.csswg.org/web-animations-1/; type: dfn; spec: web-animations-1
+    text: active interval
+    text: active phase
+    text: active time
+    text: after phase
+    text: animation
+    text: animation playback rate
+    text: animation effect
+    text: before flag
+    text: before phase
+    text: cancel an animation
+    text: current iteration
+    text: current time
+    text: current finished promise
+    text: directed progress
+    text: end delay
+    text: fill mode
+    text: finished play state
+    text: in effect
+    text: iteration count
+    text: iteration duration
+    text: iteration progress
+    text: iteration start
+    text: keyframe effect
+    text: not animatable
+    text: overall progress
+    text: pending play task
+    text: play an animation
+    text: playback direction
+    text: pause an animation
+    text: ready
+    text: simple iteration progress
+    text: target effect
+    text: target element
+    text: target property
+    text: time value
+    text: timeline
+    text: timeline current time
+    text: transformed progress
+    text: update animations and send events
+    text: unresolved
+urlPrefix: https://heycam.github.io/webidl/#dfn-; type: dfn; spec: webidl
+    text: throw
+urlPrefix: http://www.ecma-international.org/ecma-262/6.0/#sec-; type: dfn; spec: ecma-262
+    text: code realms
+    text: execution contexts
+</pre>
+
+<h2 id="delta">Delta specification</h2>
+
+<p>This is a delta specification, meaning that it currently contains
+only the differences from Web Animations Level 1 [[!WEB-ANIMATIONS-1]].
+Once the Level 1 specification is closer to complete, it will be merged
+with the additions here into a complete level 2 specification.</p>
+
+<h2 id="changes-since-level-1">Changes since level 1</h2>
+
+This specification introduces the following changes compared to the
+previous level of this specification:
+
+*   <a>group effects</a> and <a>sequence effects</a>,
+*   an <a>animation effect</a>-specific
+    <a lt="animation effect playback rate">playback rate</a>,
+*   <a>custom effects</a>.
+
+<h2 id="timing-model">Timing model</h2>
+
+This section describes and defines the behavior of the Web Animations
+timing model.
+
+<h3 id="timing-model-overview">Timing model overview</h3>
+
+<div class='informative-bg'>
+
+<em>This section is non-normative</em>
+
+<h4 id="hierarchical">Hierarchical</h4>
+
+This level of the specification includes an updated timing hierarchy diagram.
+
+<figure>
+  <img src="img/time-hierarchy.svg" width="600"
+            alt="A hierarchy of timing nodes">
+  <figcaption>
+    A hierarchy of timing nodes.
+    Each node in the tree derives its time from its parent node.
+  </figcaption>
+</figure>
+
+Along with the following updated description:
+
+>   A consequence of this hierarchical arrangement is that complex
+>   animation arrangements can be reversed, scheduled, accelerated and so
+>   on as a whole unit since the manipulations applied to the parent,
+>   cascade down to its <a>descendants</a>.
+>   Furthermore, since time has a common source, it is easy to synchronize
+>   animations.
+
+</div>
+
+
+<h3 id="animations">Animations</h3>
+
+<div class="informative-bg"><em>This section is non-normative</em>
+
+<h4 id="setting-the-timeline">Setting the timeline of an animation</h4>
+
+Issue: If <var>new timeline</var> is null, we should ensure that <a>custom
+effects</a> get called with an <a>unresolved</a> <a>iteration progress</a>
+(unless a subsequent change in the same script execution context makes this
+redundant).
+
+<h4 id="setting-the-target-effect">Setting the target effect of an
+  animation</h4>
+
+After the step to reschedule a <a>pending play task</a> add the following step:
+
+> 1.  If <var>new effect</var> is not <code>null</code> and
+>     if <var>new effect</var> has a <a>parent group</a>,
+>     <a lt="remove an animation effect">remove</a> <var>new effect</var> from
+>     its <a>parent group</a>.
+
+After the step to assign <var>new effect</var> as <var>animation</var>'s
+<a>target effect</a> include the following step:
+
+> 1.  If <var>old effect</var> is not <code>null</code>, queue a task to call
+>     any <a>custom effects</a> associated with <a>inclusive descendants</a> of
+>     <var>old effect</var> with an <a>unresolved</a> <a>iteration progress</a>.
+>
+>     <div class="issue">
+>       This is not quite right. If <var>old effect</var> is attached to another
+>       animation in the same task then we should probably not do an extra
+>       callback with <a>unresolved</a>.
+> 
+>       The definition of when <a>custom effects</a> gets called needs to be
+>       audited and probably rewritten.
+>     </div>
+
+
+<h4 id='waiting-for-the-target-effect'>Waiting for the target effect</h4>
+
+The definition of when an animation is ready needs to be extended to consider
+descendant effects and custom effects such that the first condition is:
+
+> *   the user agent has completed any setup required to begin the playback of
+>     each <a>inclusive descendant</a> of
+>     the animation's <a>target effect</a>
+>     including rendering the first frame of any <a>keyframe
+>     effect</a> or executing any <a>custom effects</a> associated with an
+>     <a>animation effect</a>.
+
+
+<h4 id='playing-an-animation-section'>Playing an animation</h4>
+
+The procedure to [=play an animation=] needs to include scheduling a task for
+updating [=custom effects=].
+
+
+<h4 id='pausing-an-animation-section'>Pausing an animation</h4>
+
+The procedure to [=pause an animation=] needs to refer to not on the [=target
+effect=] but also any descedants of the [=target effect=].
+
+Likewise, the procedure to [=pause an animation=] needs to include scheduling
+a task for updating [=custom effects=].
+
+
+<h4 id='canceling-an-animation-section'>Canceling an animation</h4>
+
+The procedure to [=cancel an animation=] needs to include the final step:
+
+> 1.  Queue a task to call any <a>custom effects</a> associated with
+>     <a>inclusive descendants</a> of
+>     <var>animation</var>'s <a>target effect</a>
+>     with an <a>unresolved</a> iteration progress.
+>
+>     Issue: The procedures for calling custom effects need to be reworked.
+>            Currently they probably involve calling too often for changes that
+>            could be coalesced.
+
+
+<h4 id="speed-control">Speed control</h4>
+
+<div class="informative-bg">
+
+Add the following sentence:
+
+>   Note that <a>animation effects</a> also have a <a
+>   lt="animation effect playback rate">playback rate</a> associated
+>   with them that behaves differently to that defined here.
+
+</div>
+
+
+<h3 id="animation-effects">Animation effects</h3>
+
+Adds the following text:
+
+>     The <a>target effect</a> of an <a>animation</a> is said to be <dfn
+>     lt="directly associated with an animation">directly associated</dfn>
+>     with that animation.
+>
+>     <a>Animation effects</a> can be combined together into a hierarchy using
+>     <a>group effects</a> (see [[#grouping-and-synchronization]]).
+>     Only the <a>root</a> <a>animation effect</a> of such a hierarchy can be
+>     <a>directly associated with an animation</a>.
+>     If an <a>animation effect</a> that has a <a>parent group</a>
+>     is designated as the <a>target effect</a> of an <a>animation</a>, the
+>     <a>animation effect</a> is removed from its <a>parent group</a> before
+>     being associated with the <a>animation</a>.
+>
+>     An <a>animation effect</a> is <dfn>associated with an animation</dfn> if
+>     it is <a>directly associated with an animation</a> or if it has an
+>     <a>ancestor</a> <a>group effect</a> that is <a>directly associated with an
+>     animation</a>.
+
+<h4 id="types-of-animation-effects">Types of animation effects</h4>
+
+This specification defines two types of <a>animation effects</a>:
+
+* <a>keyframe effects</a>, and
+* <a>group effects</a>.
+
+
+<h4 id="the-active-interval">The active interval</h4>
+
+In this level of the specification the lower bound of the acive interval is
+defined as:
+
+>     The lower bound of the <a>active interval</a> is determined by the
+>     <a lt="animation effect start time">start time</a> of the
+>     <a>animation effect</a> but may be shifted by a <a>start delay</a> on
+>     the <a>animation effect</a>.
+
+The subsequent diagram should also refer to the <em>animation effect start
+time</em> as opposed to the <em>animation start time</em>.
+
+Finally, the description of the [=end delay=] is updated to:
+
+>     An <a>end delay</a> may also be specified but is primarily only of
+>     use when sequencing animations such as by using a <a>sequence effect</a>.
+
+</div>
+
+The normative description is updated as follows:
+
+>     The lower bound of the <a>active interval</a> is defined by the
+>     combination of the animation effect's
+>     <a lt="animation effect start time">start time</a> and <a>start delay</a>.
+>
+>     An <a>animation effect</a>'s
+>     <dfn lt="animation effect start time">start time</dfn> is the moment at
+>     which the <a>parent group</a>,
+>     if any, has scheduled the <a>animation effect</a> to begin.
+>     It is expressed in <a>inherited time</a>.
+>
+>     In most cases, including the case when the <a>animation effect</a> has
+>     no <a>parent group</a>,
+>     the <a lt="animation effect start time">start time</a> is zero.
+>     The singular exception is <a>sequence effects</a> which set
+>     the <a lt="animation effect start time">start times</a> of their
+>     children as described in
+>     [[#the-start-time-of-children-of-a-sequence-effect]].
+>
+>     In addition to the <a lt="animation effect start time">start
+>     time</a>, an <a>animation effect</a> also has a <dfn>start delay</dfn>
+>     which is an offset from the <a lt="animation effect start time">start
+>     time</a>.
+>
+>     Unlike the <a lt="animation effect start time">start time</a> which
+>     is determined by the <a>parent group</a>, the <a>start
+>     delay</a> is a property of the <a>animation effect</a> itself.
+>
+>     The lower bound of the <a>active interval</a> of an <a>animation
+>     effect</a>, expressed in <a lt="inherited time">inherited time
+>     space</a>, is the sum of the <a
+>     lt="animation effect start time">start time</a> and the <a>start
+>     delay</a>.
+>
+>     These definitions are incorporated in the calculation of the <a>local
+>     time</a> (see [[#local-time-and-inherited-time]]) and <a>active time</a>.
+
+
+And finally regarding the definition of the [=end time=]:
+
+>     The <dfn>end time</dfn> of an <a>animation effect</a> is the result of
+>     evaluating <code>max(<a lt="animation effect start time">start
+>     time</a> + <a>start delay</a> + <a>active duration</a> + <a>end delay</a>,
+>     0)</code>.
+
+
+<h4 id="local-time-and-inherited-time">Local time and inherited time</h4>
+
+This section is added.
+
+<div class="informative-bg">
+
+In Web Animations all times are relative to some point of reference.
+These different points of reference produce different <em>time
+spaces</em>.
+
+This can be compared to coordinate spaces as used in computer
+graphics.
+The zero time of a time space is analogous to the origin of
+a coordinate space.
+
+Just as with coordinate spaces, time spaces can also be nested.
+<a>Group effects</a> typically perform some
+transformations on the <a>time values</a> they
+receive from their <a lt="parent group">parent</a> or
+<a>animation</a> before passing on the transformed <a>time values</a>
+to their children.
+Child <a>animation effects</a> then operate <em>within</em> that
+transformed time space.
+
+Children take the transformed time values from their
+parent&mdash;called the <a>inherited time</a>&mdash;and add their
+<a lt="animation effect start time">start time</a> to establish
+their own <a lt="local time">local time space</a> as illustrated
+below.
+
+<figure>
+  <img src="img/local-time.svg" width="600"
+      alt="Inherited time and local time.">
+  <figcaption>
+    Inherited time and local time.<br>
+    At time <var>t</var>, the <a>inherited time</a> is 2.5.<br>
+    For <a>animation effect</a> (a) which has a <a
+      lt="animation effect start time">start time</a> of 1, the
+      <a>local time</a> is 1.5.<br>
+    For <a>animation effect</a> (b) which has a <a
+      lt="animation effect start time">start time</a> of 1
+      and a <a>start delay</a> of 1,
+      the <a>local time</a> is also 1.5
+      since <a>local time</a> is based on an <a>animation effect</a>'s
+      <a lt="animation effect start time">start time</a> only,
+      and not on its <a>start delay</a>.
+  </figcaption>
+</figure>
+
+</div>
+
+For an <a>animation effect</a>, the <dfn>inherited time</dfn> at
+a given moment is based on the first matching condition from the
+following:
+
+<div class='switch'>
+
+:   If the <a>animation effect</a> has a <a>parent group</a>,
+::  the inherited time is the <a>parent group</a>'s current
+    <a>transformed time</a>.
+:   If the <a>animation effect</a> is <a>directly associated with
+    an animation</a>,
+::  the inherited time is the <a>current time</a> of the
+    <a>animation</a>.
+:   Otherwise,
+::  the inherited time is <a>unresolved</a>.
+
+</div>
+
+The <dfn>local time</dfn> of an <a>animation effect</a> is the
+<a>animation effect</a>'s <a>inherited time</a> minus its <a
+lt="animation effect start time">start time</a>.
+If the <a>inherited time</a> is <a>unresolved</a> then the local time
+is also <a>unresolved</a>.
+
+
+
+
+
+<h4 id="animation-effect-phases-and-states">Animation effect phases and
+states</h4>
+
+<div class="informative-bg"><em>This section is non-normative</em>
+
+The non-normative description of the [=in play=] state includes the following
+description;
+
+>     This occurs when the <a>animation effect</a> <em>and all its
+>     ancestors</em> are in the <a>active phase</a>.
+>     <a>Animation effects</a> only &ldquo;move&rdquo; when
+>     they are <a>in play</a>.
+>
+>     It is possible for an <a>animation effect</a> to be in the
+>     <a>active phase</a> but not <a>in play</a>.
+>     For example, if an <a>animation effect</a> has a <a>parent
+>     group</a> that causes the animation effect's <a>active
+>     interval</a> to be clipped and both parent and child apply the
+>     same <a>fill mode</a>, the child <a>animation effect</a> may be
+>     effectively be snapshotted within the <a>active phase</a>
+>     despite no longer being <a>in play</a>.
+
+
+Likewise for [=current=]
+
+>     This will be the case if the <a>animation effect</a> is <a>in
+>     play</a> or in its <a>before phase</a>, <em>or</em> it has an
+>     ancestor for which this is true thereby opening up the
+>     possibility that this <a>animation effect</a> might play again
+>     (e.g. due to repeating).
+
+</div>
+
+The normative definition of <dfn>in play</dfn> includes the following condition:
+
+> 2.  the <a>animation effect</a> has a <a>parent group</a> that
+>     is <a>in play</a> or else the <a>animation effect</a> is
+>     <a>directly associated with an animation</a> that is not <a
+>     lt="finished play state">finished</a>.
+
+In place of:
+
+> 2.  the <a>animation effect</a> is <a>associated with an animation</a> that is
+>     not <a lt="finished play state">finished</a>.
+
+
+The normative definition of <dfn>current</dfn> adds the following
+condition:
+
+> *   the <a>animation effect</a> has a <a>parent group</a> and the
+>     <a>parent group</a> is <a>current</a>.
+
+
+<h4 id="fill-modes">Fill modes</h4>
+
+<div class='informative-bg'><em>This section is non-normative</em>
+
+The description of the forwards fill mode is updated from:
+
+>     When the animation effect is in the <a>after phase</a>, &hellip;
+
+to:
+
+>     When the animation effect is in the <a>after phase</a>,
+>     or when the animation effect is in the <a>active phase</a> but an
+>     <a>ancestor</a> is in its <a>after phase</a>, &hellip;
+
+The description of the backwards fill mode is updated from:
+
+>     When the animation effect is in the <a>before phase</a>, &hellip;
+
+to:
+
+>     When the animation effect is in the <a>before phase</a>,
+>     or when the animation effect is in the <a>active phase</a> but an
+>     <a>ancestor</a> is in its <a>before phase</a>, &hellip;
+
+The description of the both fill mode is updated from:
+
+>     When the animation effect &hellip;
+
+to:
+
+>     When the animation effect or an <a>ancestor</a> &hellip;
+
+(twice).
+
+
+<div class="issue">
+Currently <a>timing functions</a> that generate results outside the
+range [0, 1] will behave unexpectedly when applied to group
+effects, as children will increase iterations or enter into fill mode
+rather than continuing to extrapolate along their defined behavior
+(which is what they would do if the timing function applied to them
+directly).
+
+To fix this it is possible we will wish to introduce &lsquo;overflow&rsquo;
+fill modes that respond to time values larger than or smaller than the
+active time range by extrapolating rather than filling.
+
+See <a
+href='http://lists.w3.org/Archives/Public/public-fx/2013AprJun/0184.html'>section
+15 (Overflowing fill) of minuted discussion from Tokyo 2013 F2F</a>.
+</div>
+
+</div>
+
+<h3 id="repeating">Repeating</h3>
+
+<h4 id="iteration-intervals">Iteration intervals</h4>
+
+After:
+
+>     The length of a single iteration is called the iteration duration.
+
+Add:
+
+>     The initial <a>iteration duration</a> of an animation effect is simply its
+>     <a>intrinsic iteration duration</a>.
+>
+>     The <dfn>intrinsic iteration duration</dfn> of an animation effect is
+>     zero, however some specific types of animation effect such as
+>     <a>group effects</a> override this behavior and provide an
+>     alternative intrinsic duration (see
+>     [[#the-intrinsic-iteration-duration-of-a-group-effect]] and
+>     [[#the-intrinsic-iteration-duration-of-a-sequence-effect]]).
+>
+>     The <a>iteration duration</a> of an <a>animation effect</a> may be set
+>     by the author to represent a value other than the <a>intrinsic
+>     iteration duration</a>.
+
+<h4 id="iteration-time-space">Iteration time space</h4>
+
+<div class="informative-bg"><em>This section is non-normative</em>
+
+The first few paragraphs of this section are replaced with:
+
+>     We have already encountered different time spaces in describing
+>     <a>local time</a> and <a>inherited time</a> (see
+>     [[#local-time-and-inherited-time]]).
+>     Repetition introduces yet another time space: the iteration time
+>     space.
+
+</div>
+
+<h4 id="interval-timing">Interval timing</h4>
+
+<div class="informative-bg"><em>This section is non-normative</em>
+
+The description is updated as follows:
+
+>     In the examples below, for the repeated effect, at local time 1s,
+>     the iteration time is 0.
+>     For the sequenced effects, at inherited time 1s, only effect B will be
+>     <a>in play</a>; there is no overlap.
+
+And likewise the figure is updated as follows:
+
+<figure>
+  <img src="img/endpoint-exclusive-timing.svg" width="600"
+    alt="Illustration of end-point exclusive timing.">
+  <figcaption>
+    Illustration of end-point exclusive timing. For both repeated and
+    sequenced animation effects there is no overlap at the boundaries
+    between intervals.
+  </figcaption>
+</figure>
+
+</div>
+
+<h3 id="animation-effect-speed-control">Animation effect speed control</h3>
+
+(This section is added.)
+
+Like <a>animations</a>, <a>animation effects</a> also have a <dfn
+lt="animation effect playback rate">playback rate</dfn> parameter.
+The <a lt="animation effect playback rate">playback rate</a> of
+an <a>animation effect</a> is a finite real number that acts as
+a multiplier when calculating the <a>animation effect</a>'s <a>transformed
+time</a> from its <a>local time</a>.
+
+The effect of setting the <a lt="animation effect playback
+rate">playback rate</a> of an <a>animation effect</a> differs from the
+setting the <a lt="animation playback rate">playback rate</a> on
+an animation.
+Its behavior is defined in the timing calculations given in
+[[#core-animation-effect-calculations]].
+
+<div class="informative-bg"><em>This section is non-normative</em>
+
+In summary, the behavior of the <a lt="animation effect playback
+rate">playback rate</a> of an <a>animation effect</a> is as follows:
+
+*   The <a lt="animation effect playback rate">playback rate</a> is
+    applied only to the <a>active interval</a> of an <a>animation
+    effect</a> and not to the time while it is <a
+    lt="start delay">delayed</a> or <a lt="fill mode">filling</a>.
+
+*   Setting a negative <a lt="animation effect playback rate">playback
+    rate</a> on an <a>animation effect</a> causes the <a>animation
+    effect</a> to begin at the end of its <a>active interval</a>.
+    This differs from the <a lt="animation playback rate">playback
+    rate</a> on an <a>animation</a>.
+    Setting a <a lt="animation playback rate">playback rate</a> on
+    an <a>animation</a> to a negative value at a moment before the
+    <a>animation</a>'s </a>target effect</a> has begun, will result in the
+    <a>target effect</a> never playing.
+
+*   Setting the <a lt="animation effect playback rate">playback
+    rate</a> of an <a>animation effect</a> affects the calculated value of
+    the <a>active duration</a> (see [[#calculating-the-active-duration]]).
+
+*   Changing the <a lt="animation effect playback rate">playback
+    rate</a> of an <a>animation effect</a> whose <a>local time</a> is
+    within its <a>active interval</a> will cause it to jump.
+    This is because the <a>active duration</a> will be updated but the
+    <a>local time</a> will not.
+
+    Furthermore, if other <a>animation effects</a> depend on the
+    <a>animation effect</a>'s <a>active duration</a>, such as sibling
+    <a>animation effect</a> in a <a>sequence effect</a>, they
+    too may jump as a result of setting the <a>animation effect</a>'s <a
+    lt="animation effect playback rate">playback rate</a>.
+
+    For runtime speed control the <a
+    lt="animation playback rate">playback rate</a> of the
+    <a>animation</a> should be used.
+
+</div>
+
+<h3 id="core-animation-effect-calculations">Core animation effect
+calculations</h3>
+
+<h4 id="animation-effect-calculations-overview">Overview</h4>
+
+<div class="informative-bg"><em>This section is non-normative</em>
+
+Update description from:
+
+>     At the core of the Web Animations timing model is the process that
+>     takes a <a>local time</a> value and converts it to an <a>iteration
+>     progress</a>.
+
+to:
+
+>     At the core of the Web Animations timing model is the process that
+>     takes an <a>inherited time</a> value
+>     and converts it to an <a>iteration progress</a>.
+
+Update diagram to show animation effect playback rate:
+
+<figure>
+  <img src="img/active-duration-calculation.svg" width="650"
+    alt="Calculation of the active duration.">
+  <figcaption>
+    Calculation of the <a>active duration</a> is based on
+    multiplying the <a>iteration duration</a> by the
+    <a>iteration count</a> and then dividing by the <a lt="animation effect
+    playback rate">playback rate</a>.
+  </figcaption>
+</figure>
+
+Update:
+
+>     Having established the <a>active duration</a>, the process for
+>     transforming an <a>animation effect</a>'s
+>     <a>local time</a> into its
+>     <a>transformed progress</a> (<a>iteration progress</a>) is illustrated
+>     below.
+
+to:
+
+>     Having established the <a>active duration</a>, the process for
+>     transforming an <a>animation effect</a>'s
+>     <a>inherited time</a> into its
+>     <a>transformed progress</a> (<a>iteration progress</a>) is illustrated
+>     below.
+
+Update the time calculations diagram as follows:
+
+<figure>
+  <img src="img/time-calculations.svg" width="650"
+    alt="An overview of timing model calculations.">
+  <figcaption>
+    An overview of timing model calculations.<br>
+    (1) The <a>inherited time</a> is converted into a <a>local time</a> by
+    incorporating the <a lt="animation effect start time">start time</a>.<br>
+    (2) The <a>local time</a> is converted into an <a>active time</a> by
+    incorporating the <a>start
+    delay</a>.<br>
+    (3) The <a>active time</a> is divided by the <a>iteration duration</a>
+    incorporating also the <a>iteration start</a>
+    property and the
+    <a lt="animation effect playback rate">playback rate</a> property
+    to produce the <a>overall progress</a>.<br>
+    (4) The <a>overall progress</a> time is then converted to an offset
+    within a single iteration: the <a>simple iteration progress</a>.<br>
+    (5) The <a>simple iteration progress</a> is converted into a <a>directed
+    progress</a> by incorporating the <a>playback direction</a>.<br>
+    (6) Finally, a timing function is applied to the <a>directed
+    progress</a> to produce the <a>transformed progress</a>.
+  </figcaption>
+</figure>
+
+Update:
+
+>     The first step, calculating the <a>local time</a> is described in
+>     Local time.
+
+to:
+
+>     The first step, calculating the <a>local time</a> is described in
+>     [[#local-time-and-inherited-time]].
+
+</div>
+
+
+<h4 id="calculating-the-active-duration">Calculating the active duration</h4>
+
+Updated to:
+
+>     In order to calculate the <a>active duration</a> we first define the
+>     <a>repeated duration</a> as follows:
+>
+>     <blockquote>
+>       <dfn>repeated duration</dfn> =
+>         <code><a>iteration duration</a> &times;
+>               <a>iteration count</a></code>
+>         <p>
+>           If either the <a>iteration duration</a> or <a>iteration count</a>
+>           are zero, the <a>repeated duration</a> is zero.
+>         </p>
+>         <p class="note">
+>           This clarification is needed since the result of infinity
+>           multiplied by zero is undefined according to IEEE 754-2008.
+>         </p>
+>     </blockquote>
+>
+>     The <dfn>active duration</dfn> is calculated according to the following
+>     steps:
+>
+>     1.  If the <a lt="animation effect playback rate">playback rate</a> is
+>           zero, return <code>Infinity</code>.
+>     2.  Otherwise, return <code><a>repeated duration</a> / abs(<a
+>           lt="animation effect playback rate">playback rate</a>)</code>.
+
+<h4 id="transforming-the-local-time">Transforming the local time</h4>
+
+<h5 id="calculating-the-active-time">Calculating the active time</h5>
+
+Update the qualification on the definition of the [=active time=] to include
+reference to the [=parent group=]:
+
+>     However, it is only defined when the <a>animation effect</a> should
+>     produce an output and hence depends on its <a>fill mode</a> and
+>     phase as well as the phase of its <a>parent group</a>, if any,
+>     as follows,
+
+
+<div class="switch">
+
+Update the definition to include the additional steps to for each phase:
+
+> :   If the animation effect is in the <a>before phase</a>,
+> ::  The result depends on the first matching condition from the
+>     following,
+>
+>     <div class="switch">
+>
+>     :   If the animation effect has a <a>parent group</a>
+>         and that parent group is in the <a>after
+>         phase</a>,
+>     ::  Return an <a>unresolved</a> <a>time value</a>.
+>
+>     </div>
+>
+>     &hellip;
+>
+> :   If the animation effect is in the <a>active phase</a>,
+> ::  The result depends on the first matching condition from the
+>     following,
+>
+>     <div class="switch">
+>
+>     :   If the animation effect has a <a>parent group</a>
+>         and that parent group is in the <a>before
+>         phase</a>, and the <a>fill mode</a> of this animation effect
+>         is <span class="prop-value">none</span> or <span
+>         class="prop-value">forwards</a>,
+>     ::  Return an <a>unresolved</a> <a>time value</a>.
+>     :   If the animation effect has a <a>parent group</a>
+>         and that parent group is in the <a>after
+>         phase</a>, and the <a>fill mode</a> of this animation effect
+>         is <span class="prop-value">none</span> or <span
+>         class="prop-value">backwards</a>,
+>     ::  Return an <a>unresolved</a> <a>time value</a>.
+>     :   Otherwise,
+>     ::  Return the result of evaluating
+>         <code><a>local time</a> - <a>start delay</a></code>.
+>
+>     </div>
+>
+> :   If the animation effect is in the <a>after phase</a>,
+> ::  The result depends on the first matching condition from the
+>     following,
+>
+>     <div class="switch">
+>
+>     :   If the animation effect has a <a>parent group</a>
+>         and that parent group is in the <a>before
+>         phase</a>,
+>     ::  Return an <a>unresolved</a> <a>time value</a>.
+>
+>     </div>
+>
+>     &hellip;
+>
+> :   Otherwise (the <a>local time</a> is <a>unresolved</a>),
+> ::  Return an <a>unresolved</a> <a>time value</a>.
+
+</div>
+
+<h5 id="calculating-the-overall-progress">Calculating the overall progress</h5>
+
+In the definition of the [=overall progress=] update the &ldquo;Otherwise&rdquo;
+branch of the definition of the |initial progress| as:
+
+>     :   Otherwise,
+>     ::  Calculate the <var>overall progress</var> following the first
+>         matching condition from below:
+>
+>         <div class="switch">
+>
+>         :   If the <a>animation effect playback rate</a> is less than zero,
+>         ::  Let <var>overall progress</var> be
+>             <code>(<a>active time</a> - <a>active duration</a>)
+>             &times; <a lt="animation effect playback rate">playback
+>             rate</a> / <a>iteration duration</a></code>.
+>
+>         :   If the <a>animation effect playback rate</a> is zero,
+>         ::  Let <var>overall progress</var> be zero.
+>
+>         :   Otherwise,
+>         ::  Let <var>overall progress</var> be
+>             <code>(<a>active time</a> &times;
+>             <a lt="animation effect playback rate">playback rate</a>) /
+>             <a>iteration duration</a></code>.
+>
+>         </div>
+
+<h3 id="time-transformations">Time transformations</h3>
+
+<div class="issue">
+Currently, the set of <a>timing functions</a> allowed on
+a <a>group effect</a> is not restricted.
+This has raised concern about complexity of implementation and also
+complexity of behavior with regards to fill modes.
+As a result, allowing the full set of timing functions on group
+effects is considered <strong>at risk</strong>.
+
+Alternatives are to either restrict timing functions on group
+effects to the <a>linear timing function</a> or to a set of
+&ldquo;simple&rdquo; timing functions that have properties that
+alleviate some of the concerns with the more complex timing
+functions.
+
+See <a
+href="http://lists.w3.org/Archives/Public/public-fx/2013JulSep/0076.html">section
+2 of the discussion from August 2013</a>.</div>
+
+
+<h4 id="calculating-the-transformed-progress">Calculating the transformed progress</h4>
+
+Replace the second step as the calculation of the [=before flag=] (to
+accommodate the effect playback rate):
+
+>     1.  If <em>either</em> the <var>current direction</var> is <span
+>         class="prop-value">forwards</span> or the <a>animation effect
+>         playback rate</a> &ge; 0 (but <em>not</em> when both conditions
+>         are true),
+>         let <var>going forwards</var> be true, otherwise it is false.
+
+
+<h4 id="calculating-the-transformed-time">Calculating the transformed time</h4>
+
+(This section is added.)
+
+The <dfn>transformed time</dfn> of an animation effect is simply the
+<a>transformed progress</a> multiplied by the <a>iteration duration</a>.
+
+If the <a>transformed progress</a> is <a>unresolved</a>, then the <a>transformed
+time</a> is also <a>unresolved</a>.
+
+If the <a>transformed progress</a> is zero and the <a>iteration duration</a>
+is infinity, then the <a>transformed time</a> is zero.
+
+
+<h3 id="grouping-and-synchronization">Grouping and synchronization</h3>
+
+<div class="informative-bg"><em>This section is non-normative</em>
+
+While it is possible to set the timing properties of <a>animation
+effects</a> individually, it is often useful to synchronize <a>animation
+effects</a> so that they share common timing properties and maintain
+their temporal relationship.  This is achieved using an <a>group
+effect</a>.
+
+A simple example is illustrated below.
+
+<figure>
+  <img src="img/grouping-delay.svg" width="800"
+       alt="Using groups to share common timing properties.">
+  <figcaption>
+    Using groups to share common timing properties.<br>
+    (a) Shows setting a delay of 5 seconds on individual animations.<br>
+    (b) Produces the same effect by setting the delay on the group.
+  </figcaption>
+</figure>
+
+When a <a>group effect</a> is <a>directly associated with
+an animation</a>, the <a>animation effect</a> associated with the
+<a>group effect</a> can be seeked, paused, and stopped as a unit.
+</p>
+
+</div>
+
+A <dfn>group effect</dfn> is a type of <a>animation effect</a> that
+contains an ordered sequence of zero or more <a>animation effects</a>
+known as <dfn lt="child effect">child effects</dfn>.
+
+At a given moment, an <a>animation effect</a> may be a <a>child effect</a>
+of at most one <a>group effect</a> known as the <dfn>parent group</dfn>.
+The <a>parent group</a> cannot be the same <a>animation
+effect</a> as the <a>child effect</a> itself.
+
+By nesting <a>group effects</a> it is possible to create hierarchical
+tree structures.
+The following terms are used to describe the parts and properties of
+such structures and are defined in [[!DOM]]:
+
+*   <dfn><a href="https://www.w3.org/TR/dom/#concept-tree-order">
+    tree order</a></dfn>
+*   <dfn><a href="https://www.w3.org/TR/dom/#concept-tree-root">
+    root</a></dfn>
+*   <dfn><a href="https://www.w3.org/TR/dom/#concept-tree-ancestor">
+    ancestor</a></dfn>
+*   <dfn><a href="https://www.w3.org/TR/dom/#concept-tree-descendant">
+    descendant</a></dfn>
+*   <dfn><a href="https://www.w3.org/TR/dom/#concept-tree-inclusive-ancestor">
+    inclusive ancestor</a></dfn>
+*   <dfn><a href="https://www.w3.org/TR/dom/#concept-tree-inclusive-descendant">
+    inclusive descendant</a></dfn>
+*   <dfn><a href="https://www.w3.org/TR/dom/#concept-tree-next-sibling">
+    next sibling</a></dfn>
+*   <dfn><a href="https://www.w3.org/TR/dom/#concept-tree-previous-sibling">
+    previous sibling</a></dfn>
+*   <dfn><a href="https://www.w3.org/TR/dom/#concept-tree-first-child">
+    first child</a></dfn>
+*   <dfn><a href="https://www.w3.org/TR/dom/#concept-tree-last-child">
+    last child</a></dfn>
+
+Note: in applying these definitions to <a>animation effects</a>, the
+    term <em>parent</em> refers exclusively to a <a>parent group</a> and does
+    <em>not</em> include the <a>animation</a> which with
+    an <a>animation effect</a> may be <a
+    lt="directly associated with an animation">directly associated</a>
+    despite the fact that conceptually the <a>animation</a> acts as a parent
+    time source.
+
+The temporal relationship between a <a>child effect</a> and its
+<a>parent group</a> is incorporated in the definition of
+<a>inherited time</a> (see [[#local-time-and-inherited-time]]).
+
+<h4 id="relationship-of-group-time-to-child-time">Relationship of group time to child time</h4>
+
+<div class="informative-bg"><em>This section is non-normative</em>
+
+The timing of the children of a <a>group effect</a> is based on
+the timing of the group.
+Specifically, times for the children are based on the parent's
+<a>transformed time</a>.
+With regards to repetition, this means the children operate
+<em>inside</em> an iteration of the parent.
+
+For example, if a <a>group effect</a> has an <a>iteration
+count</a> of 2, then the children of of the group will all play twice
+since they effectively play <em>inside</em> the group's iterations.
+
+<figure>
+  <img src="img/grouping-repetition.svg" width="600"
+    alt="The effect of multiple iterations on the children of a group.">
+  <figcaption>
+    Since children of a <a>group effect</a> base their timing on the
+    group's <a>transformed time</a>, when the group repeats, the
+    children play again.
+  </figcaption>
+</figure>
+
+Note that even in this case, the child <a>animation effects</a> still
+have only <em>one</em> <a>active interval</a>.
+However, as a result of the parent's timing, the <a>active
+interval</a> is played twice.
+
+If an <a>iteration count</a> is specified for the children of a group
+as well as for the group itself, the effect is as if the <a>iteration
+count</a> of the group was multiplied with the <a>iteration count</a>
+of the children.
+
+<figure>
+  <img src="img/grouping-repetition-and-animation-repetition.svg"
+    width="600" alt="Iteration counts are multiplicative.">
+  <figcaption>
+    Specifying an <a>iteration count</a> of 2 on a <a>group effect</a>
+    and an <a>iteration count</a> of 3 on one of its children results in
+    that child playing 6 times.
+  </figcaption>
+</figure>
+
+A further result of the children of a <a>group effect</a> basing
+their timing on the group's <a>transformed time</a> is that they
+cannot animate outside of the group's <a>active interval</a>.
+This is because the <a>transformed time</a> of a group will not
+change outside its <a>active interval</a>.
+This allows groups to <em>clip</em> the playback of their children.
+
+<figure>
+  <img src="img/grouping-clipping.svg" width="600"
+    alt="Groups clip the active interval of contained children.">
+  <figcaption>
+    In the first instance, an <a>animation effect</a> has a negative delay
+    and an infinite <a>iteration count</a>.<br>
+    However, when a similar <a>animation effect</a> is placed inside
+    a <a>group effect</a> with a specified <a>iteration duration</a>
+    it has the effect of clipping the child <a>animation effect</a>'s
+    <a>active interval</a>.
+  </figcaption>
+</figure>
+
+Some further consequences of <a>group effect</a> children basing
+their timing on their parent group's <a>transformed time</a> are:
+
+*   Setting the <a lt="animation effect playback rate">playback
+    rate</a> of a <a>group effect</a> will speed up or slow down all
+    children.
+
+*   Changing the <a>playback direction</a> of a <a>group effect</a>
+    will change the direction of all children.
+
+*   Applying a <a>timing function</a> to a <a>group effect</a> will
+    affect the progress of all children.
+
+</div>
+
+<h4 id="the-start-time-of-children-of-a-group-effect">The start time of
+  children of a group effect</h4>
+
+The <a lt="animation effect start time">start time</a> of a <a>child
+effect</a> of a <a>group effect</a> is zero.
+
+Note that specific types of <a>group effects</a> may override
+this definition to provide other kinds of synchronization behavior.
+
+<h4 id="the-intrinsic-iteration-duration-of-a-group-effect">The intrinsic
+  iteration duration of a group effect</h4>
+
+The <a>intrinsic iteration duration</a> of a <a>group
+effect</a> is based on the time when the last <a>child effect</a> completes
+its <a>active interval</a> and depends on the
+number of <a>child effects</a> as follows.
+
+<div class="switch">
+
+:   If the group has no <a>child effects</a>,
+::  the <a>intrinsic iteration duration</a> is zero.
+
+:   Otherwise,
+::
+
+    1.  Let <var>maximum end time</var> be the maximum value
+        after calculating the <a>end time</a> of each <a>child
+        effect</a> in the group.
+    2.  The <a>intrinsic iteration duration</a> is the result of
+        evaluating <code>max(0, <var>maximum end
+        time</var>)</code>.
+
+</div>
+
+This definition of the <a>intrinsic iteration duration</a> may be
+overridden by specific types of <a>group effects</a>.
+
+<h4 id="sequence-effects">Sequence effects</h4>
+
+<div class="informative-bg"><em>This section is non-normative</em>
+
+Specific types of <a>group effects</a> can be used to provide
+different kinds of synchronization behavior for their children.
+This specification defines one additional type of <a>group
+effect</a>: a <a>sequence effect</a>.
+<a>Sequence effects</a> arrange the start times of their
+children so that they run one at a time, in turn.
+
+Compare the two arrangements illustrated below:
+
+<figure>
+  <img src="img/grouping-types.svg" width="600"
+    alt="Group effects and sequence effects.">
+  <figcaption>
+    Group effects and sequence effects.<br>
+    (a) is a regular <a>group effect</a> where all the children run
+        simultaneously.<br>
+    (b) is a <a>sequence effect</a> where the children run in turn.
+  </figcaption>
+</figure>
+
+Since <a>group effects</a> can also contain other <a>group
+effects</a>, complex synchronization is possible by combining
+different types of groups as illustrated below.
+
+<figure>
+  <img src="img/grouping-nesting.svg" width="600"
+    alt="Nesting of group effects.">
+  <figcaption>
+    A <a>sequence effect</a> that contains a regular <a>group
+    effect</a> as a child.<br>
+    The <a>group effect</a> waits for the previous child of the
+    <a>sequence effect</a> to finish, and then the children of the
+    <a>group effect</a> play simultaneously.
+    After they have finished the next child of the <a>sequence
+    effect</a> plays.
+  </figcaption>
+</figure>
+
+</div>
+
+A <dfn>sequence effect</dfn> is a type of <a>group effect</a>
+that schedules its <a>child effects</a> such that they play in
+turn following their order in the group.
+This sequencing is achieved by adjusting the <a
+lt="animation effect start time">start time</a> of each <a>child
+effect</a> in the group.
+
+<h5 id="the-start-time-of-children-of-a-sequence-effect">The start time of
+  children of a sequence effect</h5>
+
+The <a lt="animation effect start time">start time</a> of
+a <a>child effect</a> of a <a>sequence effect</a> is the
+<a>end time</a> of the child's <a>previous sibling</a>.
+If the child has no <a>previous sibling</a> the start time is zero.
+
+<div class="note">
+When the <a>active duration</a> is positive infinity the behavior
+for calculating the <a>end time</a> of an <a>animation effect</a>
+and the <a lt="animation effect start time">start time</a> of
+subsequent children follows the usual behavior defined by IEEE
+754-2008.
+As a result, if any of the children of a <a>sequence
+effect</a> has an infinite <a>active duration</a>, any children
+that occur later in the sequence will not play.
+
+Similarly, the above definition does not restrict
+<a lt="animation effect start time">start times</a> to positive
+values and hence some children may not play due to a negative
+<a>start delay</a> on children that occur earlier in the group
+since their <a>active interval</a> may end before the group's <a
+lt="animation effect start time">start time</a>.
+</div>
+
+<div class="informative-bg"><em>This section is non-normative</em>
+
+Because the start of the <a>active interval</a> is based on the
+sum of an <a>animation effect</a>'s <a
+lt="animation effect start time">start time</a> <em>and</em>
+<a>start delay</a>, the <a>active intervals</a> of
+children of a <a>sequence effect</a> need not run in strict
+sequence but can be shifted back and forth by using the <a>start
+delay</a> as shown in the following diagram.
+
+<figure>
+  <img src="img/sequence-groups-and-start-delays.svg" width="600"
+    alt="Using negative start delays to overlap children of seq
+        groups">
+  <figcaption>
+    Example of using the <a>start delay</a> on children of a
+    <a>sequence effect</a> to shift their timing so that they
+    overlap (a negative delay) or are spaced apart (a positive delay).
+  </figcaption>
+</figure>
+
+A negative <a>start delay</a> can be used to cause the <a>active
+interval</a> of two children to overlap.
+Note that the <a>start delay</a> affects the <a
+lt="animation effect start time">start time</a> of subsequent
+children in the group.
+
+</div>
+
+<h5 id="the-intrinsic-iteration-duration-of-a-sequence-effect">The intrinsic
+  iteration duration of a sequence effect</h5>
+
+The <a>intrinsic iteration duration</a> of a <a>sequence
+effect</a> is equivalent to the <a
+lt="animation effect start time">start time</a> of a hypothetical
+<a>child effect</a> appended to the group's children
+calculated according to the definition in <a
+href="#the-start-time-of-children-of-a-sequence-effect"
+section></a> unless that produces a negative value, in
+which case the <a>intrinsic iteration duration</a> is zero.
+
+As a result, if the <a>sequence effect</a> has no <a>child
+effects</a> the <a>intrinsic iteration duration</a> will be
+zero.
+
+
+<!-- End of timing model -->
+
+
+<h2 id="animation-model">Animation model</h2>
+
+<h3 id="animation-types">Animation types</h3>
+
+<h4 id="not-animatable-section">Not animatable</h4>
+
+Update the description of an effect that targets a non-animated property as:
+
+>     An <a>animation effect</a> that targets a property that is
+>     <a>not animatable</a> will still exhibit the
+>     usual behavior for an <a>animation effect</a> such as
+>     occupying time in a <a>sequence effect</a> and
+>     delaying the fulfilment of an <a>animation</a>'s <a>current finished
+>     promise</a>.
+
+
+<h3 id="combining-effects">Combining effects</h3>
+
+<h4 id="the-effect-stack">The effect stack</h4>
+
+The procedure for sorting effects appends the following step:
+
+>     1.  Sort <var>A</var> and <var>B</var> in <a>tree order</a>.
+>         (By this point, <var>A</var> and <var>B</var> must have the
+>         same <a>animation</a> since otherwise the order would have been
+>         resolved in the previous step.)
+
+<h3 id="custom-effects">Custom effects</h3>
+
+(This section is added.)
+
+Issue: This whole feature needs to be revisited. The current thinking is that
+       rather than having custom effects, we should simply have an
+       <code>onupdate</code> callback on each <a>animation effect</a>.  That
+       would allow, for example, augmenting an existing effect with a function
+       that performs logging or triggers additional actions at certain times.
+       With the current arrangement, doing this would require adding a parent
+       group just to achieve this.
+
+<div class='informative-bg'><em>This section is non-normative</em>
+
+In some situations the <a>animation
+effects</a> provided by Web Animations may be insufficient.
+For example, the <a>animation effects</a>
+defined here are only able to target certain CSS properties.
+They are unable, therefore, to modify the <a
+href="https://www.w3.org/TR/SVG11/struct.html#__svg__SVGSVGElement__currentScale"><code>currentScale</code></a>
+property of an SVG element to smoothly zoom the viewport without
+affecting the document content.
+
+In such cases, where the provided <a>animation
+effects</a> do not provide needed functionality, an effect defined by
+script may be used.
+Such <a>custom effects</a> receive an <a>iteration
+progress</a> and <a>current iteration</a> from the timing model and
+are responsible for producing an effect corresponding to the specified
+time.
+
+Using an effect defined in script it is possible to animate not only
+otherwise un-animatable attributes and properties, but potentially
+anything that is accessible via script, including even producing audio
+or creating vibrations.
+
+For example, using a <a>custom effect</a> that draws to a <a
+href="https://www.w3.org/TR/html5/scripting-1.html#the-canvas-element"><code>canvas</code></a>
+element, it is possible to produce a complex animated effect
+featuring patterns that may be difficult to create using CSS or
+SVG.
+Compared to using <a
+href="https://www.w3.org/TR/animation-timing/">Timing control for
+script-based animations</a>,
+this approach ensures the animation is frame-rate
+independent and can be paused, reversed, eased with timing effects,
+accelerated, synchronized with other animations, and be controlled
+in the same manner as any other Web Animations animation without any
+additional programming.
+
+</div>
+
+A <dfn>custom effect</dfn> is an author-defined programming callback
+that is passed timing information as part of the [=update animations and send
+events=] procedure.
+
+Issue: It needs to be called whenever timing properties are updated too, right?
+
+<h4 id="updating-custom-effects">Sampling custom effects</h4>
+
+<a>Custom effects</a> are called for each referencing <a>animation effect</a>
+when the [=update animations and send events=] procedure is performed
+(henceforth referred to simple as an <em>update</em>) based on
+the following criteria.
+
+1.  If, on the previous update, the <a>animation effect</a>
+    referencing the <a>custom effect</a>:
+
+    *   was <a>in effect</a>, and
+    *   referenced this same <a>custom effect</a>, and
+    *   had a different <a>target element</a>
+
+    Call the callback passing an <a>unresolved</a> <a>iteration progress</a>
+    and the <a>target element</a> from the previous update as parameters to
+    the callback.
+2.  Call the callback for the current <a>target element</a> based on
+    the first matching condition from the following:
+
+    <div class="switch">
+
+    :   If the <a>animation effect</a> referencing the custom
+        effect is not <a>in effect</a> but was <a>in effect</a> in the previous
+        update,
+    ::  Call the callback passing an <a>unresolved</a> <a>iteration progress</a>
+        and the current <a>target element</a> as parameters to the callback.
+    :   Otherwise, if the <a>animation effect</a> referencing
+        the custom effect:
+    ::
+
+        *   <strong>is <a>in effect</a>, and</strong>
+        *   <strong>was not <a>in effect</a> in the previous update, or
+            was <a>in effect</a> but with a different <a>iteration
+            progress</a> or <a>current iteration</a>,</strong>
+
+    ::  Call the callback passing with the referencing
+        <a>animation effect</a>'s current <a>iteration
+        progress</a> and <a>target element</a> as parameters to the callback.
+
+    </div>
+
+<div class="issue">
+There may be use cases where an action needs to be triggered at
+a specific point in an animation tree.
+In many cases this can be achieved by inserting a custom effect with
+a step-start easing that spans the period during which the action
+should be triggered.
+However, this can impose additional layout requirements on the
+content which might be cumbersome to accomodate.
+
+Some alternatives under consideration:
+
+*   Additional calling conditions could be defined to accommodate
+    zero-width custom effects. For example, it could be required
+    that the callback be called if (given infinite precision) there
+    was a time between the previous and current update times that
+    aligned with the custom effect.
+*   Instead of adding special calling conditions to custom effects,
+    a new type of animation effect, Trigger, could be introduced. The
+    trigger would only ever act as a zero-width custom effect as
+    described above, its constructor would take a callback function,
+    but not require a target or timing. It could also specify other
+    calling conventions, for example whether it should only trigger
+    in a specific playback direction.
+
+</div>
+
+<h4 id="execution-order-of-custom-effects">Execution order of custom effects</h4>
+
+Since <a>custom effects</a>, unlike <a
+lt="animation effect">animation effects</a>, are not limited to
+a single <a>target property</a>, the steps for assessing their
+order of execution differs from <a>animation effects</a>.f
+
+<a>Custom effects</a> are executed after all
+<a>animation effects</a> have completed and
+applied their result to their targets (see Applying the composited result).
+
+Issue: Need to define this more precisely.
+    Are styles flushed?
+    Presumably they are.
+    Can we suspend reflow for the duration of executing the script-based
+    animation effects and just do it once afterwards?
+
+Within the set of <a>custom effects</a>, the
+order of execution is the same as that defined for <a>animation effects</a> in
+[[#the-effect-stack]].
+Items sorted earlier are executed before those sorted later.
+
+<!-- End of animation model -->
+
+<h2 id="programming-interface">Programming interface</h2>
+
+<h3 id="the-animationtimeline-interface">The <code>AnimationTimeline</code> interface</h3>
+
+<pre class="idl">
+[Exposed=Window]
+partial interface AnimationTimeline {
+    Animation play (optional AnimationEffectReadOnly? effect = null);
+};
+</pre>
+
+<div class='methods'>
+
+:   <dfn method for=AnimationTimeline lt='play()'>
+    Animation play(optional AnimationEffectReadOnly? effect = null)</dfn>
+::  Creates a new {{Animation}} object associated with
+    this <a>timeline</a> that begins playback as soon as it is
+    <a>ready</a>.
+
+    If <var>effect</var> is specified, it will be used as the animation's
+    <a>target effect</a>.
+
+    Issue: It has been suggested this method be renamed, or even removed
+    (see <a
+    href="https://github.com/w3ctag/spec-reviews/blob/master/2013/10/Web%20Animations.md#issue-play-method">TAG
+    feedback</a>).
+
+    Issue: Need to define the start behavior when <var>effect</var> is null.
+
+    The new {{Animation}} object is created using the
+    {{Animation()}} constructor passing this
+    {{AnimationTimeline}} object as the <var>timeline</var> parameter and
+    <var>effect</var> as the <var>effect</var> parameter.
+
+    Following construction of the {{Animation}} object, the procedure to
+    <a>play an animation</a> is performed on the newly constructed object
+    with the <var>auto-rewind</var> flag set to true.
+
+    <div class='parameters'>
+
+    :   <dfn argument for="AnimationTimeline/play(effect)"
+         lt="effect">effect</dfn>
+    ::  the <a>target effect</a> to assign to the newly-created
+        {{Animation}} object.
+
+    </div>
+
+</div>
+
+<h3 id="the-animationeffectreadonly-interface">The <code>AnimationEffectReadOnly</code> interface</h3>
+
+
+The following paragraph is added:
+
+>     Interfaces that inherit from {{AnimationEffectReadOnly}} that are intended
+>     to be mutable must also implement the additional
+>     {{AnimationEffectMutable}} interface.
+
+<pre class='idl'>
+[Exposed=Window]
+partial interface AnimationEffectReadOnly {
+    // Timing hierarchy
+    readonly attribute GroupEffectReadOnly?     parent;
+    readonly attribute AnimationEffectReadOnly? previousSibling;
+    readonly attribute AnimationEffectReadOnly? nextSibling;
+};
+
+[NoInterfaceObject]
+interface AnimationEffectMutable {
+    void before (AnimationEffectReadOnly... effects);
+    void after (AnimationEffectReadOnly... effects);
+    void replace (AnimationEffectReadOnly... effects);
+    void remove ();
+};
+</pre>
+
+<div class='attributes'>
+
+:   <dfn method for=AnimationEffectReadOnly>getComputedTiming()</dfn>
+::  The description of the <code>duration</code> attribute of the object
+    needs to indicate that if <code>timing.duration</code>
+    is the string <code>auto</code>, this attribute will return
+    the current calculated value of the
+    <a>intrinsic iteration duration</a>.
+
+:   <dfn attribute for=AnimationEffectReadOnly>parent</dfn>
+::  The <a>parent group</a> of this <a>animation effect</a> or
+    <code>null</code> if this <a>animation effect</a> does not have
+    a <a>parent group</a>.
+
+    Issue: Should this be <code>parentGroup</code>?
+
+:   <dfn attribute for=AnimationEffectReadOnly>previousSibling</dfn>
+::  The <a>previous sibling</a> of this <a>animation effect</a>.
+:   <dfn attribute for=AnimationEffectReadOnly>nextSibling</dfn>
+::  The <a>next sibling</a> of this <a>animation effect</a>.
+
+</div>
+
+<div class='methods'>
+
+:   <dfn method for=AnimationEffectMutable lt='before()'>
+    void before (AnimationEffectReadOnly... effects)</dfn>
+::  Inserts <var>effects</var> before this <a>animation effect</a>.
+
+    1.  If there is no <a>parent group</a>, abort these steps.
+    2.  If any of the <a>animation effects</a> in <var>effects</var> is an
+        <a>inclusive ancestor</a> of this <a>animation effect</a>,
+        <a>throw</a> a <span class=exceptionname>HierarchyRequestError</span>
+        exception and abort these steps.
+    3.  <a lt="insert children">Insert</a> <var>effects</var> before
+        this <a>animation effect</a>.
+
+    <div class='note'>
+        Note that this definition precludes the following usage since
+        <code>effect</code> is an <a>inclusive ancestor</a> of itself:
+
+        <pre class="lang-javascript">
+effect.before(effect); // throws HierarchyRequestError</pre>
+    </div>
+
+:   <dfn method for=AnimationEffectMutable lt='after()'>
+    void after(AnimationEffectReadOnly... effects)</dfn>
+::  Inserts <var>effects</var> after this <a>animation effect</a>.
+
+    1.  If there is no <a>parent group</a>, abort these steps.
+    2.  If any of the <a>animation effects</a> in <var>effects</var> is an
+        <a>inclusive ancestor</a> of this <a>animation effect</a>,
+        <a>throw</a> a <span class=exceptionname>HierarchyRequestError</span>
+        exception and abort these steps.
+    3.  Let <var>reference child</var> be the <a
+        lt="next sibling not included">next sibling of
+        this animation effect not in <var>effects</var></a>.
+    4.  <a lt="insert children">Insert</a> <var>effects</var> before
+        <var>reference child</var>.
+
+:   <dfn method for=AnimationEffectMutable lt='replace()'>
+    void replace(AnimationEffectReadOnly... effects)</dfn>
+::  Replaces this {{AnimationEffectReadOnly}} with the passed in
+    <var>effects</var>.
+
+    1.  If there is no <a>parent group</a>, abort these steps.
+    2.  If any of the <a>animation effects</a> in <var>effects</var> is an
+        <a>inclusive ancestor</a> of the <a>parent group</a>
+        <a>throw</a> a <span class=exceptionname>HierarchyRequestError</span>
+        exception and abort these steps.
+    3.  Let <var>reference child</var> be the <a
+        lt="next sibling not included">next sibling of
+        this animation effect not in <var>effects</var></a>.
+    4.  <a lt="remove an animation effect">Remove</a> this
+        <a>animation effect</a> from its <a>parent group</a>.
+    5.  <a lt="insert children">Insert</a> <var>effects</var> before
+        <var>reference child</var>.
+
+:   <dfn method for=AnimationEffectMutable lt='remove()'>void remove()</dfn>
+::  <a lt="remove an animation effect">Removes</a> this <a>animation
+    effect</a> from its <a>parent group</a> or <a>animation</a>.
+
+</div>
+
+Issue: The <code>remove()</code> method can be used to remove an effect from
+either its parent group or animation. Should we keep it in level 1 and define it
+simply as removing the animation from its animation?
+
+
+<h3 id="the-animationeffecttimingreadonly-interface">The <code>AnimationEffectTimingReadOnly</code> interface</h3>
+
+<pre class="idl">
+[Exposed=Window]
+partial interface AnimationEffectTimingReadOnly {
+    readonly attribute double                             playbackRate;
+};
+</pre>
+
+<div class="attributes">
+
+:   <dfn>delay</dfn>
+::  Update the description as:
+
+    > The <a>start delay</a> which represents the number of milliseconds from an
+    > <a>animation effect</a>'s <a lt="animation effect start time">start
+    > time</a> to the start of the <a>active interval</a>.
+
+:   <dfn>endDelay</dfn>
+::  Update the description as:
+
+    > The <a>end delay</a> which represents the number of milliseconds
+    > from the end of an <a>animation effect</a>'s <a>active interval</a>
+    > until the <a lt='animation effect start time'>start time</a> of any
+    > <a>animation effect</a> that may
+    > follow, for example, in a <a>sequence effect</a>.
+
+    </div>
+
+:   <dfn>duration</dfn>
+::  Add:
+
+    > The string value <code>auto</code> is used to indicate that the
+    > <a>iteration duration</a> reflects the animation effect's
+    > <a>intrinsic iteration duration</a>.
+
+:   <dfn attribute for=AnimationEffectTimingReadOnly>playbackRate</dfn>
+::  The <a>animation effect</a>'s <a
+    lt="animation effect playback rate">playback rate</a> property
+    which is a multiplier applied to the <a>local time</a> potentially
+    causing the effect to run at a different rate to its natural speed.
+
+</div>
+
+<h3 id="the-animationeffecttiming-interface">The <code>AnimationEffectTiming</code> interface</h3>
+
+Update the description to refer to the group/sequence effects:
+
+>     The {{AnimationEffectTiming}} interface is a mutable subclass of
+>     {{AnimationEffectTimingReadOnly}} returned for the <code>timing</code>
+>     attribute of a mutable <a>animation effect</a> such as {{KeyframeEffect}},
+>     {{GroupEffect}}, or {{SequenceEffect}}.
+
+<pre class='idl'>
+[Exposed=Window]
+partial interface AnimationEffectTiming : AnimationEffectTimingReadOnly {
+    inherit attribute double                             playbackRate;
+};
+</pre>
+
+<div class='attributes'>
+
+:   <dfn attribute for=AnimationEffectTiming>playbackRate</dfn>
+::  See the {{AnimationEffectTimingReadOnly/playbackRate}} attribute of the
+    {{AnimationEffectTimingReadOnly}} interface.
+
+</div>
+
+<h3 id="the-animationeffecttimingproperties-dictionary">The <code>AnimationEffectTimingProperties</code> dictionary</h3>
+
+<pre class='idl'>
+partial dictionary AnimationEffectTimingProperties {
+    double playbackRate = 1.0;
+};
+</pre>
+
+<div class='members'>
+
+:   <dfn dict-member for=AnimationEffectTimingProperties>playbackRate</dfn>
+::  See the {{AnimationEffectTiming/playbackRate}} attribute
+    of the {{AnimationEffectTiming}} interface.
+
+</div>
+
+<h3 id="the-computedtimingproperties-dictionary">The
+  <code>ComputedTimingProperties</code> dictionary</h3>
+
+<pre class='idl'>
+partial dictionary ComputedTimingProperties : AnimationEffectTimingProperties {
+    double startTime;
+};
+</pre>
+
+<div class='members'>
+
+:   <dfn dict-member for=ComputedTimingProperties>startTime</dfn>
+::  The <a lt='animation effect start time'>start time</a> of this
+    <a>animation effect</a> in milliseconds.
+    This is the time at which the <a>parent group</a>, if
+    any, has scheduled this child to run within its <a
+    lt="transformed time">transformed time space</a>, that is, the
+    <a>animation effect</a>'s <a lt="inherited time">inherited time
+    space</a>.
+
+    The start of the <a>active interval</a> is based on the sum of
+    the <a lt="animation effect start time">start time</a> and
+    <a>start delay</a>.
+
+:   <dfn>endTime</dfn>
+::  Update the description as:
+
+    > The <a>end time</a> of the <a>animation effect</a> expressed
+    > in milliseconds in <a lt="inherited time">inherited time
+    > space</a>.
+
+    > This corresponds to the end of the <a>animation effect</a>'s active
+    > interval plus any <a>end delay</a>.
+
+:   <dfn>localTime</dfn>
+::  Update the second paragraph as:
+
+    > This will be <code>null</code> if this
+    > <a>animation effect</a> is not
+    > <a>associated with an animation</a> or if it has a
+    > <a>parent group</a> that is not <a>in effect</a>.
+
+</div>
+
+<h4 id="the-fillmode-enumeration">The <code>FillMode</code> enumeration</h4>
+
+<pre class='idl'>
+enum FillMode { "none", "forwards", "backwards", "both", "auto" };
+</pre>
+
+:   <code>auto</code>
+::  Update the description as:
+
+    > Fill backwards and forwards when applied to an
+    > {{GroupEffectReadOnly}} and no fill when applied to an
+    > {{KeyframeEffectReadOnly}}.
+
+<h3 id="the-animationgroup-interfaces">The <code>GroupEffectReadOnly</code>
+  and <code>GroupEffect</code> interfaces</h3>
+
+(This section is added.)
+
+<a>Group effects</a> are represented by the {{GroupEffectReadOnly}}
+interface.
+Mutable <a>group effects</a> are represented by the {{GroupEffect}}
+interface.
+
+<pre class='idl'>
+[Exposed=Window,
+ Constructor (sequence<AnimationEffectReadOnly>? children,
+              optional (unrestricted double or AnimationEffectTimingProperties) timing)]
+interface GroupEffectReadOnly : AnimationEffectReadOnly {
+    readonly attribute AnimationNodeList      children;
+    readonly attribute AnimationEffectReadOnly? firstChild;
+    readonly attribute AnimationEffectReadOnly? lastChild;
+    GroupEffect clone ();
+};
+
+[NoInterfaceObject]
+interface GroupEffectMutable {
+  void prepend (AnimationEffectReadOnly... effects);
+  void append (AnimationEffectReadOnly... effects);
+};
+
+[Exposed=Window,
+ Constructor (sequence<AnimationEffectReadOnly>? children,
+              optional (unrestricted double or AnimationEffectTimingProperties) timing)]
+interface GroupEffect : GroupEffectReadOnly {
+};
+GroupEffect implements AnimationEffectMutable;
+GroupEffect implements GroupEffectMutable;
+</pre>
+
+<div class="constructors">
+
+:   <dfn constructor for=GroupEffectReadOnly
+      lt="GroupEffectReadOnly(children, timing)">
+    GroupEffectReadOnly ()</dfn>
+::  Creates a new {{GroupEffectReadOnly}} object using the following
+    procedure:
+
+    1.  Create a new {{GroupEffectReadOnly}} object, <var>group</var>.
+
+    1.  Let <var>timing input</var> be the result of applying the
+        procedure to <a>process a timing argument</a> to
+        {{GroupEffectReadOnly/GroupEffectReadOnly(children, timing)/timing}}.
+
+    1.  Set <code><var>group</var>.timing</code> to a new
+        {{AnimationEffectTimingReadOnly}} object created in the <a
+        lt="execution contexts">current realm</a> (that is, the same
+        <a lt="code realms">realm</a> used to create <var>effect</var>)
+        whose attributes are assigned the value of the member of the same name
+        on <var>timing input</var>.
+
+    1.  <a lt="insert children">Insert</a>
+        {{GroupEffectReadOnly/GroupEffectReadOnly(children, timing)/children}}
+        before <code>null</code>.
+
+    <div class="parameters">
+
+    :   <dfn argument
+        for="GroupEffectReadOnly/GroupEffectReadOnly(children, timing)"
+        lt="children">children</dfn>
+    ::  A sequence of animation effects to add as children of this group.
+
+        These children are appended in sequence using the same
+        semantics as the {{GroupEffectMutable/append()}} method of the
+        {{GroupEffectMutable}} interface.
+
+    :   <dfn argument
+        for="GroupEffectReadOnly/GroupEffectReadOnly(children, timing)"
+        lt="timing">timing</dfn>
+    ::  The timing properties or <a>iteration duration</a> of the new
+        group effect.
+
+    </div>
+
+:   <dfn constructor for=GroupEffect
+      lt="GroupEffect(children, timing)">
+    GroupEffect ()</dfn>
+::  Creates a new {{GroupEffect}} object using the same procedure as with
+    the {{GroupEffectReadOnly()}} constructor with the following differences:
+
+    *   <var>group</var> is initialized to a new {{GroupEffect}} object
+        rather than a new {{GroupEffectReadOnly}} object.
+    *   <code><var>group</var>.timing</code> is set to a new
+        {{AnimationEffectTiming}} object rather than a new {{AnimationEffectTimingReadOnly}}
+        object.
+
+</div>
+
+<div class="attributes">
+
+:   <dfn attribute for=GroupEffectReadOnly>children</dfn>
+::  The list of <a>child effects</a> in the group.
+
+:   <dfn attribute for=GroupEffectReadOnly>firstChild</dfn>
+::  The <a>first child</a> of this <a>group effect</a>.
+
+:   <dfn attribute for=GroupEffectReadOnly>lastChild</dfn>
+::  The <a>last child</a> of this <a>group effect</a>.
+
+</div>
+
+<div class="methods">
+
+:   <dfn method for=GroupEffectMutable lt="prepend()">
+:   void prepend (AnimationEffectReadOnly... effects)</dfn>
+::
+
+    1.  If any of the <a>animation effects</a> in <var>effects</var> is an
+        <a>inclusive ancestor</a> of this <a>animation effect</a>,
+        <a>throw</a> a <span class=exceptionname>HierarchyRequestError</span>
+        exception and abort these steps.
+    2.  <a lt="insert children">Insert</a> <var>effects</var> before
+        the <a>first child</a>.
+
+:   <dfn method for=GroupEffectMutable lt="append()">
+    void append (AnimationEffectReadOnly... effects)</dfn>
+::
+
+    1.  If any of the <a>animation effects</a> in <var>effects</var> is an
+        <a>inclusive ancestor</a> of this <a>animation effect</a>,
+        <a>throw</a> a <span class=exceptionname>HierarchyRequestError</span>
+        exception and abort these steps.
+    2.  <a lt="insert children">Insert</a> <var>effects</var> before
+        <code>null</code>.
+
+:   <dfn method for=GroupEffectReadOnly lt="clone()">
+    GroupEffect clone ()</dfn>
+::  Creates a deep copy of this {{GroupEffectReadOnly}} object using the
+    following procedure.
+
+    1.  Let <var>source</var> be this {{GroupEffectReadOnly}} object,
+        the object to be cloned.
+
+    2.  Let <var>cloned timing</var> be a new
+        {{AnimationEffectTimingProperties}} object whose members are assigned
+        the value of the attribute with the same name on
+        <code><var>source</var>.timing</code>.
+
+    3.  Let <var>cloned children</var> be an empty sequence of
+        {{AnimationEffectReadOnly}} objects.
+
+    4.  For each <var>child</var> in
+        <code><var>source</var>.children</code>, append the result
+        of calling <code><var>child</var>.clone()</code>
+        to <var>cloned children</var>.
+
+    5.  Return a new {{GroupEffect}} object created by
+        calling the {{GroupEffect()}} constructor with parameters
+        <code>GroupEffect(<var>cloned children</var>,
+        <var>cloned timing</var>)</code>.
+
+</div>
+
+<h4 id="processing-a-timing-argument">Processing a <code>timing</code> argument</h4>
+
+<p>The <var>timing</var> parameter passed to the {{GroupEffectReadOnly()}},
+{{GroupEffect()}}, {{SequenceEffectReadOnly()}}, or {{SequenceEffect()}}
+constructor may be an {{AnimationEffectTimingProperties}} object, a double
+representing the duration of the <a>animation effect</a> in milliseconds, or
+undefined.</p>
+
+<p>The following procedure to <dfn>process a timing argument</dfn>,
+<var>timing</var>, normalizes the above inputs into
+a {{AnimationEffectTimingProperties}} object.</p>
+
+    :   If <var>timing</var> is an {{AnimationEffectTimingProperties}} object,
+    ::  Return <var>timing</var>.
+
+    :   If <var>timing</var> is a <code>double</code>,
+    ::  Return a new {{AnimationEffectTimingProperties}} object with all members set
+        to their default values and {{AnimationEffectTimingProperties/duration}} set
+        to <var>timing</var>.
+
+    :   Otherwise (<var>timing</var> is undefined),
+    ::  Return a new {{AnimationEffectTimingProperties}} object with all members set
+        to their default values.
+
+<div class="note">
+
+Note that since {{AnimationEffectTimingReadOnly}} objects have the same
+member keys as {{AnimationEffectTimingProperties}} dictionaries, it is
+also possible to pass the {{AnimationEffectReadOnly/timing}} member of another
+{{AnimationEffectReadOnly}} to the any of the methods that invoke this method
+as the <var>timing</var> parameter.
+
+Doing so will cause the {{AnimationEffectTimingReadOnly}} object to be
+treated as an {{AnimationEffectTimingProperties}} dictionary and thus it
+will effectively be cloned, not shared.
+
+<div class="example">
+
+For example, the timing of two animations may be aligned as follows:
+
+<pre class="lang-javascript">
+var effectA = elem.animate({ opacity: 0 }, 1000).effect;
+var effectB = elem.animate({ width: '0px' }, effectA.timing).effect;
+alert(effectA.timing !== effectB.timing); // Displays 'true'
+alert(effectA.timing.duration === effectB.timing.duration); // Displays 'true'</pre>
+</div>
+
+</div>
+
+<h4 id="definitions-for-manipulating-hierarchies">Definitions for manipulating hierarchies</h4>
+
+The <dfn lt="next sibling not included">next sibling of
+<var>effect</var> not included</dfn> in a set of <a>animation
+effects</a>, <var>effects</var> is determined using the following
+teps:</p>
+
+1.  Let <var>context effect</var> be <var>effect</var>.
+2.  While the <a>next sibling</a> of <var>context effect</var> is not
+    <code>null</code> perform the following steps:
+
+    1.  Let <var>context effect</var> be the <a>next sibling</a> of
+        <var>context effect</var>.
+    2.  If <var>context effect</var> is not in <var>effects</var> return
+        <var>context effect</var> and abort these steps.
+
+3.  Return <code>null</code>.
+
+To <dfn lt="remove an animation effect">remove</dfn> a
+<var>effect</var> from its <a>parent group</a> or
+<a>animation</a>, perform the steps corresponding to the first
+matching condition from below, if any:
+
+<div class="switch">
+
+:   If <var>effect</var> has a <a>parent group</a>,
+::  Remove <var>effect</var> from the <a>parent group</a>'s
+    list of <a>child effects</a>.
+
+:   If <var>effect</var> is <a>directly associated with
+    an animation</a>,
+::  Disassociate <var>effect</var> from the <a>animation</a>.
+
+</div>
+
+
+To <dfn lt="insert children">insert</dfn> a series of zero or
+more <a>animation effects</a>, <var>effects</var>, to
+<var>parent</var>'s list of <a>child effects</a> before
+<var>reference child</var> perform the following steps for each
+<var>effect</var> in <var>effects</var>:</p>
+
+1.  <a lt="remove an animation effect">Remove</a> <var>effect</var>
+    from its parent.
+2.  Insert <var>effect</var> to <var>parent</var>'s list of <a>child
+    effects</a> before <var>reference child</var>
+
+<h3 id="the-animationnodelist-interface">The <code>AnimationNodeList</code> interface</h3>
+
+A list of <a>animation effects</a> may be represented by
+an {{AnimationNodeList}}.
+
+The <code>AnimationNodeList</code> interface supports indexed
+properties with indices in the range 0 &le; <var>index</var> &lt;
+<code>length</code>.
+
+<p class="note">
+The only reason this interface exists is to provide a familiar
+experience for authors familiar with DOM interfaces where child nodes
+are accessed via a <code>children</code> member.
+</p>
+
+<pre class='idl'>
+[Exposed=Window]
+interface AnimationNodeList {
+    readonly attribute unsigned long length;
+    getter AnimationEffectReadOnly? item (unsigned long index);
+};
+</pre>
+
+<div class="attributes">
+
+:   <dfn attribute for=AnimationNodeList>length</dfn>
+::  The number of <a>animation effects</a> in the list.
+
+</div>
+
+<div class="methods">
+
+:   <dfn method for=AnimationNodeList lt="item(index)">
+    getter AnimationEffectReadOnly? item(unsigned long index)</dfn>
+::  Returns the <a>animation effect</a> at <code>index</code>.
+    If <code>index</code> is greater than or equal to
+    <code>length</code> returns <code>null</code>.
+
+</div>
+
+<h3 id="the-animationsequence-interfaces">The
+<code>SequenceEffectReadOnly</code> and <code>SequenceEffect</code>
+interfaces</h3>
+
+<a>Sequence effects</a> are represented by the {{SequenceEffectReadOnly}}
+interface.
+Mutable <a>sequence effects</a> are represented by the {{SequenceEffect}}
+interface.
+
+<pre class='idl'>
+[Exposed=Window,
+ Constructor (sequence<AnimationEffectReadOnly>? children,
+              optional (unrestricted double or AnimationEffectTimingProperties) timing)]
+interface SequenceEffectReadOnly : GroupEffectReadOnly {
+    SequenceEffect clone ();
+};
+
+[Exposed=Window,
+ Constructor (sequence<AnimationEffectReadOnly>? children,
+              optional (unrestricted double or AnimationEffectTimingProperties) timing)]
+interface SequenceEffect : SequenceEffectReadOnly {
+};
+SequenceEffect implements AnimationEffectMutable;
+SequenceEffect implements GroupEffectMutable;
+</pre>
+
+<div class="contructors">
+
+:   <dfn constructor for=SequenceEffect lt="SequenceEffect()"><dfn
+      constructor for=SequenceEffectReadOnly lt="SequenceEffectReadOnly()">
+    Constructor (sequence&lt;AnimationEffectReadOnly&gt;? children,
+    optional (unrestricted double or AnimationEffectTimingProperties) timing)</dfn></dfn>
+::  The meaning and handling of each of the parameters in this
+    constructor is identical to the {{GroupEffect()}} constructor.
+
+</div>
+
+<div class="methods">
+
+:   <dfn method for=SequenceEffectReadOnly lt="clone()">
+    SequenceEffect clone ()</dfn>
+::  Creates a deep copy of this {{SequenceEffectReadOnly}} object using
+    the same procedure as defined for the {{GroupEffectReadOnly/clone()}}
+    method of the {{GroupEffectReadOnly}} interface except that a new
+    {{SequenceEffect}} object is created.
+
+</div>
+
+<h3 id="the-keyframeeffect-interfaces">The <code>KeyframeEffectReadOnly</code>
+  and <code>KeyframeEffect</code> interfaces</h3>
+
+Add:
+
+<pre class='idl'>
+KeyframeEffect implements AnimationEffectMutable;
+</pre>
+
+<h4 id="creating-a-new-keyframeeffect-object">Creating a new <code>KeyframeEffect</code> object</h4>
+
+<div class='informative-bg'><em>This section is non-normative</em>
+
+Replace:
+
+>     If the duration is not specified, a value of zero is used.
+
+with:
+
+>     If the duration is not specified, the <a>intrinsic iteration
+>     duration</a> is used which, for a <a>keyframe effect</a>, is zero.
+
+Add:
+
+> This is particularly useful in combination with other <a>animation
+> effects</a>.  For example, fading an element before switching 'visibility' to
+> &lsquo;hidden&rsquo; can be achieved as follows,
+
+<div class='example'><pre class='lang-javascript'>
+new SequenceEffect(
+  [
+    new KeyframeEffect(elem, { opacity: 0 }, 1000),
+    new KeyframeEffect(elem, { visibility: 'hidden' }, { fill: 'forwards' })
+  ]
+);</pre></div>
+
+</div>
+
+<h3 id="the-effectcallback-callback-function">The <code>EffectCallback</code> callback function</h3>
+
+<a>Custom effects</a> can be defined in script by providing an
+{{EffectCallback}} callback function.
+
+<pre class='idl'>
+callback EffectCallback = void (double? progress,
+                                (Element or CSSPseudoElement) currentTarget,
+                                Animation animation);
+</pre>
+
+An {{EffectCallback}} is called each time an {{KeyframeEffectReadOnly}} object
+with which it is
+associated is updated.
+
+<div class="parameters">
+
+:   double? progress
+::  The <a>iteration progress</a> value for which to produce an effect.
+    When this is <code>null</code>, the function SHOULD
+    remove the effect.
+
+:   (Element or CSSPseudoElement) currentTarget
+::  The <a>target element</a> on which this callback is expected
+    to operate.
+
+    <div class="note">
+
+    Note that <var>currentTarget</var> may differ from
+    <code><var>animation</var>.target</code>.
+
+    If the <a>target element</a> of <var>animation</var>
+    is changed between updates, this method will be
+    called once with a null <var>progress</var> and the
+    previous <a>target element</a> as the
+    <var>currentTarget</var>, then again with the current
+    <var>progress</var> and the updated <a>target
+    element</a> as the <var>currentTarget</var>.
+    This allows the animation effect to be removed from the old
+    <a>target element</a>.
+
+    </div>
+
+:   Animation animation
+::  The {{Animation}} object that is being updated.
+
+</div>
+
+<h3 id="the-animatable-interface">The <code>Animatable</code> interface</h3>
+
+<div class="methods">
+
+:   <dfn method for=Animatable lt="getAnimations()">
+    sequence&lt;Animation&gt; getAnimations()</dfn>
+::  Add:
+
+    > If this object is the <a>target element</a> of two or more
+    > <a>animation effects</a> which are associated with the
+    > same <a>animation</a>, the corresponding {{Animation}}
+    > object will still only appear in the returned list once.
+
+</div>
+
+<h3 id="model-liveness">Model liveness</h3>
+
+<div class="informative-bg"><em>This section is non-normative</em>
+
+Regarding the section on, &ldquo; Changes made to the Web Animations model take
+effect immediately&rdquo;, add:
+
+>     The same concept applies to more complex modifications of the
+>     Web Animations model such as adding and removing children from
+>     an {{GroupEffect}}.
+
+Add:
+
+> :   Changes made to the model using the programming interface do
+>     <em>not</em> cause any {{EffectCallback}} functions to be
+>     called
+>
+> ::  For example, in the following code, the callback function will
+>     not be called until <em>after</em> the script block has
+>     completed during regular updating.
+>
+>     <div class="example">
+>     <pre class="lang-javascript">
+> var timesCalled = 0;
+> elem.animate(function() {
+>   timesCalled++;
+> }, 10000);
+> alert(timesCalled); // Displays &lsquo;0&rsquo;</pre>
+>     </div>
+>
+>     Note: Need to spec this properly somewhere.
