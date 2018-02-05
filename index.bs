@@ -15,6 +15,7 @@ Abstract: This specification defines a general model for navigating the focus us
 spec: ui-events; urlPrefix: https://w3c.github.io/uievents/;
     type: event;
         text: keydown
+        text: click
 spec: html; urlPrefix: https://html.spec.whatwg.org/multipage/;
     urlPrefix: interaction.html
         type: dfn;
@@ -134,6 +135,26 @@ going up the ancestry chain if it cannot scroll,
 until it has either moved focus,
 scrolled,
 or reached the root.
+
+Additionally, when the user has focused a <a>scroll container</a> which contains focusable elements,
+the user may move the focus to the nexted elements by pressing <code class=key>Enter</code>.
+
+The User Agent will then follow a similar logic: first, search for visible and focusable items
+within the currently focused <a>scroll container</a>,
+and if there is any,
+select the best one and move the focus there.
+
+<div class=note>Note: This feature is needed because elements inside a scrollable container
+are neither to its top, bottom, left or right.
+They are inside, and could not be reached otherwise using spatial navigation only.
+
+Issue: While this ability is needed, it could be achieved by different mechanisms,
+such as for example automatically moving the focus inside of a scroll container
+instead of focusing it,
+if it contains focusable elements.
+The current proposition is felt to be more intuitive for end users.
+Feedback appreciated.
+</div>
 
 At key points during this search for the appropriate response to the spatial navigation request,
 the User Agent will fires events.
@@ -381,7 +402,15 @@ Note: The events and APIs described in this section relate both to spatial navig
 and to sequential navigation.
 
 <pre class=idl>
-enum NavigationDirection { "up", "down", "left", "right", "forward", "backward" };
+enum NavigationDirection {
+  "up",
+  "down",
+  "left",
+  "right",
+  "forward",
+  "backward",
+  "inside"
+};
 
 [Constructor(DOMString type, optional NavigationEventInit eventInitDict)]
 interface NavigationEvent : UIEvent {
@@ -414,7 +443,7 @@ partial interface Element {
 
 Calling {{findFocusable()}} on an element
 allows the author to find which element would be focused, if any,
-if the user were to attempt spatial (in the case of {{NavigationDirection/up}}, {{NavigationDirection/down}}, {{NavigationDirection/right}}, or {{NavigationDirection/left}})
+if the user were to attempt spatial (in the case of {{NavigationDirection/up}}, {{NavigationDirection/down}}, {{NavigationDirection/right}}, {{NavigationDirection/left}}), or {{NavigationDirection/inside}}
 or sequential (in the case of {{NavigationDirection/forward}} or {{NavigationDirection/backward}})
 navigation while that element has the focus.
 
@@ -479,18 +508,28 @@ the following steps are run to <dfn>react to key presses</dfn>.
     However, a key point here is that if the caret is at the beggining (resp. end) of the content,
     and the user presses an arrow key to go up or left (resp. down or right),
     and there's no IME or similar thing consuming that key,
-    then we should jump to point 9.1
+    then we should jump to point 10.1
 6. Else if the key is .... and the modifiers are ..., then ....
-7. Else if the key is enter and the target has an activation behavior,
-    then initiate that action and then return
-    <span class=issue>… more of the same, handling all sorts of keys in various situations …</span>
-8. Else, if the {{KeyboardEvent/key}} is <code class=key>"Tab"</code>
+7. Else if the key is enter
+    * If the target has an <a>activation behavior</a>,
+        1. <a>Fire an event</a> named <a event>click</a> at <var>eventTarget</var>
+            using {{MouseEvent}} with its arguments initialized as per [[UI-EVENTS#click]]
+            and let <var>actOnClick</var> be the result.
+        2. If <var>actOnClick</var> is <code>false</code>, return
+        3. Initiate the <a>activation behavior</a> (See [[UI-EVENTS#event-flow-activation]]) then return.
+        
+    * Else, if spatial navigation is <a for=spatnav>active</a> on <var>eventTarget</var>
+        and <var>eventTarget</var> is a <a>scroll container</a>,
+        run the <a>navigation steps</a> on <var>eventTarget</var> in direction <code>inside</code>,
+        then return
+8. Issue: … more of the same, handling all sorts of keys in various situations …
+9. Else, if the {{KeyboardEvent/key}} is <code class=key>"Tab"</code>
     and all of {{KeyboardEvent/ctrlKey}}, {{KeyboardEvent/altKey}} and {{KeyboardEvent/metaKey}} are <code>false</code>,
     run the <a>navigation steps</a> on <var>eventTarget</var>
     in the <code>forward</code> direction if {{KeyboardEvent/shiftKey}} is <code>false</code>
     or in the <code>backward</code> direction if it is <code>true</code>,
     then return
-9. Else, if the {{KeyboardEvent/key}} is one of <code class=key>"ArrowUp"</code>,<code class=key>"ArrowDown"</code>, <code class=key>"ArrowLeft"</code>, or <code class=key>"ArrowRight"</code>:
+10. Else, if the {{KeyboardEvent/key}} is one of <code class=key>"ArrowUp"</code>,<code class=key>"ArrowDown"</code>, <code class=key>"ArrowLeft"</code>, or <code class=key>"ArrowRight"</code>:
     1. Let <var>dir</var> be:
         * <code>up</code>    if the {{KeyboardEvent/key}} is <code class=key>"ArrowUp"</code>
         * <code>down</code>  if the {{KeyboardEvent/key}} is <code class=key>"ArrowDown"</code>
@@ -504,7 +543,7 @@ the following steps are run to <dfn>react to key presses</dfn>.
     3. Else, if <var>eventTarget</var> is a <a>scroll container</a> that <a>can be manually scrolled</a> in <var>dir</var>
         <a>directionally scroll the element</a> <var>eventTarget</var> in the direction <var>dir</var>
         then return.
-    4. Else, if spatial navigation is <a for=spatnav>active</a>
+    4. Else, if spatial navigation is <a for=spatnav>active</a> on <var>eventTarget</var>
         run the <a>navigation steps</a> on <var>eventTarget</var> in direction <var>dir</var>,
         then return
     5. Else, let <var>ancestor</var> be the nearest ancestor of <var>eventTarget</var> that is a <a>scroll container</a> that <a>can be scrolled manually</a>,
@@ -564,25 +603,29 @@ Navigation</h3>
 <div algorithm="to run the navigation steps">
 To run the <dfn>navigation steps</dfn> in <var>direction</var> on <var>eventTarget</var>, do the following:
 
-If <var>direction</var> is <code>forward</code> or <code>backward</code>,
-run step 1 through 9 of <a href="https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation">the HTML steps for sequential navigation</a>,
-with one change:
-between step 5 and 6, add the following:
+* If <var>direction</var> is <code>forward</code> or <code>backward</code>,
+    run step 1 through 9 of <a href="https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation">the HTML steps for sequential navigation</a>,
+    with one change:
+    between step 5 and 6, add the following:
+    
+    > 5.5. if <var>candidate</var> is not <code>null</code>,
+    > <a>Fire an event</a> named <a event>navbeforefocus</a> at <var>eventTarget</var> using {{NavigationEvent}}
+    > with its {{NavigationEvent/dir}} set to <var>direction</var> and {{NavigationEvent/relatedTarget}} set to <var>candidate</var>
+    > and return if the result is false
+    >
+    > Issue: This is a monkeypatch on [[HTML]].
+    > Eventually this should be upstreamed:
+    > modify the steps as described here,
+    > and give them a name (“the sequential navigation steps”?) so that they can be invoked.
+    
+    Then, return.
 
-> 5.5. if <var>candidate</var> is not <code>null</code>,
-> <a>Fire an event</a> named <a event>navbeforefocus</a> at <var>eventTarget</var> using {{NavigationEvent}}
-> with its {{NavigationEvent/dir}} set to <var>direction</var> and {{NavigationEvent/relatedTarget}} set to <var>candidate</var>
-> and return if the result is false
->
-> Issue: This is a monkeypatch on [[HTML]].
-> Eventually this should be upstreamed:
-> modify the steps as described here,
-> and give them a name (“the sequential navigation steps”?) so that they can be invoked.
+* Else if <var>direction</var> is <code>inside</code>,
+    run the <a>navigate inside steps</a> on <var>eventTarget</var>,
 
-Then, return.
+* Else (<a>assert</a>: <var>direction</var> is one of <code>up</code>, <code>down</code>, <code>left</code>, or <code>right</code>),
+    run the <a>spatial navigation steps</a> in <var>direction</var> on <var>eventTarget</var>.
 
-Else (<a>assert</a>: <var>direction</var> is one of <code>up</code>, <code>down</code>, <code>left</code>, or <code>right</code>),
-run the <a>spatial navigation steps</a> in <var>direction</var> on <var>eventTarget</var>.
 </div>
 
 <div algorithm="to run the spatial navigation steps">
@@ -616,12 +659,32 @@ To run the <dfn>spatial navigation steps</dfn> in <var>direction</var> on <var>e
                 Issue: is it sane from a security standpoint that this propagates up from iframes?
             * Else, set <var>container</var> to its closest ancester that is itself a <a>spatnav container</a>
                 and return to the step labeled <i>loop</i>.
-2. Let <var>bestCandidate</var> be the result of <a>selecting the best candidate</a> with  [....]
-3. <a>Fire an event</a> named <a event>navbeforefocus</a> at <var>eventTarget</var> using {{NavigationEvent}}
+4. Let <var>bestCandidate</var> be the result of <a>selecting the best candidate</a>
+    within <var>candidates</var> in <var>direction</var> starting from <var>eventTarget</var>
+5. <a>Fire an event</a> named <a event>navbeforefocus</a> at <var>eventTarget</var> using {{NavigationEvent}}
     with its {{NavigationEvent/dir}} set to <var>direction</var> and {{NavigationEvent/relatedTarget}} set to <var>bestCandidate</var>,
     and let <var>allowFocusChange</var> be the result.
-4. If <var>allowFocusChange</var> is <code>false</code>, return
-5. Run the <a>focusing steps</a> for <var>bestCandidate</var> and return
+6. If <var>allowFocusChange</var> is <code>false</code>, return
+7. Run the <a>focusing steps</a> for <var>bestCandidate</var> and return
+
+</div>
+
+<div algorithm="to run the navigate inside steps">
+To run the <dfn>navigate inside steps</dfn> on <var>eventTarget</var>, do the following:
+1. Let <var>candidates</var> be the result of <a>finding candidates</a>
+    within <var>eventTarget</var>
+    starting from <var>eventTarget</var>
+2. If <var>candidates</var> is <code>null</code>,
+    <a>Fire an event</a> named <a event>navnotarget</a> at <var>eventTarget</var> using {{NavigationEvent}}
+    with its {{NavigationEvent/dir}} set to <code>inside</code> and {{NavigationEvent/relatedTarget}} set to <var>eventTarget</var>,
+    then return.
+3. Let <var>bestCandidate</var> be the result of <a>selecting the best candidate</a>
+    within <var>candidates</var> starting from the <a>inline start</a> <a>block start</a> corner of <var>eventTarget</var>'s <a>scrollport</a>.
+4. <a>Fire an event</a> named <a event>navbeforefocus</a> at <var>eventTarget</var> using {{NavigationEvent}}
+    with its {{NavigationEvent/dir}} set to <code>inside</code> and {{NavigationEvent/relatedTarget}} set to <var>bestCandidate</var>,
+    and let <var>allowFocusChange</var> be the result.
+5. If <var>allowFocusChange</var> is <code>false</code>, return
+6. Run the <a>focusing steps</a> for <var>bestCandidate</var> and return
 
 </div>
 
@@ -637,10 +700,21 @@ In particular, divergences in how User Agents <a>find candidates</a>
 may cause some elements to be focusable in some User Agents but not in others,
 which would be bad for users.
 
+All geometrical operations in this section are defined to work on the result of CSS layout,
+including all graphical transformations, such as <a>relative positioning</a> or [[CSS-TRANSFORMS-1]].
+
+The <dfn>boundary box</dfn> of a object is defined as follows:
+* if the object is a point, the boundary is that point
+* if the object is an element, the boundary is the <a>border box</a> of the element's <a>principal box</a>.
+* if the object is a <a>focusable area</a> which is not an element, the boundary is the axis-aligned the bounding box of that <a>focusable area</a>
+* if the object is a geometric shape, the boundary is the axis-aligned the bounding box of that shape
+
+Issue: CSS should have a term for “border box taking into account corner shaping properties like border-radius”.
+
 <div algorithm="to find candidates">
 
 To <dfn lt="find candidates | finding candidates">find candidates</dfn> within a <a>spatnav container</a> <var>C</var>,
-in direction <var>D</var>,
+in an optional direction <var>D</var>,
 starting from <var>starting point</var>,
 follow the following steps:
 
@@ -649,16 +723,14 @@ follow the following steps:
 
     Note: This is a "SHOULD" in order to mirror the exclusion of elements with negative tabindex
     from the <a>sequential focus navigation order</a> as defined in [[HTML#the-tabindex-attribute]].
-3. Let <var>visibles</var> be the subset of the elements in <var>focusables</var>
-    whose <a>border box</a>
-    is at least partly within the <var>C</var>'s <a>scrollport</a>.
-
-    Issue: CSS should have a term for “border box taking into account corner shaping properties like border-radius”.
+3. Let <var>visibles</var> be the subset of items in <var>focusables</var>
+    whose <a>boundary box</a>
+    is at least partly within <var>C</var>'s <a>scrollport</a>.
 
     Issue: Should that be C's <a>optimal viewing region</a> instead?
     Probably not, given the next step, but maybe.
-4. Remove from <var>visibles</var> elements are <a>obscured</a> by another element:
-    If an element could be be hit by a hit test due to some other element(s) overlapping it,
+4. Remove from <var>visibles</var> items are <a>obscured</a> by other parts of the page:
+    If no point of the area enclosed by an item's <a>boundary box</a> can be hit by a hit test due to some other object(s) overlapping it,
     it is said to be <dfn>obscured</dfn>.
 
     Note: Spatial navigation is often an afterthough for many web authors,
@@ -675,10 +747,13 @@ follow the following steps:
     that authors forget to do so.
 
     Issue: Some CSS spec needs to define hit testing.
-5. Let <var>candidates</var> be the subset of the elements in <var>visibles</var>
-    whose <a>principal box</a>'s geometric center is within the closed half plane
-    whose boundary goes through the geometric center of <var>starting point</var>
-    and is perpendicular to <var>D</var>.
+5. 
+    * If <var>D</var> is null,
+        let <var>candidates</var> be the same as <var>visibles</var>
+    * Else, let <var>candidates</var> be the subset of the items in <var>visibles</var>
+        whose <a>boundary box</a>'s geometric center is within the closed half plane
+        whose boundary goes through the geometric center of <var>starting point</var>
+        and is perpendicular to <var>D</var>.
 6. Return <var>candidates</var>.
 
     Note: <var>candidates</var> may be <code>null</code>.
@@ -689,15 +764,15 @@ follow the following steps:
 
 To <dfn lt="select the best candidate | selecting the best candidate">select the best candidate</dfn>
 within a <a spec=infra for="/">set</a> of <var>candidates</var>
-in direction <var>dir</var>,
+in an optional direction <var>dir</var>,
 starting from <var>starting point</var>,
 follow the following steps:
 
 1. If <var>candidates</var> is <a spec=infra for=set>empty</a>, return <code>null</code>
 2. If <var>candidates</var> contains a single item, return that item
 3. For each <var>candidate</var> in <var>candidates</var>,
-    find the points <var>P1</var> inside the <a>border box</a> of <var>starting point</var>
-    and <var>P2</var> inside the <a>border box</a> of <var>candidate</var>
+    find the points <var>P1</var> inside the <a>boundary box</a> of <var>starting point</var>
+    and <var>P2</var> inside the <a>boundary box</a> of <var>candidate</var>
     that minimize the <var>distance</var> between these two points,
     when <var>distance</var> is defined as follows:
 
@@ -709,13 +784,15 @@ follow the following steps:
         <dd>The euclidian distance between <var>P1</var> and <var>P2</var>.
 
       <dt><var>B</var>:
-        <dd>The absolute distance in the <var>dir</var> direction between <var>P1</var> and <var>P2</var>.
+        <dd>The absolute distance in the <var>dir</var> direction between <var>P1</var> and <var>P2</var>,
+	    or 0 if <var>dir</var> is <code>null</code>.
 
       <dt><var>C</var>:
-        <dd>The absolute distance in the direction which is orthogonal to <var>dir</var> between <var>P1</var> and <var>P2</var>.
+        <dd>The absolute distance in the direction which is orthogonal to <var>dir</var> between <var>P1</var> and <var>P2</var>,
+	    or 0 if <var>dir</var> is <code>null</code>.
 
       <dt><var>D</var>:
-        <dd>The square root of the area of intersection between the <a>border boxes</a> of <var>candidate</var> and <var>starting point</var>
+        <dd>The square root of the area of intersection between the <a>boundary boxes</a> of <var>candidate</var> and <var>starting point</var>
     </dl>
 4. Return the item of the <var>candidates</var> set that has the smallest <var>distance</var>
 
