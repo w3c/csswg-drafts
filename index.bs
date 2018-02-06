@@ -23,6 +23,8 @@ spec: html; urlPrefix: https://html.spec.whatwg.org/multipage/;
             text: focusable area
             text: currently focused area of a top-level browsing context
             text: sequential focus navigation order
+            text: sequential navigation search algorithm
+            text: control group
     urlPrefix: dom.html
         type: dfn;
             text: the body element; url: #the-body-element-2
@@ -375,9 +377,9 @@ enum NavigationDirection {
   "down",
   "left",
   "right",
+  "inside",
   "forward",
-  "backward",
-  "inside"
+  "backward"
 };
 
 [Constructor(DOMString type, optional NavigationEventInit eventInitDict)]
@@ -400,27 +402,70 @@ See [[#overview]] for a high level description of the various types of {{Navigat
 and [[#processing-model]] for details.
 
 <pre class=idl>
-dictionary FindFocusableOptions {
-  required NavigationDirection dir;
+enum SequentialNavigationDirection {
+  "forward",
+  "backward"
+};
+enum SpatialNavigationDirection {
+  "up",
+  "down",
+  "left",
+  "right",
+  "inside"
+};
+
+dictionary FindNavCandidatesOptions {
+  required SpatialNavigationDirection dir;
+  Node? container;
+};
+
+dictionary SelectNavBestCandidateOptions {
+  required SpatialNavigationDirection dir;
+  required sequence&lt;Node> candidates;
 };
 
 partial interface Element {
-  Element? findFocusable(FindFocusableOptions arg);
+  sequence&lt;Node> findNavCandidates(FindNavCandidatesOptions arg);
+  Node? selectNavBestCandidate(SelectNavBestCandidateOptions arg);
+  Node? sequentialNavSearch(SequentialNavigationDirection dir);
 };
 </pre>
 
-Calling {{findFocusable()}} on an element
-allows the author to find which element would be focused, if any,
-if the user were to attempt spatial (in the case of {{NavigationDirection/up}}, {{NavigationDirection/down}}, {{NavigationDirection/right}}, {{NavigationDirection/left}}), or {{NavigationDirection/inside}}
-or sequential (in the case of {{NavigationDirection/forward}} or {{NavigationDirection/backward}})
-navigation while that element has the focus.
+<div algorithm="findNavCandidates steps">
+The {{Element/findNavCandidates()}} method must follow these steps:
+1. Let <var>d</var> be the argument's {{FindNavCandidatesOptions/dir}} attribute
+2. Let <var>c</var> be the argument's {{FindNavCandidatesOptions/container}} attribute
+3. If <var>c</var> is null,
+    set <var>c</var> to the nearest ancestor of eventTarget that is a <a>spatnav container</a>.
+4. Let <var>candidates</var> be the result of <a>finding candidates</a> within <var>c</var> in direction <var>d</var> starting from the element
+5. Let <var>anchors</var> be a <a for=list>clone</a> of <var>candidates</var>,
+    with every <a>focusable area</a> which is not itself a <a>Node</a> replaced with its <a>DOM anchor</a>.
+6. return <var>anchors</var>
 
-The result of calling this method is the same as running the <a>navigation steps</a>,
-except that:
-* The various events are not fired, and the steps should proceed as if they had returned <code>true</code>
-* Running the <a>focusing steps</a> is replaced by returning the value
+</div>
 
-Issue: Should we instead provide lower level methods to expose <a>finding candidates</a> and <a>selecting the best candidate</a>?
+<div algorithm="selectNavBestCandidate steps">
+The {{Element/selectNavBestCandidate()}} method must follow these steps:
+1. Let <var>d</var> be the argument's {{SelectNavBestCandidateOptions/dir}} attribute
+2. Let <var>candidates</var> be the argument's {{SelectNavBestCandidateOptions/candidates}} attribute.
+3. Let <var>areas</var> be a <a for=list>clone</a> of <var>candidates</var>,
+    with every item replaced by its <a>focusable area</a> if that is distinct from itself.
+4. Return the result of <a>selecting the best candidate</a> within <var>areas</var> in direction <var>d</var> from the element
+
+</div>
+
+<div algorithm="sequentialNavSearch steps">
+The {{Element/sequentialNavSearch()}} method must follow these steps:
+1. Let <var>d</var> be the argument
+2. Let <var>s</var> be <code>sequential</code> if the element is a <a for="/">browsing context</a>
+    or if the element is in its <a>control group</a>'s <a>sequential focus navigation order</a>;
+    otherwise, let <var>s</var> be <code>DOM</code>.
+4. Return the result of running the <a>sequential navigation search algorithm</a> with the element as its starting point argument,
+    <var>d</var> as its direction argument,
+    and <var>s</var> as the selection mechanism argument.
+
+
+</div>
 
 <h2 id=processing-model>
 Processing Model</h2>
@@ -664,12 +709,14 @@ To run the <dfn>navigate inside steps</dfn> on <var>eventTarget</var>, do the fo
 1. Let <var>candidates</var> be the result of <a>finding candidates</a>
     within <var>eventTarget</var>
     starting from <var>eventTarget</var>
+    in direction <code>inside</code>
 2. If <var>candidates</var> is <code>null</code>,
     <a>Fire an event</a> named <a event>navnotarget</a> at <var>eventTarget</var> using {{NavigationEvent}}
     with its {{NavigationEvent/dir}} set to <code>inside</code> and {{NavigationEvent/relatedTarget}} set to <var>eventTarget</var>,
     then return.
 3. Let <var>bestCandidate</var> be the result of <a>selecting the best candidate</a>
-    within <var>candidates</var> starting from the <a>inline start</a> <a>block start</a> corner of <var>eventTarget</var>'s <a>scrollport</a>.
+    within <var>candidates</var> in direction <code>inside</code>
+    starting from the <a>inline start</a> <a>block start</a> corner of <var>eventTarget</var>'s <a>scrollport</a>.
 4. <a>Fire an event</a> named <a event>navbeforefocus</a> at <var>eventTarget</var> using {{NavigationEvent}}
     with its {{NavigationEvent/dir}} set to <code>inside</code> and {{NavigationEvent/relatedTarget}} set to <var>bestCandidate</var>,
     and let <var>allowFocusChange</var> be the result.
@@ -704,7 +751,7 @@ Issue: CSS should have a term for “border box taking into account corner shapi
 <div algorithm="to find candidates">
 
 To <dfn lt="find candidates | finding candidates">find candidates</dfn> within a <a>spatnav container</a> <var>C</var>,
-in an optional direction <var>D</var>,
+in a direction <var>D</var>,
 starting from <var>starting point</var>,
 follow the following steps:
 
@@ -737,8 +784,8 @@ follow the following steps:
     that authors forget to do so.
 
     Issue: Some CSS spec needs to define hit testing.
-5.
-    * If <var>D</var> is null,
+5. 
+    * If <var>D</var> is <code>inside</code>,
         let <var>candidates</var> be the same as <var>visibles</var>
     * Else, let <var>candidates</var> be the subset of the items in <var>visibles</var>
         whose <a>boundary box</a>'s geometric center is within the closed half plane
@@ -746,7 +793,7 @@ follow the following steps:
         and is perpendicular to <var>D</var>.
 6. Return <var>candidates</var>.
 
-    Note: <var>candidates</var> may be <code>null</code>.
+    Note: <var>candidates</var> may be empty
 
 </div>
 
@@ -754,7 +801,7 @@ follow the following steps:
 
 To <dfn lt="select the best candidate | selecting the best candidate">select the best candidate</dfn>
 within a <a spec=infra for="/">set</a> of <var>candidates</var>
-in an optional direction <var>dir</var>,
+in a direction <var>dir</var>,
 starting from <var>starting point</var>,
 follow the following steps:
 
@@ -775,11 +822,11 @@ follow the following steps:
 
       <dt><var>B</var>:
         <dd>The absolute distance in the <var>dir</var> direction between <var>P1</var> and <var>P2</var>,
-	    or 0 if <var>dir</var> is <code>null</code>.
+	    or 0 if <var>dir</var> is <code>inside</code>.
 
       <dt><var>C</var>:
         <dd>The absolute distance in the direction which is orthogonal to <var>dir</var> between <var>P1</var> and <var>P2</var>,
-	    or 0 if <var>dir</var> is <code>null</code>.
+	    or 0 if <var>dir</var> is <code>inside</code>.
 
       <dt><var>D</var>:
         <dd>The square root of the area of intersection between the <a>boundary boxes</a> of <var>candidate</var> and <var>starting point</var>
