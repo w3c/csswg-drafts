@@ -1,33 +1,124 @@
-# Proposed APIs for the spatial navigation
-<b>NOTE: This is an unofficial proposal draft.</b>
+# Proposed Model and APIs for spatial navigation
 
-To support the spatial navigation in the Web, we need to develop several standard APIs. The APIs seem to be discussed with the suitable working groups in W3C (mainly in CSS WG). In this explainer page, the latest status of the spatial navigation would be summarized so that the overall progress could be tracked at a glance.
+## Introduction
 
-## API for enabling the spatial navigation mode
-It makes author set the spatial navigation mode. The following APIs could be considered for the possibilities to support the feature:
+Historically, most browsers have not offered features to let users move the focus directionally.
+Some, such as TV browsers, have enabled users to move the focus using the arrow keys out of necessity,
+since no other input mechanism is available on a typical TV remote control.
 
-#### * CSS property
-- If the proposed property below is applied to the element, the DOM subtree rooted at the element can be managed by the spatial navigation.
-```css
-// CSS property
-arrow-key-behavior: auto | navigation | scroll
-```
-- auto: The arrow keys work as the UA-defined manner.
-- navigation: The arrow keys work for the spatial navigation.
-- scroll: The arrow keys work for scrolling.
+Others, have enabled different key combinations to control spatial navigation,
+such as pressing the <code class=key>Shift</code> key together with arrow keys.
 
-#### * DOM method (JS)
-```javascript
-// JavaScript
-setSpatialNavigationEnabled(boolean)
-```
-- If the parameter is `true`, the spatial navigation mode is enabled.
-- Otherwise, the arrow keys work as the UA-defined manner.
-  
+This ability to move around the page directionally is called <strong>spatial navigation</strong>
+(or <strong>spatnav</strong> for short).
+
+Spatial navigation can be useful for a webpage built using a grid-like layout,
+or other predominantly non linear layouts.
+The figure below represents a photo gallery arranged in a grid layout.
+If the user presses the <code class=key>Tab</code> key to move focus,
+they need to press the key many times to reach the desired element.
+Also, the grid layout may arrange the layout of elements independently of their source order.
+Therefore sequential navigation using the <code class=key>Tab</code> key makes focus navigation unpredictable.
+In contrast, <a>spatial navigation</a> moves the focus among focusable elements
+depending on their position
+allowing it to address problems encountered with sequential navigation.
+
+<img alt="Illustration of a layout which benefits from spatial nativation" src="images/spatnav-enable.png" style="width: 500px; margin: auto; display: block"/>
+
+While arrow keys are naturally suited to control spatial navigation,
+pressing them (on devices that have such keys)
+has generally triggered other behavior,
+such as scrolling.
+This specification introduces CSS properties and Javascript APIs
+enabling authors to turn on spatial navigation using arrow keys
+and to control its behavior.
+
+Some aspects of this specification, such as the Javascript Events,
+also extends how sequential navigation work,
+in order to make sure that keyboard navigation in general
+has a consistent and well defined model.
+
+
+## Overview 
+
+Spatial navigation is said to be <strong>active</strong> on an element
+when the user can invoke spatial navigation
+by pressing the arrow keys without modifier keys
+when that element is focused.
+
+Authors can activate spatial navigation
+on a document or part of a document
+using the `spatial navigation` property.
+
+On devices which do not have any pointing input device,
+and especially on devices such as TVs which also lack a <code>Tab</code> key to control
+<a herf="https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation">sequential focus navigation</a>,
+User Agents should make spatial navigation active.
+
+When spatial navigation is active,
+pressing an arrow key will either
+move the focus from its current location to a new focusable item in the direction requested,
+or scroll if there is no appropriate item.
+
+More specifically,
+the User Agent will first search for visible and focusable items
+in the direction indicated
+within the current spatial navigation focus container
+(by default the root element, scrollable elements, and iframes,
+but other elements can be made into spatial navigation focus containers
+using the `spatnav-container` property).
+
+If it finds any, it will pick the best one for that direction,
+and move the focus there.
+
+If it does not, it will scroll the spatial navigation focus container in the requested direction
+instead of moving focus.
+Doing so may uncover focusable elements
+which would then be eligible targets to move the focus to
+next time spatial navigation in the same direction is requested.
+
+If the spatial navigation focus container cannot be scrolled,
+either because it is not a scrollable element
+or because it is already scrolled to the maximum in that direction,
+the User Agent will select the next spatial navigation focus container up the ancestry chain,
+and repeat the process of
+looking for eligible focus targets,
+selecting the best one if there's any,
+scrolling if not,
+going up the ancestry chain if it cannot scroll,
+until it has either moved focus,
+scrolled,
+or reached the root.
+
+Additionally, when the user has focused a <a>scroll container</a> which contains focusable elements,
+the user may move the focus to the nested elements by pressing <code class=key>Enter</code>.
+
+The User Agent will then follow a similar logic: first, search for visible and focusable items
+within the currently focused <a>scroll container</a>,
+and if there is any,
+select the best one and move the focus there.
+
+At key points during this search for the appropriate response to the spatial navigation request,
+the User Agent will fires events.
+These enable authors to prevent the upcoming action
+(by calling `preventDefault()`),
+and if desired to provide an alternate action,
+such as using calling the `focus()` method on a different
+element of the author's choosing.
+
 ## Overriding methods on top of the heuristic algorithm
-Developers can customize the spatial navigation with CSS properties by overriding the heuristic spatial navigation.
+Developers may want to customize the spatial navigation with CSS properties by overriding the heuristic spatial navigation.
 
-### Current Approach
+### Approach proposed by the current specification
+
+Following the principles of the [The Extensible Web Manifesto](https://github.com/extensibleweb/manifesto),
+the specification exposes Javascript APIs and Events that enable authors to interact with, and if necessary, override the behavior of spatial navigation.
+
+### Current Approach of the CSS Basic User Interface Module Level 4
+
+CSS Basic User Interface Module Level 4 offers 3 properties that can override the spatial navigation heuristic.
+This is currently not integrated with the present draft, but that could easily be done. They could also be implemented as a polyfil on top of the Javascript APIs and Events offered by the spatnav specification.
+
 There were the properties about the directional focus navigation in the CSS Basic User Interface Module Level 4.
 - [nav-up/right/down/left properties (CSSUI4)](https://drafts.csswg.org/css-ui-4/#nav-dir)
 ```css
@@ -46,8 +137,15 @@ nav-up: auto | <id> [ current | root | <target-name> ]?
     - E.g. could we instead make the properties define local spatial navigation (e.g. between components) while allowing components to determine navigation behavior inside of themselves?
 
 
-### Proposal
-The following properties are proposed to provide ways for customization of the spatial navigation.
+### Other suggested extensions
+The following properties have been suggested to provide ways for customization of the spatial navigation.
+The current specification does not integrate them.
+We prefer focusing on the base functionality for the moment,
+offering author the ability to add their own behavior via Javascript APIs.
+
+If experience shows that authors often use the javacript APIs to create solutions
+similar to the features described below,
+they could be considered for standardization in a later stage.
 
 #### `nav-rule` property (CSSUI4)
 - This property can customize the spatial navigation of the group of elements in response to pressing the arrow keys.
@@ -182,6 +280,3 @@ However, we still included this property, because:
 ## Demo
 - [Calendar App using the proposed spatial navigation features](https://wicg.github.io/spatial-navigation/demo/)
 - [Test cases for the heuristic spatial navigation](https://wicg.github.io/spatial-navigation/demo/heuristic/heuristic_testcases)
-
-## Future work
-Solving unreachability, saving last focus, group concept, aligning with scrolling, pointer/key mode selection
