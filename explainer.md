@@ -102,6 +102,83 @@ nav-loop: auto | no-repeat | repeat
   - Let the element A is the first child node, and the element Z is the last child node in the DOM subtree rooted at E.
   - If the currently focused element is Z and there is an input from the :arrow_down: (down-arrow key), the focus is moved to A.
 
+## FAQ
+
+### Why is `spatial-navigation` a CSS property? Could we have an element attribute do the same thing? What's best in terms of web practices/standards?
+
+CSS is 99% about styling and we should not be too careless about adding non-styling things to it,
+but the CSSWG is open to non styling things in css as long as it makes sense from a coupling point of view.
+`-webkit-user-modify` was an example of something that didn't belong in CSS,
+because it is arguably part of the document's semantics,
+and would never do anything useful anyway without some JS.
+
+For activating spatnav, our logic is that it isn't semantic,
+and is useful even in the absence of JS,
+so CSS is the most practical place to put it in:
+
+* Spatnav isn't about the semantics of the marup
+* With markup alone, you do not know if spatnav is going to be appropriate for the document/app or not. You need to consider the layout and the JS application logic to figure out if spatnav is more likely to help or to clash with the way the layout is built, with event handlers, animations, and what have you. So that leaves us with two choices: put it in JS, or put it in CSS.
+* The likelyhood that spatnav clashes with something in JS is arguably somewhat higher than the likelyhood that it would work poorly due to a weird layout, however:
+    * There can be documents written without javascript at all that could want to turn on spatnav
+    * Some users turn JS off, ad blockers sometimes block some JS, JS sometimes fail to load for other reasons broken for other reasons (ES6 parse error, network issue, etc), and there's not reason for that to turn off spatnav if the rest still works.
+    * As an author if you really prefer to set it in JS, it is trivial to set css properties from js. If you would really prefer to put it in the markup, you can use the style attribute. But the opposite isn't true, and you cannot set markup or JS things from CSS.
+
+### Why do we need a `focus-container` property? Is it not enough to placing the focusables next to each other to create a group? What use cases do you see for focus-container?
+
+First, we needed to define a container concept anyway (the blink implementation uses "ScrollableArea or Document"),
+to define the rest of the logic.
+Then, based on that, pretty much nothing changes in the specification
+if we allow users to turn other elements into containers as well,
+so we thought it was an easy addition.
+It could be removed for now,
+as it would be easy to add back later without breaking compatibility,
+but was included because we think there is a justification / use case:
+
+Take for example something like a TV program schedule, or a calendar:
+it will have a grid of elements representing TV shows or calendar entries,
+and some UI buttons around it.
+Here's an simplified demo:
+http://output.jsbin.com/cuyasob
+
+In this case, the grid is quite sparse,
+so if you try to move down from "Foo",
+you will end up on "Next Week",
+as it is objectively closer in the down direction.
+Same for going down from "Bar" and ending up on "Previous Week".
+
+This may be ok,
+but quite possibly the author wants to provide a different UX,
+where once you are inside the program grid, you mostly want to move inside the grid
+(because you are navigating your calendar, so things around it don't matter as much).
+If you turn `focus-container: create` on the table, you get that.
+You can still escape it,
+for example by going right from "Foo".
+Since there is nothing in the grid that is to the right,
+you'll go to "Next week",
+but if you go down from "Foo" there is something inside the grid,
+so it will go there without considering things that are outside.
+
+You could achieve the same effect by wrapping the table in a div
+and using the overflow property on the div to make it scrollable,
+but that has side effects you probably do not want.
+
+### Maybe authors could create "spatnav containers" with JavaScript instead? They could listen for spat nav events to cancel (=preventDefault) the navigation? Such an event could give authors even more freedom: they might wanna grab the event and manually put focus somewhere else (to override the spatnav's default choice). Such event would allow authors to "patch" the default algorithm in a more flexible way?
+
+Yes, they absolutely could.
+We have prepared the spec with an event model that lets js authors take control,
+and override the default spatnav algo to do anything they like.
+That could indeed be used to manually create spatial navigation containers other than documents or scrollers.
+
+We had various idea for other controls to influence what gets the focus,
+(e.g. looping when you reach an edge, picking a different heuristic...),
+and we decided to leave these out because they could indeed be left to JS
+and be added later with declarative syntax if there was strong demand.
+
+However, we still included this property, because:
+1. This is trivial to add to the spec (and presumably, to implementations as well), since the concept of looking for a container and searching for focusable things inside it is built-in into the spatnav logic, and we're merely exposing a hook to add additional containers
+2. Recreating that logic in JS if you're fine with everything else could be quite fiddly
+3. It seems like a fairly basic need
+
 ## Demo
 - [Calendar App using the proposed spatial navigation features](https://wicg.github.io/spatial-navigation/demo/)
 - [Test cases for the heuristic spatial navigation](https://wicg.github.io/spatial-navigation/demo/heuristic/heuristic_testcases)
