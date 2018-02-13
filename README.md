@@ -1,7 +1,7 @@
 # Spatial Navigation
 This is a repository for making the Web excellently embrace the spatial navigation's features so that the Web technology can be propagated into several industries such as TV, IVI, game console, and upcoming smart devices as well as PC and mobile for a11y.
 
-This repository consists of the basic description for the spatial navigation, landscapes of the relevant industries, and the current status of [W3C standardization](explainer.md) and [Implementation of Web engines](implStatus.md) such as Blink, WebKit, Gecko, and EdgeHTML, while the relevant issues would be discussed in W3C working groups and Web engine open source communities.
+This repository consists of the basic description for the spatial navigation, landscapes of the relevant industries, the current status of [W3C standardization](explainer.md), and [Implementation of Web engines](implStatus.md) such as Blink, WebKit, Gecko, and EdgeHTML, while the relevant issues have been discussed in several W3C working groups and Web engine open source communities.
 
 You're welcome to contribute! If you have something to say for the spatial navigation, please kindly put it on [issues](https://github.com/WICG/spatial-navigation/issues) of this repository or send it via [email](mailto://lgewst@gmail.com). Let's make the Web to be extensible for the several industries!
 
@@ -14,11 +14,12 @@ Regarding TV remote control, game console pad, IVI jog dial with 4-way keys, and
 Prior to the mission explanation, we need to understand how the arrow keys work currently on the Web. If you're watching this page in a normal HD monitor and desktop, not mobile, please push a down-arrow key on your keyboard. What happens? Basically, scrolling downward would be triggered. That's the default behavior of arrow keys in the Web, only when the page is scrollable in the direction.
 
 In spatial navigation mode, the default behavior of arrow keys is changed from scrolling behavior to focus moving so that users can use the arrow keys to navigate between focusable elements based on their position. To support the functionalities of the spatial navigation, we should consider the following three steps:
-1. The new API for enabling the spatial navigation mode (HTML/CSS/JS)
-2. A heuristic algorithm for the spatial navigation in Web engines
-3. Overriding methods on top of the heuristic algorithm
+1. A heuristic algorithm for the spatial navigation supported in Web engines
+2. Overriding methods on top of the heuristic algorithm (DOM method/attribute/event)
+3. The relevant API for efficiently supporting the spatial navigation (spatnav mode, container, etc.)
 
-See the [explainer](explainer.md) for the details of W3C standardization for #1 and #3 above.
+
+See the [explainer](explainer.md) for the details of W3C standardization for #1, #2 and #3 above.
  
 See the [implStatus](implStatus.md) for the details of the implementation in Web engines for #2 above.
 
@@ -37,9 +38,9 @@ See the [implStatus](implStatus.md) for the details of the implementation in Web
   - Impossible to control isolated frames like iframe and shadow DOM
 
 **Q. The Spatnav seems not the general feature esp. in mobile with no physical key-based interface.**
-- Honestly, the mobile has been a first citizen of Spatnav about 10 years old. Before touch-based interface, the majority of interface for mobile was the key-based interface. We're familiar with kind of mobile phone named a feature phone, and it has been supported in several developing countries such as South America, Africa even until now.
+- Honestly, the mobile has been a first citizen of Spatnav about ten years old. Before touch-based interface, the majority of interface for mobile was the key-based interface. We're familiar with kind of mobile phone named a feature phone, and it has been supported in several developing countries such as South America, Africa even until now.
 
-- In the future, the input method for smart devices will change to something like voice command, hand gesture, and gaze direction, but the key-based interface will never disappear, even though it'll be used as a secondary method. The key-based interface used to be evaluated as one of the most intuitive ways with a strong sense feedback of finger after pushing a key, while we couldn't imagine a touch-based keyboard without any physical keys.
+- In the future, the input mechanism for smart devices will change to something like voice command, hand gesture, and gaze direction, but the key-based interface will never disappear, even though it'll be used as a secondary method. The key-based interface used to be evaluated as one of the most intuitive ways with a strong sense feedback of finger after pushing a key, while we couldn't imagine a touch-based keyboard without any physical keys.
 
 **Q. Put any question on [issues](https://github.com/WICG/spatial-navigation/issues) of this repository :D**
 - Everything for Spatnav is welcome!
@@ -49,6 +50,8 @@ See the [implStatus](implStatus.md) for the details of the implementation in Web
   - https://github.com/luke-chang/js-spatial-navigation
 - Spotlight library for spatial navigation (LG Electronics)
   - https://github.com/enyojs/spotlight (deprecated)
+- Pass the Remote: User Input on TV Devices (Netflix Tech Blog)
+  - https://medium.com/netflix-techblog/pass-the-remote-user-input-on-tv-devices-923f6920c9a8
 - Implementing TV remote control navigation (MDN)
   - https://developer.mozilla.org/en-US/docs/Mozilla/Firefox_OS_for_TV/TV_remote_control_navigation
 - Spatial Navigation in the Web (slides presented in BlinkOn 8)
