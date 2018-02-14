@@ -63,7 +63,7 @@ None
 [Test suite](https://test.csswg.org/harness/suite/css-fonts-3_dev/)
 
 The [implementation report](https://test.csswg.org/harness/results/css-fonts-3_dev/grouped/) shows that
-459 of 487 required tests meet CR exit criteria. Most of the 28 failing tests relate to a feature which we have marked as at-risk and expect to move to Fonts 4.
+464 of 473 required tests meet CR exit criteria. Most of the 9 failing tests relate to a feature which we have marked as at-risk and expect to move to Fonts 4.
 
 ## Patent disclosures
 
