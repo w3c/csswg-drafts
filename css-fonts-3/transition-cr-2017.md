@@ -50,9 +50,9 @@ of Comments, so we would like to publish a new CR.
 
 ## Issues addressed
 
-The [Disposition of Comments](https://drafts.csswg.org/issues?spec=css-fonts-3&doc=cr-2017) shows 34 issues. Of those 12 are still open; 11 were accepted, 6 deferred to Fonts 4, 3 were invalid or duplicates and two were rejected (one because we can't change this due to web compatibility, and one because it is fixed in Fonts 4).
+The [Disposition of Comments](https://drafts.csswg.org/issues?spec=css-fonts-3&doc=cr-2017) shows 36 issues. Of those 3 are still open; 17 were accepted, 6 deferred to Fonts 4, 3 were invalid or duplicates, one was withdrawn and 4 were rejected (one because we can't change this due to web compatibility, and one because it is fixed in Fonts 4).
 
-Despite there being open issues, it has been a very long tme since the /TR version of the spec was updated and we want to publish an update while we work on the remaining issues.
+Despite there being open issues, it has been a very long time since the /TR version of the spec was updated and we want to publish an update while we work on the remaining issues.
 
 ## Formal Objections
 
