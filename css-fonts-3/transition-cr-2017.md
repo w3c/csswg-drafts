@@ -1,3 +1,5 @@
+Now see https://github.com/w3c/transitions/issues/38
+
 (from [updated cr transitions](https://www.w3.org/Guide/transitions?profile=CR&cr=substantive) )
 
 # Transition request for updated CR: CSS Fonts 3.
@@ -26,6 +28,12 @@ Transition request: CSS3 Fonts to CR
   - RESOLVED: Publish a new Fonts 3 CR.
 
 [Minutes Telecon 2017-10-25](https://lists.w3.org/Archives/Public/www-style/2017Oct/0044.html)
+
+and then, after Disposition of Comments done
+
+  - RESOLUTION: publish updated CR of Fonts L3
+  
+[Minutes, Telcon 2018-03-07](https://www.w3.org/2018/03/07-css-minutes.html#item02)
 
 ## Changes
 
