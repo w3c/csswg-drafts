@@ -23,7 +23,7 @@ In contrast, <a>spatial navigation</a> moves the focus among focusable elements
 depending on their position
 allowing it to address problems encountered with sequential navigation.
 
-<img alt="Illustration of a layout which benefits from spatial nativation" src="images/spatnav-enable.png" style="width: 500px; margin: auto; display: block"/>
+<img alt="Illustration of a layout which benefits from spatial navigation" src="images/spatnav-enable.png" style="width: 500px; margin: auto; display: block"/>
 
 While arrow keys are naturally suited to control spatial navigation,
 pressing them (on devices that have such keys)
@@ -111,13 +111,13 @@ Developers may want to customize the spatial navigation with CSS properties by o
 
 ### Approach proposed by the current specification
 
-Following the principles of the [The Extensible Web Manifesto](https://github.com/extensibleweb/manifesto),
+Following the principles of [The Extensible Web Manifesto](https://github.com/extensibleweb/manifesto),
 the specification exposes Javascript APIs and Events that enable authors to interact with, and if necessary, override the behavior of spatial navigation.
 
 ### Current Approach of the CSS Basic User Interface Module Level 4
 
 CSS Basic User Interface Module Level 4 offers 3 properties that can override the spatial navigation heuristic.
-This is currently not integrated with the present draft, but that could easily be done. They could also be implemented as a polyfil on top of the Javascript APIs and Events offered by the spatnav specification.
+This is currently not integrated with the present draft, but that could easily be done. They could also be implemented as a polyfill on top of the Javascript APIs and Events offered by the spatnav specification.
 
 There were the properties about the directional focus navigation in the CSS Basic User Interface Module Level 4.
 - [nav-up/right/down/left properties (CSSUI4)](https://drafts.csswg.org/css-ui-4/#nav-dir)
@@ -143,7 +143,7 @@ The current specification does not integrate them.
 We prefer focusing on the base functionality for the moment,
 offering author the ability to add their own behavior via Javascript APIs.
 
-If experience shows that authors often use the javacript APIs to create solutions
+If experience shows that authors often use the JavaScript APIs to create solutions
 similar to the features described below,
 they could be considered for standardization in a later stage.
 
@@ -214,7 +214,7 @@ For activating spatnav, our logic is that it isn't semantic,
 and is useful even in the absence of JS,
 so CSS is the most practical place to put it in:
 
-* Spatnav isn't about the semantics of the marup
+* Spatnav isn't about the semantics of the markup
 * With markup alone, you do not know if spatnav is going to be appropriate for the document/app or not. You need to consider the layout and the JS application logic to figure out if spatnav is more likely to help or to clash with the way the layout is built, with event handlers, animations, and what have you. So that leaves us with two choices: put it in JS, or put it in CSS.
 * The likelyhood that spatnav clashes with something in JS is arguably somewhat higher than the likelyhood that it would work poorly due to a weird layout, however:
     * There can be documents written without javascript at all that could want to turn on spatnav
@@ -235,7 +235,7 @@ but was included because we think there is a justification / use case:
 Take for example something like a TV program schedule, or a calendar:
 it will have a grid of elements representing TV shows or calendar entries,
 and some UI buttons around it.
-Here's an simplified demo:
+Here's a simplified demo:
 http://output.jsbin.com/cuyasob
 
 In this case, the grid is quite sparse,
@@ -264,7 +264,7 @@ but that has side effects you probably do not want.
 
 Yes, they absolutely could.
 We have prepared the spec with an event model that lets js authors take control,
-and override the default spatnav algo to do anything they like.
+and override the default spatnav also to do anything they like.
 That could indeed be used to manually create spatial navigation containers other than documents or scrollers.
 
 We had various idea for other controls to influence what gets the focus,
