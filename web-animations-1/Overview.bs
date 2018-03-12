@@ -96,12 +96,13 @@ Abstract: This specification defines a model for synchronization and
     for interacting with this model and it is expected that further
     specifications will define declarative means for exposing these
     features.
-Ignored Terms: double, boolean, DOMString, unsigned long, unrestricted double, (animationeffectreadonly or effectcallback), (unrestricted double or DOMString)
+Ignored Terms: double, boolean, DOMString, unsigned long, unrestricted double, (unrestricted double or DOMString)
 Ignored Vars: RGB|A, G, t
 Link Defaults: css-transforms (property) transform
 </pre>
 <pre class="anchors">
 urlPrefix: https://heycam.github.io/webidl/#dfn-; type: dfn; spec: webidl
+    text: present
     text: platform object
     text: nullable; url: nullable-type
     text: throw
@@ -283,7 +284,7 @@ elem.animate({ transform: 'scale(0)', opacity: 0 }, 300);
 // Print the id of any opacity animations on elem
 elem.getAnimations().filter(
   animation =&gt;
-    animation.effect instanceof KeyframeEffectReadOnly &&
+    animation.effect instanceof KeyframeEffect &&
     animation.effect.getKeyframes().some(
       frame =&gt; frame.hasOwnProperty('opacity')
     )
@@ -299,7 +300,7 @@ elem.getAnimations().filter(
 // Slow down and replay any transform animations
 elem.getAnimations().filter(
   animation =&gt;
-    animation.effect instanceof KeyframeEffectReadOnly &&
+    animation.effect instanceof KeyframeEffect &&
     animation.effect.getKeyframes().some(
       frame =&gt; frame.hasOwnProperty('transform')
     )
@@ -1567,7 +1568,7 @@ an animation is typically performed asynchronously.
 var animation = elem.animate({ left: '100px' }, 2000);
 animation.playbackRate = 2;
 animation.currentTime = 1000; // animation is now finished
-animation.effect.timing.iterationCount = 2; // animation is no longer finished
+animation.effect.updateTiming({ iterationCount: 2 }); // animation is no longer finished
 </pre></div>
 
 The one exception to this asynchronous behavior is when the <a>finish an
@@ -1918,11 +1919,11 @@ animation into a <a lt="finished play state">finished</a> animation
 without restarting by setting the [=start time=] such as below:
 
 <div class='example'><pre class='lang-javascript'>
-animation.effect.timing.duration = 5000;
+animation.effect.updateTiming({ duration: 5000 });
 animation.currentTime = 4000;
 animation.pause();
 animation.ready.then(function() {
-  animation.effect.timing.duration = 3000;
+  animation.effect.updateTiming({ duration: 3000 });
   alert(animation.playState); // Displays 'paused'
   animation.startTime =
     document.timeline.currentTime - animation.currentTime * animation.playbackRate;
@@ -3916,11 +3917,11 @@ API by the {{Animation}} interface.
 
 <pre class='idl'>
 [Exposed=Window,
- Constructor (optional AnimationEffectReadOnly? effect = null,
+ Constructor (optional AnimationEffect? effect = null,
               optional AnimationTimeline? timeline)]
 interface Animation : EventTarget {
              attribute DOMString                id;
-             attribute AnimationEffectReadOnly? effect;
+             attribute AnimationEffect?         effect;
              attribute AnimationTimeline?       timeline;
              attribute double?                  startTime;
              attribute double?                  currentTime;
@@ -4097,16 +4098,17 @@ enum AnimationPlayState { "idle", "running", "paused", "finished" };
 :   <code>finished</code>
 ::  Corresponds to the <a>finished play state</a>.
 
-<h3 id="the-animationeffectreadonly-interface">The <code>AnimationEffectReadOnly</code> interface</h3>
+<h3 id="the-animationeffect-interface">The <code>AnimationEffect</code> interface</h3>
 
-<a>Animation effects</a> are represented in the Web
-Animations API by the {{AnimationEffectReadOnly}} interface.
+<a>Animation effects</a> are represented in the Web Animations API by the
+abstract {{AnimationEffect}} interface.
 
 <pre class='idl'>
 [Exposed=Window]
-interface AnimationEffectReadOnly {
-    readonly attribute AnimationEffectTimingReadOnly timing;
-    ComputedTimingProperties getComputedTiming();
+interface AnimationEffect {
+    EffectTiming         getTiming();
+    ComputedEffectTiming getComputedTiming();
+    void                 updateTiming(optional OptionalEffectTiming timing);
 };
 </pre>
 
@@ -4117,31 +4119,71 @@ underlyingValue)</code> so that the animation effects can be driven
 apart from the timing model.
 </div>
 
-<div class='attributes'>
+<div class=methods>
 
-:   <dfn attribute for=AnimationEffectReadOnly>timing</dfn>
-::  Returns the input timing properties specified for this
-    <a>animation effect</a>.
-    This is comparable to the specified style on an Element,
-    <code>elem.style</code>.
+:   <dfn method for=AnimationEffect>getTiming()</dfn>
+::  Returns the specified timing properties for this <a>animation effect</a>.
 
-:   <dfn method for=AnimationEffectReadOnly>getComputedTiming()</dfn>
+    For the correspondance between the members of the returned {{EffectTiming}}
+    object and properties of the [[#timing-model|timing model]], see the
+    the {{EffectTiming}} interface.
+
+:   <dfn method for=AnimationEffect>getComputedTiming()</dfn>
 ::  Returns the calculated timing properties for this <a>animation
     effect</a>.
-    This is comparable to the computed style of an Element,
-    <code>window.getComputedStyle(elem)</code>.
 
-    Although many of the attributes of the returned object are common
-    to the {{AnimationEffectTimingReadOnly}} object returned by the
-    {{AnimationEffectReadOnly/timing}} attribute,
-    the values returned by this object differ in the following ways:
+    Although some of the attributes of the object returned by
+    {{AnimationEffect/getTiming()}} and {{AnimationEffect/getComputedTiming()}}
+    are common, their values may differ in the following ways:
 
-    *   <code>duration</code> &ndash; returns the calculated value of
-        the <a>iteration duration</a>. If <code>timing.duration</code>
-        is the string <code>auto</code>, this attribute will return zero.
-    *   <code>fill</code> &ndash; the <code>auto</code> value is
-        replaced with the specific <a enum>FillMode</a> depending on the type
-        of <a>animation effect</a> (see [[#the-fillmode-enumeration]]).
+    *   {{EffectTiming/duration}} &ndash; while
+        {{AnimationEffect/getTiming()}} may return the string <code>auto</code>,
+        {{AnimationEffect/getComputedTiming()}} must return a number
+        corresponding to the calculated value of the <a>iteration duration</a>
+        as defined in the description of the {{EffectTiming/duration}} member of
+        the {{EffectTiming}} interface.
+
+        In this level of the specification, that simply means that an
+        <code>auto</code> value is replaced by zero.
+
+    *   {{EffectTiming/fill}} &ndash; likewise, while
+        {{AnimationEffect/getTiming()}} may return the string <code>auto</code>,
+        {{AnimationEffect/getComputedTiming()}} must return the specific <a
+        enum>FillMode</a> used for timing calculations as defined
+        in the description of the {{EffectTiming/fill}} member of the
+        {{EffectTiming}} interface.
+
+        In this level of the specification, that simply means that an
+        <code>auto</code> value is replaced by the <code>none</code> <a
+        enum>FillMode</a>.
+
+    Note: It is likely that other timing members may be extended in future to
+    include <code>auto</code>-like values. When performing timing calculations,
+    authors are encouraged to use {{AnimationEffect/getComputedTiming()}} where
+    possible to avoid incompatibility should the range or type of allowed
+    specified values be changed.
+
+    In addition to possible differences in the values returned,
+    compared to {{AnimationEffect/getTiming()}},
+    {{AnimationEffect/getComputedTiming()}} returns additional timing
+    information as defined by the {{ComputedEffectTiming}} dictionary.
+
+:   <dfn method for=AnimationEffect>updateTiming(timing)</dfn>
+::  Updates the specified timing properties of this <a>animation effect</a> by
+    performing the procedure to [=update the timing properties of an animation
+    effect=] passing the {{AnimationEffect/updateTiming(timing)/timing}}
+    parameter as |input|.
+
+    <div class=parameters>
+
+    :   <dfn argument for="AnimationEffect/updateTiming(timing)"
+        lt="timing">optional {{OptionalEffectTiming}} timing</dfn>
+    ::  The timing properties to update.
+        The timing properties corresponding to any members not <a>present</a>
+        on {{AnimationEffect/updateTiming(timing)/timing}} will <em>not</em>
+        be modified.
+
+    </div>
 
 </div>
 
@@ -4149,45 +4191,63 @@ Issue(2082): The <code>remove()</code> method can be used to remove an effect
 from either its parent group or animation. Should we keep it in level 1 and
 define it simply as removing the animation effect from its animation?
 
+<h4 id="the-effecttiming-dictionaries">The <code>EffectTiming</code> and <code>OptionalEffectTiming</code> dictionaries</h4>
 
-<h3 id="the-animationeffecttimingreadonly-interface">The <code>AnimationEffectTimingReadOnly</code> interface</h3>
+The {{EffectTiming}} dictionary represents the timing properties of an
+{{AnimationEffect}}.
 
-Issue(2055): This interface needs a constructor.
+The {{OptionalEffectTiming}} dictionary is a variant of the {{EffectTiming}}
+dictionary that allows some members to be not <a>present</a>.
+This is used by the {{AnimationEffect/updateTiming()}} method of the
+{{AnimationEffect}} interface to perform a delta update to the timing properties
+of an [=animation effect=].
 
-<pre class="idl">
-[Exposed=Window]
-interface AnimationEffectTimingReadOnly {
-    readonly attribute double                             delay;
-    readonly attribute double                             endDelay;
-    readonly attribute FillMode                           fill;
-    readonly attribute double                             iterationStart;
-    readonly attribute unrestricted double                iterations;
-    readonly attribute (unrestricted double or DOMString) duration;
-    readonly attribute PlaybackDirection                  direction;
-    readonly attribute DOMString                          easing;
+<pre class='idl'>
+dictionary EffectTiming {
+    double                             delay = 0;
+    double                             endDelay = 0;
+    FillMode                           fill = "auto";
+    double                             iterationStart = 0.0;
+    unrestricted double                iterations = 1.0;
+    (unrestricted double or DOMString) duration = "auto";
+    PlaybackDirection                  direction = "normal";
+    DOMString                          easing = "linear";
+};
+
+dictionary OptionalEffectTiming {
+    double                             delay;
+    double                             endDelay;
+    FillMode                           fill;
+    double                             iterationStart;
+    unrestricted double                iterations;
+    (unrestricted double or DOMString) duration;
+    PlaybackDirection                  direction;
+    DOMString                          easing;
 };
 </pre>
 
-<div class="attributes">
+<div class=members>
 
-:   <dfn attribute for=AnimationEffectTimingReadOnly>delay</dfn>
+:   <dfn dict-member for=EffectTiming>delay</dfn><dfn dict-member
+    for=OptionalEffectTiming lt=delay></dfn>
 ::  The <a>start delay</a> which represents
     the number of milliseconds from the [=start time=] of the associated
     <a>animation</a> to the start of the <a>active interval</a>.
 
-:   <dfn attribute for=AnimationEffectTimingReadOnly>endDelay</dfn>
+:   <dfn dict-member for=EffectTiming>endDelay</dfn><dfn dict-member
+    for=OptionalEffectTiming lt=endDelay></dfn>
 ::  The <a>end delay</a> which represents the number of milliseconds
     from the end of an <a>animation effect</a>'s <a>active interval</a>
     until its <a>end time</a>.
 
-:   <dfn attribute for=AnimationEffectTimingReadOnly>fill</dfn>
+:   <dfn dict-member for=EffectTiming>fill</dfn><dfn dict-member
+    for=OptionalEffectTiming lt=fill></dfn>
 ::  The <a>fill mode</a> which defines the behavior of the <a>animation
     effect</a> outside its <a>active interval</a>.
 
-    When performing timing calculations the special value <span
-    class="enum-value">auto</span> is expanded
-    to one of the <a>fill modes</a> recognized by the timing model as
-    follows,
+    When performing timing calculations the special string value
+    <code>auto</code> is expanded to one of the <a>fill modes</a> recognized by
+    the timing model as follows,
 
     <div class="switch">
 
@@ -4201,7 +4261,8 @@ interface AnimationEffectTimingReadOnly {
 
     </div>
 
-:   <dfn attribute for=AnimationEffectTimingReadOnly>iterationStart</dfn>
+:   <dfn dict-member for=EffectTiming>iterationStart</dfn><dfn dict-member
+    for=OptionalEffectTiming lt=iterationStart></dfn>
 ::  The <a>animation effect</a>'s <a>iteration start</a> property which is a
     finite real number greater than or equal to zero representing the iteration
     index at which the animation effect begins and its progress through that
@@ -4212,29 +4273,32 @@ interface AnimationEffectTimingReadOnly {
     effect begins 20% of the way through its second iteration.
 
     <div class="note">
-    Note that the value of {{AnimationEffectTimingReadOnly/iterations}} is effectively
-    <em>added</em> to the {{AnimationEffectTimingReadOnly/iterationStart}} such that
-    an animation effect with an {{AnimationEffectTimingReadOnly/iterationStart}} of
-    &lsquo;0.5&rsquo; and {{AnimationEffectTimingReadOnly/iterations}} of
+    Note that the value of {{EffectTiming/iterations}} is effectively
+    <em>added</em> to the {{EffectTiming/iterationStart}} such that
+    an animation effect with an {{EffectTiming/iterationStart}} of
+    &lsquo;0.5&rsquo; and {{EffectTiming/iterations}} of
     &lsquo;2&rsquo; will still repeat twice however it will begin
     and end half-way through its <a>iteration interval</a>.
 
-    {{AnimationEffectTiming/iterationStart}} values greater than
+    {{EffectTiming/iterationStart}} values greater than
     or equal to one are typically only useful in combination with an
     animation effect that has an <a>iteration composite
     operation</a> of <span class="enum-value">accumulate</span> or when the
     <a>current iteration</a> index is otherwise significant.
     </div>
 
-:   <dfn attribute for=AnimationEffectTimingReadOnly>iterations</dfn>
+:   <dfn dict-member for=EffectTiming>iterations</dfn><dfn dict-member
+    for=OptionalEffectTiming lt=iterations></dfn>
 ::  The <a>animation effect</a>'s <a>iteration count</a> property which is
     a real number greater than or equal to zero (including positive
     infinity) representing the number of times to the animation effect repeats.
 
-    A value of positive infinity indicates that the animation effect repeats
-    forever.
+    This may be set to <code class="esvalue">+Infinity</code> to cause
+    the <a>animation effect</a> to repeat forever (unless the duration of the
+    effect is zero, in which case it will finish immediately).
 
-:   <dfn attribute for=AnimationEffectTimingReadOnly>duration</dfn>
+:   <dfn dict-member for=EffectTiming>duration</dfn><dfn dict-member
+    for=OptionalEffectTiming lt=duration></dfn>
 ::  The <a>iteration duration</a> which is a real number greater than
     or equal to zero (including positive infinity) representing the
     time taken to complete a single iteration of the <a>animation
@@ -4247,211 +4311,19 @@ interface AnimationEffectTimingReadOnly {
     <code>auto</code> value expands to include the duration of the child
     effects.
 
-:   <dfn attribute for=AnimationEffectTimingReadOnly>direction</dfn>
+:   <dfn dict-member for=EffectTiming>direction</dfn><dfn dict-member
+    for=OptionalEffectTiming lt=direction></dfn>
 ::  The <a>playback direction</a> of the <a>animation effect</a> which
     defines whether playback proceeds forwards, backwards, or alternates
     on each iteration.
 
-:   <dfn attribute for=AnimationEffectTimingReadOnly>easing</dfn>
+:   <dfn dict-member for=EffectTiming>easing</dfn><dfn dict-member
+    for=OptionalEffectTiming lt=easing></dfn>
 ::  The <a>timing function</a> used to scale the time to
     produce easing effects.
 
     The syntax of the string is defined by the <<timing-function>>
     production [[!CSS-TIMING-1]].
-
-</div>
-
-<h3 id="the-animationeffecttiming-interface">The <code>AnimationEffectTiming</code> interface</h3>
-
-The {{AnimationEffectTiming}} interface is a mutable subclass of
-{{AnimationEffectTimingReadOnly}} returned for the <code>timing</code> attribute
-of a mutable <a>animation effect</a> such as {{KeyframeEffect}}.
-
-Issue(2055): This interface needs a constructor.
-
-<pre class='idl'>
-[Exposed=Window]
-interface AnimationEffectTiming : AnimationEffectTimingReadOnly {
-    inherit attribute double                             delay;
-    inherit attribute double                             endDelay;
-    inherit attribute FillMode                           fill;
-    inherit attribute double                             iterationStart;
-    inherit attribute unrestricted double                iterations;
-    inherit attribute (unrestricted double or DOMString) duration;
-    inherit attribute PlaybackDirection                  direction;
-    inherit attribute DOMString                          easing;
-};
-</pre>
-
-<div class='attributes'>
-
-:   <dfn attribute for=AnimationEffectTiming>delay</dfn>
-::  See the {{AnimationEffectTimingReadOnly/delay}} attribute of the
-    {{AnimationEffectTimingReadOnly}} interface.
-:   <dfn attribute for=AnimationEffectTiming>endDelay</dfn>
-::  See the {{AnimationEffectTimingReadOnly/endDelay}} attribute of the
-    {{AnimationEffectTimingReadOnly}} interface.
-:   <dfn attribute for=AnimationEffectTiming>fill</dfn>
-::  See the {{AnimationEffectTimingReadOnly/fill}} attribute of the
-    {{AnimationEffectTimingReadOnly}} interface.
-:   <dfn attribute for=AnimationEffectTiming>iterationStart</dfn>
-::  See the {{AnimationEffectTimingReadOnly/iterationStart}} attribute of the
-    {{AnimationEffectTimingReadOnly}} interface.
-
-    If an attempt is made to set this attribute to a value less than zero,
-    a <span class=exceptionname>TypeError</span> must be <a>thrown</a> and the
-    value of the iterationStart attribute left unchanged.
-
-    Note: The reasoning for using a <span class=exceptionname>TypeError</span>
-    rather than a <span class=exceptionname>RangeError</span> is to mirror
-    the behavior of WebIDL's <a>[EnforceRange]</a> annotation should that
-    annotation be able to be used with floating-point values in the future.
-
-:   <dfn attribute for=AnimationEffectTiming>iterations</dfn>
-::  See the {{AnimationEffectTimingReadOnly/iterations}} attribute of the
-    {{AnimationEffectTimingReadOnly}} interface.
-
-    This may be set to <code class="esvalue">+Infinity</code> to cause
-    the <a>animation effect</a> to repeat indefinitely.
-
-    If an attempt is made to set this attribute to a value less than zero or a
-    <code class=esvalue>NaN</code> value, a <span
-    class=exceptionname>TypeError</span> must be <a>thrown</a> and the value of
-    the iterations attribute left unchanged.
-
-:   <dfn attribute for=AnimationEffectTiming>duration</dfn>
-::  See the {{AnimationEffectTimingReadOnly/duration}} attribute of the
-    {{AnimationEffectTimingReadOnly}} interface.
-
-    If an attempt is made to set this attribute to a value less than zero, a
-    <code class=esvalue>NaN</code> value, or a string other than the lowercase
-    value <code>auto</code>, a <span class=exceptionname>TypeError</span>
-    must be <a>thrown</a> and the value of the duration attribute left
-    unchanged.
-
-:   <dfn attribute for=AnimationEffectTiming>direction</dfn>
-::  See the {{AnimationEffectTimingReadOnly/direction}} attribute of the
-    {{AnimationEffectTimingReadOnly}} interface.
-:   <dfn attribute for=AnimationEffectTiming>easing</dfn>
-::  See the {{AnimationEffectTimingReadOnly/easing}} attribute of the
-    {{AnimationEffectTimingReadOnly}} interface.
-
-    If an attempt is made to set this attribute to an invalid value, a
-    <span class=exceptionname>TypeError</span> must be <a>thrown</a> and the
-    value of the easing attribute left unchanged.
-
-</div>
-
-<h3 id="the-animationeffecttimingproperties-dictionary">The <code>AnimationEffectTimingProperties</code> dictionary</h3>
-
-The {{AnimationEffectTimingProperties}} dictionary encapsulates the timing
-properties of an {{AnimationEffectReadOnly}} so that they can be set in bulk (as
-with the {{Animation()}} constructor) or returned as a readonly snapshot (as
-with the {{AnimationEffectReadOnly/getComputedTiming()}} method of the
-{{AnimationEffectReadOnly}} interface).
-
-{{AnimationEffectTimingProperties}} is simply a dictionary-equivalent of the
-{{AnimationEffectTiming}} interface.
-The meaning and acceptable values for each of its members are identical.
-
-<pre class='idl'>
-dictionary AnimationEffectTimingProperties {
-    double                             delay = 0;
-    double                             endDelay = 0;
-    FillMode                           fill = "auto";
-    double                             iterationStart = 0.0;
-    unrestricted double                iterations = 1.0;
-    (unrestricted double or DOMString) duration = "auto";
-    PlaybackDirection                  direction = "normal";
-    DOMString                          easing = "linear";
-};
-</pre>
-
-<div class='members'>
-
-:   <dfn dict-member for=AnimationEffectTimingProperties>delay</dfn>
-::  See the {{AnimationEffectTiming/delay}} attribute of
-    the {{AnimationEffectTiming}} interface.
-
-:   <dfn dict-member for=AnimationEffectTimingProperties>endDelay</dfn>
-::  See the {{AnimationEffectTiming/endDelay}} attribute of
-    the {{AnimationEffectTiming}} interface.
-
-:   <dfn dict-member for=AnimationEffectTimingProperties>fill</dfn>
-::  See the {{AnimationEffectTiming/fill}} attribute of
-    the {{AnimationEffectTiming}} interface.
-
-:   <dfn dict-member for=AnimationEffectTimingProperties>iterationStart</dfn>
-::  See the {{AnimationEffectTiming/iterationStart}} attribute
-    of the {{AnimationEffectTiming}} interface.
-
-:   <dfn dict-member for=AnimationEffectTimingProperties>iterations</dfn>
-::  See the {{AnimationEffectTiming/iterations}} attribute
-    of the {{AnimationEffectTiming}} interface.
-
-:   <dfn dict-member for=AnimationEffectTimingProperties>duration</dfn>
-::  See the {{AnimationEffectTiming/duration}}
-    attribute of the {{AnimationEffectTiming}} interface.
-
-:   <dfn dict-member for=AnimationEffectTimingProperties>direction</dfn>
-::  See the {{AnimationEffectTiming/direction}} attribute
-    of the {{AnimationEffectTiming}} interface.
-
-:   <dfn dict-member for=AnimationEffectTimingProperties>easing</dfn>
-::  See the {{AnimationEffectTiming/easing}} attribute
-    of the {{AnimationEffectTiming}} interface.
-
-</div>
-
-<h3 id="the-computedtimingproperties-dictionary">The
-  <code>ComputedTimingProperties</code> dictionary</h3>
-
-Timing parameters calculated by the timing model are exposed using
-{{ComputedTimingProperties}} dictionary objects.
-
-<pre class='idl'>
-dictionary ComputedTimingProperties : AnimationEffectTimingProperties {
-    unrestricted double  endTime;
-    unrestricted double  activeDuration;
-    double?              localTime;
-    double?              progress;
-    unrestricted double? currentIteration;
-};
-</pre>
-
-<div class='members'>
-
-:   <dfn dict-member for=ComputedTimingProperties>endTime</dfn>
-::  The <a>end time</a> of the <a>animation effect</a> expressed
-    in milliseconds since zero <a>local time</a> (that is, since
-    the associated <a>animation</a>'s [=start time=] if this <a>animation
-    effect</a> is <a>associated with an animation</a>).
-    This corresponds to the end of the <a>animation effect</a>'s active
-    interval plus any <a>end delay</a>.
-
-:   <dfn dict-member for=ComputedTimingProperties>activeDuration</dfn>
-::  The <a>active duration</a> of this <a>animation effect</a>.
-
-:   <dfn dict-member for=ComputedTimingProperties>localTime</dfn>
-::  The <a>local time</a> of this <a>animation effect</a>.
-
-    This will be <code>null</code> if this
-    <a>animation effect</a> is not
-    <a>associated with an animation</a>.
-
-:   <dfn dict-member for=ComputedTimingProperties>progress</dfn>
-::  The current <a>iteration progress</a> of this <a>animation effect</a>.
-
-:   <dfn dict-member for=ComputedTimingProperties>currentIteration</dfn>
-::  The <a>current iteration</a> index beginning with zero for the first
-    iteration.
-
-    In most cases this will be a (positive) integer. However, for
-    a zero-duration animation that repeats infinite times, the value
-    will be positive <span class="esvalue">Infinity</span>.
-
-    As with <a>unresolved</a> times, an unresolved <a>current iteration</a> is
-    represented by a <span class="esvalue">null</span> value.
 
 </div>
 
@@ -4475,9 +4347,8 @@ enum FillMode { "none", "forwards", "backwards", "both", "auto" };
 
 :   <code>auto</code>
 ::  No fill.
-    In a subsequent level of this specification, this will produce different
+    In a subsequent level of this specification, this may produce different
     behavior for other types of <a>animation effects</a>.
-
 
 <h4 id="the-playbackdirection-enumeration">The <code>PlaybackDirection</code> enumeration</h4>
 
@@ -4489,61 +4360,137 @@ enum PlaybackDirection { "normal", "reverse", "alternate", "alternate-reverse" }
 ::  All iterations are played as specified.
 
 :   <code>reverse</code>
-::  All iterations are played in the reverse direction from the way
+::  All iterations are played in the reverse direction from the order
     they are specified.
 
 :   <code>alternate</code>
 ::  Even iterations are played as specified, odd iterations are played
-    in the reverse direction from the way they are specified.
+    in the reverse direction from the order they are specified.
 
 :   <code>alternate-reverse</code>
-::  Even iterations are played in the reverse direction from the way
+::  Even iterations are played in the reverse direction from the order
     they are specified, odd iterations are played as specified.
 
-<h3 id="the-keyframeeffect-interfaces">The <code>KeyframeEffectReadOnly</code>
-  and <code>KeyframeEffect</code> interfaces</h3>
 
-<a>Keyframe effects</a> are represented by the
-{{KeyframeEffectReadOnly}} interface.
-Mutable <a>keyframe effects</a> are represented by the
-{{KeyframeEffect}} interface.
+<h4 id="updating-animationeffect-timing">Updating the timing of an <code>AnimationEffect</code></h4>
+
+To <dfn>update the timing properties of an animation effect</dfn>, |effect|,
+from an {{EffectTiming}} or {{OptionalEffectTiming}} object, |input|, perform
+the following steps:
+
+1.  If the {{EffectTiming/iterationStart}} member of |input| is <a>present</a>
+    and less than zero, <a>throw</a> a <span
+    class=exceptionname>TypeError</span> and abort this procedure.
+
+    Note: The reason for using a <span class=exceptionname>TypeError</span>
+    rather than a <span class=exceptionname>RangeError</span> is to mirror
+    the behavior of WebIDL's <a>[EnforceRange]</a> annotation should that
+    annotation be able to be used with floating-point values in the future.
+
+1.  If the {{EffectTiming/iterations}} member of |input| is <a>present</a>, and
+    less than zero or is the value <code class=esvalue>NaN</code>, <a>throw</a>
+    a <span class=exceptionname>TypeError</span> and abort this procedure.
+
+1.  If the {{EffectTiming/duration}} member of |input| is <a>present</a>, and
+    less than zero or is the value <code class=esvalue>NaN</code>, <a>throw</a>
+    a <span class=exceptionname>TypeError</span> and abort this procedure.
+
+1.  If the {{EffectTiming/easing}} member of |input| is <a>present</a>
+    but cannot be parsed using the <<timing-function>> production
+    [[!CSS-TIMING-1]], <a>throw</a> a <span class=exceptionname>TypeError</span>
+    and abort this procedure.
+
+1.  Assign each member <a>present</a> in |input| to the corresponding timing
+    property of |effect| as follows:
+
+    *   {{EffectTiming/delay}} &rarr; [=start delay=]
+    *   {{EffectTiming/endDelay}} &rarr; [=end delay=]
+    *   {{EffectTiming/fill}} &rarr; [=fill mode=]
+    *   {{EffectTiming/iterationStart}} &rarr; [=iteration start=]
+    *   {{EffectTiming/iterations}} &rarr; [=iteration count=]
+    *   {{EffectTiming/duration}} &rarr; [=iteration duration=]
+    *   {{EffectTiming/direction}} &rarr; [=playback direction=]
+    *   {{EffectTiming/easing}} &rarr; [=timing function=]
+
+
+<h4 id="the-computedeffecttiming-dictionary">The <code>ComputedEffectTiming</code> dictionary</h4>
+
+Timing properties calculated by the timing model are exposed using
+{{ComputedEffectTiming}} dictionary objects.
+
+<pre class='idl'>
+dictionary ComputedEffectTiming : EffectTiming {
+    unrestricted double  endTime;
+    unrestricted double  activeDuration;
+    double?              localTime;
+    double?              progress;
+    unrestricted double? currentIteration;
+};
+</pre>
+
+<div class=members>
+
+:   <dfn dict-member for=ComputedEffectTiming>endTime</dfn>
+::  The <a>end time</a> of the <a>animation effect</a> expressed
+    in milliseconds since zero <a>local time</a> (that is, since
+    the associated <a>animation</a>'s [=start time=] if this <a>animation
+    effect</a> is <a>associated with an animation</a>).
+    This corresponds to the end of the <a>animation effect</a>'s active
+    interval plus any <a>end delay</a>.
+
+:   <dfn dict-member for=ComputedEffectTiming>activeDuration</dfn>
+::  The <a>active duration</a> of this <a>animation effect</a>.
+
+:   <dfn dict-member for=ComputedEffectTiming>localTime</dfn>
+::  The <a>local time</a> of this <a>animation effect</a>.
+
+    This will be <code>null</code> if this
+    <a>animation effect</a> is not
+    <a>associated with an animation</a>.
+
+:   <dfn dict-member for=ComputedEffectTiming>progress</dfn>
+::  The current <a>iteration progress</a> of this <a>animation effect</a>.
+
+:   <dfn dict-member for=ComputedEffectTiming>currentIteration</dfn>
+::  The <a>current iteration</a> index beginning with zero for the first
+    iteration.
+
+    In most cases this will be a (positive) integer. However, for
+    a zero-duration animation that repeats infinite times, the value
+    will be positive <span class="esvalue">Infinity</span>.
+
+    As with <a>unresolved</a> times, an unresolved <a>current iteration</a> is
+    represented by a <span class="esvalue">null</span> value.
+
+</div>
+
+<h3 id="the-keyframeeffect-interface">The <code>KeyframeEffect</code> interface</h3>
+
+<a>Keyframe effects</a> are represented by the {{KeyframeEffect}} interface.
 
 <pre class='idl'>
 [Exposed=Window,
  Constructor ((Element or CSSPseudoElement)? target,
               object? keyframes,
               optional (unrestricted double or KeyframeEffectOptions) options),
- Constructor (KeyframeEffectReadOnly source)]
-interface KeyframeEffectReadOnly : AnimationEffectReadOnly {
-    readonly attribute (Element or CSSPseudoElement)? target;
-    readonly attribute IterationCompositeOperation    iterationComposite;
-    readonly attribute CompositeOperation             composite;
+ Constructor (KeyframeEffect source)]
+interface KeyframeEffect : AnimationEffect {
+    attribute (Element or CSSPseudoElement)? target;
+    attribute IterationCompositeOperation    iterationComposite;
+    attribute CompositeOperation             composite;
     sequence&lt;object&gt; getKeyframes ();
-};
-
-[Exposed=Window,
- Constructor ((Element or CSSPseudoElement)? target,
-              object? keyframes,
-              optional (unrestricted double or KeyframeEffectOptions) options),
- Constructor (KeyframeEffectReadOnly source)]
-interface KeyframeEffect : KeyframeEffectReadOnly {
-    inherit attribute (Element or CSSPseudoElement)? target;
-    inherit attribute IterationCompositeOperation    iterationComposite;
-    inherit attribute CompositeOperation             composite;
-    void setKeyframes (object? keyframes);
+    void             setKeyframes (object? keyframes);
 };
 </pre>
 
 <div class="constructors">
 
-:   <dfn constructor for=KeyframeEffectReadOnly
-     lt="KeyframeEffectReadOnly(target, keyframes, options)">
-    KeyframeEffectReadOnly (target, keyframes, options)</dfn>
-::  Creates a new {{KeyframeEffectReadOnly}} object
-    using the following procedure:
+:   <dfn constructor for=KeyframeEffect
+     lt="KeyframeEffect(target, keyframes, options)">
+    KeyframeEffect (target, keyframes, options)</dfn>
+::  Creates a new {{KeyframeEffect}} object using the following procedure:
 
-    1.  Create a new {{KeyframeEffectReadOnly}} object,
-        <var>effect</var>.</li>
+    1.  Create a new {{KeyframeEffect}} object, <var>effect</var>.</li>
 
     1.  Set the <a>target element</a> of <var>effect</var> to <var>target</var>.
 
@@ -4555,52 +4502,28 @@ interface KeyframeEffect : KeyframeEffectReadOnly {
 
         :   If <var>options</var> is a <code>double</code>,
         ::  Let <var>timing input</var> be a new
-            {{AnimationEffectTimingProperties}}
-            object with all members set to their default values and
-            {{AnimationEffectTimingProperties/duration}} set to
-            <var>options</var>.
+            {{EffectTiming}} object with all members set to their default values
+            and {{EffectTiming/duration}} set to <var>options</var>.
 
         :   Otherwise (<var>options</var> is undefined),
         ::  Let <var>timing input</var> be a new
-            {{AnimationEffectTimingProperties}}
-            object with all members set to their default values.
+            {{EffectTiming}} object with all members set to their default
+            values.
 
-    1.  Set <code><var>effect</var>.timing</code> to a new
-        {{AnimationEffectTimingReadOnly}} object created in the <a
-        lt="execution contexts">current realm</a> (that is, the same <a lt="code
-        realms">realm</a> used to create <var>effect</var>) whose attributes are
-        assigned the value of the member of the same name on <var>timing
-        input</var>.
+    1.  Call the procedure to [=update the timing properties of an
+        animation effect=] of |effect| from |timing input|.
 
-        When assigning the attributes, apply the same error-handling as defined
-        for setters on the {{AnimationEffectTiming}} interface.
-        If any of those setters require an exception to be thrown, the same
-        exception must be <a>thrown</a> by this procedure, aborting
-        all further steps.
-
-        For example, the setter for the {{AnimationEffectTiming/duration}}
-        attribute on the {{AnimationEffectTiming}} interface requires that a
-        <span class=exceptionname>TypeError</span> be thrown if an attempt
-        is made to set the duration to a value less than zero.
-        Likewise, if the duration specified on <var>timing input</var> is
-        less that zero, this procedure too must <a>throw</a> a
-        <span class=exceptionname>TypeError</span> and abort all further steps.
-
-        Attributes must be assigned in the order in which they appear in the
-        {{AnimationEffectTimingReadOnly}} interface.
-
-        Issue(2055): Make a constructor for {{AnimationEffectTimingReadOnly}}
-                     and call that here.
+        If that procedure causes an exception to be thrown, propagate the
+        exception and abort this procedure.
 
     1.  If <var>options</var> is a {{KeyframeEffectOptions}} object,
-        assign the {{KeyframeEffectReadOnly/iterationComposite}}, and
-        {{KeyframeEffectReadOnly/composite}}, properties of <var>effect</var> to
-        the corresponding value from <var>options</var>.
+        assign the {{KeyframeEffect/iterationComposite}}, and
+        {{KeyframeEffect/composite}}, properties of <var>effect</var> to the
+        corresponding value from <var>options</var>.
 
-        As with <var>timing input</var>, when assigning these properties the
-        error-handling defined for the corresponding setters on the
-        {{KeyframeEffect}} interface is applied.
-        As such, if any of those setters require an exception to be thrown
+        When assigning these properties, the error-handling defined for the
+        corresponding setters on the {{KeyframeEffect}} interface is applied.
+        If any of those setters require an exception to be thrown
         for the values specified by <var>options</var>, this procedure must
         <a>throw</a> the same exception and abort all further steps.
 
@@ -4611,17 +4534,13 @@ interface KeyframeEffect : KeyframeEffectReadOnly {
     <div class="parameters">
 
     :   <dfn argument
-        for="KeyframeEffectReadOnly/KeyframeEffectReadOnly(target, keyframes, options)"
-        lt="target"></dfn><dfn argument
         for="KeyframeEffect/KeyframeEffect(target, keyframes, options)"
-        lt="target">(Element or CSSPeudoElement)? target</dfn>
+        lt="target">({{Element}} or {{CSSPseudoElement}})? target</dfn>
     ::  The <a>target element</a> or target pseudo-element.
         This may be <code>null</code> for animations that do not target
         a specific element.
 
     :   <dfn argument
-        for="KeyframeEffectReadOnly/KeyframeEffectReadOnly(target, keyframes, options)"
-        lt="keyframes"></dfn><dfn argument
         for="KeyframeEffect/KeyframeEffect(target, keyframes, options)"
         lt="keyframes">object? keyframes</dfn>
     ::  The set of <a>keyframes</a> to use.
@@ -4629,130 +4548,49 @@ interface KeyframeEffect : KeyframeEffectReadOnly {
         [[#processing-a-keyframes-argument]].
 
     :   <dfn argument
-        for="KeyframeEffectReadOnly/KeyframeEffectReadOnly(target, keyframes, options)"
-        lt="options"></dfn><dfn argument
         for="KeyframeEffect/KeyframeEffect(target, keyframes, options)"
-        lt="options">optional KeyframeEffectOptions options</dfn>
+        lt="options">optional {{KeyframeEffectOptions}} options</dfn>
     ::  Either a number specifying the <a>iteration duration</a> of the effect,
         or a collection of properties specifying the timing and behavior of
         the effect.
 
-:   <dfn constructor for=KeyframeEffectReadOnly
-     lt="KeyframeEffectReadOnly(source)">
-    KeyframeEffectReadOnly (source)</dfn>
-::  Creates a new {{KeyframeEffectReadOnly}} object with the same properties
-    as {{KeyframeEffectReadOnly/KeyframeEffectReadOnly(source)/source}}
+    Examples of the usage of this constructor are given in
+    [[#creating-a-new-keyframeeffect-object]].
+
+:   <dfn constructor for=KeyframeEffect lt="KeyframeEffect(source)">KeyframeEffect (source)</dfn>
+::  Creates a new {{KeyframeEffect}} object with the same properties
+    as {{KeyframeEffect/KeyframeEffect(source)/source}}
     using the following procedure:
 
-    1.  Create a new {{KeyframeEffectReadOnly}} object, <var>effect</var>.
+    1.  Create a new {{KeyframeEffect}} object, <var>effect</var>.
 
     1.  Set the following properties of <var>effect</var> using the
         corresponding values of <var>source</var>:
 
         *    <a>target element</a>,
         *    <a>keyframes</a>,
-        *    <a>iteration composite operation</a>, and
-        *    <a>composite operation</a>.
+        *    <a>iteration composite operation</a>,
+        *    <a>composite operation</a>, and
+        *    all specified timing properties:
+             *    [=start delay=],
+             *    [=end delay=],
+             *    [=fill mode=],
+             *    [=iteration start=],
+             *    [=iteration count=],
+             *    [=iteration duration=],
+             *    [=playback direction=], and
+             *    [=timing function=].
 
-    1.  Set <var>effect</var>'s {{AnimationEffectReadOnly/timing}} member
-        to a new {{AnimationEffectTimingReadOnly}} object
-        created in the <a lt="execution contexts">current realm</a> (that is,
-        the same <a lt="code realms">realm</a> used to create <var>effect</var>)
-        whose attributes are assigned the value of the member of the same name
-        on <var>source</var>'s {{AnimationEffectReadOnly/timing}} object.
-
-        Note: Unlike the {{KeyframeEffectReadOnly(target, keyframes,
-        options)}} constructor, we do not need to re-throw exceptions or
-        specify the order in which members are assigned since the values
-        specified on <var>source</var>'s {{AnimationEffectReadOnly/timing}}
-        can be assumed to be valid.
+        Note: Unlike the {{KeyframeEffect(target, keyframes,
+        options)}} constructor, we do not need to re-throw exceptions since the
+        timing properties specified on |source| can be assumed to be valid.
 
     <div class="parameters">
 
-    :   <dfn argument
-        for="KeyframeEffectReadOnly/KeyframeEffectReadOnly(source)"
-        lt="source"></dfn><dfn argument
-        for="KeyframeEffect/KeyframeEffect(source)"
-        lt="source">KeyframeEffectReadOnly source</dfn>
-    ::  The <a>keyframe effect</a> from which to copy the various properties
+    :   <dfn argument for="KeyframeEffect/KeyframeEffect(source)"
+        lt="source">{{KeyframeEffect}} source</dfn>
+    ::  The <a>keyframe effect</a> from which to copy the properties
         that define the new <a>keyframe effect</a>.
-
-    </div>
-
-    <p class="note">
-    This method is largely provided for consistency with
-    {{KeyframeEffect(source)}}.
-    </p>
-
-:   <dfn constructor for=KeyframeEffect
-    lt="KeyframeEffect(target, keyframes, options)">
-    KeyframeEffect (target, keyframes, options)</dfn>
-::  Creates a new {{KeyframeEffect}} object using the same procedure as with
-    the {{KeyframeEffectReadOnly(target, keyframes, options)}} constructor with
-    the following differences:
-
-    *   <var>effect</var> is initialized to a new {{KeyframeEffect}} object
-        rather than a new {{KeyframeEffectReadOnly}} object.
-    *   <code><var>effect</var>.timing</code> is set to a new
-        {{AnimationEffectTiming}} object rather than a new
-        {{AnimationEffectTimingReadOnly}} object.
-
-    Examples of the usage of this constructor are given in
-    [[#creating-a-new-keyframeeffect-object]].
-
-:   <dfn constructor for=KeyframeEffect
-     lt="KeyframeEffect(source)">KeyframeEffect (source)</dfn>
-::  Creates a new {{KeyframeEffect}} object using the same procedure as with
-    the {{KeyframeEffectReadOnly(source)}} constructor with the following
-    differences:
-
-    *   <var>effect</var> is initialized to a new {{KeyframeEffect}} object
-        rather than a new {{KeyframeEffectReadOnly}} object.
-    *   <code><var>effect</var>.timing</code> is set to a new
-        {{AnimationEffectTiming}} object rather than a new
-        {{AnimationEffectTimingReadOnly}} object.
-
-    <div class='informative-bg'><em>This section is non-normative</em>
-
-    This constructor is provided so that authors can take the animations
-    generated by declarative markup, which are returned in a read-only format,
-    and produce a mutable copy.
-
-    <div class="example">
-
-    For example, it is possible to define an animation using CSS and
-    subsequently replace its <a>animation effect</a> as follows:
-
-    <pre class="lang-javascript">
-    // Create and get a CSSAnimation
-    elem.style.animation = 'swellMargin 2s';
-    const animation = elem.getAnimations().find(
-      animation =&gt; animation.animationName == 'swellMargin');
-    console.log(animation.effect.constructor.name); // "KeyframeEffectReadOnly"
-
-    // Make a mutable copy
-    animation.effect = new KeyframeEffect(animation.effect);
-    console.log(animation.effect.constructor.name); // "KeyframeEffect"
-
-    // It is now possible to manipulate the effect
-    // e.g. apply 'add' composite mode
-    animation.effect.composite = 'add';
-
-    // Note that changing 'animation-*' properties will not affect the
-    // new effect.
-    elem.style.animationDuration = '3s';
-    console.log(animation.effect.timing.duration); // 2000
-
-    // However, 'animation-*' properties still affect the /Animation/
-    elem.style.animationPlayState = 'paused';
-    console.log(animation.playState); // "paused"
-
-    // Likewise:
-    elem.style.animation = '';
-    console.log(animation.playState); // "idle" (animation has been cancelled)
-    </pre>
-
-    </div>
 
     </div>
 
@@ -4760,15 +4598,13 @@ interface KeyframeEffect : KeyframeEffectReadOnly {
 
 <div class="attributes">
 
-:   <dfn attribute for=KeyframeEffectReadOnly>target</dfn><dfn attribute
-    for=KeyframeEffect lt='target'></dfn>
+:   <dfn attribute for=KeyframeEffect>target</dfn>
 ::  The element or pseudo-element being animated by this object.
     This may be <code>null</code> for animations that do not target
     a specific element such as an animation that produces a sound
     using an audio API.
 
-:   <dfn attribute for=KeyframeEffectReadOnly>iterationComposite</dfn><dfn attribute
-    for=KeyframeEffect lt='iterationComposite'></dfn>
+:   <dfn attribute for=KeyframeEffect>iterationComposite</dfn>
 ::  The <a>iteration composite operation</a> property of this
     <a>keyframe effect</a> as specified by one of the
     <a>IterationCompositeOperation</a> enumeration values.
@@ -4776,8 +4612,7 @@ interface KeyframeEffect : KeyframeEffectReadOnly {
     On setting, sets the <a>iteration composite operation</a> property of this
     <a>animation effect</a> to the provided value.
 
-:   <dfn attribute for=KeyframeEffectReadOnly>composite</dfn><dfn attribute
-    for=KeyframeEffect lt='composite'></dfn>
+:   <dfn attribute for=KeyframeEffect>composite</dfn>
 ::  The <a>composite operation</a> used to composite this
     <a>keyframe effect</a> with the <a>effect stack</a>, as
     specified by one of the <a>CompositeOperation</a> enumeration
@@ -4790,7 +4625,7 @@ interface KeyframeEffect : KeyframeEffectReadOnly {
 
 <div class="methods">
 
-:   <dfn method for=KeyframeEffectReadOnly lt="getKeyframes()">
+:   <dfn method for=KeyframeEffect lt="getKeyframes()">
     sequence&lt;object&gt; getKeyframes()</dfn>
 ::  Returns the keyframes that make up this effect along with their
     <a>computed keyframe offsets</a>.
@@ -4926,12 +4761,10 @@ interface KeyframeEffect : KeyframeEffectReadOnly {
 
 <div class='informative-bg'><em>This section is non-normative</em>
 
-The {{KeyframeEffectReadOnly(target, keyframes,
-options)|KeyframeEffectReadOnly}} and {{KeyframeEffect(target, keyframes,
-options)|KeyframeEffect}} constructors offer a number of approaches to creating
-new {{KeyframeEffectReadOnly}} and {{KeyframeEffect}} objects.
+The {{KeyframeEffect(target, keyframes, options)|KeyframeEffect}} constructor
+offers a number of approaches to creating new {{KeyframeEffect}} objects.
 
-At its simplest, an {{KeyframeEffect}} object that changes the
+At its simplest, a {{KeyframeEffect}} object that changes the
 &lsquo;left&rsquo; property of <code>elem</code> to 100px over three
 seconds can be constructed as follows:
 
@@ -4952,8 +4785,7 @@ var effectB = new KeyframeEffect(elem, [ { left: '100px' }, { left: '300px' } ],
 The third parameter, representing the animation's timing, may
 simply be a number representing the <a>iteration duration</a> in
 milliseconds as above, or, to specify further timing properties such
-as the <a>start delay</a>, an {{AnimationEffectTimingProperties}} object can
-be used, as follows:
+as the <a>start delay</a>, an {{EffectTiming}} object can be used, as follows:
 
 <div class='example'><pre class='lang-javascript'>
 var effect =
@@ -5018,7 +4850,6 @@ argument</h4>
 
 The following methods all accept a set of keyframes as an argument:
 
-*   the {{KeyframeEffectReadOnly(target, keyframes, options)}} constructor,
 *   the {{KeyframeEffect(target, keyframes, options)}} constructor,
 *   the {{KeyframeEffect/setKeyframes()}} method on the {{KeyframeEffect}}
     interface,
@@ -5057,7 +4888,7 @@ The second form (the object-form) consists of an object where each animation
 property may specify a single animation value or an array of animation values.
 
 The first array-form is the canonical form and is the form returned by the
-{{KeyframeEffectReadOnly/getKeyframes()}} method.
+{{KeyframeEffect/getKeyframes()}} method.
 
 <a>Keyframe offsets</a> can be specified using either form as illustrated below:
 
@@ -5174,8 +5005,8 @@ The meaning and allowed values of each argument is as follows:
     from this keyframe until the next keyframe in the series.
 
     The syntax and error-handling associated with parsing this string
-    is identical to that defined for the <code>easing</code> attribute
-    of the {{AnimationEffectTiming}} interface.
+    is identical to that defined for the {{EffectTiming/easing}} attribute
+    of the {{EffectTiming}} interface.
 
 :   <dfn id="dom-keyframe-composite">composite</dfn>
 ::  The <a>keyframe-specific composite operation</a> used to combine the values
@@ -5515,9 +5346,8 @@ keyframes using the following procedure:
 
     1.  Let the <a>timing function</a> of <var>frame</var> be the result of
         parsing the &ldquo;easing&rdquo; property on <var>frame</var> using the
-        CSS syntax defined for the
-        {{AnimationEffectTimingReadOnly/easing}} property of the
-        {{AnimationEffectTimingReadOnly}} interface.
+        CSS syntax defined for the {{EffectTiming/easing}} member of the
+        {{EffectTiming}} dictionary.
 
         If parsing the &ldquo;easing&rdquo; property fails, <a>throw</a> a
         <span class=exceptionname>TypeError</span> and abort this procedure.
@@ -5534,10 +5364,9 @@ keyframes using the following procedure:
         open-ended dictionaries are later supported in WebIDL.
 
 1.  Parse each of the values in <var>unused easings</var> using the CSS syntax
-    defined for {{AnimationEffectTimingReadOnly/easing}} property of the
-    {{AnimationEffectTimingReadOnly}} interface, and if any of the values
-    fail to parse, <a>throw</a> a <span class=exceptionname>TypeError</span> and
-    abort this procedure.
+    defined for {{EffectTiming/easing}} member of the {{EffectTiming}}
+    interface, and if any of the values fail to parse, <a>throw</a> a <span
+    class=exceptionname>TypeError</span> and abort this procedure.
 
     <div class="note">
 
@@ -5555,12 +5384,11 @@ elem.animate([{ easing: 'invalid' }]);
 
 <h4 id="the-keyframeeffectoptions-dictionary">The <code>KeyframeEffectOptions</code> dictionary</h4>
 
-Additional parameters may be passed to the {{KeyframeEffectReadOnly(target,
-keyframes, options)}} and {{KeyframeEffect(target, keyframes, options)}}
-constructors by providing a {{KeyframeEffectOptions}} object.
+Additional parameters may be passed to the {{KeyframeEffect(target, keyframes,
+options)}} constructor by providing a {{KeyframeEffectOptions}} object.
 
 <pre class='idl'>
-dictionary KeyframeEffectOptions : AnimationEffectTimingProperties {
+dictionary KeyframeEffectOptions : EffectTiming {
     IterationCompositeOperation iterationComposite = "replace";
     CompositeOperation          composite = "replace";
 };
@@ -5639,7 +5467,7 @@ enum CompositeOperation {"replace", "add", "accumulate"};
 
 <h3 id="the-animatable-interface-mixin">The <code>Animatable</code> interface mixin</h3>
 
-Objects that may be the target of an {{KeyframeEffectReadOnly}} object implement
+Objects that may be the target of an {{KeyframeEffect}} object implement
 the {{Animatable}} interface mixin.
 
 <pre class='idl'>
@@ -5667,7 +5495,7 @@ dictionary KeyframeAnimationOptions : KeyframeEffectOptions {
         <var>target</var> argument, and the <var>keyframes</var> and
         <var>options</var> arguments as supplied.
 
-        If the above procedure caused an exception to be thrown, propagate the
+        If the above procedure causes an exception to be thrown, propagate the
         exception and abort this procedure.
 
     1.  Construct a new {{Animation}} object, <var>animation</var>, in
@@ -6089,6 +5917,23 @@ The following changes have been made since the <a
 *   Introduced {{Animation/updatePlaybackRate(playbackRate)}} instead which
     maintains the current time and synchronizes with animations running on
     another thread or process.
+*   Revised the <code>&hellip;ReadOnly</code> and timing-related interfaces as
+    follows:
+    *   Replaced <code>AnimationEffectReadOnly</code> with {{AnimationEffect}}.
+    *   Replaced the  <code>timing</code> member of
+        <code>AnimationEffectReadOnly</code> with the
+        {{AnimationEffect/getTiming()}} and
+        {{AnimationEffect/updateTiming()}} methods on {{AnimationEffect}}.
+    *   Removed the <code>AnimationEffectTimingReadOnly</code> and
+        <code>AnimationEffectTiming</code> interfaces.
+    *   Renamed the <code>AnimationEffectTimingProperties</code> dictionary to
+        {{EffectTiming}}.
+    *   Renamed the <code>ComputedTimingProperties</code> dictionary to
+        {{ComputedEffectTiming}}.
+    *   Introduced the {{OptionalEffectTiming}} dictionary for use with the
+        {{AnimationEffect/updateTiming}} method.
+    *   Removed <code>KeyframeEffectReadOnly</code>, leaving only
+        {{KeyframeEffect}}.
 *   Added special handling to allow animating the 'offset' property from the
     programming interface using <code>cssOffset</code> to avoid conflict with
     the attribute name used to specify keyframe offsets.
@@ -6097,10 +5942,10 @@ The following changes have been made since the <a
     <code>easing</code> values including allowing <code>null</code> values for
     <code>composite</code>.
 *   Changed the type of the
-    {{KeyframeEffectReadOnly/KeyframeEffectReadOnly(target, keyframes,
+    {{KeyframeEffect/KeyframeEffect(target, keyframes,
     options)/target}} argument to the {{KeyframeEffect}} and
-    {{KeyframeEffectReadOnly}} constructors,
-    and the {{KeyframeEffectReadOnly/target}} member of these same interfaces,
+    (now obsolete) <code>KeyframeEffectReadOnly</code> constructors,
+    and the {{KeyframeEffect/target}} member of these same interfaces,
     from <code>Animatable?</code> to <code>(Element or CSSPseudoElement)?</code>
     (<a href="https://github.com/w3c/web-animations/issues/186">#186</a>).
 *   Dropped the <code>SharedKeyframeList</code> interface.
