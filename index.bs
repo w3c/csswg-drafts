@@ -629,9 +629,13 @@ enum SpatialNavigationDirection {
     "inside"
 };
 
-dictionary FindSpatNavCandidatesOptions {
-    required SpatialNavigationDirection dir;
-    Node? container;
+enum FocusableAreaSearchMode {
+    "visible",
+    "all"
+};
+
+dictionary FocusableAreasOptions {
+    FocusableAreaSearchMode mode;
 };
 
 dictionary SelectSpatNavBestCandidateOptions {
@@ -640,20 +644,26 @@ dictionary SelectSpatNavBestCandidateOptions {
 };
 
 partial interface Element {
-    sequence&lt;Node> findSpatNavCandidates(FindSpatNavCandidatesOptions arg);
+    Node getSpatnavContainer();
+    sequence&lt;Node> focusableAreas(optional FocusableAreasOptions arg);
     Node? selectSpatNavBestCandidate(SelectSpatNavBestCandidateOptions arg);
     Node? sequentialNavSearch(SequentialNavigationDirection dir);
 };
 </pre>
 
-<div algorithm="findSpatNavCandidates steps">
-The {{Element/findSpatNavCandidates()}} method must follow these steps:
-1. Let <var>d</var> be the argument's {{FindSpatNavCandidatesOptions/dir}} attribute
-2. Let <var>c</var> be the argument's {{FindSpatNavCandidatesOptions/container}} attribute
-3. If <var>c</var> is <code>null</code>,
-    set <var>c</var> to the nearest ancestor of eventTarget that is a <a>spatnav container</a>.
-4. Let <var>candidates</var> be the result of <a>finding candidates</a> within <var>c</var> in direction <var>d</var> starting from the element
-5. Let <var>anchors</var> be a <a for=list>clone</a> of <var>candidates</var>,
+<div algorithm="getSpatnavContainer steps">
+The {{Element/getSpatnavContainer()}} method must follow these steps:
+1. Return the nearest ancestor of the element that is a <a>spatnav container</a>
+
+</div>
+
+<div algorithm="focusableAreas steps">
+The {{Element/focusableAreas()}} method must follow these steps:
+1. Let <var>v</var> be <code>false</code>
+    if the argument's {{FocusableAreasOptions/mode}} attribute if present and equal to <code>"all"</code>,
+    or <code>true</code> otherwise.
+4. Let <var>areas</var> be the result of <a>finding focusable areas</a> within the element with the visibleOnly argument set to <var>v</var>
+5. Let <var>anchors</var> be a <a for=list>clone</a> of <var>areas</var>,
     with every <a>focusable area</a> which is not itself a <a>Node</a> replaced with its <a>DOM anchor</a>.
 6. Return <var>anchors</var>
 
@@ -848,10 +858,8 @@ To run the <dfn>spatial navigation steps</dfn> in <var>direction</var>, do the f
     Note: We special case the situation where we're navigating from the state where nothing was focused,
     to start searching from the edges of the viewport.
 3. Let <var>container</var> be the nearest ancestor of <var>eventTarget</var> that is a <a>spatnav container</a>.
-4. <i>Loop</i>: Let <var>candidates</var> be the result of <a>finding candidates</a>
+4. <i>Loop</i>: Let <var>candidates</var> be the result of <a>finding focusable areas</a>
     within <var>container</var>
-    in <var>direction</var>
-    starting from <var>startingPoint</var>
 5. If <var>candidates</var> is <code>null</code>:
     * If <var>container</var> is a <a>scroll container</a> that <a>can be manually scrolled</a>:
             1. <a>Fire an event</a> named <a event>navbeforescroll</a> at <var>eventTarget</var> using {{NavigationEvent}}
@@ -893,10 +901,8 @@ To run the <dfn>spatial navigation steps</dfn> in <var>direction</var>, do the f
 
 <div algorithm="to run the navigate inside steps">
 To run the <dfn>navigate inside steps</dfn> on <var>eventTarget</var>, do the following:
-1. Let <var>candidates</var> be the result of <a>finding candidates</a>
+1. Let <var>candidates</var> be the result of <a>finding focusable areas</a>
     within <var>eventTarget</var>
-    starting from <var>eventTarget</var>
-    in direction <code>inside</code>
 2. If <var>candidates</var> is <code>null</code>,
     <a>Fire an event</a> named <a event>navnotarget</a> at <var>eventTarget</var> using {{NavigationEvent}}
     with its {{NavigationEvent/dir}} set to <code>inside</code> and {{NavigationEvent/relatedTarget}} set to <var>eventTarget</var>
@@ -941,7 +947,7 @@ as well as from the <a href="https://www.w3.org/TR/WICD/#focus-handling">old WIC
 Implementors who find better approaches or refinements to these approaches are strongly
 encouraged to provide feedback and help improve this specification
 in order to maximize interoperability.
-In particular, divergences in how User Agents <a>find candidates</a>
+In particular, divergences in how User Agents <a>find focusable areas</a>
 may cause some elements to be focusable in some User Agents but not in others,
 which would be bad for users.
 
@@ -956,11 +962,10 @@ The <dfn>boundary box</dfn> of an object is defined as follows:
 
 Issue(w3c/csswg-drafts#2324): CSS should have a term for “border box taking into account corner shaping properties like border-radius”.
 
-<div algorithm="to find candidates">
+<div algorithm="to find focusable areas">
 
-To <dfn lt="find candidates | finding candidates">find candidates</dfn> within a containing element <var>C</var>,
-in a direction <var>D</var>,
-starting from <var>starting point</var>,
+To <dfn lt="find focusable areas | finding focusable areas">find candidates</dfn> within a containing element <var>C</var>,
+with an optional <var>visibleOnly</var> argument that defaults to <code>true</code>,
 follow the following steps:
 
 1. Let <var>focusables</var> be the <a spec=infra for="/">set</a> of all the <a>focusable areas</a> that are descendants of <var>C</var>.
@@ -968,6 +973,10 @@ follow the following steps:
 
     Note: This is a "SHOULD" in order to mirror the exclusion of elements with negative tabindex
     from the <a>sequential focus navigation order</a> as defined in [[HTML#the-tabindex-attribute]].
+3. If <var>visibleOnly</var> is <code>false</code>,
+    return <var>focusables</var>.
+
+    Note: <var>focusables</var> may be empty
 3. Let <var>visibles</var> be the subset of items in <var>focusables</var>
     whose <a>boundary box</a>
     is at least partly within <var>C</var>'s <a>scrollport</a>.
@@ -992,16 +1001,9 @@ follow the following steps:
     that authors forget to do so.
 
     Issue(w3c/csswg-drafts#2325): Some CSS spec needs to define hit testing.
-5.
-    * If <var>D</var> is <code>inside</code>,
-        let <var>candidates</var> be the same as <var>visibles</var>
-    * Else, let <var>candidates</var> be the subset of the items in <var>visibles</var>
-        whose <a>boundary box</a>'s geometric center is within the closed half plane
-        whose boundary goes through the geometric center of the <var>starting point</var>
-        and is perpendicular to <var>D</var>.
-6. Return <var>candidates</var>.
+5. Return <var>visibles</var>.
 
-    Note: <var>candidates</var> may be empty
+    Note: <var>visibles</var> may be empty
 
 </div>
 
@@ -1015,6 +1017,11 @@ follow the following steps:
 
 1. If <var>candidates</var> is <a spec=infra for=set>empty</a>, return <code>null</code>
 2. If <var>candidates</var> contains a single item, return that item
+3. If <var>dir</var> is not <code>inside</code>,
+	set <var>candidates</var> be the subset of its items
+        whose <a>boundary box</a>'s geometric center is within the closed half plane
+        whose boundary goes through the geometric center of the <var>starting point</var>
+        and is perpendicular to <var>D</var>.
 3. For each <var>candidate</var> in <var>candidates</var>,
     find the points <var>P1</var> inside the <a>boundary box</a> of <var>starting point</var>
     and <var>P2</var> inside the <a>boundary box</a> of <var>candidate</var>
