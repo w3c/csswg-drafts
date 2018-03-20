@@ -48,6 +48,7 @@ code.key {
 }
 </style>
 
+
 <h2 id="intro" class=non-normative>
 Introduction</h2>
 
@@ -242,6 +243,183 @@ See [[#events-nav-type]] for details about the various events.
             &lt;div class="box" tabindex="0">Box 4&lt;/div>
         &lt;/div>
     </pre>
+</div>
+
+
+<h2 id=triggering>
+Triggering Spatial Navigation</h2>
+
+When the user triggers spatial navigation in a given direction,
+the User Agent must run the <a>spatial navigation steps</a> in that direction.
+
+This specification does not define what UI mechanism User Agents should offer to users to trigger spatial navigation.
+This intentionaly left for User Agents to decide.
+
+<div class=note>Note:
+    It is expected that User Agents on devices with limited input capabilities,
+    such as TVs operated with a remote control,
+    or devices operated with a game controller,
+    will use spatial navigation as their primary or exclusive navigation mechanism.
+</div>
+
+Although it is possible for User Agents
+to implement the processing model and APIs defined by the specification
+without giving any direct means to the user to trigger spatial navigation themself,
+this specification recommends not to do so:
+User Agents should offer a means for users to trigger spatial navigation directly,
+without having to use the APIs.
+
+Regardless of the actual mechanism chosen to trigger spatial navigation,
+the following requiremnts apply:
+* If the mechanism the user must use to trigger spatial navigation
+    would normally fire a {{UIEvent}},
+    then that event must be fired prior to running the <a>spatial navigation steps</a>
+    and these steps must not be run if that event's <a>canceled flag</a>
+    gets set.
+
+    <div class=example>
+        Gaming devices may trigger spatial navigation based on pressing the D-pad.
+        This would result in firing a <a event>keydown</a> event
+        with the key set to one of
+        <code class=key>ArrowDown</code>,
+        <code class=key>ArrowLeft</code>,
+        <code class=key>ArrowRight</code>,
+        or <code class=key>ArrowUp</code>,
+        followed if not canceled by running the <a>spatial navigation steps</a>,
+        including firing the relevant {{NavigationEvent}}s.
+
+        A User Agent on a desktop computer that triggers spatial navigation
+        using the arrow keys of the keyboard
+        would follow the same sequence.
+    </div>
+* If the mechanism the user must use to trigger spatial navigation
+    would in some contexts trigger other actions,
+    the User Agent should in these contexts
+    give priority to these other actions
+    and execute them instead of spatial navigation.
+    It must not trigger both.
+
+    <div class=example>
+        In a User Agent that triggers spatial navigation
+        using the arrow keys without modifier keys,
+        and uses these same arrow keys to move
+        the text insertion caret when an editable element is focused,
+        the arrow keys should by default to moving the caret.
+        Spatial navigation would only be triggered by the arrow keys
+        when the focused element is not editable,
+        or when it is editable but the caret cannot move any further in the requested direction.
+    </div>
+
+    An exception is made for scrolling:
+    since spatial navigation itself handles scrolling
+    (in addition to moving the focus)
+    User Agents should not offer the same mechanism to trigger both spatial navigation
+    and a scrolling behavior separate from spatial navigation.
+    UAs may however, offer a way for the user to switch between different modes,
+    or offer both based on different UI mechanism.
+    
+    <div class=example>
+        A User Agent may have a setting to let the user choose
+        between using the arrow keys without modifier keys
+        for spatial navigation or for scrolling.
+        Another one may offer scrolling on arrow keys without modifiers,
+        and spatial navigation on arrow keys when pressed together
+        with the <code class=key>Shift</code> key,
+        or on the <code class=key>W</code> <code class=key>A</code> <code class=key>S</code> <code class=key>D</code> keys.
+        Offering only spatial navigation or only scrolling
+        as responses to pressing arrow keys would also be possibilities.
+    </div>
+
+
+<h2 id="js-api">
+JavaScript API</h2>
+
+Note: These APIs are designed to be low level constructs following the processing model closely.
+As such, they should be easy to use by authors who want to extend or override the way spatial navigation works.
+More user-friendly and higher level APIs may be considered based on use cases.
+
+<pre class=idl>
+enum SequentialNavigationDirection {
+    "forward",
+    "backward"
+};
+enum SpatialNavigationDirection {
+    "up",
+    "down",
+    "left",
+    "right",
+    "inside"
+};
+
+enum FocusableAreaSearchMode {
+    "visible",
+    "all"
+};
+
+dictionary FocusableAreasOptions {
+    FocusableAreaSearchMode mode;
+};
+
+dictionary SpatNavSearchOptions {
+    required SpatialNavigationDirection dir;
+    sequence&lt;Node>? candidates;
+    Node? container;
+};
+
+partial interface Element {
+    Node getSpatnavContainer();
+    sequence&lt;Node> focusableAreas(optional FocusableAreasOptions arg);
+    Node? spatNavSearch(SpatNavSearchOptions arg);
+    Node? seqNavSearch(SequentialNavigationDirection dir);
+};
+</pre>
+
+<div algorithm="getSpatnavContainer steps">
+The {{Element/getSpatnavContainer()}} method must follow these steps:
+1. Return the nearest ancestor of the element that is a <a>spatnav container</a>
+
+</div>
+
+<div algorithm="focusableAreas steps">
+The {{Element/focusableAreas()}} method must follow these steps:
+1. Let <var>v</var> be <code>false</code>
+    if the argument's {{FocusableAreasOptions/mode}} attribute if present and equal to <code>"all"</code>,
+    or <code>true</code> otherwise.
+4. Let <var>areas</var> be the result of <a>finding focusable areas</a> within the element with the visibleOnly argument set to <var>v</var>
+5. Let <var>anchors</var> be a <a for=list>clone</a> of <var>areas</var>,
+    with every <a>focusable area</a> which is not itself a <a>Node</a> replaced with its <a>DOM anchor</a>.
+6. Return <var>anchors</var>
+
+</div>
+
+<div algorithm="spatNavSearch steps">
+The {{Element/spatNavSearch()}} method must follow these steps:
+1. Let <var>d</var> be the argument's {{SpatNavSearchOptions/dir}} attribute
+2. If the argument's {{SpatNavSearchOptions/candidates}} attribute is not <code>null</code>,
+    then let <var>areas</var> be that atribute,
+    else, let <var>areas</var> be the result of <a>finding focusable areas</a>
+    within the argument's {{SpatNavSearchOptions/container}} attribute is not <code>null</code>,
+    or the element's nearest <a>spatnav container</a> ancestor
+4. Return the result of <a>selecting the best candidate</a> within <var>areas</var> in direction <var>d</var> from the element
+
+Note: When neither a container nor a list of candidates is provided,
+this only searches through the visible focusable areas of the nearest
+<a>spatnav container</a> ancestor.
+<strong>If none are found, this does not climb further up the ancestry chain,
+and the result will be <code>null</code>.</strong>
+</div>
+
+
+<div algorithm="seqNavSearch steps">
+The {{Element/seqNavSearch()}} method must follow these steps:
+1. Let <var>d</var> be the argument
+2. Let <var>s</var> be <code>sequential</code> if the element is a <a for="/">browsing context</a>
+    or if the element is in its <a>control group</a>'s <a>sequential focus navigation order</a>;
+    otherwise, let <var>s</var> be <code>DOM</code>.
+4. Return the result of running the <a>sequential navigation search algorithm</a> with the element as its starting point argument,
+    <var>d</var> as its direction argument,
+    and <var>s</var> as the selection mechanism argument.
+
 </div>
 
 
@@ -609,96 +787,6 @@ and it cannot be scrolled at the same time.
    </pre>
 </div>
 
-<h2 id="js-api">
-JavaScript API</h2>
-
-Note: These APIs are designed to be low level constructs following the processing model closely.
-As such, they should be easy to use by authors who want to extend or override the way spatial navigation works.
-More user-friendly and higher level APIs may be considered based on use cases.
-
-<pre class=idl>
-enum SequentialNavigationDirection {
-    "forward",
-    "backward"
-};
-enum SpatialNavigationDirection {
-    "up",
-    "down",
-    "left",
-    "right",
-    "inside"
-};
-
-enum FocusableAreaSearchMode {
-    "visible",
-    "all"
-};
-
-dictionary FocusableAreasOptions {
-    FocusableAreaSearchMode mode;
-};
-
-dictionary SpatNavSearchOptions {
-    required SpatialNavigationDirection dir;
-    sequence&lt;Node>? candidates;
-    Node? container;
-};
-
-partial interface Element {
-    Node getSpatnavContainer();
-    sequence&lt;Node> focusableAreas(optional FocusableAreasOptions arg);
-    Node? spatNavSearch(SpatNavSearchOptions arg);
-    Node? seqNavSearch(SequentialNavigationDirection dir);
-};
-</pre>
-
-<div algorithm="getSpatnavContainer steps">
-The {{Element/getSpatnavContainer()}} method must follow these steps:
-1. Return the nearest ancestor of the element that is a <a>spatnav container</a>
-
-</div>
-
-<div algorithm="focusableAreas steps">
-The {{Element/focusableAreas()}} method must follow these steps:
-1. Let <var>v</var> be <code>false</code>
-    if the argument's {{FocusableAreasOptions/mode}} attribute if present and equal to <code>"all"</code>,
-    or <code>true</code> otherwise.
-4. Let <var>areas</var> be the result of <a>finding focusable areas</a> within the element with the visibleOnly argument set to <var>v</var>
-5. Let <var>anchors</var> be a <a for=list>clone</a> of <var>areas</var>,
-    with every <a>focusable area</a> which is not itself a <a>Node</a> replaced with its <a>DOM anchor</a>.
-6. Return <var>anchors</var>
-
-</div>
-
-<div algorithm="spatNavSearch steps">
-The {{Element/spatNavSearch()}} method must follow these steps:
-1. Let <var>d</var> be the argument's {{SpatNavSearchOptions/dir}} attribute
-2. If the argument's {{SpatNavSearchOptions/candidates}} attribute is not <code>null</code>,
-    then let <var>areas</var> be that atribute,
-    else, let <var>areas</var> be the result of <a>finding focusable areas</a>
-    within the argument's {{SpatNavSearchOptions/container}} attribute is not <code>null</code>,
-    or the element's nearest <a>spatnav container</a> ancestor
-4. Return the result of <a>selecting the best candidate</a> within <var>areas</var> in direction <var>d</var> from the element
-
-Note: When neither a container nor a list of candidates is provided,
-this only searches through the visible focusable areas of the nearest
-<a>spatnav container</a> ancestor.
-<strong>If none are found, this does not climb further up the ancestry chain,
-and the result will be <code>null</code>.</strong>
-</div>
-
-
-<div algorithm="seqNavSearch steps">
-The {{Element/seqNavSearch()}} method must follow these steps:
-1. Let <var>d</var> be the argument
-2. Let <var>s</var> be <code>sequential</code> if the element is a <a for="/">browsing context</a>
-    or if the element is in its <a>control group</a>'s <a>sequential focus navigation order</a>;
-    otherwise, let <var>s</var> be <code>DOM</code>.
-4. Return the result of running the <a>sequential navigation search algorithm</a> with the element as its starting point argument,
-    <var>d</var> as its direction argument,
-    and <var>s</var> as the selection mechanism argument.
-
-</div>
 
 <h2 id=processing-model>
 Processing Model</h2>
@@ -718,91 +806,6 @@ Issue(19): The following currently does not account
 for <a href="https://github.com/WICG/overscroll-behavior">the proposed overscroll-behavior specification</a>.
 
 Issue(21): The following does not take shadow dom into account.
-
-
-<h3 id=triggering>
-Triggering Spatial Navigation</h3>
-
-When the user triggers spatial navigation in a given direction,
-the User Agent must run the <a>spatial navigation steps</a> in that direction.
-
-This specification does not define what UI mechanism User Agents should offer to users to trigger spatial navigation.
-This intentionaly left for User Agents to decide.
-
-<div class=note>Note:
-    It is expected that User Agents on devices with limited input capabilities,
-    such as TVs operated with a remote control,
-    or devices operated with a game controller,
-    will use spatial navigation as their primary or exclusive navigation mechanism.
-</div>
-
-Although it is possible for User Agents
-to implement the processing model and APIs defined by the specification
-without giving any direct means to the user to trigger spatial navigation themself,
-this specification recommends not to do so:
-User Agents should offer a means for users to trigger spatial navigation directly,
-without having to use the APIs.
-
-Regardless of the actual mechanism chosen to trigger spatial navigation,
-the following requiremnts apply:
-* If the mechanism the user must use to trigger spatial navigation
-    would normally fire a {{UIEvent}},
-    then that event must be fired prior to running the <a>spatial navigation steps</a>
-    and these steps must not be run if that event's <a>canceled flag</a>
-    gets set.
-
-    <div class=example>
-        Gaming devices may trigger spatial navigation based on pressing the D-pad.
-        This would result in firing a <a event>keydown</a> event
-        with the key set to one of
-        <code class=key>ArrowDown</code>,
-        <code class=key>ArrowLeft</code>,
-        <code class=key>ArrowRight</code>,
-        or <code class=key>ArrowUp</code>,
-        followed if not canceled by running the <a>spatial navigation steps</a>,
-        including firing the relevant {{NavigationEvent}}s.
-
-        A User Agent on a desktop computer that triggers spatial navigation
-        using the arrow keys of the keyboard
-        would follow the same sequence.
-    </div>
-* If the mechanism the user must use to trigger spatial navigation
-    would in some contexts trigger other actions,
-    the User Agent should in these contexts
-    give priority to these other actions
-    and execute them instead of spatial navigation.
-    It must not trigger both.
-
-    <div class=example>
-        In a User Agent that triggers spatial navigation
-        using the arrow keys without modifier keys,
-        and uses these same arrow keys to move
-        the text insertion caret when an editable element is focused,
-        the arrow keys should by default to moving the caret.
-        Spatial navigation would only be triggered by the arrow keys
-        when the focused element is not editable,
-        or when it is editable but the caret cannot move any further in the requested direction.
-    </div>
-
-    An exception is made for scrolling:
-    since spatial navigation itself handles scrolling
-    (in addition to moving the focus)
-    User Agents should not offer the same mechanism to trigger both spatial navigation
-    and a scrolling behavior separate from spatial navigation.
-    UAs may however, offer a way for the user to switch between different modes,
-    or offer both based on different UI mechanism.
-    
-    <div class=example>
-        A User Agent may have a setting to let the user choose
-        between using the arrow keys without modifier keys
-        for spatial navigation or for scrolling.
-        Another one may offer scrolling on arrow keys without modifiers,
-        and spatial navigation on arrow keys when pressed together
-        with the <code class=key>Shift</code> key,
-        or on the <code class=key>W</code> <code class=key>A</code> <code class=key>S</code> <code class=key>D</code> keys.
-        Offering only spatial navigation or only scrolling
-        as responses to pressing arrow keys would also be possibilities.
-    </div>
 
 
 <h3 id=nav>
