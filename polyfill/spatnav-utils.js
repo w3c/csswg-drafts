@@ -1,7 +1,7 @@
 window.addEventListener("load", function() {
 
   // load SpatNav polyfill
-  //focusNavigationHeuristics();
+  focusNavigationHeuristics();
 
   let list = document.querySelectorAll("meta");
   let application_name, application_author, application_description;
