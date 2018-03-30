@@ -4,6 +4,7 @@
 * Copyright 2018 LG Electronics Inc. All rights reserved.
 *
 * https://github.com/WICG/spatial-navigation
+* https://wicg.github.io/spatial-navigation
 */
 
 function focusNavigationHeuristics() {
@@ -17,8 +18,13 @@ function focusNavigationHeuristics() {
    * load EventListener :
    *  Get starting point element
    */
-  let startingPoint = findStartingPoint();
+  let startingPoint = document.activeElement;
   if (startingPoint){
+    //If eventTarget is the Document or the document element, set eventTarget be the body element if it is not null
+    if(!startingPoint.parentElement) {
+      startingPoint = document.body;
+    }
+
     focusingController(startingPoint, null, null);
   }
 
@@ -87,8 +93,9 @@ function focusNavigationHeuristics() {
        */
       console.log("event : nav before focus");
 
-      //if activeElement is scrollable container and the bestCandidate is element, preventDefault to the activeElement
-      if(e)
+      //if activeElement is in the scrollable container and the bestCandidate is element,
+      // preventDefault to the activeElement
+      if(e && isScrollable(container))
         e.preventDefault();
 
       bestCandidate.focus();
@@ -154,8 +161,12 @@ function focusNavigationHeuristics() {
 
         // 3. Nothing
         // Otherwise, do nothing at all.
-        if (bestCandidate)
+        if (bestCandidate) {
+          if(e && isScrollable(container))
+            e.preventDefault();
+
           bestCandidate.focus();
+        }
       }
     }
   }
@@ -178,15 +189,12 @@ function focusNavigationHeuristics() {
     // If the eventTarget is a focusable container, pressing the arrow key works for go inside if it has visible focusable
     // container: document, iframe, scrollable region
     // Focus will go inside the container if it is focusable and has visible focuable children
-    if(isContainer(this) && isFocusable(this) && findVisiblesInFocusables(focusableAreas(this))){
+    if((isContainer(this) || this.nodeName === "BODY") && findVisiblesInFocusables(focusableAreas(this))){
       bestCandidate = spatNavSearchInside(this, dir);
     }
     // Otherwise, find the best candidate from the current focused element
     else {
       candidates = findCandidatesFromContainer(container, dir);
-
-      console.log("candidate length: "+candidates.length);
-      console.log(candidates);
 
       // Let bestCandidate be the result of selecting the best candidate within candidates in direction starting from eventTarget
       for (let i = 0; i < candidates.length; i++) {
@@ -229,12 +237,6 @@ function focusNavigationHeuristics() {
       }
     }
 
-    if (minDistanceElement && isContainer(minDistanceElement)) {
-      recursiveDelegation = spatNavSearchInside(minDistanceElement, dir);
-      if (recursiveDelegation)
-        return recursiveDelegation;
-    }
-
     return minDistanceElement;
   }
 
@@ -252,9 +254,6 @@ function focusNavigationHeuristics() {
     console.log("spatnav outside");
 
     candidates = findCandidatesFromContainer(parentContainer, dir);
-
-    console.log("candidate length: "+candidates.length);
-    console.log(candidates);
 
     // Let bestCandidate be the result of selecting the best candidate within candidates in direction starting from eventTarget
     for (let i = 0; i < candidates.length; i++) {
@@ -346,8 +345,12 @@ function focusNavigationHeuristics() {
   function focusableAreas(container) {
     let focusables = [];
     let children = [];
+
     if (container.childElementCount > 0) {
-      // Find focusable areas among HTMLElement
+      if (!container.parentElement)
+        container = document.body;
+
+      // Find focusable areas among container
       children = container.children;
 
       for (let i = 0; i < children.length; i++) {
@@ -466,7 +469,7 @@ function focusNavigationHeuristics() {
         (arguments.length == 2 && typeof arguments[0] === "object" && arguments[1] == null)) {
       let element = arguments[0];
 
-      if (element.nodeName === "HTML") return true;
+      if (element.nodeName === "HTML" || element.nodeName === "BODY") return true;
       else if (isScrollContainer(element) && isOverflow(element)) return true;
       else return false;
     }
@@ -589,11 +592,14 @@ function focusNavigationHeuristics() {
   /*
    * isFocusable :
    * Whether this element is focusable.
-   * check1. Indicates the value of tabIndex is ">= 0"
-   * check2. Indicates whether the element is disabled or not.
-   * check3. Indicates whether the element is scrollable container or not. (regardless of scrollable axis)
+   * check1. Whether the element is the browsing context (document, iframe)
+   * check2. The value of tabIndex is ">= 0"
+   * check3. Whether the element is disabled or not.
+   * check4. Whether the element is scrollable container or not. (regardless of scrollable axis)
    */
   function isFocusable(element) {
+    if (!element.parentElement) return true;    // document
+    if (element.nodeName === "IFRAME") return true;  // iframe
     if (element.tabIndex >= 0 && !element.disabled) return true;
     if (isScrollable(element) && isOverflow(element)) return true;
     return false;
