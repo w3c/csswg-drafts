@@ -18,15 +18,7 @@ function focusNavigationHeuristics() {
    * load EventListener :
    *  Get starting point element
    */
-  let startingPoint = document.activeElement;
-  if (startingPoint){
-    //If eventTarget is the Document or the document element, set eventTarget be the body element if it is not null
-    if(!startingPoint.parentElement) {
-      startingPoint = document.body;
-    }
-
-    focusingController(startingPoint, null, null);
-  }
+  focusingController(findStartingPoint(), null, null);
 
   /*
    * keydown EventListener :
@@ -211,8 +203,8 @@ function focusNavigationHeuristics() {
 
   /*
    * Find SpatNav inside Element :
-   * Find the closest element from the current focused element,
-   * among these element's children
+   * Find the closest element from the current focused element, among these element's children
+   * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate (Step 5)
    */
   function spatNavSearchInside(element, dir) {
     let eventTarget = document.activeElement;
@@ -228,7 +220,6 @@ function focusNavigationHeuristics() {
     candidates = findVisiblesInFocusables(focusableAreas(element));
 
     for (let i = 0; i < candidates.length; i++) {
-      //let tempMinDistance = getDistance(eventTargetRect, candidates[i].getBoundingClientRect(), dir);
       let tempMinDistance = getInnerDistance(eventTargetRect, candidates[i].getBoundingClientRect(), dir);
 
       if (tempMinDistance < minDistance) {
@@ -371,26 +362,17 @@ function focusNavigationHeuristics() {
 
   /*
    * Find starting point :
-   * Choose the most left-top element (min distance element) from (x0, y0) = (0,0)
-   * distance = |element.left - x0| + |element.top - y0|
+   * reference: https://wicg.github.io/spatial-navigation/#spatial-navigation-steps
    */
   function findStartingPoint() {
-    let focusableElements = focusableAreas(document.activeElement);
-    let minDistance = Number.POSITIVE_INFINITY;
-    let bestCandidate;
-    let x0 = 0;
-    let y0 = 0;
-
-    for (let i = 0; i < focusableElements.length; i++) {
-      let x1 = focusableElements[i].getBoundingClientRect().left;
-      let y1 = focusableElements[i].getBoundingClientRect().top;
-      let distance = Math.abs(x1 - x0) + Math.abs(y1 - y0);
-      if (distance < minDistance) {
-        minDistance = distance;
-        bestCandidate = focusableElements[i];
+    let startingPoint = document.activeElement;
+    if (startingPoint){
+      //If eventTarget is the Document or the document element, set eventTarget be the body element if it is not null
+      if(!startingPoint.parentElement) {
+        startingPoint = document.body;
       }
     }
-    return bestCandidate;
+    return startingPoint;
   }
 
   /*------------------------------------------------------------------------*/
@@ -847,7 +829,7 @@ function focusNavigationHeuristics() {
    * Get entry point and exit point of rect1 and rect2 for the direction
    * Default value dir = 'down' for findStartingPoint() function
    */
-  function getEntryAndExitPoints(dir = 'down', rect1, rect2) {
+  function getEntryAndExitPoints(dir, rect1, rect2) {
     let points = {entryPoint:[0,0], exitPoint:[0,0]};
 
     // Set direction
