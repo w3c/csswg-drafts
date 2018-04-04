@@ -151,9 +151,11 @@ function focusNavigationHeuristics() {
           bestCandidate = spatNavSearchOutside(eventTarget, dir);
         }
 
-        // 3. Nothing
-        // Otherwise, do nothing at all.
+        //If there is a best candidate, move the focus.
+        // 3.Otherwise, do nothing at all.
         if (bestCandidate) {
+          console.log("Focus will stay");
+
           if(e && isScrollable(container))
             e.preventDefault();
 
@@ -533,6 +535,7 @@ function focusNavigationHeuristics() {
     }
   }
 
+  //FIXME: This function doesn't work properly for an iframe element
   function isViewportOverflow(element, dir) {
     let rect = element.getBoundingClientRect();
     switch (dir) {
