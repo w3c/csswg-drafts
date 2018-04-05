@@ -30,8 +30,6 @@
   }
 
   /**
-   * Add the `focus-visible` class to the given element if it was not added by
-   * the author.
    * @param {Element} el
    */
   function addSpatNavContain(el) {
@@ -43,8 +41,6 @@
   }
 
   /**
-   * Remove the `focus-visible` class from the given element if it was not
-   * originally added by the author.
    * @param {Element} el
    */
   function removeSpatNavContain(el) {
