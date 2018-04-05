@@ -12,7 +12,9 @@ function focusNavigationHeuristics() {
 
   let FocusableAreaSearchMode = ["visible", "all"];
   let editableInputTypes = ["text", "password", "datetime", "search", "tel", "url"];
-  let spatNavContainerList = []; // It will be loaded in DOMContentLoaded event
+
+  // Load SpatNav API lib
+  let spatNavContainer_create = SpatnavAPI();
 
   /*
    * load EventListener :
@@ -352,10 +354,9 @@ function focusNavigationHeuristics() {
           focusables.push(thisElement);
         }
         else {
-          if(focusableAreas(thisElement)){
-            let recursiveFocusables = focusableAreas(thisElement);
+          let recursiveFocusables = focusableAreas(thisElement);
+          if (recursiveFocusables)
             Array.prototype.push.apply(focusables, recursiveFocusables);
-          }
         }
       }
     }
@@ -430,8 +431,9 @@ function focusNavigationHeuristics() {
 
     if (isScrollContainer(element))  return true;  // scrollable container
 
+    if (spatNavContainer_create.isCSSSpatNavContain(element)) return true; // specified 'spatial-navigation-contain: create'
+
     return false;
-      //if (includes(spatNavContainerList, element)) return true; // specified 'spatnav-container' CSS property
   }
 
   /* Whether this element is container or not
@@ -650,6 +652,7 @@ function focusNavigationHeuristics() {
   }
 
   /* Check whether this element is on top of the others (hitting test) */
+  // FIXME: Has Bugs - Sometimes incorrect result
   function hitTest(element) {
     let offsetX = parseInt(window.getComputedStyle(element, null).getPropertyValue('width'))/10;
     let offsetY = parseInt(window.getComputedStyle(element, null).getPropertyValue('height'))/10;
