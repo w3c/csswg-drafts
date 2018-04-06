@@ -75,10 +75,9 @@ function focusNavigationHeuristics() {
 
     // When bestCandidate is found
     if (bestCandidate) {
-      // Scrolling container or document when the next focusing element isn't completely visible
-      if (!isCompletelyVisibleForDirection(bestCandidate, dir)) {
-        console.log("isCompletelyVisibleForDirection");
-        scrollElementIntoViewport(bestCandidate, dir);
+      // Scrolling container or document when the next focusing element isn't entirely visible
+      if (!isEntirelyVisible(bestCandidate)) {
+        bestCandidate.scrollIntoView();
       }
 
       // When bestCandidate is a focusable element and not a container : move focus
@@ -103,7 +102,7 @@ function focusNavigationHeuristics() {
       /*
        * [event] navbeforescroll : Fired before spatial navigation triggers scrolling.
        */
-      // 1-1. If there is any Scrollable area among parent elements => scroll the element
+      // 1-1. If there is any scrollable area among parent elements and it can be manually scrolled, scroll the document
       let parentContainer = eventTarget;
       while (parentContainer.parentElement) {
         if (isScrollable(parentContainer, dir) && !isScrollBoundary(parentContainer, dir)) {
@@ -117,8 +116,8 @@ function focusNavigationHeuristics() {
         parentContainer = parentContainer.parentElement;
       }
 
-      // 1-2. There is no scrollable parents, and isViewportOverflow HTML -> scroll the document
-      if (isViewportOverflow(container, dir)) {
+      // 1-2. If the spatnav container is document and it can be scrolled, scroll the document
+      if (!container.parentElement && !isHTMLScrollBoundary(container, dir)) {
         e.preventDefault();
 
         console.log("event : nav before scroll - HTML");
@@ -156,12 +155,13 @@ function focusNavigationHeuristics() {
         //If there is a best candidate, move the focus.
         // 3.Otherwise, do nothing at all.
         if (bestCandidate) {
-          console.log("Focus will stay");
-
           if(e && isScrollable(container))
             e.preventDefault();
 
           bestCandidate.focus();
+        }
+        else {
+          console.log("Focus will stay");
         }
       }
     }
@@ -232,6 +232,11 @@ function focusNavigationHeuristics() {
       }
     }
 
+    // FIXME: Test this considering cross origin
+    //if (minDistanceElement.nodeName === "IFRAME") {
+    //  minDistanceElement = (minDistanceElement.contentWindow || minDistanceElement.contentDocument);
+    //}
+
     return minDistanceElement;
   }
 
@@ -257,6 +262,17 @@ function focusNavigationHeuristics() {
         minDistance = tempDistance;
         bestCandidate = candidates[i];
       }
+    }
+
+    // If there isn't any candidate outside of the container,
+    //  If the container is browsing context, focus will move to the container
+    // Otherwise, focus will stay as it is.
+    if (!bestCandidate && !isScrollContainer(container) && !spatNavContainer_create.isCSSSpatNavContain(container))
+      bestCandidate = document;
+
+    if ( window.location !== window.parent.location ) {
+      // The page is in an iframe
+      bestCandidate = window.parent;
     }
 
     return bestCandidate;
@@ -384,7 +400,9 @@ function focusNavigationHeuristics() {
 
   /*
    * Move Element Scroll :
-   * Move the scroll of this element for the arrow directrion +-40
+   * Move the scroll of this element for the arrow directrion
+   * (Assume that User Agent defined distance is '40px')
+   * Reference: https://wicg.github.io/spatial-navigation/#directionally-scroll-an-element
    */
   function moveScroll(element, dir, offset = 0) {
     if (element) {
@@ -394,32 +412,6 @@ function focusNavigationHeuristics() {
         case 'up': element.scrollTop -= (40 + offset); break;
         case 'down': element.scrollTop += (40 + offset); break;
       }
-    }
-  }
-
-  /*
-   * Scroll Element Into Viewport :
-   * Move the viewport scroll so that this element is inside the viewport or container
-   */
-  function scrollElementIntoViewport(element, dir) {
-    let container = getSpatnavContainer(element);
-    let rect = element.getBoundingClientRect();
-    let containerRect = container.getBoundingClientRect();
-
-    if(isViewportOverflow(container, dir)) container = document.documentElement;
-    // isViewportOverflow or HTML container
-    if (!container.parentElement) {
-      containerRect.x = 0;
-      containerRect.y = 0;
-      containerRect.width = window.innerWidth;
-      containerRect.height = window.innerHeight;
-    }
-
-    switch (dir) {
-      case 'left' : moveScroll(container, dir, Math.abs(rect.right - containerRect.width/2)); break;
-      case 'right' : moveScroll(container, dir, Math.abs(rect.left - containerRect.width/2)); break;
-      case 'up' : moveScroll(container, dir, Math.abs(rect.bottom - containerRect.height/2)); break;
-      case 'down' : moveScroll(container, dir, Math.abs(rect.top - containerRect.height/2)); break;
     }
   }
 
@@ -537,21 +529,24 @@ function focusNavigationHeuristics() {
     }
   }
 
-  //FIXME: This function doesn't work properly for an iframe element
-  function isViewportOverflow(element, dir) {
-    let rect = element.getBoundingClientRect();
+  function isHTMLScrollBoundary(element, dir) {
+    let scrollBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+    let scrollRight = element.scrollWidth - element.scrollLeft - element.clientWidth;
+    let scrollTop = window.scrollY;
+    let scrollLeft = window.scrollX;
+
     switch (dir) {
       case 'left':
-        if (rect.left < 0) return true;
+        if (scrollLeft == 0) return true;
         break;
       case 'right':
-        if (rect.right > window.innerWidth) return true;
+        if (scrollRight == 0) return true;
         break;
       case 'up':
-        if (rect.top < 0) return true;
+        if (scrollTop == 0) return true;
         break;
       case 'down':
-        if (rect.bottom > window.innerHeight) return true;
+        if (scrollBottom == 0) return true;
         break;
     }
     return false;
@@ -607,36 +602,30 @@ function focusNavigationHeuristics() {
     if (!visible) return false;
 
     // check2. hit test
-    // invisible by overflow(scroll, hidden...) or z-index or DOM order
     visible = hitTest(element);
 
     return visible;
   }
 
   /*
-   * isCompletelyVisibleForDirection :
+   * isEntirelyVisible :
    * Check whether this element is completely visible in this viewport for the arrow direction.
+   * //FIXME: Weird... checking HTML
    */
-  function isCompletelyVisibleForDirection(element, dir) {
+  function isEntirelyVisible(element) {
     let container = getSpatnavContainer(element);
     let rect = element.getBoundingClientRect();
     let containerRect = container.getBoundingClientRect();
 
-    // HTML container or container is viewport overflow
-    if (!container.parentElement || isViewportOverflow(container, dir)) {
-      containerRect.x = 0;
-      containerRect.y = 0;
-      containerRect.width = window.innerWidth;
-      containerRect.height = window.innerHeight;
-    }
+    //FIXME: when element is bigger than container?
 
-    switch (dir) {
-      case 'left': return rect.left >= containerRect.left;
-      case 'right': return rect.right <= containerRect.right;
-      case 'up': return rect.top >= containerRect.top;
-      case 'down': return rect.bottom <= containerRect.bottom;
-    }
+    if (rect.left < containerRect.left) return false;
+    if (rect.right > containerRect.right) return false;
+    if (rect.top < containerRect.top) return false;
+    if (rect.bottom > containerRect.botto) return false;
 
+    console.log("entirely in the view");
+    return true;
   }
 
   /* Check the style property of this element whether it's visible or not  */
@@ -651,8 +640,10 @@ function focusNavigationHeuristics() {
       return true;
   }
 
-  /* Check whether this element is on top of the others (hitting test) */
-  // FIXME: Has Bugs - Sometimes incorrect result
+  /*
+   * hitTest :
+   * Check whether this element is entirely or partially visible within the viewport.
+   */
   function hitTest(element) {
     let offsetX = parseInt(window.getComputedStyle(element, null).getPropertyValue('width'))/10;
     let offsetY = parseInt(window.getComputedStyle(element, null).getPropertyValue('height'))/10;
@@ -671,7 +662,12 @@ function focusNavigationHeuristics() {
     let rightTopElem = document.elementFromPoint(maxX - offsetX, minY + offsetY);
     let rightBottomElem = document.elementFromPoint(maxX - offsetX, maxY - offsetY);
 
-    return (element === middleElem) || (element === leftTopElem) || (element === leftBottomElem) || (element === rightTopElem) || (element === rightBottomElem);
+    if (element === middleElem || element.contains(middleElem)) return true;
+    if (element === leftTopElem || element.contains(leftTopElem)) return true;
+    if (element === leftBottomElem || element.contains(leftBottomElem)) return true;
+    if (element === rightTopElem || element.contains(rightTopElem)) return true;
+    if (element === rightBottomElem || element.contains(rightBottomElem)) return true;
+    return false;
   }
 
   /*------------------------------------------------------------------------*/
