@@ -1,4 +1,4 @@
-#### 2018.4.4 updated
+#### 2018.4.6. updated
 #### Reference: https://wicg.github.io/spatial-navigation/
 
 # Spatial Navigation (Polyfill version 1)
@@ -70,5 +70,4 @@
 
 # To Do
 ## Future Implementation
-  - <code>spatial-navigation-contain</code> CSS property
   - NavigationEvent (<code>navbeforefocus</code>, <code>navbeforescroll</code>, <code>navnotarget</code>)
