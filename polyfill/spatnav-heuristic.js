@@ -217,7 +217,6 @@ function focusNavigationHeuristics() {
     let minDistanceElement = undefined;
     let minDistance = Number.POSITIVE_INFINITY;
     let candidates = [];
-    let recursiveDelegation;
 
     console.log("spatnav inside");
 
@@ -267,12 +266,21 @@ function focusNavigationHeuristics() {
     // If there isn't any candidate outside of the container,
     //  If the container is browsing context, focus will move to the container
     // Otherwise, focus will stay as it is.
-    if (!bestCandidate && !isScrollContainer(container) && !spatNavContainer_create.isCSSSpatNavContain(container))
+    if (!bestCandidate && !isScrollContainer(container) && !spatNavContainer_create.isCSSSpatNavContain(container)) {
       bestCandidate = document;
 
-    if ( window.location !== window.parent.location ) {
-      // The page is in an iframe
-      bestCandidate = window.parent;
+      if ( window.location !== window.parent.location ) {
+        // The page is in an iframe
+        bestCandidate = window.parent;
+      }
+    }
+
+    // If there isn't any candidate outside of the container and container is css spatnav container,
+    // search outside of the container again
+    if (!bestCandidate && spatNavContainer_create.isCSSSpatNavContain(container)) {
+      let recursivespatNavSearchOutside = spatNavSearchOutside(container, dir);
+      if (recursivespatNavSearchOutside)
+        bestCandidate = recursivespatNavSearchOutside;
     }
 
     return bestCandidate;
