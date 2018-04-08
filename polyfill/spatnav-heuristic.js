@@ -11,7 +11,6 @@ function focusNavigationHeuristics() {
   // condition: focus delegation model = false
 
   let FocusableAreaSearchMode = ["visible", "all"];
-  let editableInputTypes = ["text", "password", "datetime", "search", "tel", "url"];
 
   // Load SpatNav API lib
   let spatNavContainer_create = SpatnavAPI();
@@ -32,7 +31,7 @@ function focusNavigationHeuristics() {
     let bestCandidate;
 
     // Edge case (text input, area) : Don't move focus, just navigate cursor in text area
-    if ((eventTarget.nodeName === "INPUT" && includes(editableInputTypes, eventTarget.type)) || eventTarget.nodeName === "TEXTAREA")
+    if ((eventTarget.nodeName === "INPUT") || eventTarget.nodeName === "TEXTAREA")
       focusNavigableArrowKey = handlingEditableElement(e);
 
     // Default case : spatial navigation
@@ -184,8 +183,10 @@ function focusNavigationHeuristics() {
 
     // If the eventTarget is a focusable container, pressing the arrow key works for go inside if it has visible focusable
     // container: document, iframe, scrollable region
-    // Focus will go inside the container if it is focusable and has visible focuable children
-    if((isContainer(this) || this.nodeName === "BODY") && findVisiblesInFocusables(focusableAreas(this))){
+    // Focus will go inside the container
+    //   if it is focusable and has visible focuable children
+    //   exclusion of Input Element
+    if((isContainer(this) || this.nodeName === "BODY") && !(this.nodeName === "INPUT")){
       bestCandidate = spatNavSearchInside(this, dir);
     }
     // Otherwise, find the best candidate from the current focused element
@@ -222,12 +223,14 @@ function focusNavigationHeuristics() {
 
     candidates = findVisiblesInFocusables(focusableAreas(element));
 
-    for (let i = 0; i < candidates.length; i++) {
-      let tempMinDistance = getInnerDistance(eventTargetRect, candidates[i].getBoundingClientRect(), dir);
+    if(candidates) {
+      for (let i = 0; i < candidates.length; i++) {
+        let tempMinDistance = getInnerDistance(eventTargetRect, candidates[i].getBoundingClientRect(), dir);
 
-      if (tempMinDistance < minDistance) {
-        minDistance = tempMinDistance;
-        minDistanceElement = candidates[i];
+        if (tempMinDistance < minDistance) {
+          minDistance = tempMinDistance;
+          minDistanceElement = candidates[i];
+        }
       }
     }
 
@@ -267,7 +270,7 @@ function focusNavigationHeuristics() {
     //  If the container is browsing context, focus will move to the container
     // Otherwise, focus will stay as it is.
     if (!bestCandidate && !isScrollContainer(container) && !spatNavContainer_create.isCSSSpatNavContain(container)) {
-      bestCandidate = document;
+      bestCandidate = window;
 
       if ( window.location !== window.parent.location ) {
         // The page is in an iframe
@@ -927,24 +930,62 @@ function focusNavigationHeuristics() {
     return intersection_rect;
   }
 
-/*------------------------------------------------------------------------*/
-////////////////// edge-case-handling functions or etc. ////////////////////
-/*------------------------------------------------------------------------*/
-
-  // to do
+  /*
+   * Handle the input elements
+   * reference- input element types:
+   * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input
+   */
   function handlingEditableElement(e) {
     let eventTarget = document.activeElement;
     let startPosition = eventTarget.selectionStart;
     let endPosition = eventTarget.selectionEnd;
     let focusNavigableArrowKey = {"left": false, "up": false, "right": false, "down": false};
+    let spinnableInputTypes = ["email", "date", "month", "number", "time", "week"];
+    let textInputTypes = ["password", "text", "search", "tel", "url"];
 
-    if (startPosition === 0) {
-      focusNavigableArrowKey.left = true;
-      focusNavigableArrowKey.up = true;
+    console.log("handlingEditableElement");
+
+    if (includes(spinnableInputTypes, eventTarget.getAttribute("type"))) {
+      switch (e.keyCode) {
+        case 37:      // left keycode
+          focusNavigableArrowKey.left = false;
+          break;
+        case 38:      // up keycode
+          focusNavigableArrowKey.up = true;
+          break;
+        case 39:      // right keycode
+          focusNavigableArrowKey.right = false;
+          break;
+        case 40:      // down keycode
+          focusNavigableArrowKey.down = true;
+          break;
+      }
     }
-    if (endPosition === eventTarget.value.length) {
-      focusNavigableArrowKey.right = true;
-      focusNavigableArrowKey.down = true;
+    else if (includes(textInputTypes, eventTarget.getAttribute("type"))) {
+      if (startPosition === 0) {
+        focusNavigableArrowKey.left = true;
+        focusNavigableArrowKey.up = true;
+      }
+      if (endPosition === eventTarget.value.length) {
+        focusNavigableArrowKey.right = true;
+        focusNavigableArrowKey.down = true;
+      }
+    }
+    else {
+      switch (e.keyCode) {
+        case 37:      // left keycode
+          focusNavigableArrowKey.left = true;
+          break;
+        case 38:      // up keycode
+          focusNavigableArrowKey.up = true;
+          break;
+        case 39:      // right keycode
+          focusNavigableArrowKey.right = true;
+          break;
+        case 40:      // down keycode
+          focusNavigableArrowKey.down = true;
+          break;
+      }
     }
 
     return focusNavigableArrowKey;
