@@ -176,7 +176,6 @@ function focusNavigationHeuristics() {
   window.Element.prototype.spatNavSearch = function (dir) {
     // Let container be the nearest ancestor of eventTarget that is a spatnav container.
     let container = getSpatnavContainer(this);
-    let minDistance = Number.POSITIVE_INFINITY;
     let candidates, bestCandidate;
 
     console.log("spatnavsearch");
@@ -194,13 +193,7 @@ function focusNavigationHeuristics() {
       candidates = findCandidatesFromContainer(container, dir);
 
       // Let bestCandidate be the result of selecting the best candidate within candidates in direction starting from eventTarget
-      for (let i = 0; i < candidates.length; i++) {
-        let tempDistance = getDistance(this.getBoundingClientRect(), candidates[i].getBoundingClientRect(), dir);
-        if (tempDistance < minDistance) {
-          minDistance = tempDistance;
-          bestCandidate = candidates[i];
-        }
-      }
+      bestCandidate = selectBestCandidate(this, candidates, dir);
     }
 
     return bestCandidate;
@@ -216,7 +209,6 @@ function focusNavigationHeuristics() {
     let eventTargetRect = eventTarget.getBoundingClientRect();
     let allChildren = element.children;
     let minDistanceElement = undefined;
-    let minDistance = Number.POSITIVE_INFINITY;
     let candidates = [];
 
     console.log("spatnav inside");
@@ -250,7 +242,6 @@ function focusNavigationHeuristics() {
   function spatNavSearchOutside(element, dir) {
     let container = getSpatnavContainer(element);
     let parentContainer = getSpatnavContainer(container);
-    let minDistance = Number.POSITIVE_INFINITY;
     let candidates, bestCandidate;
 
     console.log("spatnav outside");
@@ -258,13 +249,7 @@ function focusNavigationHeuristics() {
     candidates = findCandidatesFromContainer(parentContainer, dir);
 
     // Let bestCandidate be the result of selecting the best candidate within candidates in direction starting from eventTarget
-    for (let i = 0; i < candidates.length; i++) {
-      let tempDistance = getDistance(element.getBoundingClientRect(), candidates[i].getBoundingClientRect(), dir);
-      if (tempDistance < minDistance) {
-        minDistance = tempDistance;
-        bestCandidate = candidates[i];
-      }
-    }
+    bestCandidate = selectBestCandidate(element, candidates, dir);
 
     // If there isn't any candidate outside of the container,
     //  If the container is browsing context, focus will move to the container
@@ -286,6 +271,27 @@ function focusNavigationHeuristics() {
         bestCandidate = recursivespatNavSearchOutside;
     }
 
+    return bestCandidate;
+  }
+
+  /*
+   * Find the best candidate among candidates
+   * - If there are element having same distance, then select the one depend on DOM tree order.
+   * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate
+   */
+
+  function selectBestCandidate(currentElm, candidates, dir) {
+    let bestCandidate;
+    let elementsSameDistance = [];
+    let minDistance = Number.POSITIVE_INFINITY;
+
+    for (let i = 0; i < candidates.length; i++) {
+      let tempDistance = getDistance(currentElm.getBoundingClientRect(), candidates[i].getBoundingClientRect(), dir);
+      if (tempDistance < minDistance) {
+        minDistance = tempDistance;
+        bestCandidate = candidates[i];
+      }
+    }
     return bestCandidate;
   }
 
