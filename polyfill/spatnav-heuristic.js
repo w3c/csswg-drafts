@@ -13,7 +13,7 @@ function focusNavigationHeuristics() {
   let FocusableAreaSearchMode = ["visible", "all"];
 
   // Load SpatNav API lib
-  let spatNavContainer_create = SpatnavAPI();
+  let SpatNavAPI = SpatnavAPI();
 
   /*
    * load EventListener :
@@ -83,7 +83,7 @@ function focusNavigationHeuristics() {
       /*
        * [event] navbeforefocus : Fired before spatial or sequential navigation changes the focus.
        */
-      console.log("event : nav before focus");
+      SpatNavAPI.createNavEvents('beforefocus', bestCandidate, dir);
 
       //if activeElement is in the scrollable container and the bestCandidate is element,
       // preventDefault to the activeElement
@@ -107,7 +107,7 @@ function focusNavigationHeuristics() {
         if (isScrollable(parentContainer, dir) && !isScrollBoundary(parentContainer, dir)) {
           e.preventDefault();
 
-          console.log("event : nav before scroll - parent elements");
+          SpatNavAPI.createNavEvents('beforescroll', parentContainer, dir);
           moveScroll(parentContainer, dir);
           return;
         }
@@ -119,7 +119,7 @@ function focusNavigationHeuristics() {
       if (!container.parentElement && !isHTMLScrollBoundary(container, dir)) {
         e.preventDefault();
 
-        console.log("event : nav before scroll - HTML");
+        SpatNavAPI.createNavEvents('beforescroll', container, dir);
         moveScroll(document.documentElement, dir);
       }
 
@@ -129,7 +129,7 @@ function focusNavigationHeuristics() {
        * before going up the tree to search in the nearest ancestor spatnav container.
        */
       else {
-        console.log("event : nav no target");
+        SpatNavAPI.createNavEvents('notarget', container, dir);
         let focusableAndVisibleElements = findVisiblesInFocusables(focusableAreas(eventTarget));
 
         // 2. Moving the focus inside or outside
@@ -209,6 +209,7 @@ function focusNavigationHeuristics() {
     let eventTargetRect = eventTarget.getBoundingClientRect();
     let allChildren = element.children;
     let minDistanceElement = undefined;
+    let minDistance = Number.POSITIVE_INFINITY;
     let candidates = [];
 
     console.log("spatnav inside");
@@ -254,7 +255,7 @@ function focusNavigationHeuristics() {
     // If there isn't any candidate outside of the container,
     //  If the container is browsing context, focus will move to the container
     // Otherwise, focus will stay as it is.
-    if (!bestCandidate && !isScrollContainer(container) && !spatNavContainer_create.isCSSSpatNavContain(container)) {
+    if (!bestCandidate && !isScrollContainer(container) && !SpatNavAPI.isCSSSpatNavContain(container)) {
       bestCandidate = window;
 
       if ( window.location !== window.parent.location ) {
@@ -265,7 +266,7 @@ function focusNavigationHeuristics() {
 
     // If there isn't any candidate outside of the container and container is css spatnav container,
     // search outside of the container again
-    if (!bestCandidate && spatNavContainer_create.isCSSSpatNavContain(container)) {
+    if (!bestCandidate && SpatNavAPI.isCSSSpatNavContain(container)) {
       let recursivespatNavSearchOutside = spatNavSearchOutside(container, dir);
       if (recursivespatNavSearchOutside)
         bestCandidate = recursivespatNavSearchOutside;
@@ -440,7 +441,7 @@ function focusNavigationHeuristics() {
 
     if (isScrollContainer(element))  return true;  // scrollable container
 
-    if (spatNavContainer_create.isCSSSpatNavContain(element)) return true; // specified 'spatial-navigation-contain: create'
+    if (SpatNavAPI.isCSSSpatNavContain(element)) return true; // specified 'spatial-navigation-contain: create'
 
     return false;
   }
