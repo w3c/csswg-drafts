@@ -3,11 +3,10 @@
 # Arnaud Le Hors - lehors@w3.org
 # $Id: htmlcat,v 1.4 2006-10-09 18:55:52 ihickson Exp $
 
-use strict;
-use warnings;
+use lib 'bin';
+use utils;
 
-
-my $PROGNAME = substr($0, rindex($0, "/") + 1);
+$PROGNAME = substr($0, rindex($0, "/") + 1);
 
 if (!$ARGV[0]) {
     print "Usage: $PROGNAME output file1 file2 ...\n";
@@ -17,30 +16,9 @@ if (!$ARGV[0]) {
 open(OUTPUT, "> $ARGV[0]");
 shift;
 
-
-# Fix up links & anchors
-sub fixup($$)
-{
-  my ($name, $s) = @_;
-
-  # Make local links unique
-  $s =~ s/(\bhref\s*=\s*[\"\']?)#([^\"\'> ]+)([\"\']?)/$1$name.$2$3/ig;
-  $s =~ s/(\b(?:id|name)\s*=\s*[\"\']?)([^\"\'> ]+)([\"\']?)/$1$name.$2$3/ig;
-
-  # Give the first H1 an ID equal to its source file name
-  $s =~ s/<H1>/<H1 id=\"$name\">/i;
-
-  # Try to make links to other chapters into links to the file itself
-  $s =~ s/(\bhref\s*=\s*[\"\'])([^#\/:\"\']+)([\"\'])/$1\#$2$3/ig;
-  $s =~ s/(\bhref\s*=\s*[\"\']?)([^\/:\"\'> ]+)#([^\"\'> ]+)([\"\']?)/$1\#$2.$3$4/ig;
-
-  return $s;
-}
-
-
 # copy file in memory
 sub readfile {
-    my $buf = "";
+    $buf = "";
     if (!open(INPUT, $_[0])) {
 	print STDERR "$PROGNAME Error: Cannot open file: $_[0]\n";
 	return;
@@ -49,35 +27,62 @@ sub readfile {
 	$buf .= $_;
     }
     close(INPUT);
-    return $buf;
 }
 
-# 1st file: take everything up to the body end tag or the end otherwise
-$_ = readfile($ARGV[0]);
+# Convert a file name to the first anchor in that file (#q7.0)
+sub guess_anchor {
+  my ($file, $fragment) = @_;
+  my $chapno = $lookup{$file};
+  if (!defined $chapno) {return $file . $fragment;} # Not a chapter
+  elsif (defined $fragment) {return $fragment;}	    # Fragment of a chapter
+  else {return "#q" . $chapno . ".0";} # Guess anchor of first H1 in that file
+}
+
+# Read config file
+read_config('Project.cfg');
+
+# 1st file:
+readfile($ARGV[0]);
+$_ = $buf;
+# Remove navbar
+s/<div\b[^>]*\bclass=["']?navbar\b[^>]*>.*?<\/div>//sigo;
+s/<hr\b[^>]*\bclass=["']?navbar\b[^>]*>//sigo;
+# Fix local links: "foo.html" -> "#q7.0" and "foo.html#bar" -> "#bar"
+s/(href=")([a-z0-9]+\.html)(#[a-z0-9.-]+)?"/$1.guess_anchor($2, $3).'"'/gie;
+# take everything up to the body end tag or the end otherwise
 if (/<\/body>/sio) {
-    print OUTPUT fixup($ARGV[0], $`);
+    print OUTPUT $`;
 } else {
-    print OUTPUT fixup($ARGV[0], $_);
+    print OUTPUT $buf;
 }
 
 shift;
 
 # then for each other given html file only take the body content
-foreach my $file (@ARGV) {
-    $_ = readfile($file);
+foreach $file (@ARGV) {
+    readfile($file);
+    $_ = $buf;
+    # Remove navbar
+    s/<div\b[^>]*\bclass=["']?navbar\b[^>]*>.*?<\/div>//sigo;
+    s/<hr\b[^>]*\bclass=["']?navbar\b[^>]*>//sigo;
+    # Fix local links: "foo.html#bar" -> "#bar"
+    s/(href=")([a-z0-9]+\.html)(#[a-z0-9.-]+)?"/$1.guess_anchor($2, $3).'"'/gie;
+    # Remove warning
+    s/<!-- warning -->.*?<!-- \/warning -->//gs;
     # look for the beginning of the body content
     if (/<body>(.*)/sio) {
-	$_ = $1;
+	$buf = $1;
     } elsif (/<\/head>/sio) {
-	$_ = $';
+	$buf = $';
     }
     # look for the end of the body content
+    $_ = $buf;
     if (/<\/body>/sio) {
-	print OUTPUT fixup($file, $`);
+	print OUTPUT $`;
     } elsif (/<\/html>/sio) {
-	print OUTPUT fixup($file, $`);
+	print OUTPUT $`;
     } else {
-	print OUTPUT fixup($file, $_);
+	print OUTPUT $buf;
     }
 }
 # close body
