@@ -4,20 +4,20 @@
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
-#THE_YEAR = YYYY
-THE_YEAR = 2011
-#THE_MONTH = MM
-THE_MONTH = 06
-#THE_MONTHNAME = MMMMM
-THE_MONTHNAME = June
-#THE_DAY = DD
-THE_DAY = 07
-#THE_STATUS = ED
-THE_STATUS = REC
-THE_STATUSNAME = Recommendation
-#THE_STATUSNAME = Editors Draft
-THE_STYLE = REC
-#THE_STYLE = ED
+#THE_YEAR = 2011
+THE_YEAR = $(shell date +%Y)
+#THE_MONTH = 06
+THE_MONTH = $(shell date +%m)
+#THE_MONTHNAME = June
+THE_MONTHNAME = $(shell LANG=en_US date +%B)
+#THE_DAY = 07
+THE_DAY = $(shell date +%d)
+#THE_STATUS = REC
+THE_STATUS = ED
+#THE_STATUSNAME = Recommendation
+THE_STATUSNAME = Editors Draft
+#THE_STYLE = REC
+THE_STYLE = ED
 
 PERMANENT_NAME = CSS2
 
@@ -40,6 +40,8 @@ THE_WARNING = <div>							\
    revision\&nbsp;2 (CSS\&nbsp;2.2).</a>				\
   </div>								\
  </div>
+
+THE_WARNING =
 
 THE_DATE = $(THE_DAY) $(THE_MONTHNAME) $(THE_YEAR)
 THE_ID = $(THE_STYLE)-$(PERMANENT_NAME)-$(THE_YEAR)$(THE_MONTH)$(THE_DAY)
