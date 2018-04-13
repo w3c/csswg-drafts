@@ -65,6 +65,8 @@ INSTALLDIR = $(TR_DIR)/$(THE_LOC)
 THIS_VERSION = http://www.w3.org/TR/$(THE_LOC)
 THE_LATEST_VERSION = http://www.w3.org/TR/$(PERMANENT_NAME)
 
+export LC_ALL=en_US.ISO8859-1
+
 ROOT = .
 
 # the following files are part of the CSS specification
