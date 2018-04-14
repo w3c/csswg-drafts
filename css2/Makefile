@@ -185,8 +185,6 @@ HIPP= $(PERL) ./bin/hipp
 HMKDEPEND= $(PERL) ./bin/hmkdep
 # make value anchor database
 MKANCHDB= $(PERL) ./bin/mkanchdb
-# make property anchor database
-MKPANCHDB= $(PERL) ./bin/mkpanchdb
 # add heading anchors
 ADDHANCH= $(PERL) ./bin/addhanch
 # add index anchors and generate related index database
@@ -201,22 +199,12 @@ MKPROPIDX= $(PERL) ./bin/mkpropidx
 MKTOC= $(PERL) ./bin/mktoc
 # HTML concate utility
 HTMLCAT= $(PERL) ./bin/htmlcat
-# trim utility to get rid of navbar sections
-HTMLTRIM= $(PERL) ./bin/htmltrim
-# make sub table of contents
-MKSUBTOC=$(PERL) ./bin/mksubtoc
 # insert subtoc
 INSAFTER= $(PERL) ./bin/insafter
 # add link
 ADDLINKS= $(PERL) ./bin/addlinks
 # extract properties from db.
 PEXTR= $(PERL) ./bin/pextr
-# extract issues from issues db.
-ISSUES= bin/issues
-# extract issues from errata-issues db.
-ERRATA= bin/errata
-# extract issues from todo db.
-TODO= bin/todo
 # check validity of sample style sheet
 CHKSAMPLE= $(PERL) ./bin/chksample
 # make database of references (reference.src)
@@ -231,14 +219,10 @@ CHKSPACES= $(PERL) ./bin/chkspaces
 CHKCSS= ./bin/chkcss
 # check XML examples
 CHKXML= ./bin/chkxml
-# add reference normative/informative class info.
-ADDREFCLASS= $(PERL) ./bin/addrefclass
 # Add prev/next/toc/stylesheet and other links to document
 MKCHAIN = $(PERL) ./bin/mkchain
 # Expand [[cite]] to link to bibliography
 ADDCITE = $(PERL) ./bin/addcite
-# Remove extensions (.gif, .png,...) from IMG links
-RMIMGEXT = $(PERL) ./bin/rmimgext
 # Add special markup (e.g., keyword "Example")
 ADDMARKUP = $(PERL) ./bin/addmarkup
 # Add longdesc descriptions to images
@@ -333,7 +317,6 @@ LN= ln
 
 all: build/blocks.ok $(SPECOBJS) images/pngs.ok \
 	$(IMAGES)
-#	$(IMAGES) issues.html errata-issues.html DOC/TODO.html
 
 build/warning:
 	echo "<!-- warning -->" >$@
@@ -354,9 +337,6 @@ install: all css2.tgz css2.txt css2.zip css2.ps.gz css2.pdf $(INSTALLDIR)/.htacc
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
 	$(CP) css2.txt css2.zip css2.ps.gz css2.pdf css2.tgz $(INSTALLDIR)
 	zcat css2.tgz | (cd $(INSTALLDIR); $(TAR) xvf -)
-#	-$(RM) -f $(CSSGROUPDIR)/issues.html
-#	-$(RM) $(CSSGROUPDIR)/css2-issues.html
-#	$(LN) -s $(INSTALLDIR)/issues.html $(CSSGROUPDIR)/css2-issues.html
 	-$(RM) $(INSTALLDIR)/Overview.html
 	(cd $(INSTALLDIR); $(LN) -s cover.html Overview.html)
 
@@ -391,15 +371,6 @@ images/pngs.ok: images/*.idraw images/*.fig
 	-@for f in images/*.fig; do make images/`basename $$f .fig`.png; done
 	touch images/pngs.ok
 
-translations.html : translations.src
-	$(SED) -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
-	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" $< > $@
-
-errata.html : errata.src
-	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
-	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
-	       -e "s|_THE_ID_|$(THE_ID)|g" \
-	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" $< > $@
 
 #### Special section to build PS file and single plain text file
 
@@ -535,31 +506,6 @@ propidx.srd:: build/propidx.srb #propidx.src
 #	@echo "=========== making" $@
 #	$(HIPP) $(INCLUDES) $< $@
 
-# Issues and todo lists.
-#issues.html: issues.src build/issues.srb
-#	@echo "=========== making" $@
-#	$(HIPP) $(INCLUDES) $< $@
-
-#build/issues.srb: issues.db
-#	@echo "=========== making" $@
-#	$(ISSUES) -g >$@
-
-# Errata-Issues
-#errata-issues.html: errata-issues.src build/errata-issues.srb
-#	@echo "=========== making" $@
-#	$(HIPP) $(INCLUDES) $< $@
-
-#build/errata-issues.srb: errata-issues.db
-#	@echo "=========== making" $@
-#	$(ERRATA) -g >$@
-
-#DOC/TODO.html: DOC/TODO.src build/todo.srb
-#	@echo "=========== making" $@
-#	$(HIPP) $(INCLUDES) $< $@
-
-#build/todo.srb: DOC/todo.db
-#	@echo "=========== making" $@
-#	$(TODO) -g >$@
 
 ### check on the document to see if it's valid
 
