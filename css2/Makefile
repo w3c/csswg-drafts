@@ -111,40 +111,11 @@ indexlist.src
 
 MAINSRCS = $(SRCS1)
 
-REFS= \
-refs.html
+REFS= $(REFSRCS:.src=.html)
 
 SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
 
-SPECOBJS= \
-cover.html\
-about.html\
-intro.html\
-conform.html\
-syndata.html\
-selector.html\
-cascade.html\
-media.html\
-box.html\
-visuren.html\
-visudet.html\
-visufx.html\
-generate.html\
-page.html\
-colors.html\
-fonts.html\
-text.html\
-tables.html\
-ui.html\
-aural.html\
-refs.html\
-changes.html\
-sample.html\
-zindex.html\
-propidx.html\
-grammar.html\
-leftblank.html\
-indexlist.html
+SPECOBJS= $(SPECSRCS:.src=.html) $(REFS) $(INDEXSRCS:.src=.html)
 
 #IMAGES = images/*.gif images/*.png
 IMAGES = images/*.png images/*.jpg
