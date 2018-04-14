@@ -322,7 +322,7 @@ install: all css2.tgz css2.txt css2.zip css2.ps.gz css2.pdf $(INSTALLDIR)/.htacc
 	fi
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
 	$(CP) css2.txt css2.zip css2.ps.gz css2.pdf css2.tgz $(INSTALLDIR)
-	zcat css2.tgz | (cd $(INSTALLDIR); $(TAR) xvf -)
+	cat css2.tgz | (cd $(INSTALLDIR); $(TAR) xvf -)
 	-$(RM) $(INSTALLDIR)/Overview.html
 	(cd $(INSTALLDIR); $(LN) -s cover.html Overview.html)
 
