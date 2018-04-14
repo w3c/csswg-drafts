@@ -117,8 +117,20 @@ SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
 
 SPECOBJS= $(SPECSRCS:.src=.html) $(REFS) $(INDEXSRCS:.src=.html)
 
-#IMAGES = images/*.gif images/*.png
-IMAGES = images/*.png images/*.jpg
+IMAGESSRC = \
+$(wildcard images/*.eps) \
+$(wildcard images/*.fig) \
+$(wildcard images/*.gif) \
+$(wildcard images/*.idraw) \
+$(wildcard images/*.svg) \
+$(wildcard images/*.ps)
+
+IMAGESBUILT = $(addsuffix .png, $(basename $(IMAGESSRC)))
+
+IMAGES = \
+$(wildcard images/*.png) \
+$(IMAGESBUILT)
+
 LONGDESCS = images/longdesc/*.html
 STYLESHEETS= style/*.css
 
@@ -273,6 +285,8 @@ LN= ln
 %.png: %.eps; convert -density 96x96 $< $@
 %.png: %.ps; convert -density 96x96 $< $@
 %.png: %.idraw; convert -density 96x96 $< $@
+%.png: %.svg; convert -density 96x96 $< $@
+%.png: %.gif; convert -density 96x96 $< $@
 %.eps: %.fig; fig2dev -L eps -F -c $< $@
 
 #.idraw.gif:
@@ -288,8 +302,7 @@ LN= ln
 #	$(RM) $@
 #	fig2dev -L eps $< | $(PSTOPNM) | $(PNMTOPNG_PIPE) >$@
 
-all: build/blocks.ok $(SPECOBJS) images/pngs.ok \
-	$(IMAGES)
+all: build/blocks.ok $(SPECOBJS) $(IMAGES)
 
 build/warning:
 	echo "<!-- warning -->" >$@
@@ -336,13 +349,6 @@ install-pdf: install css2.pdf
 # install all (except for "make link")
 install-all: install install-ps install-pdf css2.zip css2.txt
 	$(CP) css2.zip css2.txt $(INSTALLDIR)
-
-images/pngs.ok: images/*.idraw images/*.fig
-	-@for f in images/*.idraw; do make images/`basename $$f .idraw`.gif; done
-	-@for f in images/*.idraw; do make images/`basename $$f .idraw`.png; done
-	-@for f in images/*.fig; do make images/`basename $$f .fig`.gif; done
-	-@for f in images/*.fig; do make images/`basename $$f .fig`.png; done
-	touch images/pngs.ok
 
 
 #### Special section to build PS file and single plain text file
@@ -577,7 +583,7 @@ log:
 clean:
 	$(RM) $(SPECOBJS) $(PROPBLKSDIR)/* \
 	$(SPECOBJS:.html=.srd) $(SPECOBJS:.html=.subtoc) \
-        build/* css2.* linklint images/links.ok images/pngs.ok
+        build/* css2.* linklint images/links.ok
 
 realclean: clean
 
