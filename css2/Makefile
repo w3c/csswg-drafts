@@ -98,9 +98,9 @@ MAINSRCS = $(SRCS1)
 
 REFS= $(REFSRCS:.src=.html)
 
-SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
+SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS) $(INDEXSRCS) $(REFS)
 
-SPECOBJS= $(SPECSRCS:.src=.html) $(REFS) $(INDEXSRCS:.src=.html)
+SPECOBJS= $(SPECSRCS:.src=.html)
 
 IMAGESSRC = \
 $(wildcard images/*.eps) \
