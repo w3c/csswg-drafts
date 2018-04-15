@@ -47,23 +47,16 @@ THE_WARNING = <div>							\
   </div>								\
  </div>
 
-# WEBROOT = /afs/w3.org/WWW
-WEBROOT = $(HOME)/WWW
-
-CSSGROUPDIR = $(WEBROOT)/Style/Group
-UPDATES = /Style/css2-updates
-
-THE_UPDATE_DIR = http://www.w3.org$(UPDATES)
-UPDATESDIR= $(WEBROOT)$(UPDATES)
-TR_DIR = $(WEBROOT)/TR
 THE_DATE = $(THE_DAY) $(THE_MONTHNAME) $(THE_YEAR)
 THE_ID = $(THE_STYLE)-$(PERMANENT_NAME)-$(THE_YEAR)$(THE_MONTH)$(THE_DAY)
 PREV_DATE = $(PREV_YEAR)$(PREV_MONTH)$(PREV_DAY)
 THE_PREVIOUS_VERSION = http://www.w3.org/TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PREV_NAME)-$(PREV_DATE)
 THE_LOC = $(THE_YEAR)/$(THE_ID)
-INSTALLDIR = $(TR_DIR)/$(THE_LOC)
 THIS_VERSION = http://www.w3.org/TR/$(THE_LOC)
 THE_LATEST_VERSION = http://www.w3.org/TR/$(PERMANENT_NAME)
+THE_UPDATE_DIR = http://www.w3.org/Style/css2-updates
+
+INSTALLDIR = dist/
 
 export LC_ALL=en_US.ISO8859-1
 
@@ -326,10 +319,6 @@ install: all css2.tgz css2.txt css2.zip css2.ps.gz css2.pdf .htaccess
 	-$(RM) $(INSTALLDIR)/Overview.html
 	(cd $(INSTALLDIR); $(LN) -s cover.html Overview.html)
 
-link: install
-	-$(RM) -f $(TR_DIR)/$(PERMANENT_NAME)
-	(cd $(TR_DIR); $(LN) -s $(THE_LOC) $(PERMANENT_NAME))
-
 install-ps: install css2.ps.gz
 	$(CP) css2.ps.gz $(INSTALLDIR)
 
@@ -571,20 +560,8 @@ realclean: clean
 depend:
 	$(HMKDEPEND) $(SPECOBJS) 
 
-# Rules to make diff files relative to previous REC and WD.
-# htmldiff returns >0 if there are differences, so we ignore the exit code.
-
-PREVREC = ../../../WWW/TR/2011/REC-CSS2-20110607
-PREVWD = ../../../WWW/TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PREV_NAME)-$(PREV_DATE)
-HTMLDIFF = htmldiff -i -w '<del>' -x '</del>' -y '<ins>' -z '</ins>'
-
-diffs: $(SPECOBJS)
-	-(cd diffs-rec;\
-	 make PREV=../$(PREVREC) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS))
-	-(cd diffs-wd;\
-	 make PREV=../$(PREVWD) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS))
 
 
-.PHONY: all install install-all clean realclean checkx diffs
+.PHONY: all install install-all clean realclean checkx
 
 ##### The following is automatically generated. Do not edit!! ####
