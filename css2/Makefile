@@ -19,12 +19,6 @@ THE_STATUSNAME = Recommendation
 THE_STYLE = REC
 #THE_STYLE = ED
 
-PREV_YEAR = 2011
-PREV_MONTH = 04
-PREV_DAY = 12
-PREV_STATUS = PR
-PREV_NAME = CSS2
-
 PERMANENT_NAME = CSS2
 
 # A very visible warning after the first H1 on every page (or at the
@@ -49,8 +43,6 @@ THE_WARNING = <div>							\
 
 THE_DATE = $(THE_DAY) $(THE_MONTHNAME) $(THE_YEAR)
 THE_ID = $(THE_STYLE)-$(PERMANENT_NAME)-$(THE_YEAR)$(THE_MONTH)$(THE_DAY)
-PREV_DATE = $(PREV_YEAR)$(PREV_MONTH)$(PREV_DAY)
-THE_PREVIOUS_VERSION = http://www.w3.org/TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PREV_NAME)-$(PREV_DATE)
 THE_LOC = $(THE_YEAR)/$(THE_ID)
 THIS_VERSION = http://www.w3.org/TR/$(THE_LOC)
 THE_LATEST_VERSION = http://www.w3.org/TR/$(PERMANENT_NAME)
@@ -257,7 +249,6 @@ LN= ln
 	$(INSAFTER) - $*.subtoc /H1 - |\
 	$(MKCHAIN) -r $@ - |\
 	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
-	       -e "s|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g" \
 	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
 	       -e "s|_THE_STATUS_|$(THE_STATUS)|g" \
 	       -e "s|_THE_STATUSNAME_|$(THE_STATUSNAME)|g" \
@@ -407,7 +398,6 @@ cover.html: cover.srd Project.cfg
 	$(ADDNAVBAR) -r $@ $< |\
 	$(MKCHAIN) -r $@ - |\
 	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
-	       -e "s|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g" \
 	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
 	       -e "s|_THE_STATUS_|$(THE_STATUS)|g" \
 	       -e "s|_THE_STATUSNAME_|$(THE_STATUSNAME)|g" \
@@ -445,7 +435,6 @@ indexlist.html: indexlist.srd build/indexlist.srb Project.cfg build/warning
 	$(INSAFTER) - build/warning /H1 - |\
 	$(MKCHAIN) -r $@ - |\
 	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
-	       -e "s|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g" \
 	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
 	       -e "s|_THE_STATUS_|$(THE_STATUS)|g" \
 	       -e "s|_THE_STATUSNAME_|$(THE_STATUSNAME)|g" \
