@@ -50,7 +50,7 @@ THE_UPDATE_DIR = http://www.w3.org/Style/css2-updates
 
 INSTALLDIR = dist/
 
-export LC_ALL=en_US.ISO8859-1
+export LC_ALL=en_US.UTF-8
 
 ROOT = .
 
