@@ -313,7 +313,7 @@ build/warning:
 #	-@(cd images; for i in *.gif; do $(LN) -s $$i "`basename $$i .gif`" 2>//dev/null; done)
 #	touch images/links.ok
 
-install: all css2.tgz css2.txt css2.zip css2.ps.gz css2.pdf $(INSTALLDIR)/.htaccess
+install: all css2.tgz css2.txt css2.zip css2.ps.gz css2.pdf .htaccess
 	@if [ -z "$(INSTALLDIR)" ]; then\
 	  echo >&2;\
 	  echo "*** No target directory specified" >&2;\
@@ -321,20 +321,10 @@ install: all css2.tgz css2.txt css2.zip css2.ps.gz css2.pdf $(INSTALLDIR)/.htacc
 	  exit 1;\
 	fi
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
-	$(CP) css2.txt css2.zip css2.ps.gz css2.pdf css2.tgz $(INSTALLDIR)
+	$(CP) css2.txt css2.zip css2.ps.gz css2.pdf css2.tgz .htaccess $(INSTALLDIR)
 	cat css2.tgz | (cd $(INSTALLDIR); $(TAR) xvf -)
 	-$(RM) $(INSTALLDIR)/Overview.html
 	(cd $(INSTALLDIR); $(LN) -s cover.html Overview.html)
-
-$(INSTALLDIR)/.htaccess:
-	mkdir -p $(INSTALLDIR)
-	echo "DirectoryIndex cover.html" >$@
-	echo "<Files ~ \"\.html\">" >>$@
-	echo "ForceType 'text/html; charset=iso-8859-1'" >>$@
-	echo "</Files>" >>$@
-	echo "<Files ~ \"\.txt\">" >>$@
-	echo "ForceType 'text/plain; charset=iso-8859-1'" >>$@
-	echo "</Files>" >>$@
 
 link: install
 	-$(RM) -f $(TR_DIR)/$(PERMANENT_NAME)
