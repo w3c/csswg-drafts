@@ -105,12 +105,7 @@ SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS) $(INDEXSRCS) $(REFS)
 SPECOBJS= $(SPECSRCS:.src=.html)
 
 IMAGESSRC = \
-$(wildcard images/*.eps) \
-$(wildcard images/*.fig) \
-$(wildcard images/*.gif) \
-$(wildcard images/*.idraw) \
-$(wildcard images/*.svg) \
-$(wildcard images/*.ps)
+$(wildcard images/*.svg)
 
 IMAGESBUILT = $(addsuffix .png, $(basename $(IMAGESSRC)))
 
@@ -268,12 +263,10 @@ LN= ln
 	$(MKANCHDB) -r $*.html value-def- $(VALUEDB) $@
 	$(MKANCHDB) -r $*.html propdef- $(VALUEDB) $@
 
-%.png: %.eps; convert -density 96x96 $< $@
-%.png: %.ps; convert -density 96x96 $< $@
-%.png: %.idraw; convert -density 96x96 $< $@
-%.png: %.svg; convert -density 96x96 $< $@
-%.png: %.gif; convert -density 96x96 $< $@
-%.eps: %.fig; fig2dev -L eps -F -c $< $@
+%.big.png: %.svg; convert -density 96x96 $< $@
+
+%.png: %.big.png
+	zopflipng -m -y $< $@ || cp $< $@
 
 #.idraw.gif:
 #	$(RM) $@
