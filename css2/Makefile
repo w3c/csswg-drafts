@@ -561,15 +561,6 @@ checkx: build/checkx.out
 	@$(DIFF) checkx.out build/checkx.out >build/checkx.diff \
 		|| echo output differs, see build/checkx.diff for details.
 
-# get cvs logs
-
-FROMDATE=1 week ago
-log:
-	@for i in `cat DOC/FILES` ; \
-	do cvs log -d ">$(FROMDATE)" $$i >/tmp/log; \
-	   $(GREP) "selected revisions: 0" /tmp/log >/dev/null || cat /tmp/log; \
-	done; rm /tmp/log
-
 clean:
 	$(RM) $(SPECOBJS) $(PROPBLKSDIR)/* \
 	$(SPECOBJS:.html=.srd) $(SPECOBJS:.html=.subtoc) \
