@@ -12,23 +12,6 @@
 
   'use strict';
 
-  function matchesDeclaration(rule, media, supports) {
-    if (!keywords.declarations) return
-    var declaration
-      , i = 0
-    while (declaration = rule.declarations[i++]) {
-      if (matchesKeywordPattern(declaration, keywords.declarations)) {
-        addRule({
-          media: media,
-          supports: supports,
-          selectors: rule.selectors,
-          declarations: rule.declarations
-        })
-        return true
-      }
-    }
-  }
-
   /**
    * @param {Element} el
    */
@@ -72,7 +55,7 @@
     if (!(this instanceof SpatnavAPI)) return new SpatnavAPI(options)
 
     // set the options
-    this._options = options
+    this._options = options;
 
     // allow the keywords option to be the only object passed
     //if (!options.keywords) this._options = { keywords: options }
@@ -83,30 +66,38 @@
     else return false;
   }
 
-  SpatnavAPI.prototype.filterCSSByKeywords = function() {
-    this._defer(
-      function() {
-        return this._stylesheets
-          && this._stylesheets.length
-          && this._stylesheets[0].rules
-      },
-      function() {
-        var stylesheet
-          , rules = []
-          , i = 0
-        while (stylesheet = this._stylesheets[i++]) {
-          rules = rules.concat(stylesheet.rules)
-        }
-        this._filteredRules = StyleManager.filter(rules, this._options.keywords)
-      }
-    )
-  }
+  /**
+  * Support the NavigatoinEvent: navbeforefocus, navbeforescroll, navnotarget
+  *
+  * Reference: https://wicg.github.io/spatial-navigation/#events-navigationevent
+  **/
 
-  /* TODO: parsing CSS
-  SpatnavAPI.modules = {
-    StyleManager: StyleManager
+  SpatnavAPI.prototype.createNavEvents = function(option, element, direction) {
+    let data_ = {
+      relatedTarget: element,
+      dir: direction
+    };
+
+    switch (option) {
+      case 'beforefocus':
+        let navbeforefocus_event = document.createEvent("CustomEvent");
+        navbeforefocus_event.initCustomEvent("navbeforefocus", true, true, data_);
+        element.dispatchEvent(navbeforefocus_event);
+        break;
+
+      case 'beforescroll':
+        let navbeforescroll_event = document.createEvent("CustomEvent");
+        navbeforescroll_event.initCustomEvent("navbeforescroll", true, true, data_);
+        element.dispatchEvent(navbeforescroll_event);
+        break;
+
+      case 'notarget':
+        let navnotarget_event = document.createEvent("CustomEvent");
+        navnotarget_event.initCustomEvent("navnotarget", true, true, data_);
+        element.dispatchEvent(navnotarget_event);
+        break;
+    }
   }
-  */
 
   SpatnavAPI.constructors = {
     Rule: Rule

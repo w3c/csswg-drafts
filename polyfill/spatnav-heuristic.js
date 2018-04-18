@@ -13,7 +13,7 @@ function focusNavigationHeuristics() {
   let FocusableAreaSearchMode = ["visible", "all"];
 
   // Load SpatNav API lib
-  let spatNavContainer_create = SpatnavAPI();
+  let SpatNavAPI = SpatnavAPI();
 
   /*
    * load EventListener :
@@ -83,7 +83,7 @@ function focusNavigationHeuristics() {
       /*
        * [event] navbeforefocus : Fired before spatial or sequential navigation changes the focus.
        */
-      console.log("event : nav before focus");
+      SpatNavAPI.createNavEvents('beforefocus', bestCandidate, dir);
 
       //if activeElement is in the scrollable container and the bestCandidate is element,
       // preventDefault to the activeElement
@@ -107,7 +107,7 @@ function focusNavigationHeuristics() {
         if (isScrollable(parentContainer, dir) && !isScrollBoundary(parentContainer, dir)) {
           e.preventDefault();
 
-          console.log("event : nav before scroll - parent elements");
+          SpatNavAPI.createNavEvents('beforescroll', parentContainer, dir);
           moveScroll(parentContainer, dir);
           return;
         }
@@ -119,7 +119,7 @@ function focusNavigationHeuristics() {
       if (!container.parentElement && !isHTMLScrollBoundary(container, dir)) {
         e.preventDefault();
 
-        console.log("event : nav before scroll - HTML");
+        SpatNavAPI.createNavEvents('beforescroll', container, dir);
         moveScroll(document.documentElement, dir);
       }
 
@@ -129,7 +129,7 @@ function focusNavigationHeuristics() {
        * before going up the tree to search in the nearest ancestor spatnav container.
        */
       else {
-        console.log("event : nav no target");
+        SpatNavAPI.createNavEvents('notarget', container, dir);
         let focusableAndVisibleElements = findVisiblesInFocusables(focusableAreas(eventTarget));
 
         // 2. Moving the focus inside or outside
@@ -176,7 +176,6 @@ function focusNavigationHeuristics() {
   window.Element.prototype.spatNavSearch = function (dir) {
     // Let container be the nearest ancestor of eventTarget that is a spatnav container.
     let container = getSpatnavContainer(this);
-    let minDistance = Number.POSITIVE_INFINITY;
     let candidates, bestCandidate;
 
     console.log("spatnavsearch");
@@ -194,13 +193,7 @@ function focusNavigationHeuristics() {
       candidates = findCandidatesFromContainer(container, dir);
 
       // Let bestCandidate be the result of selecting the best candidate within candidates in direction starting from eventTarget
-      for (let i = 0; i < candidates.length; i++) {
-        let tempDistance = getDistance(this.getBoundingClientRect(), candidates[i].getBoundingClientRect(), dir);
-        if (tempDistance < minDistance) {
-          minDistance = tempDistance;
-          bestCandidate = candidates[i];
-        }
-      }
+      bestCandidate = selectBestCandidate(this, candidates, dir);
     }
 
     return bestCandidate;
@@ -250,7 +243,6 @@ function focusNavigationHeuristics() {
   function spatNavSearchOutside(element, dir) {
     let container = getSpatnavContainer(element);
     let parentContainer = getSpatnavContainer(container);
-    let minDistance = Number.POSITIVE_INFINITY;
     let candidates, bestCandidate;
 
     console.log("spatnav outside");
@@ -258,18 +250,12 @@ function focusNavigationHeuristics() {
     candidates = findCandidatesFromContainer(parentContainer, dir);
 
     // Let bestCandidate be the result of selecting the best candidate within candidates in direction starting from eventTarget
-    for (let i = 0; i < candidates.length; i++) {
-      let tempDistance = getDistance(element.getBoundingClientRect(), candidates[i].getBoundingClientRect(), dir);
-      if (tempDistance < minDistance) {
-        minDistance = tempDistance;
-        bestCandidate = candidates[i];
-      }
-    }
+    bestCandidate = selectBestCandidate(element, candidates, dir);
 
     // If there isn't any candidate outside of the container,
     //  If the container is browsing context, focus will move to the container
     // Otherwise, focus will stay as it is.
-    if (!bestCandidate && !isScrollContainer(container) && !spatNavContainer_create.isCSSSpatNavContain(container)) {
+    if (!bestCandidate && !isScrollContainer(container) && !SpatNavAPI.isCSSSpatNavContain(container)) {
       bestCandidate = window;
 
       if ( window.location !== window.parent.location ) {
@@ -280,12 +266,33 @@ function focusNavigationHeuristics() {
 
     // If there isn't any candidate outside of the container and container is css spatnav container,
     // search outside of the container again
-    if (!bestCandidate && spatNavContainer_create.isCSSSpatNavContain(container)) {
+    if (!bestCandidate && SpatNavAPI.isCSSSpatNavContain(container)) {
       let recursivespatNavSearchOutside = spatNavSearchOutside(container, dir);
       if (recursivespatNavSearchOutside)
         bestCandidate = recursivespatNavSearchOutside;
     }
 
+    return bestCandidate;
+  }
+
+  /*
+   * Find the best candidate among candidates
+   * - If there are element having same distance, then select the one depend on DOM tree order.
+   * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate
+   */
+
+  function selectBestCandidate(currentElm, candidates, dir) {
+    let bestCandidate;
+    let elementsSameDistance = [];
+    let minDistance = Number.POSITIVE_INFINITY;
+
+    for (let i = 0; i < candidates.length; i++) {
+      let tempDistance = getDistance(currentElm.getBoundingClientRect(), candidates[i].getBoundingClientRect(), dir);
+      if (tempDistance < minDistance) {
+        minDistance = tempDistance;
+        bestCandidate = candidates[i];
+      }
+    }
     return bestCandidate;
   }
 
@@ -434,7 +441,7 @@ function focusNavigationHeuristics() {
 
     if (isScrollContainer(element))  return true;  // scrollable container
 
-    if (spatNavContainer_create.isCSSSpatNavContain(element)) return true; // specified 'spatial-navigation-contain: create'
+    if (SpatNavAPI.isCSSSpatNavContain(element)) return true; // specified 'spatial-navigation-contain: create'
 
     return false;
   }
