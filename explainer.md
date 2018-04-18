@@ -278,5 +278,9 @@ However, we still included this property, because:
 3. It seems like a fairly basic need
 
 ## Demo
-- [Calendar App using the proposed spatial navigation features](https://wicg.github.io/spatial-navigation/demo/)
-- [Test cases for the heuristic spatial navigation](https://wicg.github.io/spatial-navigation/demo/heuristic/heuristic_testcases)
+- [Calendar App using the proposed spatial navigation features](https://wicg.github.io/spatial-navigation/demo/calendar/)
+- [Blog using the spatial navigation polyfill](https://wicg.github.io/spatial-navigation/demo/blog/)
+
+## Sample
+- [Spatial Navigation in Blink (--enable-spatial-navigation)](https://wicg.github.io/spatial-navigation/blink_impl/heuristic_default_move.html)
+- [Spatial Navigation Polyfill](https://wicg.github.io/spatial-navigation/sample/)
