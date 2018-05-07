@@ -7,7 +7,7 @@ Status: ED
 Work Status: exploring
 URL: http://drafts.csswg.org/css-shadow-parts/
 Editor: Tab Atkins-Bittner, Google, http://xanthir.com/contact/, w3cid 42199
-Abstract: This specification defines the ''::part()'' and ''::theme()'' pseudo-elements on <a>shadow hosts</a>, allowing <a>shadow hosts</a> to selectively expose chosen elements from their <a>shadow tree</a> to the outside page for styling purposes.
+Abstract: This specification defines the ''::part()'' and ''::theme()'' pseudo-elements on shadow hosts, allowing shadow hosts to selectively expose chosen elements from their shadow tree to the outside page for styling purposes.
 </pre>
 
 <pre class=link-defaults>
@@ -24,10 +24,7 @@ Introduction {#intro}
 =====================
 
 Issue: This spec is intentionally a rough sketch at the moment.
-It should contain all the details necessary to evaluate the proposal,
-but is intentionally avoiding precise algorithms at the moment,
-to aid in easy comprehension
-and to, hopefully, discourage implementation from this sketch.
+It should contain all the details necessary to evaluate the proposal.
 
 Shadow DOM allows authors to separate their page into "components",
 subtrees of markup whose details are only relevant to the component itself,
@@ -119,57 +116,139 @@ it also helps with encapsulation,
 as authors can use ''::part()'' without fear of accidental over-styling.
 
 
-Exposing a Shadow Element: the <{html-global/part}> attribute {#part-attr}
+Exposing a Shadow Element: {#exposing}
 =============================================================
+Elements in a <a>shadow tree</a> may be exposed for style by stylesheets outside the tree
+using the part and partmap attributes.
+
+Each element has a <dfn export for="element">part name list</dfn>
+which is an [=ordered sets=] of tokens.
+
+Each element has a <dfn export for="element">part name map</dfn>
+which is an <a>ordered map</a>,
+with keys that are tokens
+and values that are [=ordered sets=] of tokens.
+
+Each <a>shadow root</a> has a <dfn export for="shadow root">shadow part element map</dfn>
+with keys that are [=strings=]
+and values that are [=ordered sets=] of elements.
+
+The shadow part element map is described
+only as part of the algorithm for calculating style in this spec.
+It is not exposed via the DOM,
+as calculating it may be expensive
+and doing so could allow access to elements inside closed shadow roots.
+
+Shadow part element maps are affected by the addition and removal of elements
+and changes to the part name lists and part name maps of elements in the DOM.
+
+To calculate the shadow part element map of a shadow root
+
+<ol>
+	<li>For each element within this "outer" shadow root
+	  <ol>
+		  <li>For each name in the element's part name list,
+        add this element to outer-shadow-root-part-map[name]
+      <li>If the element is a shadow host:
+        <ol>
+          <li>Calculate the shadow part element map of its shadow root ("inner" shadow root).
+          <li>For each key ("outer name") in the outershadow root part name map
+            and for each token ("inner name") in that key's ordered set of tokens
+            look up inner-shadow-root-part-map[inner name] to get a (possibly empty) set of elements
+            and add these elements to outer-shadow-poot-part-map[outer name].
+        </ol>
+		</ol>
+</ol>
+
+
+Issue: Include wild-card forwarding in algortihm.
+
+Issue: There is no need for the shadow part element map values to be ordered, can we drop that?
+
+Naming a Shadow Element: the <{html-global/part}> attribute {#part-attr}
+------------------------------------------------------------------------
 
 Any element in a shadow tree can have a <dfn element-attr for=html-global>part</dfn> attribute.
-This is used to expose the element outside the <a>shadow tree</a>,
-and to "forward" sub-parts of the element
-(if it has its own <a>shadow tree</a>)
-to outside the <a>shadow tree</a>.
+This is used to expose the element outside of the <a>shadow tree</a>.
 
-The part attribute is parsed as a comma-separated list of part mappings.
+The part attribute is parsed as a space-separated list of tokens representing the part names of this element.
+
+Note: It's okay to give a part multiple names.
+The "part name" should be considered similar to a class,
+not an id or tagname.
+
+<pre class="example">
+&lt;style&gt;
+  c-e<b>::part(textspan)</b> { color: red; }
+&lt;/style&gt;
+
+&lt;template id="c-e-template"&gt;
+  &lt;span <b>part="textspan"</b>&gt;This text will be red&lt;/span&gt;
+&lt;/template&gt;
+&lt;c-e&gt;&lt;/c-e&gt;
+&lt;script&gt;
+  // Add template as custom elment c-e
+  ...
+&lt;/script&gt;
+</pre>
+
+Forwarding a Shadow Element: the <{html-global/partmap}> attribute {#partmap-attr}
+----------------------------------------------------------------------------------
+Any element in a shadow tree can have a <dfn element-attr for=html-global>partmap</dfn> attribute.
+If the element is a shadow host,
+this is used to expose parts from inside this host's <a>shadow tree</a> to outside this host's containing <a>shadow tree</a>
+(as if they were elements in the same tree as the host,
+name by a part attribute).
+
+The partmap attribute is parsed as a comma-separated list of part mappings.
 Each part mapping is one of:
 
 <dl class=switch>
-    : <code>ident</code>
-    :: Adds «[ ident → el ]» to the <a>shadow root's</a> <a>shadow part map</a>.
-
     : <code>ident1 => ident2</code>
     :: If el is a <a>shadow host</a>,
         and it's <a>shadow root's</a> <a>shadow part map</a> |partMap| [=map/contains=] ident1,
-        then this adds «[ ident2 → |partMap|[ident1] ]» to the <a>shadow root's</a> <a>shadow part map</a>.
+        then this adds «[ ident2 → |partMap|[ident1] ]» to the <a>shadow part map</a> of the <a>shadow root</a> containing el.
+
+    : <code>ident</code>
+    :: Is equivalent to <code>ident => ident</code>.
 
     : <code>* => prefix*</code>
     :: If el is a <a>shadow host</a>,
         then [=map/for each=] |ident| → |subEl| in el's <a>shadow root's</a> <a>shadow part map</a>,
-        «[ prefix + |ident| → |subEl| ]» is added to the <a>shadow root's</a> <a>shadow part map</a>.
+        «[ prefix + |ident| → |subEl| ]» is added to the <a>shadow part map</a> of the <a>shadow root</a> containing el.
 
     : anything else
     :: Ignored for error-recovery / future compat.
 </dl>
 
-Issue: Factor this out into an algorithm.
-
-Issue: The value in the map is a set of elements, not individual elements; need to properly append.
-
-Issue: Want a way to forward a name with the same name, without repeating the name (currently requires `foo => foo`).
-
 Issue: When doing prefixed-wildcard forwarding, should probably automatically exclude sub-parts that are manually forwarded.  With that, would be good to have a syntax to block forwarding of a sub-part (currently would require `foo => nonsense-name`).
 
-Note: It's okay to give a part multiple names,
-or map a sub-part to several names.
-The "part name" should be considered similar to a class,
-not an id or tagname.
+Note: It's okay to map a sub-part to several names.
 
-Each <a>shadow root</a> has a <dfn export for="shadow root">shadow part map</dfn>
-which is an <a>ordered map</a>,
-with keys that are [=strings=]
-and values that are [=ordered sets=] of elements.
+<pre class="example">
+&lt;style&gt;
+  c-e<b>::part(textspan)</b> { color: red; }
+&lt;/style&gt;
 
-The <a>shadow part map</a> contains all the entries described by the elements in its <a>shadow tree</a>,
-as described above.
+&lt;template id="c-e-outer-template"&gt;
+  &lt;span part="textspan"&gt;
+    This text will be red because the document style matches it directly.
+	&lt;/span&gt;
+  &lt;c-e-inner <b>partmap="innerspan => textspan"</b>&gt;&lt;/c-e-inner&gt;
+&lt;/template&gt;
 
+&lt;template id="c-e-inner-template"&gt;
+  &lt;span <b>part="innerspan"</b>&gt;
+    This text will be red because the containing shadow host exposes &lt;b&gt;innerspan&lt;/b&gt; to the document as "textspan" and the document style matches it.
+  &lt;/span&gt;
+&lt;/template&gt;
+
+&lt;c-e&gt;&lt;/c-e&gt;
+&lt;script&gt;
+  // Add template as custom elments c-e-inner c-e-outer
+    ...
+&lt;/script&gt;
+</pre>
 Exposing More Widely: the <{html-global/theme}> attribute {#theme-attr}
 -----------------------------------------------------------------------
 
@@ -206,7 +285,7 @@ The syntaxes of them are:
 
 The ''::part()'' pseudo-element only matches anything
 when the <a>originating element</a> is a <a>shadow host</a>.
-If the <a>originating element's</a> <a>shadow root's</a> <a>shadow part map</a>
+If the <a>originating element's</a> <a>shadow root's</a> <a>shadow part element map</a>
 [=map/contains=] the specified <<ident>>,
 ''::part()'' matches the element or elements keyed to that <<ident>>.
 Otherwise, it matches nothing.
@@ -257,7 +336,7 @@ but never match additional <a>shadow-part pseudo-elements</a>.
 
     If the <code>&lt;x-panel></code>'s internal confirm button had used something like
     <code>part="confirm-button, * => confirm-*"</code>
-    to forward the button's internal parts up into the panel's own <a>shadow part map</a>,
+    to forward the button's internal parts up into the panel's own <a>shadow part element map</a>,
     then a selector like
     ''x-panel::part(confirm-label)''
     would select just the one button's label,
