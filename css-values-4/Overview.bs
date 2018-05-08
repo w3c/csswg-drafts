@@ -1612,11 +1612,6 @@ Mathematical Expressions: ''calc()'', ''min()'', and ''max()''</h3>
 	or other expressions, such as ''attr()'',
 	that evaluate to a valid argument type (like <<length>>).
 
-	Issue: Per WG resolution, [=math functions=] will be extended to handle arbitrary unit algebra,
-	like ''calc(1px / 1em)'' resolving to a <<number>>.
-	This is already fully specified in [[css-typed-om]];
-	it just needs to be converted over to raw CSS values for this spec.
-
 	<div class="example">
 		<pre>
 		section {
@@ -1686,11 +1681,8 @@ Syntax</h4>
 	<<min()>>  = min( <<calc-sum>># )
 	<<max()>>  = max( <<calc-sum>># )
 	<dfn>&lt;calc-sum></dfn> = <<calc-product>> [ [ '+' | '-' ] <<calc-product>> ]*
-	<dfn>&lt;calc-product></dfn> = <<calc-value>> [ '*' <<calc-value>> | '/' <<calc-number-value>> ]*
+	<dfn>&lt;calc-product></dfn> = <<calc-value>> [ [ '*' | '/' ] <<calc-value>> ]*
 	<dfn>&lt;calc-value></dfn> = <<number>> | <<dimension>> | <<percentage>> | ( <<calc-sum>> )
-	<dfn>&lt;calc-number-sum></dfn> = <<calc-number-product>> [ [ '+' | '-' ] <<calc-number-product>> ]*
-	<dfn>&lt;calc-number-product></dfn> = <<calc-number-value>> [ '*' <<calc-number-value>> | '/' <<calc-number-value>> ]*
-	<dfn>&lt;calc-number-value></dfn> = <<number>> | ( <<calc-number-sum>> )
 	</pre>
 
 	In addition, [=whitespace=]
@@ -1769,46 +1761,71 @@ Type Checking</h4>
 	<<number>>s never become "length-like" in ''calc()''.
 	They always stay as <<number>>s.
 
+<h5 id="type-checking-exprs">
+Type-Checking Expressions</h5>
+
 	Operators form sub-expressions, which gain types based on their arguments.
-	To make expressions simpler,
-	operators have restrictions on the types they accept.
-	At each operator,
-	the types of the left and right argument are checked for these restrictions.
-	If compatible, the type resolves as described below
-	(the following ignores precedence rules on the operators for simplicity):
+	In previous versions of this specification,
+	multiplication and division were limited in what arguments they could take,
+	to avoid producing more complex intermediate results
+	(such as ''1px * 1em'', which is <<length>>²)
+	and to make division-by-zero detectable at parse time.
 
-	<ul>
-		<li>
-			At ''+'' or ''-'',
-			check that both sides have the same type,
-			or that one side is a <<number>> and the other is an <<integer>>.
-			If both sides are the same type,
-			resolve to that type.
-			If one side is a <<number>> and the other is an <<integer>>,
-			resolve to <<number>>.
+	This version now relaxes those restrictions,
+	allowing arbitrary expressions,
+	so long as the expression as a whole resolves to a singular unit
+	according to the following rules:
 
-		<li>
-			At ''*'',
-			check that at least one side is <<number>>.
-			If both sides are <<integer>>,
-			resolve to <<integer>>.
-			Otherwise,
-			resolve to the type of the other side.
+	* At a ''+'' or ''-'' sub-expression,
+		attempt to [=add two types|add the types=] of the left and right arguments.
+		If this returns failure,
+		the entire [=math function=] is invalid.
+		Otherwise, the sub-expression's [=CSSNumericValue/type=] is the returned type.
 
-		<li>
-			At ''/'',
-			check that the right side is <<number>>.
-			If the left side is <<integer>>,
-			resolve to <<number>>.
-			Otherwise,
-			resolve to the type of the left side.
-	</ul>
+	* At a ''*'' or ''/'' sub-expression,
+		attempt to [=multiply two types|multiply the types=] of the left and right arguments.
+		If this returns failure,
+		the entire [=math function=] is invalid.
+		Otherwise, the sub-expression's [=CSSNumericValue/type=] is the returned type.
 
-	If an operator does not pass the above checks, the expression is invalid.
-	Also, division by zero is invalid.  This includes both dividing by the
-	literal number zero, as well as any numeric expression that evaluates to zero
-	(as purely-numeric expressions can be evaluated without any additional
-	information at parse time).
+	* The [=CSSNumericValue/type=] of a literal
+		is the result of [=creating a type=]
+		from the literal's unit,
+		if it's a <<dimension>>,
+		or from "number"
+		if it's a <<number>>.
+		For <<percentage>>s,
+		if they're relative to another type
+		(as defined in the previous section),
+		their type is [=create a type|created=]
+		from the [=canonical unit=] of the type they're resolved to;
+		otherwise it's [=create a type|created=] from "percentage".
+
+	* The [=CSSNumericValue/type=] of a ''calc()'' expression
+		is the [=CSSNumericValue/type=] of its contained expression.
+		The [=CSSNumericValue/type=] of a ''min()'' or ''max()'' expression
+		is the result of [=adding two types|adding the types=]
+		of its comma-separated expressions.
+		If the result is failure,
+		the entire [=math function=] is invalid.
+
+	The [=math function=] resolves to <<length>>, <<angle>>, <<time>>, <<frequency>>, <<resolution>>, <<flex>>, or <<percentage>>
+	according to which of those productions its [=CSSNumericValue/type=] [=CSSNumericValue/matches=].
+	(These categories are mutually exclusive.)
+	If it can't [=CSSNumericValue/match=] any of these,
+	the [=math function=] is invalid.
+
+	As a further breaking change from the previous version of this specification,
+	division by zero is now allowed.
+	Expressions must follow IEEE-754 semantics for recognition and propagation
+	of infinities and NaN values,
+	including tracking the difference between +0 and -0.
+	(However, CSS treats both zeroes as the same,
+	if a [=math function=] resolves to one of them.)
+	Infinities are, by definition, out-of-range for any property,
+	and trigger appropriate clamping at used-value time per [[#calc-range]].
+	If a [=math function=] would resolve to NaN,
+	it instead resolves to positive infinity.
 
 	Note: Algebraic simplifications do not affect the validity of a [=math function=] or its resolved type.
 	For example, ''calc(5px - 5px + 10s)'' and ''calc(0 * 5px + 10s)'' are both invalid
