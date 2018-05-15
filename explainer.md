@@ -1,5 +1,4 @@
 # Proposed Model and APIs for spatial navigation
-
 ## Introduction
 
 Historically, most browsers have not offered features to let users move the focus directionally.
@@ -12,34 +11,74 @@ such as pressing the <code class=key>Shift</code> key together with arrow keys.
 This ability to move around the page directionally is called <strong>spatial navigation</strong>
 (or <strong>spatnav</strong> for short).
 
-Spatial navigation can be useful for a webpage built using a grid-like layout,
-or other predominantly non linear layouts.
-The figure below represents a photo gallery arranged in a grid layout.
-If the user presses the <code class=key>Tab</code> key to move focus,
-they need to press the key many times to reach the desired element.
-Also, the grid layout may arrange the layout of elements independently of their source order.
-Therefore sequential navigation using the <code class=key>Tab</code> key makes focus navigation unpredictable.
-In contrast, <a>spatial navigation</a> moves the focus among focusable elements
-depending on their position
-allowing it to address problems encountered with sequential navigation.
+## What are we going to solve?
 
-<img alt="Illustration of a layout which benefits from spatial navigation" src="images/spatnav-enable.png" style="width: 500px; margin: auto; display: block"/>
+### Supporting spatial navigation on a web page by default
 
-While arrow keys are naturally suited to control spatial navigation,
-pressing them (on devices that have such keys)
-has generally triggered other behavior,
-such as scrolling.
+- **Getting devices whose only or primary means of navigation is the D-pad**
+
+  Devices like TV, ßIVI, game console mainly use the D-pad for navigating focus directionally.
+  In the future, the input mechanism such as voice command, hand gesture, eye gazing can be used for navigation.
+
+- **Making life better for users of desktop browsers who use keyboard to navigate**
+
+   For non sighted users, spatial navigation may not be in high demand. But for users who have the visual impairment which may be corrected with glasses, using keyboard can be much preferable to using mouse.
+
+- **Using the simple and predictable spatial navigation**
+
+  If spatial navigation become default in the browser, it will be easier for authors to implement a web page using this feature without having to write custom navigation code.
+  Also it ensures the predictable result and reasonable performance of spatial navigation rather than using frameworks which are quite heavy and slow and don't consider all the diversity of use cases.
+
+### Allowing authors to override the default spatial navigation behavior
+
+Spatial navigation is intended to identify the most-likely desired element in the direction of the key press. But "most-likely desired" can depend on the situation.
+Our proposal is possible to provide a behavior that performs well in most cases, but it will not be right for all cases. Hence the overriding APIs let authors tune and tweak the default spatial navigation behavior for their intention.
+
+### Motivating Use cases
+#### Moving focus to the desired element quickly
+How are we going to look through all elements quickly on a webpage?
+There are use cases such as:
+- **Using a grid-like layout**
+
+  The figure below represents a photo gallery arranged in a grid layout.
+  If the user presses the <code class=key>Tab</code> key to move focus,
+  they need to press the key many times to reach the desired element.
+  Also, the grid layout may arrange the layout of elements independently of their source order.
+  Therefore sequential navigation using the <code class=key>Tab</code> key makes focus navigation unpredictable.
+  In contrast, <a>spatial navigation</a> moves the focus among focusable elements
+  depending on their position
+  allowing it to address problems encountered with sequential navigation.
+
+- **Having too much focusable elements**
+
+  Sometimes user don't want to navigate all focusable elements on a web page. If the user just want to move focus to <code>&lt;input></code> elements, they need to keep pressing the <code class=key>Tab</code> key until the focus reaches one of those.
+  On the other hand, <a>spatial navigation</a> can move focus to <code>&lt;input></code> elements only using overriding APIs.
+
+
+#### Moving focus just as authors intended
+
+How do we ensure the correct element is focused?
+There are some use cases which need interrupting the default spatial navigation and custom handling if necessary.
+
+- **Navigating to the offscreen element within scrollport directly**
+
+  There may be a desire about moving the focus to a hidden element while the user is using spatial navigation on a scrollable area. The default behavior of pressing the arrow key is scrolling if there isn’t any visible element in the scrollport. When the hidden element comes into the view, then it can gain the focus. But with proposing overriding APIs, the author can interrupt the default behavior and move the focus directly to it without scrolling.
+
+
+## How are we going to solve?
 
 The [specification of spatial navigation](https://wicg.github.io/spatial-navigation/) introduces the processing model for spatial navigation which explains the default spatial navigation behavior.
 Also, it proposes Javascript APIs, Javascript Events, and a CSS property
 to extend how spatial navigation work.
 
-## Processing model of Spatial Navigation
+### Activating Spatial Navigation
 The spec supposes that User Agents decide to activate spatial navigation.
 On devices which do not have any pointing input device,
 and especially on devices such as TVs which also lack a <code>Tab</code> key to control
 <a herf="https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation">sequential focus navigation</a>,
 User Agents should make spatial navigation active.
+
+### Processing model
 
 When spatial navigation is active,
 pressing an arrow key will either
@@ -90,10 +129,8 @@ element of the author's choosing.
 
 The detailed behavior is described in the [Processing Model](https://wicg.github.io/spatial-navigation/#processing-model).
 
-## Overriding the heuristic algorithm
-Developers may want to customize the spatial navigation by overriding the heuristic spatial navigation.
-
-### Approach proposed by the current specification
+### Overriding the heuristic algorithm
+Authors may want to customize the spatial navigation by overriding the heuristic spatial navigation.
 
 Following the principles of [The Extensible Web Manifesto](https://github.com/extensibleweb/manifesto),
 the specification exposes Javascript APIs and Events that enable authors to interact with, and if necessary, override the behavior of spatial navigation.
@@ -198,7 +235,6 @@ However, we still included this property, because:
 ## Demo
 - [Blog using the spatial navigation polyfill](https://wicg.github.io/spatial-navigation/demo/blog/)
 
-## Sample
 - [Samples using the spatial navigation polyfill](https://wicg.github.io/spatial-navigation/sample/)
 
 - [Samples for testing the implementation in Blink](https://wicg.github.io/spatial-navigation/blink_impl/heuristic_default_move.html)
