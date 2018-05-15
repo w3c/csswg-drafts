@@ -29,27 +29,13 @@ While arrow keys are naturally suited to control spatial navigation,
 pressing them (on devices that have such keys)
 has generally triggered other behavior,
 such as scrolling.
-This specification introduces CSS properties and Javascript APIs
-enabling authors to turn on spatial navigation using arrow keys
-and to control its behavior.
 
-Some aspects of this specification, such as the Javascript Events,
-also extends how sequential navigation work,
-in order to make sure that keyboard navigation in general
-has a consistent and well defined model.
+The [specification of spatial navigation](https://wicg.github.io/spatial-navigation/) introduces the processing model for spatial navigation which explains the default spatial navigation behavior.
+Also, it proposes Javascript APIs, Javascript Events, and a CSS property
+to extend how spatial navigation work.
 
-
-## Overview 
-
-Spatial navigation is said to be <strong>active</strong> on an element
-when the user can invoke spatial navigation
-by pressing the arrow keys without modifier keys
-when that element is focused.
-
-Authors can activate spatial navigation
-on a document or part of a document
-using the `spatial navigation` property.
-
+## Processing model of Spatial Navigation
+The spec supposes that User Agents decide to activate spatial navigation.
 On devices which do not have any pointing input device,
 and especially on devices such as TVs which also lack a <code>Tab</code> key to control
 <a herf="https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation">sequential focus navigation</a>,
@@ -66,7 +52,7 @@ in the direction indicated
 within the current spatial navigation focus container
 (by default the root element, scrollable elements, and iframes,
 but other elements can be made into spatial navigation focus containers
-using the `spatnav-container` property).
+using the `spatial-navigation-contain` property).
 
 If it finds any, it will pick the best one for that direction,
 and move the focus there.
@@ -90,13 +76,9 @@ until it has either moved focus,
 scrolled,
 or reached the root.
 
-Additionally, when the user has focused a <a>scroll container</a> which contains focusable elements,
-the user may move the focus to the nested elements by pressing <code class=key>Enter</code>.
-
-The User Agent will then follow a similar logic: first, search for visible and focusable items
-within the currently focused <a>scroll container</a>,
-and if there is any,
-select the best one and move the focus there.
+Additionally, when the user has focused a scroll container which contains focusable elements,
+the user may move the focus to the nested elements by pressing arrow keys.
+The focus will move to the element which is the closest from the edge of the scroll container in the direction of navigation.
 
 At key points during this search for the appropriate response to the spatial navigation request,
 the User Agent will fires events.
@@ -106,122 +88,58 @@ and if desired to provide an alternate action,
 such as using calling the `focus()` method on a different
 element of the author's choosing.
 
-## Overriding methods on top of the heuristic algorithm
-Developers may want to customize the spatial navigation with CSS properties by overriding the heuristic spatial navigation.
+The detailed behavior is described in the [Processing Model](https://wicg.github.io/spatial-navigation/#processing-model).
+
+## Overriding the heuristic algorithm
+Developers may want to customize the spatial navigation by overriding the heuristic spatial navigation.
 
 ### Approach proposed by the current specification
 
 Following the principles of [The Extensible Web Manifesto](https://github.com/extensibleweb/manifesto),
 the specification exposes Javascript APIs and Events that enable authors to interact with, and if necessary, override the behavior of spatial navigation.
 
-### Current Approach of the CSS Basic User Interface Module Level 4
+#### JS APIs
 
-CSS Basic User Interface Module Level 4 offers 3 properties that can override the spatial navigation heuristic.
-This is currently not integrated with the present draft, but that could easily be done. They could also be implemented as a polyfill on top of the Javascript APIs and Events offered by the spatnav specification.
+* getSpatnavContainer()
+  - Returns the spatial navigation focus container of an element.
 
-There were the properties about the directional focus navigation in the CSS Basic User Interface Module Level 4.
-- [nav-up/right/down/left properties (CSSUI4)](https://drafts.csswg.org/css-ui-4/#nav-dir)
-```css
-// nav-right, nav-down, nav-left have same values as nav-up below
-nav-up: auto | <id> [ current | root | <target-name> ]?
-```  
-- The properties determine which element to navigate the focus in response to pressing the arrow keys. This is applied to each element which can be focused.
-- Note
-  - Able to use even if the heuristic spatial navigation is not supported.
-  - Override the heuristic spatial navigation if it is supported.
-- Issues
-  - Why CSS properties instead of HTML attributes (like `tabindex` as a DOM attribute)?
-  - How does the feature interact with the existing definition of focus and what is or isn't focusable?
-  - How can the feature be made to be composable?
-    - E.g. in a world of custom elements and frameworks like polymer, how can you reason about spatial navigation without having global knowledge of the whole page?
-    - E.g. could we instead make the properties define local spatial navigation (e.g. between components) while allowing components to determine navigation behavior inside of themselves?
+* focusableAreas()
+  - Returns all focusable elements within a spatial navigation focus container.
 
+* spatNavSearch()
+  - Runs the spatial navigation step and returns the best candidate which will gain the focus.
 
-### Other suggested extensions
-The following properties have been suggested to provide ways for customization of the spatial navigation.
-The current specification does not integrate them.
-We prefer focusing on the base functionality for the moment,
-offering author the ability to add their own behavior via Javascript APIs.
+#### Navigation Events
+* navbeforefocus
+  - Occurs before spatial or sequential navigation changes the focus.
 
-If experience shows that authors often use the JavaScript APIs to create solutions
-similar to the features described below,
-they could be considered for standardization in a later stage.
+* navbeforescroll
+  - Occurs before spatial navigation triggers scrolling.
 
-#### `nav-rule` property (CSSUI4)
-- This property can customize the spatial navigation of the group of elements in response to pressing the arrow keys.
-```css
-nav-rule: auto | projection | direction | nearest
+* navnotarget
+  - Occurs before going up the tree to search candidates in the nearest ancestor spatial navigation focus container when spatial navigation has failed to find any candidate within the current spatial navigation focus container.
+
+#### Example
+The following code changes the behavior of spatial navigation from scrolling when there is no focusable element visible, to jumping to focusable elements even when they are not visible.
+```js
+document.addEventListener("navbeforescroll", function(e) {
+    var container = e.relatedTarget;
+    var areas = container.focusableAreas({ mode: "all" });
+
+    if (areas.length == 0)) { return; }
+
+    e.preventDefault();
+    var t = e.target.spatNavSearch({
+        dir: e.dir,
+        candidates: areas
+    });
+    t.focus();
+});
 ```
-- The meaning of `nav-rule` values
-  - auto: The UA automatically determines which element to navigate the focus.
-  - projection: Moves the focus to the first element encountered when projecting the edge of the currently focused element to the edge of the applied element in the direction of navigation.
-  - direction : Moves the focus to the first element encountered when projecting the edge of the applied element from the currently focused element in the direction of navigation.
-  - nearest: Moves the focus to the closest element based on the shortest 2D distance and the distance is measured depending on the center of each element.
-- Note  
-  - Able to use if the heuristic spatial navigation is enabled by default.
-  - Applied to the containing block, so all focusable elements in the DOM subtree rooted at the applied element follow the specified rule for the spatial navigation.
-  - Overridden by nav-left/right/top/bottom properties.
-  - Override the Heuristic Spatial Navigation if it is supported.
-- If the `nav-rule` property is applied to the element E, the focus moves in the DOM subtree rooted at E in the scrollable area created by E as below.    
-    ```html
-    // HTML
-    <div id="E">
-        <div id="A" tabindex="1" style="top: 100px; left: 50px;">A</div>
-        <div id="B" tabindex="1" style="top: 250px; left: 150px;">B</div>
-        <div id="C" tabindex="1" style="top: 50px; left: 200px;">C</div>
-        <div id="D" tabindex="1" style="top: 100px; left: 300px;">D</div>
-    </div>
-    ```
-    ```css
-    // CSS
-    #E { width: 400px; height: 300px; }
-    #A, #B, #C, #D { width: 50px; height: 50px; }
-    ```
-    ![The results of the next focused element are differ from the value given to nav-rule](images/nav-rule-example.png)
-    
-    - If the currently focused element is A and there is input from the :arrow_right: (right-arrow key),
-      - If `nav-rule: projection` is applied to the element E, the focus moves to D.
-      - If `nav-rule: direction` is applied to the element E, the focus moves to B.
-      - Otherwise `nav-rule: nearest` is applied to the element E, the focus moves to C.
-      
-#### `nav-loop` property (CSSUI4)
-- This property enables the ability about the focus looping (moving the focus when the focus reaches the end of the page).
-- The sequential focus navigation by tab key supports the focus looping, but the heuristic spatial navigation implemented in blink does not support it.
-- It would be useful to have the focus looping feature in the spatial navigation, especially for the single page with long-scroll. 
-```css
-nav-loop: auto | no-repeat | repeat
-```
-- The meaning of `nav-loop` values
-  - auto: The UA automatically determines where to move the focus when the focus reaches the end of the page.
-  - no-repeat: Disables the focus looping
-  - repeat: Enables the focus looping
-
-- If `nav-loop: repeat` is applied to the element E, the DOM subtree rooted at E is eligible to participate in the focus looping for any scrollable area created by E.
-  - Let the element A is the first child node, and the element Z is the last child node in the DOM subtree rooted at E.
-  - If the currently focused element is Z and there is an input from the :arrow_down: (down-arrow key), the focus is moved to A.
 
 ## FAQ
 
-### Why is `spatial-navigation` a CSS property? Could we have an element attribute do the same thing? What's best in terms of web practices/standards?
-
-CSS is 99% about styling and we should not be too careless about adding non-styling things to it,
-but the CSSWG is open to non styling things in css as long as it makes sense from a coupling point of view.
-`-webkit-user-modify` was an example of something that didn't belong in CSS,
-because it is arguably part of the document's semantics,
-and would never do anything useful anyway without some JS.
-
-For activating spatnav, our logic is that it isn't semantic,
-and is useful even in the absence of JS,
-so CSS is the most practical place to put it in:
-
-* Spatnav isn't about the semantics of the markup
-* With markup alone, you do not know if spatnav is going to be appropriate for the document/app or not. You need to consider the layout and the JS application logic to figure out if spatnav is more likely to help or to clash with the way the layout is built, with event handlers, animations, and what have you. So that leaves us with two choices: put it in JS, or put it in CSS.
-* The likelyhood that spatnav clashes with something in JS is arguably somewhat higher than the likelyhood that it would work poorly due to a weird layout, however:
-    * There can be documents written without javascript at all that could want to turn on spatnav
-    * Some users turn JS off, ad blockers sometimes block some JS, JS sometimes fail to load for other reasons broken for other reasons (ES6 parse error, network issue, etc), and there's not reason for that to turn off spatnav if the rest still works.
-    * As an author if you really prefer to set it in JS, it is trivial to set css properties from js. If you would really prefer to put it in the markup, you can use the style attribute. But the opposite isn't true, and you cannot set markup or JS things from CSS.
-
-### Why do we need a `focus-container` property? Is it not enough to placing the focusables next to each other to create a group? What use cases do you see for focus-container?
+### Why do we need a `spatial-navigation-contain` property? Is it not enough to placing the focusables next to each other to create a group? What use cases do you see for this property?
 
 First, we needed to define a container concept anyway (the blink implementation uses "ScrollableArea or Document"),
 to define the rest of the logic.
@@ -248,7 +166,7 @@ This may be ok,
 but quite possibly the author wants to provide a different UX,
 where once you are inside the program grid, you mostly want to move inside the grid
 (because you are navigating your calendar, so things around it don't matter as much).
-If you turn `focus-container: create` on the table, you get that.
+If you turn `spatial-navigation-contain: contain` on the table, you get that.
 You can still escape it,
 for example by going right from "Foo".
 Since there is nothing in the grid that is to the right,
@@ -260,7 +178,7 @@ You could achieve the same effect by wrapping the table in a div
 and using the overflow property on the div to make it scrollable,
 but that has side effects you probably do not want.
 
-### Maybe authors could create "spatnav containers" with JavaScript instead? They could listen for spat nav events to cancel (=preventDefault) the navigation? Such an event could give authors even more freedom: they might wanna grab the event and manually put focus somewhere else (to override the spatnav's default choice). Such event would allow authors to "patch" the default algorithm in a more flexible way?
+### Maybe authors could create "spatnav containers" with JavaScript instead? Could they listen for spat nav events to cancel (=preventDefault) the navigation? Such an event could give authors even more freedom: they might wanna grab the event and manually put focus somewhere else (to override the spatnav's default choice). Would such event allow authors to "patch" the default algorithm in a more flexible way?
 
 Yes, they absolutely could.
 We have prepared the spec with an event model that lets js authors take control,
@@ -278,5 +196,11 @@ However, we still included this property, because:
 3. It seems like a fairly basic need
 
 ## Demo
-- [Calendar App using the proposed spatial navigation features](https://wicg.github.io/spatial-navigation/demo/)
-- [Test cases for the heuristic spatial navigation](https://wicg.github.io/spatial-navigation/demo/heuristic/heuristic_testcases)
+- [Blog using the spatial navigation polyfill](https://wicg.github.io/spatial-navigation/demo/blog/)
+
+## Sample
+- [Samples using the spatial navigation polyfill](https://wicg.github.io/spatial-navigation/sample/)
+
+- [Samples for testing the implementation in Blink](https://wicg.github.io/spatial-navigation/blink_impl/heuristic_default_move.html)
+
+  ***Note***: Samples work best in the latest Chrome with the experimental web platform features enabled (--enable-spatial-navigation flag) otherwise they won't work.
