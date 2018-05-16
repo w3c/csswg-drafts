@@ -17,26 +17,26 @@ This ability to move around the page directionally is called <strong>spatial nav
 
 - **Getting devices whose only or primary means of navigation is the D-pad**
 
-  Devices like TV, ßIVI, game console mainly use the D-pad for navigating focus directionally.
+  Devices like TV, IVI, game console mainly use the D-pad for navigating focus directionally.
   In the future, the input mechanism such as voice command, hand gesture, eye gazing can be used for navigation.
 
-- **Making life better for users of desktop browsers who use keyboard to navigate**
+- **Making life better for users of desktop browsers who use the keyboard to navigate**
 
-   For non sighted users, spatial navigation may not be in high demand. But for users who have the visual impairment which may be corrected with glasses, using keyboard can be much preferable to using mouse.
+   For non-sighted users, spatial navigation may not be in high demand. But for users who have the visual impairment which may be corrected with glasses, using the keyboard can be much preferable to using the mouse.
 
 - **Using the simple and predictable spatial navigation**
 
-  If spatial navigation become default in the browser, it will be easier for authors to implement a web page using this feature without having to write custom navigation code.
+  If spatial navigation becomes default in the browser, it will be easier for authors to implement a web page using this feature without having to write custom navigation code.
   Also it ensures the predictable result and reasonable performance of spatial navigation rather than using frameworks which are quite heavy and slow and don't consider all the diversity of use cases.
 
 ### Allowing authors to override the default spatial navigation behavior
 
 Spatial navigation is intended to identify the most-likely desired element in the direction of the key press. But "most-likely desired" can depend on the situation.
-Our proposal is possible to provide a behavior that performs well in most cases, but it will not be right for all cases. Hence the overriding APIs let authors tune and tweak the default spatial navigation behavior for their intention.
+Our proposal is possible to provide behavior that performs well in most cases, but it will not be right for all cases. Hence the overriding APIs let authors tune and tweak the default spatial navigation behavior for their intention.
 
 ### Motivating Use cases
 #### Moving focus to the desired element quickly
-How are we going to look through all elements quickly on a webpage?
+How are we going to look through all elements quickly on a web page?
 There are use cases such as:
 - **Using a grid-like layout**
 
@@ -49,9 +49,9 @@ There are use cases such as:
   depending on their position
   allowing it to address problems encountered with sequential navigation.
 
-- **Having too much focusable elements**
+- **Having too many focusable elements**
 
-  Sometimes user don't want to navigate all focusable elements on a web page. If the user just want to move focus to <code>&lt;input></code> elements, they need to keep pressing the <code class=key>Tab</code> key until the focus reaches one of those.
+  Sometimes the user doesn't want to navigate all focusable elements on a web page. If the user just wants to move focus to <code>&lt;input></code> elements, they need to keep pressing the <code class=key>Tab</code> key until the focus reaches one of those.
   On the other hand, <a>spatial navigation</a> can move focus to <code>&lt;input></code> elements only using overriding APIs.
 
 
@@ -62,8 +62,7 @@ There are some use cases which need interrupting the default spatial navigation 
 
 - **Navigating to the offscreen element within scrollport directly**
 
-  There may be a desire about moving the focus to a hidden element while the user is using spatial navigation on a scrollable area. The default behavior of pressing the arrow key is scrolling if there isn’t any visible element in the scrollport. When the hidden element comes into the view, then it can gain the focus. But with proposing overriding APIs, the author can interrupt the default behavior and move the focus directly to it without scrolling.
-
+  There may be a desire about moving the focus to a hidden element while the user is using spatial navigation on a scrollable area. The default behavior of pressing the arrow key is scrolling if there isn’t any visible element in the scrollport. When the hidden element comes into view, then it can gain the focus. But with proposing overriding APIs, the author can interrupt the default behavior and move the focus directly to it without scrolling.
 
 ## How are we going to solve?
 
