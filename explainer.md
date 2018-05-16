@@ -238,6 +238,31 @@ However, we still included this property, because:
 2. Recreating that logic in JS if you're fine with everything else could be quite fiddly
 3. It seems like a fairly basic need
 
+### How can we know whether an element is visible or not?
+Processing model of spatial navigation finds candidates among visible and focusable elements. If an element is obscured by some other element (overlapping for example), should it be automatically excluded from candidates? Or should we rely on authors using <code>tabindex=-1</code> or the <code>inert</code> attribute?
+
+We initially wanted to make it automatic for limiting the number of things authors have to worry about and can get wrong. But feedback from multiple browser vendors we discussed with in the CSS WG led us to remove that, and make it more similar to sequential navigation.
+[(See the relevant discussion on Github)](https://github.com/WICG/spatial-navigation/issues/29)
+
+The primary concern was that this involved a particularly expensive form of hit testing that is not used anywhere else on the platform. The secondary reason was that people already need to get the same thing right for sequential navigation, so reinforcing the message was judged useful.
+
+### How can we move the focus inside a spatnav container?
+There is possible to have nested focusable elements in a web page. The most typical case for this is an ordinary focusable element (button, link, etc) is inside a scroller, as the scroller is also focusable.
+If the currently focused element is the scroller, how can we reach the element inside the scroller with key pressing?
+
+We have considered what would be simpler and more natural to explain and implement the spatial navigation behavior. As a result, the current spec describes this like:
+- If the scroller has visible focusable descendants, pressing the arrow key moves the focus inside it and focuses one of them.
+- Otherwise, pressing the arrow key works for scrolling it.
+
+But there are two alternatives:
+- Let the enter key moves the focus to its focusable child.
+
+  [(See the relevant discussion on Github)]( https://github.com/WICG/spatial-navigation/issues/15)
+
+- Delegate focus inside it without pressing any key, then focus the innermost element or focus the scroll.
+
+  [(See the relevant discussion on Github)]( https://github.com/WICG/spatial-navigation/issues/40)
+
 ## Demo
 - [Blog using the spatial navigation polyfill](https://wicg.github.io/spatial-navigation/demo/blog/)
 
