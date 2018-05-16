@@ -41,6 +41,9 @@ There are use cases such as:
 - **Using a grid-like layout**
 
   The figure below represents a photo gallery arranged in a grid layout.
+
+  ![<img> The photo gallery page arranged in a grid layout](images/spatnav-enable-small.png)
+
   If the user presses the <code class=key>Tab</code> key to move focus,
   they need to press the key many times to reach the desired element.
   Also, the grid layout may arrange the layout of elements independently of their source order.
@@ -52,8 +55,7 @@ There are use cases such as:
 - **Having too many focusable elements**
 
   Sometimes the user doesn't want to navigate all focusable elements on a web page. If the user just wants to move focus to <code>&lt;input></code> elements, they need to keep pressing the <code class=key>Tab</code> key until the focus reaches one of those.
-  On the other hand, <a>spatial navigation</a> can move focus to <code>&lt;input></code> elements only using overriding APIs.
-
+  On the other hand, <a>spatial navigation</a> can move focus to only  <code>&lt;input></code> elements using overriding APIs.
 
 #### Moving focus just as authors intended
 
@@ -87,7 +89,7 @@ or scroll if there is no appropriate item.
 More specifically,
 the User Agent will first search for visible and focusable items
 in the direction indicated
-within the current spatial navigation focus container
+within the current [spatial navigation focus container](https://wicg.github.io/spatial-navigation/#spatial-navigation-focus-container)
 (by default the root element, scrollable elements, and iframes,
 but other elements can be made into spatial navigation focus containers
 using the `spatial-navigation-contain` property).
@@ -118,13 +120,9 @@ Additionally, when the user has focused a scroll container which contains focusa
 the user may move the focus to the nested elements by pressing arrow keys.
 The focus will move to the element which is the closest from the edge of the scroll container in the direction of navigation.
 
-At key points during this search for the appropriate response to the spatial navigation request,
-the User Agent will fires events.
-These enable authors to prevent the upcoming action
-(by calling `preventDefault()`),
-and if desired to provide an alternate action,
-such as using calling the `focus()` method on a different
-element of the author's choosing.
+The example below shows the simplest flow of spatial navigation when the user presses the right arrow key.
+
+![<img> The photo gallery page arranged in a grid layout](images/processing-model-basic.png)
 
 The detailed behavior is described in the [Processing Model](https://wicg.github.io/spatial-navigation/#processing-model).
 
@@ -146,6 +144,15 @@ the specification exposes Javascript APIs and Events that enable authors to inte
   - Runs the spatial navigation step and returns the best candidate which will gain the focus.
 
 #### Navigation Events
+
+While searching for the appropriate response to the spatial navigation request,
+the User Agent will fires events.
+These enable authors to prevent the upcoming action
+(by calling `preventDefault()`),
+and if desired to provide an alternate action,
+such as using calling the `focus()` method on a different
+element of the author's choosing.
+
 * navbeforefocus
   - Occurs before spatial or sequential navigation changes the focus.
 
