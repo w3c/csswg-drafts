@@ -17,12 +17,20 @@ This ability to move around the page directionally is called <strong>spatial nav
 
 - **Getting devices whose only or primary means of navigation is the D-pad**
 
-  Devices like TV, IVI, game console mainly use the D-pad for navigating focus directionally.
-  In the future, the input mechanism such as voice command, hand gesture, eye gazing can be used for navigation.
+  Devices like TV, InVehicleInfotainment, game console mainly use the D-pad for navigating focus directionally.
+  More rare today, but possibly increasingly going forward, input mechanisms such as voice command, hand gesture, eye tracking can be used for navigation.
 
 - **Making life better for users of desktop browsers who use the keyboard to navigate**
 
-   For non-sighted users, spatial navigation may not be in high demand. But for users who have the visual impairment which may be corrected with glasses, using the keyboard can be much preferable to using the mouse.
+   For non-sighted users, navigating in document order tends to be appropriate,
+   and spatial navigation may not be in high demand.
+   However users with partial visual impairment which may be corrected with glasses,
+   or with motor difficulties
+   may find using the keyboard to be much preferable to using the mouse,
+   without necessarily being interested in the navigation being sequential.
+   As such people are aware of the spatial organization of elements in the page,
+   being required to go through elements one by one in document order
+   when directional instructions would be much more direct is frustrating
 
 - **Using the simple and predictable spatial navigation**
 
@@ -31,8 +39,34 @@ This ability to move around the page directionally is called <strong>spatial nav
 
 ### Allowing authors to override the default spatial navigation behavior
 
-Spatial navigation is intended to identify the most-likely desired element in the direction of the key press. But "most-likely desired" can depend on the situation.
-Our proposal is possible to provide behavior that performs well in most cases, but it will not be right for all cases. Hence the overriding APIs let authors tune and tweak the default spatial navigation behavior for their intention.
+Spatial navigation is intended to identify the most-likely desired element in the direction of the key press.
+But "most-likely desired" can depend on the situation.
+For sequential navigation, document order is a well defined concept,
+since the traversal order is deterministic and non ambiguos.
+
+With Spatial navigation, there is no such easy definition.
+If there are multiple elements in the requested direction,
+should we pick the closest one in that general direction,
+or should we prefer one that is maybe a little further but better aligned with the direction's axis.
+What does "closest" mean anyway? Is it the euclidian distance?
+Is it from the center of the elements or from their closet edge?
+Does that depend if the edges are visible?
+If so, is there a difference between edges are made visible with a border vs a background color for the whole element?
+How much contrast at the edges is needed to prefer measuring the distance to the edges.
+If two elements are at equal distance,
+should we prefer one that is visually more noticable,
+possibly through high contrast, bigger fonts, or animations?
+If two elements are at equal distance and equally noticeable,
+should we prefer the one to the left or to the right?
+Is that reversed in Arabic?
+Effectively, the entired field of graphical design
+relates to guiding the attention of the viewer,
+and would need to be taken into account.
+
+The solution we propose has relatively simple default behavior that performs well in most cases.
+But since we know it cannot be right for all cases,
+we also introduce overriding APIs to let authors
+tune and tweak the default spatial navigation behavior to best match their page.
 
 ### Motivating Use cases
 #### Moving focus to the desired element quickly
@@ -54,8 +88,14 @@ There are use cases such as:
 
 - **Having too many focusable elements**
 
-  Sometimes the user doesn't want to navigate all focusable elements on a web page. If the user just wants to move focus to <code>&lt;input></code> elements, they need to keep pressing the <code class=key>Tab</code> key until the focus reaches one of those.
-  On the other hand, <a>spatial navigation</a> can move focus to only  <code>&lt;input></code> elements using overriding APIs.
+  Sometimes the user doesn't want to navigate all focusable elements on a web page.
+  If a shorter path to the desired target can be visually identified,
+  <a>spatial navigation</a> can be used to get there faster.
+
+  Also, using the overriding APIs, the page author can offer the user ways
+  to filter out some the focusable elements if they are not relevant.
+  For example, if the user just wants to move focus to <code>&lt;input></code> elements,
+  limiting spation navigation to only focusing these can be achieved using the APIs.
 
 #### Moving focus just as authors intended
 
@@ -64,7 +104,7 @@ There are some use cases which need interrupting the default spatial navigation 
 
 - **Navigating to the offscreen element within scrollport directly**
 
-  There may be a desire about moving the focus to a hidden element while the user is using spatial navigation on a scrollable area. The default behavior of pressing the arrow key is scrolling if there isn’t any visible element in the scrollport. When the hidden element comes into view, then it can gain the focus. But with proposing overriding APIs, the author can interrupt the default behavior and move the focus directly to it without scrolling.
+  There may be a desire about moving the focus to a hidden element while the user is using spatial navigation on a scrollable area. The default behavior of pressing the arrow key is scrolling if there isn’t any visible element in the scrollport. When the hidden element comes into view, then it can gain the focus. But with proposing overriding APIs, the author can interrupt the default behavior and move the focus directly to it without scrolling first.
 
 ## How are we going to solve?
 
@@ -78,6 +118,12 @@ On devices which do not have any pointing input device,
 and especially on devices such as TVs which also lack a <code>Tab</code> key to control
 <a herf="https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation">sequential focus navigation</a>,
 User Agents should make spatial navigation active.
+
+We deliberately do not define which keys or key combination are meant to trigger spatnav,
+nor whether it is on by default or not.
+These are choices that are best left to the user and the User Agent.
+This is discussed in greater detail in <a href="https://github.com/WICG/spatial-navigation/issues/35#issuecomment-371702434">Issue 35</a>
+where we decided to switch to that model, from one where the author was in charge.
 
 ### Processing model
 
@@ -262,6 +308,10 @@ But there are two alternatives:
 - Delegate focus inside it without pressing any key, then focus the innermost element or focus the scroll.
 
   [(See the relevant discussion on Github)]( https://github.com/WICG/spatial-navigation/issues/40)
+
+The approach we have chosen seems more inline with how existing implementations behave,
+simpler and therefore easier to understand,
+and authors can switch to the other approaches using the APIs.
 
 ## Demo
 - [Blog using the spatial navigation polyfill](https://wicg.github.io/spatial-navigation/demo/blog/)
