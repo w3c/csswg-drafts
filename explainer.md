@@ -42,24 +42,24 @@ This ability to move around the page directionally is called <strong>spatial nav
 Spatial navigation is intended to identify the most-likely desired element in the direction of the key press.
 But "most-likely desired" can depend on the situation.
 For sequential navigation, document order is a well defined concept,
-since the traversal order is deterministic and non ambiguos.
+since the traversal order is deterministic and non ambiguous.
 
 With Spatial navigation, there is no such easy definition.
 If there are multiple elements in the requested direction,
 should we pick the closest one in that general direction,
 or should we prefer one that is maybe a little further but better aligned with the direction's axis.
-What does "closest" mean anyway? Is it the euclidian distance?
+What does "closest" mean anyway? Is it the euclidean distance?
 Is it from the center of the elements or from their closet edge?
 Does that depend if the edges are visible?
 If so, is there a difference between edges are made visible with a border vs a background color for the whole element?
 How much contrast at the edges is needed to prefer measuring the distance to the edges.
 If two elements are at equal distance,
-should we prefer one that is visually more noticable,
+should we prefer one that is visually more noticeable,
 possibly through high contrast, bigger fonts, or animations?
 If two elements are at equal distance and equally noticeable,
 should we prefer the one to the left or to the right?
 Is that reversed in Arabic?
-Effectively, the entired field of graphical design
+Effectively, the entire field of graphical design
 relates to guiding the attention of the viewer,
 and would need to be taken into account.
 
@@ -95,7 +95,7 @@ There are use cases such as:
   Also, using the overriding APIs, the page author can offer the user ways
   to filter out some the focusable elements if they are not relevant.
   For example, if the user just wants to move focus to <code>&lt;input></code> elements,
-  limiting spation navigation to only focusing these can be achieved using the APIs.
+  limiting spatial navigation to only focusing these can be achieved using the APIs.
 
 #### Moving focus just as authors intended
 
