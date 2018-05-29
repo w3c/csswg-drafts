@@ -16,12 +16,6 @@ function focusNavigationHeuristics() {
   let SpatNavAPI = SpatnavAPI();
 
   /*
-   * load EventListener :
-   *  Get starting point element
-   */
-  focusingController(findStartingPoint(), null);
-
-  /*
    * keydown EventListener :
    * If arrow key pressed, get the next focusing element and send it to focusing controller
    */
@@ -60,7 +54,7 @@ function focusNavigationHeuristics() {
 
   function navigate(dir) {
     let bestCandidate;
-    let eventTarget = document.activeElement;
+    let eventTarget = findStartingPoint();
     bestCandidate = eventTarget.spatNavSearch(dir);
     focusingController(bestCandidate, dir);
   }
