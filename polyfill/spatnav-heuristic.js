@@ -19,7 +19,7 @@ function focusNavigationHeuristics() {
    * load EventListener :
    *  Get starting point element
    */
-  focusingController(findStartingPoint(), null, null);
+  focusingController(findStartingPoint(), null);
 
   /*
    * keydown EventListener :
@@ -28,47 +28,49 @@ function focusNavigationHeuristics() {
   document.addEventListener("keydown", function(e) {
     let focusNavigableArrowKey = {"left": true, "up": true, "right": true, "down": true};
     let eventTarget = document.activeElement;
-    let bestCandidate;
 
+    let dir = null;
     // Edge case (text input, area) : Don't move focus, just navigate cursor in text area
     if ((eventTarget.nodeName === "INPUT") || eventTarget.nodeName === "TEXTAREA")
       focusNavigableArrowKey = handlingEditableElement(e);
 
     // Default case : spatial navigation
     switch (e.keyCode) {
-      case 37:      // left keycode
-        if (focusNavigableArrowKey.left) {
-          bestCandidate = eventTarget.spatNavSearch('left');
-          focusingController(bestCandidate, e, 'left');
-        }
+      case 37:
+        dir = "left";
         break;
-      case 38:      // up keycode
-        if (focusNavigableArrowKey.up) {
-          bestCandidate = eventTarget.spatNavSearch('up');
-          focusingController(bestCandidate, e, 'up');
-        }
+      case 38:
+        dir = "up";
         break;
-      case 39:      // right keycode
-        if (focusNavigableArrowKey.right) {
-          bestCandidate = eventTarget.spatNavSearch('right');
-          focusingController(bestCandidate, e, 'right');
-        }
+      case 39:
+        dir = "right";
         break;
-      case 40:      // down keycode
-        if (focusNavigableArrowKey.down) {
-          bestCandidate = eventTarget.spatNavSearch('down');
-          focusingController(bestCandidate, e, 'down');
-        }
+      case 40:
+        dir = "down";
         break;
     }
+    if (!focusNavigableArrowKey[dir]) {
+      dir = null;
+    }
+    if (dir) {
+      e.preventDefault();
+      navigate(dir);
+    }
   });
+
+  function navigate(dir) {
+    let bestCandidate;
+    let eventTarget = document.activeElement;
+    bestCandidate = eventTarget.spatNavSearch(dir);
+    focusingController(bestCandidate, dir);
+  }
 
   /*
    * focusing controller :
    * Decide whether move focus or scroll or do nothing.
    * You can add event here
    */
-  function focusingController(bestCandidate, e, dir) {
+  function focusingController(bestCandidate, dir) {
     let eventTarget = document.activeElement;
     let container = getSpatnavContainer(eventTarget);
 
@@ -85,11 +87,6 @@ function focusNavigationHeuristics() {
        */
       SpatNavAPI.createNavEvents('beforefocus', bestCandidate, dir);
 
-      //if activeElement is in the scrollable container and the bestCandidate is element,
-      // preventDefault to the activeElement
-      if(e && isScrollable(container))
-        e.preventDefault();
-
       bestCandidate.focus();
     }
 
@@ -105,7 +102,6 @@ function focusNavigationHeuristics() {
       let parentContainer = eventTarget;
       while (parentContainer.parentElement) {
         if (isScrollable(parentContainer, dir) && !isScrollBoundary(parentContainer, dir)) {
-          e.preventDefault();
 
           SpatNavAPI.createNavEvents('beforescroll', parentContainer, dir);
           moveScroll(parentContainer, dir);
@@ -117,7 +113,6 @@ function focusNavigationHeuristics() {
 
       // 1-2. If the spatnav container is document and it can be scrolled, scroll the document
       if (!container.parentElement && !isHTMLScrollBoundary(container, dir)) {
-        e.preventDefault();
 
         SpatNavAPI.createNavEvents('beforescroll', container, dir);
         moveScroll(document.documentElement, dir);
@@ -154,9 +149,6 @@ function focusNavigationHeuristics() {
         //If there is a best candidate, move the focus.
         // 3.Otherwise, do nothing at all.
         if (bestCandidate) {
-          if(e && isScrollable(container))
-            e.preventDefault();
-
           bestCandidate.focus();
         }
         else {
