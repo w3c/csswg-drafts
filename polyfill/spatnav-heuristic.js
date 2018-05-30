@@ -190,10 +190,10 @@ function focusNavigationHeuristics() {
     }
     // Otherwise, find the best candidate from the current focused element
     else {
-      candidates = findCandidatesFromContainer(container, dir);
+      candidates = findCandidatesFromContainer(container);
 
       // Let bestCandidate be the result of selecting the best candidate within candidates in direction starting from eventTarget
-      bestCandidate = selectBestCandidate(this, candidates, dir);
+      bestCandidate = selectBestCandidate(this, candidates, dir, container);
     }
 
     return bestCandidate;
@@ -247,10 +247,10 @@ function focusNavigationHeuristics() {
 
     console.log("spatnav outside");
 
-    candidates = findCandidatesFromContainer(parentContainer, dir);
+    candidates = findCandidatesFromContainer(parentContainer);
 
     // Let bestCandidate be the result of selecting the best candidate within candidates in direction starting from eventTarget
-    bestCandidate = selectBestCandidate(element, candidates, dir);
+    bestCandidate = selectBestCandidate(element, candidates, dir, parentContainer);
 
     // If there isn't any candidate outside of the container,
     //  If the container is browsing context, focus will move to the container
@@ -281,7 +281,37 @@ function focusNavigationHeuristics() {
    * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate
    */
 
-  function selectBestCandidate(currentElm, candidates, dir) {
+  function selectBestCandidate(currentElm, candidates, dir, container) {
+
+    let eventTarget = document.activeElement;
+    let originalContainer = getSpatnavContainer(eventTarget);
+    let filteredcandidates = [];
+    let eventTargetRect;
+
+    // to do
+    // Offscreen handling when originalContainer is not <HTML>
+    if (!isVisible(eventTarget) && originalContainer.parentElement && container !== originalContainer)
+        eventTargetRect = originalContainer.getBoundingClientRect();
+    else eventTargetRect = eventTarget.getBoundingClientRect();
+
+    // If D(dir) is null, let candidates be the same as visibles
+    if (dir === undefined)
+	  filteredcandidates = candidates;
+
+    /*
+     * Else, let candidates be the subset of the elements in visibles
+     * whose principal box’s geometric center is within the closed half plane
+     * whose boundary goes through the geometric center of starting point and is perpendicular to D.
+     */
+    else
+      for (let i = 0; i < candidates.length; i++) {
+        let candidateContainer = getSpatnavContainer(candidates[i]);
+        let candidateRect = candidates[i].getBoundingClientRect();
+        if (container.contains(candidateContainer) && isOutside(candidateRect, eventTargetRect, dir))
+          filteredcandidates.push(candidates[i]);
+      }
+
+    candidates = filteredcandidates;
     let bestCandidate;
     let elementsSameDistance = [];
     let minDistance = Number.POSITIVE_INFINITY;
@@ -317,39 +347,12 @@ function focusNavigationHeuristics() {
    * Find focusable candidates from this container
    * reference: https://wicg.github.io/spatial-navigation/#find-candidates
    */
-  function findCandidatesFromContainer(container, dir) {
-    let eventTarget = document.activeElement;
-    let originalContainer = getSpatnavContainer(eventTarget);
+  function findCandidatesFromContainer(container, visibleOnly = true) {
+    let focusables = focusableAreas(container);
+    if (!visibleOnly)
+      return focusables;
 
-    // question : focusables , visibles
-    let focusableAndVisibleElements = findVisiblesInFocusables(focusableAreas(container));
-    let candidates = [];
-    let eventTargetRect;
-
-    // to do
-    // Offscreen handling when originalContainer is not <HTML>
-    if (!isVisible(eventTarget) && originalContainer.parentElement && container !== originalContainer)
-        eventTargetRect = originalContainer.getBoundingClientRect();
-    else eventTargetRect = eventTarget.getBoundingClientRect();
-
-    // If D(dir) is null, let candidates be the same as visibles
-    if (dir === undefined)
-      return focusableAndVisibleElements;
-
-    /*
-     * Else, let candidates be the subset of the elements in visibles
-     * whose principal box’s geometric center is within the closed half plane
-     * whose boundary goes through the geometric center of starting point and is perpendicular to D.
-     */
-    else
-      for (let i = 0; i < focusableAndVisibleElements.length; i++) {
-        let candidateContainer = getSpatnavContainer(focusableAndVisibleElements[i]);
-        let candidateRect = focusableAndVisibleElements[i].getBoundingClientRect();
-        if (container.contains(candidateContainer) && isOutside(candidateRect, eventTargetRect, dir))
-          candidates.push(focusableAndVisibleElements[i]);
-      }
-
-    return candidates;
+    return findVisiblesInFocusables(focusables);
   }
 
   /*
