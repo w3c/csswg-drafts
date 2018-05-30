@@ -10,8 +10,8 @@
 function focusNavigationHeuristics() {
   // condition: focus delegation model = false
 
-  let FocusableAreaSearchMode = ["visible", "all"];
-
+  const ARROW_KEY_CODE = {37: 'left', 38: 'up', 39: 'right', 40: 'down'};
+  const FocusableAreaSearchMode = ["visible", "all"];
   // Load SpatNav API lib
   let SpatNavAPI = SpatnavAPI();
 
@@ -23,7 +23,7 @@ function focusNavigationHeuristics() {
     let focusNavigableArrowKey = {"left": true, "up": true, "right": true, "down": true};
     let eventTarget = document.activeElement;
 
-    let dir = null;
+    let dir = ARROW_KEY_CODE[e.keyCode];
     // Edge case (text input, area) : Don't move focus, just navigate cursor in text area
     if ((eventTarget.nodeName === "INPUT") || eventTarget.nodeName === "TEXTAREA")
       focusNavigableArrowKey = handlingEditableElement(e);
@@ -170,7 +170,7 @@ function focusNavigationHeuristics() {
   ////////////////////// Functions for spatNavSearch() ///////////////////////
   /*------------------------------------------------------------------------*/
   /*
-   * Find the best candidate ocusable candidates from this container
+   * Find the best candidate among focusable candidates from this container
    * reference: https://wicg.github.io/spatial-navigation/#js-api
    */
   function spatNavSearch (dir) {
@@ -582,10 +582,10 @@ function focusNavigationHeuristics() {
       let width = element.scrollWidth - element.clientWidth;
 
       switch (dir) {
-        case 'left': if (winScrollX === 0) return true; break;
-        case 'right': if (Math.abs(winScrollX - width) <= 1) return true; break;
-        case 'up': if (winScrollY === 0) return true; break;
-        case 'down': if (Math.abs(winScrollY - height) <= 1) return true; break;
+        case 'left': return (winScrollX === 0);
+        case 'right': return (Math.abs(winScrollX - width) <= 1);
+        case 'up': return (winScrollY === 0);
+        case 'down': return (Math.abs(winScrollY - height) <= 1);
       }
     }
     return false;
@@ -600,11 +600,10 @@ function focusNavigationHeuristics() {
    * check4. Whether the element is scrollable container or not. (regardless of scrollable axis)
    */
   function isFocusable(element) {
-    if (!element.parentElement) return true;    // document
-    if (element.nodeName === "IFRAME") return true;  // iframe
-    if (element.tabIndex >= 0 && !element.disabled) return true;
-    if (isScrollable(element) && isOverflow(element)) return true;
-    return false;
+    return (!element.parentElement)||   //parentElement
+           (element.nodeName === "IFRAME")||
+           (element.tabIndex >= 0 && !element.disabled)||
+           (isScrollable(element) && isOverflow(element));
   }
 
   /*
@@ -614,17 +613,7 @@ function focusNavigationHeuristics() {
    * check2. hit test
    */
   function isVisible(element) {
-    let visible;
-    if (!element.parentElement) return true;
-
-    // check1. style property (visibility, display) = hidden
-    visible = isVisibleStyleProperty(element);
-    if (!visible) return false;
-
-    // check2. hit test
-    visible = hitTest(element);
-
-    return visible;
+    return (!element.parentElement) || (isVisibleStyleProperty(element) && hitTest(element));
   }
 
   /*
@@ -654,10 +643,7 @@ function focusNavigationHeuristics() {
     let thisDisplay = window.getComputedStyle(element, null).getPropertyValue('display');
     let invisibleStyle = ["hidden", "collapse"];
 
-    if (includes(invisibleStyle, thisVisibility) || thisDisplay === 'none')
-      return false;
-    else
-      return true;
+    return (!includes(invisibleStyle, thisVisibility) && thisDisplay !== 'none');
   }
 
   /*
@@ -668,8 +654,8 @@ function focusNavigationHeuristics() {
     let offsetX = parseInt(window.getComputedStyle(element, null).getPropertyValue('width'))/10;
     let offsetY = parseInt(window.getComputedStyle(element, null).getPropertyValue('height'))/10;
 
-    if (isNaN(offsetX)) offsetX = 0;
-    if (isNaN(offsetY)) offsetY = 0;
+    offsetX = isNaN(offsetX)? 0:offsetX;
+    offsetY = isNaN(offsetY)? 0:offsetY;
 
     let minX = element.getBoundingClientRect().left;
     let maxX = element.getBoundingClientRect().right;
@@ -797,8 +783,7 @@ function focusNavigationHeuristics() {
 
     // Get exit point, entry point
     points = getEntryAndExitPoints(dir, rect1, rect2);
-    entryPoint = points.entryPoint;
-    exitPoint = points.exitPoint;
+    ({entryPoint, exitPoint} = points);
 
     // Find the points P1 inside the border box of starting point and P2 inside the border box of candidate
     // that minimize the distance between these two points
@@ -839,9 +824,7 @@ function focusNavigationHeuristics() {
 
     // D: The square root of the area of intersection between the border boxes of candidate and starting point
     intersection_rect = getIntersectionRect(rect1, rect2);
-    if (intersection_rect)
-      D = intersection_rect.width * intersection_rect.height;
-    else D = 0;
+    D = (intersection_rect)? intersection_rect.width * intersection_rect.height : 0;
 
     distance = A + B + C - D;
     return distance;
