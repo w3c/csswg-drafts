@@ -53,8 +53,22 @@ function focusNavigationHeuristics() {
   });
 
   function navigate(dir) {
+    // spatial navigation steps
+
+    // 1
+    let startingPoint = findStartingPoint();
+
+    // 2 Optional step, not handled
+
+    // 3
+    let eventTarget = startingPoint;
+
+    // 4
+    if (eventTarget === document || eventTarget === document.documentElement) {
+      eventTarget = document.body || document.documentElement;
+    }
+
     let bestCandidate;
-    let eventTarget = findStartingPoint();
     bestCandidate = eventTarget.spatNavSearch(dir);
     focusingController(bestCandidate, dir);
   }
@@ -389,11 +403,10 @@ function focusNavigationHeuristics() {
    */
   function findStartingPoint() {
     let startingPoint = document.activeElement;
-    if (startingPoint){
-      //If eventTarget is the Document or the document element, set eventTarget be the body element if it is not null
-      if(!startingPoint.parentElement) {
-        startingPoint = document.body;
-      }
+    if (!startingPoint ||
+      (startingPoint == document.body && !document.querySelector(":focus")) /* body isn't actually focused*/
+    ) {
+      startingPoint = document;
     }
     return startingPoint;
   }
