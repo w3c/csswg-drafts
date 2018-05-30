@@ -69,7 +69,7 @@ function focusNavigationHeuristics() {
     }
 
     let bestCandidate;
-    bestCandidate = eventTarget.spatNavSearch(dir);
+    bestCandidate = spatNavSearch.call(eventTarget, dir);
     focusingController(bestCandidate, dir);
   }
 
@@ -173,7 +173,7 @@ function focusNavigationHeuristics() {
    * Find the best candidate ocusable candidates from this container
    * reference: https://wicg.github.io/spatial-navigation/#js-api
    */
-  window.Element.prototype.spatNavSearch = function (dir) {
+  function spatNavSearch (dir) {
     // Let container be the nearest ancestor of eventTarget that is a spatnav container.
     let container = getSpatnavContainer(this);
     let candidates, bestCandidate;
@@ -1006,5 +1006,15 @@ function focusNavigationHeuristics() {
       if (nodelist[i] === element) return true;
     }
     return false;
+  }
+
+  // Use non standard names by default, as per https://www.w3.org/2001/tag/doc/polyfills/#don-t-squat-on-proposed-names-in-speculative-polyfills
+  // Allow binding to standard name for testing purposes
+  if (typeof spatnavPolyfillOptions == "object" && spatnavPolyfillOptions.standardName) {
+    window.navigate = navigate;
+    window.Element.prototype.spatNavSearch = spatNavSearch;
+  } else {
+    window.navigatePolyfill = navigate;
+    window.Element.prototype.spatNavSearchPolyfill = spatNavSearch;
   }
 };
