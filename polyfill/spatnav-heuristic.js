@@ -28,21 +28,6 @@ function focusNavigationHeuristics() {
     if ((eventTarget.nodeName === "INPUT") || eventTarget.nodeName === "TEXTAREA")
       focusNavigableArrowKey = handlingEditableElement(e);
 
-    // Default case : spatial navigation
-    switch (e.keyCode) {
-      case 37:
-        dir = "left";
-        break;
-      case 38:
-        dir = "up";
-        break;
-      case 39:
-        dir = "right";
-        break;
-      case 40:
-        dir = "down";
-        break;
-    }
     if (!focusNavigableArrowKey[dir]) {
       dir = null;
     }
