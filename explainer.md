@@ -43,25 +43,7 @@ Spatial navigation is intended to identify the most-likely desired element in th
 But "most-likely desired" can depend on the situation.
 For sequential navigation, document order is a well defined concept,
 since the traversal order is deterministic and non ambiguous.
-
-With Spatial navigation, there is no such easy definition.
-If there are multiple elements in the requested direction,
-should we pick the closest one in that general direction,
-or should we prefer one that is maybe a little further but better aligned with the direction's axis.
-What does "closest" mean anyway? Is it the euclidean distance?
-Is it from the center of the elements or from their closet edge?
-Does that depend if the edges are visible?
-If so, is there a difference between edges are made visible with a border vs a background color for the whole element?
-How much contrast at the edges is needed to prefer measuring the distance to the edges.
-If two elements are at equal distance,
-should we prefer one that is visually more noticeable,
-possibly through high contrast, bigger fonts, or animations?
-If two elements are at equal distance and equally noticeable,
-should we prefer the one to the left or to the right?
-Is that reversed in Arabic?
-Effectively, the entire field of graphical design
-relates to guiding the attention of the viewer,
-and would need to be taken into account.
+With Spatial navigation, there is no such easy definition (See [FAQ](#faq) for why).
 
 The solution we propose has relatively simple default behavior that performs well in most cases.
 But since we know it cannot be right for all cases,
@@ -227,6 +209,27 @@ document.addEventListener("navbeforescroll", function(e) {
 ```
 
 ## FAQ
+
+### Why do you say that there is no such thing as "the order" in a visual document?
+
+
+If there are multiple elements in the requested direction,
+should we pick the closest one in that general direction,
+or should we prefer one that is maybe a little further but better aligned with the direction's axis.
+What does "closest" mean anyway? Is it the euclidean distance?
+Is it from the center of the elements or from their closet edge?
+Does that depend if the edges are visible?
+If so, is there a difference between edges are made visible with a border vs a background color for the whole element?
+How much contrast at the edges is needed to prefer measuring the distance to the edges?
+If two elements are at equal distance,
+should we prefer one that is visually more noticeable,
+possibly through high contrast, bigger fonts, or animations?
+If two elements are at equal distance and equally noticeable,
+should we prefer the one to the left or to the right?
+Is that reversed in Arabic?
+Effectively, the entire field of graphical design
+relates to guiding the attention of the viewer,
+and would need to be taken into account.
 
 ### Why do we need a `spatial-navigation-contain` property? Is it not enough to placing the focusables next to each other to create a group? What use cases do you see for this property?
 
