@@ -32,15 +32,22 @@ This ability to move around the page directionally is called <strong>spatial nav
    being required to go through elements one by one in document order
    when directional instructions would be much more direct is frustrating
 
-- **Using the simple and predictable spatial navigation**
+- **Making it easier for authors to support spatial navigation well**
 
-  If spatial navigation becomes default in the browser, it will be easier for authors to implement a web page using this feature without having to write custom navigation code.
-  Also it ensures the predictable result and reasonable performance of spatial navigation rather than using frameworks which are quite heavy and slow and don't consider all the diversity of use cases.
+  If spatial navigation becomes default in the browser, with a predictable behavior,
+  it will be easier for authors to support their users who want this feature.
+  Unlike today, where they need to write potentially complex pieces of javascript to handle it,
+  in many cases, things will work out of the box,
+  and not only for the specific type of device or category of user the author had in mind,
+  but for any user of spatial navigation.
+  saving authors from needing to reinvent a full solution themselves,
+  which is often difficult to make work performantly, cross browser and cross-device.
 
 ### Allowing authors to override the default spatial navigation behavior
 
 Spatial navigation is intended to identify the most-likely desired element in the direction of the key press.
-But "most-likely desired" can depend on the situation.
+But "most-likely desired" can depend on the situation,
+and author may have specific requirements that diverge from the default behavior.
 For sequential navigation, document order is a well defined concept,
 since the traversal order is deterministic and non ambiguous.
 With Spatial navigation, there is no such easy definition (See [FAQ](#faq) for why).
@@ -60,10 +67,10 @@ There are use cases such as:
 
   ![<img> The photo gallery page arranged in a grid layout](images/spatnav-enable-small.png)
 
-  If the user presses the <code class=key>Tab</code> key to move focus,
+  If the user presses the <code class="key">Tab</code> key to move focus,
   they need to press the key many times to reach the desired element.
   Also, the grid layout may arrange the layout of elements independently of their source order.
-  Therefore sequential navigation using the <code class=key>Tab</code> key makes focus navigation unpredictable.
+  Therefore sequential navigation using the <code class="key">Tab</code> key makes focus navigation unpredictable.
   In contrast, <a>spatial navigation</a> moves the focus among focusable elements
   depending on their position
   allowing it to address problems encountered with sequential navigation.
@@ -215,7 +222,7 @@ document.addEventListener("navbeforescroll", function(e) {
 
 If there are multiple elements in the requested direction,
 should we pick the closest one in that general direction,
-or should we prefer one that is maybe a little further but better aligned with the direction's axis.
+or should we prefer one that is maybe a little further but better aligned with the direction's axis?
 What does "closest" mean anyway? Is it the euclidean distance?
 Is it from the center of the elements or from their closet edge?
 Does that depend if the edges are visible?
@@ -247,6 +254,7 @@ it will have a grid of elements representing TV shows or calendar entries,
 and some UI buttons around it.
 Here's a simplified demo:
 http://output.jsbin.com/cuyasob
+(also available as [example 11 in the specification](example-34c13432)).
 
 In this case, the grid is quite sparse,
 so if you try to move down from "Foo",
