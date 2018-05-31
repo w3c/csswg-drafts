@@ -81,19 +81,31 @@
     switch (option) {
       case 'beforefocus':
         let navbeforefocus_event = document.createEvent("CustomEvent");
-        navbeforefocus_event.initCustomEvent("navbeforefocus", true, true, data_);
+        if (typeof spatnavPolyfillOptions == "object" && spatnavPolyfillOptions.standardName) {
+          navbeforefocus_event.initCustomEvent("navbeforefocus", true, true, data_);
+        } else {
+          navbeforefocus_event.initCustomEvent("navbeforefocusPolyfill", true, true, data_);
+        }
         element.dispatchEvent(navbeforefocus_event);
         break;
 
       case 'beforescroll':
         let navbeforescroll_event = document.createEvent("CustomEvent");
-        navbeforescroll_event.initCustomEvent("navbeforescroll", true, true, data_);
+        if (typeof spatnavPolyfillOptions == "object" && spatnavPolyfillOptions.standardName) {
+          navbeforescroll_event.initCustomEvent("navbeforescroll", true, true, data_);
+        } else {
+          navbeforescroll_event.initCustomEvent("navbeforescrollPolyfill", true, true, data_);
+        }
         element.dispatchEvent(navbeforescroll_event);
         break;
 
       case 'notarget':
         let navnotarget_event = document.createEvent("CustomEvent");
-        navnotarget_event.initCustomEvent("navnotarget", true, true, data_);
+        if (typeof spatnavPolyfillOptions == "object" && spatnavPolyfillOptions.standardName) {
+          navnotarget_event.initCustomEvent("navnotarget", true, true, data_);
+        } else {
+          navnotarget_event.initCustomEvent("navnotargetPolyfill", true, true, data_);
+        }
         element.dispatchEvent(navnotarget_event);
         break;
     }
