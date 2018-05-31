@@ -6,7 +6,7 @@ Some, such as TV browsers, have enabled users to move the focus using the arrow 
 since no other input mechanism is available on a typical TV remote control.
 
 Others, have enabled different key combinations to control spatial navigation,
-such as pressing the <code class=key>Shift</code> key together with arrow keys.
+such as pressing the <code class="key">Shift</code> key together with arrow keys.
 
 This ability to move around the page directionally is called <strong>spatial navigation</strong>
 (or <strong>spatnav</strong> for short).
