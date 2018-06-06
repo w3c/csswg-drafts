@@ -156,12 +156,13 @@ function focusNavigationHeuristics() {
   * @function
   * @param {SpatialNavigationDirection} direction
   * @param {sequence<Node>} candidates
-  * @param {<Node>} container
-  * @returns {<Node>} the best candidate
+  * @param {Node} container
+  * @returns {Node} the best candidate
   */
   function spatNavSearch (dir, candidates, container) {
     // Let container be the nearest ancestor of eventTarget that is a spatnav container.
-    let container_, candidates_, bestCandidate;
+    let container_, candidates_;
+    let bestCandidate = null;
 
     console.log('spatnavsearch');
 
@@ -172,61 +173,26 @@ function focusNavigationHeuristics() {
       container_ = getSpatnavContainer(this);
 
     // If the candidates is unknown, find candidates
-    if(candidates && candidates.isArray(candidates) && candidates.length) {
+    if(Array.isArray(candidates) && candidates.length) {
       candidates_ = candidates;
     }
     else {
-      // Find candidates
-      candidates_ = findCandidates(container_);
+      if((isContainer(this) || this.nodeName === 'BODY') && !(this.nodeName === 'INPUT'))
+        candidates_ = findCandidates(this);
+      else
+        candidates_ = findCandidates(container_);
     }
 
-    // select the best candidate
-    // If startingPoint is either a scroll container or the document,
-    // find the best candidate within startingPoint
-    if((isContainer(this) || this.nodeName === 'BODY') && !(this.nodeName === 'INPUT')){
-      bestCandidate = spatNavSearchInside(findCandidates(this), dir);
-    }
-    // Otherwise, find the best candidate from the current focused element
-    else {
-      // Let container be the nearest ancestor of eventTarget
-      const container = getSpatnavContainer(this);
-      bestCandidate = selectBestCandidate(this, candidates_, dir, container_);
+    // Find the best candidate
+    if (candidates_) {
+      if((isContainer(this) || this.nodeName === 'BODY') && !(this.nodeName === 'INPUT'))
+        bestCandidate = selectBestCandidateFromEdge(this, candidates_, dir);
+      else
+        bestCandidate = selectBestCandidate(this, candidates_, dir, container_);
     }
 
     return bestCandidate;
   };
-
-  /*
-   * Find SpatNav inside Element :
-   * Find the closest element from the current focused element, among these element's children
-   * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate (Step 5)
-   */
-  function spatNavSearchInside(candidates, dir) {
-    let eventTarget = document.activeElement;
-    let eventTargetRect = eventTarget.getBoundingClientRect();
-    let minDistanceElement = undefined;
-    let minDistance = Number.POSITIVE_INFINITY;
-
-    console.log('spatnav inside');
-
-    if(candidates) {
-      for (let i = 0; i < candidates.length; i++) {
-        let tempMinDistance = getInnerDistance(eventTargetRect, candidates[i].getBoundingClientRect(), dir);
-
-        if (tempMinDistance < minDistance) {
-          minDistance = tempMinDistance;
-          minDistanceElement = candidates[i];
-        }
-      }
-    }
-
-    // FIXME: Test this considering cross origin
-    //if (minDistanceElement.nodeName === "IFRAME") {
-    //  minDistanceElement = (minDistanceElement.contentWindow || minDistanceElement.contentDocument);
-    //}
-
-    return minDistanceElement;
-  }
 
   /*
    * Find SpatNav Outside Element :
@@ -269,27 +235,31 @@ function focusNavigationHeuristics() {
   }
 
   /*
-   * Find the best candidate among candidates
-   * - If there are element having same distance, then select the one depend on DOM tree order.
-   * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate
-   */
-
+  * Select the best candidate among candidates
+  * - Find the closet candidate from the starting point
+  * - If there are element having same distance, then select the one depend on DOM tree order.
+  * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate
+  * @function
+  * @param {Node} starting point
+  * @param {sequence<Node>} candidates
+  * @param {SpatialNavigationDirection} direction
+  * @param {Node} container
+  * @returns {Node} the best candidate
+  */
   function selectBestCandidate(currentElm, candidates, dir, container) {
-
-    let eventTarget = document.activeElement;
-    let originalContainer = getSpatnavContainer(eventTarget);
+    let originalContainer = getSpatnavContainer(currentElm);
     let filteredcandidates = [];
     let eventTargetRect;
 
     // to do
     // Offscreen handling when originalContainer is not <HTML>
-    if (!isVisible(eventTarget) && originalContainer.parentElement && container !== originalContainer)
+    if (!isVisible(currentElm) && originalContainer.parentElement && container !== originalContainer)
         eventTargetRect = originalContainer.getBoundingClientRect();
-    else eventTargetRect = eventTarget.getBoundingClientRect();
+    else eventTargetRect = currentElm.getBoundingClientRect();
 
     // If D(dir) is null, let candidates be the same as visibles
     if (dir === undefined)
-	  filteredcandidates = candidates;
+      filteredcandidates = candidates;
 
     /*
      * Else, let candidates be the subset of the elements in visibles
@@ -320,9 +290,46 @@ function focusNavigationHeuristics() {
   }
 
   /*
-   * Get container of this element.
-   * Container could be different by the arrow direction, even if it's the same element
-   */
+  * Select the best candidate among candidates
+  * - Find the closet candidate from the edge of the starting point
+  * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate (Step 5)
+  * @function
+  * @param {Node} starting point
+  * @param {sequence<Node>} candidates
+  * @param {SpatialNavigationDirection} direction
+  * @returns {Node} the best candidate
+  */
+  function selectBestCandidateFromEdge(currentElm, candidates, dir) {
+    let eventTargetRect = currentElm.getBoundingClientRect();
+    let minDistanceElement = undefined;
+    let minDistance = Number.POSITIVE_INFINITY;
+
+    if(candidates) {
+      for (let i = 0; i < candidates.length; i++) {
+        let tempMinDistance = getInnerDistance(eventTargetRect, candidates[i].getBoundingClientRect(), dir);
+
+        if (tempMinDistance < minDistance) {
+          minDistance = tempMinDistance;
+          minDistanceElement = candidates[i];
+        }
+      }
+    }
+
+    // FIXME: Test this considering cross origin
+    //if (minDistanceElement.nodeName === "IFRAME") {
+    //  minDistanceElement = (minDistanceElement.contentWindow || minDistanceElement.contentDocument);
+    //}
+
+    return minDistanceElement;
+  }
+
+  /*
+  * Get container of this element.
+  * - NOTE: Container could be different by the arrow direction, even if it's the same element
+  * reference: https://wicg.github.io/spatial-navigation/#dom-element-getspatnavcontainer
+  * @function
+  * @returns {Node} container
+  */
   function getSpatnavContainer(element) {
     if (!element.parentElement) return element; // if element==HTML
 
@@ -340,8 +347,8 @@ function focusNavigationHeuristics() {
   * Find focusable candidates from this container
   * reference: https://wicg.github.io/spatial-navigation/#find-candidates
   * @function
-  * @param {<Node>} container - focusable areas
-  * @param {<Node>} - visible or all [ TODO: Can UA set the option? See Step 3 in "find candidates"]
+  * @param {Node} container - focusable areas
+  * @param {Node} visible or all [ TODO: Can UA set the option? See Step 3 in "find candidates"]
   * @returns {sequence<Node>} - candidates
   */
   function findCandidates(container, visibleOnly = true) {
@@ -372,8 +379,12 @@ function focusNavigationHeuristics() {
   }
 
   /*
-   * Find focusable elements within the container
-   */
+  * Find focusable elements within the container
+  * reference: https://wicg.github.io/spatial-navigation/#dom-element-focusableareas
+  * @function
+  * @param {Node} container
+  * @returns {sequence<Node>} focusable areas
+  */
   function focusableAreas(container) {
     let focusables = [];
     let children = [];
@@ -406,6 +417,7 @@ function focusNavigationHeuristics() {
    * Find starting point :
    * reference: https://wicg.github.io/spatial-navigation/#spatial-navigation-steps
    */
+  // FIXME
   function findStartingPoint() {
     let startingPoint = document.activeElement;
     if (!startingPoint ||
