@@ -55,16 +55,35 @@ function focusNavigationHeuristics() {
 
     // If startingPoint is either a scroll container or the document,
     // find the best candidate within startingPoint
-    if((isContainer(this) || this.nodeName === 'BODY') && !(this.nodeName === 'INPUT')){
-      bestCandidate = spatNavSearchInside(findCandidates(this), dir);
-    }
-    // Otherwise, find the best candidate from the current focused element
-    else {
-      // Let container be the nearest ancestor of eventTarget
-      const container = getSpatnavContainer(this);
-      bestCandidate = selectBestCandidate(this, findCandidates(container), dir, container);
+    if((isContainer(eventTarget) || eventTarget.nodeName === 'BODY') && !(eventTarget.nodeName === 'INPUT')){
+      const candidates = findCandidates(eventTarget);
+      let bestCandidate;
+
+      if (candidates) {
+        bestCandidate = selectBestCandidateFromEdge(eventTarget, candidates, dir);
+        focusingController(bestCandidate, dir);
+        return;
+      }
+
+      if (scrollingController(eventTarget, dir)) return;
     }
 
+    // Let container be the nearest ancestor of eventTarget
+    const container = getSpatnavContainer(eventTarget);
+    const candidates = findCandidates(container);
+
+    bestCandidate = selectBestCandidate(eventTarget, candidates, dir, container);
+
+    if (bestCandidate === undefined) {
+      if (scrollingController(container, dir)) return;
+      else {
+        // [event] navnotarget : Fired when spatial navigation has failed to find any acceptable candidate to move the focus
+        // to in the current spatnav container and when that same spatnav container cannot be scrolled either,
+        // before going up the tree to search in the nearest ancestor spatnav container.
+        SpatNavAPI.createNavEvents('notarget', container, dir);
+        bestCandidate = spatNavSearchOutside(eventTarget, dir);
+      }
+    }
     focusingController(bestCandidate, dir);
   }
 
