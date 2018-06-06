@@ -11,7 +11,10 @@ function focusNavigationHeuristics() {
   // condition: focus delegation model = false
 
   const ARROW_KEY_CODE = {37: 'left', 38: 'up', 39: 'right', 40: 'down'};
-  const FocusableAreaSearchMode = ["visible", "all"];
+  const FocusableAreaSearchMode = ['visible', 'all'];
+  const spinnableInputTypes = ['email', 'date', 'month', 'number', 'time', 'week'];
+  const textInputTypes = ['password', 'text', 'search', 'tel', 'url'];
+
   // Load SpatNav API lib
   let SpatNavAPI = SpatnavAPI();
 
@@ -19,13 +22,13 @@ function focusNavigationHeuristics() {
    * keydown EventListener :
    * If arrow key pressed, get the next focusing element and send it to focusing controller
    */
-  document.addEventListener("keydown", function(e) {
-    let focusNavigableArrowKey = {"left": true, "up": true, "right": true, "down": true};
-    let eventTarget = document.activeElement;
+  document.addEventListener('keydown', function(e) {
+    let focusNavigableArrowKey = {'left': true, 'up': true, 'right': true, 'down': true};
+    const eventTarget = document.activeElement;
 
     let dir = ARROW_KEY_CODE[e.keyCode];
     // Edge case (text input, area) : Don't move focus, just navigate cursor in text area
-    if ((eventTarget.nodeName === "INPUT") || eventTarget.nodeName === "TEXTAREA")
+    if ((eventTarget.nodeName === 'INPUT') || eventTarget.nodeName === 'TEXTAREA')
       focusNavigableArrowKey = handlingEditableElement(e);
 
     if (!focusNavigableArrowKey[dir]) {
@@ -40,145 +43,135 @@ function focusNavigationHeuristics() {
   function navigate(dir) {
     // spatial navigation steps
 
-    // 1
-    let startingPoint = findStartingPoint();
+    const startingPoint = findStartingPoint();
 
     // 2 Optional step, not handled
 
-    // 3
     let eventTarget = startingPoint;
 
-    // 4
     if (eventTarget === document || eventTarget === document.documentElement) {
       eventTarget = document.body || document.documentElement;
     }
 
-    let bestCandidate;
-    bestCandidate = spatNavSearch.call(eventTarget, dir);
+    // If startingPoint is either a scroll container or the document,
+    // find the best candidate within startingPoint
+    if((isContainer(this) || this.nodeName === 'BODY') && !(this.nodeName === 'INPUT')){
+      bestCandidate = spatNavSearchInside(findCandidates(this), dir);
+    }
+    // Otherwise, find the best candidate from the current focused element
+    else {
+      // Let container be the nearest ancestor of eventTarget
+      const container = getSpatnavContainer(this);
+      bestCandidate = selectBestCandidate(this, findCandidates(container), dir, container);
+    }
+
     focusingController(bestCandidate, dir);
   }
 
   /*
-   * focusing controller :
-   * Decide whether move focus or scroll or do nothing.
-   * You can add event here
-   */
+  * focusing controller :
+  * Move focus or do nothing.
+  * @function
+  * @param {<Node>} the best candidate
+  * @param {SpatialNavigationDirection} direction
+  * @returns NaN
+  */
   function focusingController(bestCandidate, dir) {
-    let eventTarget = document.activeElement;
-    let container = getSpatnavContainer(eventTarget);
+    const eventTarget = document.activeElement;
+    const container = getSpatnavContainer(eventTarget);
 
     // When bestCandidate is found
     if (bestCandidate) {
       // Scrolling container or document when the next focusing element isn't entirely visible
-      if (!isEntirelyVisible(bestCandidate)) {
-        bestCandidate.scrollIntoView();
-      }
+      if (isScrollContainer(container) && !isEntirelyVisible(bestCandidate))
+          bestCandidate.scrollIntoView();
 
       // When bestCandidate is a focusable element and not a container : move focus
       /*
        * [event] navbeforefocus : Fired before spatial or sequential navigation changes the focus.
        */
       SpatNavAPI.createNavEvents('beforefocus', bestCandidate, dir);
-
       bestCandidate.focus();
     }
 
-    // When bestCandidate is not found within the scrollport of a container:
-    // 1. Scrolling 2. Moving the focus inside or outside 3. Nothing
+    // When bestCandidate is not found within the scrollport of a container: Nothing
     else {
-
-      // 1. Scrolling
-      /*
-       * [event] navbeforescroll : Fired before spatial navigation triggers scrolling.
-       */
-      // 1-1. If there is any scrollable area among parent elements and it can be manually scrolled, scroll the document
-      let parentContainer = eventTarget;
-      while (parentContainer.parentElement) {
-        if (isScrollable(parentContainer, dir) && !isScrollBoundary(parentContainer, dir)) {
-
-          SpatNavAPI.createNavEvents('beforescroll', parentContainer, dir);
-          moveScroll(parentContainer, dir);
-          return;
-        }
-
-        parentContainer = parentContainer.parentElement;
-      }
-
-      // 1-2. If the spatnav container is document and it can be scrolled, scroll the document
-      if (!container.parentElement && !isHTMLScrollBoundary(container, dir)) {
-
-        SpatNavAPI.createNavEvents('beforescroll', container, dir);
-        moveScroll(document.documentElement, dir);
-      }
-
-      /*
-       * [event] navnotarget : Fired when spatial navigation has failed to find any acceptable candidate to move the focus
-       * to in the current spatnav container and when that same spatnav container cannot be scrolled either,
-       * before going up the tree to search in the nearest ancestor spatnav container.
-       */
-      else {
-        SpatNavAPI.createNavEvents('notarget', container, dir);
-        let focusableAndVisibleElements = findVisiblesInFocusables(focusableAreas(eventTarget));
-
-        // 2. Moving the focus inside or outside
-        // When bestCandidate is not found within a container,
-        // If there is an element to go inside or outside then move focus
-
-        if (focusableAndVisibleElements.length > 0) {
-          //2-1. move focus to inside
-          // condition: when element is focusable and has any candidates
-          console.log("focus goes inside");
-
-          bestCandidate = spatNavSearchInside(eventTarget, dir);
-        }
-        else {
-          //2-2. move focus to the container
-          // condition: when element is focusable and is doesn't have any candidates
-          console.log("focus goes outside");
-
-          bestCandidate = spatNavSearchOutside(eventTarget, dir);
-        }
-
-        //If there is a best candidate, move the focus.
-        // 3.Otherwise, do nothing at all.
-        if (bestCandidate) {
-          bestCandidate.focus();
-        }
-        else {
-          console.log("Focus will stay");
-        }
-      }
+      console.log('Focus will stay');
     }
   }
 
-  /*------------------------------------------------------------------------*/
-  ////////////////////// Functions for spatNavSearch() ///////////////////////
-  /*------------------------------------------------------------------------*/
   /*
-   * Find the best candidate among focusable candidates from this container
-   * reference: https://wicg.github.io/spatial-navigation/#js-api
-   */
-  function spatNavSearch (dir) {
+  * scrolling controller :
+  * Directionally scroll the element if it can be manually scrolled more.
+  * @function
+  * @param {Node} scroll container
+  * @param {SpatialNavigationDirection} direction
+  * @returns NaN
+  */
+  function scrollingController(container, dir) {
+    const eventTarget = document.activeElement;
+    const parentContainer = getSpatnavContainer(container);
+
+    /*
+     * [event] navbeforescroll : Fired before spatial navigation triggers scrolling.
+     */
+    // If there is any scrollable area among parent elements and it can be manually scrolled, scroll the document
+    if (isScrollable(container, dir) && !isScrollBoundary(container, dir)) {
+      SpatNavAPI.createNavEvents('beforescroll', container, dir);
+      moveScroll(container, dir);
+      return true;
+    }
+
+    // If the spatnav container is document and it can be scrolled, scroll the document
+    if (!container.parentElement && !isHTMLScrollBoundary(container, dir)) {
+      SpatNavAPI.createNavEvents('beforescroll', container, dir);
+      moveScroll(document.documentElement, dir);
+      return true;
+    }
+    return false;
+  }
+
+  /*
+  * Find the best candidate among focusable candidates within the container from the element
+  * reference: https://wicg.github.io/spatial-navigation/#js-api
+  * @function
+  * @param {SpatialNavigationDirection} direction
+  * @param {sequence<Node>} candidates
+  * @param {<Node>} container
+  * @returns {<Node>} the best candidate
+  */
+  function spatNavSearch (dir, candidates, container) {
     // Let container be the nearest ancestor of eventTarget that is a spatnav container.
-    let container = getSpatnavContainer(this);
-    let candidates, bestCandidate;
+    let container_, candidates_, bestCandidate;
 
-    console.log("spatnavsearch");
+    console.log('spatnavsearch');
 
-    // If the eventTarget is a focusable container, pressing the arrow key works for go inside if it has visible focusable
-    // container: document, iframe, scrollable region
-    // Focus will go inside the container
-    //   if it is focusable and has visible focuable children
-    //   exclusion of Input Element
-    if((isContainer(this) || this.nodeName === "BODY") && !(this.nodeName === "INPUT")){
-      bestCandidate = spatNavSearchInside(this, dir);
+    // If the container is unknown, get the closest container from the element
+    if (container)
+      container_ = container;
+    else
+      container_ = getSpatnavContainer(this);
+
+    // If the candidates is unknown, find candidates
+    if(candidates && candidates.isArray(candidates) && candidates.length) {
+      candidates_ = candidates;
+    }
+    else {
+      // Find candidates
+      candidates_ = findCandidates(container_);
+    }
+
+    // select the best candidate
+    // If startingPoint is either a scroll container or the document,
+    // find the best candidate within startingPoint
+    if((isContainer(this) || this.nodeName === 'BODY') && !(this.nodeName === 'INPUT')){
+      bestCandidate = spatNavSearchInside(findCandidates(this), dir);
     }
     // Otherwise, find the best candidate from the current focused element
     else {
-      candidates = findCandidatesFromContainer(container);
-
-      // Let bestCandidate be the result of selecting the best candidate within candidates in direction starting from eventTarget
-      bestCandidate = selectBestCandidate(this, candidates, dir, container);
+      // Let container be the nearest ancestor of eventTarget
+      const container = getSpatnavContainer(this);
+      bestCandidate = selectBestCandidate(this, candidates_, dir, container_);
     }
 
     return bestCandidate;
@@ -189,17 +182,13 @@ function focusNavigationHeuristics() {
    * Find the closest element from the current focused element, among these element's children
    * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate (Step 5)
    */
-  function spatNavSearchInside(element, dir) {
+  function spatNavSearchInside(candidates, dir) {
     let eventTarget = document.activeElement;
     let eventTargetRect = eventTarget.getBoundingClientRect();
-    let allChildren = element.children;
     let minDistanceElement = undefined;
     let minDistance = Number.POSITIVE_INFINITY;
-    let candidates = [];
 
-    console.log("spatnav inside");
-
-    candidates = findVisiblesInFocusables(focusableAreas(element));
+    console.log('spatnav inside');
 
     if(candidates) {
       for (let i = 0; i < candidates.length; i++) {
@@ -230,9 +219,9 @@ function focusNavigationHeuristics() {
     let parentContainer = getSpatnavContainer(container);
     let candidates, bestCandidate;
 
-    console.log("spatnav outside");
+    console.log('spatnav outside');
 
-    candidates = findCandidatesFromContainer(parentContainer);
+    candidates = findCandidates(parentContainer);
 
     // Let bestCandidate be the result of selecting the best candidate within candidates in direction starting from eventTarget
     bestCandidate = selectBestCandidate(element, candidates, dir, parentContainer);
@@ -329,31 +318,38 @@ function focusNavigationHeuristics() {
   };
 
   /*
-   * Find focusable candidates from this container
-   * reference: https://wicg.github.io/spatial-navigation/#find-candidates
-   */
-  function findCandidatesFromContainer(container, visibleOnly = true) {
+  * Find focusable candidates from this container
+  * reference: https://wicg.github.io/spatial-navigation/#find-candidates
+  * @function
+  * @param {<Node>} container - focusable areas
+  * @param {<Node>} - visible or all [ TODO: Can UA set the option? See Step 3 in "find candidates"]
+  * @returns {sequence<Node>} - candidates
+  */
+  function findCandidates(container, visibleOnly = true) {
     let focusables = focusableAreas(container);
+
     if (!visibleOnly)
       return focusables;
-
-    return findVisiblesInFocusables(focusables);
+    return findVisibles(focusables);
   }
 
   /*
-   * Find visible elements among focusable elements
-   * reference: https://wicg.github.io/spatial-navigation/#find-candidates
-   */
-  function findVisiblesInFocusables(focusables) {
-    let focusableAndVisibles = [];
+  * Find visible elements among focusable elements
+  * reference: https://wicg.github.io/spatial-navigation/#find-candidates (Step 4 - 5)
+  * @function
+  * @param {sequence<Node>} focusables - focusable areas
+  * @returns {sequence<Node>} - visible focusable areas
+  */
+  function findVisibles(focusables) {
+    let visibles = [];
 
     for (let i = 0; i < focusables.length; i++) {
       let thisElement = focusables[i];
       if (isVisible(thisElement)){
-        focusableAndVisibles.push(thisElement);
+        visibles.push(thisElement);
       }
     }
-    return focusableAndVisibles;
+    return visibles;
   }
 
   /*
@@ -377,8 +373,10 @@ function focusNavigationHeuristics() {
         }
         else {
           let recursiveFocusables = focusableAreas(thisElement);
-          if (recursiveFocusables)
-            Array.prototype.push.apply(focusables, recursiveFocusables);
+
+          if(Array.isArray(recursiveFocusables) && recursiveFocusables.length){
+            focusables = focusables.concat(recursiveFocusables);
+          }
         }
       }
     }
@@ -392,16 +390,12 @@ function focusNavigationHeuristics() {
   function findStartingPoint() {
     let startingPoint = document.activeElement;
     if (!startingPoint ||
-      (startingPoint == document.body && !document.querySelector(":focus")) /* body isn't actually focused*/
+      (startingPoint == document.body && !document.querySelector(':focus')) /* body isn't actually focused*/
     ) {
       startingPoint = document;
     }
     return startingPoint;
   }
-
-  /*------------------------------------------------------------------------*/
-  /////////////////////// Functions for Element Object ///////////////////////
-  /*------------------------------------------------------------------------*/
 
   /*
    * Move Element Scroll :
@@ -412,25 +406,20 @@ function focusNavigationHeuristics() {
   function moveScroll(element, dir, offset = 0) {
     if (element) {
       switch (dir) {
-        case 'left': element.scrollLeft -= (40 + offset); break;
-        case 'right': element.scrollLeft += (40 + offset); break;
-        case 'up': element.scrollTop -= (40 + offset); break;
-        case 'down': element.scrollTop += (40 + offset); break;
+      case 'left': element.scrollLeft -= (40 + offset); break;
+      case 'right': element.scrollLeft += (40 + offset); break;
+      case 'up': element.scrollTop -= (40 + offset); break;
+      case 'down': element.scrollTop += (40 + offset); break;
       }
     }
   }
 
   /* Whether this element is container or not */
   function isContainer(element) {
-    if (!element.parentElement) return true;    // document
-
-    if (element.nodeName === "IFRAME") return true;  // iframe
-
-    if (isScrollContainer(element))  return true;  // scrollable container
-
-    if (SpatNavAPI.isCSSSpatNavContain(element)) return true; // specified 'spatial-navigation-contain: create'
-
-    return false;
+    return (!element.parentElement) ||
+           (element.nodeName === 'IFRAME') ||
+           (isScrollContainer(element)) ||
+           (SpatNavAPI.isCSSSpatNavContain(element));
   }
 
   /* Whether this element is container or not
@@ -439,66 +428,57 @@ function focusNavigationHeuristics() {
   function isScrollContainer(element) {
     let overflowX = window.getComputedStyle(element).getPropertyValue('overflow-x');
     let overflowY = window.getComputedStyle(element).getPropertyValue('overflow-y');
-
-    if (overflowX === "visible" || overflowX === "clip") return false;
-    if (overflowY === "visible" || overflowY === "clip") return false;
-    return true;
+    return (overflowX !== 'visible' && overflowX !== 'clip') && (overflowY !== 'visible' && overflowY !== 'clip');
   }
 
   /* Whether this element is scrollable or not */
-  function isScrollable() {
+  function isScrollable() { // element, dir
     // parameter: element
-    if ((arguments.length == 1 && typeof arguments[0] === "object") ||
-        (arguments.length == 2 && typeof arguments[0] === "object" && arguments[1] == null)) {
-      let element = arguments[0];
+    if ((arguments.length == 1 && typeof arguments[0] === 'object') ||
+        (arguments.length == 2 && typeof arguments[0] === 'object' && arguments[1] == null)) {
+      const element = arguments[0];
 
-      if (element.nodeName === "HTML" || element.nodeName === "BODY") return true;
+      if (element.nodeName === 'HTML' || element.nodeName === 'BODY') return true;
       else if (isScrollContainer(element) && isOverflow(element)) return true;
       else return false;
     }
 
     // parameter: dir, element
-    else if (arguments.length == 2 && typeof arguments[0] === "object"
-            && typeof arguments[1] === "string") {
+    else if (arguments.length == 2 && typeof arguments[0] === 'object'
+            && typeof arguments[1] === 'string') {
       let element = arguments[0];
       let dir = arguments[1];
 
       if (isOverflow(element, dir)) {
         // style property
-        let overflowX = window.getComputedStyle(element, null).getPropertyValue('overflow-x');
-        let overflowY = window.getComputedStyle(element, null).getPropertyValue('overflow-y');
+        const overflowX = window.getComputedStyle(element, null).getPropertyValue('overflow-x');
+        const overflowY = window.getComputedStyle(element, null).getPropertyValue('overflow-y');
 
         switch (dir) {
-          case 'left':
-            /* falls through */
-          case 'right':
-            if (overflowX === "visible" || overflowX === "clip") return false;
-            else return true;
-            break;
-          case 'up':
-            /* falls through */
-          case 'down':
-            if (overflowY === "visible" || overflowY === "clip") return false;
-            else return true;
-            break;
+        case 'left':
+          /* falls through */
+        case 'right':
+          return (overflowX !== 'visible' && overflowX !== 'clip');
+        case 'up':
+          /* falls through */
+        case 'down':
+          return (overflowY !== 'visible' && overflowY !== 'clip');
         }
       }
       return false;
     }
 
     else {
-      console.log("Need parameters for isScrollable()");
+      console.log('Need parameters for isScrollable()');
       return false;
     }
   }
 
-  /*
-   * Whether this element is overflow or not
-   */
+  /* Whether this element is overflow or not */
   function isOverflow() {
     // parameter: element
-    if (arguments.length == 1 && typeof arguments[0] === "object") {
-      let element = arguments[0];
+    if (arguments.length == 1 && typeof arguments[0] === 'object') {
+      const element = arguments[0];
       if (element.scrollWidth > element.clientWidth || element.scrollHeight > element.clientHeight) {
         return true;
       }
@@ -507,10 +487,10 @@ function focusNavigationHeuristics() {
       }
     }
     // parameter: element, dir
-    else if (arguments.length == 2 && typeof arguments[0] === "object"
-            && typeof arguments[1] === "string"){
-      let element = arguments[0];
-      let dir = arguments[1];
+    else if (arguments.length == 2 && typeof arguments[0] === 'object'
+            && typeof arguments[1] === 'string'){
+      const element = arguments[0];
+      const dir = arguments[1];
 
       switch (dir) {
         case 'left':
@@ -529,48 +509,36 @@ function focusNavigationHeuristics() {
       return false;
     }
     else {
-      console.log("Need parameters for isOverflow()");
+      console.log('Need parameters for isOverflow()');
       return false;
     }
   }
 
+  /* Check whether the scroll of window is down to the end or not */
   function isHTMLScrollBoundary(element, dir) {
-    let scrollBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
-    let scrollRight = element.scrollWidth - element.scrollLeft - element.clientWidth;
-    let scrollTop = window.scrollY;
-    let scrollLeft = window.scrollX;
+    const scrollBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+    const scrollRight = element.scrollWidth - element.scrollLeft - element.clientWidth;
+    const scrollTop = window.scrollY;
+    const scrollLeft = window.scrollX;
 
-    switch (dir) {
-      case 'left':
-        if (scrollLeft == 0) return true;
-        break;
-      case 'right':
-        if (scrollRight == 0) return true;
-        break;
-      case 'up':
-        if (scrollTop == 0) return true;
-        break;
-      case 'down':
-        if (scrollBottom == 0) return true;
-        break;
-    }
-    return false;
+    const checkTargetValue = {left: scrollLeft, right: scrollRight, up: scrollTop, down: scrollBottom};
+    return (checkTargetValue[dir] == 0);
   }
 
   /* Whether the scroll of this element is down to the end or not */
   function isScrollBoundary(element, dir) {
     if (isScrollable(element, dir)) {
-      let winScrollY = element.scrollTop;
-      let winScrollX = element.scrollLeft;
+      const winScrollY = element.scrollTop;
+      const winScrollX = element.scrollLeft;
 
-      let height = element.scrollHeight - element.clientHeight;
-      let width = element.scrollWidth - element.clientWidth;
+      const height = element.scrollHeight - element.clientHeight;
+      const width = element.scrollWidth - element.clientWidth;
 
       switch (dir) {
-        case 'left': return (winScrollX === 0);
-        case 'right': return (Math.abs(winScrollX - width) <= 1);
-        case 'up': return (winScrollY === 0);
-        case 'down': return (Math.abs(winScrollY - height) <= 1);
+      case 'left': return (winScrollX === 0);
+      case 'right': return (Math.abs(winScrollX - width) <= 1);
+      case 'up': return (winScrollY === 0);
+      case 'down': return (Math.abs(winScrollY - height) <= 1);
       }
     }
     return false;
@@ -585,10 +553,10 @@ function focusNavigationHeuristics() {
    * check4. Whether the element is scrollable container or not. (regardless of scrollable axis)
    */
   function isFocusable(element) {
-    return (!element.parentElement)||   //parentElement
-           (element.nodeName === "IFRAME")||
-           (element.tabIndex >= 0 && !element.disabled)||
-           (isScrollable(element) && isOverflow(element));
+    return (!element.parentElement)||
+          (element.nodeName === 'IFRAME')||
+          (element.tabIndex >= 0 && !element.disabled)||
+          (isScrollable(element) && isOverflow(element));
   }
 
   /*
@@ -607,26 +575,26 @@ function focusNavigationHeuristics() {
    * //FIXME: Weird... checking HTML
    */
   function isEntirelyVisible(element) {
-    let container = getSpatnavContainer(element);
-    let rect = element.getBoundingClientRect();
-    let containerRect = container.getBoundingClientRect();
+    const container = getSpatnavContainer(element);
+    const rect = element.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
 
-    //FIXME: when element is bigger than container?
+    // FIXME: when element is bigger than container?
 
     if (rect.left < containerRect.left) return false;
     if (rect.right > containerRect.right) return false;
     if (rect.top < containerRect.top) return false;
     if (rect.bottom > containerRect.botto) return false;
 
-    console.log("entirely in the view");
+    console.log('entirely in the view');
     return true;
   }
 
   /* Check the style property of this element whether it's visible or not  */
   function isVisibleStyleProperty(element) {
-    let thisVisibility = window.getComputedStyle(element, null).getPropertyValue('visibility');
-    let thisDisplay = window.getComputedStyle(element, null).getPropertyValue('display');
-    let invisibleStyle = ["hidden", "collapse"];
+    const thisVisibility = window.getComputedStyle(element, null).getPropertyValue('visibility');
+    const thisDisplay = window.getComputedStyle(element, null).getPropertyValue('display');
+    const invisibleStyle = ['hidden', 'collapse'];
 
     return (!includes(invisibleStyle, thisVisibility) && thisDisplay !== 'none');
   }
@@ -636,23 +604,19 @@ function focusNavigationHeuristics() {
    * Check whether this element is entirely or partially visible within the viewport.
    */
   function hitTest(element) {
-    let offsetX = parseInt(window.getComputedStyle(element, null).getPropertyValue('width'))/10;
-    let offsetY = parseInt(window.getComputedStyle(element, null).getPropertyValue('height'))/10;
+    let offsetX = parseInt(window.getComputedStyle(element, null).getPropertyValue('width')) / 10;
+    let offsetY = parseInt(window.getComputedStyle(element, null).getPropertyValue('height')) / 10;
 
     offsetX = isNaN(offsetX)? 0:offsetX;
     offsetY = isNaN(offsetY)? 0:offsetY;
 
-    let minX = element.getBoundingClientRect().left;
-    let maxX = element.getBoundingClientRect().right;
-    let minY = element.getBoundingClientRect().top;
-    let maxY = element.getBoundingClientRect().bottom;
+    const elementRect = element.getBoundingClientRect();
 
-    let middleElem = document.elementFromPoint((minX + maxX)/2, (minY + maxY)/2);
-    let leftTopElem = document.elementFromPoint(minX + offsetX, minY + offsetY);
-    let leftBottomElem = document.elementFromPoint(minX + offsetX, maxY - offsetY);
-    let rightTopElem = document.elementFromPoint(maxX - offsetX, minY + offsetY);
-    let rightBottomElem = document.elementFromPoint(maxX - offsetX, maxY - offsetY);
-
+    const middleElem = document.elementFromPoint((elementRect.left + elementRect.right)/2, (elementRect.top + elementRect.bottom) / 2);
+    const leftTopElem = document.elementFromPoint(elementRect.left + offsetX, elementRect.top + offsetY);
+    const leftBottomElem = document.elementFromPoint(elementRect.left + offsetX, elementRect.bottom - offsetY);
+    const rightTopElem = document.elementFromPoint(elementRect.right - offsetX, elementRect.top + offsetY);
+    const rightBottomElem = document.elementFromPoint(elementRect.right - offsetX, elementRect.bottom - offsetY);
     if (element === middleElem || element.contains(middleElem)) return true;
     if (element === leftTopElem || element.contains(leftTopElem)) return true;
     if (element === leftBottomElem || element.contains(leftBottomElem)) return true;
@@ -714,7 +678,6 @@ function focusNavigationHeuristics() {
   function getInnerDistance(rect1, rect2, dir) {
     let points = {fromPoint:[0,0], toPoint:[0,0]};
     let P1, P2;
-    let distance;
 
     switch (dir) {
       case 'right':
@@ -747,10 +710,8 @@ function focusNavigationHeuristics() {
     P1 = Math.abs(points.fromPoint[0] - points.toPoint[0]);
     P2 = Math.abs(points.fromPoint[1] - points.toPoint[1]);
 
-    // A = The euclidian distance between P1 and P2.
-    distance = Math.sqrt(Math.pow(P1, 2) + Math.pow(P2, 2));
-
-    return distance;
+    // Calculate and return the distance value
+    return Math.sqrt(Math.pow(P1, 2) + Math.pow(P2, 2));
   }
 
   /*
@@ -762,21 +723,20 @@ function focusNavigationHeuristics() {
     const kOrthogonalWeightForUpDown = 2;
 
     let orthogonal_bias = 0;
-    let points, entryPoint, exitPoint, intersection_rect;
-    let A, B, C, D, distance;
-    let P1, P2;
 
     // Get exit point, entry point
-    points = getEntryAndExitPoints(dir, rect1, rect2);
+    const points = getEntryAndExitPoints(dir, rect1, rect2);
+    let entryPoint, exitPoint;
     ({entryPoint, exitPoint} = points);
 
     // Find the points P1 inside the border box of starting point and P2 inside the border box of candidate
     // that minimize the distance between these two points
-    P1 = Math.abs(entryPoint[0] - exitPoint[0]);
-    P2 = Math.abs(entryPoint[1] - exitPoint[1]);
+    const P1 = Math.abs(entryPoint[0] - exitPoint[0]);
+    const P2 = Math.abs(entryPoint[1] - exitPoint[1]);
 
     // A = The euclidian distance between P1 and P2.
-    A = Math.sqrt(Math.pow(P1, 2) + Math.pow(P2, 2));
+    const A = Math.sqrt(Math.pow(P1, 2) + Math.pow(P2, 2));
+    let B, C, D;
 
     // B: The absolute distance in the dir direction between P1 and P2, or 0 if dir is null.
     // C: The absolute distance in the direction which is orthogonal to dir between P1 and P2, or 0 if dir is null.
@@ -808,11 +768,10 @@ function focusNavigationHeuristics() {
     }
 
     // D: The square root of the area of intersection between the border boxes of candidate and starting point
-    intersection_rect = getIntersectionRect(rect1, rect2);
+    const intersection_rect = getIntersectionRect(rect1, rect2);
     D = (intersection_rect)? intersection_rect.width * intersection_rect.height : 0;
 
-    distance = A + B + C - D;
-    return distance;
+    return (A + B + C - D);
   }
 
   /*
@@ -895,8 +854,8 @@ function focusNavigationHeuristics() {
    */
   function getIntersectionRect(rect1, rect2) {
     let intersection_rect;
-    let new_location = [Math.max(rect1.left, rect2.left), Math.max(rect1.top, rect2.top)];
-    let new_max_point = [Math.min(rect1.right, rect2.right), Math.min(rect1.bottom, rect2.bottom)];
+    const new_location = [Math.max(rect1.left, rect2.left), Math.max(rect1.top, rect2.top)];
+    const new_max_point = [Math.min(rect1.right, rect2.right), Math.min(rect1.bottom, rect2.bottom)];
 
     if (!(new_location[0] >= new_max_point[0] || new_location[1] >= new_max_point[1])) {
       // intersecting-cases
@@ -913,14 +872,10 @@ function focusNavigationHeuristics() {
    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input
    */
   function handlingEditableElement(e) {
-    let eventTarget = document.activeElement;
-    let startPosition = eventTarget.selectionStart;
-    let endPosition = eventTarget.selectionEnd;
-    let focusNavigableArrowKey = {"left": false, "up": false, "right": false, "down": false};
-    let spinnableInputTypes = ["email", "date", "month", "number", "time", "week"];
-    let textInputTypes = ["password", "text", "search", "tel", "url"];
-
-    console.log("handlingEditableElement");
+    const eventTarget = document.activeElement;
+    const startPosition = eventTarget.selectionStart;
+    const endPosition = eventTarget.selectionEnd;
+    let focusNavigableArrowKey = {'left': false, 'up': false, 'right': false, 'down': false};
 
     if (includes(spinnableInputTypes, eventTarget.getAttribute("type"))) {
       switch (e.keyCode) {
@@ -981,7 +936,7 @@ function focusNavigationHeuristics() {
 
   // Use non standard names by default, as per https://www.w3.org/2001/tag/doc/polyfills/#don-t-squat-on-proposed-names-in-speculative-polyfills
   // Allow binding to standard name for testing purposes
-  if (typeof spatnavPolyfillOptions == "object" && spatnavPolyfillOptions.standardName) {
+  if (typeof spatnavPolyfillOptions == 'object' && spatnavPolyfillOptions.standardName) {
     window.navigate = navigate;
     window.Element.prototype.spatNavSearch = spatNavSearch;
   } else {
