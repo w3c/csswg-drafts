@@ -78,7 +78,7 @@ function focusNavigationHeuristics() {
     // 6
     // Let container be the nearest ancestor of eventTarget
     let container = getSpatnavContainer(eventTarget);
-    let parentContainer = container.parentElement;
+    let parentContainer = getSpatnavContainer(container);
 
     // The container is IFRAME
     if (!parentContainer) {
@@ -122,7 +122,8 @@ function focusNavigationHeuristics() {
             }
           }
           else {
-            container = getSpatnavContainer(container);
+            container = parentContainer;
+            parentContainer = getSpatnavContainer(parentContainer);
           }
         }
       }
