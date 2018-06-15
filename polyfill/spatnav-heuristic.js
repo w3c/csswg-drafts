@@ -43,12 +43,15 @@ function focusNavigationHeuristics() {
   function navigate(dir) {
     // spatial navigation steps
 
+    // 1
     const startingPoint = findStartingPoint();
 
     // 2 Optional step, not handled
 
+    // 3
     let eventTarget = startingPoint;
 
+    // 4
     if (eventTarget === document || eventTarget === document.documentElement) {
       eventTarget = document.body || document.documentElement;
     }
