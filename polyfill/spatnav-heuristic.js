@@ -238,18 +238,18 @@ function focusNavigationHeuristics() {
   }
 
   /*
-  * Select the best candidate among candidates
-  * - Find the closet candidate from the starting point
-  * - If there are element having same distance, then select the one depend on DOM tree order.
+  * Get the filtered candidate among candidates
+  * - Get rid of the starting point from the focusables
+  * - Get rid of the elements which aren't in the direction from the focusables
   * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate
   * @function
   * @param {Node} starting point
-  * @param {sequence<Node>} candidates
+  * @param {sequence<Node>} candidates - focusables
   * @param {SpatialNavigationDirection} direction
   * @param {Node} container
-  * @returns {Node} the best candidate
+  * @returns {sequence<Node>} filtered candidates
   */
-  function selectBestCandidate(currentElm, candidates, dir, container) {
+  function filteredCandidates(currentElm, candidates, dir, container) {
     let originalContainer = getSpatnavContainer(currentElm);
     let filteredcandidates = [];
     let eventTargetRect;
@@ -277,7 +277,22 @@ function focusNavigationHeuristics() {
           filteredcandidates.push(candidates[i]);
       }
 
-    candidates = filteredcandidates;
+    return filteredcandidates;
+  }
+
+  /*
+  * Select the best candidate among candidates
+  * - Find the closet candidate from the starting point
+  * - If there are element having same distance, then select the one depend on DOM tree order.
+  * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate
+  * @function
+  * @param {Node} starting point
+  * @param {sequence<Node>} candidates
+  * @param {SpatialNavigationDirection} direction
+  * @param {Node} container
+  * @returns {Node} the best candidate
+  */
+  function selectBestCandidate(currentElm, candidates, dir, container) {
     let bestCandidate;
     let elementsSameDistance = [];
     let minDistance = Number.POSITIVE_INFINITY;
@@ -307,7 +322,7 @@ function focusNavigationHeuristics() {
     let minDistanceElement = undefined;
     let minDistance = Number.POSITIVE_INFINITY;
 
-    if(candidates) {
+    if(Array.isArray(candidates)) {
       for (let i = 0; i < candidates.length; i++) {
         let tempMinDistance = getInnerDistance(eventTargetRect, candidates[i].getBoundingClientRect(), dir);
 
