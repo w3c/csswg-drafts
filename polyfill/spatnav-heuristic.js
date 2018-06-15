@@ -198,46 +198,6 @@ function focusNavigationHeuristics() {
   };
 
   /*
-   * Find SpatNav Outside Element :
-   * Find the closest element from the current focused element,
-   * among the siblings of the container
-   */
-  function spatNavSearchOutside(element, dir) {
-    let container = getSpatnavContainer(element);
-    let parentContainer = getSpatnavContainer(container);
-    let candidates, bestCandidate;
-
-    console.log('spatnav outside');
-
-    candidates = findCandidates(parentContainer);
-
-    // Let bestCandidate be the result of selecting the best candidate within candidates in direction starting from eventTarget
-    bestCandidate = selectBestCandidate(element, candidates, dir, parentContainer);
-
-    // If there isn't any candidate outside of the container,
-    //  If the container is browsing context, focus will move to the container
-    // Otherwise, focus will stay as it is.
-    if (!bestCandidate && !isScrollContainer(container) && !SpatNavAPI.isCSSSpatNavContain(container)) {
-      bestCandidate = window;
-
-      if ( window.location !== window.parent.location ) {
-        // The page is in an iframe
-        bestCandidate = window.parent;
-      }
-    }
-
-    // If there isn't any candidate outside of the container and container is css spatnav container,
-    // search outside of the container again
-    if (!bestCandidate && SpatNavAPI.isCSSSpatNavContain(container)) {
-      let recursivespatNavSearchOutside = spatNavSearchOutside(container, dir);
-      if (recursivespatNavSearchOutside)
-        bestCandidate = recursivespatNavSearchOutside;
-    }
-
-    return bestCandidate;
-  }
-
-  /*
   * Get the filtered candidate among candidates
   * - Get rid of the starting point from the focusables
   * - Get rid of the elements which aren't in the direction from the focusables
