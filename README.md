@@ -5,6 +5,8 @@ This repository consists of the basic description for the spatial navigation, la
 
 You're welcome to contribute! If you have something to say for the spatial navigation, please kindly put it on [issues](https://github.com/WICG/spatial-navigation/issues) of this repository or send it via [email](mailto://lgewst@gmail.com). Let's make the Web to be extensible for the several industries!
 
+An [experimental Polyfill](./polyfill/) is available.
+
 ## Overview
 **Spatial navigation (aka Spatnav)** is the ability to navigate between focusable elements based on their position within a structured document. Spatial navigation is often called 'directional navigation' which enables four(4) directional navigation. Users are usually familiar with the 2-way navigation using tab key for the forward direction and shift+tab key for the backward direction, but not familiar with the 4-way navigation using arrow keys.
 
