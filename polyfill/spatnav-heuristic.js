@@ -11,7 +11,6 @@ function focusNavigationHeuristics() {
   // condition: focus delegation model = false
 
   const ARROW_KEY_CODE = {37: 'left', 38: 'up', 39: 'right', 40: 'down'};
-  const FocusableAreaSearchMode = ['visible', 'all'];
   const spinnableInputTypes = ['email', 'date', 'month', 'number', 'time', 'week'];
   const textInputTypes = ['password', 'text', 'search', 'tel', 'url'];
 
