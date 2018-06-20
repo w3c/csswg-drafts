@@ -80,7 +80,7 @@ function focusNavigationHeuristics() {
       if (eventTarget.nodeName === 'IFRAME')
         eventTarget = eventTarget.contentDocument.body;
 
-      const candidates = findCandidates(eventTarget);
+      const candidates = eventTarget.focusableAreas();
       let bestCandidate;
 
       if (Array.isArray(candidates) && candidates.length > 0) {
@@ -94,8 +94,8 @@ function focusNavigationHeuristics() {
 
     // 6
     // Let container be the nearest ancestor of eventTarget
-    let container = getSpatnavContainer(eventTarget);
-    let parentContainer = getSpatnavContainer(container);
+    let container = eventTarget.getSpatnavContainer();
+    let parentContainer = container.getSpatnavContainer();
 
     // The container is IFRAME
     if (!parentContainer) {
@@ -108,7 +108,7 @@ function focusNavigationHeuristics() {
 
     while (parentContainer) {
       // 7
-      let candidates = filteredCandidates(eventTarget, findCandidates(container), dir, container);
+      const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
 
       if (Array.isArray(candidates) && candidates.length > 0) {
         // 9
@@ -143,7 +143,7 @@ function focusNavigationHeuristics() {
           }
           else {
             container = parentContainer;
-            parentContainer = getSpatnavContainer(parentContainer);
+            parentContainer = parentContainer.getSpatnavContainer();
           }
         }
       }
@@ -161,7 +161,7 @@ function focusNavigationHeuristics() {
   */
   function focusingController(bestCandidate, dir) {
     const eventTarget = document.activeElement;
-    const container = getSpatnavContainer(eventTarget);
+    const container = eventTarget.getSpatnavContainer();
 
     // When bestCandidate is found
     if (bestCandidate) {
@@ -217,7 +217,7 @@ function focusNavigationHeuristics() {
   /*
   * Find the best candidate among focusable candidates within the container from the element
   * reference: https://wicg.github.io/spatial-navigation/#js-api
-  * @function
+  * @function for Element
   * @param {SpatialNavigationDirection} direction
   * @param {sequence<Node>} candidates
   * @param {Node} container
@@ -234,7 +234,7 @@ function focusNavigationHeuristics() {
     if (container)
       container_ = container;
     else
-      container_ = getSpatnavContainer(this);
+      container_ = this.getSpatnavContainer();
 
     // If the candidates is unknown, find candidates
     if(Array.isArray(candidates) && candidates.length > 0) {
@@ -242,9 +242,9 @@ function focusNavigationHeuristics() {
     }
     else {
       if((isContainer(this) || this.nodeName === 'BODY') && !(this.nodeName === 'INPUT'))
-        candidates_ = findCandidates(this);
+        candidates_ = this.focusableAreas();
       else
-        candidates_ = findCandidates(container_);
+        candidates_ = container_.focusableAreas();
     }
 
     // Find the best candidate
@@ -271,7 +271,7 @@ function focusNavigationHeuristics() {
   * @returns {sequence<Node>} filtered candidates
   */
   function filteredCandidates(currentElm, candidates, dir, container) {
-    let originalContainer = getSpatnavContainer(currentElm);
+    const originalContainer = currentElm.getSpatnavContainer();
     let filteredcandidates = [];
     let eventTargetRect;
 
@@ -292,8 +292,8 @@ function focusNavigationHeuristics() {
      */
     else
       for (let i = 0; i < candidates.length; i++) {
-        let candidateContainer = getSpatnavContainer(candidates[i]);
-        let candidateRect = candidates[i].getBoundingClientRect();
+        const candidateContainer = candidates[i].getSpatnavContainer();
+        const candidateRect = candidates[i].getBoundingClientRect();
         if (container.contains(candidateContainer) && isOutside(candidateRect, eventTargetRect, dir))
           filteredcandidates.push(candidates[i]);
       }
@@ -366,36 +366,65 @@ function focusNavigationHeuristics() {
   * Get container of this element.
   * - NOTE: Container could be different by the arrow direction, even if it's the same element
   * reference: https://wicg.github.io/spatial-navigation/#dom-element-getspatnavcontainer
-  * @function
+  * @function for Element
   * @returns {Node} container
   */
-  function getSpatnavContainer(element) {
-    if (!element.parentElement) return element; // if element==HTML
+  function getSpatnavContainer() {
+    if (!this.parentElement) return this; // if element==HTML
 
-    let container = element.parentElement;
+    let container = this.parentElement;
 
     while(!isContainer(container)) {
       container = container.parentElement;
-      if (!container) return element; // if element==HTML
+      if (!container) return this; // if element==HTML
     }
 
     return container;
-  };
+  }
 
   /*
-  * Find focusable candidates from this container
-  * reference: https://wicg.github.io/spatial-navigation/#find-candidates
+  * Find focusable elements within the container
+  * reference: https://wicg.github.io/spatial-navigation/#dom-element-focusableareas
   * @function
-  * @param {Node} container - focusable areas
-  * @param {Node} visible or all [ TODO: Can UA set the option? See Step 3 in "find candidates"]
-  * @returns {sequence<Node>} - candidates
+  * @param {Node} container
+  * @returns {sequence<Node>} focusable areas
   */
-  function findCandidates(container, visibleOnly = true) {
-    let focusables = focusableAreas(container);
+  function focusableAreas(option) {
+    let focusables = [];
+    let children = [];
+    let container = this;
 
-    if (!visibleOnly)
+    if (!option)
+      option = 'visible';
+
+    if (container.childElementCount > 0) {
+      if (!container.parentElement)
+        container = document.body;
+
+      // Find focusable areas among this
+      children = container.children;
+
+      for (let i = 0; i < children.length; i++) {
+        let thisElement = children[i];
+        if (isFocusable(thisElement)){
+          focusables.push(thisElement);
+        }
+        else {
+          const recursiveFocusables = thisElement.focusableAreas();
+
+          if(Array.isArray(recursiveFocusables) && recursiveFocusables.length){
+            focusables = focusables.concat(recursiveFocusables);
+          }
+        }
+      }
+    }
+
+    if (option === 'all') {
       return focusables;
-    return findVisibles(focusables);
+    }
+    else if (option === 'visible') {
+      return findVisibles(focusables);
+    }
   }
 
   /*
@@ -406,50 +435,16 @@ function focusNavigationHeuristics() {
   * @returns {sequence<Node>} - visible focusable areas
   */
   function findVisibles(focusables) {
-    let visibles = [];
+    const visibles = [];
+    let thisElement = undefined;
 
     for (let i = 0; i < focusables.length; i++) {
-      let thisElement = focusables[i];
-      if (isVisible(thisElement)){
+      thisElement = focusables[i];
+      if (isVisible(thisElement)) {
         visibles.push(thisElement);
       }
     }
     return visibles;
-  }
-
-  /*
-  * Find focusable elements within the container
-  * reference: https://wicg.github.io/spatial-navigation/#dom-element-focusableareas
-  * @function
-  * @param {Node} container
-  * @returns {sequence<Node>} focusable areas
-  */
-  function focusableAreas(container) {
-    let focusables = [];
-    let children = [];
-
-    if (container.childElementCount > 0) {
-      if (!container.parentElement)
-        container = document.body;
-
-      // Find focusable areas among container
-      children = container.children;
-
-      for (let i = 0; i < children.length; i++) {
-        let thisElement = children[i];
-        if (isFocusable(thisElement)){
-          focusables.push(thisElement);
-        }
-        else {
-          let recursiveFocusables = focusableAreas(thisElement);
-
-          if(Array.isArray(recursiveFocusables) && recursiveFocusables.length){
-            focusables = focusables.concat(recursiveFocusables);
-          }
-        }
-      }
-    }
-    return focusables;
   }
 
   /*
@@ -646,7 +641,7 @@ function focusNavigationHeuristics() {
    * //FIXME: Weird... checking HTML
    */
   function isEntirelyVisible(element) {
-    const container = getSpatnavContainer(element);
+    const container = element.getSpatnavContainer();
     const rect = element.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
 
@@ -1000,8 +995,12 @@ function focusNavigationHeuristics() {
   if (typeof spatnavPolyfillOptions == 'object' && spatnavPolyfillOptions.standardName) {
     window.navigate = navigate;
     window.Element.prototype.spatNavSearch = spatNavSearch;
+    window.Element.prototype.focusableAreas = focusableAreas;
+    window.Element.prototype.getSpatnavContainer = getSpatnavContainer;
   } else {
     window.navigatePolyfill = navigate;
     window.Element.prototype.spatNavSearchPolyfill = spatNavSearch;
+    window.Element.prototype.focusableAreasPolyfill = focusableAreas;
+    window.Element.prototype.getSpatnavContainerPolyfill = getSpatnavContainer;
   }
-};
+}
