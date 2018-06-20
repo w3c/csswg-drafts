@@ -7,12 +7,15 @@
 * https://wicg.github.io/spatial-navigation
 */
 
-function focusNavigationHeuristics() {
+function focusNavigationHeuristics(spatnavPolyfillOptions) {
   // condition: focus delegation model = false
 
   const ARROW_KEY_CODE = {37: 'left', 38: 'up', 39: 'right', 40: 'down'};
   const spinnableInputTypes = ['email', 'date', 'month', 'number', 'time', 'week'];
   const textInputTypes = ['password', 'text', 'search', 'tel', 'url'];
+
+  if (!spatnavPolyfillOptions)
+    spatnavPolyfillOptions = {"standardName": "true" };
 
   // Load SpatNav API lib
   let SpatNavAPI = SpatnavAPI();
