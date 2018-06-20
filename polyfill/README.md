@@ -73,8 +73,8 @@ to avoid interfering with the standardization process.
 | navnotarget | navnotargetPolyfill |
 | spatNavSearch() | spatNavSearchPolyfill() |
 | navigate() | navigatePolyfill() |
-| getSpatnavContainer() | *not implemented yet* |
-| focusableAreas() | *not implemented yet* |
+| getSpatnavContainer() | getSpatnavContainerPolyfill() |
+| focusableAreas() | focusableAreasPolyfill() |
 
 
 ## Usage in automated tests
