@@ -11,6 +11,8 @@ such as pressing the <code class="key">Shift</code> key together with arrow keys
 This ability to move around the page directionally is called <strong>spatial navigation</strong>
 (or <strong>spatnav</strong> for short).
 
+An [experimental Polyfill](./polyfill/) is available.
+
 ## What are we going to solve?
 
 ### Supporting spatial navigation on a web page by default
