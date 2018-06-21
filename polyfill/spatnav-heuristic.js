@@ -43,23 +43,30 @@ function focusNavigationHeuristics() {
   function navigate(dir) {
     // spatial navigation steps
 
+    // 1
     const startingPoint = findStartingPoint();
 
     // 2 Optional step, not handled
 
+    // 3
     let eventTarget = startingPoint;
 
+    // 4
     if (eventTarget === document || eventTarget === document.documentElement) {
       eventTarget = document.body || document.documentElement;
     }
 
+    // 5
     // If startingPoint is either a scroll container or the document,
     // find the best candidate within startingPoint
     if((isContainer(eventTarget) || eventTarget.nodeName === 'BODY') && !(eventTarget.nodeName === 'INPUT')){
+      if (eventTarget.nodeName === 'IFRAME')
+        eventTarget = eventTarget.contentDocument.body;
+
       const candidates = findCandidates(eventTarget);
       let bestCandidate;
 
-      if (candidates) {
+      if (Array.isArray(candidates) && candidates.length > 0) {
         bestCandidate = selectBestCandidateFromEdge(eventTarget, candidates, dir);
         focusingController(bestCandidate, dir);
         return;
@@ -68,23 +75,60 @@ function focusNavigationHeuristics() {
       if (scrollingController(eventTarget, dir)) return;
     }
 
+    // 6
     // Let container be the nearest ancestor of eventTarget
-    const container = getSpatnavContainer(eventTarget);
-    const candidates = findCandidates(container);
+    let container = getSpatnavContainer(eventTarget);
+    let parentContainer = getSpatnavContainer(container);
 
-    bestCandidate = selectBestCandidate(eventTarget, candidates, dir, container);
+    // The container is IFRAME
+    if (!parentContainer) {
+      parentContainer = window;
 
-    if (bestCandidate === undefined) {
-      if (scrollingController(container, dir)) return;
-      else {
-        // [event] navnotarget : Fired when spatial navigation has failed to find any acceptable candidate to move the focus
-        // to in the current spatnav container and when that same spatnav container cannot be scrolled either,
-        // before going up the tree to search in the nearest ancestor spatnav container.
-        SpatNavAPI.createNavEvents('notarget', container, dir);
-        bestCandidate = spatNavSearchOutside(eventTarget, dir);
+      if ( window.location !== window.parent.location ) {
+        parentContainer = window.parent;
       }
     }
-    focusingController(bestCandidate, dir);
+
+    while (parentContainer) {
+      // 7
+      let candidates = filteredCandidates(eventTarget, findCandidates(container), dir, container);
+
+      if (Array.isArray(candidates) && candidates.length > 0) {
+        // 9
+        let bestCandidate = selectBestCandidate(eventTarget, candidates, dir, container);
+        if (bestCandidate) {
+          // 10 & 11
+          focusingController(bestCandidate, dir);
+          return;
+        }
+      }
+      // 8
+      else {
+        // If there isn't any candidate and the best candidate among candidate:
+        // 1) Scroll or 2) Find candidates of the ancestor container
+        if (scrollingController(container, dir)) return;
+        else {
+          // [event] navnotarget : Fired when spatial navigation has failed to find any acceptable candidate to move the focus
+          // to in the current spatnav container and when that same spatnav container cannot be scrolled either,
+          // before going up the tree to search in the nearest ancestor spatnav container.
+          SpatNavAPI.createNavEvents('notarget', container, dir);
+
+          if (!isScrollContainer(container) && !SpatNavAPI.isCSSSpatNavContain(container)) {
+            container = window;
+
+            if ( window.location !== window.parent.location ) {
+              // The page is in an iframe
+              container = window.parent;
+            }
+          }
+          else {
+            container = parentContainer;
+            parentContainer = getSpatnavContainer(parentContainer);
+          }
+        }
+      }
+    }
+    if (scrollingController(container, dir)) return;
   }
 
   /*
@@ -173,7 +217,7 @@ function focusNavigationHeuristics() {
       container_ = getSpatnavContainer(this);
 
     // If the candidates is unknown, find candidates
-    if(Array.isArray(candidates) && candidates.length) {
+    if(Array.isArray(candidates) && candidates.length > 0) {
       candidates_ = candidates;
     }
     else {
@@ -184,7 +228,7 @@ function focusNavigationHeuristics() {
     }
 
     // Find the best candidate
-    if (candidates_) {
+    if (Array.isArray(candidates_) && candidates_.length > 0) {
       if((isContainer(this) || this.nodeName === 'BODY') && !(this.nodeName === 'INPUT'))
         bestCandidate = selectBestCandidateFromEdge(this, candidates_, dir);
       else
@@ -195,58 +239,18 @@ function focusNavigationHeuristics() {
   };
 
   /*
-   * Find SpatNav Outside Element :
-   * Find the closest element from the current focused element,
-   * among the siblings of the container
-   */
-  function spatNavSearchOutside(element, dir) {
-    let container = getSpatnavContainer(element);
-    let parentContainer = getSpatnavContainer(container);
-    let candidates, bestCandidate;
-
-    console.log('spatnav outside');
-
-    candidates = findCandidates(parentContainer);
-
-    // Let bestCandidate be the result of selecting the best candidate within candidates in direction starting from eventTarget
-    bestCandidate = selectBestCandidate(element, candidates, dir, parentContainer);
-
-    // If there isn't any candidate outside of the container,
-    //  If the container is browsing context, focus will move to the container
-    // Otherwise, focus will stay as it is.
-    if (!bestCandidate && !isScrollContainer(container) && !SpatNavAPI.isCSSSpatNavContain(container)) {
-      bestCandidate = window;
-
-      if ( window.location !== window.parent.location ) {
-        // The page is in an iframe
-        bestCandidate = window.parent;
-      }
-    }
-
-    // If there isn't any candidate outside of the container and container is css spatnav container,
-    // search outside of the container again
-    if (!bestCandidate && SpatNavAPI.isCSSSpatNavContain(container)) {
-      let recursivespatNavSearchOutside = spatNavSearchOutside(container, dir);
-      if (recursivespatNavSearchOutside)
-        bestCandidate = recursivespatNavSearchOutside;
-    }
-
-    return bestCandidate;
-  }
-
-  /*
-  * Select the best candidate among candidates
-  * - Find the closet candidate from the starting point
-  * - If there are element having same distance, then select the one depend on DOM tree order.
+  * Get the filtered candidate among candidates
+  * - Get rid of the starting point from the focusables
+  * - Get rid of the elements which aren't in the direction from the focusables
   * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate
   * @function
   * @param {Node} starting point
-  * @param {sequence<Node>} candidates
+  * @param {sequence<Node>} candidates - focusables
   * @param {SpatialNavigationDirection} direction
   * @param {Node} container
-  * @returns {Node} the best candidate
+  * @returns {sequence<Node>} filtered candidates
   */
-  function selectBestCandidate(currentElm, candidates, dir, container) {
+  function filteredCandidates(currentElm, candidates, dir, container) {
     let originalContainer = getSpatnavContainer(currentElm);
     let filteredcandidates = [];
     let eventTargetRect;
@@ -274,7 +278,22 @@ function focusNavigationHeuristics() {
           filteredcandidates.push(candidates[i]);
       }
 
-    candidates = filteredcandidates;
+    return filteredcandidates;
+  }
+
+  /*
+  * Select the best candidate among candidates
+  * - Find the closet candidate from the starting point
+  * - If there are element having same distance, then select the one depend on DOM tree order.
+  * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate
+  * @function
+  * @param {Node} starting point
+  * @param {sequence<Node>} candidates
+  * @param {SpatialNavigationDirection} direction
+  * @param {Node} container
+  * @returns {Node} the best candidate
+  */
+  function selectBestCandidate(currentElm, candidates, dir, container) {
     let bestCandidate;
     let elementsSameDistance = [];
     let minDistance = Number.POSITIVE_INFINITY;
@@ -304,7 +323,7 @@ function focusNavigationHeuristics() {
     let minDistanceElement = undefined;
     let minDistance = Number.POSITIVE_INFINITY;
 
-    if(candidates) {
+    if(Array.isArray(candidates)) {
       for (let i = 0; i < candidates.length; i++) {
         let tempMinDistance = getInnerDistance(eventTargetRect, candidates[i].getBoundingClientRect(), dir);
 
