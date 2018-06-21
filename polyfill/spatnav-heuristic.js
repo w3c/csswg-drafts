@@ -11,12 +11,14 @@ function focusNavigationHeuristics() {
   // condition: focus delegation model = false
 
   const ARROW_KEY_CODE = {37: 'left', 38: 'up', 39: 'right', 40: 'down'};
-  const FocusableAreaSearchMode = ['visible', 'all'];
   const spinnableInputTypes = ['email', 'date', 'month', 'number', 'time', 'week'];
   const textInputTypes = ['password', 'text', 'search', 'tel', 'url'];
 
   // Load SpatNav API lib
   let SpatNavAPI = SpatnavAPI();
+
+  // Indicates for the position type starting point
+  let startingPosition = null;
 
   /*
    * keydown EventListener :
@@ -40,6 +42,14 @@ function focusNavigationHeuristics() {
     }
   });
 
+  /*
+   * mouseclick EventListener :
+   * If the mouse click a point in the page, the point will be the starting point.
+   */
+  document.addEventListener('click', function(e) {
+    startingPosition = {xPosition: e.clientX, yPosition: e.clientY};
+  });
+
   function navigate(dir) {
     // spatial navigation steps
 
@@ -50,6 +60,13 @@ function focusNavigationHeuristics() {
 
     // 3
     let eventTarget = startingPoint;
+
+    // 3-2 : the mouse clicked position will be come the starting point
+    if (startingPosition) {
+      eventTarget = document.elementFromPoint(startingPosition.xPosition, startingPosition.yPosition);
+
+      startingPosition = null;
+    }
 
     // 4
     if (eventTarget === document || eventTarget === document.documentElement) {
@@ -113,12 +130,15 @@ function focusNavigationHeuristics() {
           // before going up the tree to search in the nearest ancestor spatnav container.
           SpatNavAPI.createNavEvents('notarget', container, dir);
 
-          if (!isScrollContainer(container) && !SpatNavAPI.isCSSSpatNavContain(container)) {
+          if (container === document || container === document.documentElement) {
             container = window;
 
             if ( window.location !== window.parent.location ) {
               // The page is in an iframe
               container = window.parent;
+            }
+            else {
+              return;
             }
           }
           else {
@@ -433,10 +453,11 @@ function focusNavigationHeuristics() {
   }
 
   /*
-   * Find starting point :
-   * reference: https://wicg.github.io/spatial-navigation/#spatial-navigation-steps
-   */
-  // FIXME
+  * Find starting point :
+  * reference: https://wicg.github.io/spatial-navigation/#spatial-navigation-steps
+  * @function
+  * @returns {<Node>} Starting point
+  */
   function findStartingPoint() {
     let startingPoint = document.activeElement;
     if (!startingPoint ||
@@ -726,42 +747,32 @@ function focusNavigationHeuristics() {
    * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate
    */
   function getInnerDistance(rect1, rect2, dir) {
-    let points = {fromPoint:[0,0], toPoint:[0,0]};
+    let points = {fromPoint: 0, toPoint: 0};
     let P1, P2;
 
     switch (dir) {
       case 'right':
-        /* falls through */
-      case 'down' :
-        points.fromPoint[0] = rect1.left;
-        points.fromPoint[1] = rect1.top;
+      points.fromPoint = rect1.left;
+      points.toPoint = rect2.left;
+      break;
 
-        points.toPoint[0] = rect2.left;
-        points.toPoint[1] = rect2.top;
+      case 'down' :
+        points.fromPoint = rect1.top;
+        points.toPoint = rect2.top;
         break;
 
       case 'left' :
-        points.fromPoint[0] = rect1.right;
-        points.fromPoint[1] = rect1.top;
-
-        points.toPoint[0] = rect2.right;
-        points.toPoint[1] = rect2.top;
+        points.fromPoint = rect1.right;
+        points.toPoint = rect2.right;
         break;
 
       case 'up' :
-        points.fromPoint[0] = rect1.left;
-        points.fromPoint[1] = rect1.bottom;
-
-        points.toPoint[0] = rect2.left;
-        points.toPoint[1] = rect2.bottom;
+        points.fromPoint = rect1.bottom;
+        points.toPoint = rect2.bottom;
         break;
     }
 
-    P1 = Math.abs(points.fromPoint[0] - points.toPoint[0]);
-    P2 = Math.abs(points.fromPoint[1] - points.toPoint[1]);
-
-    // Calculate and return the distance value
-    return Math.sqrt(Math.pow(P1, 2) + Math.pow(P2, 2));
+    return Math.abs(points.fromPoint - points.toPoint);
   }
 
   /*
