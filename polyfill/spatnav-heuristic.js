@@ -18,7 +18,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     spatnavPolyfillOptions = {"standardName": "true" };
 
   // Load SpatNav API lib
-  let SpatNavAPI = SpatnavAPI();
+  const SpatNavAPI = SpatnavAPI();
 
   // Indicates for the position type starting point
   let startingPosition = null;
@@ -79,7 +79,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     // 5
     // If startingPoint is either a scroll container or the document,
     // find the best candidate within startingPoint
-    if((isContainer(eventTarget) || eventTarget.nodeName === 'BODY') && !(eventTarget.nodeName === 'INPUT')){
+    if ((isContainer(eventTarget) || eventTarget.nodeName === 'BODY') && !(eventTarget.nodeName === 'INPUT')) {
       if (eventTarget.nodeName === 'IFRAME')
         eventTarget = eventTarget.contentDocument.body;
 
@@ -115,7 +115,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
 
       if (Array.isArray(candidates) && candidates.length > 0) {
         // 9
-        let bestCandidate = selectBestCandidate(eventTarget, candidates, dir, container);
+        const bestCandidate = selectBestCandidate(eventTarget, candidates, dir, container);
         if (bestCandidate) {
           // 10 & 11
           focusingController(bestCandidate, dir);
@@ -170,7 +170,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     if (bestCandidate) {
       // Scrolling container or document when the next focusing element isn't entirely visible
       if (isScrollContainer(container) && !isEntirelyVisible(bestCandidate))
-          bestCandidate.scrollIntoView();
+        bestCandidate.scrollIntoView();
 
       // When bestCandidate is a focusable element and not a container : move focus
       /*
@@ -195,9 +195,6 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @returns NaN
   */
   function scrollingController(container, dir) {
-    const eventTarget = document.activeElement;
-    const parentContainer = getSpatnavContainer(container);
-
     /*
      * [event] navbeforescroll : Fired before spatial navigation triggers scrolling.
      */
@@ -259,7 +256,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     }
 
     return bestCandidate;
-  };
+  }
 
   /*
   * Get the filtered candidate among candidates
@@ -281,7 +278,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     // to do
     // Offscreen handling when originalContainer is not <HTML>
     if (!isVisible(currentElm) && originalContainer.parentElement && container !== originalContainer)
-        eventTargetRect = originalContainer.getBoundingClientRect();
+      eventTargetRect = originalContainer.getBoundingClientRect();
     else eventTargetRect = currentElm.getBoundingClientRect();
 
     // If D(dir) is null, let candidates be the same as visibles
@@ -316,13 +313,13 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @param {Node} container
   * @returns {Node} the best candidate
   */
-  function selectBestCandidate(currentElm, candidates, dir, container) {
+  function selectBestCandidate(currentElm, candidates, dir) {
     let bestCandidate;
-    let elementsSameDistance = [];
     let minDistance = Number.POSITIVE_INFINITY;
+    let tempDistance = undefined;
 
     for (let i = 0; i < candidates.length; i++) {
-      let tempDistance = getDistance(currentElm.getBoundingClientRect(), candidates[i].getBoundingClientRect(), dir);
+      tempDistance = getDistance(currentElm.getBoundingClientRect(), candidates[i].getBoundingClientRect(), dir);
       if (tempDistance < minDistance) {
         minDistance = tempDistance;
         bestCandidate = candidates[i];
@@ -342,13 +339,14 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @returns {Node} the best candidate
   */
   function selectBestCandidateFromEdge(currentElm, candidates, dir) {
-    let eventTargetRect = currentElm.getBoundingClientRect();
+    const eventTargetRect = currentElm.getBoundingClientRect();
     let minDistanceElement = undefined;
     let minDistance = Number.POSITIVE_INFINITY;
+    let tempMinDistance = undefined;
 
     if(Array.isArray(candidates)) {
       for (let i = 0; i < candidates.length; i++) {
-        let tempMinDistance = getInnerDistance(eventTargetRect, candidates[i].getBoundingClientRect(), dir);
+        tempMinDistance = getInnerDistance(eventTargetRect, candidates[i].getBoundingClientRect(), dir);
 
         if (tempMinDistance < minDistance) {
           minDistance = tempMinDistance;
@@ -408,8 +406,8 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
       children = container.children;
 
       for (let i = 0; i < children.length; i++) {
-        let thisElement = children[i];
-        if (isFocusable(thisElement)){
+        const thisElement = children[i];
+        if (isFocusable(thisElement)) {
           focusables.push(thisElement);
         }
         else {
@@ -495,8 +493,8 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
    * reference: https://drafts.csswg.org/css-overflow-3/#scroll-container
    */
   function isScrollContainer(element) {
-    let overflowX = window.getComputedStyle(element).getPropertyValue('overflow-x');
-    let overflowY = window.getComputedStyle(element).getPropertyValue('overflow-y');
+    const overflowX = window.getComputedStyle(element).getPropertyValue('overflow-x');
+    const overflowY = window.getComputedStyle(element).getPropertyValue('overflow-y');
     return (overflowX !== 'visible' && overflowX !== 'clip') && (overflowY !== 'visible' && overflowY !== 'clip');
   }
 
@@ -515,8 +513,8 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     // parameter: dir, element
     else if (arguments.length == 2 && typeof arguments[0] === 'object'
             && typeof arguments[1] === 'string') {
-      let element = arguments[0];
-      let dir = arguments[1];
+      const element = arguments[0];
+      const dir = arguments[1];
 
       if (isOverflow(element, dir)) {
         // style property
@@ -557,23 +555,23 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     }
     // parameter: element, dir
     else if (arguments.length == 2 && typeof arguments[0] === 'object'
-            && typeof arguments[1] === 'string'){
+            && typeof arguments[1] === 'string') {
       const element = arguments[0];
       const dir = arguments[1];
 
       switch (dir) {
-        case 'left':
-          /* falls through */
-        case 'right':
-          if (element.scrollWidth > element.clientWidth)
-            return true;
-          break;
-        case 'up':
-          /* falls through */
-        case 'down':
-          if (element.scrollHeight > element.clientHeight)
-            return true;
-          break;
+      case 'left':
+        /* falls through */
+      case 'right':
+        if (element.scrollWidth > element.clientWidth)
+          return true;
+        break;
+      case 'up':
+        /* falls through */
+      case 'down':
+        if (element.scrollHeight > element.clientHeight)
+          return true;
+        break;
       }
       return false;
     }
@@ -622,9 +620,9 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
    * check4. Whether the element is scrollable container or not. (regardless of scrollable axis)
    */
   function isFocusable(element) {
-    return (!element.parentElement)||
-          (element.nodeName === 'IFRAME')||
-          (element.tabIndex >= 0 && !element.disabled)||
+    return (!element.parentElement) ||
+          (element.nodeName === 'IFRAME') ||
+          (element.tabIndex >= 0 && !element.disabled) ||
           (isScrollable(element) && isOverflow(element));
   }
 
@@ -676,12 +674,12 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     let offsetX = parseInt(window.getComputedStyle(element, null).getPropertyValue('width')) / 10;
     let offsetY = parseInt(window.getComputedStyle(element, null).getPropertyValue('height')) / 10;
 
-    offsetX = isNaN(offsetX)? 0:offsetX;
-    offsetY = isNaN(offsetY)? 0:offsetY;
+    offsetX = isNaN(offsetX) ? 0 : offsetX;
+    offsetY = isNaN(offsetY) ? 0 : offsetY;
 
     const elementRect = element.getBoundingClientRect();
 
-    const middleElem = document.elementFromPoint((elementRect.left + elementRect.right)/2, (elementRect.top + elementRect.bottom) / 2);
+    const middleElem = document.elementFromPoint((elementRect.left + elementRect.right) / 2, (elementRect.top + elementRect.bottom) / 2);
     const leftTopElem = document.elementFromPoint(elementRect.left + offsetX, elementRect.top + offsetY);
     const leftBottomElem = document.elementFromPoint(elementRect.left + offsetX, elementRect.bottom - offsetY);
     const rightTopElem = document.elementFromPoint(elementRect.right - offsetX, elementRect.top + offsetY);
@@ -701,16 +699,16 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   /* rect1 is outside of rect2 for the dir */
   function isOutside(rect1, rect2, dir) {
     switch (dir) {
-      case 'left':
-        return isRightSide(rect2, rect1);
-      case 'right':
-        return isRightSide(rect1, rect2);
-      case 'up':
-        return isBelow(rect2, rect1);
-      case 'down':
-        return isBelow(rect1, rect2);
-      default:
-        return false;
+    case 'left':
+      return isRightSide(rect2, rect1);
+    case 'right':
+      return isRightSide(rect1, rect2);
+    case 'up':
+      return isBelow(rect2, rect1);
+    case 'down':
+      return isBelow(rect1, rect2);
+    default:
+      return false;
     }
   }
 
@@ -727,16 +725,16 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   /* rect1 is completely aligned or partially aligned for the direction */
   function isAligned(rect1, rect2, dir) {
     switch (dir) {
-      case 'left' :
-        /* falls through */
-      case 'right' :
-        return rect1.bottom > rect2.top && rect1.top < rect2.bottom;
-      case 'up' :
-        /* falls through */
-      case 'down' :
-        return rect1.right > rect2.left && rect1.left < rect2.right;
-      default:
-        return false;
+    case 'left' :
+      /* falls through */
+    case 'right' :
+      return rect1.bottom > rect2.top && rect1.top < rect2.bottom;
+    case 'up' :
+      /* falls through */
+    case 'down' :
+      return rect1.right > rect2.left && rect1.left < rect2.right;
+    default:
+      return false;
     }
   }
 
@@ -745,29 +743,28 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
    * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate
    */
   function getInnerDistance(rect1, rect2, dir) {
-    let points = {fromPoint: 0, toPoint: 0};
-    let P1, P2;
+    const points = {fromPoint: 0, toPoint: 0};
 
     switch (dir) {
-      case 'right':
+    case 'right':
       points.fromPoint = rect1.left;
       points.toPoint = rect2.left;
       break;
 
-      case 'down' :
-        points.fromPoint = rect1.top;
-        points.toPoint = rect2.top;
-        break;
+    case 'down' :
+      points.fromPoint = rect1.top;
+      points.toPoint = rect2.top;
+      break;
 
-      case 'left' :
-        points.fromPoint = rect1.right;
-        points.toPoint = rect2.right;
-        break;
+    case 'left' :
+      points.fromPoint = rect1.right;
+      points.toPoint = rect2.right;
+      break;
 
-      case 'up' :
-        points.fromPoint = rect1.bottom;
-        points.toPoint = rect2.bottom;
-        break;
+    case 'up' :
+      points.fromPoint = rect1.bottom;
+      points.toPoint = rect2.bottom;
+      break;
     }
 
     return Math.abs(points.fromPoint - points.toPoint);
@@ -785,50 +782,48 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
 
     // Get exit point, entry point
     const points = getEntryAndExitPoints(dir, rect1, rect2);
-    let entryPoint, exitPoint;
-    ({entryPoint, exitPoint} = points);
 
     // Find the points P1 inside the border box of starting point and P2 inside the border box of candidate
     // that minimize the distance between these two points
-    const P1 = Math.abs(entryPoint[0] - exitPoint[0]);
-    const P2 = Math.abs(entryPoint[1] - exitPoint[1]);
+    const P1 = Math.abs(points.entryPoint[0] - points.exitPoint[0]);
+    const P2 = Math.abs(points.entryPoint[1] - points.exitPoint[1]);
 
     // A = The euclidian distance between P1 and P2.
     const A = Math.sqrt(Math.pow(P1, 2) + Math.pow(P2, 2));
-    let B, C, D;
+    let B, C;
 
     // B: The absolute distance in the dir direction between P1 and P2, or 0 if dir is null.
     // C: The absolute distance in the direction which is orthogonal to dir between P1 and P2, or 0 if dir is null.
     switch (dir) {
-      case 'left':
-        /* falls through */
-      case 'right' :
-        B = P1;
-        // If not aligned => add bias
-        if (!isAligned(rect1, rect2, dir))
+    case 'left':
+      /* falls through */
+    case 'right' :
+      B = P1;
+      // If not aligned => add bias
+      if (!isAligned(rect1, rect2, dir))
         orthogonal_bias = (rect1.height / 2);
-        C = (P2 + orthogonal_bias) * kOrthogonalWeightForLeftRight;
-        break;
+      C = (P2 + orthogonal_bias) * kOrthogonalWeightForLeftRight;
+      break;
 
-      case 'up' :
-        /* falls through */
-      case 'down' :
-        B = P2;
-        // If not aligned => add bias
-        if (!isAligned(rect1, rect2, dir))
+    case 'up' :
+      /* falls through */
+    case 'down' :
+      B = P2;
+      // If not aligned => add bias
+      if (!isAligned(rect1, rect2, dir))
         orthogonal_bias = (rect1.width / 2);
-        C = (P1 + orthogonal_bias) * kOrthogonalWeightForUpDown;
-        break;
+      C = (P1 + orthogonal_bias) * kOrthogonalWeightForUpDown;
+      break;
 
-      default:
-        B = 0;
-        C = 0;
-        break;
+    default:
+      B = 0;
+      C = 0;
+      break;
     }
 
     // D: The square root of the area of intersection between the border boxes of candidate and starting point
     const intersection_rect = getIntersectionRect(rect1, rect2);
-    D = (intersection_rect)? intersection_rect.width * intersection_rect.height : 0;
+    const D = (intersection_rect) ? intersection_rect.width * intersection_rect.height : 0;
 
     return (A + B + C - D);
   }
@@ -842,67 +837,67 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
 
     // Set direction
     switch (dir) {
-      case 'left':
-        points.exitPoint[0] = rect1.left;
-        if (rect2.right < rect1.left) points.entryPoint[0] = rect2.right;
-        else points.entryPoint[0] = rect1.left;
-        break;
-      case 'up':
-        points.exitPoint[1] = rect1.top;
-        if (rect2.bottom < rect1.top) points.entryPoint[1] = rect2.bottom;
-        else points.entryPoint[1] = rect1.top;
-        break;
-      case 'right':
-        points.exitPoint[0] = rect1.right;
-        if (rect2.left > rect1.right) points.entryPoint[0] = rect2.left;
-        else points.entryPoint[0] = rect1.right;
-        break;
-      case 'down':
-        points.exitPoint[1] = rect1.bottom;
-        if (rect2.top > rect1.bottom) points.entryPoint[1] = rect2.top;
-        else points.entryPoint[1] = rect1.bottom;
-        break;
+    case 'left':
+      points.exitPoint[0] = rect1.left;
+      if (rect2.right < rect1.left) points.entryPoint[0] = rect2.right;
+      else points.entryPoint[0] = rect1.left;
+      break;
+    case 'up':
+      points.exitPoint[1] = rect1.top;
+      if (rect2.bottom < rect1.top) points.entryPoint[1] = rect2.bottom;
+      else points.entryPoint[1] = rect1.top;
+      break;
+    case 'right':
+      points.exitPoint[0] = rect1.right;
+      if (rect2.left > rect1.right) points.entryPoint[0] = rect2.left;
+      else points.entryPoint[0] = rect1.right;
+      break;
+    case 'down':
+      points.exitPoint[1] = rect1.bottom;
+      if (rect2.top > rect1.bottom) points.entryPoint[1] = rect2.top;
+      else points.entryPoint[1] = rect1.bottom;
+      break;
     }
 
     // Set orthogonal direction
     switch (dir) {
-      case 'left':
-        /* falls through */
-      case 'right':
-        if (isBelow(rect1, rect2)) {
-          points.exitPoint[1] = rect1.top;
-          if (rect2.bottom < rect1.top) points.entryPoint[1] = rect2.bottom;
-          else points.entryPoint[1] = rect1.top;
-        }
-        else if (isBelow(rect2, rect1)) {
-          points.exitPoint[1] = rect1.bottom;
-          if (rect2.top > rect1.bottom) points.entryPoint[1] = rect2.top;
-          else points.entryPoint[1] = rect1.bottom;
-        }
-        else {
-          points.exitPoint[1] = Math.max(rect1.top, rect2.top);
-          points.entryPoint[1] = points.exitPoint[1];
-        }
-        break;
+    case 'left':
+      /* falls through */
+    case 'right':
+      if (isBelow(rect1, rect2)) {
+        points.exitPoint[1] = rect1.top;
+        if (rect2.bottom < rect1.top) points.entryPoint[1] = rect2.bottom;
+        else points.entryPoint[1] = rect1.top;
+      }
+      else if (isBelow(rect2, rect1)) {
+        points.exitPoint[1] = rect1.bottom;
+        if (rect2.top > rect1.bottom) points.entryPoint[1] = rect2.top;
+        else points.entryPoint[1] = rect1.bottom;
+      }
+      else {
+        points.exitPoint[1] = Math.max(rect1.top, rect2.top);
+        points.entryPoint[1] = points.exitPoint[1];
+      }
+      break;
 
-      case 'up':
-        /* falls through */
-      case 'down':
-        if (isRightSide(rect1, rect2)) {
-          points.exitPoint[0] = rect1.left;
-          if (rect2.right < rect1.left) points.entryPoint[0] = rect2.right;
-          else points.entryPoint[0] = rect1.left;
-        }
-        else if (isRightSide(rect2, rect1)) {
-          points.exitPoint[0] = rect1.right;
-          if (rect2.left > rect1.right) points.entryPoint[0] = rect2.left;
-          else points.entryPoint[0] = rect1.right;
-        }
-        else {
-          points.exitPoint[0] = Math.max(rect1.left, rect2.left);
-          points.entryPoint[0] = points.exitPoint[0];
-        }
-        break;
+    case 'up':
+    /* falls through */
+    case 'down':
+      if (isRightSide(rect1, rect2)) {
+        points.exitPoint[0] = rect1.left;
+        if (rect2.right < rect1.left) points.entryPoint[0] = rect2.right;
+        else points.entryPoint[0] = rect1.left;
+      }
+      else if (isRightSide(rect2, rect1)) {
+        points.exitPoint[0] = rect1.right;
+        if (rect2.left > rect1.right) points.entryPoint[0] = rect2.left;
+        else points.entryPoint[0] = rect1.right;
+      }
+      else {
+        points.exitPoint[0] = Math.max(rect1.left, rect2.left);
+        points.entryPoint[0] = points.exitPoint[0];
+      }
+      break;
     }
     return points;
   }
@@ -934,25 +929,25 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     const eventTarget = document.activeElement;
     const startPosition = eventTarget.selectionStart;
     const endPosition = eventTarget.selectionEnd;
-    let focusNavigableArrowKey = {'left': false, 'up': false, 'right': false, 'down': false};
+    const focusNavigableArrowKey = {'left': false, 'up': false, 'right': false, 'down': false};
 
-    if (includes(spinnableInputTypes, eventTarget.getAttribute("type"))) {
+    if (includes(spinnableInputTypes, eventTarget.getAttribute('type'))) {
       switch (e.keyCode) {
-        case 37:      // left keycode
-          focusNavigableArrowKey.left = false;
-          break;
-        case 38:      // up keycode
-          focusNavigableArrowKey.up = true;
-          break;
-        case 39:      // right keycode
-          focusNavigableArrowKey.right = false;
-          break;
-        case 40:      // down keycode
-          focusNavigableArrowKey.down = true;
-          break;
+      case 37:      // left keycode
+        focusNavigableArrowKey.left = false;
+        break;
+      case 38:      // up keycode
+        focusNavigableArrowKey.up = true;
+        break;
+      case 39:      // right keycode
+        focusNavigableArrowKey.right = false;
+        break;
+      case 40:      // down keycode
+        focusNavigableArrowKey.down = true;
+        break;
       }
     }
-    else if (includes(textInputTypes, eventTarget.getAttribute("type"))) {
+    else if (includes(textInputTypes, eventTarget.getAttribute('type'))) {
       if (startPosition === 0) {
         focusNavigableArrowKey.left = true;
         focusNavigableArrowKey.up = true;
@@ -964,18 +959,18 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     }
     else {
       switch (e.keyCode) {
-        case 37:      // left keycode
-          focusNavigableArrowKey.left = true;
-          break;
-        case 38:      // up keycode
-          focusNavigableArrowKey.up = true;
-          break;
-        case 39:      // right keycode
-          focusNavigableArrowKey.right = true;
-          break;
-        case 40:      // down keycode
-          focusNavigableArrowKey.down = true;
-          break;
+      case 37:      // left keycode
+        focusNavigableArrowKey.left = true;
+        break;
+      case 38:      // up keycode
+        focusNavigableArrowKey.up = true;
+        break;
+      case 39:      // right keycode
+        focusNavigableArrowKey.right = true;
+        break;
+      case 40:      // down keycode
+        focusNavigableArrowKey.down = true;
+        break;
       }
     }
 
@@ -992,6 +987,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     }
     return false;
   }
+
 
   // Use non standard names by default, as per https://www.w3.org/2001/tag/doc/polyfills/#don-t-squat-on-proposed-names-in-speculative-polyfills
   // Allow binding to standard name for testing purposes
