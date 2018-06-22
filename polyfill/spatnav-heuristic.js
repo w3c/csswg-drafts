@@ -2,6 +2,7 @@
 * : common function for Spatial Navigation
 *
 * Copyright 2018 LG Electronics Inc. All rights reserved.
+* Release Version 1.0
 *
 * https://github.com/WICG/spatial-navigation
 * https://wicg.github.io/spatial-navigation
