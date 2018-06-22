@@ -19,10 +19,22 @@
     this._options = options;
   }
 
-  SpatnavAPI.prototype.isCSSSpatNavContain = function(el) {
-    if (el.classList.contains('spatnav-contain')) return true;
-    else return false;
+  /**
+  * Gives a CSS custom property value applied at the element
+  * @function
+  * @param
+  * element {Element}
+  * varName {String} without '--'
+  */
+  function readCssVar (element, varName) {
+    const elementStyles = getComputedStyle(element);
+    return elementStyles.getPropertyValue(`--${varName}`).trim();
   }
+
+  SpatnavAPI.prototype.isCSSSpatNavContain = function(el) {
+    if (readCssVar(el, 'spatial-navigation-contain') == 'contain') return true;
+    else return false;
+  };
 
   /**
   * Support the NavigatoinEvent: navbeforefocus, navbeforescroll, navnotarget
