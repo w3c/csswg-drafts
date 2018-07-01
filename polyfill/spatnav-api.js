@@ -20,6 +20,20 @@
   }
 
   /**
+  * CSS.registerProperty() from the Properties and Values API
+  * Reference: https://drafts.css-houdini.org/css-properties-values-api/#the-registerproperty-function
+  */
+  if (window.CSS && CSS.registerProperty) {
+    console.log("registerProperty is available");
+    CSS.registerProperty({
+      name: '--spatial-navigation-contain',
+      syntax: 'auto | contain',
+      inherits: false,
+      initialValue: 'auto'
+    });
+  }
+
+  /**
   * Gives a CSS custom property value applied at the element
   * @function
   * @param
