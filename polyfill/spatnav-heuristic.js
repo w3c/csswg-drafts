@@ -44,12 +44,13 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
       e.preventDefault();
       navigate(dir);
     }
+    startingPosition = null;
   });
 
   /*
-   * mouseclick EventListener :
-   * If the mouse click a point in the page, the point will be the starting point.
-   */
+  * mouseclick EventListener :
+  * If the mouse click a point in the page, the point will be the starting point.
+  */
   document.addEventListener('click', function(e) {
     startingPosition = {xPosition: e.clientX, yPosition: e.clientY};
   });
@@ -124,7 +125,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
 
       if (Array.isArray(candidates) && candidates.length > 0) {
         // 9
-        const bestCandidate = selectBestCandidate(eventTarget, candidates, dir, container);
+        const bestCandidate = selectBestCandidate(eventTarget, candidates, dir);
         if (bestCandidate) {
           // 10 & 11
           focusingController(bestCandidate, dir);
@@ -261,7 +262,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
       if((isContainer(this) || this.nodeName === 'BODY') && !(this.nodeName === 'INPUT'))
         bestCandidate = selectBestCandidateFromEdge(this, candidates_, dir);
       else
-        bestCandidate = selectBestCandidate(this, candidates_, dir, container_);
+        bestCandidate = selectBestCandidate(this, candidates_, dir);
     }
 
     return bestCandidate;
@@ -854,8 +855,8 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @param {SpatialNavigationDirection} direction
   * @returns {distance} euclidian distance between two elements
   */
-  function getEntryAndExitPoints(rect1, rect2, dir) {
-    const points = {entryPoint:[0,0], exitPoint:[0,0]};
+  function getEntryAndExitPoints(dir = 'down', rect1, rect2) {
+    let points = {entryPoint:[0,0], exitPoint:[0,0]};
 
     // Set direction
     switch (dir) {
