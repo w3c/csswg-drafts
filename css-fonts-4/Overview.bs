@@ -1606,7 +1606,7 @@ The <dfn id="at-font-face-rule">''@font-face''</dfn> rule</h3>
 
 	<pre class='descdef'>
 	Name: src
-	Value: [ <<url>> [ format( <<string>> # )]? | local(<<font-face-name>>) ] #
+	Value: see prose
 	For: @font-face
 	Initial: N/A
 	</pre>
@@ -1614,13 +1614,15 @@ The <dfn id="at-font-face-rule">''@font-face''</dfn> rule</h3>
 	This descriptor specifies the resource containing font data.
 	It is required for the ''@font-face'' rule to be valid.
 	Its value is
-	a  prioritized,
+	a prioritized,
 	comma-separated list
 	of external references
 	or locally-installed font face names.
 	When a font is needed
 	the user agent iterates over the set of references listed,
-	using the first one it can successfully activate.
+	using the first one it can successfully parse and activate.
+    Parsing this descriptor is more complicated than parsing other descriptors;
+    see [[#font-face-src-parsing]] for the parsing rules.
 	Activation of a font involves downloading the file
 	or reading it from disk,
 	parsing it,
@@ -1630,6 +1632,46 @@ The <dfn id="at-font-face-rule">''@font-face''</dfn> rule</h3>
 	that are not found
 	are ignored
 	and the user agent loads the next font in the list.
+
+<h4 id="font-face-src-parsing">Parsing the 'src!!descriptor' descriptor</h4>
+
+    The value of the 'src!!descriptor' descriptor is parsed piecewise.
+
+    First, opening and closing parentheses are matched.
+    If these parentheses cannot be matched,
+    the value is a parse error.
+    Matching the parentheses has the effect of
+    partitioning the value into multiple regions,
+    each of which is either
+    inside outermost parentheses
+    or outside outermost parentheses.
+
+    Once the value is partitioned,
+    all the commas outside outermost parentheses
+    are located.
+    The value is then split at these comma locations.
+
+    Each item in the split value is then parsed against this grammar:
+
+    <pre><<url>> [ format(<<font-format>> [supports <<font-technology>>#]?)]? | local(<<font-face-name>>)</pre>
+
+    <pre class="prod"><dfn id="font-format-values">&lt;font-format&gt;</dfn> = [<<string>> | woff | truetype | opentype | woff2 | embedded-opentype | svg]</pre>
+
+    <pre class="prod"><dfn id="font-technology-values">&lt;font-technology&gt;</dfn> = [features | variations | color(<<color-font-technology>>) | palettes]</pre>
+
+    <pre class="prod"><dfn id="color-font-technology-values">&lt;color-font-technology&gt;</dfn> = [COLR | SVG | sbix]</pre>
+
+    If parsing a particular item in the split value results in a parse error,
+    that item is thrown out.
+
+    Issue: Define what "thrown out" means
+
+    If no item in the split value survives, then the descriptor is a parse error.
+
+    These parsing rules allow for graceful fallback of fonts
+    for user agents which don't support a particular font technology.
+
+<h4 id="font-face-src-loading">Loading an individual item in the 'src!!descriptor' descriptor</h4>
 
 	As with other URLs in CSS,
 	the URL can be relative,
@@ -1664,27 +1706,33 @@ The <dfn id="at-font-face-rule">''@font-face''</dfn> rule</h3>
 	src: url(fonts.svg#simple);        /* load SVG font with id 'simple' */
 	</pre>
 
+<h4 id="font-face-src-formats">Selecting items in the 'src!!descriptor'</h4>
+
 	External references consist of a URL,
 	followed by an optional hint
 	describing the format of the font resource referenced by that URL.
-	The format hint contains a comma-separated list of format strings
-	that denote well-known font formats.
 	Conformant user agents
 	must skip downloading a font resource
-	if the format hints indicate only unsupported or unknown font formats.
-	If no format hints are supplied,
+	if the format hint indicates an unsupported or unknown font format,
+    or if any of the font technologies are unsupported by the user agent.
+	If no format hint is supplied,
 	the user agent should download the font resource.
 
+    <div class="example">
+    For example, the following shows how to load a WOFF font if possible, otherwise use an OpenType font
 	<pre>
-	/* load WOFF font if possible, otherwise use OpenType font */
 	@font-face {
 	font-family: bodytext;
 	src: url(ideal-sans-serif.woff) format("woff"),
 		url(basic-sans-serif.ttf) format("opentype");
 	}
 	</pre>
+    </div>
 
-	Format strings defined by this specification:
+<h5 id="font-face-src-format-types">''@font-face'' format types</h5>
+
+	Format strings defined by this specification are as follows.
+    The <<font-format>> values are synonyms for the formats below.
 
 	<table class="data" id="fontformats">
 		<thead>
@@ -1717,26 +1765,6 @@ The <dfn id="at-font-face-rule">''@font-face''</dfn> rule</h3>
 				<th>"svg"
 				<td><a href="https://www.w3.org/TR/SVG11/fonts.html">SVG Font</a> (deprecated)
 				<td>.svg, .svgz
-			<tr>
-				<th>"woff-variations"
-				<td><a href="https://www.w3.org/TR/WOFF/">WOFF (Web Open Font Format)
-					with associated variations support</a>
-				<td>.woff
-			<tr>
-				<th>"truetype-variations"
-				<td><a href="https://www.microsoft.com/typography/otspec/default.htm">TrueType
-					with associated variations support</a>
-				<td>.ttf
-			<tr>
-				<th>"opentype-variations"
-				<td><a href="https://www.microsoft.com/typography/otspec/default.htm">OpenType
-					with associated variations support</a>
-				<td>.ttf, .otf
-			<tr>
-				<th>"woff2-variations"
-				<td><a href="https://www.w3.org/TR/WOFF2/">WOFF File Format 2.0 (Web Open Font Format)
-					with associated variations support</a>
-				<td>.woff2
 	</table>
 
 	Given the overlap in common usage between TrueType and OpenType,
@@ -1747,22 +1775,49 @@ The <dfn id="at-font-face-rule">''@font-face''</dfn> rule</h3>
 	or that it contains OpenType layout information
 	(see <a href="#platform-props-to-css">Appendix A</a> for more background on this).
 
-	A value of "woff-variations",
-	"truetype-variations",
-	"opentype-variations", or
-	"woff2-variations"
-	imply support of the "woff",
-	"truetype",
-	"opentype", or
-	"woff2" formats respectively
-	along with additional support
-	for font variations.
-	Web authors can specify this format
-	to indicate that variation support is
+<h5 id="font-face-src-requirement-types">''@font-face'' requirements</h5>
+
+    The 'features' requirement refers to support for font features,
+    commonly implemented in [[!OPENTYPE]] with the <code>GSUB</code> and the <code>GPOS</code> tables,
+    as well as in [[!AAT]] using the <code>morx</code> table.
+    The section on [[#font-rend-props]] describes properties that interact with these facilities.
+
+    The 'variations' requirement refers to the support of font variations,
+    commonly implemented in [[!OPENTYPE]] with the
+    <code>avar</code>, <code>cvar</code>, <code>fvar</code>, <code>gvar</code>, <code>HVAR</code>, <code>MVAR</code>, <code>STAT</code>, and <code>VVAR</code> tables,
+    as well as in [[!AAT]] using the <code>avar</code>, <code>cvar</code>, <code>fvar</code>, and <code>gvar</code> tables.
+    The section on [[#basic-font-props]] as well as the section on [[#font-variation-props]]
+    describe properties that interact with these facilities.
+
+    The 'color' requirement lists various types of color font file technologies.
+    Each of the arguments to the 'color' function represents a table
+    inside [[!OPENTYPE]] or [[!AAT]] fonts which must be supported
+    to satisfy this requirement.
+
+    The 'palettes' requirement refers to support for font palettes,
+    commonly implemented in the [[!OPENTYPE]] and [[!AAT]]
+    with the <code>CPAL</code> table.
+    The section on [[#color-font-support]] describes properties that interact with these facilities.
+
+	Web authors can specify the 'format' function
+	to indicate that support is
 	required for correct rendering of a font.
 	This mechanism can be used for gracefully falling back
 	to an ancillary font
 	when variation support is not present.
+
+    <div class="example">
+    This ''@font-face'' block shows how to use a color font if support is present on the user agent,
+    and falls back to a non-color-font if support is not present.
+    <pre>
+    @font-face {
+        font-family: "Trickster";
+        src: url("trickster-COLR.otf") format(opentype supports color(COLR)), url("trickster-outline.otf") format(opentype);
+    }
+    </pre>
+    </div>
+
+ <h5 id="local-font-fallback">Local font fallback</h5>
 
 	When authors would prefer to use
 	a locally available copy of a given font
@@ -1840,20 +1895,22 @@ The <dfn id="at-font-face-rule">''@font-face''</dfn> rule</h3>
 	User agents that also match other full font names,
 	e.g. matching the Dutch name when the current system locale is set to Dutch,
 	are considered non-conformant.
-	This is done
-	not to prefer English
+
+    Note: This is done,
+	not to prefer English,
 	but to avoid matching inconsistencies
 	across font versions and OS localizations,
 	since font style names (e.g. "Bold")
 	are frequently localized into many languages
 	and the set of localizations available
 	varies widely across platform and font version.
+
 	User agents that match a concatenation of
 	family name (nameID = 1) with
 	style name (nameID = 2)
 	are considered non-conformant.
 
-	This also allows for referencing faces
+	Note: This also allows for referencing faces
 	that belong to larger families
 	that cannot otherwise be referenced.
 
