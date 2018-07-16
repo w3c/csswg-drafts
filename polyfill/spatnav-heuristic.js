@@ -10,13 +10,9 @@
 
 function focusNavigationHeuristics(spatnavPolyfillOptions) {
   // condition: focus delegation model = false
+  spatnavPolyfillOptions = spatnavPolyfillOptions || {'standardName': true};
 
   const ARROW_KEY_CODE = {37: 'left', 38: 'up', 39: 'right', 40: 'down'};
-  const spinnableInputTypes = ['email', 'date', 'month', 'number', 'time', 'week'];
-  const textInputTypes = ['password', 'text', 'search', 'tel', 'url'];
-
-  if (!spatnavPolyfillOptions)
-    spatnavPolyfillOptions = {"standardName": "true" };
 
   // Load SpatNav API lib
   const SpatNavAPI = SpatnavAPI();
@@ -31,16 +27,13 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   document.addEventListener('keydown', function(e) {
     let focusNavigableArrowKey = {'left': true, 'up': true, 'right': true, 'down': true};
     const eventTarget = document.activeElement;
+    const dir = ARROW_KEY_CODE[e.keyCode];
 
-    let dir = ARROW_KEY_CODE[e.keyCode];
     // Edge case (text input, area) : Don't move focus, just navigate cursor in text area
     if ((eventTarget.nodeName === 'INPUT') || eventTarget.nodeName === 'TEXTAREA')
       focusNavigableArrowKey = handlingEditableElement(e);
 
-    if (!focusNavigableArrowKey[dir]) {
-      dir = null;
-    }
-    if (dir) {
+    if (focusNavigableArrowKey[dir]) {
       e.preventDefault();
       navigate(dir);
     }
@@ -173,8 +166,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @returns NaN
   */
   function focusingController(bestCandidate, dir) {
-    const eventTarget = document.activeElement;
-    const container = eventTarget.getSpatnavContainer();
+    const container = document.activeElement.getSpatnavContainer();
 
     // When bestCandidate is found
     if (bestCandidate) {
@@ -282,7 +274,6 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   */
   function filteredCandidates(currentElm, candidates, dir, container) {
     const originalContainer = currentElm.getSpatnavContainer();
-    let filteredcandidates = [];
     let eventTargetRect;
 
     // to do
@@ -293,22 +284,17 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
 
     // If D(dir) is null, let candidates be the same as visibles
     if (dir === undefined)
-      filteredcandidates = candidates;
+      return candidates;
 
     /*
      * Else, let candidates be the subset of the elements in visibles
      * whose principal box’s geometric center is within the closed half plane
      * whose boundary goes through the geometric center of starting point and is perpendicular to D.
      */
-    else
-      for (let i = 0; i < candidates.length; i++) {
-        const candidateContainer = candidates[i].getSpatnavContainer();
-        const candidateRect = candidates[i].getBoundingClientRect();
-        if (container.contains(candidateContainer) && isOutside(candidateRect, eventTargetRect, dir))
-          filteredcandidates.push(candidates[i]);
-      }
-
-    return filteredcandidates;
+    return candidates.filter(candidate =>
+      container.contains(candidate.getSpatnavContainer()) &&
+      isOutside(candidate.getBoundingClientRect(), eventTargetRect, dir)
+    );
   }
 
   /*
@@ -442,16 +428,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @returns {sequence<Node>} - visible focusable areas
   */
   function findVisibles(focusables) {
-    const visibles = [];
-    let thisElement = undefined;
-
-    for (let i = 0; i < focusables.length; i++) {
-      thisElement = focusables[i];
-      if (isVisible(thisElement)) {
-        visibles.push(thisElement);
-      }
-    }
-    return visibles;
+    return focusables.filter(isVisible);
   }
 
   /**
@@ -463,7 +440,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   function findStartingPoint() {
     let startingPoint = document.activeElement;
     if (!startingPoint ||
-      (startingPoint == document.body && !document.querySelector(':focus')) /* body isn't actually focused*/
+      (startingPoint === document.body && !document.querySelector(':focus')) /* body isn't actually focused*/
     ) {
       startingPoint = document;
     }
@@ -518,85 +495,54 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   }
 
   /* Whether this element is scrollable or not */
-  function isScrollable() { // element, dir
-    // parameter: element
-    if ((arguments.length == 1 && typeof arguments[0] === 'object') ||
-        (arguments.length == 2 && typeof arguments[0] === 'object' && arguments[1] == null)) {
-      const element = arguments[0];
+  function isScrollable(element, dir) { // element, dir
+    if (element && typeof element === 'object') {
+      if (dir && typeof dir === 'string') { // parameter: dir, element
+        if (isOverflow(element, dir)) {
+          // style property
+          const overflowX = window.getComputedStyle(element, null).getPropertyValue('overflow-x');
+          const overflowY = window.getComputedStyle(element, null).getPropertyValue('overflow-y');
 
-      if (element.nodeName === 'HTML' || element.nodeName === 'BODY') return true;
-      else if (isScrollContainer(element) && isOverflow(element)) return true;
-      else return false;
+          switch (dir) {
+          case 'left':
+            /* falls through */
+          case 'right':
+            return (overflowX !== 'visible' && overflowX !== 'clip');
+          case 'up':
+            /* falls through */
+          case 'down':
+            return (overflowY !== 'visible' && overflowY !== 'clip');
+          }
+        }
+        return false;
+      } else { // parameter: element
+        return (element.nodeName === 'HTML' || element.nodeName === 'BODY') ||
+               (isScrollContainer(element) && isOverflow(element));
+      }
     }
+    console.log('Need parameters for isScrollable()');
+    return false;
+  }
 
-    // parameter: dir, element
-    else if (arguments.length == 2 && typeof arguments[0] === 'object'
-            && typeof arguments[1] === 'string') {
-      const element = arguments[0];
-      const dir = arguments[1];
-
-      if (isOverflow(element, dir)) {
-        // style property
-        const overflowX = window.getComputedStyle(element, null).getPropertyValue('overflow-x');
-        const overflowY = window.getComputedStyle(element, null).getPropertyValue('overflow-y');
-
+  /* Whether this element is overflow or not */
+  function isOverflow(element, dir) {
+    if (element && typeof element === 'object') {
+      if (dir && typeof dir === 'string') { // parameter: element, dir
         switch (dir) {
         case 'left':
           /* falls through */
         case 'right':
-          return (overflowX !== 'visible' && overflowX !== 'clip');
+          return (element.scrollWidth > element.clientWidth);
         case 'up':
           /* falls through */
         case 'down':
-          return (overflowY !== 'visible' && overflowY !== 'clip');
+          return (element.scrollHeight > element.clientHeight);
         }
-      }
-      return false;
-    }
-
-    else {
-      console.log('Need parameters for isScrollable()');
-      return false;
-    }
-  }
-
-  /* Whether this element is overflow or not */
-  function isOverflow() {
-    // parameter: element
-    if (arguments.length == 1 && typeof arguments[0] === 'object') {
-      const element = arguments[0];
-      if (element.scrollWidth > element.clientWidth || element.scrollHeight > element.clientHeight) {
-        return true;
-      }
-      else {
-        return false;
+      } else { // parameter: element
+        return (element.scrollWidth > element.clientWidth || element.scrollHeight > element.clientHeight);
       }
     }
-    // parameter: element, dir
-    else if (arguments.length == 2 && typeof arguments[0] === 'object'
-            && typeof arguments[1] === 'string') {
-      const element = arguments[0];
-      const dir = arguments[1];
-
-      switch (dir) {
-      case 'left':
-        /* falls through */
-      case 'right':
-        if (element.scrollWidth > element.clientWidth)
-          return true;
-        break;
-      case 'up':
-        /* falls through */
-      case 'down':
-        if (element.scrollHeight > element.clientHeight)
-          return true;
-        break;
-      }
-      return false;
-    }
-    else {
-      return false;
-    }
+    return false;
   }
 
   /* Check whether the scroll of window is down to the end or not */
@@ -659,19 +605,19 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * Check whether this element is completely visible in this viewport for the arrow direction.
   */
   function isEntirelyVisible(element) {
-    const container = element.getSpatnavContainer();
     const rect = element.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
+    const containerRect = element.getSpatnavContainer().getBoundingClientRect();
 
     // FIXME: when element is bigger than container?
+    const entirelyVisible = !((rect.left < containerRect.left) ||
+      (rect.right > containerRect.right) ||
+      (rect.top < containerRect.top) ||
+      (rect.bottom > containerRect.botto));
 
-    if (rect.left < containerRect.left) return false;
-    if (rect.right > containerRect.right) return false;
-    if (rect.top < containerRect.top) return false;
-    if (rect.bottom > containerRect.botto) return false;
+    if(entirelyVisible)
+      console.log('entirely in the view');
 
-    console.log('entirely in the view');
-    return true;
+    return entirelyVisible;
   }
 
   /* Check the style property of this element whether it's visible or not  */
@@ -680,7 +626,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     const thisDisplay = window.getComputedStyle(element, null).getPropertyValue('display');
     const invisibleStyle = ['hidden', 'collapse'];
 
-    return (!includes(invisibleStyle, thisVisibility) && thisDisplay !== 'none');
+    return (!invisibleStyle.includes(thisVisibility) && thisDisplay !== 'none');
   }
 
   /**
@@ -701,12 +647,12 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     const leftBottomElem = document.elementFromPoint(elementRect.left + offsetX, elementRect.bottom - offsetY);
     const rightTopElem = document.elementFromPoint(elementRect.right - offsetX, elementRect.top + offsetY);
     const rightBottomElem = document.elementFromPoint(elementRect.right - offsetX, elementRect.bottom - offsetY);
-    if (element === middleElem || element.contains(middleElem)) return true;
-    if (element === leftTopElem || element.contains(leftTopElem)) return true;
-    if (element === leftBottomElem || element.contains(leftBottomElem)) return true;
-    if (element === rightTopElem || element.contains(rightTopElem)) return true;
-    if (element === rightBottomElem || element.contains(rightBottomElem)) return true;
-    return false;
+
+    return ((element === middleElem || element.contains(middleElem)) ||
+          (element === leftTopElem || element.contains(leftTopElem)) ||
+          (element === leftBottomElem || element.contains(leftBottomElem)) ||
+          (element === rightTopElem || element.contains(rightTopElem)) ||
+          (element === rightBottomElem || element.contains(rightBottomElem)));
   }
 
   /* rect1 is outside of rect2 for the dir */
@@ -953,28 +899,19 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input
    */
   function handlingEditableElement(e) {
+    const spinnableInputTypes = ['email', 'date', 'month', 'number', 'time', 'week'],
+      textInputTypes = ['password', 'text', 'search', 'tel', 'url'];
     const eventTarget = document.activeElement;
     const startPosition = eventTarget.selectionStart;
     const endPosition = eventTarget.selectionEnd;
     const focusNavigableArrowKey = {'left': false, 'up': false, 'right': false, 'down': false};
 
-    if (includes(spinnableInputTypes, eventTarget.getAttribute('type'))) {
-      switch (e.keyCode) {
-      case 37:      // left keycode
-        focusNavigableArrowKey.left = false;
-        break;
-      case 38:      // up keycode
-        focusNavigableArrowKey.up = true;
-        break;
-      case 39:      // right keycode
-        focusNavigableArrowKey.right = false;
-        break;
-      case 40:      // down keycode
-        focusNavigableArrowKey.down = true;
-        break;
-      }
+    const dir = ARROW_KEY_CODE[e.keyCode];
+    if (spinnableInputTypes.includes(eventTarget.getAttribute('type')) &&
+      (dir === 'up' || dir === 'down')) {
+      focusNavigableArrowKey[dir] = true;
     }
-    else if (includes(textInputTypes, eventTarget.getAttribute('type'))) {
+    else if (textInputTypes.includes(eventTarget.getAttribute('type'))) {
       if (startPosition === 0) {
         focusNavigableArrowKey.left = true;
         focusNavigableArrowKey.up = true;
@@ -985,40 +922,15 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
       }
     }
     else {
-      switch (e.keyCode) {
-      case 37:      // left keycode
-        focusNavigableArrowKey.left = true;
-        break;
-      case 38:      // up keycode
-        focusNavigableArrowKey.up = true;
-        break;
-      case 39:      // right keycode
-        focusNavigableArrowKey.right = true;
-        break;
-      case 40:      // down keycode
-        focusNavigableArrowKey.down = true;
-        break;
-      }
+      focusNavigableArrowKey[dir] = true;
     }
 
     return focusNavigableArrowKey;
   }
 
-  /*
-   * Nodelist Object Function
-   * Whether NodeList includes the element or not
-   */
-  function includes(nodelist, element) {
-    for (let i = 0; i < nodelist.length; i++) {
-      if (nodelist[i] === element) return true;
-    }
-    return false;
-  }
-
-
   // Use non standard names by default, as per https://www.w3.org/2001/tag/doc/polyfills/#don-t-squat-on-proposed-names-in-speculative-polyfills
   // Allow binding to standard name for testing purposes
-  if (typeof spatnavPolyfillOptions == 'object' && spatnavPolyfillOptions.standardName) {
+  if (typeof spatnavPolyfillOptions === 'object' && spatnavPolyfillOptions.standardName) {
     window.navigate = navigate;
     window.Element.prototype.spatNavSearch = spatNavSearch;
     window.Element.prototype.focusableAreas = focusableAreas;
