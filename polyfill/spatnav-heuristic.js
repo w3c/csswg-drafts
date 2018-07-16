@@ -389,7 +389,9 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * Find focusable elements within the container
   * reference: https://wicg.github.io/spatial-navigation/#dom-element-focusableareas
   * @function
-  * @param {Node} container
+  * @param {FocusableAreasOptions} option
+  *         dictionary FocusableAreasOptions {FocusableAreaSearchMode mode;};
+  *         enum FocusableAreaSearchMode {"visible", "all"};
   * @returns {sequence<Node>} focusable areas
   */
   function focusableAreas(option) {
@@ -397,8 +399,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     let children = [];
     let container = this;
 
-    if (!option)
-      option = 'visible';
+    option = option || {'mode': 'visible'};
 
     if (container.childElementCount > 0) {
       if (!container.parentElement)
@@ -422,10 +423,10 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
       }
     }
 
-    if (option === 'all') {
+    if (option.mode === 'all') {
       return focusables;
     }
-    else if (option === 'visible') {
+    else if (option.mode === 'visible') {
       return findVisibles(focusables);
     }
   }
