@@ -19,10 +19,36 @@
     this._options = options;
   }
 
-  SpatnavAPI.prototype.isCSSSpatNavContain = function(el) {
-    if (el.classList.contains('spatnav-contain')) return true;
-    else return false;
+  /**
+  * CSS.registerProperty() from the Properties and Values API
+  * Reference: https://drafts.css-houdini.org/css-properties-values-api/#the-registerproperty-function
+  */
+  if (window.CSS && CSS.registerProperty) {
+    console.log("registerProperty is available");
+    CSS.registerProperty({
+      name: '--spatial-navigation-contain',
+      syntax: 'auto | contain',
+      inherits: false,
+      initialValue: 'auto'
+    });
   }
+
+  /**
+  * Gives a CSS custom property value applied at the element
+  * @function
+  * @param
+  * element {Element}
+  * varName {String} without '--'
+  */
+  function readCssVar (element, varName) {
+    const elementStyles = getComputedStyle(element);
+    return elementStyles.getPropertyValue(`--${varName}`).trim();
+  }
+
+  SpatnavAPI.prototype.isCSSSpatNavContain = function(el) {
+    if (readCssVar(el, 'spatial-navigation-contain') == 'contain') return true;
+    else return false;
+  };
 
   /**
   * Support the NavigatoinEvent: navbeforefocus, navbeforescroll, navnotarget

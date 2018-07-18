@@ -2,6 +2,7 @@
 * : common function for Spatial Navigation
 *
 * Copyright 2018 LG Electronics Inc. All rights reserved.
+* Release Version 1.0
 *
 * https://github.com/WICG/spatial-navigation
 * https://wicg.github.io/spatial-navigation
@@ -53,6 +54,13 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     startingPosition = {xPosition: e.clientX, yPosition: e.clientY};
   });
 
+  /*
+  * focusing controller :
+  * reference: https://wicg.github.io/spatial-navigation/#dom-window-navigate
+  * @function for Window
+  * @param {SpatialNavigationDirection} direction
+  * @returns NaN
+  */
   function navigate(dir) {
     // spatial navigation steps
 
@@ -60,6 +68,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     const startingPoint = findStartingPoint();
 
     // 2 Optional step, not handled
+    // UA defined starting point
 
     // 3
     let eventTarget = startingPoint;
@@ -310,7 +319,6 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @param {Node} starting point
   * @param {sequence<Node>} candidates
   * @param {SpatialNavigationDirection} direction
-  * @param {Node} container
   * @returns {Node} the best candidate
   */
   function selectBestCandidate(currentElm, candidates, dir) {
@@ -348,17 +356,13 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
       for (let i = 0; i < candidates.length; i++) {
         tempMinDistance = getInnerDistance(eventTargetRect, candidates[i].getBoundingClientRect(), dir);
 
+        // If the same distance, the candidate will be selected in the DOM order
         if (tempMinDistance < minDistance) {
           minDistance = tempMinDistance;
           minDistanceElement = candidates[i];
         }
       }
     }
-
-    // FIXME: Test this considering cross origin
-    //if (minDistanceElement.nodeName === "IFRAME") {
-    //  minDistanceElement = (minDistanceElement.contentWindow || minDistanceElement.contentDocument);
-    //}
 
     return minDistanceElement;
   }
@@ -386,8 +390,9 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   /*
   * Find focusable elements within the container
   * reference: https://wicg.github.io/spatial-navigation/#dom-element-focusableareas
-  * @function
-  * @param {Node} container
+  * @function for Element
+  * @param {FocusableAreasOptions} option
+  *           FocusableAreaSearchMode {  "visible",  "all" };
   * @returns {sequence<Node>} focusable areas
   */
   function focusableAreas(option) {
@@ -413,7 +418,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
         else {
           const recursiveFocusables = thisElement.focusableAreas();
 
-          if(Array.isArray(recursiveFocusables) && recursiveFocusables.length){
+          if (Array.isArray(recursiveFocusables) && recursiveFocusables.length) {
             focusables = focusables.concat(recursiveFocusables);
           }
         }
@@ -448,7 +453,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     return visibles;
   }
 
-  /*
+  /**
   * Find starting point :
   * reference: https://wicg.github.io/spatial-navigation/#spatial-navigation-steps
   * @function
@@ -464,12 +469,17 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     return startingPoint;
   }
 
-  /*
-   * Move Element Scroll :
-   * Move the scroll of this element for the arrow directrion
-   * (Assume that User Agent defined distance is '40px')
-   * Reference: https://wicg.github.io/spatial-navigation/#directionally-scroll-an-element
-   */
+  /**
+  * Move Element Scroll :
+  * Move the scroll of this element for the arrow directrion
+  * (Assume that User Agent defined distance is '40px')
+  * Reference: https://wicg.github.io/spatial-navigation/#directionally-scroll-an-element
+  * @function
+  * @param {<Node>} element
+  * @param {SpatialNavigationDirection} direction
+  * @param {Number} offset
+  * @returns NaN
+  */
   function moveScroll(element, dir, offset = 0) {
     if (element) {
       switch (dir) {
@@ -481,7 +491,12 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     }
   }
 
-  /* Whether this element is container or not */
+  /**
+  * Whether this element is container or not
+  * @function
+  * @param {<Node>} element
+  * @returns {true|false}
+  */
   function isContainer(element) {
     return (!element.parentElement) ||
            (element.nodeName === 'IFRAME') ||
@@ -489,9 +504,12 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
            (SpatNavAPI.isCSSSpatNavContain(element));
   }
 
-  /* Whether this element is container or not
-   * reference: https://drafts.csswg.org/css-overflow-3/#scroll-container
-   */
+  /** Whether this element is container or not
+  * reference: https://drafts.csswg.org/css-overflow-3/#scroll-container
+  * @function
+  * @param {<Node>} element
+  * @returns {true|false}
+  */
   function isScrollContainer(element) {
     const overflowX = window.getComputedStyle(element).getPropertyValue('overflow-x');
     const overflowY = window.getComputedStyle(element).getPropertyValue('overflow-y');
@@ -576,7 +594,6 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
       return false;
     }
     else {
-      console.log('Need parameters for isOverflow()');
       return false;
     }
   }
@@ -626,21 +643,20 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
           (isScrollable(element) && isOverflow(element));
   }
 
-  /*
-   * isVisible :
-   * Whether this element is partially or completely visible to user agent.
-   * check1. style property
-   * check2. hit test
-   */
+  /**
+  * isVisible :
+  * Whether this element is partially or completely visible to user agent.
+  * check1. style property
+  * check2. hit test
+  */
   function isVisible(element) {
     return (!element.parentElement) || (isVisibleStyleProperty(element) && hitTest(element));
   }
 
-  /*
-   * isEntirelyVisible :
-   * Check whether this element is completely visible in this viewport for the arrow direction.
-   * //FIXME: Weird... checking HTML
-   */
+  /**
+  * isEntirelyVisible :
+  * Check whether this element is completely visible in this viewport for the arrow direction.
+  */
   function isEntirelyVisible(element) {
     const container = element.getSpatnavContainer();
     const rect = element.getBoundingClientRect();
@@ -666,10 +682,10 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     return (!includes(invisibleStyle, thisVisibility) && thisDisplay !== 'none');
   }
 
-  /*
-   * hitTest :
-   * Check whether this element is entirely or partially visible within the viewport.
-   */
+  /**
+  * hitTest :
+  * Check whether this element is entirely or partially visible within the viewport.
+  */
   function hitTest(element) {
     let offsetX = parseInt(window.getComputedStyle(element, null).getPropertyValue('width')) / 10;
     let offsetY = parseInt(window.getComputedStyle(element, null).getPropertyValue('height')) / 10;
@@ -691,10 +707,6 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     if (element === rightBottomElem || element.contains(rightBottomElem)) return true;
     return false;
   }
-
-  /*------------------------------------------------------------------------*/
-  /////////////////////////// Functions for rect  ////////////////////////////
-  /*------------------------------------------------------------------------*/
 
   /* rect1 is outside of rect2 for the dir */
   function isOutside(rect1, rect2, dir) {
@@ -739,9 +751,9 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   }
 
   /*
-   * Get distance between rect1 and rect2 for the direction
-   * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate
-   */
+  * Get distance between rect1 and rect2 for the direction
+  * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate
+  */
   function getInnerDistance(rect1, rect2, dir) {
     const points = {fromPoint: 0, toPoint: 0};
 
@@ -770,10 +782,15 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     return Math.abs(points.fromPoint - points.toPoint);
   }
 
-  /*
-   * Get distance between rect1 and rect2 for the direction
-   * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate
-   */
+  /**
+  * Get the distance between two elements considering the direction
+  * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate
+  * @function
+  * @param {Node} element (starting point)
+  * @param {Node} element (one of candidates)
+  * @param {SpatialNavigationDirection} direction
+  * @returns {distance} euclidian distance between two elements
+  */
   function getDistance(rect1, rect2, dir) {
     const kOrthogonalWeightForLeftRight = 30;
     const kOrthogonalWeightForUpDown = 2;
@@ -828,12 +845,17 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     return (A + B + C - D);
   }
 
-  /*
-   * Get entry point and exit point of rect1 and rect2 for the direction
-   * Default value dir = 'down' for findStartingPoint() function
-   */
-  function getEntryAndExitPoints(dir, rect1, rect2) {
-    let points = {entryPoint:[0,0], exitPoint:[0,0]};
+  /**
+  * Get entry point and exit point of two elements considering the direction
+  * Note: The default value for dir is 'down'
+  * @function
+  * @param {Node} element (starting point which contains entry point)
+  * @param {Node} element (one of candidates which contains exit point)
+  * @param {SpatialNavigationDirection} direction
+  * @returns {distance} euclidian distance between two elements
+  */
+  function getEntryAndExitPoints(rect1, rect2, dir) {
+    const points = {entryPoint:[0,0], exitPoint:[0,0]};
 
     // Set direction
     switch (dir) {
@@ -902,10 +924,14 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     return points;
   }
 
-  /*
-   * Get the intersection rectangle of rect1 & rect2
-   * rectangle object = {width: , height: }
-   */
+  /**
+  * Find focusable elements within the container
+  * reference: https://wicg.github.io/spatial-navigation/#dom-element-focusableareas
+  * @function
+  * @param {Node} container
+  * @param {Node} container
+  * @returns {Object} The intersection area between two elements (width , height)
+  */
   function getIntersectionRect(rect1, rect2) {
     let intersection_rect;
     const new_location = [Math.max(rect1.left, rect2.left), Math.max(rect1.top, rect2.top)];
