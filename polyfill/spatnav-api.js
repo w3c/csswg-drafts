@@ -8,12 +8,12 @@
 * https://wicg.github.io/spatial-navigation
 */
 
-;(function (window, document, undefined) {
+(function () {
 
   'use strict';
   function SpatnavAPI(options) {
 
-    if (!(this instanceof SpatnavAPI)) return new SpatnavAPI(options)
+    if (!(this instanceof SpatnavAPI)) return new SpatnavAPI(options);
 
     // set the options
     this._options = options;
@@ -29,16 +29,15 @@
   *
   * Reference: https://wicg.github.io/spatial-navigation/#events-navigationevent
   **/
-
   SpatnavAPI.prototype.createNavEvents = function(option, element, direction) {
-    let data_ = {
+    const data_ = {
       relatedTarget: element,
       dir: direction
     };
 
     switch (option) {
     case 'beforefocus':
-      let navbeforefocus_event = document.createEvent('CustomEvent');
+      const navbeforefocus_event = document.createEvent('CustomEvent');
       if (typeof spatnavPolyfillOptions == 'object' && spatnavPolyfillOptions.standardName) {
         navbeforefocus_event.initCustomEvent('navbeforefocus', true, true, data_);
       } else {
@@ -48,7 +47,7 @@
       break;
 
     case 'beforescroll':
-      let navbeforescroll_event = document.createEvent('CustomEvent');
+      const navbeforescroll_event = document.createEvent('CustomEvent');
       if (typeof spatnavPolyfillOptions == 'object' && spatnavPolyfillOptions.standardName) {
         navbeforescroll_event.initCustomEvent('navbeforescroll', true, true, data_);
       } else {
@@ -58,7 +57,7 @@
       break;
 
     case 'notarget':
-      let navnotarget_event = document.createEvent('CustomEvent');
+      const navnotarget_event = document.createEvent('CustomEvent');
       if (typeof spatnavPolyfillOptions == 'object' && spatnavPolyfillOptions.standardName) {
         navnotarget_event.initCustomEvent('navnotarget', true, true, data_);
       } else {
@@ -67,9 +66,9 @@
       element.dispatchEvent(navnotarget_event);
       break;
     }
-  }
+  };
 
-  SpatnavAPI.constructors = {}
+  SpatnavAPI.constructors = {};
 
   window.SpatnavAPI = SpatnavAPI;
 
