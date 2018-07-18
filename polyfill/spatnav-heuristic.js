@@ -376,13 +376,13 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @returns {Node} container
   */
   function getSpatnavContainer() {
-    if (!this.parentElement) return this; // if element==HTML
+    if (!this.parentElement) return null; // if element==HTML
 
     let container = this.parentElement;
 
     while(!isContainer(container)) {
       container = container.parentElement;
-      if (!container) return this; // if element==HTML
+      if (!container) return null;
     }
 
     return container;
