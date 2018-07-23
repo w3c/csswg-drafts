@@ -110,12 +110,12 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     let container = eventTarget.getSpatnavContainer();
     let parentContainer = container.getSpatnavContainer();
 
-    // The container is IFRAME
+    // When the container is the viewport of a browsing context
     if (!parentContainer) {
-      parentContainer = window;
-
+      parentContainer = window.document.documentElement;
+      // The container is IFRAME, so parentContainer
       if ( window.location !== window.parent.location ) {
-        parentContainer = window.parent;
+        parentContainer = window.parent.document.documentElement;
       }
     }
 
@@ -142,25 +142,54 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
           // to in the current spatnav container and when that same spatnav container cannot be scrolled either,
           // before going up the tree to search in the nearest ancestor spatnav container.
           SpatNavAPI.createNavEvents('notarget', container, dir);
+          console.log('navnotarget');
 
           if (container === document || container === document.documentElement) {
-            container = window;
+            container = window.document.documentElement;
 
+            // The page is in an iframe
             if ( window.location !== window.parent.location ) {
-              // The page is in an iframe
-              container = window.parent;
+
+              // eventTarget needs to be reset because the position of the element in the IFRAME
+              // is unuseful when the focus moves out of the iframe
+              eventTarget = window.frameElement;
+              container = window.parent.document.documentElement;
             }
             else {
               return;
             }
+
+            parentContainer = container.getSpatnavContainer();
           }
           else {
+            // avoiding when spatnav container with tabindex=-1
+            if (isFocusable(container)) {
+              eventTarget = container;
+            }
+
             container = parentContainer;
-            parentContainer = parentContainer.getSpatnavContainer();
+            parentContainer = container.getSpatnavContainer();
           }
         }
       }
     }
+
+    if (!parentContainer && container) {
+      // Getting out from the current spatnav container
+      
+      const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
+
+      if (Array.isArray(candidates) && candidates.length > 0) {
+        // 9
+        const bestCandidate = selectBestCandidate(eventTarget, candidates, dir);
+        if (bestCandidate) {
+          // 10 & 11
+          focusingController(bestCandidate, dir);
+          return;
+        }
+      }
+    }
+
     if (scrollingController(container, dir)) return;
   }
 
@@ -376,13 +405,12 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @returns {Node} container
   */
   function getSpatnavContainer() {
-    if (!this.parentElement) return null; // if element==HTML
-
     let container = this.parentElement;
 
+    if (!container) return null; // if element==HTML
     while(!isContainer(container)) {
       container = container.parentElement;
-      if (!container) return null;
+      if (!container) return null; // if element==HTML
     }
 
     return container;
@@ -670,7 +698,6 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     if (rect.top < containerRect.top) return false;
     if (rect.bottom > containerRect.botto) return false;
 
-    console.log('entirely in the view');
     return true;
   }
 
