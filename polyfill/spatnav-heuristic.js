@@ -202,11 +202,10 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @returns NaN
   */
   function focusingController(bestCandidate, dir) {
-    const eventTarget = document.activeElement;
-    const container = eventTarget.getSpatnavContainer();
-
     // When bestCandidate is found
     if (bestCandidate) {
+      const container = bestCandidate.getSpatnavContainer();
+
       // Scrolling container or document when the next focusing element isn't entirely visible
       if (isScrollContainer(container) && !isEntirelyVisible(bestCandidate))
         bestCandidate.scrollIntoView();
