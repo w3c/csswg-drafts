@@ -86,6 +86,9 @@ specification, issuing a pull request without a corresponding issue is acceptabl
 
 ## Further information
 
+Specification source files are in [Bikeshed format](https://tabatkins.github.io/bikeshed/).
+The CSSWG wiki has more information on other [CSSWG tooling](https://wiki.csswg.org/tools).
+
 See [about:csswg](http://fantasai.inkedblade.net/weblog/2011/inside-csswg/)
 for more information on how the CSSWG operates, delegates authority, and
 makes decisions. Someday maybe we'll also have a useful official website.
