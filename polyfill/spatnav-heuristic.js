@@ -87,6 +87,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     }
 
     // 5
+    // At this point, spatNavSearch can be applied.
     // If startingPoint is either a scroll container or the document,
     // find the best candidate within startingPoint
     if ((isContainer(eventTarget) || eventTarget.nodeName === 'BODY') && !(eventTarget.nodeName === 'INPUT')) {
@@ -263,34 +264,45 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   */
   function spatNavSearch (dir, candidates, container) {
     // Let container be the nearest ancestor of eventTarget that is a spatnav container.
-    let container_, candidates_;
+    let targetElement = this;
     let bestCandidate = null;
 
     console.log('spatnavsearch');
 
     // If the container is unknown, get the closest container from the element
-    if (container)
-      container_ = container;
-    else
-      container_ = this.getSpatnavContainer();
+    if (!container)
+      container = this.getSpatnavContainer();
 
     // If the candidates is unknown, find candidates
-    if(Array.isArray(candidates) && candidates.length > 0) {
-      candidates_ = candidates;
+    // 5-1
+    if(!Array.isArray(candidates) || candidates.length < 0) {
+      if((isContainer(this) || this.nodeName === 'BODY') && !(this.nodeName === 'INPUT')) {
+        if (this.nodeName === 'IFRAME')
+          targetElement = this.contentDocument.body;
+
+        candidates = targetElement.focusableAreas();
+      }
+      else {
+        candidates = filteredCandidates(targetElement, container.focusableAreas(), dir, container);
+      }
     }
     else {
-      if((isContainer(this) || this.nodeName === 'BODY') && !(this.nodeName === 'INPUT'))
-        candidates_ = this.focusableAreas();
-      else
-        candidates_ = container_.focusableAreas();
+      candidates = filteredCandidates(targetElement, container.focusableAreas(), dir, container);
     }
 
     // Find the best candidate
-    if (Array.isArray(candidates_) && candidates_.length > 0) {
-      if((isContainer(this) || this.nodeName === 'BODY') && !(this.nodeName === 'INPUT'))
-        bestCandidate = selectBestCandidateFromEdge(this, candidates_, dir);
-      else
-        bestCandidate = selectBestCandidate(this, candidates_, dir);
+    // 5
+    // If startingPoint is either a scroll container or the document,
+    // find the best candidate within startingPoint
+    if ((isContainer(targetElement) || targetElement.nodeName === 'BODY') && !(targetElement.nodeName === 'INPUT')) {
+      if (Array.isArray(candidates) && candidates.length > 0) {
+        bestCandidate = selectBestCandidateFromEdge(targetElement, candidates, dir);
+      }
+    }
+    else {
+      if (Array.isArray(candidates) && candidates.length > 0) {
+        bestCandidate = selectBestCandidate(targetElement, candidates, dir);
+      }
     }
 
     return bestCandidate;
