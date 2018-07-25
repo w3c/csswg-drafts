@@ -1,3 +1,5 @@
+Now see https://github.com/w3c/transitions/issues/38
+
 (from [updated cr transitions](https://www.w3.org/Guide/transitions?profile=CR&cr=substantive) )
 
 # Transition request for updated CR: CSS Fonts 3.
@@ -27,6 +29,12 @@ Transition request: CSS3 Fonts to CR
 
 [Minutes Telecon 2017-10-25](https://lists.w3.org/Archives/Public/www-style/2017Oct/0044.html)
 
+and then, after Disposition of Comments done
+
+  - RESOLUTION: publish updated CR of Fonts L3
+  
+[Minutes, Telcon 2018-03-07](https://www.w3.org/2018/03/07-css-minutes.html#item02)
+
 ## Changes
 
 [Changes from the July 2013 CSS3 Fonts Last Call Working Draft](https://drafts.csswg.org/css-fonts-3/#recent-changes)
@@ -50,9 +58,9 @@ of Comments, so we would like to publish a new CR.
 
 ## Issues addressed
 
-The [Disposition of Comments](https://drafts.csswg.org/issues?spec=css-fonts-3&doc=cr-2017) shows 36 issues. Of those 3 are still open; 17 were accepted, 6 deferred to Fonts 4, 3 were invalid or duplicates, one was withdrawn and 4 were rejected (one because we can't change this due to web compatibility, and one because it is fixed in Fonts 4).
+The [Disposition of Comments](https://drafts.csswg.org/issues?spec=css-fonts-3&doc=cr-2017) shows 37 issues. Of those 2 are still open; 18 were accepted, 9 deferred to Fonts 4, 3 were invalid or duplicates, one was withdrawn and 4 were rejected (three because we can't change this due to web compatibility, and one because it is fixed in Fonts 4).
 
-Despite there being open issues, it has been a very long time since the /TR version of the spec was updated and we want to publish an update while we work on the remaining issues.
+Despite there being a couple of open issues, it has been a very long time since the /TR version of the spec was updated (2013) and we want to publish an update while we work on the remaining issues.
 
 ## Formal Objections
 

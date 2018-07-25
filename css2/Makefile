@@ -4,70 +4,61 @@
 
 # what needs to be set for every new release:
 # Note use of full year (1998) in identifier.
-THE_YEAR = YYYY
-THE_MONTH = MM
-THE_MONTHNAME = MMMMM
-THE_DAY = DD
-#THE_STATUS = NOTE
+#THE_YEAR = 2011
+THE_YEAR = $(shell date +%Y)
+#THE_MONTH = 06
+THE_MONTH = $(shell date +%m)
+#THE_MONTHNAME = June
+THE_MONTHNAME = $(shell LANG=en_US date +%B)
+#THE_DAY = 07
+THE_DAY = $(shell date +%d)
+#THE_STATUS = REC
 THE_STATUS = ED
-#THE_STATUSNAME = Group Note
-THE_STATUSNAME = Editors' Draft
-#THE_STYLE = NOTE
+#THE_STATUSNAME = Recommendation
+THE_STATUSNAME = Editors Draft
+#THE_STYLE = REC
 THE_STYLE = ED
 
-PREV_YEAR = 2016
-PREV_MONTH = 04
-PREV_DAY = 12
-PREV_STATUS = WD
-PREV_NAME = CSS22
-
-PERMANENT_NAME = CSS2-testing
-
-ifeq ($(THE_STATUS),REC)
-THE_DATE = 07 June 2011, revised $(THE_DAY) $(THE_MONTHNAME) $(THE_YEAR)
-else
-THE_DATE = $(THE_DAY) $(THE_MONTHNAME) $(THE_YEAR)
-endif
+PERMANENT_NAME = CSS2
 
 # A very visible warning after the first H1 on every page (or at the
 # location of the _THE_WARNING_ placeholder on some pages). Leave
 # empty if none is needed. (Escape any & as \&, # as \# and " as \")
 # 
-# THE_WARNING = <DIV>							\
-#  <INPUT ID=annoying-warning TYPE=CHECKBOX TITLE=\"hide note\">		\
-#  <LABEL FOR=annoying-warning>(hide)</LABEL>				\
-#  <DIV CLASS=annoying-warning>						\
-#  <P><STRONG>Note:</STRONG> several sections of this specification	\
-#  have been extended by other specifications. Please, see <a		\
-#  href=\"https://www.w3.org/TR/CSS/\#css\" >\"Cascading Style Sheets	\
-#  (CSS) \&mdash; The Official Definition\"</a> in the latest <CITE>CSS	\
-#  Snapshot</CITE> for a list of specifications and the sections they	\
-#  replace.	       	    	 		    		 	\
-#  </DIV>									\
-#  </DIV>
+THE_WARNING = <div>							\
+ <input id=annoying-warning type=checkbox title=\"hide note\">		\
+ <label for=annoying-warning>(hide)</label>				\
+  <div class=annoying-warning>						\
+   <p><strong>Note:</strong> Several sections of this specification	\
+   have been updated by other specifications. Please, see <a		\
+   href=\"https://www.w3.org/TR/CSS/\#css\" >\"Cascading Style Sheets	\
+   (CSS) \&mdash; The Official Definition\"</a> in the latest <cite>CSS	\
+   Snapshot</cite> for a list of specifications and the sections they	\
+   replace.	       	    	 		    		 	\
+   <p>The CSS Working Group is also developing 				\
+   <a href=\"http://www.w3.org/TR/CSS22/\" >CSS level\&nbsp;2		\
+   revision\&nbsp;2 (CSS\&nbsp;2.2).</a>				\
+  </div>								\
+ </div>
 
-# WEBROOT = /afs/w3.org/WWW
-WEBROOT = $(HOME)/WWW
+THE_WARNING =
 
-CSSGROUPDIR = $(WEBROOT)/Style/Group
-UPDATES = /Style/css2-updates
-
-THE_UPDATE_DIR = http://www.w3.org$(UPDATES)
-UPDATESDIR= $(WEBROOT)$(UPDATES)
-TR_DIR = $(WEBROOT)/TR
+THE_DATE = $(THE_DAY) $(THE_MONTHNAME) $(THE_YEAR)
 THE_ID = $(THE_STYLE)-$(PERMANENT_NAME)-$(THE_YEAR)$(THE_MONTH)$(THE_DAY)
-PREV_DATE = $(PREV_YEAR)$(PREV_MONTH)$(PREV_DAY)
-THE_PREVIOUS_VERSION = http://www.w3.org/TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PREV_NAME)-$(PREV_DATE)/
 THE_LOC = $(THE_YEAR)/$(THE_ID)
-INSTALLDIR = $(TR_DIR)/$(THE_LOC)
-THIS_VERSION = http://www.w3.org/TR/$(THE_LOC)/
-THE_LATEST_VERSION = http://www.w3.org/TR/$(PERMANENT_NAME)/
+THIS_VERSION = http://www.w3.org/TR/$(THE_LOC)
+THE_LATEST_VERSION = http://www.w3.org/TR/$(PERMANENT_NAME)
+THE_UPDATE_DIR = http://www.w3.org/Style/css2-updates
+
+INSTALLDIR = dist/
+
+export LC_ALL=en_US.UTF-8
 
 ROOT = .
 
 # the following files are part of the CSS specification
 SRCS0 = \
-Overview.src
+cover.src
 
 SRCS1 = \
 about.src\
@@ -107,43 +98,26 @@ indexlist.src
 
 MAINSRCS = $(SRCS1)
 
-REFS= \
-refs.html
+REFS= $(REFSRCS:.src=.html)
 
-SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS)
+SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS) $(INDEXSRCS) $(REFS)
 
-SPECOBJS= \
-Overview.html\
-about.html\
-intro.html\
-conform.html\
-syndata.html\
-selector.html\
-cascade.html\
-media.html\
-box.html\
-visuren.html\
-visudet.html\
-visufx.html\
-generate.html\
-page.html\
-colors.html\
-fonts.html\
-text.html\
-tables.html\
-ui.html\
-aural.html\
-refs.html\
-changes.html\
-sample.html\
-zindex.html\
-propidx.html\
-grammar.html\
-leftblank.html\
-indexlist.html
+SPECOBJS= $(SPECSRCS:.src=.html)
 
-#IMAGES = images/*.gif images/*.png
-IMAGES = images/*.png
+IMAGESSRC = \
+$(wildcard images/*.eps) \
+$(wildcard images/*.fig) \
+$(wildcard images/*.gif) \
+$(wildcard images/*.idraw) \
+$(wildcard images/*.svg) \
+$(wildcard images/*.ps)
+
+IMAGESBUILT = $(addsuffix .png, $(basename $(IMAGESSRC)))
+
+IMAGES = \
+$(wildcard images/*.png) \
+$(IMAGESBUILT)
+
 LONGDESCS = images/longdesc/*.html
 STYLESHEETS= style/*.css
 
@@ -167,9 +141,7 @@ SED = sed
 PERL= perl
 NSGMLS=onsgmls
 HTMLDECL = sgml/HTML4.decl
-# LINKLINT=$(PERL) bin/linklint -doc linklint
-# LINKLINT=linklint -doc linklint
-LINKLINT = bin/checklink --suppress-temp-redirects -q -D 2
+LINKLINT=$(PERL) bin/linklint
 # SPELL = ispell -l -p css.dico
 SPELL = aspell -H -p css.dico list
 DIFF = diff
@@ -185,8 +157,6 @@ HIPP= $(PERL) ./bin/hipp
 HMKDEPEND= $(PERL) ./bin/hmkdep
 # make value anchor database
 MKANCHDB= $(PERL) ./bin/mkanchdb
-# make property anchor database
-MKPANCHDB= $(PERL) ./bin/mkpanchdb
 # add heading anchors
 ADDHANCH= $(PERL) ./bin/addhanch
 # add index anchors and generate related index database
@@ -201,22 +171,12 @@ MKPROPIDX= $(PERL) ./bin/mkpropidx
 MKTOC= $(PERL) ./bin/mktoc
 # HTML concate utility
 HTMLCAT= $(PERL) ./bin/htmlcat
-# trim utility to get rid of navbar sections
-HTMLTRIM= $(PERL) ./bin/htmltrim
-# make sub table of contents
-MKSUBTOC=$(PERL) ./bin/mksubtoc
 # insert subtoc
 INSAFTER= $(PERL) ./bin/insafter
 # add link
 ADDLINKS= $(PERL) ./bin/addlinks
 # extract properties from db.
 PEXTR= $(PERL) ./bin/pextr
-# extract issues from issues db.
-ISSUES= bin/issues
-# extract issues from errata-issues db.
-ERRATA= bin/errata
-# extract issues from todo db.
-TODO= bin/todo
 # check validity of sample style sheet
 CHKSAMPLE= $(PERL) ./bin/chksample
 # make database of references (reference.src)
@@ -231,23 +191,18 @@ CHKSPACES= $(PERL) ./bin/chkspaces
 CHKCSS= ./bin/chkcss
 # check XML examples
 CHKXML= ./bin/chkxml
-# add reference normative/informative class info.
-ADDREFCLASS= $(PERL) ./bin/addrefclass
 # Add prev/next/toc/stylesheet and other links to document
 MKCHAIN = $(PERL) ./bin/mkchain
 # Expand [[cite]] to link to bibliography
 ADDCITE = $(PERL) ./bin/addcite
-# Remove extensions (.gif, .png,...) from IMG links
-RMIMGEXT = $(PERL) ./bin/rmimgext
 # Add special markup (e.g., keyword "Example")
 ADDMARKUP = $(PERL) ./bin/addmarkup
 # Add longdesc descriptions to images
 ADDLONGDESC = $(PERL) ./bin/addlongdesc
-# Add external links to anchor database
-MKEXTDB = $(PERL) ./bin/mkextdb
 
 # utility to generate the PostScript version
 #
+HTML2PS= $(PERL) bin/html2ps -d -f html2psrc2
 PDF2PS=pdftops
 #HTML2PDF=prince -i html
 
@@ -275,31 +230,27 @@ LN= ln
 
 %.subtoc: %.srd Project.cfg
 	@echo "=========== making" $@
-	echo "<div id=\"toc\" class=\"subtoc\">" >$@
+	echo "<div class=\"subtoc\">" >$@
 	echo "<p><strong>Contents</strong>" >>$@
 	$(MKTOC) -l 2 -r $*.html $(HEADINGDB) >>$@
 	echo "</div>" >>$@
-	if [ `cat $@ | wc -l` = 3 ]; then $(SED) -i -e 's|^<p><strong>Contents</strong>||' $@; fi
-#	if [ `cat $@ | wc -l` = 3 ]; then $(RM) $@; touch $@; fi
+	if [ `cat $@ | wc -l` = 3 ]; then $(RM) $@; touch $@; fi
 
 # Use the shorter line to avoid regenerating all .html if one .src changed,
 # at the cost of possibly incorrect xrefs in the other .html files
 #
 #%.html: %.subtoc Project.cfg
-%.html: %.subtoc $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) Project.cfg build/warning build/meta-viewport build/fixup-js #$(SPECSRCS:.src=.srd) $(VALUEDB)
+%.html: %.subtoc $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) Project.cfg build/warning #$(SPECSRCS:.src=.srd)
 	@echo "=========== making" $@
 	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- value-inst-/value-def- |\
 	$(ADDIDXANCH) -r $@ $(INDEXDB) - |\
 	$(ADDMARKUP) - |\
 	$(ADDLONGDESC) - |\
 	$(ADDNAVBAR) -r $@ |\
-	$(INSAFTER) - build/meta-viewport /TITLE - |\
-	$(INSAFTER) - build/fixup-js /TITLE - |\
 	$(INSAFTER) - build/warning /H1 - |\
 	$(INSAFTER) - $*.subtoc /H1 - |\
 	$(MKCHAIN) -r $@ - |\
 	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
-	       -e "s|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g" \
 	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
 	       -e "s|_THE_STATUS_|$(THE_STATUS)|g" \
 	       -e "s|_THE_STATUSNAME_|$(THE_STATUSNAME)|g" \
@@ -320,6 +271,8 @@ LN= ln
 %.png: %.eps; convert -density 96x96 $< $@
 %.png: %.ps; convert -density 96x96 $< $@
 %.png: %.idraw; convert -density 96x96 $< $@
+%.png: %.svg; convert -density 96x96 $< $@
+%.png: %.gif; convert -density 96x96 $< $@
 %.eps: %.fig; fig2dev -L eps -F -c $< $@
 
 #.idraw.gif:
@@ -335,24 +288,18 @@ LN= ln
 #	$(RM) $@
 #	fig2dev -L eps $< | $(PSTOPNM) | $(PNMTOPNG_PIPE) >$@
 
-all: build/blocks.ok $(SPECOBJS) images/pngs.ok \
-	$(IMAGES)
-#	$(IMAGES) issues.html errata-issues.html DOC/TODO.html
+all: build/blocks.ok $(SPECOBJS) $(IMAGES)
 
 build/warning:
-	echo "_THE_WARNING_" >$@
-
-build/meta-viewport:
-	echo '<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">' >$@
-
-build/fixup-js:
-	echo '<script type="text/javascript" src="https://www.w3.org/scripts/TR/2016/fixup.js"></script>' >$@
+	echo "<!-- warning -->" >$@
+	echo "_THE_WARNING_" >>$@
+	echo "<!-- /warning -->" >>$@
 
 #images/links.ok : $(IMAGES)
 #	-@(cd images; for i in *.gif; do $(LN) -s $$i "`basename $$i .gif`" 2>//dev/null; done)
 #	touch images/links.ok
 
-install: all css2.tgz css2.txt css2.zip css2.ps.gz css2.pdf # $(INSTALLDIR)/.htaccess
+install: all css2.tgz css2.txt css2.zip css2.ps.gz css2.pdf .htaccess
 	@if [ -z "$(INSTALLDIR)" ]; then\
 	  echo >&2;\
 	  echo "*** No target directory specified" >&2;\
@@ -360,25 +307,10 @@ install: all css2.tgz css2.txt css2.zip css2.ps.gz css2.pdf # $(INSTALLDIR)/.hta
 	  exit 1;\
 	fi
 	@if [ ! -d $(INSTALLDIR) ]; then mkdir -p $(INSTALLDIR);fi
-	$(CP) css2.txt css2.zip css2.ps.gz css2.pdf css2.tgz $(INSTALLDIR)
-	zcat css2.tgz | (cd $(INSTALLDIR); $(TAR) xvf -)
-#	-$(RM) -f $(CSSGROUPDIR)/issues.html
-#	-$(RM) $(CSSGROUPDIR)/css2-issues.html
-#	$(LN) -s $(INSTALLDIR)/issues.html $(CSSGROUPDIR)/css2-issues.html
-
-$(INSTALLDIR)/.htaccess:
-	mkdir -p $(INSTALLDIR)
-#	echo "DirectoryIndex Overview.html" >$@
-	echo "<Files ~ \"\.html\">" >>$@
-	echo "ForceType 'text/html; charset=utf-8'" >>$@
-	echo "</Files>" >>$@
-	echo "<Files ~ \"\.txt\">" >>$@
-	echo "ForceType 'text/plain; charset=utf-8'" >>$@
-	echo "</Files>" >>$@
-
-link: install
-	-$(RM) -f $(TR_DIR)/$(PERMANENT_NAME)
-	(cd $(TR_DIR); $(LN) -s $(THE_LOC) $(PERMANENT_NAME))
+	$(CP) css2.txt css2.zip css2.ps.gz css2.pdf css2.tgz .htaccess $(INSTALLDIR)
+	cat css2.tgz | (cd $(INSTALLDIR); $(TAR) xvf -)
+	-$(RM) $(INSTALLDIR)/Overview.html
+	(cd $(INSTALLDIR); $(LN) -s cover.html Overview.html)
 
 install-ps: install css2.ps.gz
 	$(CP) css2.ps.gz $(INSTALLDIR)
@@ -390,35 +322,29 @@ install-pdf: install css2.pdf
 install-all: install install-ps install-pdf css2.zip css2.txt
 	$(CP) css2.zip css2.txt $(INSTALLDIR)
 
-images/pngs.ok: images/*.idraw images/*.fig
-	-@for f in images/*.idraw; do make images/`basename $$f .idraw`.gif; done
-	-@for f in images/*.idraw; do make images/`basename $$f .idraw`.png; done
-	-@for f in images/*.fig; do make images/`basename $$f .fig`.gif; done
-	-@for f in images/*.fig; do make images/`basename $$f .fig`.png; done
-	touch images/pngs.ok
-
-translations.html : translations.src
-	$(SED) -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
-	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" $< > $@
-
-errata.html : errata.src
-	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
-	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
-	       -e "s|_THE_ID_|$(THE_ID)|g" \
-	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" $< > $@
 
 #### Special section to build PS file and single plain text file
 
 extras: css2.tgz
 
+# The sources are in ISO-8859-1, make them ASCII to avoid encoding problems
 %.pdf: %.html style/default.css style/prince.css
-	prince -s style/prince.css -o $@ $<
+	asc2xml < $< | xml2asc | prince -s style/prince.css -o $@ -
 %.ps: %.pdf; $(PDF2PS) $< $@
 
-# css2.pdf: $(SPECOBJS:.html=.pdf)
-# 	pdftk $+ cat output $@
-# css2.pdf: css2.html
-# 	prince -o $@ $<
+css2.pdf: css2.html style/default.css style/prince.css
+	prince -s style/prince.css -o $@ $<
+
+# css2.ps: build/blocks.ok $(SPECOBJS) images/pngs.ok $(IMAGES)
+# # Because of memory limitations in html2ps, use the
+# # automagic feature that any *.gif files are not
+# # converted to ps if there's a *.ps file in the same
+# # directory.
+# 	-@(cd images; for i in *.idraw; do $(LN) -s $$i "`basename $$i .idraw`.ps"; done)
+# 	$(HTML2PS) $(SPECOBJS) > $@
+
+#css2.ps: css2.pdf
+#	$(PDF2PS) $< $@
 
 css2.ps.gz: css2.ps
 	gzip <$< >$@
@@ -431,8 +357,7 @@ css2.ps.gz: css2.ps
 #	$(HTML2PDF) $< $@
 
 css2.html html: $(SPECOBJS)
-	$(HTMLCAT) - $(SPECOBJS) | \
-	$(HTMLTRIM) div navbar - $@
+	$(HTMLCAT) - $(SPECOBJS) >$@
 
 # the following requires to be on unix and have Netscape running...
 #css2.txt txt: css2.html
@@ -455,10 +380,6 @@ css2.zip: $(ALLOBJS)
 
 #### Section generate property tables from property database.
 
-$(VALUEDB): Project.cfg
-	@echo "Initializing external definition links using" $<
-	$(MKEXTDB) $@ $<
-
 build/blocks.ok: $(PROPBLKSDIR)/blocks.ok
 	touch $@
 
@@ -469,19 +390,16 @@ $(PROPBLKSDIR)/blocks.ok: $(PROPSRC)
 	touch $@
 
 
-Overview.srd: Overview.src build/contents.srb build/minicontents.srb
+cover.srd: cover.src build/contents.srb build/minicontents.srb Makefile
 	@echo "=========== making" $@
 	$(HIPP) $(INCLUDES) $<  |\
 	$(ADDCITE) -r $(REFS) $(REFSRCS) >$@
 
-Overview.html: Overview.srd Project.cfg build/meta-viewport build/fixup-js
+cover.html: cover.srd Project.cfg
 	@echo "=========== making" $@
 	$(ADDNAVBAR) -r $@ $< |\
-	$(INSAFTER) - build/meta-viewport /TITLE - |\
-	$(INSAFTER) - build/fixup-js /TITLE - |\
 	$(MKCHAIN) -r $@ - |\
 	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
-	       -e "s|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g" \
 	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
 	       -e "s|_THE_STATUS_|$(THE_STATUS)|g" \
 	       -e "s|_THE_STATUSNAME_|$(THE_STATUSNAME)|g" \
@@ -513,16 +431,12 @@ indexlist.srd:: build/indexlist.srb #indexlist.src build/blocks.ok
 #	@echo "=========== making" $@
 #	$(CP) $< $@
 
-indexlist.html: indexlist.srd build/indexlist.srb Project.cfg build/warning build/meta-viewport build/fixup-js indexlist.subtoc
+indexlist.html: indexlist.srd build/indexlist.srb Project.cfg build/warning
 	@echo "=========== making" $@
 	$(ADDNAVBAR) -r $@ $< |\
-	$(INSAFTER) - build/meta-viewport /TITLE - |\
-	$(INSAFTER) - build/fixup-js /TITLE - |\
 	$(INSAFTER) - build/warning /H1 - |\
-	$(INSAFTER) - $*.subtoc /H1 - |\
 	$(MKCHAIN) -r $@ - |\
 	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
-	       -e "s|_THE_PREVIOUS_VERSION_|$(THE_PREVIOUS_VERSION)|g" \
 	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
 	       -e "s|_THE_STATUS_|$(THE_STATUS)|g" \
 	       -e "s|_THE_STATUSNAME_|$(THE_STATUSNAME)|g" \
@@ -541,31 +455,6 @@ propidx.srd:: build/propidx.srb #propidx.src
 #	@echo "=========== making" $@
 #	$(HIPP) $(INCLUDES) $< $@
 
-# Issues and todo lists.
-#issues.html: issues.src build/issues.srb
-#	@echo "=========== making" $@
-#	$(HIPP) $(INCLUDES) $< $@
-
-#build/issues.srb: issues.db
-#	@echo "=========== making" $@
-#	$(ISSUES) -g >$@
-
-# Errata-Issues
-#errata-issues.html: errata-issues.src build/errata-issues.srb
-#	@echo "=========== making" $@
-#	$(HIPP) $(INCLUDES) $< $@
-
-#build/errata-issues.srb: errata-issues.db
-#	@echo "=========== making" $@
-#	$(ERRATA) -g >$@
-
-#DOC/TODO.html: DOC/TODO.src build/todo.srb
-#	@echo "=========== making" $@
-#	$(HIPP) $(INCLUDES) $< $@
-
-#build/todo.srb: DOC/todo.db
-#	@echo "=========== making" $@
-#	$(TODO) -g >$@
 
 ### check on the document to see if it's valid
 
@@ -612,7 +501,7 @@ checksample: sample.src $(PROPSRC)
 checklnx: all
 	-@echo "# Begin checking links."
 	-@$(RM) linklint
-	$(LINKLINT) $(SPECOBJS)
+	$(LINKLINT) -doc linklint $(SPECOBJS)
 	-@echo "# End checking links."
 
 ### check property instances
@@ -652,39 +541,18 @@ checkx: build/checkx.out
 	@$(DIFF) checkx.out build/checkx.out >build/checkx.diff \
 		|| echo output differs, see build/checkx.diff for details.
 
-# get cvs logs
-
-FROMDATE=1 week ago
-log:
-	@for i in `cat DOC/FILES` ; \
-	do cvs log -d ">$(FROMDATE)" $$i >/tmp/log; \
-	   $(GREP) "selected revisions: 0" /tmp/log >/dev/null || cat /tmp/log; \
-	done; rm /tmp/log
-
 clean:
 	$(RM) $(SPECOBJS) $(PROPBLKSDIR)/* \
 	$(SPECOBJS:.html=.srd) $(SPECOBJS:.html=.subtoc) \
-        build/* css2.* linklint images/links.ok images/pngs.ok
+        build/* css2.* linklint images/links.ok
 
 realclean: clean
 
 depend:
 	$(HMKDEPEND) $(SPECOBJS) 
 
-# Rules to make diff files relative to previous REC and WD.
-# htmldiff returns >0 if there are differences, so we ignore the exit code.
-
-PREVREC = ../../../TR/1998/REC-CSS2-19980512
-PREVWD = ../../../TR/$(PREV_YEAR)/$(PREV_STATUS)-$(PREV_NAME)-$(PREV_DATE)
-HTMLDIFF = htmldiff -i -w '<del>' -x '</del>' -y '<ins>' -z '</ins>'
-
-diffs: $(SPECOBJS)
-	-(cd diffs-rec;\
-	 make PREV=../$(PREVREC) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS))
-	-(cd diffs-wd;\
-	 make PREV=../$(PREVWD) HTMLDIFF="$(HTMLDIFF)" $(SPECOBJS))
 
 
-.PHONY: all install install-all clean realclean checkx diffs
+.PHONY: all install install-all clean realclean checkx
 
 ##### The following is automatically generated. Do not edit!! ####
