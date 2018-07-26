@@ -98,9 +98,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
       let bestCandidate;
 
       if (Array.isArray(candidates) && candidates.length > 0) {
-        bestCandidate = selectBestCandidateFromEdge(eventTarget, candidates, dir);
-        focusingController(bestCandidate, dir);
-        return;
+        if (focusingController(eventTarget.spatNavSearch(dir), dir)) return;
       }
 
       if (scrollingController(eventTarget, dir)) return;
@@ -125,13 +123,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
       const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
 
       if (Array.isArray(candidates) && candidates.length > 0) {
-        // 9
-        const bestCandidate = selectBestCandidate(eventTarget, candidates, dir);
-        if (bestCandidate) {
-          // 10 & 11
-          focusingController(bestCandidate, dir);
-          return;
-        }
+        if (focusingController(eventTarget.spatNavSearch(dir, candidates, container), dir)) return;
       }
       // 8
       else {
@@ -180,13 +172,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
       const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
 
       if (Array.isArray(candidates) && candidates.length > 0) {
-        // 9
-        const bestCandidate = selectBestCandidate(eventTarget, candidates, dir);
-        if (bestCandidate) {
-          // 10 & 11
-          focusingController(bestCandidate, dir);
-          return;
-        }
+        if (focusingController(eventTarget.spatNavSearch(dir, candidates, container), dir)) return;
       }
     }
 
