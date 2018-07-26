@@ -274,7 +274,10 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
         candidates = filteredCandidates(targetElement, container.focusableAreas(), dir, container);
       }
     }
-    
+    else {
+      candidates = filteredCandidates(targetElement, candidates, dir, container);
+    }
+
     // Find the best candidate
     // 5
     // If startingPoint is either a scroll container or the document,
