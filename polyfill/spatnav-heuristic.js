@@ -95,14 +95,11 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
         eventTarget = eventTarget.contentDocument.body;
 
       const candidates = eventTarget.focusableAreas();
-      let bestCandidate;
 
+      // 5-2
       if (Array.isArray(candidates) && candidates.length > 0) {
-        bestCandidate = selectBestCandidateFromEdge(eventTarget, candidates, dir);
-        focusingController(bestCandidate, dir);
-        return;
+        if (focusingController(eventTarget.spatNavSearch(dir), dir)) return;
       }
-
       if (scrollingController(eventTarget, dir)) return;
     }
 
@@ -120,28 +117,24 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
       }
     }
 
+    // 7
     while (parentContainer) {
-      // 7
       const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
 
       if (Array.isArray(candidates) && candidates.length > 0) {
-        // 9
-        const bestCandidate = selectBestCandidate(eventTarget, candidates, dir);
-        if (bestCandidate) {
-          // 10 & 11
-          focusingController(bestCandidate, dir);
-          return;
-        }
+        if (focusingController(eventTarget.spatNavSearch(dir, candidates, container), dir)) return;
       }
-      // 8
       else {
         // If there isn't any candidate and the best candidate among candidate:
         // 1) Scroll or 2) Find candidates of the ancestor container
+        // 8 - if
         if (scrollingController(container, dir)) return;
         else {
+          // 8 - else
           // [event] navnotarget : Fired when spatial navigation has failed to find any acceptable candidate to move the focus
           // to in the current spatnav container and when that same spatnav container cannot be scrolled either,
           // before going up the tree to search in the nearest ancestor spatnav container.
+
           SpatNavAPI.createNavEvents('notarget', container, dir);
 
           if (container === document || container === document.documentElement) {
@@ -179,14 +172,9 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
 
       const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
 
+      // 9
       if (Array.isArray(candidates) && candidates.length > 0) {
-        // 9
-        const bestCandidate = selectBestCandidate(eventTarget, candidates, dir);
-        if (bestCandidate) {
-          // 10 & 11
-          focusingController(bestCandidate, dir);
-          return;
-        }
+        if (focusingController(eventTarget.spatNavSearch(dir, candidates, container), dir)) return;
       }
     }
 
@@ -202,6 +190,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @returns NaN
   */
   function focusingController(bestCandidate, dir) {
+    // 10 & 11
     // When bestCandidate is found
     if (bestCandidate) {
       const container = bestCandidate.getSpatnavContainer();
@@ -216,11 +205,13 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
        */
       SpatNavAPI.createNavEvents('beforefocus', bestCandidate, dir);
       bestCandidate.focus();
+      return true;
     }
 
     // When bestCandidate is not found within the scrollport of a container: Nothing
     else {
-      console.log('Focus will stay');
+      console.log('No more target');
+      return false;
     }
   }
 
@@ -266,8 +257,6 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     let targetElement = this;
     let bestCandidate = null;
 
-    console.log('spatnavsearch');
-
     // If the container is unknown, get the closest container from the element
     if (!container)
       container = this.getSpatnavContainer();
@@ -286,7 +275,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
       }
     }
     else {
-      candidates = filteredCandidates(targetElement, container.focusableAreas(), dir, container);
+      candidates = filteredCandidates(targetElement, candidates, dir, container);
     }
 
     // Find the best candidate
@@ -455,7 +444,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
           focusables.push(thisElement);
         }
         else {
-          const recursiveFocusables = thisElement.focusableAreas();
+          const recursiveFocusables = thisElement.focusableAreas(option);
 
           if (Array.isArray(recursiveFocusables) && recursiveFocusables.length) {
             focusables = focusables.concat(recursiveFocusables);

@@ -41,8 +41,7 @@
   * varName {String} without '--'
   */
   function readCssVar (element, varName) {
-    const elementStyles = getComputedStyle(element);
-    return elementStyles.getPropertyValue(`--${varName}`).trim();
+    return element.style.getPropertyValue(`--${varName}`).trim();
   }
 
   SpatnavAPI.prototype.isCSSSpatNavContain = function(el) {
