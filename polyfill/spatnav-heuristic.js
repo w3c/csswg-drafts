@@ -100,7 +100,6 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
       if (Array.isArray(candidates) && candidates.length > 0) {
         if (focusingController(eventTarget.spatNavSearch(dir), dir)) return;
       }
-
       if (scrollingController(eventTarget, dir)) return;
     }
 
@@ -118,22 +117,24 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
       }
     }
 
+    // 7
     while (parentContainer) {
-      // 7
       const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
 
       if (Array.isArray(candidates) && candidates.length > 0) {
         if (focusingController(eventTarget.spatNavSearch(dir, candidates, container), dir)) return;
       }
-      // 8
       else {
         // If there isn't any candidate and the best candidate among candidate:
         // 1) Scroll or 2) Find candidates of the ancestor container
+        // 8 - if
         if (scrollingController(container, dir)) return;
         else {
+          // 8 - else
           // [event] navnotarget : Fired when spatial navigation has failed to find any acceptable candidate to move the focus
           // to in the current spatnav container and when that same spatnav container cannot be scrolled either,
           // before going up the tree to search in the nearest ancestor spatnav container.
+
           SpatNavAPI.createNavEvents('notarget', container, dir);
 
           if (container === document || container === document.documentElement) {
@@ -171,6 +172,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
 
       const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
 
+      // 9
       if (Array.isArray(candidates) && candidates.length > 0) {
         if (focusingController(eventTarget.spatNavSearch(dir, candidates, container), dir)) return;
       }
@@ -188,6 +190,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @returns NaN
   */
   function focusingController(bestCandidate, dir) {
+    // 10 & 11
     // When bestCandidate is found
     if (bestCandidate) {
       const container = bestCandidate.getSpatnavContainer();
@@ -206,7 +209,8 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
 
     // When bestCandidate is not found within the scrollport of a container: Nothing
     else {
-      console.log('Focus will stay');
+      console.log('No more target');
+      return false;
     }
   }
 
@@ -251,8 +255,6 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     // Let container be the nearest ancestor of eventTarget that is a spatnav container.
     let targetElement = this;
     let bestCandidate = null;
-
-    console.log('spatnavsearch');
 
     // If the container is unknown, get the closest container from the element
     if (!container)
