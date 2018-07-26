@@ -95,8 +95,8 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
         eventTarget = eventTarget.contentDocument.body;
 
       const candidates = eventTarget.focusableAreas();
-      let bestCandidate;
 
+      // 5-2
       if (Array.isArray(candidates) && candidates.length > 0) {
         if (focusingController(eventTarget.spatNavSearch(dir), dir)) return;
       }
@@ -205,6 +205,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
        */
       SpatNavAPI.createNavEvents('beforefocus', bestCandidate, dir);
       bestCandidate.focus();
+      return true;
     }
 
     // When bestCandidate is not found within the scrollport of a container: Nothing
