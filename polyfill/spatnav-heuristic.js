@@ -444,7 +444,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
           focusables.push(thisElement);
         }
         else {
-          const recursiveFocusables = thisElement.focusableAreas();
+          const recursiveFocusables = thisElement.focusableAreas(option);
 
           if (Array.isArray(recursiveFocusables) && recursiveFocusables.length) {
             focusables = focusables.concat(recursiveFocusables);
