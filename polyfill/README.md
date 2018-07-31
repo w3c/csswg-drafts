@@ -89,8 +89,7 @@ unlike what is described in section [#using-the-apis].
 for purposes other than runing the automated tests of the specication**.
 
 ````html
-<script>var spatnavPolyfillOptions = {"standardName": "true" };</script>
 <script src="../polyfill/spatnav-heuristic.js"></script>
 <script src="../polyfill/spatnav-api.js"></script>
-<script>focusNavigationHeuristics();</script>
+<script>focusNavigationHeuristics({"standardName": "true" });</script>
 ````

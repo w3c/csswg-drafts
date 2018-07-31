@@ -1,11 +1,12 @@
 # Spatial Navigation
 This is a repository for making the Web excellently embrace the spatial navigation's features so that the Web technology can be propagated into several industries such as TV, IVI, game console, and upcoming smart devices as well as PC and mobile for a11y.
 
-This repository consists of the basic description for the spatial navigation, landscapes of the relevant industries, the current status of [W3C standardization](explainer.md), and [Implementation of Web engines](implStatus.md) such as Blink, WebKit, Gecko, and EdgeHTML, while the relevant issues have been discussed in several W3C working groups and Web engine open source communities.
-
-You're welcome to contribute! If you have something to say for the spatial navigation, please kindly put it on [issues](https://github.com/WICG/spatial-navigation/issues) of this repository or send it via [email](mailto://lgewst@gmail.com). Let's make the Web to be extensible for the several industries!
-
-An [experimental Polyfill](./polyfill/) is available.
+## Details
+* Read the [Explainer](explainer.md)
+* Read the [Spec](https://wicg.github.io/spatial-navigation/)
+* See the [Implementation Status](implStatus.md)
+* Try the [Demo](https://wicg.github.io/spatial-navigation/demo/)
+* Give feedback on [issues](https://github.com/WICG/spatial-navigation/issues) or via [email](mailto://lgewst@gmail.com)
 
 ## Overview
 **Spatial navigation (aka Spatnav)** is the ability to navigate between focusable elements based on their position within a structured document. Spatial navigation is often called 'directional navigation' which enables four(4) directional navigation. Users are usually familiar with the 2-way navigation using tab key for the forward direction and shift+tab key for the backward direction, but not familiar with the 4-way navigation using arrow keys.
@@ -19,7 +20,6 @@ In spatial navigation mode, the default behavior of arrow keys is changed from s
 1. A heuristic algorithm for the spatial navigation supported in Web engines
 2. Overriding methods on top of the heuristic algorithm (DOM method/attribute/event)
 3. The relevant API for efficiently supporting the spatial navigation (spatnav mode, container, etc.)
-
 
 See the [explainer](explainer.md) for the details of W3C standardization for #1, #2 and #3 above.
  
