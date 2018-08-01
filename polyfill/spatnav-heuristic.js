@@ -430,12 +430,10 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
         if (isFocusable(thisElement)) {
           focusables.push(thisElement);
         }
-        else {
-          const recursiveFocusables = thisElement.focusableAreas(option);
+        const recursiveFocusables = thisElement.focusableAreas(option);
 
-          if (Array.isArray(recursiveFocusables) && recursiveFocusables.length) {
-            focusables = focusables.concat(recursiveFocusables);
-          }
+        if (Array.isArray(recursiveFocusables) && recursiveFocusables.length) {
+          focusables = focusables.concat(recursiveFocusables);
         }
       }
     }
@@ -621,7 +619,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
 
   /**
   * isFocusable :
-  * Whether this element is focusable.
+  * Whether this element is focusable with spatnav.
   * check1. Whether the element is the browsing context (document, iframe)
   * check2. The value of tabIndex is ">= 0"
   * check3. Whether the element is disabled or not.
