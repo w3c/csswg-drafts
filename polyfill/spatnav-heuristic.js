@@ -621,18 +621,27 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * isFocusable :
   * Whether this element is focusable with spatnav.
   * check1. Whether the element is the browsing context (document, iframe)
-  * check2. The value of tabIndex is ">= 0"
-  * check3. Whether the element is disabled or not.
-  * check4. Whether the element is scrollable container or not. (regardless of scrollable axis)
+  * check2. Whether the element is scrollable container or not. (regardless of scrollable axis)
+  * check3. The value of tabIndex is ">= 0"
+  *    There are several elements which the tabindex focus flag be set:
+  *    (https://html.spec.whatwg.org/multipage/interaction.html#specially-focusable)
+  *    The element with tabindex=-1 is omitted from the spatial navigation order,
+  *    but, if there is a focusable child element, it will be included in the spatial navigation order.
+  * check4. Whether the element is disabled or not.
+  *
   * @function
   * @param {<Node>} element
   * @returns {Boolean}
   */
   function isFocusable(element) {
-    return (!element.parentElement) ||
-          (element.nodeName === 'IFRAME') ||
-          (element.tabIndex >= 0 && !element.disabled) ||
-          (isScrollable(element) && isOverflow(element));
+    if ((element.tabIndex >= 0 && !element.disabled)) {
+      return ((element.nodeName === 'IFRAME') ||
+            !element.parentElement) ||
+            (isScrollable(element) && isOverflow(element));
+    }
+    else {
+      return false;
+    }
   }
 
   /**
