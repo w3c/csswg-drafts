@@ -634,14 +634,13 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @returns {Boolean}
   */
   function isFocusable(element) {
-    if ((element.tabIndex >= 0 && !element.disabled)) {
-      return ((element.nodeName === 'IFRAME') ||
-            !element.parentElement) ||
-            (isScrollable(element) && isOverflow(element));
-    }
-    else {
+    if (element.tabIndex < 0 || element.disabled)
       return false;
-    }
+    else
+      return ((!element.parentElement) ||
+          (element.nodeName === 'IFRAME') ||
+          (element.tabIndex >= 0) ||
+          (isScrollable(element) && isOverflow(element)));
   }
 
   /**
