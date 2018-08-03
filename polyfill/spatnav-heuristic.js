@@ -25,19 +25,21 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
    * If arrow key pressed, get the next focusing element and send it to focusing controller
    */
   window.addEventListener('keydown', function(e) {
-    let focusNavigableArrowKey = {'left': true, 'up': true, 'right': true, 'down': true};
-    const eventTarget = document.activeElement;
-    const dir = ARROW_KEY_CODE[e.keyCode];
+    if (!e.defaultPrevented) {
+      let focusNavigableArrowKey = {'left': true, 'up': true, 'right': true, 'down': true};
+      const eventTarget = document.activeElement;
+      const dir = ARROW_KEY_CODE[e.keyCode];
 
-    // Edge case (text input, area) : Don't move focus, just navigate cursor in text area
-    if ((eventTarget.nodeName === 'INPUT') || eventTarget.nodeName === 'TEXTAREA')
-      focusNavigableArrowKey = handlingEditableElement(e);
+      // Edge case (text input, area) : Don't move focus, just navigate cursor in text area
+      if ((eventTarget.nodeName === 'INPUT') || eventTarget.nodeName === 'TEXTAREA')
+        focusNavigableArrowKey = handlingEditableElement(e);
 
-    if (focusNavigableArrowKey[dir]) {
-      e.preventDefault();
-      navigate(dir);
+      if (focusNavigableArrowKey[dir]) {
+        e.preventDefault();
+        navigate(dir);
+      }
+      startingPosition = null;
     }
-    startingPosition = null;
   });
 
   /**
