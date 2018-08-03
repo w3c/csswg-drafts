@@ -24,7 +24,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
    * keydown EventListener :
    * If arrow key pressed, get the next focusing element and send it to focusing controller
    */
-  document.addEventListener('keydown', function(e) {
+  window.addEventListener('keydown', function(e) {
     let focusNavigableArrowKey = {'left': true, 'up': true, 'right': true, 'down': true};
     const eventTarget = document.activeElement;
     const dir = ARROW_KEY_CODE[e.keyCode];
