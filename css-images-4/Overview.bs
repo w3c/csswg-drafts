@@ -441,7 +441,7 @@ Combining images: the ''cross-fade()'' notation {#cross-fade-function}
 
 		2. For each |argument| of the ''cross-fade()'' function with an <<image>> value:
 			1. Let |item| be a [=tuple=] consisting of a width, a height, and a percentage.
-			2. Run the [=object size negotation=] algorithm for the <<image>>,
+			2. Run the [=object size negotiation=] algorithm for the <<image>>,
 				as appropriate for the context in which the ''cross-fade()'' appears,
 				and set |item|’s width and height
 				to the width and height of the resulting [=concrete object size=].
@@ -499,7 +499,15 @@ Combining images: the ''cross-fade()'' notation {#cross-fade-function}
 
 		4. Let |percentage sum| be the sum of all the percentages of the [=list/items=] in |images|.
 
-		5. [=list/For each=] |item| in |images|,
+		5. If |percentage sum| is less than ''100%'',
+			append a [=tuple=] to |images|
+			consisting of a solid-color transparent-black image
+			with |size|’s dimensions,
+			and a percentage equal to ''100%'' minus |percentage sum|.
+
+			Otherwise,
+			if |percentage sum| is greater than ''100%'',
+			then [=list/for each=] |item| in |images|,
 			divide |item|’s percentage by |percentage sum|,
 			and set |item|’s percentage to the result.
 
@@ -508,27 +516,44 @@ Combining images: the ''cross-fade()'' notation {#cross-fade-function}
 			and every pixel being the weighted linear average of the corresponding pixels of [=list/for each|each=] |item|’s image in |images|,
 			weighted according to the |item|’s percentage.
 			(Average both the color channels and the alpha channel of the pixels.)
+			For the purpose of this calculation,
+			each pixel's color must be in pre-multiplied sRGB.
 
-			Note: This is applying the Porter-Duff <code>dissolve</code> operator to each source image,
-			then combining them all together with the Porter-Duff <code>plus</code> operator. [[PORTERDUFF]]
+			<details class=note>
+				<summary>Details on the above operation</summary>
 
-			Issue: What color space does this average take place in? sRGB? Controlled by @color-space?
+				This is applying an N-way Porter-Duff <code>dissolve</code> operation to the source images.
+				Wikipedia defines <code>dissolve</code> as a stochastic operation,
+				with the result pixels independently randomly chosen from the source images’ corresponding pixels
+				according to their source images’ weights,
+				but as pixels shrink to infinitely small,
+				this converges to doing color-averaging in pre-multiplied color space.
 
-		8. If |percentage sum| is less than ''100%'',
-			multiply the alpha channel of every pixel in |final image| by |percentage sum|.
+				In particular, this means that `cross-fade(white 50%, transparent 50%)`
+				will produce a partially-transparent solid white image.
+				(Rather than a partially-transparent gray,
+				which is what you'd get if you averaged the opaque white and transparent black pixels
+				in non-premultiplied space.)
 
-			Note: This ensures that ''cross-fade(img 50%)'' doesn't darken the image
-			(as would happen by blending with <a>transparent black</a>),
-			but just makes it more transparent,
-			as the author almost certainly intends.
+				As converting to pre-multiplied does entail some loss of precision,
+				and graphics libraries may or may not support this operation natively,
+				as per usual any method can be used so long as it achieves the specified effect.
 
-			Issue: Should this also apply to explicit ''transparent'' arguments?
-			See <a href="https://github.com/w3c/csswg-drafts/issues/2722">issue 2722</a>
-			for making ''transparent'' generally act like just “transparency”,
-			rather than specifically being <a>transparent black</a>.
-			We'd specify this by filtering them out in step 3.
+				For example, one can instead rebalance the percentages
+				according to the alphas of each pixel,
+				then do the color-channel averages in non-premultiplied space.
+				E.g., to render ''cross-fade(rgb(255 0 0 / 1) 40%, rgb(0 255 0 / .5) 20%, rgb(0 0 255 / 0) 40%)'',
+				rebalancing the percentages according to the 1 / .5 / 0 alphas
+				would produce 40% / 10% / 0%
+				(which renormalizes to 80% / 20% / 0%),
+				at which point you can average the raw color channel values
+				and end up with an ''rgb(204 51 0 / .5)'' image.
+				(Note that the alpha channel is still averaged using the original percentages,
+				not the rebalanced ones.)
+			</details>
 
-		8. Return |final image|.
+
+		7. Return |final image|.
 	</div>
 
 ### Simplifying Complex ''cross-fade()'' ### {#cross-fade-complex}
