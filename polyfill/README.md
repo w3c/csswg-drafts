@@ -54,6 +54,18 @@ enabling spatial navigation.
 
 Users can now user the keyboard's arrow keys to navigate the page.
 
+### Handling <code>keydown</code> event
+In the polyfill, <a href="https://www.w3.org/TR/DOM-Level-3-Events/#event-type-keydown"><code>keydown</code> event</a> triggers the spatial navigation.
+Also, the <code>keydown</code> event handler is attached to the window object.
+
+We recommend to use it with the polyfill as below:
+
+* If you want to use the <code>keydown</code> event handler for other usages besides the spatial navigation,
+   * attach the event handler on the children of window object
+   or
+   * call the event handler during the capturing phase of the event.
+* If you don't want the <code>keydown</code> event work with the spatial navigation, call <code>preventDefault()</code> for it.
+
 ### Using the APIs
 
 The spatial navigation specification defines several JavaScript [events](https://wicg.github.io/spatial-navigation/#events-navigationevent) and [APIs](https://wicg.github.io/spatial-navigation/#js-api).
@@ -89,8 +101,7 @@ unlike what is described in section [#using-the-apis].
 for purposes other than runing the automated tests of the specication**.
 
 ````html
-<script>var spatnavPolyfillOptions = {"standardName": "true" };</script>
 <script src="../polyfill/spatnav-heuristic.js"></script>
 <script src="../polyfill/spatnav-api.js"></script>
-<script>focusNavigationHeuristics();</script>
+<script>focusNavigationHeuristics({"standardName": "true" });</script>
 ````
