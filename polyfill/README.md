@@ -54,17 +54,17 @@ enabling spatial navigation.
 
 Users can now user the keyboard's arrow keys to navigate the page.
 
-### Handling <code>keydown</code> event
-In the polyfill, <a href="https://www.w3.org/TR/DOM-Level-3-Events/#event-type-keydown"><code>keydown</code> event</a> triggers the spatial navigation.
-Also, the <code>keydown</code> event handler is attached to the window object.
+### Handling browser events
+In the polyfill, <a href="https://www.w3.org/TR/DOM-Level-3-Events/#event-type-keydown"><code>keydown</code> event</a> and <a href="https://www.w3.org/TR/DOM-Level-3-Events/#event-type-mouseup"><code>mouseup</code> event</a> are used for the spatial navigation.
+The event handlers of those are attached to the window object.
 
 We recommend to use it with the polyfill as below:
 
-* If you want to use the <code>keydown</code> event handler for other usages besides the spatial navigation,
+* If you want to use those event handlers for other usages besides the spatial navigation,
    * attach the event handler on the children of window object
    or
    * call the event handler during the capturing phase of the event.
-* If you don't want the <code>keydown</code> event work with the spatial navigation, call <code>preventDefault()</code> for it.
+* If you don't want those events work with the spatial navigation, call <code>preventDefault()</code>.
 
 ### Using the APIs
 

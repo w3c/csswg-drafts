@@ -43,10 +43,10 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   });
 
   /**
-  * mouseclick EventListener :
+  * mouseup EventListener :
   * If the mouse click a point in the page, the point will be the starting point.
   */
-  document.addEventListener('mouseup', function(e) {
+  window.addEventListener('mouseup', function(e) {
     startingPosition = {xPosition: e.clientX, yPosition: e.clientY};
   });
 
