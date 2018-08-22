@@ -43,10 +43,10 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   });
 
   /**
-  * mouseclick EventListener :
+  * mouseup EventListener :
   * If the mouse click a point in the page, the point will be the starting point.
   */
-  document.addEventListener('click', function(e) {
+  window.addEventListener('mouseup', function(e) {
     startingPosition = {xPosition: e.clientX, yPosition: e.clientY};
   });
 
@@ -992,6 +992,10 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     const focusNavigableArrowKey = {'left': false, 'up': false, 'right': false, 'down': false};
 
     const dir = ARROW_KEY_CODE[e.keyCode];
+    if(dir === undefined) {
+      return focusNavigableArrowKey;
+    }
+
     if (spinnableInputTypes.includes(eventTarget.getAttribute('type')) &&
       (dir === 'up' || dir === 'down')) {
       focusNavigableArrowKey[dir] = true;
