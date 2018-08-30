@@ -1,4 +1,4 @@
-/* JS Lib for Blog Demo
+/* JS Lib for Calendar Demo
 *
 * Copyright 2018 LG Electronics Inc. All rights reserved.
 *
