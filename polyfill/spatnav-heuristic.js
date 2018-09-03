@@ -10,33 +10,48 @@
 
 (function () {
 
-/**
-  * CSS.registerProperty() from the Properties and Values API
-  * Reference: https://drafts.css-houdini.org/css-properties-values-api/#the-registerproperty-function
-*/
-if (window.CSS && CSS.registerProperty) {
-  console.log("registerProperty is available");
-  CSS.registerProperty({
-    name: '--spatial-navigation-contain',
-    syntax: 'auto | contain',
-    inherits: false,
-    initialValue: 'auto'
-  });
+// Indicates global variables for spatnav (starting position)
+let spatNavManager = {
+  startingPosition: null,
+  useStandardName: true,
+};
+
+// Use non standard names by default, as per https://www.w3.org/2001/tag/doc/polyfills/#don-t-squat-on-proposed-names-in-speculative-polyfills
+// Allow binding to standard name for testing purposes
+if (spatNavManager.useStandardName) {
+  window.navigate = navigate;
+  window.Element.prototype.spatNavSearch = spatNavSearch;
+  window.Element.prototype.focusableAreas = focusableAreas;
+  window.Element.prototype.getSpatnavContainer = getSpatnavContainer;
+} else {
+  window.navigatePolyfill = navigate;
+  window.Element.prototype.spatNavSearchPolyfill = spatNavSearch;
+  window.Element.prototype.focusableAreasPolyfill = focusableAreas;
+  window.Element.prototype.getSpatnavContainerPolyfill = getSpatnavContainer;
 }
 
-function focusNavigationHeuristics(spatnavPolyfillOptions) {
-  // condition: focus delegation model = false
-  spatnavPolyfillOptions = spatnavPolyfillOptions || {'standardName': true};
+function focusNavigationHeuristics() {
+
+  /**
+  * CSS.registerProperty() from the Properties and Values API
+  * Reference: https://drafts.css-houdini.org/css-properties-values-api/#the-registerproperty-function
+  **/
+  if (window.CSS && CSS.registerProperty) {
+    console.log("registerProperty is available");
+    CSS.registerProperty({
+      name: '--spatial-navigation-contain',
+      syntax: 'auto | contain',
+      inherits: false,
+      initialValue: 'auto'
+    });
+  }
 
   const ARROW_KEY_CODE = {37: 'left', 38: 'up', 39: 'right', 40: 'down'};
 
-  // Indicates for the position type starting point
-  let startingPosition = null;
-
   /**
-   * keydown EventListener :
-   * If arrow key pressed, get the next focusing element and send it to focusing controller
-   */
+  * keydown EventListener :
+  * If arrow key pressed, get the next focusing element and send it to focusing controller
+  */
   window.addEventListener('keydown', function(e) {
     if (!e.defaultPrevented) {
       let focusNavigableArrowKey = {'left': true, 'up': true, 'right': true, 'down': true};
@@ -51,7 +66,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
         e.preventDefault();
         navigate(dir);
       }
-      startingPosition = null;
+      spatNavManager.startingPosition = null;
     }
   });
 
@@ -60,134 +75,134 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * If the mouse click a point in the page, the point will be the starting point.
   */
   window.addEventListener('mouseup', function(e) {
-    startingPosition = {xPosition: e.clientX, yPosition: e.clientY};
+    spatNavManager.startingPosition = {xPosition: e.clientX, yPosition: e.clientY};
   });
+}
 
-  /**
+/**
   * Navigate API :
   * reference: https://wicg.github.io/spatial-navigation/#dom-window-navigate
   * @function for Window
   * @param {SpatialNavigationDirection} direction
   * @returns NaN
-  */
-  function navigate(dir) {
-    // spatial navigation steps
+**/
+function navigate(dir) {
+  // spatial navigation steps
 
-    // 1
-    const startingPoint = findStartingPoint();
+  // 1
+  const startingPoint = findStartingPoint();
 
-    // 2 Optional step, not handled
-    // UA defined starting point
+  // 2 Optional step, not handled
+  // UA defined starting point
 
-    // 3
-    let eventTarget = startingPoint;
+  // 3
+  let eventTarget = startingPoint;
 
-    // 3-2 : the mouse clicked position will be come the starting point
-    if (startingPosition) {
-      eventTarget = document.elementFromPoint(startingPosition.xPosition, startingPosition.yPosition);
+  // 3-2 : the mouse clicked position will be come the starting point
+  if (spatNavManager.startingPosition) {
+    eventTarget = document.elementFromPoint(spatNavManager.startingPosition.xPosition, spatNavManager.startingPosition.yPosition);
 
-      startingPosition = null;
+    spatNavManager.startingPosition = null;
+  }
+
+  // 4
+  if (eventTarget === document || eventTarget === document.documentElement) {
+    eventTarget = document.body || document.documentElement;
+  }
+
+  // 5
+  // At this point, spatNavSearch can be applied.
+  // If startingPoint is either a scroll container or the document,
+  // find the best candidate within startingPoint
+  if ((isContainer(eventTarget) || eventTarget.nodeName === 'BODY') && !(eventTarget.nodeName === 'INPUT')) {
+    if (eventTarget.nodeName === 'IFRAME')
+      eventTarget = eventTarget.contentDocument.body;
+
+    const candidates = eventTarget.focusableAreas();
+
+    // 5-2
+    if (Array.isArray(candidates) && candidates.length > 0) {
+      if (focusingController(eventTarget.spatNavSearch(dir), dir)) return;
     }
+    if (scrollingController(eventTarget, dir)) return;
+  }
 
-    // 4
-    if (eventTarget === document || eventTarget === document.documentElement) {
-      eventTarget = document.body || document.documentElement;
+  // 6
+  // Let container be the nearest ancestor of eventTarget
+  let container = eventTarget.getSpatnavContainer();
+  let parentContainer = container.getSpatnavContainer();
+
+  // When the container is the viewport of a browsing context
+  if (!parentContainer) {
+    parentContainer = window.document.documentElement;
+    // The container is IFRAME, so parentContainer will be retargeted to the document of the parent window
+    if ( window.location !== window.parent.location ) {
+      parentContainer = window.parent.document.documentElement;
     }
+  }
 
-    // 5
-    // At this point, spatNavSearch can be applied.
-    // If startingPoint is either a scroll container or the document,
-    // find the best candidate within startingPoint
-    if ((isContainer(eventTarget) || eventTarget.nodeName === 'BODY') && !(eventTarget.nodeName === 'INPUT')) {
-      if (eventTarget.nodeName === 'IFRAME')
-        eventTarget = eventTarget.contentDocument.body;
+  // 7
+  while (parentContainer) {
+    const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
 
-      const candidates = eventTarget.focusableAreas();
-
-      // 5-2
-      if (Array.isArray(candidates) && candidates.length > 0) {
-        if (focusingController(eventTarget.spatNavSearch(dir), dir)) return;
-      }
-      if (scrollingController(eventTarget, dir)) return;
+    if (Array.isArray(candidates) && candidates.length > 0) {
+      if (focusingController(eventTarget.spatNavSearch(dir, candidates, container), dir)) return;
     }
-
-    // 6
-    // Let container be the nearest ancestor of eventTarget
-    let container = eventTarget.getSpatnavContainer();
-    let parentContainer = container.getSpatnavContainer();
-
-    // When the container is the viewport of a browsing context
-    if (!parentContainer) {
-      parentContainer = window.document.documentElement;
-      // The container is IFRAME, so parentContainer will be retargeted to the document of the parent window
-      if ( window.location !== window.parent.location ) {
-        parentContainer = window.parent.document.documentElement;
-      }
-    }
-
-    // 7
-    while (parentContainer) {
-      const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
-
-      if (Array.isArray(candidates) && candidates.length > 0) {
-        if (focusingController(eventTarget.spatNavSearch(dir, candidates, container), dir)) return;
-      }
+    else {
+      // If there isn't any candidate and the best candidate among candidate:
+      // 1) Scroll or 2) Find candidates of the ancestor container
+      // 8 - if
+      if (scrollingController(container, dir)) return;
       else {
-        // If there isn't any candidate and the best candidate among candidate:
-        // 1) Scroll or 2) Find candidates of the ancestor container
-        // 8 - if
-        if (scrollingController(container, dir)) return;
-        else {
-          // 8 - else
-          // [event] navnotarget : Fired when spatial navigation has failed to find any acceptable candidate to move the focus
-          // to in the current spatnav container and when that same spatnav container cannot be scrolled either,
-          // before going up the tree to search in the nearest ancestor spatnav container.
+        // 8 - else
+        // [event] navnotarget : Fired when spatial navigation has failed to find any acceptable candidate to move the focus
+        // to in the current spatnav container and when that same spatnav container cannot be scrolled either,
+        // before going up the tree to search in the nearest ancestor spatnav container.
 
-          createSpatNavEvents('notarget', container, dir);
+        createSpatNavEvents('notarget', container, dir);
 
-          if (container === document || container === document.documentElement) {
-            container = window.document.documentElement;
+        if (container === document || container === document.documentElement) {
+          container = window.document.documentElement;
 
-            // The page is in an iframe
-            if ( window.location !== window.parent.location ) {
+          // The page is in an iframe
+          if ( window.location !== window.parent.location ) {
 
-              // eventTarget needs to be reset because the position of the element in the IFRAME
-              // is unuseful when the focus moves out of the iframe
-              eventTarget = window.frameElement;
-              container = window.parent.document.documentElement;
-            }
-            else {
-              return;
-            }
-
-            parentContainer = container.getSpatnavContainer();
+            // eventTarget needs to be reset because the position of the element in the IFRAME
+            // is unuseful when the focus moves out of the iframe
+            eventTarget = window.frameElement;
+            container = window.parent.document.documentElement;
           }
           else {
-            // avoiding when spatnav container with tabindex=-1
-            if (isFocusable(container)) {
-              eventTarget = container;
-            }
-
-            container = parentContainer;
-            parentContainer = container.getSpatnavContainer();
+            return;
           }
+
+          parentContainer = container.getSpatnavContainer();
+        }
+        else {
+          // avoiding when spatnav container with tabindex=-1
+          if (isFocusable(container)) {
+            eventTarget = container;
+          }
+
+          container = parentContainer;
+          parentContainer = container.getSpatnavContainer();
         }
       }
     }
-
-    if (!parentContainer && container) {
-      // Getting out from the current spatnav container
-
-      const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
-
-      // 9
-      if (Array.isArray(candidates) && candidates.length > 0) {
-        if (focusingController(eventTarget.spatNavSearch(dir, candidates, container), dir)) return;
-      }
-    }
-
-    if (scrollingController(container, dir)) return;
   }
+
+  if (!parentContainer && container) {
+    // Getting out from the current spatnav container
+
+    const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
+
+    // 9
+    if (Array.isArray(candidates) && candidates.length > 0) {
+      if (focusingController(eventTarget.spatNavSearch(dir, candidates, container), dir)) return;
+    }
+  }
+
+  if (scrollingController(container, dir)) return;
 }
 
 /**
@@ -1093,21 +1108,12 @@ function handlingEditableElement(e) {
   return focusNavigableArrowKey;
 }
 
-// Use non standard names by default, as per https://www.w3.org/2001/tag/doc/polyfills/#don-t-squat-on-proposed-names-in-speculative-polyfills
-// Allow binding to standard name for testing purposes
-if (typeof spatnavPolyfillOptions === 'object' && spatnavPolyfillOptions.standardName) {
-  window.navigate = navigate;
-  window.Element.prototype.spatNavSearch = spatNavSearch;
-  window.Element.prototype.focusableAreas = focusableAreas;
-  window.Element.prototype.getSpatnavContainer = getSpatnavContainer;
-} else {
-  window.navigatePolyfill = navigate;
-  window.Element.prototype.spatNavSearchPolyfill = spatNavSearch;
-  window.Element.prototype.focusableAreasPolyfill = focusableAreas;
-  window.Element.prototype.getSpatnavContainerPolyfill = getSpatnavContainer;
+function setStandardName() {
+  spatNavManager.useStandardName = true;
 }
 
 window.addEventListener("load", function() {
+  
   // load SpatNav polyfill
   focusNavigationHeuristics();
 });
