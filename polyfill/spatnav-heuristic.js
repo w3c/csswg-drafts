@@ -30,6 +30,8 @@ if (spatNavManager.useStandardName) {
   window.Element.prototype.getSpatnavContainerPolyfill = getSpatnavContainer;
 }
 
+const ARROW_KEY_CODE = {37: 'left', 38: 'up', 39: 'right', 40: 'down'};
+
 function focusNavigationHeuristics() {
 
   /**
@@ -45,8 +47,6 @@ function focusNavigationHeuristics() {
       initialValue: 'auto'
     });
   }
-
-  const ARROW_KEY_CODE = {37: 'left', 38: 'up', 39: 'right', 40: 'down'};
 
   /**
   * keydown EventListener :
