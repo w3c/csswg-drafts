@@ -1,8 +1,4 @@
 window.addEventListener("load", function() {
-
-  // load SpatNav polyfill
-  focusNavigationHeuristics();
-
   let list = document.querySelectorAll("meta");
   let application_name, application_author, application_description;
   // get the data such as name, author, and description
