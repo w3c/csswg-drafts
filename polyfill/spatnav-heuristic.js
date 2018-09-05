@@ -31,6 +31,7 @@ if (spatNavManager.useStandardName) {
 }
 
 const ARROW_KEY_CODE = {37: 'left', 38: 'up', 39: 'right', 40: 'down'};
+const TAB_KEY_CODE = 9;
 
 function focusNavigationHeuristics() {
 
@@ -66,16 +67,20 @@ function focusNavigationHeuristics() {
       if (focusNavigableArrowKey[dir]) {
         e.preventDefault();
         navigate(dir);
-      }
-      spatNavManager.startingPosition = null;
+
+        spatNavManager.startingPosition = null;
+      }      
     }
+  
+    if (e.keyCode === TAB_KEY_CODE)
+      spatNavManager.startingPosition = null;
   });
 
   /**
   * mouseup EventListener :
   * If the mouse click a point in the page, the point will be the starting point.
   */
-  window.addEventListener('mouseup', function(e) {
+  document.addEventListener('mouseup', function(e) {
     spatNavManager.startingPosition = {xPosition: e.clientX, yPosition: e.clientY};
   });
 }
