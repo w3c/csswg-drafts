@@ -288,7 +288,7 @@ function spatNavSearch (dir, candidates, container) {
 
   // If the candidates is unknown, find candidates
   // 5-1
-  if(!Array.isArray(candidates) || candidates.length < 0) {
+  if(!candidates || candidates.length < 0) {
     if((isContainer(this) || this.nodeName === 'BODY') && !(this.nodeName === 'INPUT')) {
       if (this.nodeName === 'IFRAME')
         targetElement = this.contentDocument.body;
@@ -308,12 +308,12 @@ function spatNavSearch (dir, candidates, container) {
   // If startingPoint is either a scroll container or the document,
   // find the best candidate within startingPoint
   if ((isContainer(targetElement) || targetElement.nodeName === 'BODY') && !(targetElement.nodeName === 'INPUT')) {
-    if (Array.isArray(candidates) && candidates.length > 0) {
+    if (candidates && candidates.length > 0) {
       bestCandidate = selectBestCandidateFromEdge(targetElement, candidates, dir);
     }
   }
   else {
-    if (Array.isArray(candidates) && candidates.length > 0) {
+    if (candidates && candidates.length > 0) {
       bestCandidate = selectBestCandidate(targetElement, candidates, dir);
     }
   }
