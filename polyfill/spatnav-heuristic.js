@@ -307,17 +307,22 @@ function spatNavSearch (dir, candidates, container) {
   // 5
   // If startingPoint is either a scroll container or the document,
   // find the best candidate within startingPoint
-  if ((isContainer(targetElement) || targetElement.nodeName === 'BODY') && !(targetElement.nodeName === 'INPUT')) {
-    if (Array.isArray(candidates) && candidates.length > 0) {
-      bestCandidate = selectBestCandidateFromEdge(targetElement, candidates, dir);
-    }
-  }
-  else {
-    if (Array.isArray(candidates) && candidates.length > 0) {
-      bestCandidate = selectBestCandidate(targetElement, candidates, dir);
-    }
-  }
 
+  if (Array.isArray(candidates) && candidates.length > 0) {
+    if ((isContainer(targetElement) || targetElement.nodeName === 'BODY') && !(targetElement.nodeName === 'INPUT')) {
+      if (candidates.every(x => targetElement.focusableAreas().includes(x))) { 
+        // if candidates are contained in the targetElement, then the focus moves inside the targetElement
+        bestCandidate = selectBestCandidateFromEdge(targetElement, candidates, dir);
+      }
+      else {
+        bestCandidate = selectBestCandidate(targetElement, candidates, dir);
+      }
+    }
+    else {
+      bestCandidate = selectBestCandidate(targetElement, candidates, dir);
+    }    
+  }
+  
   return bestCandidate;
 }
 
