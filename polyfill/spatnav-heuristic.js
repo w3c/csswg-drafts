@@ -194,7 +194,6 @@ function navigate(dir) {
 
   if (!parentContainer && container) {
     // Getting out from the current spatnav container
-
     const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
 
     // 9
@@ -244,7 +243,7 @@ function focusingController(bestCandidate, dir) {
 * scrolling controller :
 * Directionally scroll the element if it can be manually scrolled more.
 * @function
-* @param {<Node>} scroll container
+* @param {<Node>} scrollContainer
 * @param {SpatialNavigationDirection} direction
 * @returns NaN
 */
@@ -283,8 +282,7 @@ function spatNavSearch (dir, candidates, container) {
   let bestCandidate = null;
 
   // If the container is unknown, get the closest container from the element
-  if (!container)
-    container = this.getSpatnavContainer();
+  container = container || this.getSpatnavContainer();
 
   // If the candidates is unknown, find candidates
   // 5-1
@@ -400,7 +398,7 @@ function selectBestCandidateFromEdge(currentElm, candidates, dir) {
   let minDistance = Number.POSITIVE_INFINITY;
   let tempMinDistance = undefined;
 
-  if(Array.isArray(candidates)) {
+  if(candidates) {
     for (let i = 0; i < candidates.length; i++) {
       tempMinDistance = getInnerDistance(eventTargetRect, candidates[i].getBoundingClientRect(), dir);
 
@@ -547,8 +545,7 @@ function readCssVar(element, varName) {
 }
 
 function isCSSSpatNavContain(el) {
-  if (readCssVar(el, 'spatial-navigation-contain') == 'contain') return true;
-  else return false;
+  return (readCssVar(el, 'spatial-navigation-contain') == 'contain') ? true : false;
 };
 
 /**
