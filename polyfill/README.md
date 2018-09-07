@@ -70,6 +70,15 @@ See [the list of open bugs](https://github.com/wicg/spatial-navigation/issues?q=
 
 ## How to Use
 
+### Installation
+```
+npm i spatial-navigation-polyfill
+```
+
+We recommend only using versions of the polyfill that have been published to npm, rather than cloning the repo and using the source directly. This helps ensure the version you're using is stable and thoroughly tested.
+
+If you do want to build from source, make sure you clone the latest tag!
+
 ### Including the Polyfill in a page
 
 Include the following code in your web page,
@@ -77,7 +86,10 @@ and the polyfill will be included,
 enabling spatial navigation.
 
 ```html
-<script src="https://wicg.github.io/spatial-navigation/polyfill/spatnav-heuristic.js"></script>
+...
+    <script src="/node_modules/spatial-navigation-polyfill/spatnav-heuristic.js"></script>
+  </body>
+</html>
 ```
 
 Users can now user the keyboard's arrow keys to navigate the page.
@@ -129,6 +141,6 @@ unlike what is described in section [#using-the-apis].
 for purposes other than runing the automated tests of the specication**.
 
 ````html
-<script src="../polyfill/spatnav-heuristic.js"></script>
+<script src="../spatnav-heuristic.js"></script>
 <script>setStandardName();</script>
 ````
