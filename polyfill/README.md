@@ -78,8 +78,6 @@ enabling spatial navigation.
 
 ```html
 <script src="https://wicg.github.io/spatial-navigation/polyfill/spatnav-heuristic.js"></script>
-<script src="https://wicg.github.io/spatial-navigation/polyfill/spatnav-api.js"></script>
-<script>focusNavigationHeuristics();</script>
 ```
 
 Users can now user the keyboard's arrow keys to navigate the page.
@@ -132,6 +130,5 @@ for purposes other than runing the automated tests of the specication**.
 
 ````html
 <script src="../polyfill/spatnav-heuristic.js"></script>
-<script src="../polyfill/spatnav-api.js"></script>
-<script>focusNavigationHeuristics({"standardName": "true" });</script>
+<script>setStandardName();</script>
 ````
