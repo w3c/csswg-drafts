@@ -5,6 +5,7 @@ This is a repository for making the Web excellently embrace the spatial navigati
 * Read the [Explainer](explainer.md)
 * Read the [Spec](https://wicg.github.io/spatial-navigation/)
 * See the [Implementation Status](implStatus.md)
+* Play with the [Polyfill](polyfill/README.md)
 * Try the [Demo](https://wicg.github.io/spatial-navigation/demo/)
 * Give feedback on [issues](https://github.com/WICG/spatial-navigation/issues) or via [email](mailto://lgewst@gmail.com)
 
