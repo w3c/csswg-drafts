@@ -105,8 +105,11 @@
 
     // 3-2 : the mouse clicked position will be come the starting point
     if (spatNavManager.startingPosition) {
-      eventTarget = document.elementFromPoint(spatNavManager.startingPosition.xPosition, spatNavManager.startingPosition.yPosition);
-
+      const elementFromPosition = document.elementFromPoint(spatNavManager.startingPosition.xPosition, spatNavManager.startingPosition.yPosition);
+      
+      if (eventTarget.contains(elementFromPosition))
+        eventTarget = elementFromPosition;
+      
       spatNavManager.startingPosition = null;
     }
 
