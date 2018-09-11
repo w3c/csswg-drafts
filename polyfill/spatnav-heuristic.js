@@ -737,7 +737,6 @@
       return false;
     else
       return ((!element.parentElement) ||
-          (element.nodeName === 'IFRAME') ||
           (element.tabIndex >= 0) ||
           (isScrollable(element) && isOverflow(element)));
   }
