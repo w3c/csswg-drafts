@@ -96,14 +96,14 @@
     // spatial navigation steps
 
     // 1
-    const startingPoint = findStartingPoint();
+    let startingPoint = findStartingPoint();
 
     // 2 Optional step, UA defined starting point
     if (spatNavManager.startingPosition) {
       const elementFromPosition = document.elementFromPoint(spatNavManager.startingPosition.xPosition, spatNavManager.startingPosition.yPosition);
       
-      if (eventTarget.contains(elementFromPosition))
-        eventTarget = elementFromPosition;
+      if (startingPoint.contains(elementFromPosition))
+        startingPoint = elementFromPosition;
       
       spatNavManager.startingPosition = null;
     }
