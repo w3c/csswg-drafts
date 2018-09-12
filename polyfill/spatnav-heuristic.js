@@ -78,6 +78,7 @@
     /**
     * mouseup EventListener :
     * If the mouse click a point in the page, the point will be the starting point.
+    * *NOTE: Let UA set the spatial navigation starting point based on click
     */
     document.addEventListener('mouseup', function(e) {
       spatNavManager.startingPosition = {xPosition: e.clientX, yPosition: e.clientY};
@@ -97,13 +98,7 @@
     // 1
     const startingPoint = findStartingPoint();
 
-    // 2 Optional step, not handled
-    // UA defined starting point
-
-    // 3
-    let eventTarget = startingPoint;
-
-    // 3-2 : the mouse clicked position will be come the starting point
+    // 2 Optional step, UA defined starting point
     if (spatNavManager.startingPosition) {
       const elementFromPosition = document.elementFromPoint(spatNavManager.startingPosition.xPosition, spatNavManager.startingPosition.yPosition);
       
@@ -112,6 +107,9 @@
       
       spatNavManager.startingPosition = null;
     }
+
+    // 3
+    let eventTarget = startingPoint;
 
     // 4
     if (eventTarget === document || eventTarget === document.documentElement) {
