@@ -68,9 +68,9 @@
           navigate(dir);
 
           spatNavManager.startingPosition = null;
-        }      
+        }
       }
-    
+
       if (e.keyCode === TAB_KEY_CODE)
         spatNavManager.startingPosition = null;
     });
@@ -97,19 +97,25 @@
 
     // 1
     let startingPoint = findStartingPoint();
+    let eventTarget = null;
+    let elementFromPosition = null;
 
     // 2 Optional step, UA defined starting point
     if (spatNavManager.startingPosition) {
-      const elementFromPosition = document.elementFromPoint(spatNavManager.startingPosition.xPosition, spatNavManager.startingPosition.yPosition);
-      
-      if (startingPoint.contains(elementFromPosition))
-        startingPoint = elementFromPosition;
-      
-      spatNavManager.startingPosition = null;
+      elementFromPosition = document.elementFromPoint(spatNavManager.startingPosition.xPosition, spatNavManager.startingPosition.yPosition);
     }
 
-    // 3
-    let eventTarget = startingPoint;
+    if (elementFromPosition && startingPoint.contains(elementFromPosition)) {
+      startingPoint = spatNavManager.startingPosition;
+      spatNavManager.startingPosition = null;
+
+      // 3
+      eventTarget = elementFromPosition;
+    }
+    else {
+      // 3
+      eventTarget = startingPoint;
+    }
 
     // 4
     if (eventTarget === document || eventTarget === document.documentElement) {
@@ -311,7 +317,7 @@
     // find the best candidate within startingPoint
     if (candidates && candidates.length > 0) {
       if ((isContainer(targetElement) || targetElement.nodeName === 'BODY') && !(targetElement.nodeName === 'INPUT')) {
-        if (candidates.every(x => targetElement.focusableAreas().includes(x))) { 
+        if (candidates.every(x => targetElement.focusableAreas().includes(x))) {
           // if candidates are contained in the targetElement, then the focus moves inside the targetElement
           bestCandidate = selectBestCandidateFromEdge(targetElement, candidates, dir);
         }
@@ -321,9 +327,9 @@
       }
       else {
         bestCandidate = selectBestCandidate(targetElement, candidates, dir);
-      }    
+      }
     }
-    
+
     return bestCandidate;
   }
 
@@ -648,7 +654,7 @@
     }
   }
 
-  /** 
+  /**
   * isOverflow
   * Whether this element is overflow or not
   * @function
@@ -1116,7 +1122,7 @@
   }
 
   window.addEventListener('load', function() {
-    
+
     // load SpatNav polyfill
     focusNavigationHeuristics();
   });
