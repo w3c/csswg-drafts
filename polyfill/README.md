@@ -87,7 +87,7 @@ enabling spatial navigation.
 
 ```html
 ...
-    <script src="/node_modules/spatial-navigation-polyfill/spatnav-heuristic.js"></script>
+    <script src="/node_modules/spatial-navigation-polyfill/polyfill/spatnav-heuristic.js"></script>
   </body>
 </html>
 ```
