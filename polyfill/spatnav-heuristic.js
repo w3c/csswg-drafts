@@ -1,79 +1,120 @@
-/* Spatial Navigation Polyfill v0.1
+/* Spatial Navigation Polyfill v1.0
 * : common function for Spatial Navigation
 *
-* Copyright 2018 LG Electronics Inc. All rights reserved.
+* Copyright (c) 2018 LG Electronics Inc. All rights reserved.
 * Release Version 1.0
 *
 * https://github.com/WICG/spatial-navigation
 * https://wicg.github.io/spatial-navigation
 */
 
-function focusNavigationHeuristics(spatnavPolyfillOptions) {
-  // condition: focus delegation model = false
-  spatnavPolyfillOptions = spatnavPolyfillOptions || {'standardName': true};
+(function () {
+
+  // Indicates global variables for spatnav (starting position)
+  let spatNavManager = {
+    startingPosition: null,
+    useStandardName: true,
+  };
+
+  // Use non standard names by default, as per https://www.w3.org/2001/tag/doc/polyfills/#don-t-squat-on-proposed-names-in-speculative-polyfills
+  // Allow binding to standard name for testing purposes
+  if (spatNavManager.useStandardName) {
+    window.navigate = navigate;
+    window.Element.prototype.spatNavSearch = spatNavSearch;
+    window.Element.prototype.focusableAreas = focusableAreas;
+    window.Element.prototype.getSpatnavContainer = getSpatnavContainer;
+  } else {
+    window.navigatePolyfill = navigate;
+    window.Element.prototype.spatNavSearchPolyfill = spatNavSearch;
+    window.Element.prototype.focusableAreasPolyfill = focusableAreas;
+    window.Element.prototype.getSpatnavContainerPolyfill = getSpatnavContainer;
+  }
 
   const ARROW_KEY_CODE = {37: 'left', 38: 'up', 39: 'right', 40: 'down'};
+  const TAB_KEY_CODE = 9;
 
-  // Load SpatNav API lib
-  const SpatNavAPI = SpatnavAPI();
+  function focusNavigationHeuristics() {
 
-  // Indicates for the position type starting point
-  let startingPosition = null;
-
-  /**
-   * keydown EventListener :
-   * If arrow key pressed, get the next focusing element and send it to focusing controller
-   */
-  window.addEventListener('keydown', function(e) {
-    if (!e.defaultPrevented) {
-      let focusNavigableArrowKey = {'left': true, 'up': true, 'right': true, 'down': true};
-      const eventTarget = document.activeElement;
-      const dir = ARROW_KEY_CODE[e.keyCode];
-
-      // Edge case (text input, area) : Don't move focus, just navigate cursor in text area
-      if ((eventTarget.nodeName === 'INPUT') || eventTarget.nodeName === 'TEXTAREA')
-        focusNavigableArrowKey = handlingEditableElement(e);
-
-      if (focusNavigableArrowKey[dir]) {
-        e.preventDefault();
-        navigate(dir);
-      }
-      startingPosition = null;
+    /**
+    * CSS.registerProperty() from the Properties and Values API
+    * Reference: https://drafts.css-houdini.org/css-properties-values-api/#the-registerproperty-function
+    **/
+    if (window.CSS && CSS.registerProperty) {
+      CSS.registerProperty({
+        name: '--spatial-navigation-contain',
+        syntax: 'auto | contain',
+        inherits: false,
+        initialValue: 'auto'
+      });
     }
-  });
+
+    /**
+    * keydown EventListener :
+    * If arrow key pressed, get the next focusing element and send it to focusing controller
+    */
+    window.addEventListener('keydown', function(e) {
+      const spatnavPolyfillOff = window.spatnavPolyfillOff || (parent && parent.spatnavPolyfillOff);
+      if (!spatnavPolyfillOff && !e.defaultPrevented) {
+        let focusNavigableArrowKey = {'left': true, 'up': true, 'right': true, 'down': true};
+        const eventTarget = document.activeElement;
+        const dir = ARROW_KEY_CODE[e.keyCode];
+
+        // Edge case (text input, area) : Don't move focus, just navigate cursor in text area
+        if ((eventTarget.nodeName === 'INPUT') || eventTarget.nodeName === 'TEXTAREA')
+          focusNavigableArrowKey = handlingEditableElement(e);
+
+        if (focusNavigableArrowKey[dir]) {
+          e.preventDefault();
+          navigate(dir);
+
+          spatNavManager.startingPosition = null;
+        }
+      }
+
+      if (e.keyCode === TAB_KEY_CODE)
+        spatNavManager.startingPosition = null;
+    });
+
+    /**
+    * mouseup EventListener :
+    * If the mouse click a point in the page, the point will be the starting point.
+    * *NOTE: Let UA set the spatial navigation starting point based on click
+    */
+    document.addEventListener('mouseup', function(e) {
+      spatNavManager.startingPosition = {xPosition: e.clientX, yPosition: e.clientY};
+    });
+  }
 
   /**
-  * mouseclick EventListener :
-  * If the mouse click a point in the page, the point will be the starting point.
-  */
-  document.addEventListener('click', function(e) {
-    startingPosition = {xPosition: e.clientX, yPosition: e.clientY};
-  });
-
-  /**
-  * focusing controller :
+  * Navigate API :
   * reference: https://wicg.github.io/spatial-navigation/#dom-window-navigate
   * @function for Window
   * @param {SpatialNavigationDirection} direction
   * @returns NaN
-  */
+  **/
   function navigate(dir) {
     // spatial navigation steps
 
     // 1
-    const startingPoint = findStartingPoint();
+    let startingPoint = findStartingPoint();
+    let eventTarget = null;
+    let elementFromPosition = null;
 
-    // 2 Optional step, not handled
-    // UA defined starting point
+    // 2 Optional step, UA defined starting point
+    if (spatNavManager.startingPosition) {
+      elementFromPosition = document.elementFromPoint(spatNavManager.startingPosition.xPosition, spatNavManager.startingPosition.yPosition);
+    }
 
-    // 3
-    let eventTarget = startingPoint;
+    if (elementFromPosition && startingPoint.contains(elementFromPosition)) {
+      startingPoint = spatNavManager.startingPosition;
+      spatNavManager.startingPosition = null;
 
-    // 3-2 : the mouse clicked position will be come the starting point
-    if (startingPosition) {
-      eventTarget = document.elementFromPoint(startingPosition.xPosition, startingPosition.yPosition);
-
-      startingPosition = null;
+      // 3
+      eventTarget = elementFromPosition;
+    }
+    else {
+      // 3
+      eventTarget = startingPoint;
     }
 
     // 4
@@ -130,7 +171,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
           // to in the current spatnav container and when that same spatnav container cannot be scrolled either,
           // before going up the tree to search in the nearest ancestor spatnav container.
 
-          SpatNavAPI.createNavEvents('notarget', container, dir);
+          createSpatNavEvents('notarget', container, dir);
 
           if (container === document || container === document.documentElement) {
             container = window.document.documentElement;
@@ -164,7 +205,6 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
 
     if (!parentContainer && container) {
       // Getting out from the current spatnav container
-
       const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
 
       // 9
@@ -183,7 +223,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @param {<Node>} the best candidate
   * @param {SpatialNavigationDirection} direction
   * @returns NaN
-  */
+  **/
   function focusingController(bestCandidate, dir) {
     // 10 & 11
     // When bestCandidate is found
@@ -196,16 +236,15 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
 
       // When bestCandidate is a focusable element and not a container : move focus
       /*
-       * [event] navbeforefocus : Fired before spatial or sequential navigation changes the focus.
-       */
-      SpatNavAPI.createNavEvents('beforefocus', bestCandidate, dir);
+        * [event] navbeforefocus : Fired before spatial or sequential navigation changes the focus.
+        */
+      createSpatNavEvents('beforefocus', bestCandidate, dir);
       bestCandidate.focus();
       return true;
     }
 
     // When bestCandidate is not found within the scrollport of a container: Nothing
     else {
-      console.log('No more target');
       return false;
     }
   }
@@ -214,24 +253,24 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * scrolling controller :
   * Directionally scroll the element if it can be manually scrolled more.
   * @function
-  * @param {<Node>} scroll container
+  * @param {<Node>} scrollContainer
   * @param {SpatialNavigationDirection} direction
   * @returns NaN
-  */
+  **/
   function scrollingController(container, dir) {
     /*
-     * [event] navbeforescroll : Fired before spatial navigation triggers scrolling.
-     */
+      * [event] navbeforescroll : Fired before spatial navigation triggers scrolling.
+      */
     // If there is any scrollable area among parent elements and it can be manually scrolled, scroll the document
     if (isScrollable(container, dir) && !isScrollBoundary(container, dir)) {
-      SpatNavAPI.createNavEvents('beforescroll', container, dir);
+      createSpatNavEvents('beforescroll', container, dir);
       moveScroll(container, dir);
       return true;
     }
 
     // If the spatnav container is document and it can be scrolled, scroll the document
     if (!container.parentElement && !isHTMLScrollBoundary(container, dir)) {
-      SpatNavAPI.createNavEvents('beforescroll', container, dir);
+      createSpatNavEvents('beforescroll', container, dir);
       moveScroll(document.documentElement, dir);
       return true;
     }
@@ -246,19 +285,18 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @param {sequence<Node>} candidates
   * @param {<Node>} container
   * @returns {<Node>} the best candidate
-  */
+  **/
   function spatNavSearch (dir, candidates, container) {
     // Let container be the nearest ancestor of eventTarget that is a spatnav container.
     let targetElement = this;
     let bestCandidate = null;
 
     // If the container is unknown, get the closest container from the element
-    if (!container)
-      container = this.getSpatnavContainer();
+    container = container || this.getSpatnavContainer();
 
     // If the candidates is unknown, find candidates
     // 5-1
-    if(!Array.isArray(candidates) || candidates.length < 0) {
+    if(!candidates || candidates.length < 0) {
       if((isContainer(this) || this.nodeName === 'BODY') && !(this.nodeName === 'INPUT')) {
         if (this.nodeName === 'IFRAME')
           targetElement = this.contentDocument.body;
@@ -277,13 +315,17 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     // 5
     // If startingPoint is either a scroll container or the document,
     // find the best candidate within startingPoint
-    if ((isContainer(targetElement) || targetElement.nodeName === 'BODY') && !(targetElement.nodeName === 'INPUT')) {
-      if (Array.isArray(candidates) && candidates.length > 0) {
-        bestCandidate = selectBestCandidateFromEdge(targetElement, candidates, dir);
+    if (candidates && candidates.length > 0) {
+      if ((isContainer(targetElement) || targetElement.nodeName === 'BODY') && !(targetElement.nodeName === 'INPUT')) {
+        if (candidates.every(x => targetElement.focusableAreas().includes(x))) {
+          // if candidates are contained in the targetElement, then the focus moves inside the targetElement
+          bestCandidate = selectBestCandidateFromEdge(targetElement, candidates, dir);
+        }
+        else {
+          bestCandidate = selectBestCandidate(targetElement, candidates, dir);
+        }
       }
-    }
-    else {
-      if (Array.isArray(candidates) && candidates.length > 0) {
+      else {
         bestCandidate = selectBestCandidate(targetElement, candidates, dir);
       }
     }
@@ -302,7 +344,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @param {SpatialNavigationDirection} direction
   * @param {<Node>} container
   * @returns {sequence<Node>} filtered candidates
-  */
+  **/
   function filteredCandidates(currentElm, candidates, dir, container) {
     const originalContainer = currentElm.getSpatnavContainer();
     let eventTargetRect;
@@ -318,10 +360,10 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
       return candidates;
 
     /*
-     * Else, let candidates be the subset of the elements in visibles
-     * whose principal box’s geometric center is within the closed half plane
-     * whose boundary goes through the geometric center of starting point and is perpendicular to D.
-     */
+      * Else, let candidates be the subset of the elements in visibles
+      * whose principal box’s geometric center is within the closed half plane
+      * whose boundary goes through the geometric center of starting point and is perpendicular to D.
+      */
     return candidates.filter(candidate =>
       container.contains(candidate.getSpatnavContainer()) &&
       isOutside(candidate.getBoundingClientRect(), eventTargetRect, dir)
@@ -338,7 +380,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @param {sequence<Node>} candidates
   * @param {SpatialNavigationDirection} direction
   * @returns {<Node>} the best candidate
-  */
+  **/
   function selectBestCandidate(currentElm, candidates, dir) {
     let bestCandidate;
     let minDistance = Number.POSITIVE_INFINITY;
@@ -363,14 +405,14 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @param {sequence<Node>} candidates
   * @param {SpatialNavigationDirection} direction
   * @returns {<Node>} the best candidate
-  */
+  **/
   function selectBestCandidateFromEdge(currentElm, candidates, dir) {
     const eventTargetRect = currentElm.getBoundingClientRect();
     let minDistanceElement = undefined;
     let minDistance = Number.POSITIVE_INFINITY;
     let tempMinDistance = undefined;
 
-    if(Array.isArray(candidates)) {
+    if(candidates) {
       for (let i = 0; i < candidates.length; i++) {
         tempMinDistance = getInnerDistance(eventTargetRect, candidates[i].getBoundingClientRect(), dir);
 
@@ -391,7 +433,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * reference: https://wicg.github.io/spatial-navigation/#dom-element-getspatnavcontainer
   * @function for Element
   * @returns {<Node>} container
-  */
+  **/
   function getSpatnavContainer() {
     let container = this.parentElement;
 
@@ -410,9 +452,9 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @function
   * @param {FocusableAreasOptions} option
   *         dictionary FocusableAreasOptions {FocusableAreaSearchMode mode;};
-  *         enum FocusableAreaSearchMode {"visible", "all"};
+  *         enum FocusableAreaSearchMode {'visible', 'all'};
   * @returns {sequence<Node>} focusable areas
-  */
+  **/
   function focusableAreas(option) {
     let focusables = [];
     let children = [];
@@ -449,14 +491,72 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   }
 
   /**
+  * Support the NavigatoinEvent: navbeforefocus, navbeforescroll, navnotarget
+  * reference: https://wicg.github.io/spatial-navigation/#events-navigationevent
+  * @function
+  * @param {option, element, direction}
+  * @returns NaN
+  **/
+  function createSpatNavEvents(option, element, direction) {
+    const data_ = {
+      relatedTarget: element,
+      dir: direction
+    };
+
+    const triggeredEvent = document.createEvent('CustomEvent');
+
+    switch (option) {
+    case 'beforefocus':
+      if (spatNavManager.useStandardName) {
+        triggeredEvent.initCustomEvent('navbeforefocus', true, true, data_);
+      } else {
+        triggeredEvent.initCustomEvent('navbeforefocusPolyfill', true, true, data_);
+      }
+      break;
+
+    case 'beforescroll':
+      if (spatNavManager.useStandardName) {
+        triggeredEvent.initCustomEvent('navbeforescroll', true, true, data_);
+      } else {
+        triggeredEvent.initCustomEvent('navbeforescrollPolyfill', true, true, data_);
+      }
+      break;
+
+    case 'notarget':
+      if (spatNavManager.useStandardName) {
+        triggeredEvent.initCustomEvent('navnotarget', true, true, data_);
+      } else {
+        triggeredEvent.initCustomEvent('navnotargetPolyfill', true, true, data_);
+      }
+      break;
+    }
+    element.dispatchEvent(triggeredEvent);
+  }
+
+  /**
   * Find visible elements among focusable elements
   * reference: https://wicg.github.io/spatial-navigation/#find-candidates (Step 4 - 5)
   * @function
   * @param {sequence<Node>} focusables - focusable areas
   * @returns {sequence<Node>} - visible focusable areas
-  */
+  **/
   function findVisibles(focusables) {
     return focusables.filter(isVisible);
+  }
+
+  /**
+  * Gives a CSS custom property value applied at the element
+  * @function
+  * @param
+  * element {Element}
+  * varName {String} without '--'
+  */
+  function readCssVar(element, varName) {
+    return element.style.getPropertyValue(`--${varName}`).trim();
+  }
+
+  function isCSSSpatNavContain(el) {
+    return (readCssVar(el, 'spatial-navigation-contain') == 'contain') ? true : false;
   }
 
   /**
@@ -464,7 +564,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * reference: https://wicg.github.io/spatial-navigation/#spatial-navigation-steps
   * @function
   * @returns {<Node>} Starting point
-  */
+  **/
   function findStartingPoint() {
     let startingPoint = document.activeElement;
     if (!startingPoint ||
@@ -485,7 +585,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @param {SpatialNavigationDirection} dir
   * @param {Number} offset
   * @returns NaN
-  */
+  **/
   function moveScroll(element, dir, offset = 0) {
     if (element) {
       switch (dir) {
@@ -505,9 +605,9 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   */
   function isContainer(element) {
     return (!element.parentElement) ||
-           (element.nodeName === 'IFRAME') ||
-           (isScrollContainer(element)) ||
-           (SpatNavAPI.isCSSSpatNavContain(element));
+            (element.nodeName === 'IFRAME') ||
+            (isScrollContainer(element)) ||
+            (isCSSSpatNavContain(element));
   }
 
   /** Whether this element is a scrollable container or not
@@ -515,7 +615,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @function
   * @param {<Node>} element
   * @returns {Boolean}
-  */
+  **/
   function isScrollContainer(element) {
     const overflowX = window.getComputedStyle(element).getPropertyValue('overflow-x');
     const overflowY = window.getComputedStyle(element).getPropertyValue('overflow-y');
@@ -526,7 +626,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @function
   * @param {<Node>} element
   * @returns {Boolean}
-  */
+  **/
   function isScrollable(element, dir) { // element, dir
     if (element && typeof element === 'object') {
       if (dir && typeof dir === 'string') { // parameter: dir, element
@@ -549,16 +649,18 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
         return false;
       } else { // parameter: element
         return (element.nodeName === 'HTML' || element.nodeName === 'BODY') ||
-               (isScrollContainer(element) && isOverflow(element));
+                (isScrollContainer(element) && isOverflow(element));
       }
     }
   }
 
-  /** Whether this element is overflow or not
+  /**
+  * isOverflow
+  * Whether this element is overflow or not
   * @function
   * @param {<Node>} element
   * @returns {Boolean}
-  */
+  **/
   function isOverflow(element, dir) {
     if (element && typeof element === 'object') {
       if (dir && typeof dir === 'string') { // parameter: element, dir
@@ -579,12 +681,14 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     }
   }
 
-  /** Check whether the scrollbar of window reaches to the end or not
+  /**
+  *  isHTMLScrollBoundary
+  * Check whether the scrollbar of window reaches to the end or not
   * @function
   * @param {<Node>} element
   * @param {SpatialNavigationDirection} direction
   * @returns {Boolean}
-  */
+  **/
   function isHTMLScrollBoundary(element, dir) {
     const scrollBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
     const scrollRight = element.scrollWidth - element.scrollLeft - element.clientWidth;
@@ -600,7 +704,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @param {<Node>} element
   * @param {String} direction
   * @returns {Boolean}
-  */
+  **/
   function isScrollBoundary(element, dir) {
     if (isScrollable(element, dir)) {
       const winScrollY = element.scrollTop;
@@ -624,7 +728,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * Whether this element is focusable with spatnav.
   * check1. Whether the element is the browsing context (document, iframe)
   * check2. Whether the element is scrollable container or not. (regardless of scrollable axis)
-  * check3. The value of tabIndex is ">= 0"
+  * check3. The value of tabIndex >= 0
   *    There are several elements which the tabindex focus flag be set:
   *    (https://html.spec.whatwg.org/multipage/interaction.html#specially-focusable)
   *    The element with tabindex=-1 is omitted from the spatial navigation order,
@@ -634,13 +738,12 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @function
   * @param {<Node>} element
   * @returns {Boolean}
-  */
+  **/
   function isFocusable(element) {
     if (element.tabIndex < 0 || element.disabled)
       return false;
     else
       return ((!element.parentElement) ||
-          (element.nodeName === 'IFRAME') ||
           (element.tabIndex >= 0) ||
           (isScrollable(element) && isOverflow(element)));
   }
@@ -653,7 +756,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @function
   * @param {<Node>} element
   * @returns {Boolean}
-  */
+  **/
   function isVisible(element) {
     return (!element.parentElement) || (isVisibleStyleProperty(element) && hitTest(element));
   }
@@ -664,7 +767,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @function
   * @param {<Node>} element
   * @returns {Boolean}
-  */
+  **/
   function isEntirelyVisible(element) {
     const rect = element.getBoundingClientRect();
     const containerRect = element.getSpatnavContainer().getBoundingClientRect();
@@ -675,9 +778,6 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
       (rect.top < containerRect.top) ||
       (rect.bottom > containerRect.botto));
 
-    if(entirelyVisible)
-      console.log('entirely in the view');
-
     return entirelyVisible;
   }
 
@@ -685,7 +785,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @function
   * @param {<Node>} element
   * @returns {Boolean}
-  */
+  **/
   function isVisibleStyleProperty(element) {
     const thisVisibility = window.getComputedStyle(element, null).getPropertyValue('visibility');
     const thisDisplay = window.getComputedStyle(element, null).getPropertyValue('display');
@@ -700,7 +800,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @function
   * @param {<Node>} element
   * @returns {Boolean}
-  */
+  **/
   function hitTest(element) {
     let offsetX = parseInt(window.getComputedStyle(element, null).getPropertyValue('width')) / 10;
     let offsetY = parseInt(window.getComputedStyle(element, null).getPropertyValue('height')) / 10;
@@ -723,16 +823,16 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
           (element === rightBottomElem || element.contains(rightBottomElem)));
   }
 
-  /* rect1 is outside of rect2 for the dir */
   /**
-  * hitTest :
+  * isOutside
   * Check whether this element is entirely or partially visible within the viewport.
+  * Note: rect1 is outside of rect2 for the dir
   * @function
   * @param {DOMRect} rect1
   * @param {DOMRect} rect2
   * @param {SpatialNavigationDirection} dir
   * @returns {Boolean}
-  */
+  **/
   function isOutside(rect1, rect2, dir) {
     switch (dir) {
     case 'left':
@@ -775,14 +875,14 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   }
 
   /**
-  * Get distance between rect1 and rect2 for the direction
+  * Get distance between rect1 and rect2 for the direction when rect2 is inside rect1
   * reference: https://wicg.github.io/spatial-navigation/#select-the-best-candidate
   * @function
   * @param {DOMRect} rect1
   * @param {DOMRect} rect2
   * @param {SpatialNavigationDirection} dir
   * @returns {SpatialNavigationDirection} distance
-  */
+  **/
   function getInnerDistance(rect1, rect2, dir) {
     const points = {fromPoint: 0, toPoint: 0};
 
@@ -819,7 +919,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @param {DOMRect} rect2 (one of candidates)
   * @param {SpatialNavigationDirection} dir
   * @returns {Number} euclidian distance between two elements
-  */
+  **/
   function getDistance(rect1, rect2, dir) {
     const kOrthogonalWeightForLeftRight = 30;
     const kOrthogonalWeightForUpDown = 2;
@@ -882,7 +982,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @param {DOMRect} rect1 (starting point which contains entry point)
   * @param {DOMRect} rect2 (one of candidates which contains exit point)
   * @returns {Number} euclidian distance between two elements
-  */
+  **/
   function getEntryAndExitPoints(dir = 'down', rect1, rect2) {
     let points = {entryPoint:[0,0], exitPoint:[0,0]};
 
@@ -960,7 +1060,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @param {DOMRect} rect1
   * @param {DOMRect} rect2
   * @returns {Object} The intersection area between two elements (width , height)
-  */
+  **/
   function getIntersectionRect(rect1, rect2) {
     let intersection_rect;
     const new_location = [Math.max(rect1.left, rect2.left), Math.max(rect1.top, rect2.top)];
@@ -982,7 +1082,7 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
   * @function
   * @param {Event} e
   * @returns {Boolean}
-  */
+  **/
   function handlingEditableElement(e) {
     const spinnableInputTypes = ['email', 'date', 'month', 'number', 'time', 'week'],
       textInputTypes = ['password', 'text', 'search', 'tel', 'url'];
@@ -992,6 +1092,10 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     const focusNavigableArrowKey = {'left': false, 'up': false, 'right': false, 'down': false};
 
     const dir = ARROW_KEY_CODE[e.keyCode];
+    if(dir === undefined) {
+      return focusNavigableArrowKey;
+    }
+
     if (spinnableInputTypes.includes(eventTarget.getAttribute('type')) &&
       (dir === 'up' || dir === 'down')) {
       focusNavigableArrowKey[dir] = true;
@@ -1013,17 +1117,14 @@ function focusNavigationHeuristics(spatnavPolyfillOptions) {
     return focusNavigableArrowKey;
   }
 
-  // Use non standard names by default, as per https://www.w3.org/2001/tag/doc/polyfills/#don-t-squat-on-proposed-names-in-speculative-polyfills
-  // Allow binding to standard name for testing purposes
-  if (typeof spatnavPolyfillOptions === 'object' && spatnavPolyfillOptions.standardName) {
-    window.navigate = navigate;
-    window.Element.prototype.spatNavSearch = spatNavSearch;
-    window.Element.prototype.focusableAreas = focusableAreas;
-    window.Element.prototype.getSpatnavContainer = getSpatnavContainer;
-  } else {
-    window.navigatePolyfill = navigate;
-    window.Element.prototype.spatNavSearchPolyfill = spatNavSearch;
-    window.Element.prototype.focusableAreasPolyfill = focusableAreas;
-    window.Element.prototype.getSpatnavContainerPolyfill = getSpatnavContainer;
+  function setStandardName() {
+    spatNavManager.useStandardName = true;
   }
-}
+
+  window.addEventListener('load', function() {
+
+    // load SpatNav polyfill
+    focusNavigationHeuristics();
+  });
+
+})(window, document);
