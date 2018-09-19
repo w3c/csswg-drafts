@@ -32,6 +32,7 @@
 
   const ARROW_KEY_CODE = {37: 'left', 38: 'up', 39: 'right', 40: 'down'};
   const TAB_KEY_CODE = 9;
+  let shiftArrow = false;
 
   function focusNavigationHeuristics() {
 
@@ -59,15 +60,17 @@
         const eventTarget = document.activeElement;
         const dir = ARROW_KEY_CODE[e.keyCode];
 
-        // Edge case (text input, area) : Don't move focus, just navigate cursor in text area
-        if ((eventTarget.nodeName === 'INPUT') || eventTarget.nodeName === 'TEXTAREA')
-          focusNavigableArrowKey = handlingEditableElement(e);
+        if(!shiftArrow || e.shiftKey) {
+          // Edge case (text input, area) : Don't move focus, just navigate cursor in text area
+          if ((eventTarget.nodeName === 'INPUT') || eventTarget.nodeName === 'TEXTAREA')
+            focusNavigableArrowKey = handlingEditableElement(e);
 
-        if (focusNavigableArrowKey[dir]) {
-          e.preventDefault();
-          navigate(dir);
+          if (focusNavigableArrowKey[dir]) {
+            e.preventDefault();
+            navigate(dir);
 
-          spatNavManager.startingPosition = null;
+            spatNavManager.startingPosition = null;
+          }
         }
       }
 
@@ -278,6 +281,38 @@
   }
 
   /**
+  * Find the candidates among focusable candidates within the container from the element
+  * @function for Element
+  * @param {SpatialNavigationDirection} direction
+  * @param {sequence<Node>} candidates
+  * @param {<Node>} container
+  * @returns {<Node>} the best candidate
+  **/
+  function spatNavCandidates (element, dir, candidates, container) {
+    let targetElement = element;
+    // If the container is unknown, get the closest container from the element
+    container = container || targetElement.getSpatnavContainer();
+
+    // If the candidates is unknown, find candidates
+    // 5-1
+    if(!candidates || candidates.length <= 0) {
+      if((isContainer(targetElement) || targetElement.nodeName === 'BODY') && !(targetElement.nodeName === 'INPUT')) {
+        if (targetElement.nodeName === 'IFRAME')
+          targetElement = targetElement.contentDocument.body;
+
+        candidates = targetElement.focusableAreas();
+      }
+      else {
+        candidates = filteredCandidates(targetElement, container.focusableAreas(), dir, container);
+      }
+    }
+    else {
+      candidates = filteredCandidates(targetElement, candidates, dir, container);
+    }
+    return candidates;
+  }
+
+  /**
   * Find the best candidate among focusable candidates within the container from the element
   * reference: https://wicg.github.io/spatial-navigation/#js-api
   * @function for Element
@@ -291,25 +326,7 @@
     let targetElement = this;
     let bestCandidate = null;
 
-    // If the container is unknown, get the closest container from the element
-    container = container || this.getSpatnavContainer();
-
-    // If the candidates is unknown, find candidates
-    // 5-1
-    if(!candidates || candidates.length < 0) {
-      if((isContainer(this) || this.nodeName === 'BODY') && !(this.nodeName === 'INPUT')) {
-        if (this.nodeName === 'IFRAME')
-          targetElement = this.contentDocument.body;
-
-        candidates = targetElement.focusableAreas();
-      }
-      else {
-        candidates = filteredCandidates(targetElement, container.focusableAreas(), dir, container);
-      }
-    }
-    else {
-      candidates = filteredCandidates(targetElement, candidates, dir, container);
-    }
+    candidates = spatNavCandidates(targetElement, dir, candidates, container);
 
     // Find the best candidate
     // 5
@@ -1126,5 +1143,184 @@
     // load SpatNav polyfill
     focusNavigationHeuristics();
   });
+
+
+  function addNonStandardAPI() {
+    function isScrollableElement(container, dir) {
+      return (isScrollable(container, dir) && !isScrollBoundary(container, dir)) ||
+             (!container.parentElement && !isHTMLScrollBoundary(container, dir));
+    }
+
+    function findTarget(findCandidate, element, dir) {
+      let eventTarget = element;
+      let bestNextTarget = null;
+
+      // 4
+      if (eventTarget === document || eventTarget === document.documentElement) {
+        eventTarget = document.body || document.documentElement;
+      }
+
+      // 5
+      // At this point, spatNavSearch can be applied.
+      // If startingPoint is either a scroll container or the document,
+      // find the best candidate within startingPoint
+      if ((isContainer(eventTarget) || eventTarget.nodeName === 'BODY') && !(eventTarget.nodeName === 'INPUT')) {
+        if (eventTarget.nodeName === 'IFRAME')
+          eventTarget = eventTarget.contentDocument.body;
+
+        const candidates = eventTarget.focusableAreas();
+
+        // 5-2
+        if (Array.isArray(candidates) && candidates.length > 0) {
+          if(findCandidate) {
+            return spatNavCandidates(eventTarget, dir);
+          } else {
+            bestNextTarget = eventTarget.spatNavSearch(dir);
+            return bestNextTarget;
+          }
+        }
+        if (isScrollableElement(eventTarget, dir)) {
+          if(findCandidate) {
+            return [];
+          } else {
+            bestNextTarget = eventTarget;
+            return bestNextTarget;
+          }
+        }
+      }
+
+      // 6
+      // Let container be the nearest ancestor of eventTarget
+      let container = eventTarget.getSpatnavContainer();
+      let parentContainer = container.getSpatnavContainer();
+
+      // When the container is the viewport of a browsing context
+      if (!parentContainer) {
+        parentContainer = window.document.documentElement;
+        // The container is IFRAME, so parentContainer will be retargeted to the document of the parent window
+        if ( window.location !== window.parent.location ) {
+          parentContainer = window.parent.document.documentElement;
+        }
+      }
+
+      // 7
+      while (parentContainer) {
+        const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
+
+        if (Array.isArray(candidates) && candidates.length > 0) {
+          bestNextTarget = eventTarget.spatNavSearch(dir, candidates, container);
+          if (bestNextTarget) {
+            if(findCandidate) {
+              return spatNavCandidates(eventTarget, dir, candidates, container);
+            } else {
+              return bestNextTarget;
+            }
+          }
+        }
+
+        // If there isn't any candidate and the best candidate among candidate:
+        // 1) Scroll or 2) Find candidates of the ancestor container
+        // 8 - if
+        else if (isScrollableElement(container, dir)) {
+          if(findCandidate) {
+            return [];
+          } else {
+            bestNextTarget = eventTarget;
+            return bestNextTarget;
+          }
+        } else if (container === document || container === document.documentElement) {
+          container = window.document.documentElement;
+
+          // The page is in an iframe
+          if ( window.location !== window.parent.location ) {
+
+            // eventTarget needs to be reset because the position of the element in the IFRAME
+            // is unuseful when the focus moves out of the iframe
+            eventTarget = window.frameElement;
+            container = window.parent.document.documentElement;
+          }
+          else {
+            if(findCandidate) {
+              return [];
+            } else {
+              return null;
+            }
+          }
+
+          parentContainer = container.getSpatnavContainer();
+        }
+        else {
+          // avoiding when spatnav container with tabindex=-1
+          if (isFocusable(container)) {
+            eventTarget = container;
+          }
+
+          container = parentContainer;
+          parentContainer = container.getSpatnavContainer();
+        }
+      }
+
+      if (!parentContainer && container) {
+        // Getting out from the current spatnav container
+        const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
+
+        // 9
+        if (Array.isArray(candidates) && candidates.length > 0) {
+          bestNextTarget = eventTarget.spatNavSearch(dir, candidates, container);
+
+          if (bestNextTarget) {
+            if(findCandidate) {
+              return spatNavCandidates(eventTarget, dir, candidates, container);
+            } else {
+              return bestNextTarget;
+            }
+          }
+        }
+      }
+
+      if (isScrollableElement(container, dir)) {
+        bestNextTarget = eventTarget;
+        return bestNextTarget;
+      }
+    }
+
+    window.__spatialNavigation__ = {
+      isContainer: isContainer,
+      findCandidates: findTarget.bind(null, true),
+      findNextTarget: findTarget.bind(null, false),
+      getDistance: (element, candidateElement, dir) => {
+        if ((isContainer(element) || element.nodeName === 'BODY') && !(element.nodeName === 'INPUT')) {
+          if (element.focusableAreas().includes(candidateElement)) {
+            return getInnerDistance(element.getBoundingClientRect(), candidateElement.getBoundingClientRect(), dir);
+          }
+        }
+        return getDistance(element.getBoundingClientRect(), candidateElement.getBoundingClientRect(), dir);
+      },
+
+      setPolyfillOnOff: (option) => {
+        switch(option) {
+        case 'SHIFTARROW':
+          window.spatnavPolyfillOff = false;
+          if(parent) {
+            parent.spatnavPolyfillOff = false;
+          }
+          shiftArrow = true;
+          break;
+        case 'OFF':
+          window.spatnavPolyfillOff = true;
+          break;
+        case 'ARROW':
+        default:
+          window.spatnavPolyfillOff = false;
+          if(parent) {
+            parent.spatnavPolyfillOff = false;
+          }
+          shiftArrow = false;
+          break;
+        }
+      }
+    };
+  }
+  addNonStandardAPI();
 
 })(window, document);
