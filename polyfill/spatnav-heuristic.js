@@ -11,7 +11,7 @@
 (function () {
 
   // Indicates global variables for spatnav (starting position)
-  let spatNavManager = {
+  const spatNavManager = {
     startingPosition: null,
     useStandardName: true,
   };
@@ -32,7 +32,7 @@
 
   const ARROW_KEY_CODE = {37: 'left', 38: 'up', 39: 'right', 40: 'down'};
   const TAB_KEY_CODE = 9;
-  let shiftArrow = false;
+  let spatialNaviagtionKeyMode = 'ARROW';
 
   function focusNavigationHeuristics() {
 
@@ -54,23 +54,28 @@
     * If arrow key pressed, get the next focusing element and send it to focusing controller
     */
     window.addEventListener('keydown', function(e) {
-      const spatnavPolyfillOff = window.spatnavPolyfillOff || (parent && parent.spatnavPolyfillOff);
-      if (!spatnavPolyfillOff && !e.defaultPrevented) {
+      const currentKeyMode = (parent && parent.__spatialNavigation__.getKeyMode()) || window.__spatialNavigation__.getKeyMode() ;
+      const eventTarget = document.activeElement;
+      const dir = ARROW_KEY_CODE[e.keyCode];
+
+      if(!currentKeyMode ||
+          (currentKeyMode === 'NONE') ||
+          ((currentKeyMode === 'SHIFTARROW') && !e.shiftKey) ||
+          ((currentKeyMode === 'ARROW') && e.shiftKey))
+        return;
+
+      if (!e.defaultPrevented) {
         let focusNavigableArrowKey = {'left': true, 'up': true, 'right': true, 'down': true};
-        const eventTarget = document.activeElement;
-        const dir = ARROW_KEY_CODE[e.keyCode];
 
-        if(!shiftArrow || e.shiftKey) {
-          // Edge case (text input, area) : Don't move focus, just navigate cursor in text area
-          if ((eventTarget.nodeName === 'INPUT') || eventTarget.nodeName === 'TEXTAREA')
-            focusNavigableArrowKey = handlingEditableElement(e);
+        // Edge case (text input, area) : Don't move focus, just navigate cursor in text area
+        if ((eventTarget.nodeName === 'INPUT') || eventTarget.nodeName === 'TEXTAREA')
+          focusNavigableArrowKey = handlingEditableElement(e);
 
-          if (focusNavigableArrowKey[dir]) {
-            e.preventDefault();
-            navigate(dir);
+        if (focusNavigableArrowKey[dir]) {
+          e.preventDefault();
+          navigate(dir);
 
-            spatNavManager.startingPosition = null;
-          }
+          spatNavManager.startingPosition = null;
         }
       }
 
@@ -323,7 +328,7 @@
   **/
   function spatNavSearch (dir, candidates, container) {
     // Let container be the nearest ancestor of eventTarget that is a spatnav container.
-    let targetElement = this;
+    const targetElement = this;
     let bestCandidate = null;
 
     candidates = spatNavCandidates(targetElement, dir, candidates, container);
@@ -573,7 +578,7 @@
   }
 
   function isCSSSpatNavContain(el) {
-    return (readCssVar(el, 'spatial-navigation-contain') == 'contain') ? true : false;
+    return readCssVar(el, 'spatial-navigation-contain') == 'contain';
   }
 
   /**
@@ -1001,7 +1006,7 @@
   * @returns {Number} euclidian distance between two elements
   **/
   function getEntryAndExitPoints(dir = 'down', rect1, rect2) {
-    let points = {entryPoint:[0,0], exitPoint:[0,0]};
+    const points = {entryPoint:[0,0], exitPoint:[0,0]};
 
     // Set direction
     switch (dir) {
@@ -1146,7 +1151,7 @@
 
 
   function addNonStandardAPI() {
-    function isScrollableElement(container, dir) {
+    function canScroll(container, dir) {
       return (isScrollable(container, dir) && !isScrollBoundary(container, dir)) ||
              (!container.parentElement && !isHTMLScrollBoundary(container, dir));
     }
@@ -1179,7 +1184,7 @@
             return bestNextTarget;
           }
         }
-        if (isScrollableElement(eventTarget, dir)) {
+        if (canScroll(eventTarget, dir)) {
           if(findCandidate) {
             return [];
           } else {
@@ -1221,7 +1226,7 @@
         // If there isn't any candidate and the best candidate among candidate:
         // 1) Scroll or 2) Find candidates of the ancestor container
         // 8 - if
-        else if (isScrollableElement(container, dir)) {
+        else if (canScroll(container, dir)) {
           if(findCandidate) {
             return [];
           } else {
@@ -1239,12 +1244,10 @@
             eventTarget = window.frameElement;
             container = window.parent.document.documentElement;
           }
-          else {
-            if(findCandidate) {
-              return [];
-            } else {
-              return null;
-            }
+          else if(findCandidate) {
+            return [];
+          } else {
+            return null;
           }
 
           parentContainer = container.getSpatnavContainer();
@@ -1278,7 +1281,7 @@
         }
       }
 
-      if (isScrollableElement(container, dir)) {
+      if (canScroll(container, dir)) {
         bestNextTarget = eventTarget;
         return bestNextTarget;
       }
@@ -1288,7 +1291,7 @@
       isContainer: isContainer,
       findCandidates: findTarget.bind(null, true),
       findNextTarget: findTarget.bind(null, false),
-      getDistance: (element, candidateElement, dir) => {
+      getDistanceFromTarget: (element, candidateElement, dir) => {
         if ((isContainer(element) || element.nodeName === 'BODY') && !(element.nodeName === 'INPUT')) {
           if (element.focusableAreas().includes(candidateElement)) {
             return getInnerDistance(element.getBoundingClientRect(), candidateElement.getBoundingClientRect(), dir);
@@ -1297,28 +1300,15 @@
         return getDistance(element.getBoundingClientRect(), candidateElement.getBoundingClientRect(), dir);
       },
 
-      setPolyfillOnOff: (option) => {
-        switch(option) {
-        case 'SHIFTARROW':
-          window.spatnavPolyfillOff = false;
-          if(parent) {
-            parent.spatnavPolyfillOff = false;
-          }
-          shiftArrow = true;
-          break;
-        case 'OFF':
-          window.spatnavPolyfillOff = true;
-          break;
-        case 'ARROW':
-        default:
-          window.spatnavPolyfillOff = false;
-          if(parent) {
-            parent.spatnavPolyfillOff = false;
-          }
-          shiftArrow = false;
-          break;
+      setKeyMode : (option) => {
+        if(['SHIFTARROW', 'ARROW', 'NONE'].includes(option)) {
+          spatialNaviagtionKeyMode = option;
+        } else {
+          spatialNaviagtionKeyMode = 'ARROW';
         }
-      }
+      },
+
+      getKeyMode : () => spatialNaviagtionKeyMode
     };
   }
   addNonStandardAPI();
