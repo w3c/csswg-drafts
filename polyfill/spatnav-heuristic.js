@@ -58,6 +58,9 @@
       const eventTarget = document.activeElement;
       const dir = ARROW_KEY_CODE[e.keyCode];
 
+      if (e.keyCode === TAB_KEY_CODE)
+        spatNavManager.startingPosition = null;
+
       if(!currentKeyMode ||
           (currentKeyMode === 'NONE') ||
           ((currentKeyMode === 'SHIFTARROW') && !e.shiftKey) ||
@@ -78,9 +81,6 @@
           spatNavManager.startingPosition = null;
         }
       }
-
-      if (e.keyCode === TAB_KEY_CODE)
-        spatNavManager.startingPosition = null;
     });
 
     /**
@@ -1155,6 +1155,7 @@
       return (isScrollable(container, dir) && !isScrollBoundary(container, dir)) ||
              (!container.parentElement && !isHTMLScrollBoundary(container, dir));
     }
+
 
     function findTarget(findCandidate, element, dir) {
       let eventTarget = element;
