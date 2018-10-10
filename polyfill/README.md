@@ -118,6 +118,7 @@ Following [the guidance from the W3C Technical Architecture Group](https://www.w
 the polyfill provides these features under alternative names,
 to avoid interfering with the standardization process.
 
+#### Standard APIs
 | Standard Name | Polyfill Name |
 |-|-|
 | navbeforefocus | navbeforefocusPolyfill |
@@ -128,6 +129,24 @@ to avoid interfering with the standardization process.
 | getSpatnavContainer() | getSpatnavContainerPolyfill() |
 | focusableAreas() | focusableAreasPolyfill() |
 
+#### Experimental APIs
+* isContainer (element) :
+  * The isContainer (element) method determines whether the element is Spatial-Navigation container or not.
+  * This method returns true if the element is Spatial-Navigation container, and false if not.
+* findCandidates (element, dir) :
+  * The findCandidates (element, dir) method search all valid candidates for a certain direction.
+  * This method returns a elements list.
+  * Parameter
+    * element : Required. The target element to search for next candidates.
+    * dir : Required. The direction to find candidates. it should be one of [“up”, “down”, “left”, “right”].
+* findNextTarget (element, dir) :
+  * The findNextTarget (element, dir) method determines what is the next target for a certain direction.
+  * This method returns the next target element. if there is no target for the direction, It returns null. if scrolling occurs, returns the self-element.
+* getDistanceFromTarget (element, candidateElement, dir) :
+  * The getDistanceFromTarget(element, candidateElement, dir) method calculate the distance between two elements.
+* setKeyMode (option) :
+  * The setKeyMode (option)  method sets the key mode for spatial navigation.
+  * The ‘option’ value should be one of [‘ARROW’,  ‘SHIFTARROW’, ‘NONE’]. In the case of uing 'NONE‘ option, the default spatNav function is turned off.
 
 ## Usage in automated tests
 
