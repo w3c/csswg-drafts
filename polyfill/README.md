@@ -135,22 +135,45 @@ NOTE: The APIs below are non-standard and experimental features of the spatial n
 * <code>isContainer (element)</code> :
   * Determines whether the element is a spatial Navigation container.
   * Returns <code>true</code> if the element is the spatial Navigation container, and <code>false</code> if not.
+  * Parameter
+    * element : Required. 
+      - Any element.
 * <code>findCandidates (element, dir)</code> :
   * Searchs all valid candidates for a certain direction.
   * Returns a list of elements.
   * Parameter
-    * element : Required. The target element to search for candidates.
-    * dir : Required. The direction to find candidates. It should be one of [“up”, “down”, “left”, “right”].
+    * element : Required. 
+      - The currently focused element to search for candidates.
+    * dir : Required. 
+       - The direction to find candidates.
+       - It should be one of <code>[“up”, “down”, “left”, “right”]</code>.
 * <code>findNextTarget (element, dir)</code> :
-  * Indicates what is the next target element for a certain direction.
+  * Indicates what is the best element to move the focus for a certain direction.
   * Returns the next target element. 
-    If there is no target for the direction, it returns <code>null</code>. 
-    If scrolling occurs, it returns the element itself.
+      - If there is no target for the direction, it returns <code>null</code>. 
+      - If scrolling occurs, it returns the element itself.
+  * Parameter
+    * element : Required. 
+      - The currently focused element to search for candidates.
+    * dir : Required. 
+       - The direction to find candidates.
+       - It should be one of <code>[“up”, “down”, “left”, “right”]</code>.
 * <code>getDistanceFromTarget (element, candidateElement, dir)</code> :
   * Calculates the distance between the currently focused element and a certain candiate element.
+  * Parameter
+    * element : Required. 
+      - The currently focused element to search for candidates.
+    * candidateElement : Required.
+      - The candidate element which may gain the focus.
+    * dir : Required. 
+       - The direction to find candidates.
+       - It should be one of <code>[“up”, “down”, “left”, “right”]</code>.
 * <code>setKeyMode (option)</code> :
   * Sets which key type to use for the spatial navigation.
-  * The 'option' value should be one of [‘ARROW’,  ‘SHIFTARROW’, ‘NONE’]. In the case of using 'NONE' option, the spatial navigation feature will be turned off.
+  * Parameter
+      * option: Required.
+        - It should be one of <code>['ARROW',  'SHIFTARROW', 'NONE']</code>.
+        - In the case of using <code>'NONE'</code> value as the option, the spatial navigation feature will be turned off.
 
 ## Usage in automated tests
 
