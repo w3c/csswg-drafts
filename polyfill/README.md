@@ -118,6 +118,7 @@ Following [the guidance from the W3C Technical Architecture Group](https://www.w
 the polyfill provides these features under alternative names,
 to avoid interfering with the standardization process.
 
+#### Standard APIs
 | Standard Name | Polyfill Name |
 |-|-|
 | navbeforefocus | navbeforefocusPolyfill |
@@ -128,6 +129,51 @@ to avoid interfering with the standardization process.
 | getSpatnavContainer() | getSpatnavContainerPolyfill() |
 | focusableAreas() | focusableAreasPolyfill() |
 
+#### Experimental APIs
+NOTE: The APIs below are non-standard and experimental features of the spatial navigation.
+
+* <code>isContainer (element)</code> :
+  * Determines whether the element is a spatial Navigation container.
+  * Returns <code>true</code> if the element is the spatial Navigation container, and <code>false</code> if not.
+  * Parameter
+    * element : Required. 
+      - Any element.
+* <code>findCandidates (element, dir)</code> :
+  * Searchs all valid candidates for a certain direction.
+  * Returns a list of elements.
+  * Parameter
+    * element : Required. 
+      - The currently focused element to search for candidates.
+    * dir : Required. 
+       - The direction to find candidates.
+       - It should be one of <code>['up', 'down', 'left', 'right']</code>.
+* <code>findNextTarget (element, dir)</code> :
+  * Indicates what is the best element to move the focus for a certain direction.
+  * Returns the next target element. 
+      - If there is no target for the direction, it returns <code>null</code>. 
+      - If scrolling occurs, it returns the element itself.
+  * Parameter
+    * element : Required. 
+      - The currently focused element to search for candidates.
+    * dir : Required. 
+       - The direction to find candidates.
+       - It should be one of <code>['up', 'down', 'left', 'right']</code>.
+* <code>getDistanceFromTarget (element, candidateElement, dir)</code> :
+  * Calculates the distance between the currently focused element and a certain candiate element.
+  * Parameter
+    * element : Required. 
+      - The currently focused element to search for candidates.
+    * candidateElement : Required.
+      - The candidate element which may gain the focus.
+    * dir : Required. 
+       - The direction to find candidates.
+       - It should be one of <code>['up', 'down', 'left', 'right']</code>.
+* <code>setKeyMode (option)</code> :
+  * Sets which key type to use for the spatial navigation.
+  * Parameter
+      * option: Required.
+        - It should be one of <code>['ARROW',  'SHIFTARROW', 'NONE']</code>.
+        - In the case of using <code>'NONE'</code> value as the option, the spatial navigation feature will be turned off.
 
 ## Usage in automated tests
 
