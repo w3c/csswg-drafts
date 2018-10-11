@@ -146,7 +146,7 @@ NOTE: The APIs below are non-standard and experimental features of the spatial n
       - The currently focused element to search for candidates.
     * dir : Required. 
        - The direction to find candidates.
-       - It should be one of <code>[“up”, “down”, “left”, “right”]</code>.
+       - It should be one of <code>['up', 'down', 'left', 'right']</code>.
 * <code>findNextTarget (element, dir)</code> :
   * Indicates what is the best element to move the focus for a certain direction.
   * Returns the next target element. 
@@ -157,7 +157,7 @@ NOTE: The APIs below are non-standard and experimental features of the spatial n
       - The currently focused element to search for candidates.
     * dir : Required. 
        - The direction to find candidates.
-       - It should be one of <code>[“up”, “down”, “left”, “right”]</code>.
+       - It should be one of <code>['up', 'down', 'left', 'right']</code>.
 * <code>getDistanceFromTarget (element, candidateElement, dir)</code> :
   * Calculates the distance between the currently focused element and a certain candiate element.
   * Parameter
@@ -167,7 +167,7 @@ NOTE: The APIs below are non-standard and experimental features of the spatial n
       - The candidate element which may gain the focus.
     * dir : Required. 
        - The direction to find candidates.
-       - It should be one of <code>[“up”, “down”, “left”, “right”]</code>.
+       - It should be one of <code>['up', 'down', 'left', 'right']</code>.
 * <code>setKeyMode (option)</code> :
   * Sets which key type to use for the spatial navigation.
   * Parameter
