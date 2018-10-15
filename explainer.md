@@ -8,8 +8,7 @@ since no other input mechanism is available on a typical TV remote control.
 Others, have enabled different key combinations to control spatial navigation,
 such as pressing the <code class="key">Shift</code> key together with arrow keys.
 
-This ability to move around the page directionally is called <strong>spatial navigation</strong>
-(or <strong>spatnav</strong> for short).
+This ability to move around the page directionally is called <strong>spatial navigation</strong>.
 
 An [experimental Polyfill](./polyfill/) is available.
 
@@ -110,7 +109,7 @@ and especially on devices such as TVs which also lack a <code>Tab</code> key to 
 <a herf="https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation">sequential focus navigation</a>,
 User Agents should make spatial navigation active.
 
-We deliberately do not define which keys or key combination are meant to trigger spatnav,
+We deliberately do not define which keys or key combination are meant to trigger the spatial navigation,
 nor whether it is on by default or not.
 These are choices that are best left to the user and the User Agent.
 This is discussed in greater detail in <a href="https://github.com/WICG/spatial-navigation/issues/35#issuecomment-371702434">Issue 35</a>
@@ -171,13 +170,13 @@ the specification exposes Javascript APIs and Events that enable authors to inte
 
 #### JS APIs
 
-* getSpatnavContainer()
+* getSpatialNavigationContainer()
   - Returns the spatial navigation focus container of an element.
 
 * focusableAreas()
   - Returns all focusable elements within a spatial navigation focus container.
 
-* spatNavSearch()
+* spatialNavigationSearch()
   - Runs the spatial navigation step and returns the best candidate which will gain the focus.
 
 #### Navigation Events
@@ -209,7 +208,7 @@ document.addEventListener("navbeforescroll", function(e) {
     if (areas.length == 0)) { return; }
 
     e.preventDefault();
-    var t = e.target.spatNavSearch({
+    var t = e.target.spatialNavigationSearch({
         dir: e.dir,
         candidates: areas
     });
@@ -280,11 +279,11 @@ You could achieve the same effect by wrapping the table in a div
 and using the overflow property on the div to make it scrollable,
 but that has side effects you probably do not want.
 
-### Maybe authors could create "spatnav containers" with JavaScript instead? Could they listen for spat nav events to cancel (=preventDefault) the navigation? Such an event could give authors even more freedom: they might wanna grab the event and manually put focus somewhere else (to override the spatnav's default choice). Would such event allow authors to "patch" the default algorithm in a more flexible way?
+### Maybe authors could create "spatial navigation containers" with JavaScript instead? Could they listen for spat nav events to cancel (=preventDefault) the navigation? Such an event could give authors even more freedom: they might wanna grab the event and manually put focus somewhere else (to override the default choice of the spatial navigation). Would such event allow authors to "patch" the default algorithm in a more flexible way?
 
 Yes, they absolutely could.
 We have prepared the spec with an event model that lets js authors take control,
-and override the default spatnav also to do anything they like.
+and override the default spatial navigation also to do anything they like.
 That could indeed be used to manually create spatial navigation containers other than documents or scrollers.
 
 We had various idea for other controls to influence what gets the focus,
@@ -293,7 +292,7 @@ and we decided to leave these out because they could indeed be left to JS
 and be added later with declarative syntax if there was strong demand.
 
 However, we still included this property, because:
-1. This is trivial to add to the spec (and presumably, to implementations as well), since the concept of looking for a container and searching for focusable things inside it is built-in into the spatnav logic, and we're merely exposing a hook to add additional containers
+1. This is trivial to add to the spec (and presumably, to implementations as well), since the concept of looking for a container and searching for focusable things inside it is built-in into the spatial navigation logic, and we're merely exposing a hook to add additional containers
 2. Recreating that logic in JS if you're fine with everything else could be quite fiddly
 3. It seems like a fairly basic need
 
@@ -305,7 +304,7 @@ We initially wanted to make it automatic for limiting the number of things autho
 
 The primary concern was that this involved a particularly expensive form of hit testing that is not used anywhere else on the platform. The secondary reason was that people already need to get the same thing right for sequential navigation, so reinforcing the message was judged useful.
 
-### How can we move the focus inside a spatnav container?
+### How can we move the focus inside a spatial navigation container?
 There is possible to have nested focusable elements in a web page. The most typical case for this is an ordinary focusable element (button, link, etc) is inside a scroller, as the scroller is also focusable.
 If the currently focused element is the scroller, how can we reach the element inside the scroller with key pressing?
 

@@ -20,14 +20,14 @@
   // Allow binding to standard name for testing purposes
   if (spatNavManager.useStandardName) {
     window.navigate = navigate;
-    window.Element.prototype.spatNavSearch = spatNavSearch;
+    window.Element.prototype.spatialNavigationSearch = spatialNavigationSearch;
     window.Element.prototype.focusableAreas = focusableAreas;
-    window.Element.prototype.getSpatnavContainer = getSpatnavContainer;
+    window.Element.prototype.getSpatialNavigationContainer = getSpatialNavigationContainer;
   } else {
     window.navigatePolyfill = navigate;
-    window.Element.prototype.spatNavSearchPolyfill = spatNavSearch;
+    window.Element.prototype.spatialNavigationSearchPolyfill = spatialNavigationSearch;
     window.Element.prototype.focusableAreasPolyfill = focusableAreas;
-    window.Element.prototype.getSpatnavContainerPolyfill = getSpatnavContainer;
+    window.Element.prototype.getSpatialNavigationContainerPolyfill = getSpatialNavigationContainer;
   }
 
   const ARROW_KEY_CODE = {37: 'left', 38: 'up', 39: 'right', 40: 'down'};
@@ -54,7 +54,7 @@
     * If arrow key pressed, get the next focusing element and send it to focusing controller
     */
     window.addEventListener('keydown', function(e) {
-      const currentKeyMode = (parent && parent.__spatialNavigation__.getKeyMode()) || window.__spatialNavigation__.getKeyMode() ;
+      const currentKeyMode = (parent && parent.__spatialNavigation__.getKeyMode()) || window.__spatialNavigation__.getKeyMode();
       const eventTarget = document.activeElement;
       const dir = ARROW_KEY_CODE[e.keyCode];
 
@@ -131,7 +131,7 @@
     }
 
     // 5
-    // At this point, spatNavSearch can be applied.
+    // At this point, spatialNavigationSearch can be applied.
     // If startingPoint is either a scroll container or the document,
     // find the best candidate within startingPoint
     if ((isContainer(eventTarget) || eventTarget.nodeName === 'BODY') && !(eventTarget.nodeName === 'INPUT')) {
@@ -142,15 +142,15 @@
 
       // 5-2
       if (Array.isArray(candidates) && candidates.length > 0) {
-        if (focusingController(eventTarget.spatNavSearch(dir), dir)) return;
+        if (focusingController(eventTarget.spatialNavigationSearch(dir), dir)) return;
       }
       if (scrollingController(eventTarget, dir)) return;
     }
 
     // 6
     // Let container be the nearest ancestor of eventTarget
-    let container = eventTarget.getSpatnavContainer();
-    let parentContainer = container.getSpatnavContainer();
+    let container = eventTarget.getSpatialNavigationContainer();
+    let parentContainer = container.getSpatialNavigationContainer();
 
     // When the container is the viewport of a browsing context
     if (!parentContainer) {
@@ -166,7 +166,7 @@
       const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
 
       if (Array.isArray(candidates) && candidates.length > 0) {
-        if (focusingController(eventTarget.spatNavSearch(dir, candidates, container), dir)) return;
+        if (focusingController(eventTarget.spatialNavigationSearch(dir, candidates, container), dir)) return;
       }
       else {
         // If there isn't any candidate and the best candidate among candidate:
@@ -196,7 +196,7 @@
               return;
             }
 
-            parentContainer = container.getSpatnavContainer();
+            parentContainer = container.getSpatialNavigationContainer();
           }
           else {
             // avoiding when spatnav container with tabindex=-1
@@ -205,7 +205,7 @@
             }
 
             container = parentContainer;
-            parentContainer = container.getSpatnavContainer();
+            parentContainer = container.getSpatialNavigationContainer();
           }
         }
       }
@@ -217,7 +217,7 @@
 
       // 9
       if (Array.isArray(candidates) && candidates.length > 0) {
-        if (focusingController(eventTarget.spatNavSearch(dir, candidates, container), dir)) return;
+        if (focusingController(eventTarget.spatialNavigationSearch(dir, candidates, container), dir)) return;
       }
     }
 
@@ -236,7 +236,7 @@
     // 10 & 11
     // When bestCandidate is found
     if (bestCandidate) {
-      const container = bestCandidate.getSpatnavContainer();
+      const container = bestCandidate.getSpatialNavigationContainer();
 
       // Scrolling container or document when the next focusing element isn't entirely visible
       if (isScrollContainer(container) && !isEntirelyVisible(bestCandidate))
@@ -296,7 +296,7 @@
   function spatNavCandidates (element, dir, candidates, container) {
     let targetElement = element;
     // If the container is unknown, get the closest container from the element
-    container = container || targetElement.getSpatnavContainer();
+    container = container || targetElement.getSpatialNavigationContainer();
 
     // If the candidates is unknown, find candidates
     // 5-1
@@ -326,7 +326,7 @@
   * @param {<Node>} container
   * @returns {<Node>} the best candidate
   **/
-  function spatNavSearch (dir, candidates, container) {
+  function spatialNavigationSearch (dir, candidates, container) {
     // Let container be the nearest ancestor of eventTarget that is a spatnav container.
     const targetElement = this;
     let bestCandidate = null;
@@ -368,7 +368,7 @@
   * @returns {sequence<Node>} filtered candidates
   **/
   function filteredCandidates(currentElm, candidates, dir, container) {
-    const originalContainer = currentElm.getSpatnavContainer();
+    const originalContainer = currentElm.getSpatialNavigationContainer();
     let eventTargetRect;
 
     // to do
@@ -387,7 +387,7 @@
       * whose boundary goes through the geometric center of starting point and is perpendicular to D.
       */
     return candidates.filter(candidate =>
-      container.contains(candidate.getSpatnavContainer()) &&
+      container.contains(candidate.getSpatialNavigationContainer()) &&
       isOutside(candidate.getBoundingClientRect(), eventTargetRect, dir)
     );
   }
@@ -452,11 +452,11 @@
   /**
   * Get container of this element.
   * - NOTE: Container could be different by the arrow direction, even if it's the same element
-  * reference: https://wicg.github.io/spatial-navigation/#dom-element-getspatnavcontainer
+  * reference: https://wicg.github.io/spatial-navigation/#dom-element-getspatialnavigationcontainer
   * @function for Element
   * @returns {<Node>} container
   **/
-  function getSpatnavContainer() {
+  function getSpatialNavigationContainer() {
     let container = this.parentElement;
 
     if (!container) return null; // if element==HTML
@@ -792,7 +792,7 @@
   **/
   function isEntirelyVisible(element) {
     const rect = element.getBoundingClientRect();
-    const containerRect = element.getSpatnavContainer().getBoundingClientRect();
+    const containerRect = element.getSpatialNavigationContainer().getBoundingClientRect();
 
     // FIXME: when element is bigger than container?
     const entirelyVisible = !((rect.left < containerRect.left) ||
@@ -1167,7 +1167,7 @@
       }
 
       // 5
-      // At this point, spatNavSearch can be applied.
+      // At this point, spatialNavigationSearch can be applied.
       // If startingPoint is either a scroll container or the document,
       // find the best candidate within startingPoint
       if ((isContainer(eventTarget) || eventTarget.nodeName === 'BODY') && !(eventTarget.nodeName === 'INPUT')) {
@@ -1181,7 +1181,7 @@
           if(findCandidate) {
             return spatNavCandidates(eventTarget, dir);
           } else {
-            bestNextTarget = eventTarget.spatNavSearch(dir);
+            bestNextTarget = eventTarget.spatialNavigationSearch(dir);
             return bestNextTarget;
           }
         }
@@ -1197,8 +1197,8 @@
 
       // 6
       // Let container be the nearest ancestor of eventTarget
-      let container = eventTarget.getSpatnavContainer();
-      let parentContainer = container.getSpatnavContainer();
+      let container = eventTarget.getSpatialNavigationContainer();
+      let parentContainer = container.getSpatialNavigationContainer();
 
       // When the container is the viewport of a browsing context
       if (!parentContainer) {
@@ -1214,7 +1214,7 @@
         const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
 
         if (Array.isArray(candidates) && candidates.length > 0) {
-          bestNextTarget = eventTarget.spatNavSearch(dir, candidates, container);
+          bestNextTarget = eventTarget.spatialNavigationSearch(dir, candidates, container);
           if (bestNextTarget) {
             if(findCandidate) {
               return spatNavCandidates(eventTarget, dir, candidates, container);
@@ -1251,7 +1251,7 @@
             return null;
           }
 
-          parentContainer = container.getSpatnavContainer();
+          parentContainer = container.getSpatialNavigationContainer();
         }
         else {
           // avoiding when spatnav container with tabindex=-1
@@ -1260,7 +1260,7 @@
           }
 
           container = parentContainer;
-          parentContainer = container.getSpatnavContainer();
+          parentContainer = container.getSpatialNavigationContainer();
         }
       }
 
@@ -1270,7 +1270,7 @@
 
         // 9
         if (Array.isArray(candidates) && candidates.length > 0) {
-          bestNextTarget = eventTarget.spatNavSearch(dir, candidates, container);
+          bestNextTarget = eventTarget.spatialNavigationSearch(dir, candidates, container);
 
           if (bestNextTarget) {
             if(findCandidate) {
