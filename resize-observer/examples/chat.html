@@ -1,0 +1,452 @@
+  <!doctype html>
+<head>
+  <meta charset='utf-8'>
+  <title>Example: chat 3 ways with ResizeObserver</title>
+<style>
+  html, body { height: 100% }
+  body {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  p {
+    margin: 0.5em 0 0.5em 0;
+  }
+  h4 {
+    margin: 0.5em 0 0.5em 0;
+  }
+  #warning {
+    color: red;
+    background-color: rgba(255,0,0,0.1);
+  }
+  main {
+    border-bottom: 1px solid gray;
+  }
+  input[type=range] {
+    margin: 0;
+    vertical-align: bottom;
+  }
+  button {
+    margin-left: 8px;
+  }
+  .hide {
+    display:none;
+  }
+  #tools {
+    padding: 16px;
+    padding-top: 0px;
+    border-bottom: 1px solid gray;
+    position: sticky;
+    top: 0;
+    background-color: white;
+  }
+  #all-demos {
+    display: flex;
+    flex-grow: 1;
+    min-height: 400px;
+  }
+  .demo-wrapper {
+    flex-grow: 1;
+    flex-basis: 0;
+    display: flex;
+    flex-direction: column;
+    margin-right: 16px;
+  }
+  .demo-description {
+    margin: 16px 8px 8px 8px;
+  }
+
+  .chat {
+    border: 4px solid rgba(0,0,0,0.3);
+    overflow: auto;
+    background-color: #FFF;
+    flex-grow: 1;
+  }
+
+</style>
+</head>
+<h3>ResizeObserver chat example</h3>
+
+<h1 id="warning" class="hide">ResizeObserver not detected. Demo will not work.</h1>
+<div id="tools">
+  <button onclick="Toolbar.addLine()">Chat</button>
+  <button onclick="Toolbar.clear()">Clear</button>
+  <button id="toggleChat" onclick="Toolbar.toggleChat()">Start chatbot</button>
+  Chatbot delay: <input id="intervalDelayForm" type="range"
+      min="20" max="720" step="50" value="370" oninput="Toolbar.setIntervalDelay()">
+  <span id="intervalDelay"></span>
+</div>
+<div id="all-demos" name="demo">
+  <div class="demo-wrapper" style="background-color:#eaffea">
+    <div class="demo-description">
+      Example 1. Scroll to bottom on every resize.
+    </div>
+    <div class="chat" style="border-color:#eaffea">
+      <div class="chat-text">
+      </div>
+    </div>
+  </div>
+  <div class="demo-wrapper" style="background-color:#D5FFD5">
+    <div class="demo-description">
+      Example 2. Example 1 + preserve user scroll position.
+    </div>
+    <div class="chat" style="border-color:#D5FFD5">
+      <div class="chat-text">
+      </div>
+    </div>
+  </div>
+  <div class="demo-wrapper" style="background-color:#b0f9b0; margin-right:0;">
+    <div class="demo-description">
+      Example 3. Example 2 + smooth scroll.
+    </div>
+    <div class="chat" style="border-color:#b0f9b0">
+      <div class="chat-text">
+      </div>
+    </div>
+  </div>
+</div>
+<main>
+<h4>The problem</h4>
+<p>
+ResizeObserver API can be used to solve "how to keep chat window scrolled
+to the bottom" problem.
+</p>
+<p>By default, browsers preserve scroll position from the top. This is because
+important content is at the top.
+</p>
+<p>In chat window, important content is at the bottom: the last message.
+Instead of preserving top scroll position, we need to keep user pinned to bottom scroll
+position when user has scrolled all the way down.
+We can do this by scrolling to the bottom on every resize.</p>
+<h4>How to scroll to bottom on resize?</h4>
+<p>This is easily implemented with ResizeObserver.</p>
+<p>The simplest implementation is:</p>
+<pre>
+.chat {
+  overflow: scroll;
+}
+
+&lt;div class="chat">  &lt;!-- chat has the scrollbar -->
+  &lt;div class="chat-text"> &lt;!-- chat-text contains chat text -->
+    &lt;div>jack: hi &lt;/div>
+    &lt;div>jill: hi &lt;/div>
+  &lt;/div>
+&lt;/div
+
+let ro = new ResizeObserver( entries => {
+  for (let e of entries) {
+    let chat = e.target.parentNode;
+    chat.scrollTop = chat.scrollHeight - chat.clientHeight;
+  }
+});
+ro.observe(document.querySelector('.chat-text'))
+</pre>
+<code>chat</code> has the scrollbar, and <code>chat-text</code>
+contains the chat text. ResizeObserver observes <code>chat-text</code>'s size,
+and scrolls <code>chat</code> to bottom on every resize. <a href="#all-demos">Example 1</a> implements this.
+You can try it out by in live demo at the bottom of this page by clicking
+on Chat/Chatbot buttons.</p>
+<p>Appending new messages to <code>chat-text</code> will also trigger a resize,
+and scroll to the bottom, which is great.</p>
+<p>But, there is a problem. What happens if user has scrolled higher up trying to
+read older messages? Scrolling to the bottom would make user lose text they were
+reading. Our chat window implementation has a new constraint:</p>
+<h4>How to not lose user's scroll position?</h4>
+<p>We can use <code>scroll</code> event to detect when user has scrolled.
+There is no API to distinguish whether scroll event was initiated by user, or
+javascript. This is problematic, because we only want to save user-initated scroll.
+The hacky solution is to use flags to distinguish between user and programatic scroll.
+It is implemented as an <a href="#all-demos">Example 2</a>.
+<pre>
+let ro = new ResizeObserver();
+
+function initScrollPositionChat(chat) {
+  let chatText = chat.firstElementChild;
+  chatText.resizeHandler = entry => {
+    let chat = entry.target.parentNode;
+    // Scroll to bottom, unless user has scrolled.
+    if (!chat.saveUserScroll) {
+      chat.isResizeScrollEvent = true;
+      chat.scrollTop = chat.scrollHeight - chat.clientHeight;
+    }
+  }
+  ro.observe(chatText);
+  chat.addEventListener('scroll', ev => {
+    // Ignore scrolls generated by ResizeObserver
+    if (chat.isResizeScrollEvent) {
+      delete chat.isResizeScrollEvent;
+      return;
+    }
+    // Save user's position unless scrolled to the bottom,
+    if (chat.scrollTop != chat.scrollHeight - chat.clientHeight) {
+      chat.saveUserScroll = true;
+    } else {
+      chat.saveUserScroll = false;
+    }
+  });
+}
+</pre>
+<p>Example 3 extends Example 2 with smooth scrolling. Unfortunatelly, it has
+to implement smooth scrolling from scratch, instead of using
+<code>scrollIntoView(behavior:'smooth')</code>. scrollIntoView fires scroll
+events that cannot be distinguished from user initiated events.</p>
+<p>For completeness, examples also implemented chat pruning to prevent chat
+window from getting too big.</p>
+</main>
+
+<script>
+
+// ChatAPI is used to add/remove text from chat window.
+// That is all it does, it is not aware of scrolling.
+// This is how we'd like
+let ChatAPI = {
+  maxLines: 50,
+
+  addHtml: function(chat, html) {
+    chat.firstElementChild.insertAdjacentHTML('beforeend', html);
+  },
+
+  // Removes extra chats from top.
+  prune: function(chat) {
+    let chatText = chat.firstElementChild;
+    let excess = chatText.children.length - this.maxLines;
+    // Batch up removals to at least 5 at a time. This makes removals less
+    // frequent.
+    if (excess > 0)
+      excess = Math.max(5, excess);
+    for (let i=0; i<excess; i++)
+      chatText.removeChild(chatText.children[0]);
+    return excess > 0;
+  },
+
+  clear: function(chat) {
+    chat.firstElementChild.innerHTML = "";
+  },
+
+  generateHtml: function() {
+    let name = this.names[this.counter % this.names.length];
+    let text = this.lorem[this.counter++ % this.lorem.length];
+    let date = new Date();
+    let time = "[" + date.getSeconds() + "." + date.getMilliseconds() + "]";
+    return "<div><b>" + name + "</b>" + time + ": " + text + "</div>";
+  },
+
+  counter: 0,
+  names: [ "foo", "bar", "baz"],
+  lorem: [
+    "Lorem ipsum dolor sit amet 👍😐",
+    "consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+    "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. ☃️",
+    "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
+    "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.🐧️",
+    "At VERO EOS et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum",
+    "deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident,🌍️",
+    "similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga.",
+    "Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus.",
+    "Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae.",
+    "Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat",
+    "ⓛⓞⓡⓔⓜ ⓘⓜⓟⓢⓤⓜ",
+    "loɹǝɯ ıdsnɯ"
+  ]
+}
+
+// Toolbar handles toolbar commands.
+let Toolbar = {
+  intervalId: null,
+  intervalDelay: 500,
+
+  toggleChat: function() {
+    if (this.intervalId) {
+      document.querySelector('#toggleChat').innerText = "Start chatbot";
+      window.clearInterval(this.intervalId);
+      this.intervalId = null;
+    } else {
+      document.querySelector('#toggleChat').innerText = "Stop chatbot";
+      this.intervalId = window.setInterval(_ => {
+        Toolbar.addLine();
+      }, this.intervalDelay);
+    }
+  },
+  addLine: function() {
+    let html = ChatAPI.generateHtml();
+    for (chat of Array.from(document.querySelectorAll('.chat'))) {
+      ChatAPI.addHtml(chat, html);
+    }
+  },
+  clear: function() {
+    for (chat of Array.from(document.querySelectorAll('.chat')))
+      ChatAPI.clear(chat);
+  },
+  setIntervalDelay: function() {
+    let isLive = this.intervalId != null;
+    if (isLive)
+      this.toggleChat();
+    this.intervalDelay = parseInt(document.querySelector('#intervalDelayForm').value);
+    document.querySelector('#intervalDelay').innerText = this.intervalDelay;
+    if (isLive)
+      this.toggleChat();
+  }
+}
+
+let ro; // ResizeObserver
+
+function initResizeObserver() {
+  if (!window.ResizeObserver) {
+    document.querySelector('#warning').classList.remove('hide');
+    throw "No ResizeObserver";
+  } else {
+    // ResizeObserver simply calls event handler defined on the Element
+    ro = new ResizeObserver(entries => {
+      for (let e of entries)
+        if (e.target.resizeHandler)
+          e.target.resizeHandler(e);
+    });
+  }
+}
+
+// Example 1:
+// Simple chat scrolls to the bottom on every resize.
+// Each message will trigger a resize.
+// Simple chat will lose user's scroll position when new message arrives.
+function initSimpleChat(chatElement) {
+  chatElement.firstElementChild.resizeHandler = entry => {
+    let chat = entry.target.parentNode;
+    chat.scrollTop = chat.scrollHeight - chat.clientHeight;
+  }
+  ro.observe(chatElement.firstElementChild);
+}
+
+// Example 2:
+// ScrollPosition chat keeps track of user scroll position.
+// chat.saveUserScroll boolean is used to distinguish between user
+// and JavaScript initiated scroll events.
+function initScrollPositionChat(chat) {
+  let chatText = chat.firstElementChild;
+  chatText.resizeHandler = entry => {
+    let chat = entry.target.parentNode;
+    // Scroll to bottom, unless user has scrolled.
+    if (!chat.saveUserScroll) {
+      chat.isResizeScrollEvent = true;
+      chat.scrollTop = chat.scrollHeight - chat.clientHeight;
+    }
+  }
+  ro.observe(chatText);
+  chat.addEventListener('scroll', ev => {
+    // Ignore scrolls generated by ResizeObserver
+    if (chat.isResizeScrollEvent) {
+      delete chat.isResizeScrollEvent;
+      return;
+    }
+    // Save user's position unless scrolled to the bottom,
+    if (chat.scrollTop != chat.scrollHeight - chat.clientHeight) {
+      chat.saveUserScroll = true;
+    } else {
+      chat.saveUserScroll = false;
+    }
+  });
+}
+
+// Implements smooth scrolling.
+let scrollTopAnimation = function(element, targetValue, completionCallback) {
+  this.element = element;
+  this.startValue = element.scrollTop;
+  this.targetValue = targetValue;
+  this.completionCallback = completionCallback;
+
+  let delta = this.targetValue - this.startValue;
+
+  this.steps = delta < 10 ? 0 : delta < 100 ? 10 : 15;
+  this.nextStep = 1;
+  this.boundAnimate = this.animate.bind(this);
+}
+
+scrollTopAnimation.prototype = {
+  stop: function() {
+    if (this.rafId) {
+      window.cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+    if (!this.element.saveUserScroll)
+      this.element.scrollTop = this.targetValue;
+    if (this.completionCallback)
+      this.completionCallback(this);
+    this.nextStep = this.steps + 1;
+    this.completionCallback = null;
+  },
+  easing: function(t) { // from gist https://gist.github.com/gre/1650294
+    return t<.5 ? 4*t*t*t : (t-1)*(2*t-2)*(2*t-2)+1;
+  },
+
+  animate: function() {
+    if (this.element.saveUserScroll) {
+      this.stop();
+    }
+    if (this.nextStep <= this.steps) {
+      let newTop = this.startValue + this.easing(this.nextStep/this.steps) * (this.targetValue - this.startValue);
+      // console.log("newTop");
+      this.element.isResizeScrollEvent = true;
+      this.element.scrollTop = newTop;
+      this.nextStep++;
+    }
+    if (this.nextStep > this.steps)
+      this.stop();
+    else
+      this.rafId = window.requestAnimationFrame(this.boundAnimate);
+  }
+}
+
+// Example 3
+// Smooth scroll to bottom on resize.
+// Saves user scroll position.
+function initSmoothScrollPositionChat(chat) {
+  let chatText = chat.firstElementChild;
+  chatText.resizeHandler = entry => {
+    let chat = entry.target.parentNode;
+    // Scroll to bottom, unless user has scrolled.
+    if (!chat.saveUserScroll) {
+      chat.isResizeScrollEvent = true;
+      let targetScrollTop =  chat.scrollHeight - chat.clientHeight;
+      if (chat.resizeAnimation) {
+        chat.resizeAnimation.targetValue = targetScrollTop;
+      } else {
+        chat.resizeAnimation = new scrollTopAnimation(chat, targetScrollTop,
+          _ => { chat.resizeAnimation = null;});
+        chat.resizeAnimation.animate();
+      }
+    }
+  }
+  ro.observe(chatText);
+
+  chat.addEventListener('scroll', ev => {
+    // Ignore scrolls generated by ResizeObserver
+    if (chat.isResizeScrollEvent) {
+      delete chat.isResizeScrollEvent;
+      return;
+    }
+    // Save user's position unless scrolled to the bottom,
+    if (chat.scrollTop != chat.scrollHeight - chat.clientHeight) {
+      chat.saveUserScroll = true;
+    } else {
+      chat.saveUserScroll = false;
+    }
+  });
+}
+
+function initChats() {
+  let chats = document.querySelectorAll('.chat');
+  initSimpleChat(chats[0]);
+  initScrollPositionChat(chats[1]);
+  initSmoothScrollPositionChat(chats[2]);
+}
+
+function init() {
+  initResizeObserver();
+  initChats();
+  Toolbar.setIntervalDelay();
+}
+
+init();
+for (let i=0; i<10; i++)
+  window.setTimeout(Toolbar.addLine, i*500);
+
+</script>
