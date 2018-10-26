@@ -325,11 +325,51 @@ The approach we have chosen seems more inline with how existing implementations 
 simpler and therefore easier to understand,
 and authors can switch to the other approaches using the APIs.
 
+## Open Questions
+### How can the developer knows weather the spatial navigation is supported or not?
+There are several approaches.
+1. Using the Media Query
+
+```
+@media (navigation: spatial) { ... }
+@media (navigation: sequential) { ... }
+```
+
+* related github issue: https://github.com/WICG/spatial-navigation/issues/41
+
+2. Using the spatial navigation API
+If the spatial navigation is implemented, one of the API can be the criteria for the enablility of the spatial navigation
+For example,
+```js
+
+if (document.body.spatialNavigationSearch) {
+     // The spatial navigator is supported
+} else {
+     //The spatial navigator is not supported
+}
+```
+
+### How can the spatial navigation works for the iframe?
+
+The iframe element needs to be consider carefully for moving the focus.
+Using the Feature Policy API can be the solution.
+
+In detail, by default the focus cannot move inside the iframe element.
+But for the iframe with the spatial navigation feature is allowed via the Feature Policy API,
+the focus will move inside it.
+
+For example, the case below, the focus can move inside via the spatial navigation.
+```
+<iframe src="https://example.com..." allow="spatialnavigation *"></iframe>
+```
+
+### How can the spatial navigation works for the HTMLFormElement?
+
+In some browser, the HTMLFormElement is implemented like the UA-defined shadow dom.
+It makes hard to handle those element with JS lib.
+Therefore, we propose the guideline for handling the focus on those element.
+* Guideline: https://github.com/WICG/spatial-navigation/wiki/Spatial-Navigation-Guideline-for-HTMLFormElement
+
 ## Demo
+- [Demo Center](https://wicg.github.io/spatial-navigation/demo/)
 - [Blog using the spatial navigation polyfill](https://wicg.github.io/spatial-navigation/demo/blog/)
-
-- [Samples using the spatial navigation polyfill](https://wicg.github.io/spatial-navigation/sample/)
-
-- [Samples for testing the implementation in Blink](https://wicg.github.io/spatial-navigation/blink_impl/heuristic_default_move.html)
-
-  ***Note***: Samples work best in the latest Chrome with the experimental web platform features enabled (--enable-spatial-navigation flag) otherwise they won't work.
