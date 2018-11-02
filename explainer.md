@@ -170,6 +170,9 @@ the specification exposes Javascript APIs and Events that enable authors to inte
 
 #### JS APIs
 
+* navigate()
+  - Moves the focus to the best target in the corresponding direction
+  
 * getSpatialNavigationContainer()
   - Returns the spatial navigation focus container of an element.
 
