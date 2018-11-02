@@ -340,7 +340,8 @@ There are several approaches.
 2. Using the spatial navigation API
 If the spatial navigation is implemented, one of the API can be the criteria for the enablility of the spatial navigation
 For example,
-```js
+
+```
 
 if (document.body.spatialNavigationSearch) {
      // The spatial navigator is supported
