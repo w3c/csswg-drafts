@@ -358,14 +358,30 @@ if (document.body.spatialNavigationSearch) {
 The iframe element needs to be consider carefully for moving the focus.
 Using the Feature Policy API can be the solution.
 
-In detail, by default the focus cannot move inside the iframe element.
-But for the iframe with the spatial navigation feature is allowed via the Feature Policy API,
-the focus will move inside it.
+By default the focus can move to the iframe element which are the same-origin.
+But for the iframe with `spatialnavigation` value is given to `allow` attribute (Feature Policy API), the focus can move inside it.
 
-For example, the case below, the focus can move inside via the spatial navigation.
+In detail, the approach for the Feature policy would be like below:
+
+Default policy: spatialnavigation 'self'
+
+A page can declare the spatial navigation feature in its HTTP headers as follows:
 ```
-<iframe src="https://example.com..." allow="spatialnavigation *"></iframe>
+Feature policy: spatialnavigation 'self'
 ```
+It means that only same-origin iframe elements are allowed for the spatial navigation. 
+
+Also, the feature can be specified for a single iframe element using `allow` attribute as below:
+```
+<iframe src="https://example.com..." allow="spatialnavigation 'none'"></iframe>
+```
+This will block the spatial navigation feature for the corresponding iframe element.
+
+For example, the spatial navigation feature is allowed when the feature policy is specified as below:
+![<img>featurepolicy-example](https://github.com/jihyerish/jihyerish.github.io/blob/master/img/featurepolicy.png)
+- Default policy: sptialnavigation 'self'
+- example.com: Feature-Policy: spatialnavigation https://game.com
+- game.com: <iframe src=“game.com" allow=“spatialnavigation https://www.good-ad.com"></iframe>
 
 ### How can the spatial navigation works for the HTMLFormElement?
 
