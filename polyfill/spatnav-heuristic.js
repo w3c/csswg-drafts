@@ -1150,14 +1150,14 @@
   });
 
 
-  function addNonStandardAPI() {
+  function activeExperimentalAPI() {
     function canScroll(container, dir) {
       return (isScrollable(container, dir) && !isScrollBoundary(container, dir)) ||
              (!container.parentElement && !isHTMLScrollBoundary(container, dir));
     }
 
 
-    function findTarget(findCandidate, element, dir) {
+    function findTarget(findCandidate, element, dir, option) {
       let eventTarget = element;
       let bestNextTarget = null;
 
@@ -1174,14 +1174,14 @@
         if (eventTarget.nodeName === 'IFRAME')
           eventTarget = eventTarget.contentDocument.body;
 
-        const candidates = eventTarget.focusableAreas();
+        const candidates = eventTarget.focusableAreas(option);
 
         // 5-2
         if (Array.isArray(candidates) && candidates.length > 0) {
           if(findCandidate) {
-            return spatNavCandidates(eventTarget, dir);
+            return spatNavCandidates(eventTarget, dir, candidates);
           } else {
-            bestNextTarget = eventTarget.spatialNavigationSearch(dir);
+            bestNextTarget = eventTarget.spatialNavigationSearch(dir, candidates);
             return bestNextTarget;
           }
         }
@@ -1211,13 +1211,13 @@
 
       // 7
       while (parentContainer) {
-        const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
+        const candidates = filteredCandidates(eventTarget, container.focusableAreas(option), dir, container);
 
         if (Array.isArray(candidates) && candidates.length > 0) {
           bestNextTarget = eventTarget.spatialNavigationSearch(dir, candidates, container);
           if (bestNextTarget) {
             if(findCandidate) {
-              return spatNavCandidates(eventTarget, dir, candidates, container);
+              return candidates;
             } else {
               return bestNextTarget;
             }
@@ -1266,7 +1266,7 @@
 
       if (!parentContainer && container) {
         // Getting out from the current spatnav container
-        const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
+        const candidates = filteredCandidates(eventTarget, container.focusableAreas(option), dir, container);
 
         // 9
         if (Array.isArray(candidates) && candidates.length > 0) {
@@ -1274,7 +1274,7 @@
 
           if (bestNextTarget) {
             if(findCandidate) {
-              return spatNavCandidates(eventTarget, dir, candidates, container);
+              return candidates;
             } else {
               return bestNextTarget;
             }
@@ -1312,6 +1312,6 @@
       getKeyMode : () => spatialNaviagtionKeyMode
     };
   }
-  addNonStandardAPI();
+  activeExperimentalAPI();
 
 })(window, document);

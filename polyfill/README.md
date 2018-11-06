@@ -138,7 +138,7 @@ NOTE: The APIs below are non-standard and experimental features of the spatial n
   * Parameter
     * element : Required. 
       - Any element.
-* <code>findCandidates (element, dir)</code> :
+* <code>findCandidates (element, dir, option)</code> :
   * Searchs all valid candidates for a certain direction.
   * Returns a list of elements.
   * Parameter
@@ -147,7 +147,11 @@ NOTE: The APIs below are non-standard and experimental features of the spatial n
     * dir : Required. 
        - The direction to find candidates.
        - It should be one of <code>['up', 'down', 'left', 'right']</code>.
-* <code>findNextTarget (element, dir)</code> :
+    * option : Optional.
+      - Default value is <code>{'mode': 'visible'}</code>.
+      - The FocusableAreasOptions to find candidates.
+      - It should be <code>{'mode': 'visible'}</code> or <code>{ mode: 'all' }</code>.
+* <code>findNextTarget (element, dir, option)</code> :
   * Indicates what is the best element to move the focus for a certain direction.
   * Returns the next target element. 
       - If there is no target for the direction, it returns <code>null</code>. 
@@ -158,6 +162,10 @@ NOTE: The APIs below are non-standard and experimental features of the spatial n
     * dir : Required. 
        - The direction to find candidates.
        - It should be one of <code>['up', 'down', 'left', 'right']</code>.
+    * option : Optional.
+      - Default value is <code>{'mode': 'visible'}</code>.
+      - The FocusableAreasOptions to find candidates.
+      - It should be <code>{'mode': 'visible'}</code> or <code>{ mode: 'all' }</code>.
 * <code>getDistanceFromTarget (element, candidateElement, dir)</code> :
   * Calculates the distance between the currently focused element and a certain candiate element.
   * Parameter
