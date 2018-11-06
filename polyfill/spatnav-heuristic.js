@@ -1150,7 +1150,7 @@
   });
 
 
-  function addNonStandardAPI() {
+  function activeExperimentalAPI() {
     function canScroll(container, dir) {
       return (isScrollable(container, dir) && !isScrollBoundary(container, dir)) ||
              (!container.parentElement && !isHTMLScrollBoundary(container, dir));
@@ -1312,6 +1312,6 @@
       getKeyMode : () => spatialNaviagtionKeyMode
     };
   }
-  addNonStandardAPI();
+  activeExperimentalAPI();
 
 })(window, document);
