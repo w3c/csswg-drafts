@@ -499,7 +499,7 @@
         if (isFocusable(thisElement)) {
           focusables.push(thisElement);
         }
-        const recursiveFocusables = thisElement.focusableAreas(option);
+        const recursiveFocusables = thisElement.focusableAreas({mode: 'all'});
 
         if (Array.isArray(recursiveFocusables) && recursiveFocusables.length) {
           focusables = focusables.concat(recursiveFocusables);
