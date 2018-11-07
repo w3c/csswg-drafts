@@ -390,7 +390,7 @@ For example, the spatial navigation feature is allowed when the feature policy i
 | example.com | `Feature-Policy: spatialnavigation https://game.com` |
 | game.com | `<iframe src=“game.com" allow=“spatialnavigation https://good-ad.com"></iframe>` |
 
-The spatial navigation feature cannot be used for "add.com" and "bad-add.com"
+The spatial navigation feature cannot be used for "ad.com" and "bad-ad.com"
 
 ### How can the spatial navigation works for the HTMLFormElement?
 
