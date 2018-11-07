@@ -363,19 +363,23 @@ But for the iframe with `spatialnavigation` value is given to `allow` attribute 
 
 In detail, the approach for the Feature policy would be like below:
 
-Default policy: spatialnavigation 'self'
+* Default policy: spatialnavigation 'self'
 
-A page can declare the spatial navigation feature in its HTTP headers as follows:
-```
-Feature policy: spatialnavigation 'self'
-```
-It means that only same-origin iframe elements are allowed for the spatial navigation. 
+* `Feature-Policy` HTTP header
+  
+  A page can declare the spatial navigation feature in its HTTP headers as follows:
+  ```
+  Feature policy: spatialnavigation 'self'
+  ```
+  It means that only same-origin iframe elements are allowed for the spatial navigation. 
 
-Also, the feature can be specified for a single iframe element using `allow` attribute as below:
-```
-<iframe src="https://example.com..." allow="spatialnavigation 'none'"></iframe>
-```
-This will block the spatial navigation feature for the corresponding iframe element.
+* iframe `allow` attribute
+
+  The feature can be specified for a single iframe element using `allow` attribute as below:
+  ```
+  <iframe src="https://example.com..." allow="spatialnavigation 'none'"></iframe>
+  ```
+  This will block the spatial navigation feature for the corresponding iframe element.
 
 For example, the spatial navigation feature is allowed when the feature policy is specified as below:
 ![<img>featurepolicy-example](https://github.com/jihyerish/jihyerish.github.io/blob/master/img/featurepolicy.png)
