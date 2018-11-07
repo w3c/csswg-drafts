@@ -383,9 +383,14 @@ In detail, the approach for the Feature policy would be like below:
 
 For example, the spatial navigation feature is allowed when the feature policy is specified as below:
 ![<img>featurepolicy-example](https://github.com/jihyerish/jihyerish.github.io/blob/master/img/featurepolicy.png)
-- Default policy: sptialnavigation 'self'
-- example.com: Feature-Policy: spatialnavigation https://game.com
-- game.com: <iframe src=“game.com" allow=“spatialnavigation https://www.good-ad.com"></iframe>
+
+| Origin | Policy |
+|-|-|
+| Default | sptialnavigation 'self' |
+| example.com | `Feature-Policy: spatialnavigation https://game.com` |
+| game.com | `<iframe src=“game.com" allow=“spatialnavigation https://good-ad.com"></iframe>` |
+
+The spatial navigation feature cannot be used for "add.com" and "bad-add.com"
 
 ### How can the spatial navigation works for the HTMLFormElement?
 
