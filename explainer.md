@@ -170,6 +170,9 @@ the specification exposes Javascript APIs and Events that enable authors to inte
 
 #### JS APIs
 
+* navigate()
+  - Moves the focus to the best target in the corresponding direction
+  
 * getSpatialNavigationContainer()
   - Returns the spatial navigation focus container of an element.
 
@@ -325,11 +328,77 @@ The approach we have chosen seems more inline with how existing implementations 
 simpler and therefore easier to understand,
 and authors can switch to the other approaches using the APIs.
 
+## Open Questions
+### How can the developer knows weather the spatial navigation is supported or not?
+There are several approaches.
+1. Using the Media Query
+
+```
+@media (navigation: spatial) { ... }
+@media (navigation: sequential) { ... }
+```
+
+* related github issue: https://github.com/WICG/spatial-navigation/issues/41
+
+2. Using the spatial navigation API
+If the spatial navigation is implemented, one of the API can be the criteria for the enablility of the spatial navigation
+For example,
+
+```
+
+if (document.body.spatialNavigationSearch) {
+     // The spatial navigator is supported
+} else {
+     //The spatial navigator is not supported
+}
+```
+
+### How can the spatial navigation works for the iframe?
+
+The iframe element needs to be consider carefully for moving the focus.
+Using the Feature Policy API can be the solution.
+
+By default the focus can move to the iframe element which are the same-origin.
+But for the iframe with `spatialnavigation` value is given to `allow` attribute (Feature Policy API), the focus can move inside it.
+
+In detail, the approach for the Feature policy would be like below:
+
+* Default policy: spatialnavigation 'self'
+
+* `Feature-Policy` HTTP header
+  
+  A page can declare the spatial navigation feature in its HTTP headers as follows:
+  ```
+  Feature policy: spatialnavigation 'self'
+  ```
+  It means that only same-origin iframe elements are allowed for the spatial navigation. 
+
+* iframe `allow` attribute
+
+  The feature can be specified for a single iframe element using `allow` attribute as below:
+  ```
+  <iframe src="https://example.com..." allow="spatialnavigation 'none'"></iframe>
+  ```
+  This will block the spatial navigation feature for the corresponding iframe element.
+
+For example, the spatial navigation feature is allowed when the feature policy is specified as below:
+![<img>featurepolicy-example](https://github.com/jihyerish/jihyerish.github.io/blob/master/img/featurepolicy.png)
+
+| Origin | Policy |
+|-|-|
+| Default | sptialnavigation 'self' |
+| example.com | `Feature-Policy: spatialnavigation https://game.com` |
+| game.com | `<iframe src=“game.com" allow=“spatialnavigation https://good-ad.com"></iframe>` |
+
+The spatial navigation feature cannot be used for "ad.com" and "bad-ad.com"
+
+### How can the spatial navigation works for the HTMLFormElement?
+
+In some browser, the HTMLFormElement is implemented like the UA-defined shadow dom.
+It makes hard to handle those element with JS lib.
+Therefore, we propose the guideline for handling the focus on those element.
+* Guideline: https://github.com/WICG/spatial-navigation/wiki/Spatial-Navigation-Guideline-for-HTMLFormElement
+
 ## Demo
+- [Demo Center](https://wicg.github.io/spatial-navigation/demo/)
 - [Blog using the spatial navigation polyfill](https://wicg.github.io/spatial-navigation/demo/blog/)
-
-- [Samples using the spatial navigation polyfill](https://wicg.github.io/spatial-navigation/sample/)
-
-- [Samples for testing the implementation in Blink](https://wicg.github.io/spatial-navigation/blink_impl/heuristic_default_move.html)
-
-  ***Note***: Samples work best in the latest Chrome with the experimental web platform features enabled (--enable-spatial-navigation flag) otherwise they won't work.

@@ -13,7 +13,7 @@
   // Indicates global variables for spatnav (starting position)
   const spatNavManager = {
     startingPosition: null,
-    useStandardName: true,
+    useStandardName: true
   };
 
   // Use non standard names by default, as per https://www.w3.org/2001/tag/doc/polyfills/#don-t-squat-on-proposed-names-in-speculative-polyfills
@@ -33,6 +33,7 @@
   const ARROW_KEY_CODE = {37: 'left', 38: 'up', 39: 'right', 40: 'down'};
   const TAB_KEY_CODE = 9;
   let spatialNaviagtionKeyMode = 'ARROW';
+  let mapOfBoundRect = new Map();
 
   function focusNavigationHeuristics() {
 
@@ -57,6 +58,7 @@
       const currentKeyMode = (parent && parent.__spatialNavigation__.getKeyMode()) || window.__spatialNavigation__.getKeyMode();
       const eventTarget = document.activeElement;
       const dir = ARROW_KEY_CODE[e.keyCode];
+      mapOfBoundRect = new Map();
 
       if (e.keyCode === TAB_KEY_CODE)
         spatNavManager.startingPosition = null;
@@ -374,8 +376,8 @@
     // to do
     // Offscreen handling when originalContainer is not <HTML>
     if (!isVisible(currentElm) && originalContainer.parentElement && container !== originalContainer)
-      eventTargetRect = originalContainer.getBoundingClientRect();
-    else eventTargetRect = currentElm.getBoundingClientRect();
+      eventTargetRect = getBoundingClientRect(originalContainer);
+    else eventTargetRect = getBoundingClientRect(currentElm);
 
     // If D(dir) is null, let candidates be the same as visibles
     if (dir === undefined)
@@ -388,7 +390,7 @@
       */
     return candidates.filter(candidate =>
       container.contains(candidate.getSpatialNavigationContainer()) &&
-      isOutside(candidate.getBoundingClientRect(), eventTargetRect, dir)
+      isOutside(getBoundingClientRect(candidate), eventTargetRect, dir)
     );
   }
 
@@ -407,9 +409,10 @@
     let bestCandidate;
     let minDistance = Number.POSITIVE_INFINITY;
     let tempDistance = undefined;
+    let eventTargetRect = getBoundingClientRect(currentElm);
 
     for (let i = 0; i < candidates.length; i++) {
-      tempDistance = getDistance(currentElm.getBoundingClientRect(), candidates[i].getBoundingClientRect(), dir);
+      tempDistance = getDistance(eventTargetRect, getBoundingClientRect(candidates[i]), dir);
       if (tempDistance < minDistance) {
         minDistance = tempDistance;
         bestCandidate = candidates[i];
@@ -429,14 +432,14 @@
   * @returns {<Node>} the best candidate
   **/
   function selectBestCandidateFromEdge(currentElm, candidates, dir) {
-    const eventTargetRect = currentElm.getBoundingClientRect();
+    const eventTargetRect = getBoundingClientRect(currentElm);
     let minDistanceElement = undefined;
     let minDistance = Number.POSITIVE_INFINITY;
     let tempMinDistance = undefined;
 
     if(candidates) {
       for (let i = 0; i < candidates.length; i++) {
-        tempMinDistance = getInnerDistance(eventTargetRect, candidates[i].getBoundingClientRect(), dir);
+        tempMinDistance = getInnerDistance(eventTargetRect, getBoundingClientRect(candidates[i]), dir);
 
         // If the same distance, the candidate will be selected in the DOM order
         if (tempMinDistance < minDistance) {
@@ -496,7 +499,7 @@
         if (isFocusable(thisElement)) {
           focusables.push(thisElement);
         }
-        const recursiveFocusables = thisElement.focusableAreas(option);
+        const recursiveFocusables = thisElement.focusableAreas({mode: 'all'});
 
         if (Array.isArray(recursiveFocusables) && recursiveFocusables.length) {
           focusables = focusables.concat(recursiveFocusables);
@@ -791,8 +794,8 @@
   * @returns {Boolean}
   **/
   function isEntirelyVisible(element) {
-    const rect = element.getBoundingClientRect();
-    const containerRect = element.getSpatialNavigationContainer().getBoundingClientRect();
+    const rect = getBoundingClientRect(element);
+    const containerRect = getBoundingClientRect(element.getSpatialNavigationContainer());
 
     // FIXME: when element is bigger than container?
     const entirelyVisible = !((rect.left < containerRect.left) ||
@@ -830,7 +833,7 @@
     offsetX = isNaN(offsetX) ? 0 : offsetX;
     offsetY = isNaN(offsetY) ? 0 : offsetY;
 
-    const elementRect = element.getBoundingClientRect();
+    const elementRect = getBoundingClientRect(element);
 
     const middleElem = document.elementFromPoint((elementRect.left + elementRect.right) / 2, (elementRect.top + elementRect.bottom) / 2);
     const leftTopElem = document.elementFromPoint(elementRect.left + offsetX, elementRect.top + offsetY);
@@ -1139,6 +1142,23 @@
     return focusNavigableArrowKey;
   }
 
+  function getBoundingClientRect(element) {
+    let rect = mapOfBoundRect.get(element);   // memoization
+    if(!rect) {
+      const boundingClientRect = element.getBoundingClientRect();
+      rect = {
+        top: Number(boundingClientRect.top.toFixed(2)),
+        right: Number(boundingClientRect.right.toFixed(2)),
+        bottom: Number(boundingClientRect.bottom.toFixed(2)),
+        left: Number(boundingClientRect.left.toFixed(2)),
+        width: Number(boundingClientRect.width.toFixed(2)),
+        height: Number(boundingClientRect.height.toFixed(2))
+      };
+      mapOfBoundRect.set(element, rect);
+    }
+    return rect;
+  }
+
   function setStandardName() {
     spatNavManager.useStandardName = true;
   }
@@ -1150,14 +1170,14 @@
   });
 
 
-  function addNonStandardAPI() {
+  function activeExperimentalAPI() {
     function canScroll(container, dir) {
       return (isScrollable(container, dir) && !isScrollBoundary(container, dir)) ||
              (!container.parentElement && !isHTMLScrollBoundary(container, dir));
     }
 
 
-    function findTarget(findCandidate, element, dir) {
+    function findTarget(findCandidate, element, dir, option) {
       let eventTarget = element;
       let bestNextTarget = null;
 
@@ -1174,14 +1194,14 @@
         if (eventTarget.nodeName === 'IFRAME')
           eventTarget = eventTarget.contentDocument.body;
 
-        const candidates = eventTarget.focusableAreas();
+        const candidates = eventTarget.focusableAreas(option);
 
         // 5-2
         if (Array.isArray(candidates) && candidates.length > 0) {
           if(findCandidate) {
-            return spatNavCandidates(eventTarget, dir);
+            return spatNavCandidates(eventTarget, dir, candidates);
           } else {
-            bestNextTarget = eventTarget.spatialNavigationSearch(dir);
+            bestNextTarget = eventTarget.spatialNavigationSearch(dir, candidates);
             return bestNextTarget;
           }
         }
@@ -1211,13 +1231,13 @@
 
       // 7
       while (parentContainer) {
-        const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
+        const candidates = filteredCandidates(eventTarget, container.focusableAreas(option), dir, container);
 
         if (Array.isArray(candidates) && candidates.length > 0) {
           bestNextTarget = eventTarget.spatialNavigationSearch(dir, candidates, container);
           if (bestNextTarget) {
             if(findCandidate) {
-              return spatNavCandidates(eventTarget, dir, candidates, container);
+              return candidates;
             } else {
               return bestNextTarget;
             }
@@ -1266,7 +1286,7 @@
 
       if (!parentContainer && container) {
         // Getting out from the current spatnav container
-        const candidates = filteredCandidates(eventTarget, container.focusableAreas(), dir, container);
+        const candidates = filteredCandidates(eventTarget, container.focusableAreas(option), dir, container);
 
         // 9
         if (Array.isArray(candidates) && candidates.length > 0) {
@@ -1274,7 +1294,7 @@
 
           if (bestNextTarget) {
             if(findCandidate) {
-              return spatNavCandidates(eventTarget, dir, candidates, container);
+              return candidates;
             } else {
               return bestNextTarget;
             }
@@ -1295,10 +1315,10 @@
       getDistanceFromTarget: (element, candidateElement, dir) => {
         if ((isContainer(element) || element.nodeName === 'BODY') && !(element.nodeName === 'INPUT')) {
           if (element.focusableAreas().includes(candidateElement)) {
-            return getInnerDistance(element.getBoundingClientRect(), candidateElement.getBoundingClientRect(), dir);
+            return getInnerDistance(getBoundingClientRect(element), getBoundingClientRect(candidateElement), dir);
           }
         }
-        return getDistance(element.getBoundingClientRect(), candidateElement.getBoundingClientRect(), dir);
+        return getDistance(getBoundingClientRect(element), getBoundingClientRect(candidateElement), dir);
       },
 
       setKeyMode : (option) => {
@@ -1312,6 +1332,6 @@
       getKeyMode : () => spatialNaviagtionKeyMode
     };
   }
-  addNonStandardAPI();
+  activeExperimentalAPI();
 
 })(window, document);
