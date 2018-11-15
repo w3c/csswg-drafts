@@ -1,0 +1,1411 @@
+<pre class='metadata'>
+Title: Spatial Navigation
+Shortname: spatnav
+Level: 1
+Status: ED
+Group: WICG
+Repository: wicg/spatial-navigation
+URL: http://wicg.github.io/spatial-navigation
+Editor: Jihye Hong, LG Electronics, jh.hong@lge.com
+Editor: Florian Rivoal, Invited Expert, https://florian.rivoal.net
+Abstract: This specification defines a general model for navigating the focus using the arrow keys,
+    as well as related CSS and JavaScript features.
+At risk: {{getSpatialNavigationContainer()}}
+At risk: {{focusableAreas()}}
+At risk: 'spatial-navigation-contain'
+</pre>
+<pre class="anchors">
+spec: ui-events; urlPrefix: https://w3c.github.io/uievents/;
+    type: event;
+        text: keydown
+        text: click
+spec: html; urlPrefix: https://html.spec.whatwg.org/multipage/;
+    urlPrefix: interaction.html
+        type: dfn;
+            text: DOM anchor
+            text: focusable area
+            text: currently focused area of a top-level browsing context
+            text: sequential focus navigation order
+            text: sequential focus navigation starting point
+            text: sequential navigation search algorithm
+            text: control group
+    urlPrefix: dom.html
+        type: dfn;
+            text: the body element; url: #the-body-element-2
+spec: dom; urlPrefix: https://dom.spec.whatwg.org/
+    type: dfn;
+        text: document element
+spec: overscroll-behavior; urlPrefix: https://wicg.github.io/overscroll-behavior/;
+    type: dfn;
+        text: scroll boundary
+spec: css2; urlPrefix: https://drafts.csswg.org/css2/
+    urlPrefix: box.html
+        type: dfn;
+            text: border box; url: #x14
+    urlPrefix: zindex.html
+        type: dfn;
+            text: painting order; url: #painting-order
+</pre>
+<pre class=link-defaults>
+spec:html; type:method; for:HTMLOrSVGElement; text:focus()
+</pre>
+<style>
+code.key {
+    border: solid 1px;
+    border-radius: 0.5ch;
+    padding: 1px 5px;
+}
+.output {
+    background: white;
+    padding: 1em;
+}
+</style>
+<style>
+#api-check:checked ~ .api,
+#api-check:checked ~ * .api {
+	display: none;
+}
+#cssapi-check:checked ~ .cssapi,
+#cssapi-check:checked ~ * .cssapi {
+	display: none;
+}
+#verbose-check:checked ~ .verbose,
+#verbose-check:checked ~ * .verbose {
+	display: none;
+}
+</style>
+
+
+This specification is rather long.
+To make it easier to read and focus on a particular area,
+a few checkboxes are provided below.
+Checking them hides part of the specification.
+This is only meant as a reading aid,
+the specification remains the full document.
+
+<input type=checkbox id=api-check> <label for=api-check>Hide JavaScript APIs, including events</label><br>
+<input type=checkbox id=cssapi-check> <label for=cssapi-check>Hide CSS properties that enable selecting behavior variants, and related information</label><br>
+<input type=checkbox id=verbose-check> <label for=verbose-check>Hide informative sections that explain and summarise normative sections without adding more information</label><br>
+
+<h2 id="intro" class=non-normative>
+Introduction</h2>
+
+<em>This section is not normative.</em>
+
+Historically, most browsers have not offered features to let users move the focus directionally.
+Some, such as TV browsers, have enabled users to move the focus using the arrow keys out of necessity,
+since no other input mechanism is available on a typical TV remote control.
+
+Others, have enabled different key combinations to control spatial navigation,
+such as pressing the <code class=key>Shift</code> key together with arrow keys.
+
+This ability to move around the page directionally is called <dfn lt="spatial navigation | spatialNavigation" export>spatial navigation</dfn>.
+
+<a>Spatial navigation</a> can be useful for a web page built using a grid-like layout,
+or other predominantly non linear layouts.
+The figure below represents a photo gallery arranged in a grid layout.
+If the user presses the <code class=key>Tab</code> key to move focus,
+they need to press the key many times to reach the desired element.
+Also, the grid layout may arrange the layout of elements independently of their source order.
+Therefore sequential navigation using the <code class=key>Tab</code> key makes focus navigation unpredictable.
+In contrast, <a>spatial navigation</a> moves the focus among focusable elements
+depending on their position
+allowing it to address problems encountered with sequential navigation.
+
+<figure>
+    <img alt="When elements are laid out in a grid pattern, spatial navigation makes it much easier to predict and control where focus should move to." src="images/spatnav-enable.png" style="width: 500px;"/>
+    <figcaption>Application using a grid-like layout.</figcaption>
+</figure>
+
+While arrow keys are naturally suited to control spatial navigation,
+no previous specification describes how that should work,
+or how it may be controlled.
+<span class=api>This specification introduces a processing model for spatial navigation,
+as well as APIs
+enabling authors to control and override how spatial navigation works.</span>
+
+Note: Some aspects of this specification, such as the JavaScript Events and APIs
+could also be extended to sequential navigation,
+in order to make sure that keyboard navigation in general
+has a consistent and well defined model.
+
+Note: As a general principle,
+keyboard navigation,
+and spatial navigation in particular,
+should be possible to use and control without JavaScript<span class=cssapi>,
+and declarative solutions are therefore preferred.
+Since spatial navigation depends on layout,
+that means CSS is typically the right mechanism to define
+spatial navigation related controls</span>.
+<span class=api>However, in the spirit of the <a href="https://github.com/extensibleweb/manifesto">Extensible Web Manifesto</a> [[EXTENSIBLE]],
+we feel it is important to provide the right JavaScript primitives
+to let authors experiment and explore the problem space.
+More declarative features may be added later,
+based on feedback and experience acquired through such JavaScript usage.</span>
+
+Note: A few features are marked <dfn noexport>at-risk</dfn>.
+The editors of this specification believe
+they represent an important part of the user or author experience
+of the features defined in specification.
+At the same time, the core functionality of this specification
+can be implemented without implementing these
+so it seems possible that implementors may choose to down-prioritize them
+to reduce the scope of a first implementation.
+While it is hoped that these features will be implemented as well,
+they are marked at-risk in recognition that they might not be at first.
+
+
+<h2 id=interaction>
+Module interaction</h2>
+
+This document depends on the Infra Standard [[!infra]].
+
+The keywords "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" are to be interpreted as described in RFC 2119. [[!RFC2119]]
+
+
+<div class=verbose>
+<h2 id=overview class=non-normative>
+Overview</h2>
+
+<em>This section is not normative.</em>
+
+Using a UA-defined mechanism
+(typically arrow keys, possibly in combination with modifier keys like <code class=key>Shift</code> or <code class=key>Control</code>),
+the user may ask the User Agent to navigate in a particular direction.
+This will either
+move the focus from its current location to a new focusable item in the direction requested,
+or scroll if there is no appropriate item.
+
+More specifically,
+the User Agent will first search for visible and focusable items
+in the direction indicated
+within the current <a>spatial navigation focus container</a>
+(<span class=cssapi>by default </span>the root element, scrollable elements, and iframes<span class=cssapi>,
+but other elements can be made into <a>spatial navigation focus containers</a>
+using the 'spatial-navigation-contain' property</span>).
+
+If it finds any, it will pick the best one for that direction,
+and move the focus there.
+
+If it does not, it will scroll the <a>spatial navigation focus container</a> in the requested direction
+instead of moving focus.
+Doing so may uncover focusable elements
+which would then be eligible targets to move the focus to
+next time spatial navigation in the same direction is requested.
+
+If the <a>spatial navigation focus container</a> cannot be scrolled,
+either because it is not a scrollable element
+or because it is already scrolled to the maximum in that direction,
+the User Agent will select the next <a>spatial navigation focus container</a> up the ancestry chain,
+and repeat the process of
+looking for eligible focus targets,
+selecting the best one if there's any,
+scrolling if not,
+going up the ancestry chain if it cannot scroll,
+until it has either moved focus,
+scrolled,
+or reached the root.
+
+Note: As a consequnce of this processing model,
+the elements that are reachable by sequential navigation
+and by spatial navigation are almost the same:
+elements that are currently outside of the viewport of a scrollable element
+can only be reached once they have been scrolled into view,
+and those that cannot be scrolled into view,
+for instance because they are placed at a negative offset,
+are out of reach.
+
+<div class=api>
+At key points during this search for the appropriate response to the spatial navigation request,
+the User Agent will fire events.
+These enable authors to prevent the upcoming action
+(by calling {{preventDefault()}}),
+and if desired to provide an alternate action,
+such as using calling the {{HTMLOrSVGElement/focus()}} method on a different
+element of the author's choosing.
+
+To help authors write such alternate actions,
+and as part of exposing underlying platform primitives as per the <a href="https://github.com/extensibleweb/manifesto">Extensible Web</a> principles,
+this specification also defines JavaScript APIs
+that expose key constructs of the underlying model.
+
+
+See [[#events-nav-type]] for details about the various events,
+and [[#js-api]] for details about the JavaScript API.
+</div>
+
+<div class='example'>
+    In this example, shows how a series of focusable elements
+    arranged in a scrollable element
+    would be navigated when using spatial navigation.
+    For the sake of keeping the description simple,
+    this example assumes a UA where spatial navigation is triggered using arrow keys.
+
+    <figure>
+        <img alt="" src="images/spatnav-scroll-visible-1.png" style="width: 200px;"/>
+        <img alt="" src="images/spatnav-scroll-visible-2.png" style="width: 200px;"/>
+        <figcaption>Moving focus to the visible element in the <a>spatial navigation focus container</a>.</figcaption>
+    </figure>
+
+    On the left of figure 2, "Box 2" is focused.
+    Pressing the <code class=key>ArrowDown</code> key moves focus to
+    "Box 3" without scrolling because "Box 3" is visible in the <a>scrollport</a> of the <a>spatial navigation focus container</a>.
+
+    <figure>
+        <img alt="" src="images/spatnav-scroll-invisible-1.png" style="width: 160px;"/>
+        <img alt="" src="images/spatnav-scroll-invisible-2.png" style="width: 160px;"/>
+        <img alt="" src="images/spatnav-scroll-invisible-3.png" style="width: 160px;"/>
+        <img alt="" src="images/spatnav-scroll-invisible-4.png" style="width: 160px;"/>
+        <figcaption>Moving focus to the hidden element in the <a>spatial navigation focus container</a>.</figcaption>
+    </figure>
+
+    On the first of figure 3, under "Box 3", there isn't any visible element in the <a>scrollport</a>.
+    Therefore, the effect of pressing the <code class=key>ArrowDown</code> is to scroll down, as shown in the second.
+    The next press of the <code class=key>ArrowDown</code> key makes "Box 4" come into the <a>scrollport</a>,
+    and the focus will move to it when there is additional pressing the <code class=key>ArrowDown</code>, as the fourth.
+
+    This example uses the markup as follows:
+    <pre class="lang-css">
+        #scroller {
+            width: 700px;
+            height: 700px;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        .box {
+            width: 150px;
+            height: 110px;
+            background-color: blue;
+        }
+
+        .box:focus {
+            background-color: red;
+        }
+    </pre>
+
+    <pre class="lang-html">
+        &lt;div id="scroller">
+            &lt;div class="box" tabindex="0">Box 1&lt;/div>
+            &lt;div class="box" tabindex="0">Box 2&lt;/div>
+            &lt;div class="box" tabindex="0">Box 3&lt;/div>
+            &lt;div class="box" tabindex="0">Box 4&lt;/div>
+        &lt;/div>
+    </pre>
+</div>
+</div>
+
+<h2 id=triggering>
+Triggering Spatial Navigation</h2>
+
+When the user triggers spatial navigation in a given direction,
+the User Agent must run the <a>spatial navigation steps</a> in that direction.
+
+This specification does not define what UI mechanism User Agents should offer to users to trigger spatial navigation.
+This intentionally left for User Agents to decide.
+
+<div class=note>Note:
+    It is expected that User Agents on devices with limited input capabilities,
+    such as TVs operated with a remote control,
+    or devices operated with a game controller,
+    will use spatial navigation as their primary or exclusive navigation mechanism.
+</div>
+
+Although it is possible for User Agents
+to implement the processing model and APIs defined by the specification
+without giving any direct means to the user to trigger spatial navigation themselves,
+this specification recommends not to do so:
+User Agents should offer a means for users to trigger spatial navigation directly,
+without having to use the APIs.
+
+Note: Conversely, authors should assume that spatial navigation may be triggered
+by the UA in response to user actions
+even if the author has not invoked any of the APIs.
+
+Regardless of the actual mechanism chosen to trigger spatial navigation,
+the following requirements apply:
+* If the mechanism the user must use to trigger spatial navigation
+    would normally fire a {{UIEvent}},
+    then that event must be fired prior to running the <a>spatial navigation steps</a>
+    and these steps must not be run if that event's <a>canceled flag</a>
+    gets set.
+
+    <div class=example>
+        Gaming devices may trigger spatial navigation based on pressing the D-pad.
+        This would result in firing a <a event>keydown</a> event
+        with the key set to one of
+        <code class=key>ArrowDown</code>,
+        <code class=key>ArrowLeft</code>,
+        <code class=key>ArrowRight</code>,
+        or <code class=key>ArrowUp</code>,
+        followed if not canceled by running the <a>spatial navigation steps</a><span class=api>,
+        including firing the relevant {{NavigationEvent}}s</span>.
+
+        A User Agent on a desktop computer that triggers spatial navigation
+        using the arrow keys of the keyboard
+        would follow the same sequence.
+    </div>
+* If the mechanism the user must use to trigger spatial navigation
+    would in some contexts trigger other actions,
+    the User Agent should in these contexts
+    give priority to these other actions
+    and execute them instead of spatial navigation.
+    It must not trigger both.
+
+    <div class=example>
+        In a User Agent that triggers spatial navigation
+        using the arrow keys without modifier keys,
+        and uses these same arrow keys to move
+        the text insertion caret when an editable element is focused,
+        the arrow keys should by default to moving the caret.
+        Spatial navigation would only be triggered by the arrow keys
+        when the focused element is not editable,
+        or when it is editable but the caret cannot move any further in the requested direction.
+    </div>
+
+    An exception is made for scrolling:
+    since spatial navigation itself handles scrolling
+    (in addition to moving the focus)
+    User Agents should not offer the same mechanism to trigger both spatial navigation
+    and a scrolling behavior separate from spatial navigation.
+    UAs may however, offer a way for the user to switch between different modes,
+    or offer both based on different UI mechanism.
+
+    <div class=example>
+        A User Agent may have a setting to let the user choose
+        between using the arrow keys without modifier keys
+        for spatial navigation or for scrolling.
+        Another one may offer scrolling on arrow keys without modifiers,
+        and spatial navigation on arrow keys when pressed together
+        with the <code class=key>Shift</code> key,
+        or on the <code class=key>W</code> <code class=key>A</code> <code class=key>S</code> <code class=key>D</code> keys.
+        Offering only spatial navigation or only scrolling
+        as responses to pressing arrow keys would also be possibilities.
+    </div>
+
+
+<div class=api>
+<h2 id="js-api">
+JavaScript API</h2>
+
+<h3 id=high-level-api>
+Triggering Navigation Programmatically</h3>
+
+The {{Window/navigate()}} method enables the author to trigger spatial navigation programatically,
+as if the user had done so manually
+(for instance, by pressing the arrow keys in a browser where that is the way to trigger spatial navigation).
+
+Note: As this triggers the same processing model as a manual navigation,
+all the same results should be expected:
+the same chain of events will be fired and
+the same element will be scrolled or focused.
+
+Note: Authors can use this to trigger spatial navigation
+based on a different UI mechanism than the one assigned by the UA,
+such as mapping to different keys,
+or triggering spatial navigation from a clickable on-screen directional pad.
+or in reaction to other events than UI ones.
+It could also be used when an author wants to interrupt navigation to do some asynchronous operation
+(e.g. load more content in an infinite scroller) then resume where they cancelled.
+
+Note: This API is also useful for testing purposes,
+as there is no other way to trigger spatial navigation
+that does not depend on vendor specific UI conventions.
+
+<pre class="idl">
+enum SpatialNavigationDirection {
+    "up",
+    "down",
+    "left",
+    "right",
+};
+
+partial interface Window {
+    void navigate(SpatialNavigationDirection dir);
+};
+</pre>
+
+<div algorithm="windowNavigate steps">
+The {{Window/navigate()}} method must follow these steps:
+
+If <var>dir</var> is <code>"up"</code>, <code>"down"</code>, <code>"left"</code>, or <code>"right"</code>,
+run the <a>spatial navigation steps</a> in direction <var>dir</var>.
+
+</div>
+
+<h3 id=low-level-api>
+Low level APIs</h3>
+
+Note: These APIs are designed to be low level constructs following the processing model closely.
+As such, they should be easy to use by authors who want to extend or override the way spatial navigation works.
+
+<pre class="idl">
+enum FocusableAreaSearchMode {
+    "visible",
+    "all"
+};
+
+dictionary FocusableAreasOptions {
+    FocusableAreaSearchMode mode;
+};
+
+dictionary SpatialNavigationSearchOptions {
+    required SpatialNavigationDirection dir;
+    sequence&lt;Node>? candidates;
+    Node? container;
+};
+
+partial interface Element {
+    Node getSpatialNavigationContainer();
+    sequence&lt;Node> focusableAreas(optional FocusableAreasOptions arg);
+    Node? spatialNavigationSearch(SpatialNavigationSearchOptions arg);
+};
+</pre>
+
+Note: The way the direction is expressed allows us to expand to more than 4-way navigation
+later of if this is found necessary.
+More directional keywords or a numerical angle could be added.
+
+Note: the {{focusableAreas()}} and {{getSpatialNavigationContainer()}} methods are <a>at-risk</a>.
+
+<div algorithm="getSpatialNavigationContainer steps">
+The {{Element/getSpatialNavigationContainer()}} method must follow these steps:
+1. Return the element if it is a <a>spatial navigation container</a>,
+    or the nearest ancestor of the element that is a <a>spatial navigation container</a>,
+    or the <a>document</a> if the nearest <a>spatial navigation container</a> is the viewport.
+
+</div>
+
+<div algorithm="focusableAreas steps">
+The {{Element/focusableAreas()}} method must follow these steps:
+1. Let <var>v</var> be <code>false</code>
+    if the argument's {{FocusableAreasOptions/mode}} attribute if present and equal to <code>"all"</code>,
+    or <code>true</code> otherwise.
+4. Let <var>areas</var> be the result of <a>finding focusable areas</a> within the element with the visibleOnly argument set to <var>v</var>
+5. Let <var>anchors</var> be a <a for=list>clone</a> of <var>areas</var>,
+    with every <a>focusable area</a> which is not itself a <a>Node</a> replaced with its <a>DOM anchor</a>.
+6. Return <var>anchors</var>
+
+</div>
+
+<div algorithm="spatialNavigationSearch steps">
+The {{Element/spatialNavigationSearch()}} method must follow these steps:
+1. Let <var>d</var> be the argument's {{SpatialNavigationSearchOptions/dir}} attribute
+2. If the argument's {{SpatialNavigationSearchOptions/candidates}} attribute is not <code>null</code>,
+    then let <var>areas</var> be that attribute,
+    else, let <var>areas</var> be the result of <a>finding focusable areas</a>
+    within the argument's {{SpatialNavigationSearchOptions/container}} attribute is not <code>null</code>,
+    or the element's nearest <a>spatial navigation container</a> ancestor
+4. Return the result of <a>selecting the best candidate</a> within <var>areas</var> in direction <var>d</var> from the element
+
+Note: When neither a container nor a list of candidates is provided,
+this only searches through the visible focusable areas of the nearest
+<a>spatial navigation container</a> ancestor.
+<strong>If none are found, this does not climb further up the ancestry chain,
+and the result will be <code>null</code>.</strong>
+</div>
+
+
+<div class=example id=focus-only>
+    The following code changes the behavior of spatial navigation
+    from scrolling when there is no focusable element visible,
+    to jumping to focusable elements even when they are not visible.
+
+    <pre><code highlight=javascript>
+    document.addEventListener("navbeforescroll", function(e) {
+        var container = e.relatedTarget;
+        var areas = container.focusableAreas({ mode: "all" });
+
+        if (areas.length === 0) { return; }
+
+        e.preventDefault();
+        var t = e.target.spatialNavigationSearch({
+            dir: e.dir,
+            candidates: areas
+        });
+        t.focus();
+    });
+    </code></pre>
+</div>
+
+<div class=example id=delegation>
+    The following code changes the behavior of spatial navigation
+    so that when a scroll container would get focused,
+    if it has at least one visible focusable descendant,
+    the focus is automatically transfered to it.
+
+    <pre><code highlight=javascript>
+    document.addEventListener("navbeforefocus", function(e) {
+        e.preventDefault();
+
+        if (e.dir === "forward" || e.dir === "backward") {
+            e.dir = "top";
+        }
+
+        var t = e.relatedTarget;
+        while (t.isSameNode(t.getSpatialNavigationContainer())) {
+            var areas = t.focusableAreas();
+
+            if (areas.length === 0) { break; }
+
+            t = t.spatialNavigationSearch({
+                dir:  e.dir,
+                candidates: areas
+            });
+        }
+        t.focus();
+    });
+    </code></pre>
+</div>
+
+<div class=example id=loop>
+    The following code changes the behavior of spatial navigation
+    to trap the focus within a spatial navigation container:
+    when no further focusable elements can be found in the requested direcition
+    and the spatial navigation container cannot be scrolled any futher,
+    we loop back to the other side instead of searching outside of it,
+    either by focusing or scrolling depending on what is available.
+
+    The focus can still be moved outside by sequential navigation,
+    mouse interaction,
+    programatic calls to {{focus()}}…
+
+    <pre><code highlight=javascript>
+    document.addEventListener("navnotarget", function(e) {
+        e.preventDefault();
+
+        var c = e.relatedTarget;
+        var areas = c.focusableAreas({mode: "all"});
+
+        if (areas.length === 0) {
+            switch (e.dir) {
+                case "down":
+                    c.scrollTop = 0;
+                    break;
+                case "up":
+                    c.scrollTop = c.scrollHeight;
+                    break;
+                case "right":
+                    c.scrollLeft = 0;
+                    break;
+                case "left":
+                    c.scrollLeft = c.scrollWidth;
+                    break;
+            }
+        } else {
+            var t = c.spatialNavigationSearch({
+                dir: e.dir,
+                candidates: areas
+            });
+            t.focus();
+    });
+    </code></pre>
+</div>
+</div>
+
+<div class=api>
+<h2 id="events-navigationevent">
+Navigation Events</h2>
+
+<h3 id="interface-focusevent">
+Interface NavigationEvent</h3>
+
+The {{NavigationEvent}} interface provides specific contextual information associated with spatial navigation.
+
+To create an instance of the {{NavigationEvent}} interface, use the {{NavigationEvent}} constructor,
+passing an optional {{NavigationEventInit}} dictionary.
+
+<pre class=idl>
+[Constructor(DOMString type, optional NavigationEventInit eventInitDict)]
+interface NavigationEvent : UIEvent {
+      readonly attribute SpatialNavigationDirection dir;
+      readonly attribute EventTarget? relatedTarget;
+};
+
+dictionary NavigationEventInit : UIEventInit {
+      required SpatialNavigationDirection dir;
+      EventTarget? relatedTarget = null;
+};
+</pre>
+
+<div class=verbose>
+<h3 id="events-nav-type" class="non-normative">
+Navigation Event Types</h3>
+
+<em>This section and its subsections are not normative.</em>
+
+The Navigation event types are summarized below.
+For full normative details, see [[#processing-model]].
+
+<h4 id="event-type-navbeforefocus" class="non-normative">
+<dfn event for=NavigationEvent>navbeforefocus</dfn></h4>
+
+The <a event>navbeforefocus</a> event occurs before spatial navigation changes the focus.
+
+<table class="def">
+    <tbody>
+        <tr>
+            <th>Type
+            <td><strong><code>navbeforefocus</code></strong>
+        <tr>
+            <th>Interface
+            <td>{{NavigationEvent}}
+        <tr>
+            <th>Bubbles
+            <td>Yes
+        <tr>
+            <th>Cancelable
+            <td>Yes
+        <tr>
+            <th>Attributes of the event
+            <td><dl>
+                <dt>{{NavigationEvent}}.{{NavigationEvent/relatedTarget}}
+                <dd>The DOM anchor of the focusable area that will be focused
+
+                <dt>{{NavigationEvent}}.{{NavigationEvent/dir}}
+                <dd>The direction of the navigation as requested by the user
+            </dl>
+    </tbody>
+</table>
+
+<div class='example'>
+    This example shows the [[UI-EVENTS#event-order]] when pressing the <code class=key>ArrowRight</code>
+    key.
+    For the sake of keeping the description simple,
+    this example assumes a UA where spatial navigation is triggered using arrow keys.
+
+    <table class="complex data">
+        <thead>
+            <tr>
+                <th>
+                <th>Event type
+                <th>{{KeyboardEvent}}.{{KeyboardEvent/key}}
+                <th>Notes
+        </thead>
+        <tbody>
+            <tr>
+                <td>1
+                <td>keydown
+                <td><code class=key>ArrowRight</code>
+                <td>MUST be a key which can activate spatial navigation,
+                    such as the arrow keys, or spatial navigation is not activated.
+            <tr>
+                <td>2
+                <td>navbeforefocus
+                <td>
+                <td>Sent if the candidates for spatial navigation is not <code>null</code>,
+                    or this is not generated.
+            <tr>
+                <td>3
+                <td>focusin
+                <td>
+                <td>Sent before the target element receives focus.
+            <tr>
+                <td>4
+                <td>focus
+                <td>
+                <td>Sent after the target element receives focus.
+        </tbody>
+    </table>
+</div>
+
+<h4 id="event-type-navbeforescroll" class="non-normative">
+<dfn event for=NavigationEvent>navbeforescroll</dfn></h4>
+
+The <a event>navbeforescroll</a> event occurs before spatial navigation triggers scrolling.
+<table class="def">
+    <tbody>
+        <tr>
+            <th>Type
+            <td><strong><code>navbeforescroll</code></strong>
+        <tr>
+            <th>Interface
+            <td>{{NavigationEvent}}
+        <tr>
+            <th>Bubbles
+            <td>Yes
+        <tr>
+            <th>Cancelable
+            <td>Yes
+        <tr>
+            <th>Attributes of the event
+                <td><dl>
+                    <dt>{{NavigationEvent}}.{{NavigationEvent/relatedTarget}}
+                    <dd>The element that will be scrolled if the event is not canceled
+
+                    <dt>{{NavigationEvent}}.{{NavigationEvent/dir}}
+                    <dd>The direction of the navigation as requested by the user
+                </dl>
+    </tbody>
+</table>
+
+<div class='example'>
+    This example shows the [[UI-EVENTS#event-order]] when pressing the <code class=key>ArrowDown</code>
+    key in the situation like the following figure.
+    For the sake of keeping the description simple,
+    this example assumes a UA where spatial navigation is triggered using arrow keys.
+
+		<figure>
+		    <img alt="An image about navbeforescroll" src="images/navbeforescroll-example-1.png" style="width: 200px;"/>
+		    <figcaption>"Box 2" gains the focus and there isn't any candidate in a downward direction
+            in the <a>scrollport</a>.</figcaption>
+		</figure>
+
+    <table class="complex data">
+        <thead>
+            <tr>
+                <th>
+                <th>Event type
+                <th>Event target
+                <th><code>relatedTarget</code>
+                <th>Notes
+        </thead>
+        <tbody>
+            <tr>
+                <td>1
+                <td>keydown
+                <td><code>#box2</code>
+                <td>N/A
+                <td>MUST be a key which can activate spatial navigation,
+                    such as the arrow keys,
+                    otherwise spatial navigation is not triggered.
+            <tr>
+                <td>2
+                <td>navbeforescroll
+                <td><code>#box2</code>
+                <td><code>#scrollContainer</code>
+                <td>Sent if <code>#scrollContainer</code> doesn't contain any candidate in the <a>scrollport</a>,
+                otherwise this would not be generated.
+        </tbody>
+    </table>
+
+    After <a event>navbeforescroll</a> is fired, pressing the <code class=key>ArrowDown</code> key triggers scrolling
+    down the scrollbar like in the figure below:
+
+    <figure>
+        <img alt="An image of the result about navnotarget" src="images/navbeforescroll-example-2.png" style="width: 200px;"/>
+        <figcaption>The result of moving focus when there isn't any candidate in the <a>scrollport</a>.</figcaption>
+    </figure>
+
+    This example uses the markup as follows:
+    <pre class="lang-css">
+        #scrollContainer {
+            width: 700px;
+            height: 700px;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        .item {
+            width: 150px;
+            height: 110px;
+            background-color: blue;
+        }
+
+        .item:focus {
+            background-color: red;
+        }
+    </pre>
+
+    <pre class="lang-html">
+        &lt;div id="scrollContainer">
+            &lt;div id="box1" class="item" tabindex="0">Box 1&lt;/div>
+            &lt;div id="box2" class="item" tabindex="0">Box 2&lt;/div>
+            &lt;div id="box3" class="item" tabindex="0">Box 3&lt;/div>
+        &lt;/div>
+   </pre>
+</div>
+
+<h4 id="event-type-navnotarget" class="non-normative">
+<dfn event for=NavigationEvent>navnotarget</dfn></h4>
+
+The <a event>navnotarget</a> event occurs before going up the tree to search candidates in the
+nearest ancestor <a>spatial navigation container</a> when spatial navigation has failed to find any candidate
+within the current <a>spatial navigation container</a>.
+
+If the <a>spatial navigation container</a> is scrollable, the event occurs when there isn't any candidate in it
+and it cannot be scrolled at the same time.
+
+<table class="def">
+    <tbody>
+        <tr>
+            <th>Type
+            <td><strong><code>navnotarget</code></strong>
+        <tr>
+            <th>Interface
+            <td>{{NavigationEvent}}
+        <tr>
+            <th>Bubbles
+            <td>Yes
+        <tr>
+            <th>Cancelable
+            <td>Yes
+        <tr>
+            <th>Attributes of the event
+            <td><dl>
+                <dt>{{NavigationEvent}}.{{NavigationEvent/relatedTarget}}
+                <dd>The <a>spatial navigation container</a> that was searched in.
+
+                <dt>{{NavigationEvent}}.{{NavigationEvent/dir}}
+                <dd>The direction of the navigation as requested by the user
+            </dl>
+    </tbody>
+</table>
+
+<div class='example'>
+    This example shows the [[UI-EVENTS#event-order]] when pressing the <code class=key>ArrowDown</code>
+    key in the situation like the following figure.
+    For the sake of keeping the description simple,
+    this example assumes a UA where spatial navigation is triggered using arrow keys.
+
+		<figure>
+		    <img alt="An image about navnotarget" src="images/navnotarget-example-1.png" style="width: 200px;"/>
+		    <figcaption>Moving focus when there isn't any candidate in the
+				<a>scroll container</a>.</figcaption>
+		</figure>
+
+    <table class="complex data">
+        <thead>
+            <tr>
+                <th>
+                <th>Event type
+                <th>Event target
+                <th><code>relatedTarget</code>
+                <th>Notes
+        </thead>
+        <tbody>
+            <tr>
+                <td>1
+                <td>keydown
+                <td><code>#box2</code>
+                <td>N/A
+                <td>MUST be a key which can activate spatial navigation,
+                    such as the arrow keys,
+                    otherwise spatial navigation is not triggered.
+            <tr>
+                <td>2
+                <td>navnotarget
+                <td><code>#box2</code>
+                <td><code>#scrollContainer</code>
+                <td>Sent if <code>#scrollContainer</code> doesn't contain any candidate and
+                cannot be scrolled,
+                otherwise this would not be generated.
+            <tr>
+                <td>3
+                <td>navbeforefocus
+                <td><code>#box2</code>
+                <td><code>#box3</code>
+                <td>Sent if the candidates in <code>#container</code> is not <code>null</code>,
+                otherwise this would not be fired.
+            <tr>
+                <td>4
+                <td>focusin
+                <td><code>#box3</code>
+                <td>N/A
+                <td>Sent before the target element receives focus.
+            <tr>
+                <td>5
+                <td>focus
+                <td><code>#box3</code>
+                <td>N/A
+                <td>Sent after the target element receives focus.
+        </tbody>
+    </table>
+
+    The result of this example is the figure as follows:
+
+    <figure>
+        <img alt="An image of the result about navnotarget" src="images/navnotarget-example-2.png" style="width: 200px;"/>
+        <figcaption>The result of moving focus when there isn't any candidate in the <a>scrollport</a>
+        and <a>scroll container</a> cannot be scrolled.</figcaption>
+    </figure>
+
+    This example uses the markup as follows:
+    <pre class="lang-css">
+        #container {
+            width: 900px;
+            height: 1400px;
+        }
+
+        #scrollContainer {
+            width: 700px;
+            height: 700px;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        .item {
+            width: 150px;
+            height: 110px;
+            background-color: blue;
+        }
+
+        .item:focus {
+            background-color: red;
+        }
+    </pre>
+
+    <pre class="lang-html">
+        &lt;div id="container">
+            &lt;div id="scrollContainer">
+                &lt;div id="box1" class="item" tabindex="0">Box 1&lt;/div>
+                &lt;div id="box2" class="item" tabindex="0">Box 2&lt;/div>
+            &lt;/div>
+            &lt;div id="box3" class="item" tabindex="0">Box 3&lt;/div>
+        &lt;/div>
+   </pre>
+</div>
+</div>
+</div>
+
+<h2 id=processing-model>
+Processing Model</h2>
+
+<div class=verbose>
+The [[#overview]] section gives a high level idea of how spatial navigation works,
+to help readers of this specification build a general mental model.
+It uses intuitive but imprecise terminology,
+and glosses over many details
+for the sake of readability.
+
+This section defines the corresponding normative behavior
+and aims for as much detail as necessary
+to fully define the behavior.
+</div>
+
+Issue(19): The following currently does not account
+for <a href="https://github.com/WICG/overscroll-behavior">the proposed overscroll-behavior specification</a>.
+
+Issue(21): The following does not take shadow dom into account.
+
+
+<h3 id=grouping>
+Groupings of elements</h3>
+
+While the general model for spatial navigation
+is to work from the layout of the document
+and the relative position of focusable elements,
+the User Agent is required to prioritize finding elements
+from a local logical grouping,
+only looking for focusable elements outside of the grouping
+if a suitable one cannot be found inside it (see [[#nav]] for details).
+
+Such groupings are called <dfn lt="spatial navigation focus container | spatial navigation focus containers | spatial navigation container | spatial navigation containers">spatial navigation focus containers</dfn>.
+
+<span class=cssapi>By default, </span><a>spatial navigation containers</a> are established by:
+* The viewport of a <a for="/">browsing context</a>
+    (not limited to the <a>top-level browsing context</a>)
+
+* <a>scroll containers</a>
+
+<div class=cssapi>
+Additional <a>spatial navigation containers</a> can be created using the 'spatial-navigation-contain' property (see [[#container]]).
+</div>
+
+<h3 id=nav>
+Navigation</h3>
+
+<figure class="verbose non-normative">
+<figcaption>This figure is not normative. It gives an overview of the processing model further defined in this section.</figcaption>
+<object type="image/svg+xml" data="images/spatnav_processing_model_diagram.svg"></object>
+</figure>
+
+There can be a <dfn>spatial navigation starting point</dfn>. It is initially unset.
+The user agent may set it when the user indicates that it should be moved.
+
+Note: For example, the user agent could set it to the position of the user's click if the user clicks on the document contents,
+and unset when the focus is moved (by spatial navigation or any other means).
+
+If the UA sets both a <a>spatial navigation starting point</a> and a <a>sequential focus navigation starting point</a>,
+they must not be set differently.
+
+Issue(23): The focusing steps should probably reset the <a>spatial navigation starting point</a>
+
+<div algorithm="to run the spatial navigation steps">
+To run the <dfn>spatial navigation steps</dfn> in <var>direction</var>, do the following:
+
+1. Let <var>startingPoint</var> be the <a>DOM anchor</a> of the <a>currently focused area of a top-level browsing context</a>.
+2. If the <a>spatial navigation starting point</a> is not <code>null</code>
+    and it is inside <var>startingPoint</var>
+    then set <var>startingPoint</var> to the <a>spatial navigation starting point</a>
+3.
+    * If <var>startingPoint</var> is an <a>node</a>,
+        let <var>eventTarget</var> be <var>startingPoint</var>
+    * else (<a>assert</a>: the starting point is a position)
+        let <var>eventTarget</var> be the <a>node</a> which contains <var>startingPoint</var>
+4. If <var>eventTarget</var> is the <a>Document</a> or the <a>document element</a>,
+        set <var>eventTarget</var> be <a>the body element</a> if it is not <code>null</code>
+        or to the <a>document element</a> otherwise.
+5. If <var>startingPoint</var> is either a <a>scroll container</a> or the <a>document</a>
+    1. Let <var>candidates</var> be the result of <a>finding focusable areas</a>
+        within <var>startingPoint</var>
+    2.
+        * If <var>candidates</var> contains at least 1 item:
+            1. Let <var>bestCandidate</var> be the result of <a>selecting the best candidate</a>
+                within <var>candidates</var> in <var>direction</var> starting from <var>startingPoint</var>
+            2. <span class=api><a>Fire an event</a> named <a event>navbeforefocus</a> at <var>eventTarget</var> using {{NavigationEvent}}
+                with its {{NavigationEvent/dir}} set to <var>direction</var> and {{NavigationEvent/relatedTarget}} set to <var>bestCandidate</var>
+                and with it's <code>bubbles</code> and <code>cancelable</code> attributes set to <code>true</code>,
+                and return if the result is <code>false</code></span>
+            3. Run the <a>focusing steps</a> for <var>bestCandidate</var> and return
+        * Else if <var>eventTarget</var> <a>can be manually scrolled</a>:
+            1. <span class=api><a>Fire an event</a> named <a event>navbeforescroll</a> at <var>eventTarget</var> using {{NavigationEvent}}
+                with its {{NavigationEvent/dir}} set to <var>direction</var>
+                and {{NavigationEvent/relatedTarget}} set to <var>eventTarget</var>
+                and with it's <code>bubbles</code> and <code>cancelable</code> attributes set to <code>true</code>,
+                and return if the result is <code>false</code></span>
+            2. <a>Directionally scroll the element</a> <var>eventTarget</var> in <var>direction</var> and return.
+        * Else, fallback to the next step
+6. Let <var>container</var> be the nearest ancestor of <var>eventTarget</var> that is a <a>spatial navigation container</a>.
+7. <i>Loop</i>: Let <var>candidates</var> be the result of <a>finding focusable areas</a>
+    within <var>container</var>, excluding <var>startingPoint</var>
+8. If <var>candidates</var> is empty:
+    * If <var>container</var> is a <a>scroll container</a> that <a>can be manually scrolled</a>:
+            1. <span class=api><a>Fire an event</a> named <a event>navbeforescroll</a> at <var>eventTarget</var> using {{NavigationEvent}}
+                with its {{NavigationEvent/dir}} set to <var>direction</var>
+                and {{NavigationEvent/relatedTarget}} set to <var>container</var>
+                and with it's <code>bubbles</code> and <code>cancelable</code> attributes set to <code>true</code>,
+                and return if the result is <code>false</code></span>
+            2. <a>Directionally scroll the element</a> <var>container</var> in <var>direction</var> and return.
+    * Else,
+        1. <span class=api><a>Fire an event</a> named <a event>navnotarget</a> at <var>eventTarget</var> using {{NavigationEvent}}
+            with its {{NavigationEvent/dir}} set to <var>direction</var> and {{NavigationEvent/relatedTarget}} set to <var>container</var>
+            and with it's <code>bubbles</code> and <code>cancelable</code> attributes set to <code>true</code>,
+            and return if the result is <code>false</code>.</span>
+        2.
+            * If <var>container</var> is the <a>document element</a> of the <a>top-level browsing context</a>,
+                then return.
+                The User Agent may transfer focus to its own controls (if any) honouring <var>direction</var>.
+            * Else, if <var>container</var> is the <a>document element</a> of a <a>nested browsing context</a> then:
+                1. Set <var>startingPoint</var> to <var>container</var>'s <a>browsing context container</a>
+                2. Set <var>eventTarget</var> be <var>startingPoint</var>
+                3. Set <var>container</var> to the nearest ancestor of <var>startingPoint</var> that is a <a>spatial navigation container</a>.
+                4. Return to the step labeled <i>loop</i>.
+
+                Issue(28): is it sane from a security standpoint that this propagates up from iframes?
+            * Else, set <var>container</var> to its closest ancestor that is itself a <a>spatial navigation container</a>
+                and return to the step labeled <i>loop</i>.
+9. Let <var>bestCandidate</var> be the result of <a>selecting the best candidate</a>
+    within <var>candidates</var> in <var>direction</var> starting from <var>startingPoint</var>
+10. <span class=api><a>Fire an event</a> named <a event>navbeforefocus</a> at <var>eventTarget</var> using {{NavigationEvent}}
+    with its {{NavigationEvent/dir}} set to <var>direction</var> and {{NavigationEvent/relatedTarget}} set to <var>bestCandidate</var>
+    and with it's <code>bubbles</code> and <code>cancelable</code> attributes set to <code>true</code>,
+    and return if the result is <code>false</code></span>
+11. Run the <a>focusing steps</a> for <var>bestCandidate</var> and return
+
+</div>
+
+<h3 id=heuristics>
+Focus Navigation Heuristics</h3>
+
+Note: The following algorithms are inspired from Chrome's implementation
+as well as from the <a href="https://www.w3.org/TR/WICD/#focus-handling">old WICD Spec</a>.
+Implementors who find better approaches or refinements to these approaches are strongly
+encouraged to provide feedback and help improve this specification
+in order to maximize interoperability.
+In particular, divergences in how User Agents <a>find focusable areas</a>
+may cause some elements to be focusable in some User Agents but not in others,
+which would be bad for users.
+
+All geometrical operations in this section are defined to work on the result of CSS layout,
+including all graphical transformations, such as <a>relative positioning</a> or [[CSS-TRANSFORMS-1]].
+
+The <dfn>boundary box</dfn> of an object is defined as follows:
+* if the object is a point, the boundary box is that point
+* if the object is a [=box=] or [=box fragment=], the boundary box is the <a>border box</a> of that box or fragment.
+* if the object is a <a>focusable area</a> which is not an element, the boundary box is the axis-aligned the bounding box of that <a>focusable area</a>
+
+Issue(w3c/csswg-drafts#2324): CSS should have a term for “border box taking into account corner shaping properties like border-radius”.
+
+<div algorithm="to find focusable areas">
+
+To <dfn lt="find focusable areas | finding focusable areas">find focusable areas</dfn> within a containing element <var>C</var>,
+with an optional <var>visibleOnly</var> argument that defaults to <code>true</code>,
+follow the following steps:
+
+1. Let <var>focusables</var> be the <a spec=infra for="/">set</a> of all the <a>focusable areas</a> whose [=DOM anchor=] are descendants of <var>C</var>.
+    In the case of [=boxes=] with several [=box fragments=], each [=box fragment=] is considered separately.
+2. The UA should <a spec=infra for=set>remove</a> from <var>focusables</var> items that have a [=DOM anchor=] whose <a element-attr spec=html><code>tabindex</code></a> attribute is set to a negative value.
+
+    Note: This is a "SHOULD" in order to mirror the exclusion of elements with negative tabindex
+    from the <a>sequential focus navigation order</a> as defined in [[HTML#the-tabindex-attribute]].
+3. If <var>visibleOnly</var> is <code>false</code>,
+    return <var>focusables</var>.
+
+    Note: <var>focusables</var> may be empty
+4. Let <var>insideArea</var> be
+    * the <a>optimal viewing region</a> of <var>C</var> if <var>C</var> is a <a>scroll container</a>,
+    * the viewport of C's <a for="/">browsing context</a> if <var>C</var> is a <a>Document</a>,
+    * the <a>border box</a> of <var>C</var> otherwise.
+5. Let <var>visibles</var> be the subset of items in <var>focusables</var>
+    whose <a>boundary box</a>
+    is at least partly within <var>insideArea</var>.
+
+    <div class="advisement non-normative">
+    Except for elements that are in the currently non visible part of a scroller,
+    spatial navigation does not automatically exclude
+    elements which cannot be clicked on,
+    for example due to being obscured by some other element.
+    To avoid breaking assumptions in
+    the application logic if a user actually focuses and activates such an element,
+    and to avoid confusing users by focusing invisible or apparently unreachable elements,
+    authors should use make these elements unreachable to spatial navigation
+    using the same best practices as for making elements unreachable to sequential navigation,
+    such as using <code>tab-index="-1"</code>
+    or the <a href="https://github.com/WICG/inert"><code>inert</code></a> attribute.
+    </div>
+
+6. Return <var>visibles</var>.
+
+    Note: <var>visibles</var> may be empty
+
+</div>
+
+<div algorithm="to select the best candidate">
+
+To <dfn lt="select the best candidate | selecting the best candidate">select the best candidate</dfn>
+within a <a spec=infra for="/">set</a> of <var>candidates</var>
+in a direction <var>dir</var>,
+starting from <var>starting point</var>,
+follow the following steps:
+
+1. If <var>candidates</var> is <a spec=infra for=set>empty</a>, return <code>null</code>
+2. If <var>candidates</var> contains a single item, return that item
+3. Let <var>insideArea</var> be
+    * the <a>optimal viewing region</a> of <var>starting point</var> if <var>starting point</var> is a <a>scroll container</a>,
+    * the viewport if <var>starting point</var> is a <a>Document</a>,
+    * the <a>border box</a> of <var>starting point</var> otherwise.
+4. Let <var>insiders</var> be the subset of <var>candidates</var> items
+    whose [=DOM anchor=] are descendants of <var>starting point</var>
+    and whose <a>boundary box</a>'s
+    * top edge is below the top edge of <var>insideArea</var> if <var>D</var> is <code>down</code>
+    * bottom edge is above the bottom edge of <var>insideArea</var> if <var>D</var> is <code>up</code>
+    * right edge is left of the right edge of <var>insideArea</var> if <var>D</var> is <code>left</code>
+    * left edge is right of the left edge of <var>insideArea</var> if <var>D</var> is <code>right</code>
+
+    Note: this sub-setting is necessary to avoid going in the opposite direction than the one requested.
+5.
+    * If <var>insiders</var> is non empty
+        1. Let <var>closest subset</var> be the subset of <var>insiders</var> whose <a>boundary box</a>'s
+            * top edge is closest to the top edge of <var>insideArea</var> if <var>D</var> is <code>down</code>
+            * bottom edge is closest to the bottom edge of <var>insideArea</var> if <var>D</var> is <code>up</code>
+            * right edge is closest to the right edge of <var>insideArea</var> if <var>D</var> is <code>left</code>
+            * left edge is closest to the left edge of <var>insideArea</var> if <var>D</var> is <code>right</code>
+        2. If <var>closest subset</var> contains a single item,
+            return that item,
+            else return the first item of <var>closest subset</var> in document order,
+            unless its [=boundary box=] overlaps with the [=boundary box=] of an other item
+            and that item is higher in the CSS [=painting order=].
+            In that case, return that item instead,
+            unless it too is overlapped with another higher item, recursively.
+
+    * Else
+        1. Set <var>candidates</var> be the subset of its items
+            whose <a>boundary box</a>'s geometric center is within the closed half plane
+            whose boundary goes through the geometric center of the <var>starting point</var>
+            and is perpendicular to <var>D</var>.
+        2. For each <var>candidate</var> in <var>candidates</var>,
+            find the points <var>P1</var> inside the <a>boundary box</a> of <var>starting point</var>
+            and <var>P2</var> inside the <a>boundary box</a> of <var>candidate</var>
+            that minimize the <var>distance</var> between these two points,
+            when <var>distance</var> is defined as follows:
+
+            <dl>
+              <dt><var>distance</var>:
+                <dd><var>A</var> + <var>B</var> + <var>C</var> - <var>D</var>
+
+              <dt><var>A</var>:
+                <dd>The euclidian distance between <var>P1</var> and <var>P2</var>
+
+              <dt><var>B</var>:
+                <dd>The absolute distance in the <var>dir</var> direction between <var>P1</var> and <var>P2</var>
+
+              <dt><var>C</var>:
+                <dd>The absolute distance in the direction which is orthogonal to <var>dir</var> between <var>P1</var> and <var>P2</var>
+
+              <dt><var>D</var>:
+                <dd>The square root of the area of intersection between the <a>boundary boxes</a> of <var>candidate</var> and <var>starting point</var>
+            </dl>
+        3. Return the item of the <var>candidates</var> set that has the smallest <var>distance</var>.
+            If several have the same distance,
+            return the first one in document order,
+            unless its [=boundary box=] overlaps with the [=boundary box=] of an other item at the same distance,
+            and that item is higher in the CSS [=painting order=].
+            In that case, return that item instead,
+            unless it too is overlapped with another higher item at the same distance, recursively.
+
+
+</div>
+
+<div class=cssapi>
+<h2 id=declarative>
+Controlling spatial navigation through declarative means</h2>
+
+<h3 id=container>
+Creating additional spatial navigation containers: the 'spatial-navigation-contain' property</h3>
+
+<pre class='propdef'>
+Name: spatial-navigation-contain
+Value: auto | contain
+Initial: auto
+Inherited: no
+</pre>
+
+<dl dfn-for=spatial-navigation-contain dfn-type=value>
+    <dt><dfn>auto</dfn>
+    <dd>If the element is a <a>scroll container</a>
+        then it establishes a <a>spatial navigation focus container</a>,
+        otherwise it does not.
+
+    <dt><dfn>contain</dfn>
+    <dd>The element establishes a <a>spatial navigation focus container</a>
+</dl>
+
+Note: In addition, as per [[#grouping]], the viewport of a <a for="/">browsing context</a>
+        (not limited to the <a>top-level browsing context</a>)
+        also establishes a <a>spatial navigation focus container</a>.
+
+<div class=example>
+    The following example shows a simplified TV program schedule or calendar.
+    It has a grid of elements representing TV shows or calendar entries,
+    and some UI buttons around it.
+
+    In this case, the grid is quite sparse,
+    so if the user tries to move down from "Foo",
+    focus would be moved to "Next Week",
+    as it is objectively closer in the down direction.
+    The same is true for going down from "Bar":
+    the focus would be moved to "Previous Week".
+
+    <div class=output>
+        <div id=example-cal>
+            <button>Previous Week</button>
+            <table>
+                <tr><td><th>M<th>T<th>W<th>T<th>F<th>S<th>S
+                <tr><td>0-6<td><td><td><td><td><td><td><a href="#">Foo</a>
+                <tr><td>6-9<td><a href="#">Bar</a><td><td><td><td><td><td>
+                <tr><td>9-12<td><td><td><td><td><td><td>
+                <tr><td>12-18<td><td><td><td><td><td><td>
+                <tr><td>18-21<td><td><td><td><td><td><td>
+                <tr><td>21-24<td><td><td><td><td><td><a href="#">Baz</a><td>
+            </table>
+            <button>Next Week</button>
+        </div>
+        <style>
+        #example-cal table, #example-cal td, #example-cal th {
+            border-collapse: collapse;
+            border: solid 1px;
+        }
+        #example-cal th { text-align: center; }
+        #example-cal td { width: 12.5%; }
+        #example-cal {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+        }
+        #example-cal button { align-self: center; }
+
+        /* For browsers that don't support grid */
+        #example-cal table {
+            display:inline-table
+            vertical-align: middle;
+        }
+        </style>
+    </div>
+    <pre><code highlight=markup>
+        &lt;div>
+            &lt;button>Previous Week&lt;/button>
+            &lt;table>
+                &lt;tr>&lt;td>&lt;th>M&lt;th>T&lt;th>W&lt;th>T&lt;th>F&lt;th>S&lt;th>S
+                &lt;tr>&lt;td>0-6&lt;td>&lt;td>&lt;td>&lt;td>&lt;td>&lt;td>&lt;td>&lt;a href="#">Foo&lt;/a>
+                &lt;tr>&lt;td>6-9&lt;td>&lt;a href="#">Bar&lt;/a>&lt;td>&lt;td>&lt;td>&lt;td>&lt;td>&lt;td>
+                &lt;tr>&lt;td>9-12&lt;td>&lt;td>&lt;td>&lt;td>&lt;td>&lt;td>&lt;td>
+                &lt;tr>&lt;td>12-18&lt;td>&lt;td>&lt;td>&lt;td>&lt;td>&lt;td>&lt;td>
+                &lt;tr>&lt;td>18-21&lt;td>&lt;td>&lt;td>&lt;td>&lt;td>&lt;td>&lt;td>
+                &lt;tr>&lt;td>21-24&lt;td>&lt;td>&lt;td>&lt;td>&lt;td>&lt;td>&lt;a href="#">Baz&lt;/a>&lt;td>
+            &lt;/table>
+            &lt;button>Next Week&lt;/button>
+        &lt;/div>
+    </code></pre>
+    <pre><code highlight=css>
+        table, td, th {
+            border-collapse: collapse;
+            border: solid 1px;
+        }
+        td { width: 12.5%; }
+        div {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+        }
+        button { align-self: center; }
+    </code></pre>
+
+    Because the elements in the table are semantically related to eachother,
+    the author may want to provide a different navigation experience
+    giving priority to movements inside the grid once you have focused one of its items.
+
+    Adding <code highlight=css>table { spatial-navigation-contain: contain; }</code> to the stylesheet
+    would result it this behavior.
+    It would still be possible to move the focus out of the table,
+    for example by going right from "Foo".
+    Since there is nothing in the grid that is to the right,
+    the focus would move to "Next week".
+
+    However, if the user navigates down from "Foo",
+    there is something inside the grid,
+    so focus will move there without considering things that are outside.
+</div>
+
+Note: the 'spatial-navigation-contain' property is <a>at-risk</a>.
+
+</div>
+
+<h2 class=no-num id=scrolling>Appendix A. Scroll extensions</h2>
+
+This section proposes a few extensions to CSS
+that should be integrated in upstream specifications,
+but are hosted here until then.
+
+<div algorithm>
+
+Issue(w3c/csswg-drafts#2322): Terminology like this should be in [[CSSOM-VIEW-1]], [[CSS-OVERFLOW-3]], [[CSS-SCROLL-SNAP-1]].
+
+An element <var>e</var> <dfn lt="can be manually scrolled | can be scrolled manually | cannot be scrolled manually | cannot be manually scrolled">can be manually scrolled</dfn> in a given direction <var>d</var> if:
+* The <a>principal box</a> established by <var>e</var> is a <a>scroll container</a>, and
+* if <var>d</var> is <code>up</code> or <code>down</code>, the computed value of the 'overflow-y' property is not ''overflow/hidden'', and
+* if <var>d</var> is <code>left</code> or <code>right</code>, the computed value of the 'overflow-x' property is not ''overflow/hidden'', and
+* <var>e</var> is not at the <a>scroll boundary</a> in the direction <var>d</var>
+* <var>e</var> is not snapped to the last ''mandatory'' snap point in direction <var>d</var>
+
+</div>
+
+<div algorithm="to directionally scroll an element">
+
+Issue(w3c/csswg-drafts#2323): [[CSSOM-VIEW-1]] should probably define
+how to perform a scroll in a given direction without an explicit position.
+Until then, we roll our own.
+
+To <dfn lt="directionally scroll an element | directionally scroll the element">directionally scroll an element</dfn> <var>e</var> in direction <var>dir</var>:
+
+1. Let <var>d</var> be a User Agent defined distance.
+2. Let <var>x</var> be <var>e</var>’s current scroll position on the x axis.
+3. Let <var>y</var> be <var>e</var>’s current scroll position on the y axis.
+4. Use the <a spec=CSSOM-VIEW-1>scroll an element</a> algorithm from [[!CSSOM-VIEW-1]] on <var>e</var> to
+    * (<var>x</var>, <var>y</var> - <var>d</var>) if <var>dir</var> is <code>up</code>
+    * (<var>x</var>, <var>y</var> + <var>d</var>) if <var>dir</var> is <code>down</code>
+    * (<var>x</var> - <var>d</var>, <var>y</var>) if <var>dir</var> is <code>left</code>
+    * (<var>x</var> + <var>d</var>, <var>y</var>) if <var>dir</var> is <code>right</code>
+
+</div>
+
+
+<h2 class=no-num id=ack>Acknowledgements</h2>
+
+The editors of this specification would like to thank the following individuals for their feedback and contributions (in alphabetical order):
+* Alice Boxhall
+* Brian Kardell
+* Elika Etemad
+* Hugo Holgersson
+* Hyojin Song
+* Junho Seo
+* Rob Dodson
+* Seungcheon Baek
