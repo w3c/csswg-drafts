@@ -10,7 +10,7 @@ such as pressing the <code class="key">Shift</code> key together with arrow keys
 
 This ability to move around the page directionally is called <strong>spatial navigation</strong>.
 
-An [experimental Polyfill](./polyfill/) is available.
+An [experimental Polyfill](https://wicg.github.io/spatial-navigation/polyfill/) is available.
 
 ## What are we going to solve?
 
@@ -98,7 +98,7 @@ There are some use cases which need interrupting the default spatial navigation 
 
 ## How are we going to solve?
 
-The [specification of spatial navigation](https://wicg.github.io/spatial-navigation/) introduces the processing model for spatial navigation which explains the default spatial navigation behavior.
+The [specification of spatial navigation](https://drafts.csswg.org/css-nav-1/) introduces the processing model for spatial navigation which explains the default spatial navigation behavior.
 Also, it proposes Javascript APIs, Javascript Events, and a CSS property
 to extend how spatial navigation work.
 
@@ -125,7 +125,7 @@ or scroll if there is no appropriate item.
 More specifically,
 the User Agent will first search for visible and focusable items
 in the direction indicated
-within the current [spatial navigation focus container](https://wicg.github.io/spatial-navigation/#spatial-navigation-focus-container)
+within the current [spatial navigation focus container](https://drafts.csswg.org/css-nav-1/#spatial-navigation-focus-container)
 (by default the root element, scrollable elements, and iframes,
 but other elements can be made into spatial navigation focus containers
 using the `spatial-navigation-contain` property).
@@ -160,7 +160,7 @@ The example below shows the simplest flow of spatial navigation when the user pr
 
 ![<img> The photo gallery page arranged in a grid layout](images/processing-model-basic.png)
 
-The detailed behavior is described in the [Processing Model](https://wicg.github.io/spatial-navigation/#processing-model).
+The detailed behavior is described in the [Processing Model](https://drafts.csswg.org/css-nav-1/#processing-model).
 
 ### Overriding the heuristic algorithm
 Authors may want to customize the spatial navigation by overriding the heuristic spatial navigation.
@@ -258,7 +258,7 @@ it will have a grid of elements representing TV shows or calendar entries,
 and some UI buttons around it.
 Here's a simplified demo:
 http://output.jsbin.com/cuyasob
-(also available as [example 11 in the specification](example-34c13432)).
+(also available as [example 11 in the specification](https://drafts.csswg.org/css-nav-1/#example-34c13432)).
 
 In this case, the grid is quite sparse,
 so if you try to move down from "Foo",
