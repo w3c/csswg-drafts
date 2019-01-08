@@ -139,7 +139,7 @@ It is modeled after {{MutationObserver}} and {{IntersectionObserver}}.
 
 <pre class="idl">
     enum ResizeObserverBoxOptions {
-        "border-box", "content-box", "scroll-box"
+        "border-box", "content-box", "scroll-box", "device-pixel-border-box"
     };
 </pre>
 
@@ -148,6 +148,12 @@ ResizeObserver can observe different kinds of CSS sizes:
 * {{border-box}}  : size of <a>box border area</a> as defined in CSS2.
 * {{content-box}} : size of <a>content area</a> as defined in CSS2.
 * {{scroll-box}}  : the <a>scrollport</a> of the <a>scroll container</a>.
+* {{device-pixel-border-box}} : border-box size in device pixels.
+
+{{device-pixel-border-box}} is slightly different from other sizes.
+It can only be observed for {{HTMLCanvasElement}}.
+It can change even when css has only changed location due to rounding,
+because device-pixel sizes are never fractional.
 
 <pre class="idl">
     dictionary ResizeObserverOptions {
@@ -162,10 +168,10 @@ In this case, author will need to use multiple ResizeObservers.
 
 <pre highlight="js">
     // Observe the content-box
-    ro.observe(document.querySelector('#menu'));
+    ro.observe(document.querySelector('#menu'), { box: 'content-box' });
 
     // Observe just the border box. Replaces previous observation.
-    ro.observe(document.querySelector('#menu'), 'border-box');
+    ro.observe(document.querySelector('#menu'), { box: 'border-box' });
 </pre>
 
 <p class="note">This does not have any impact on which box dimensions are returned to the defined callback when the event is fired,
@@ -196,11 +202,21 @@ interface ResizeObserver {
     ::
         Adds target to the list of observed elements.
 
-        1. If |target| is in {{ResizeObserver/observationTargets}} slot, call unobserve(<var>target</var>).
+        1. If |options|.box is "device-pixel-border-box" and |target|'s interface is not
+            {{HTMLCanvasElement}} then raise an error.
 
-        2. Let |resizeObservation| be new {{ResizeObservation}}(<var>target</var>, <var>options</var>).
+            1. Create new {{ErrorEvent}} |error|, with message
+                "Only &lt;canvas&gt; elements can observe 'device-pixel-border-box'."
 
-        3. Add the |resizeObservation| to the <var>observationTargets</var> slot.
+            2. Report an exception |error|.
+
+            3. Return.
+
+        2. If |target| is in {{ResizeObserver/observationTargets}} slot, call unobserve(<var>target</var>).
+
+        3. Let |resizeObservation| be new {{ResizeObservation}}(<var>target</var>, <var>options</var>).
+
+        4. Add the |resizeObservation| to the <var>observationTargets</var> slot.
 
     :  <dfn method for="ResizeObserver">unobserve(target)</dfn>
     ::
@@ -217,6 +233,8 @@ interface ResizeObserver {
         1. Clear the {{ResizeObserver/observationTargets}} list.
 
         2. Clear the {{ResizeObserver/activeTargets}} list.
+
+        3. Remove |this| from {{Document}}.<var>resizeObservers</var> slot.
 
 </div>
 
@@ -239,11 +257,12 @@ interface ResizeObserverEntry {
     readonly attribute ResizeObserverSize borderBoxSize;
     readonly attribute ResizeObserverSize contentSize;
     readonly attribute ResizeObserverSize scrollSize;
+    readonly attribute ResizeObserverSize devicePixelBorderBoxSize;
 };
 </pre>
 
-<p class="issue">Do we only want to return the box(es) that were requested to be observed, or all?</p>
-<p class="issue">Do we want to add a note explaining that contentRect is for compatibility reasons, and might be depreciated?</p>
+<p class="issue">Do we only want to return the box(es) that were requested to be observed, or all? Leaning: all</p>
+<p class="issue">Do we want to add a note explaining that contentRect is for compatibility reasons, and might be depreciated? Leaning: yes</p>
 
 <div dfn-type="attribute" dfn-for="ResizeObserverEntry">
     : <dfn>target</dfn>
@@ -261,6 +280,9 @@ interface ResizeObserverEntry {
     : <dfn>scrollSize</dfn>
     ::
         {{Element}}'s <a>scrollport</a> when {{ResizeObserverCallback}} is invoked.
+    : <dfn>devicePixelBorderBoxSize</dfn>
+    ::
+        {{Element}}'s <a>border box</a> size in device pixels when {{ResizeObserverCallback}} is invoked.
 </div>
 
 <div dfn-type="method" dfn-for="ResizeObserverEntry">
@@ -279,15 +301,18 @@ interface ResizeObserverEntry {
         5. Set |this|.{{ResizeObserverEntry/scrollSize}} slot to result of <a href="#calculate-box-size">
             computing size given |target| and specificSize of "scroll-box"</a>.
 
-        6. Set |this|.{{ResizeObserverEntry/contentRect}} to logical |this|.{{ResizeObserverEntry/contentSize}}.
+        6. Set |this|.{{ResizeObserverEntry/devicePixelBorderBox}} slot to result of <a href="#calculate-box-size">
+            computing size given |target| and specificSize of "device-pixel-border-box"</a>.
 
-        7. If |target| is not an SVG element do these steps:
+        7. Set |this|.{{ResizeObserverEntry/contentRect}} to logical |this|.{{ResizeObserverEntry/contentSize}}.
+
+        8. If |target| is not an SVG element do these steps:
 
             1. Set |this|.|contentRect|.top to |target|.<a>padding top</a>.
 
             2. Set |this|.|contentRect|.left to |target|.<a>padding left</a>.
 
-        8. If |target| is an SVG element do these steps:
+        9. If |target| is an SVG element do these steps:
 
             1. Set |this|.|contentRect|.top and |this|.contentRect.left to 0.
 
@@ -302,9 +327,12 @@ interface ResizeObserverEntry {
 
 <p class="issue">We're covering the dimensions of the extra boxes, do we want to also cover their positions similiar to that of the initial contentRect?</p>
 
-<h3 id="resize-observation-interface">ResizeObservation</h3>
-ResizeObservation holds observation information for a single {{Element}}. This
-interface is not visible to Javascript.
+<h2 id="processing-model">Processing Model</h2>
+
+<h3 id="resize-observation-interface">ResizeObservation example struct</h3>
+<p class="note">This section is not normative. ResizeObservation is an example struct that can be used in implementation of Resize Observer. It is being
+included here in order to help provide clarity during the processing model. It effectively holds observation information for a single {{Element}}. This
+interface is not visible to Javascript.</p>
 
 <pre class="idl">
 [Constructor(Element target)
@@ -344,39 +372,7 @@ interface ResizeObservation {
 
         3. Return false.
 
-    : <dfn method lt="computeSize(size)">computeSize(size)</dfn>
-    ::
-        1. If |target| is not an SVG element
-
-            1. If |size| is "bounding-box"
-
-                1. Set |computedSize|.inlineSize to target's border-box inline size.
-
-                2. Set |computedSize|.blockSize to target's border-box block size.
-
-            2. If |size| is "content-box"
-
-                1. Set |computedSize|.inlineSize to target's content-box inline size.
-
-                2. Set |computedSize|.blockSize to target's content-box block size.
-
-            3. If |size| is "scoll-box"
-
-                1. Set |computedSize|.inlineSize to target's scrollport inline size.
-
-                2. Set |computedSize|.blockSize to target's scrollport block size.
-
-        2. If |target| is an SVG element
-
-                1. Set |computedSize|.inlineSize to target's bounding box inline size.
-
-                2. Set |computedSize|.blockSize to target's bounding box block size.
-
-        3. return |computedSize|
-
 </div>
-
-<h2 id="processing-model">Processing Model</h2>
 
 <h3 id="internal-slot-definitions">Internal Slot Definitions</h3>
 
@@ -497,6 +493,9 @@ run these steps:
 
             3. Matching size is |entry|.{{ResizeObserverEntry/scrollSize}} if |observation|.{{ResizeObservation/observedBox}} is "scroll-box"
 
+            4. Matching size is |entry|.{{ResizeObserverEntry/devicePixelBorderBoxSize}}
+                if |observation|.{ResizeObservation/observedBox}} is "device-pixel-border-box"
+
         4. Set |targetDepth| to the result of <a>calculate depth for node</a> for |observation|.{{ResizeObservation/target}}.
 
         5. Set |shallowestTargetDepth| to |targetDepth| if |targetDepth| < |shallowestTargetDepth|
@@ -513,9 +512,9 @@ To <dfn>deliver resize loop error notification</dfn> run these steps:
 
     1. Create a new {{ErrorEvent}}.
 
-    2. Initialize event's message slot to "ResizeObserver loop completed with undelivered notifications.".
+    2. Initialize |event|'s message slot to "ResizeObserver loop completed with undelivered notifications.".
 
-    3. Dispach the event to document's window.
+    3. Report the exception |event|.
 
 <h4 id="calculate-depth-for-node-h">Calculate depth for node</h4>
 
