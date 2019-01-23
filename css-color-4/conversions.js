@@ -190,7 +190,7 @@ function XYZ_to_Lab(XYZ) {
 	// from CIE standard, which now defines these as a rational fraction
 	var ε = 216/24389;  // 6^3/29^3
 	var κ = 24389/27;   // 29^3/3^3
-	var white = [[0.96422, 1.00000, 0.82521]; // D50 reference white
+	var white = [0.96422, 1.00000, 0.82521]; // D50 reference white
 
 	// compute xyz, which is XYZ scaled relative to reference white
 	var xyz = XYZ.map((value, i) => value / white[i]);
@@ -210,7 +210,7 @@ function Lab_to_XYZ(Lab) {
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	var κ = 24389/27;   // 29^3/3^3
 	var ε = 216/24389;  // 6^3/29^3
-	var white = [[0.96422, 1.00000, 0.82521]; // D50 reference white
+	var white = [0.96422, 1.00000, 0.82521]; // D50 reference white
 	var f = [];
 
 	// compute f, starting with the luminance-related term
