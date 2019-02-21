@@ -199,9 +199,9 @@ function XYZ_to_Lab(XYZ) {
 	var f = xyz.map(value => value > ε ? Math.cbrt(value) : (κ * value + 16)/116);
 
 	return [
-		(116 * f[1]) - 16, // L
+		(116 * f[1]) - 16, 	 // L
 		500 * (f[0] - f[1]), // a
-		200 * (f[1] - f[2]) // b
+		200 * (f[1] - f[2])  // b
 	];
 }
 
@@ -231,10 +231,11 @@ function Lab_to_XYZ(Lab) {
 
 function Lab_to_LCH(Lab) {
 	// Convert to polar form
+	var hue = Math.atan2(Lab[2], Lab[1]) * 180 / Math.PI;
 	return [
 		Lab[0], // L is still L
 		Math.sqrt(Math.pow(Lab[1], 2) + Math.pow(Lab[2], 2)), // Chroma
-		Math.atan2(Lab[2], Lab[1]) * 180 / Math.PI // Hue, in degrees
+		hue >= 0 ? hue : hue + 360 // Hue, in degrees [0 to 360)
 	];
 }
 
