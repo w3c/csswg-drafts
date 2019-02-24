@@ -50,29 +50,25 @@ function XYZ_to_lin_sRGB(XYZ) {
 	return math.multiply(M, XYZ).valueOf();
 }
 
-// DCI P3-related functions
+//  image-3-related functions
 
 
 function lin_P3(RGB) {
-	// convert an array of DCI P3 RGB values in the range 0.0 - 1.0
+	// convert an array of image-p3 RGB values in the range 0.0 - 1.0
 	// to linear light (un-companded) form.
 
-	return RGB.map(function (val) {
-		return Math.pow(val, 2.6);
-	});
+	return lin_sRGB(RGB);	// same as sRGB
 }
 
 function gam_P3(RGB) {
-	// convert an array of linear-light P3 RGB  in the range 0.0-1.0
+	// convert an array of linear-light image-p3 RGB  in the range 0.0-1.0
 	// to gamma corrected form
 
-	return RGB.map(function (val) {
-			return Math.pow(val, 1/2.6);
-	});
+	return gam_sRGB(RGB);	// same as sRGB
 }
 
 function lin_P3_to_XYZ(rgb) {
-	// convert an array of linear-light P3 values to CIE XYZ
+	// convert an array of linear-light image-p3 values to CIE XYZ
 	// using  D65 (no chromatic adaptation)
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	var M = math.matrix([
