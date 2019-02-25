@@ -100,7 +100,7 @@ function lin_ProPhoto(RGB) {
 	return RGB.map(function (val) {
 	  return Math.pow(val, 1.8);
 	});
-  }
+}
 
 function gam_ProPhoto(RGB) {
 	// convert an array of linear-light ProPhotoRGB  in the range 0.0-1.0
@@ -108,7 +108,7 @@ function gam_ProPhoto(RGB) {
 	return RGB.map(function (val) {
 		return Math.pow(val, 1/1.8);
 	});
-  }
+}
 
 function lin_ProPhoto_to_XYZ(rgb) {
 	// convert an array of linear-light ProPhotoRGB values to CIE XYZ
@@ -121,7 +121,7 @@ function lin_ProPhoto_to_XYZ(rgb) {
 	]);
 
 	return Math.multiply(M, rgb).valueOf();
-  }
+}
 
 function XYZ_to_lin_ProPhoto(XYZ) {
 	// convert XYZ to linear-light ProPhotoRGB
@@ -129,7 +129,52 @@ function XYZ_to_lin_ProPhoto(XYZ) {
   	[  1.3457989731028281,  -0.25558010007997534,  -0.05110628506753401 ],
   	[ -0.5446224939028347,   1.5082327413132781,    0.02053603239147973 ],
   	[  0.0,                  0.0,                   1.2119675456389454  ]
+	]);
 
+	return Math.multiply(M, XYZ).valueOf();
+}
+
+// a98rgb functions
+
+function lin_a98rgb(RGB) {
+	// convert an array of a98rgb values in the range 0.0 - 1.0
+	// to linear light (un-companded) form.
+	return RGB.map(function (val) {
+	  return Math.pow(val, 563/256);
+	});
+}
+
+function gam_a98rgb(RGB) {
+	// convert an array of linear-light a98rgb  in the range 0.0-1.0
+	// to gamma corrected form
+	return RGB.map(function (val) {
+		return Math.pow(val, 256/563);
+	});
+}
+
+function lin_a98rgb_to_XYZ(rgb) {
+	// convert an array of linear-light ProPhotoRGB values to CIE XYZ
+	// using  D50 (so no chromatic adaptation needed afterwards)
+	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
+	var M = Math.matrix([
+	[ 0.5766690429101305,   0.1855582379065463,   0.1882286462349947  ],
+	[ 0.29734497525053605,  0.6273635662554661,   0.07529145849399788 ]​,
+	[ 0.02703136138641234,  0.07068885253582723,  0.9913375368376388  ]
+	]);
+
+	return Math.multiply(M, rgb).valueOf();
+}
+
+function XYZ_to_lin_a98rgb(XYZ) {
+	// convert XYZ to linear-light ProPhotoRGB
+	var M = Math.matrix([
+	[  2.0415879038107465,    -0.5650069742788596,   -0.34473135077832956 ],
+​	 [ -0.9692436362808795,     1.8759675015077202,    0.04155505740717557 ],
+​	 [  0.013444280632031142,  -0.11836239223101838,   1.0151749943912054  ]
+	]);
+
+	return Math.multiply(M, XYZ).valueOf();
+}
 
 //Rec. 2020-related functions
 
