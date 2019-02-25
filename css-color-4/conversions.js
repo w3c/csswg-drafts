@@ -328,5 +328,4 @@ function LCH_to_Lab(LCH) {
 	];
 }
 
-// DCI P3 functions
 
