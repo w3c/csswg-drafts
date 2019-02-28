@@ -50,29 +50,25 @@ function XYZ_to_lin_sRGB(XYZ) {
 	return math.multiply(M, XYZ).valueOf();
 }
 
-// DCI P3-related functions
+//  image-3-related functions
 
 
 function lin_P3(RGB) {
-	// convert an array of DCI P3 RGB values in the range 0.0 - 1.0
+	// convert an array of image-p3 RGB values in the range 0.0 - 1.0
 	// to linear light (un-companded) form.
 
-	return RGB.map(function (val) {
-		return Math.pow(val, 2.6);
-	});
+	return lin_sRGB(RGB);	// same as sRGB
 }
 
 function gam_P3(RGB) {
-	// convert an array of linear-light P3 RGB  in the range 0.0-1.0
+	// convert an array of linear-light image-p3 RGB  in the range 0.0-1.0
 	// to gamma corrected form
 
-	return RGB.map(function (val) {
-			return Math.pow(val, 1/2.6);
-	});
+	return gam_sRGB(RGB);	// same as sRGB
 }
 
 function lin_P3_to_XYZ(rgb) {
-	// convert an array of linear-light P3 values to CIE XYZ
+	// convert an array of linear-light image-p3 values to CIE XYZ
 	// using  D65 (no chromatic adaptation)
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	var M = math.matrix([
@@ -94,6 +90,90 @@ function XYZ_to_lin_P3(XYZ) {
 	]);
 
 	return math.multiply(M, XYZ).valueOf();
+}
+
+// ProPhotoRGB functions
+
+function lin_ProPhoto(RGB) {
+	// convert an array of ProPhotoRGB values in the range 0.0 - 1.0
+	// to linear light (un-companded) form.
+	return RGB.map(function (val) {
+	  return Math.pow(val, 1.8);
+	});
+}
+
+function gam_ProPhoto(RGB) {
+	// convert an array of linear-light ProPhotoRGB  in the range 0.0-1.0
+	// to gamma corrected form
+	return RGB.map(function (val) {
+		return Math.pow(val, 1/1.8);
+	});
+}
+
+function lin_ProPhoto_to_XYZ(rgb) {
+	// convert an array of linear-light ProPhotoRGB values to CIE XYZ
+	// using  D50 (so no chromatic adaptation needed afterwards)
+	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
+	var M = Math.matrix([
+	[ 0.7977604896723027,  0.13518583717574031,  0.0313493495815248     ],
+	[ 0.2880711282292934,  0.7118432178101014,   0.00008565396060525902 ],
+	[ 0.0,                 0.0,                  0.8251046025104601     ]
+	]);
+
+	return Math.multiply(M, rgb).valueOf();
+}
+
+function XYZ_to_lin_ProPhoto(XYZ) {
+	// convert XYZ to linear-light ProPhotoRGB
+	var M = Math.matrix([
+  	[  1.3457989731028281,  -0.25558010007997534,  -0.05110628506753401 ],
+  	[ -0.5446224939028347,   1.5082327413132781,    0.02053603239147973 ],
+  	[  0.0,                  0.0,                   1.2119675456389454  ]
+	]);
+
+	return Math.multiply(M, XYZ).valueOf();
+}
+
+// a98rgb functions
+
+function lin_a98rgb(RGB) {
+	// convert an array of a98rgb values in the range 0.0 - 1.0
+	// to linear light (un-companded) form.
+	return RGB.map(function (val) {
+	  return Math.pow(val, 563/256);
+	});
+}
+
+function gam_a98rgb(RGB) {
+	// convert an array of linear-light a98rgb  in the range 0.0-1.0
+	// to gamma corrected form
+	return RGB.map(function (val) {
+		return Math.pow(val, 256/563);
+	});
+}
+
+function lin_a98rgb_to_XYZ(rgb) {
+	// convert an array of linear-light ProPhotoRGB values to CIE XYZ
+	// using  D50 (so no chromatic adaptation needed afterwards)
+	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
+	var M = Math.matrix([
+	[ 0.5766690429101305,   0.1855582379065463,   0.1882286462349947  ],
+	[ 0.29734497525053605,  0.6273635662554661,   0.07529145849399788 ]​,
+	[ 0.02703136138641234,  0.07068885253582723,  0.9913375368376388  ]
+	]);
+
+	return Math.multiply(M, rgb).valueOf();
+}
+
+function XYZ_to_lin_a98rgb(XYZ) {
+	// convert XYZ to linear-light ProPhotoRGB
+	var M = Math.matrix([
+	[  2.0415879038107465,    -0.5650069742788596,   -0.34473135077832956 ],
+​	 [ -0.9692436362808795,     1.8759675015077202,    0.04155505740717557 ],
+​	 [  0.013444280632031142,  -0.11836239223101838,   1.0151749943912054  ]
+	]);
+
+	return Math.multiply(M, XYZ).valueOf();
 }
 
 //Rec. 2020-related functions
@@ -190,7 +270,7 @@ function XYZ_to_Lab(XYZ) {
 	// from CIE standard, which now defines these as a rational fraction
 	var ε = 216/24389;  // 6^3/29^3
 	var κ = 24389/27;   // 29^3/3^3
-	var white = [[0.96422, 1.00000, 0.82521]; // D50 reference white
+	var white = [0.96422, 1.00000, 0.82521]; // D50 reference white
 
 	// compute xyz, which is XYZ scaled relative to reference white
 	var xyz = XYZ.map((value, i) => value / white[i]);
@@ -199,9 +279,9 @@ function XYZ_to_Lab(XYZ) {
 	var f = xyz.map(value => value > ε ? Math.cbrt(value) : (κ * value + 16)/116);
 
 	return [
-		(116 * f[1]) - 16, // L
+		(116 * f[1]) - 16, 	 // L
 		500 * (f[0] - f[1]), // a
-		200 * (f[1] - f[2]) // b
+		200 * (f[1] - f[2])  // b
 	];
 }
 
@@ -210,7 +290,7 @@ function Lab_to_XYZ(Lab) {
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	var κ = 24389/27;   // 29^3/3^3
 	var ε = 216/24389;  // 6^3/29^3
-	var white = [[0.96422, 1.00000, 0.82521]; // D50 reference white
+	var white = [0.96422, 1.00000, 0.82521]; // D50 reference white
 	var f = [];
 
 	// compute f, starting with the luminance-related term
@@ -231,10 +311,11 @@ function Lab_to_XYZ(Lab) {
 
 function Lab_to_LCH(Lab) {
 	// Convert to polar form
+	var hue = Math.atan2(Lab[2], Lab[1]) * 180 / Math.PI;
 	return [
 		Lab[0], // L is still L
 		Math.sqrt(Math.pow(Lab[1], 2) + Math.pow(Lab[2], 2)), // Chroma
-		Math.atan2(Lab[2], Lab[1]) * 180 / Math.PI // Hue, in degrees
+		hue >= 0 ? hue : hue + 360 // Hue, in degrees [0 to 360)
 	];
 }
 
@@ -247,5 +328,4 @@ function LCH_to_Lab(LCH) {
 	];
 }
 
-// DCI P3 functions
 

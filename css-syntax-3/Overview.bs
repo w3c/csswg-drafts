@@ -419,7 +419,7 @@ Preprocessing the input stream</h3>
 			by a single U+000A LINE FEED (LF) <a>code point</a>.
 
 		<li>
-			Replace any U+0000 NULL <a>code point</a> with U+FFFD REPLACEMENT CHARACTER (�).
+			Replace any U+0000 NULL or <a>surrogate</a> <a>code points</a> with U+FFFD REPLACEMENT CHARACTER (�).
 	</ul>
 
 
@@ -1203,6 +1203,12 @@ Consume a url token</h4>
 	It returns either a <<url-token>> or a <<bad-url-token>>.
 
 	Note: This algorithm assumes that the initial "url(" has already been consumed.
+	This algorithm also assumes that it's being called to consume an "unquoted" value,
+	like ''url(foo)''.
+	A quoted value, like ''url("foo")'',
+	is parsed as a <<function-token>>.
+	<a>Consume an ident-like token</a> automatically handles this distinction;
+	this algorithm shouldn't be called directly otherwise.
 
 	<ol>
 		<li>
@@ -1210,11 +1216,6 @@ Consume a url token</h4>
 
 		<li>
 			Consume as much <a>whitespace</a> as possible.
-
-		<li>
-			If the <a>next input code point</a> is EOF,
-			this is a <a>parse error</a>.
-			Return the <<url-token>>.
 
 		<li>
 			Repeatedly consume the <a>next input code point</a> from the stream:
@@ -1276,7 +1277,7 @@ Consume an escaped code point</h4>
 	This section describes how to <dfn>consume an escaped code point</dfn>.
 	It assumes that the U+005C REVERSE SOLIDUS (\) has already been consumed
 	and that the next input code point has already been verified
-	to not be a <a>newline</a> or EOF.
+	to be part of a valid escape.
 	It will return a <a>code point</a>.
 
 	Consume the <a>next input code point</a>.
@@ -1295,6 +1296,11 @@ Consume an escaped code point</h4>
 			or is greater than the <a>maximum allowed code point</a>,
 			return U+FFFD REPLACEMENT CHARACTER (�).
 			Otherwise, return the <a>code point</a> with that value.
+
+		<dt>EOF
+		<dd>
+			This is a <a>parse error</a>.
+			Return U+FFFD REPLACEMENT CHARACTER (�).
 
 		<dt>anything else
 		<dd>
@@ -1319,7 +1325,7 @@ Check if two code points are a valid escape</h4>
 	return false.
 
 	Otherwise,
-	if the second <a>code point</a> is a <a>newline</a> or EOF,
+	if the second <a>code point</a> is a <a>newline</a>,
 	return false.
 
 	Otherwise, return true.
@@ -2020,11 +2026,6 @@ Parse a stylesheet</h4>
 			Let the return value be <var>rules</var>.
 
 		<li>
-			If the first rule in <var>rules</var> is an <a>at-rule</a> with a name
-			that is an <a>ASCII case-insensitive</a> match for "charset",
-			remove it from <var>rules</var>.
-
-		<li>
 			Assign <var>rules</var> to the stylesheet's value.
 
 		<li>
@@ -2245,9 +2246,8 @@ Consume a list of rules</h4>
 		<dt><<at-keyword-token>>
 		<dd>
 			<a>Reconsume the current input token</a>.
-			<a>Consume an at-rule</a>.
-			If anything is returned,
-			append it to the list of rules.
+			<a>Consume an at-rule</a>,
+			and append the returned value to the list of rules.
 
 		<dt>anything else
 		<dd>
@@ -2701,7 +2701,7 @@ The <code>&lt;an+b></code> type</h3>
 		<li><dfn><code>&lt;dashndashdigit-ident></code></dfn> is an <<ident-token>> whose value is an <a>ASCII case-insensitive</a> match for "-n-*", where "*" is a series of one or more <a>digits</a>
 		<li><dfn><code>&lt;integer></code></dfn> is a <<number-token>> with its type flag set to "integer"
 		<li><dfn><code>&lt;signed-integer></code></dfn> is a <<number-token>> with its type flag set to "integer", and whose <a>representation</a> starts with "+" or "-"
-		<li><dfn><code>&lt;signless-integer></code></dfn> is a <<number-token>> with its type flag set to "integer", and whose <a>representation</a> start with a <a>digit</a>
+		<li><dfn><code>&lt;signless-integer></code></dfn> is a <<number-token>> with its type flag set to "integer", and whose <a>representation</a> starts with a <a>digit</a>
 	</ul>
 
 	<p id="anb-plus">
@@ -3222,13 +3222,6 @@ The ''@charset'' Rule</h3>
 	any occurrences of an ''@charset'' rule must be treated as an unrecognized rule,
 	and thus dropped as invalid when the stylesheet is grammar-checked.
 
-	Note: The algorithm to <a>parse a stylesheet</a> explicitly drops the first ''@charset'' rule from the document,
-	before the stylesheet is grammar-checked,
-	so valid rules that must appear first in the stylesheet,
-	such as ''@import'',
-	can still be preceded by an (invalid) ''@charset'' rule
-	without making themselves invalid.
-
 	Note: In CSS 2.1, ''@charset'' was a valid rule.
 	Some legacy specs may still refer to a ''@charset'' rule,
 	and explicitly talk about its presence in the stylesheet.
@@ -3441,6 +3434,8 @@ Changes from the 20 February 2014 Candidate Recommendation</h3>
 	* Fix several bugs in the tokenization and parsing algorithms.
 
 	* Change the definition of ident-like tokens to allow "--" to start an ident.
+		As part of this, rearrange the ordering of the clauses in the "-" step of <a>consume a token</a>
+		so that <<CDC-token>>s are recognized as such instead of becoming a ''--'' <<ident-token>>.
 
 	* Don't serialize the digit in an <<an+b>> when A is 1 or -1.
 
@@ -3448,10 +3443,16 @@ Changes from the 20 February 2014 Candidate Recommendation</h3>
 
 	* Fixed minor bug in <a>check if two code points are a valid escape</a>--
 		a <code>\</code> followed by an EOF is now correctly reported as <em>not</em> a valid escape.
+		A final <code>\</code> in a stylesheet now just emits itself as a <<delim-token>>.
 
-	* If the very first rule in the sheet is a ''@charset'', dropped it during parsing.
+	* @charset is no longer a valid CSS rule (there's just an encoding declaration that <em>looks</em> like a rule named @charset)
 
 	* Trimmed whitespace from the beginning/ending of a declaration's value during parsing.
+
+	* Removed the Selectors-specific tokens, per WG resolution.
+
+	* Filtered <a>surrogates</a> from the input stream, per WG resolution.
+		Now the entire specification operates only on <a>scalar values</a>.
 
 	The following editorial changes were made:
 
@@ -3464,8 +3465,6 @@ Changes from the 20 February 2014 Candidate Recommendation</h3>
 	* Added the [=CSS/parse=] and [=parse a comma-separated list of component values=] API entry points.
 
 	* Added the <<declaration-value>> and <<any-value>> productions.
-
-	* Removed the Selectors-specific tokens, per WG resolution.
 
 	* Removed "code point" and "surrogate code point" in favor of the identical definitions in the Infra Standard.
 

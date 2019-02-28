@@ -83,7 +83,7 @@ Previous version: https://www.w3.org/TR/2013/WD-web-animations-20130625/
 Version history: https://github.com/w3c/csswg-drafts/commits/master/web-animations-1
 Level: 1
 
-Group: fxtf
+Group: csswg
 !Participate: <a href="https://github.com/w3c/csswg-drafts/tree/master/web-animations-1">Fix the text through GitHub</a>
 !Participate: Join the &lsquo;waapi&rsquo; channel on the <a href="https://damp-lake-50659.herokuapp.com/">Animation at Work</a> slack
 !Participate: IRC: <a href="ircs://irc.w3.org:6667/webanimations">#webanimations</a> on W3C's IRC
@@ -176,6 +176,7 @@ urlPrefix: https://drafts.csswg.org/cssom/; type: dfn; spec: cssom
     text: serialize a CSS value
 urlPrefix: https://drafts.csswg.org/css-transitions/; type: dfn; spec: css-transitions-1
     text: events from CSS transitions; url: transition-events
+    text: transitionend
 urlPrefix: https://drafts.csswg.org/css-animations/; type: dfn; spec: css-animations-1
     text: events from CSS animations; url: events
 urlPrefix: https://drafts.csswg.org/css-writing-modes-4/; type: dfn; spec: css-writing-modes-4
@@ -415,7 +416,7 @@ refer to updating the property directly <em>without</em> invoking any related
 procedure.
 
 Further documentation conventions that are not specific to this specification
-are described in [[#conventions]].
+are described in [[#document-conventions]].
 
 <h2 id="web-animations-model-overview">Web Animations model overview</h2>
 
@@ -2226,9 +2227,8 @@ follows:
 
 :   <a>current</a>
 ::  Corresponds to an <a>animation effect</a> that is either <a>in
-    play</a> or may become <a>in play</a> in the future.
-    This will be the case if the <a>animation effect</a> is <a>in
-    play</a> or in its <a>before phase</a>.
+    play</a> or may become <a>in play</a> in the future based on its
+    [=animation=]'s current [=playback rate=].
 
 :   <a>in effect</a>
 ::  Corresponds to an <a>animation effect</a> that has a resolved
@@ -2291,11 +2291,16 @@ of the following conditions are met:
 2.  the <a>animation effect</a> is <a>associated with an animation</a> that is not
     <a lt="finished play state">finished</a>.
 
-An <a>animation effect</a> is <dfn>current</dfn> if <em>either</em>
-of the following conditions is true:
+An <a>animation effect</a> is <dfn>current</dfn> if <em>any</em>
+of the following conditions are true:
 
-*   the <a>animation effect</a> is in the <a>before phase</a>, or
-*   the <a>animation effect</a> is <a>in play</a>.
+*   the [=animation effect=] is [=in play=], or
+*   the [=animation effect=] is [=associated with an animation=] with
+    a [=playback rate=] &gt; 0 and
+    the [=animation effect=] is in the [=before phase=], or
+*   the [=animation effect=] is [=associated with an animation=] with
+    a [=playback rate=] &lt; 0 and
+    the [=animation effect=] is in the [=after phase=].
 
 An animation effect is <dfn>in effect</dfn> if its <a>active time</a>, as
 calculated according to the procedure in [[#calculating-the-active-time]],
@@ -3218,7 +3223,7 @@ a <a>target element</a> for which computed property values can be calculated.
         &lsquo;16px&rsquo;.
 
         If conflicts arise when expanding shorthand properties or replacing
-        logical properties with physical propertiess, apply the following rules
+        logical properties with physical properties, apply the following rules
         in order until the conflict is resolved:
 
         1.  Longhand properties override shorthand properties (e.g.
@@ -3226,12 +3231,12 @@ a <a>target element</a> for which computed property values can be calculated.
         1.  Shorthand properties with fewer longhand components override those
             with more longhand components (e.g. 'border-top' overrides
             'border-color').
+        1.  Physical properties override logical properties.
         1.  For shorthand properties with an equal number of longhand
             components, properties whose IDL name (see the <a>CSS property to
             IDL attribute</a> algorithm [[!CSSOM]]) appears earlier when
             sorted in ascending order by the Unicode codepoints that make up
             each IDL name, override those who appear later.
-        1.  Physical properties override logical properties.
 
 1.  Apply the procedure to <a>compute missing keyframe offsets</a> to
     <var>computed keyframes</var>.
@@ -5454,9 +5459,11 @@ animation.play();</pre>
     The returned list is sorted using the composite order described
     for the associated <a>animations</a> of effects in [[#the-effect-stack]].
 
-    The returned list reflects the state <em>after</em> applying any pending
-    changes to animation such as changes to animation-related style properties
-    that have yet to be processed.
+    Calling this method triggers a [=style change event=] for the <a>target
+    element</a>.
+    As a result, the returned list reflects the state <em>after</em> applying
+    any pending style changes to animation such as changes to animation-related
+    style properties that have yet to be processed.
 
 </div>
 
@@ -5500,9 +5507,10 @@ partial interface Document {
     The returned list is sorted using the composite order described
     for the associated <a>animations</a> of effects in [[#the-effect-stack]].
 
-    The returned list reflects the state <em>after</em> applying any pending
-    changes to animation such as changes to animation-related style properties
-    that have yet to be processed.
+    Calling this method triggers a [=style change event=] for the document.
+    As a result, the returned list reflects the state <em>after</em> applying
+    any pending style changes to animation such as changes to animation-related
+    style properties that have yet to be processed.
 
     Issue(2054): Both this method and {{Animatable/getAnimations()}} on the
                  {{Animatable}} interface mixin require retaining
@@ -5601,6 +5609,20 @@ dictionary AnimationPlaybackEventInit : EventInit {
 Changes made to any part of the model, cause the entire timing model to be
 updated and any dependent style.
 
+Unless otherwise stated,
+invoking the methods or constructors,
+or getting or setting the members
+of interfaces defined in the programming interface section of this specification
+does <em>not</em> produce a [=style change event=].
+
+Note: Other specifications that extend this specification are expected to refine
+the requirements on [=style change events=] by introducing circumstances where
+such events <em>are</em> triggered.
+For example,
+when the interfaces in this specification represent
+animations defined by CSS markup,
+many of their methods will need to trigger [=style change events=]
+in order to reflect changes to the specified style.
 
 <div class="informative-bg"><em>This section is non-normative</em>
 
@@ -5699,6 +5721,39 @@ window.requestAnimationFrame(function(now) {
 });</pre>
     </div>
 
+:   Calling methods from this programming interface will generally
+    <em>not</em> cause transitions to be triggered
+
+::  Consider the following example:
+
+    <div class="example">
+    <pre class="lang-javascript">
+// Setup transition start point
+div.style.opacity = '1';
+getComputedStyle(div).opacity;
+
+// Setup transition end point
+div.style.transition = 'opacity 1s';
+div.style.opacity = '0';
+
+// Fire an animation
+div.animate({ opacity: [0.5, 1] }, 500);
+
+// Wait for the transition to end -- the following will never be called!
+div.addEventListener('transitionend', () => {
+  console.log('transitionend');
+});</pre>
+    </div>
+
+    In this case, calling {{Animatable/animate()}} will
+    <em>not</em> trigger a [=style change event=].
+    As a result, the pending style change will be processed at the same time
+    as the style change resulting from the new animation.
+    Since the animation style will override
+    the [=before-change style=] and the [=after-change style=],
+    no transition will be generated and
+    the event handler for the [=transitionend=] event will never be called.
+
 </div>
 
 
@@ -5785,7 +5840,11 @@ The following changes have been made since the <a
   href="https://www.w3.org/TR/2018/WD-web-animations-1-20181011/">11 October
 2018 Working Draft</a>:
 
-(None yet)
+*   Made the definition of a [=current=] [=animation effect=] incorporate the
+    associated animation's [=playback rate=] (<a
+    href="https://github.com/w3c/csswg-drafts/issues/3193">#3193</a>).
+*   Updated the steps for resolving which properties to use when calculating
+    [=computed keyframes=] when physical and logical properties are used.
 
 The <a
   href="https://github.com/w3c/csswg-drafts/commits/master/web-animations-1">changelog</a>
