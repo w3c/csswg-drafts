@@ -97,16 +97,26 @@ function XYZ_to_lin_P3(XYZ) {
 function lin_ProPhoto(RGB) {
 	// convert an array of ProPhotoRGB values in the range 0.0 - 1.0
 	// to linear light (un-companded) form.
+	// Transfer curve is gamma 1.0 with a small linear portion
 	return RGB.map(function (val) {
-	  return Math.pow(val, 1.8);
+		if (val < 0.031248) {
+			return val / 16;
+		}
+
+		return Math.pow(val, 1.8);
 	});
 }
 
 function gam_ProPhoto(RGB) {
 	// convert an array of linear-light ProPhotoRGB  in the range 0.0-1.0
 	// to gamma corrected form
+	// Transfer curve is gamma 1.0 with a small linear portion
 	return RGB.map(function (val) {
-		return Math.pow(val, 1/1.8);
+		if (val > 0.001953) {
+			return Math.pow(val, 1/1.8);
+		}
+
+		return 16 * val;
 	});
 }
 
@@ -158,7 +168,7 @@ function lin_a98rgb_to_XYZ(rgb) {
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	var M = Math.matrix([
 	[ 0.5766690429101305,   0.1855582379065463,   0.1882286462349947  ],
-	[ 0.29734497525053605,  0.6273635662554661,   0.07529145849399788 ]​,
+	[ 0.29734497525053605,  0.6273635662554661,   0.07529145849399788 ],
 	[ 0.02703136138641234,  0.07068885253582723,  0.9913375368376388  ]
 	]);
 
@@ -169,8 +179,8 @@ function XYZ_to_lin_a98rgb(XYZ) {
 	// convert XYZ to linear-light ProPhotoRGB
 	var M = Math.matrix([
 	[  2.0415879038107465,    -0.5650069742788596,   -0.34473135077832956 ],
-​	 [ -0.9692436362808795,     1.8759675015077202,    0.04155505740717557 ],
-​	 [  0.013444280632031142,  -0.11836239223101838,   1.0151749943912054  ]
+	[ -0.9692436362808795,     1.8759675015077202,    0.04155505740717557 ],
+	[  0.013444280632031142,  -0.11836239223101838,   1.0151749943912054  ]
 	]);
 
 	return Math.multiply(M, XYZ).valueOf();
