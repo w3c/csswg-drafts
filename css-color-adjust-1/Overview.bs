@@ -1,0 +1,304 @@
+<pre class='metadata'>
+Title: CSS Color Adjust Module Level 1
+Shortname: css-color-adjust
+Level: 1
+Status: ED
+Work Status: exploring
+Group: CSSWG
+ED: https://drafts.csswg.org/css-color-adjust-1/
+Editor: Elika J. Etemad / fantasai, Invited Expert, http://fantasai.inkedblade.net/contact, w3cid 35400
+Editor: Rossen Atanassov, Microsoft, ratan@microsoft.com, w3cid 49885
+Editor: Rune Lillesveen, Google, futhark@google.com
+Editor: Tab Atkins Jr., Google, http://www.xanthir.com/contact/, w3cid 42199
+Abstract: This module introduces a model and controls over automatic color adjustment by the user agent to handle user preferences, such as "Dark Mode", contrast adjustment, or specific desired color schemes.
+</pre>
+
+Introduction {#intro}
+=====================
+
+
+
+
+Preferred Color Schemes {#preferred}
+=======================
+
+	Operating systems and user agents often give users
+	the ability to choose their preferred color schemes
+	for user interface elements.
+	These are typically reflected in the user agent's rendering
+	of its navigation interface as well as in-page interface elements
+	such as form controls and scrollbars,
+	and are expected to also be reflected
+	in the values of the CSS system colors.
+
+	Users on some systems can also indicate a preference
+	in the color scheme of the pages they view,
+	requesting that the author adapt the page to those color preferences.
+	(It is not required to express a preference;
+	users can have preferences for operating system interface colors
+	that they do not want imposed on pages.)
+	The most common preferences
+	are a choice of “Light” vs “Dark” (or “Day Mode” vs “Night Mode”) color schemes,
+	rendering things as mostly light- or dark-colored backgrounds,
+	and with dark- or light-colored foregrounds (text, icons).
+	This module,
+	together with Media Queries Level 5,
+	defines controls to enable color scheme negotiation
+	for "light" and "dark" color schemes (and no preference).
+
+	To enable pages to adapt to the user's preferred color scheme,
+	user agents will match the '@media/prefers-color-scheme' media query
+	to the user's preferred color scheme.
+	See [[MEDIAQUERIES-5]].
+
+	Additionally, if the author has indicated that the page can support this color scheme
+	(see 'color-scheme'),
+	the user agent must match the following to the user's preferred color scheme:
+
+	* the initial color of the background canvas <span class=issue>find what we name this in other specs</span>,
+		the initial value of the '/color' property,
+		and the [[css-color-4#system-colors|system colors]]
+	* the default colors of scrollbars and other interaction UI
+	* the default colors of form controls and other "specially-rendered" elements
+	* the default colors of other browser-provided UI, such as "spellcheck" underlines
+
+	User agents <em>may</em> support additional color schemes,
+	however CSS does not support negotation of additional color schemes:
+	user agents should pursue standardization of these schemes,
+	so that '@media/prefers-color-scheme' and 'color-scheme' can reflect the additional values.
+
+	Note: Aside from the small list of adjustments given above,
+	user agents generally do not further adjust a page to match the user's preferred color scheme,
+	because the chance of accidentally ruining a page is too high.
+	However, when particular color choices are required by the user
+	(for accessibility reasons, for example),
+	more invasive changes might be applied;
+	see [[#forced]].
+
+Opting Out of a Preferred Color Scheme: the 'color-scheme' property {#color-scheme-prop}
+-------------------------------------------------------------------
+
+	<pre class=propdef>
+	Name: color-scheme
+	Value: auto | only? && [ light | dark | <<custom-ident>> ]+
+	Initial: auto
+	Applies to: all elements
+	Inherited: yes
+	Computed Value: the keyword ''auto'', or optional ''only'' keyword and ordered list of specified color scheme keywords, with any <<custom-ident>>s or repeated keywords dropped
+	</pre>
+
+	The 'color-scheme' property allows an element to indicate
+	which color schemes it is comfortable being rendered with.
+	These values are negotiated with the users preferences,
+	resulting in a chosen color scheme
+	that affects UI things such as
+	the default colors of form controls and scrollbars
+	as well as the used values of the CSS system colors.
+	Its values are defined as follows:
+
+	<dl dfn-type=value dfn-for=color-scheme>
+		: <dfn>auto</dfn>
+		:: Indicates that the element isn't aware of color schemes at all,
+			and so the element should be rendered with the browser's default color scheme.
+
+		: <dfn lt="light | dark">[ light | dark | <<custom-ident>> ]+</dfn>
+		:: Indicates that the element is aware of and can handle the listed color schemes,
+			and expresses an ordered preference between them.
+			(See [[#color-scheme-processing]] for details on how this choice is resolved.)
+
+			''light'' represents a "light" color scheme,
+			with light background colors and dark foreground colors.
+			''dark'' represents the opposite,
+			with dark background colors and light foreground colors.
+
+			Note: Providing both keywords indicates that the first scheme is preferred,
+			but the second is also acceptable
+			if the user prefers it instead.
+
+			<<custom-ident>> values are meaningless,
+			and exist only for future compatibility,
+			so that future added color schemes do not invalidate the 'color-scheme' declaration
+			in legacy user agents.
+			User agents <em>must not</em> interpret any <<custom-ident>> values as having a meaning;
+			any additional recognized color schemes
+			must be explicitly added to this property’s grammar.
+			To avoid confusion,
+			authoring tutorials and references
+			should omit it from their materials.
+
+			Repeating a keyword, such as ''color-scheme: light light'',
+			is valid but has no additional effect
+			beyond what the first instance of the keyword provides.
+
+		: <dfn lt=only>only?</dfn>
+		:: If provided,
+			''only'' indicates that the element <em>must</em> be rendered with one of the specified color schemes,
+			if possible,
+			even if the user's preference is for a different color scheme.
+
+			Authors <em>should not</em> use this value,
+			and should instead ensure that their page renders well with whatever color scheme the user prefers
+			(using the '@media/prefers-color-scheme' media query to adjust styles accordingly).
+			This keyword is provided only for the rare cases where that might not be reasonably possible,
+			and using a different color scheme would render the element difficult or impossible to use.
+
+			Note that user agents are <strong>not required</strong>
+			to support any particular color scheme,
+			so using ''only'' to indicate a required color scheme
+			is still not guaranteed to have any effect on the rendering of the element.
+	</dl>
+
+Finding the Used Color Scheme {#color-scheme-processing}
+-----------------------------
+
+	<div algorithm>
+		To find the <dfn>used color scheme</dfn> for an element |el|:
+
+		1. Let |scheme| be the keyword matching '@media/prefers-color-scheme'.
+
+		2. If the computed value of 'color-scheme' on |el|
+			contains |scheme|,
+			return |scheme|.
+
+		3. If the computed value of 'color-scheme' on |el| contains the ''only'' keyword
+			or |scheme| is <css>no-preference</css>,
+			and at least one color scheme indicated in 'color-scheme'
+			is supported by the user agent,
+			return the first keyword,
+			in specified order,
+			that is supported by the user agent.
+
+		4. Otherwise, return null.
+	</div>
+
+	For each element,
+	find the [=used color scheme=] for that element.
+	If the [=used color scheme=] is <css>no-preference</css>,
+	the element must be rendered with the user agent's default color scheme.
+	(For Web compatibility, this should be a "light" color scheme.)
+	Otherwise,
+	the element must be rendered with the [=used color scheme=].
+
+	Note: This algorithm ensures that
+	if the user prefers a non-default color scheme,
+	it will only be used if the page claims to support it.
+	This ensures that legacy pages,
+	written before color scheme preferences were exposed,
+	do not change behavior.
+
+	For all elements,
+	rendering with a color scheme should affect the colors used in all browser-provided UI for the element--
+	e.g. scrollbars, spellcheck underlines, form controls, etc.--
+	to match with the intent of the color scheme.
+
+	For the root element of a page,
+	rendering with a color scheme additionally must affect the background of the canvas,
+	the initial value of the '/color' property,
+	and the [[css-color-4#system-colors|system colors]],
+	and should affect the page's scrollbars.
+
+The "color-scheme" <{meta}> value {#color-scheme-meta}
+---------------------------------
+
+	To aid user agents in rendering the page background with the desired color scheme immediately
+	(rather than waiting for all CSS in the page to load),
+	a 'color-scheme' value can also be provided in a <{meta}> element.
+
+	If the <{meta/name}> attribute of a <{meta}> element
+	is an [=ASCII case-insensitive=] match for the string "color-scheme",
+	the value must be [=CSS/parsed=] against the 'color-scheme' grammar,
+	and the result treated as a declaration of the 'color-scheme' property on the root element,
+	as a [[css-cascade-4#preshint|non-CSS presentational hint]].
+
+	If there are multiple such <{meta}> elements,
+	only the first such is honored.
+
+	Issue(#3846): Or should we use some other rule?
+
+
+Forced Color Schemes: the 'forced-color-adjust' property {#forced}
+====================
+
+	<pre class=propdef>
+	Name: forced-color-adjust
+	Value: auto | none
+	Initial: auto
+	Applies to: all elements
+	Inherited: yes
+	</pre>
+
+
+Performance-based Color Schemes: the 'color-adjust' property {#perf}
+===============================
+
+	On most monitors,
+	the color choices that authors make have no significant difference
+	in terms of how the device performs;
+	displaying a document with a white background or a black background is approximately equally easy.
+
+	However, some devices have limitations and other qualities that make this assumption untrue.
+	For example,
+	printers tend to print on white paper;
+	a document with a white background thus has to spend no ink on drawing that background,
+	while a document with a black background will have to expend a large amount of ink filling in the background color.
+	This tends to look fairly bad,
+	and sometimes has deleterious physical effects on the paper,
+	not to mention the vastly increased printing cost from expending the extra ink.
+	Even fairly small differences,
+	such as coloring text black versus dark gray,
+	can be quite different when printing,
+	as it switches from using a single black ink
+	to a mixture of cyan, magenta, and yellow ink,
+	resulting in higher ink usage and lower resolution.
+
+	As a result, in some circumstances user agents will alter the styles an author specifies in some particular context,
+	adjusting them to be more appropriate for the output device
+	and to accommodate what they assume the user would prefer.
+	However, in some cases the document may be using colors in important, well-thought-out ways that the user would appreciate,
+	and so the document would like some way to hint to the user agent that it might want to respect the page's color choices.
+	The 'color-adjust' property controls this.
+
+	<pre class='propdef'>
+	Name: color-adjust
+	Value: economy | exact
+	Initial: economy
+	Applies to: all elements
+	Percentages: N/A
+	Inherited: yes
+	Computed value: specified keyword
+	Animation type: discrete
+	</pre>
+
+	The 'color-adjust' property provides a hint to the user-agent about how it should treat color and style choices
+	that might be expensive or generally unwise on a given device,
+	such as using light text on a dark background in a printed document.
+	If user agents allow users to control this aspect of the document's display,
+	the user preference <strong>must</strong> be respected more strongly
+	than the hint provided by 'color-adjust'.
+	It has the following values:
+
+	<dl dfn-type=value dfn-for=color-adjust>
+		<dt><dfn>economy</dfn>
+		<dd>
+			The user agent should make adjustments to the page's styling
+			as it deems necessary and prudent for the output device.
+
+			For example, if the document is being printed,
+			a user agent might ignore any backgrounds
+			and adjust text color to be sufficiently dark,
+			to minimize ink usage.
+
+		<dt><dfn>exact</dfn>
+		<dd>
+			This value indicates that the page is using color and styling on the specified element
+			in a way which is important and significant,
+			and which should not be tweaked or changed except at the user's request.
+
+			For example,
+			a mapping website offering printed directions
+			might "zebra-stripe" the steps in the directions,
+			alternating between white and light gray backgrounds.
+			Losing this zebra-striping and having a pure-white background
+			would make the directions harder to read with a quick glance
+			when distracted in a car.
+	</dl>
