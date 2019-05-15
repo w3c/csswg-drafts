@@ -140,6 +140,7 @@ urlPrefix: http://www.ecma-international.org/ecma-262/6.0/#sec-; type: dfn; spec
     text: [[Get]]; url: ordinary-object-internal-methods-and-internal-slots-get-p-receiver
 urlPrefix: https://html.spec.whatwg.org/multipage/browsers.html; type: dfn; spec: html
     text: active document
+    text: being rendered
     text: document associated with a window; url: concept-document-window
     text: an entry with persisted user state
     text: session history entry
@@ -177,10 +178,16 @@ urlPrefix: https://drafts.csswg.org/cssom/; type: dfn; spec: cssom
 urlPrefix: https://drafts.csswg.org/css-transitions/; type: dfn; spec: css-transitions-1
     text: events from CSS transitions; url: transition-events
     text: transitionend
+urlPrefix: https://drafts.csswg.org/css-transitions-2/; type: dfn; spec: css-transitions-2
+    text: owning element (transition); url: owning-element
 urlPrefix: https://drafts.csswg.org/css-animations/; type: dfn; spec: css-animations-1
     text: events from CSS animations; url: events
+urlPrefix: https://drafts.csswg.org/css-animations-2/; type: dfn; spec: css-animations-2
+    text: owning element (animation); url: owning-element
 urlPrefix: https://drafts.csswg.org/css-writing-modes-4/; type: dfn; spec: css-writing-modes-4
     text: equivalent physical property; url: logical-to-physical
+urlPrefix: https://drafts.csswg.org/css-style-attr/; type: dfn; spec: css-style-attr
+    text: style attribute
 </pre>
 <pre class="link-defaults">
 spec:dom; type:interface; text:EventTarget
@@ -195,6 +202,10 @@ spec:css-backgrounds-3; type:property;
     text:border-top-color
     text:border-top
     text:border-color
+spec:cssom-1;
+    type: dfn;
+        text: CSS declaration block
+spec:infra; type:dfn; text:list
 </pre>
 
 <script type="text/x-mathjax-config">
@@ -592,6 +603,11 @@ a document's load event.
 A <a>timeline</a> is considered to be <dfn lt="inactive timeline">inactive</dfn>
 when its <a>time value</a> is <a>unresolved</a>.
 
+A <a>timeline</a> is <dfn export lt="monotonically increasing timeline"
+local-lt="monotonically increasing">monotonically increasing</dfn> if its
+reported [=timeline current time|current time=] is always greater than or equal
+than its previously reported [=timeline current time|current time=].
+
 Specific types of [=timelines=] may define a procedure to <dfn lt="timeline time
 to origin-relative time" export>convert a timeline time to an
 origin-relative time</dfn> for [=time value=] |time|, so that the [=time
@@ -620,6 +636,8 @@ a {{Document}} |doc| at timestamp |now|, run these steps:
      *    Queueing [=animation events=] for any such animations.
 
      </div>
+
+1.   [=Remove replaced animations=] for |doc|.
 
 1.   [=Perform a microtask checkpoint=].
 
@@ -680,6 +698,9 @@ Issue(2079): There must be a better term than &ldquo;origin time&rdquo;&mdash;
 
 Prior to establishing the [=time origin=] for its associated document,
 a [=document timeline=] is <a lt="inactive timeline">inactive</a>.
+
+After a [=document timeline=] becomes [=inactive timeline|active=], it is
+[=monotonically increasing=].
 
 A <a>document timeline</a> that is associated with a {{Document}} which is not
 an <a>active document</a> is also considered to be
@@ -1139,7 +1160,7 @@ as CSS Animations [[CSS-ANIMATIONS-1]].
         *   <a>current time</a> &gt; <a>target effect end</a>,
 
     ::  If <a>target effect end</a> is positive infinity,
-        <a>throw</a> an <span class=exceptionname>InvalidStateError</span> and
+        <a>throw</a> an "{{InvalidStateError}}" {{DOMException}} and
         abort these steps.
         Otherwise, set <var>animation</var>'s <a>hold time</a> to <a>target
         effect end</a>.
@@ -1301,7 +1322,7 @@ follows:
     :    Otherwise,
     ::   If <a>target effect end</a> for <var>animation</var> is positive
          infinity,
-         <a>throw</a> an <span class=exceptionname>InvalidStateError</span>
+         <a>throw</a> an "{{InvalidStateError}}" {{DOMException}}
          and abort these steps.
          Otherwise, let <var>animation</var>'s <a>hold time</a> be
          <a>target effect end</a>.
@@ -1629,7 +1650,7 @@ for <var>animation</var> defined below:
 1.  If |animation|'s [=effective playback rate=] is zero,
     or if |animation|'s [=effective playback rate=] &gt; 0
     and <a>target effect end</a> is infinity,
-    <a>throw</a> an <span class=exceptionname>InvalidStateError</span> and
+    <a>throw</a> an "{{InvalidStateError}}" {{DOMException}} and
     abort these steps.
 
 1.  [=Apply any pending playback rate=] to |animation|.
@@ -1872,7 +1893,7 @@ The procedure to <dfn>reverse an animation</dfn> of <a>animation</a>
 
 1.  If there is no <a>timeline</a> associated with <var>animation</var>, or the
     associated <a>timeline</a> is <a lt="inactive timeline">inactive</a>
-    <a>throw</a> an <span class=exceptionname>InvalidStateError</span> and
+    <a>throw</a> an "{{InvalidStateError}}" {{DOMException}} and
     abort these steps.
 
 1.  Let |original pending playback rate| be |animation|'s [=pending playback
@@ -2057,6 +2078,9 @@ is absent or has no observable result.
 ::  Queued whenever an animation enters the <a>idle play state</a> from
     another state. Creating a new <a>animation</a> that is initially
     idle does <em>not</em> generate a new <a>cancel event</a>.
+:   <dfn lt="remove event">remove</dfn>
+::  Queued whenever an animation is automatically removed.
+    See [[#replacing-animations]].
 
 <h3 id="animation-effects">Animation effects</h3>
 
@@ -2320,6 +2344,67 @@ The possible <a>fill modes</a> are:
 
 The normative definition of these modes is incorporated in the
 calculation of the <a>active time</a> in [[#calculating-the-active-time]].
+
+<div class=advisement>
+<p>
+Authors are discouraged from using [=fill modes=] to produce animations whose
+effect is applied indefinitely.
+[=Fill modes=] were introduced in order to represent the 'animation-fill-mode'
+property defined by CSS animations [[CSS-ANIMATIONS-1]].
+However, they produce situations where animation state would be accumulated
+indefinitely necessitating the automatic removal of animations defined in
+[[#replacing-animations]].
+Furthermore, indefinitely filling animations can cause changes to specified
+style to be ineffective long after all animations have completed since the
+animation style takes precedence in the CSS cascade [[css-cascade-3]].
+</p>
+
+<p>
+Where possible, authors should prefer to set the final state of the animation
+directly in specified style.
+This can be achieved by waiting for the animation to finish and then updating
+the style as illustrated below:
+</p>
+
+<div class="example"><pre class="lang-javascript">
+// In the first frame after the following animation finishes, the callback for
+// the `finished` promise will run BEFORE style is updated and hence will NOT
+// flicker.
+elem.animate({ transform: 'translateY(100px)' }, 200).finished(() => {
+  elem.style.transform = 'translateY(100px)';
+});
+</pre></div>
+
+<p>
+Alternatively, the author may set the specified style at the start of the
+animation and then animate <em>from</em> the original value
+as illustrated below:
+</p>
+
+<div class="example"><pre class="lang-javascript">
+elem.style.transform = 'translateY(100px)';
+elem.animate({ transform: 'none', offset: 0 }, 200);
+</pre></div>
+
+Complex effects involving layering many animations on top of one another may
+require temporary use of forwards fill modes to capture the final value of an
+animation before canceling it.
+For example:
+
+<div class="example"><pre class="lang-javascript">
+elem.addEventListener('click', async evt => {
+  const animation = elem.animate(
+    { transform: `translate(${evt.clientX}px, ${evt.clientY}px)` },
+    { duration: 800, fill: 'forwards' }
+  );
+  await animation.finished;
+  // commitStyles will record the style up to and including `animation` and
+  // update elem's specified style with the result.
+  animation.commitStyles();
+  animation.cancel();
+});
+</pre></div>
+</div>
 
 <h4 id="fill-modes">Fill modes</h4>
 
@@ -3682,10 +3767,129 @@ as follows:
     href="#the-effect-value-of-a-keyframe-animation-effect"
     section></a>.
 
+<h3 id="replacing-animations">Replacing animations</h3>
+
+<div class="informative-bg"><em>This section is non-normative</em>
+
+Using the programming interface defined in this specification, it is possible to
+repeatedly trigger new animations that contribute to an element's animated style
+indefinitely.
+
+For example, consider the following code:
+
+<div class="example"><pre class="lang-javascript">
+elem.addEventListener('mousemove', evt => {
+  circle.animate(
+    { transform: `translate(${evt.clientX}px, ${evt.clientY}px)` },
+    { duration: 500, fill: 'forwards' }
+  );
+});
+</pre></div>
+
+This will generate a new forwards-filling animation each time the mouse is
+moved, quickly producing hundreds, even thousands of forwards-filling
+animations.
+
+If the user agent is required to retain <em>all</em> such animations,
+the list of animations would grow in an unbounded fashion,
+producing a memory leak.
+
+This section defines a mechanism that causes overridden animations to be
+automatically removed unless the author explicitly requests they be retained.
+
+</div>
+
+<h4 id="animation-replace-state">Replace state</h4>
+
+An [=animation=] maintains a <dfn>replace state</dfn> that may be one of the
+following values:
+
+* <dfn lt="active replace state">active</dfn>
+* <dfn lt="removed replace state">removed</dfn>
+* <dfn lt="persisted replace state">persisted</dfn>
+
+The initial value of an [=animation=]'s [=replace state=] is
+[=active replace state|active=].
+
+The [=animation effects=] of an [=animation=]
+whose [=replace state=] is [=removed replace state|removed=]
+are not included in the [=effect stacks=] of their [=target properties=].
+
+<h4 id="removing-replaced-animations">Removing replaced animations</h4>
+
+An [=animation=] is
+<dfn lt="replaceable animation" local-lt="replaceable">replaceable</dfn>
+if <em>all</em> of the following conditions are true:
+
+*   The existence of the [=animation=] is <em>not</em> prescribed by markup.
+    That is, it is <em>not</em>
+    a CSS animation with an [=owning element (animation)|owning element=],
+    nor a CSS transition with an [=owning element (transition)|owning element=].
+*   The [=animation=]'s [=play state=] is [=finished play state|finished=].
+*   The [=animation=]'s [=replace state=] is <em>not</em>
+    [=removed replace state|removed=].
+*   The [=animation=] is associated with a [=monotonically increasing=]
+    [=timeline=].
+*   The [=animation=] has an associated [=target effect=].
+*   The [=target effect=] associated with the [=animation=] is [=in effect=].
+*   The [=target effect=] has an associated [=target element=].
+
+When asked to <dfn>remove replaced animations</dfn>
+for a {{Document}}, |doc|,
+then for every [=animation=], |animation|, that:
+
+*   has an [=associated with an animation|associated=] [=animation effect=]
+    whose [=target element=] is a [=descendant=] of |doc|, and
+
+*   is [=replaceable=], and
+
+*   has a [=replace state=] of [=active replace state|active=], and
+
+*   for which there exists for each [=target property=]
+    of every [=animation effect=]
+    [=associated with an animation|associated=] with |animation|,
+    an [=animation effect=] associated with a [=replaceable=] [=animation=]
+    with a higher [=composite order=] than |animation|
+    that includes the same [=target property=]
+
+perform the following steps:
+
+1.   Set |animation|'s [=replace state=] to [=removed replace state|removed=].
+
+1.   <a lt="create an event">Create</a> an {{AnimationPlaybackEvent}},
+     |removeEvent|.
+
+1.   Set |removeEvent|'s {{Event/type}} attribute to
+     <a lt="remove event">remove</a>.
+
+1.   Set |removeEvent|'s {{AnimationPlaybackEvent/currentTime}} attribute
+     to the [=current time=] of |animation|.
+
+1.   Set |removeEvent|'s {{AnimationPlaybackEvent/timelineTime}}
+     attribute to the <a lt="timeline current time">current time</a>
+     of the [=timeline=] with which |animation| is associated.
+
+1.   If |animation| has a [=document for timing=], then append
+     |removeEvent| to its [=document for timing=]'s
+     [=pending animation event queue=] along with its target, |animation|.
+     For the [=scheduled event time=], use the result of
+     applying the procedure to convert
+     [=timeline time to origin-relative time=] to
+     the [=timeline current time|current time=] of the [=timeline=]
+     with which |animation| is associated.
+
+     Otherwise, [=queue a task=] to [=dispatch=] |removeEvent| at
+     |animation|.
+     The task source for this task is the [=DOM manipulation task
+     source=].
+
 <h3 id="side-effects-section">Side effects of animation</h3>
 
 For every property targeted by at least one <a>animation effect</a> that is
-<a>current</a> or <a>in effect</a>, the user agent must act as if the
+<a>current</a> or <a>in effect</a>,
+and which is associated with an [=animation=] whose [=replace state=]
+is <em>not</em> [=removed replace state|removed=],
+the user agent must act as if the
 'will-change' property ([[!css-will-change-1]]) on the <a>target element</a>
 includes the property.
 
@@ -3755,7 +3959,7 @@ dictionary DocumentTimelineOptions {
 };
 
 [Exposed=Window,
- Constructor (optional DocumentTimelineOptions options)]
+ Constructor(optional DocumentTimelineOptions options)]
 interface DocumentTimeline : AnimationTimeline {
 };
 </pre>
@@ -3798,8 +4002,8 @@ API by the {{Animation}} interface.
 
 <pre class='idl'>
 [Exposed=Window,
- Constructor (optional AnimationEffect? effect = null,
-              optional AnimationTimeline? timeline)]
+ Constructor(optional AnimationEffect? effect = null,
+             optional AnimationTimeline? timeline)]
 interface Animation : EventTarget {
              attribute DOMString                id;
              attribute AnimationEffect?         effect;
@@ -3808,17 +4012,21 @@ interface Animation : EventTarget {
              attribute double?                  currentTime;
              attribute double                   playbackRate;
     readonly attribute AnimationPlayState       playState;
+    readonly attribute AnimationReplaceState    replaceState;
     readonly attribute boolean                  pending;
     readonly attribute Promise&lt;Animation&gt;       ready;
     readonly attribute Promise&lt;Animation&gt;       finished;
              attribute EventHandler             onfinish;
              attribute EventHandler             oncancel;
-    void cancel ();
-    void finish ();
-    void play ();
-    void pause ();
-    void updatePlaybackRate (double playbackRate);
-    void reverse ();
+             attribute EventHandler             onremove;
+    void cancel();
+    void finish();
+    void play();
+    void pause();
+    void updatePlaybackRate(double playbackRate);
+    void reverse();
+    void persist();
+    void commitStyles();
 };
 </pre>
 
@@ -3900,6 +4108,8 @@ interface Animation : EventTarget {
 
 :   <dfn attribute for=Animation>playState</dfn>
 ::  The <a>play state</a> of this animation.
+:   <dfn attribute for=Animation>replaceState</dfn>
+::  The <a>replace state</a> of this animation.
 :   <dfn attribute for=Animation>pending</dfn>
 ::  Returns true if this animation has a <a>pending play task</a> or
     a <a>pending pause task</a>.
@@ -3911,6 +4121,8 @@ interface Animation : EventTarget {
 ::  The event handler for the <a>finish event</a>.
 :   <dfn attribute for=Animation>oncancel</dfn>
 ::  The event handler for the <a>cancel event</a>.
+:   <dfn attribute for=Animation>onremove</dfn>
+::  The event handler for the <a>remove event</a>.
 
 </div>
 
@@ -3926,7 +4138,7 @@ interface Animation : EventTarget {
 
     <div class='exceptions'>
 
-    :   DOMException of type <code>InvalidStateError</code>
+    :   DOMException of type {{InvalidStateError}}
     ::  Raised if this animation's [=playback rate=] is zero, or if this
         animation's [=playback rate=] is &gt; zero and the
         <a>end time</a> of this animation's <a>target effect</a> is infinity.
@@ -3960,8 +4172,116 @@ interface Animation : EventTarget {
     method unpauses the animation and, if the animation has already finished
     playing in the reversed direction, seeks to the start of the <a>target
     effect</a>.
+:   <dfn method for=Animation lt='persist()'>void persist()</dfn>
+::  Sets this animation's [=replace state=] to
+    [=persisted replace state|persisted=].
+:   <dfn method for=Animation lt='commitStyles()'>void commitStyles()</dfn>
+::  Writes the current [=effect values=]
+    produced by this animation's [=animation effects=]
+    to their corresponding [=target elements=]' inline style
+    using the [=commit computed styles=] procedure.
+
+    Unlike most other methods defined on this interface, calling this method
+    <em>does</em> trigger a [=style change event=] (see [[#model-liveness]]).
+
+    <div class=note>
+
+      Since the procedure to [=commit computed styles=] includes the
+      [=effect values=] for the animation even if it is
+      [=removed replace state|removed=],
+      this method is useful for retaining the effect of an animation
+      after it has been replaced (see [[#removing-replaced-animations]])
+      without retaining the actual animation.
+
+      Note that the values committed are the <em>computed</em> values
+      produced by the [=animation effects=] at the time when this method is
+      called.
+      Since these values are computed values, they do not reflect to changes to
+      context such as responding to changes to CSS variables or
+      recalculating em units based on changes to the computed ''font-size''
+      in the way the values produced by a live animation would.
+
+      In order to retain full fidelty of a filling animation's result after it
+      has been replaced (see [[#replacing-animations]]),
+      the {{Animation/persist()}} method may be used,
+      but note that doing so will mean the animation continues to consume
+      resources.
+
+    </div>
 
 </div>
+
+To <dfn>commit computed styles</dfn> for an [=animation=], |animation|:
+
+1.   Let |targets| be the [=ordered set|set=] of all [=target elements=]
+     for [=animation effects=] [=associated with an animation|associated=]
+     with |animation|.
+
+1.   <a for=list lt=iterate>For each</a> |target| in |targets|:
+
+     1.   If |target| is not an element capable of having a [=style
+          attribute=] [[!CSS-STYLE-ATTR]]
+          (for example, it is a pseudo-element or is an element in
+          a document format for which style attributes are not defined)
+          <a>throw</a> a "{{NoModificationAllowedError}}" {{DOMException}}
+          and abort these steps.
+
+     1.   If, after applying any pending style changes,
+          |target| is not [=being rendered=],
+          <a>throw</a> an "{{InvalidStateError}}" {{DOMException}}
+          and abort these steps.
+
+          <div class=issue>
+
+          The definition of [=being rendered=] [[!HTML]] with regards to
+          ''display: contents'' is still <a
+          href=https://github.com/whatwg/html/issues/1837>under discussion</a>.
+          For the purpose of this procedure, we assume that an
+          element with ''display: contents'' that otherwise would have
+          associated layout boxes (i.e. it is [=connected=] and not part of
+          a ''display: none'' subtree) <em>is</em> being rendered.
+
+          </div>
+
+     1.   Let |inline style| be the result of getting the
+          [=CSS declaration block=] corresponding to |target|'s
+          [=style attribute=].
+          If |target| does not [=has an attribute|have=]
+          a [=style attribute=],
+          let |inline style| be a new empty [=CSS declaration block=] with
+          the <a for=CSSStyleDeclaration>readonly flag</a> unset and
+          <a for=CSSStyleDeclaration>owner node</a> set to |target|.
+
+     1.   Let |targeted properties| be the [=ordered set|set=]
+          of physical longhand properties
+          that are a [=target property=] for at least one [=animation effect=]
+          [=associated with an animation|associated=] with |animation|
+          whose [=target element=] is |target|.
+
+     1.   For each property, |property|, in |targeted properties|:
+
+          1.   Let |partialEffectStack| be a copy of the [=effect stack=]
+               for |property| on |target|.
+
+          1.   If |animation|'s [=replace state=] is
+               [=removed replace state|removed=],
+               add all [=animation effects=]
+               [=associated with an animation|associated=] with |animation|
+               whose [=target element=] is |target| and which include
+               |property| as a [=target property=] to |partialEffectStack|.
+
+          1.   Remove from |partialEffectStack| any [=animation effects=]
+               whose [=associated with an animation|associated=] [=animation=]
+               has a higher [=composite order=] than |animation|.
+
+          1.   Let |effect value| be the result of calculating the result of
+               |partialEffectStack| for |property| using |target|'s computed
+               style (see [[#calculating-the-result-of-an-effect-stack]]).
+
+          1.   [=Set a CSS declaration=] |property| for |effect value| in
+               |inline style|.
+
+     1.   [=Update style attribute for=] |inline style|.
 
 <h4 id="the-animationplaystate-enumeration">The <code>AnimationPlayState</code> enumeration</h4>
 
@@ -3977,6 +4297,19 @@ enum AnimationPlayState { "idle", "running", "paused", "finished" };
 ::  Corresponds to the <a>paused play state</a>.
 :   <code>finished</code>
 ::  Corresponds to the <a>finished play state</a>.
+
+<h4 id="the-animationreplacestate-enumeration">The <code>AnimationReplaceState</code> enumeration</h4>
+
+<pre class='idl'>
+enum AnimationReplaceState { "active", "removed", "persisted" };
+</pre>
+
+:   <code>active</code>
+::  Corresponds to the [=active replace state=].
+:   <code>removed</code>
+::  Corresponds to the [=removed replace state=].
+:   <code>persisted</code>
+::  Corresponds to the [=persisted replace state=].
 
 <h3 id="the-animationeffect-interface">The <code>AnimationEffect</code> interface</h3>
 
@@ -4141,6 +4474,11 @@ dictionary OptionalEffectTiming {
 
     </div>
 
+    <div class=advisement>
+    As described in [[#fill-behavior]], authors are discouraged from using
+    indefinitely filling animations.
+    </div>
+
 :   <dfn dict-member for=EffectTiming>iterationStart</dfn><dfn dict-member
     for=OptionalEffectTiming lt=iterationStart></dfn>
 ::  The <a>animation effect</a>'s <a>iteration start</a> property which is a
@@ -4208,7 +4546,7 @@ dictionary OptionalEffectTiming {
 ::  The <a>timing function</a> used to scale the time to
     produce easing effects.
 
-    The syntax of the string is defined by the <<timing-function>>
+    The syntax of the string is defined by the <<easing-function>>
     production [[!CSS-EASING-1]].
 
 </div>
@@ -4282,7 +4620,7 @@ the following steps:
     a <span class=exceptionname>TypeError</span> and abort this procedure.
 
 1.  If the {{EffectTiming/easing}} member of |input| is <a>present</a>
-    but cannot be parsed using the <<timing-function>> production
+    but cannot be parsed using the <<easing-function>> production
     [[!CSS-EASING-1]], <a>throw</a> a <span class=exceptionname>TypeError</span>
     and abort this procedure.
 
@@ -4356,16 +4694,16 @@ dictionary ComputedEffectTiming : EffectTiming {
 
 <pre class='idl'>
 [Exposed=Window,
- Constructor ((Element or CSSPseudoElement)? target,
-              object? keyframes,
-              optional (unrestricted double or KeyframeEffectOptions) options),
- Constructor (KeyframeEffect source)]
+ Constructor((Element or CSSPseudoElement)? target,
+             object? keyframes,
+             optional (unrestricted double or KeyframeEffectOptions) options),
+ Constructor(KeyframeEffect source)]
 interface KeyframeEffect : AnimationEffect {
     attribute (Element or CSSPseudoElement)? target;
     attribute IterationCompositeOperation    iterationComposite;
     attribute CompositeOperation             composite;
-    sequence&lt;object&gt; getKeyframes ();
-    void             setKeyframes (object? keyframes);
+    sequence&lt;object&gt; getKeyframes();
+    void             setKeyframes(object? keyframes);
 };
 </pre>
 
@@ -4684,8 +5022,11 @@ It is possible to create an animation that simply sets a property
 without any interpolation as follows:
 
 <div class='example'><pre class='lang-javascript'>
-var effect = new KeyframeEffect(elem, { visibility: 'hidden' }, { fill: 'forwards' });</pre></div>
+var effect =
+  new KeyframeEffect(elem, { visibility: 'hidden' }, { fill: 'forwards' });</pre></div>
 
+As described in [[#fill-behavior]] however, using indefinitely filling
+animations in this way is discouraged.
 
 Having created a {{KeyframeEffect}}, it can be played by adding it to
 an {{Animation}} and then playing that animation.
@@ -5306,7 +5647,7 @@ The possible values of an <a>animation effect</a>'s
 <dfn>IterationCompositeOperation</dfn> enumeration.
 
 <pre class='idl'>
-enum IterationCompositeOperation {"replace", "accumulate"};
+enum IterationCompositeOperation { "replace", "accumulate" };
 </pre>
 
 :   <code>replace</code>
@@ -5329,7 +5670,7 @@ composition behavior are represented by the
 <dfn>CompositeOperation</dfn> enumeration.
 
 <pre class='idl'>
-enum CompositeOperation {"replace", "add", "accumulate"};
+enum CompositeOperation { "replace", "add", "accumulate" };
 </pre>
 
 :   <dfn enum-value for="CompositeOperation,CompositeOperationOrAuto">replace</dfn>
@@ -5360,7 +5701,7 @@ values as the {{CompositeOperation}} enumeration along with the additional
 {{CompositeOperationOrAuto/auto}} value.
 
 <pre class='idl'>
-enum CompositeOperationOrAuto {"replace", "add", "accumulate", "auto"};
+enum CompositeOperationOrAuto { "replace", "add", "accumulate", "auto" };
 </pre>
 
 :   <dfn enum-value for=CompositeOperationOrAuto>auto</dfn>
@@ -5374,12 +5715,17 @@ the {{Animatable}} interface mixin.
 
 <pre class='idl'>
 interface mixin Animatable {
-    Animation           animate (object? keyframes,
-                                 optional (unrestricted double or KeyframeAnimationOptions) options);
-    sequence&lt;Animation&gt; getAnimations ();
+    Animation           animate(object? keyframes,
+                                optional (unrestricted double or KeyframeAnimationOptions) options);
+    sequence&lt;Animation&gt; getAnimations(optional GetAnimationsOptions options);
 };
+
 dictionary KeyframeAnimationOptions : KeyframeEffectOptions {
     DOMString id = "";
+};
+
+dictionary GetAnimationsOptions {
+    boolean subtree = false;
 };
 </pre>
 
@@ -5449,12 +5795,25 @@ animation.play();</pre>
 
     </div>
 
-:   <dfn method for=Animatable lt="getAnimations()">
-    sequence&lt;Animation&gt; getAnimations()</dfn>
-::  Returns the set of {{Animation}} objects
-    whose <a>target effect</a> is <a>current</a> or <a>in effect</a> and
-    contains at least one <a>animation effect</a> whose
-    <a>target element</a> is this object.
+:   <dfn method for=Animatable lt="getAnimations(options)">
+    sequence&lt;Animation&gt; getAnimations(options)</dfn>
+::  Returns the set of [=relevant=] {{Animation}} objects
+    that contain at least one <a>animation effect</a> whose
+    <a>target element</a> is this object, or,
+    if an {{Animatable/getAnimations(options)/options}} parameter
+    is passed with {{GetAnimationsOptions/subtree}} set to true,
+    an [=inclusive descendant=] of this object.
+
+    An [=animation=] is
+    <dfn lt="relevant animation" local-lt="relevant">relevant</dfn> if:
+
+    * Its [=target effect=] is [=current=] <em>or</em> [=in effect=],
+        <em>and</em>
+    * Its [=replace state=] is <em>not</em> [=removed replace state|removed=].
+
+    For the purposes of this method
+    a [=pseudo-element=] is considered to be
+    a [=child=] of its [=originating element=].
 
     The returned list is sorted using the composite order described
     for the associated <a>animations</a> of effects in [[#the-effect-stack]].
@@ -5465,6 +5824,15 @@ animation.play();</pre>
     any pending style changes to animation such as changes to animation-related
     style properties that have yet to be processed.
 
+    <div class="parameters">
+
+    :   <dfn argument for="Animatable/getAnimations(options)"
+        lt="options">options</dfn>
+    ::  Parameters governing the set of animations returned by
+        {{Animatable/getAnimations()}}.
+
+    </div>
+
 </div>
 
 <div class="members">
@@ -5472,6 +5840,12 @@ animation.play();</pre>
 :   <dfn dict-member for=KeyframeAnimationOptions>id</dfn>
 ::  The string to assign to the generated {{Animation}}'s {{Animation/id}}
     attribute.
+
+:   <dfn dict-member for=GetAnimationsOptions>subtree</dfn>
+::  If true, indicates that [=animations=] associated with an
+    [=animation effect=] whose [=target element=] is a [=descendant=]
+    of the object on which {{Animatable/getAnimations()}} is called should also
+    be included in the result.
 
 </div>
 
@@ -5499,10 +5873,9 @@ partial interface Document {
 
 :   <dfn method for=Document lt='getAnimations()'>
     sequence&lt;Animation&gt; getAnimations()</dfn>
-::  Returns the set of {{Animation}} objects
-    that have an associated <a>target effect</a> which is <a>current</a> or
-    <a>in effect</a> and whose <a>target element</a> is a <a>descendant</a>
-    of the document.
+::  Returns the set of [=relevant=] {{Animation}} objects
+    that have an associated <a>target effect</a>
+    whose <a>target element</a> is a <a>descendant</a> of the document.
 
     The returned list is sorted using the composite order described
     for the associated <a>animations</a> of effects in [[#the-effect-stack]].
@@ -5511,17 +5884,6 @@ partial interface Document {
     As a result, the returned list reflects the state <em>after</em> applying
     any pending style changes to animation such as changes to animation-related
     style properties that have yet to be processed.
-
-    Issue(2054): Both this method and {{Animatable/getAnimations()}} on the
-                 {{Animatable}} interface mixin require retaining
-                 forwards-filling <a>animation effects</a> and their
-                 <a>animations</a> such that a document that
-                 repeatedly produces forwards-filling animations will consume
-                 memory in an unbounded fashion.
-                 We may need to revise this definition (previously these methods
-                 only returned animations whose <a>target effect</a> was
-                 <a>current</a>) or provide a loophole for implementations to
-                 discard old animations in such conditions.
 
 </div>
 
@@ -5557,7 +5919,7 @@ CSSPseudoElement includes Animatable;
 
 <pre class='idl'>
 [Exposed=Window,
- Constructor (DOMString type, optional AnimationPlaybackEventInit eventInitDict)]
+ Constructor(DOMString type, optional AnimationPlaybackEventInit eventInitDict)]
 interface AnimationPlaybackEvent : Event {
     readonly attribute double? currentTime;
     readonly attribute double? timelineTime;
@@ -5845,6 +6207,18 @@ The following changes have been made since the <a
     href="https://github.com/w3c/csswg-drafts/issues/3193">#3193</a>).
 *   Updated the steps for resolving which properties to use when calculating
     [=computed keyframes=] when physical and logical properties are used.
+*   Introduced steps for removing animations that have been overridden:
+    [[#replacing-animations]].
+    *   Added a new [=remove event=] to signal when this process occurs.
+    *   Added corresponding IDL members to the {{Animation}} interface:
+        {{Animation/replaceState}},
+        {{Animation/onremove}},
+        {{Animation/persist}}.
+*   Added the {{Animation/commitStyles}} method to the {{Animation}} interface
+    to allow preserving the result of an [=animation=] that has been removed.
+*   Added an {{Animatable/getAnimations(options)/options}} parameter to the
+    {{Animatable/getAnimations()}} method on the {{Animatable}} interface
+    to allow fetching all animations on descendants of a particular element.
 
 The <a
   href="https://github.com/w3c/csswg-drafts/commits/master/web-animations-1">changelog</a>
