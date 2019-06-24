@@ -1,3 +1,7 @@
+// Sample code for color conversions
+// Conversion can also be done using ICC profiles and a Color Management System
+// For clarity, a library is used for matrix manipulations
+
 // sRGB-related functions
 
 function lin_sRGB(RGB) {
