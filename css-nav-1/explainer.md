@@ -106,7 +106,7 @@ to extend how spatial navigation work.
 The spec supposes that User Agents decide to activate spatial navigation.
 On devices which do not have any pointing input device,
 and especially on devices such as TVs which also lack a <code>Tab</code> key to control
-<a herf="https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation">sequential focus navigation</a>,
+<a href="https://html.spec.whatwg.org/multipage/interaction.html#sequential-focus-navigation">sequential focus navigation</a>,
 User Agents should make spatial navigation active.
 
 We deliberately do not define which keys or key combination are meant to trigger the spatial navigation,
@@ -340,8 +340,8 @@ There are several approaches.
 
 * related github issue: https://github.com/WICG/spatial-navigation/issues/41
 
-2. Using the spatial navigation API
-If the spatial navigation is implemented, one of the API can be the criteria for the enablility of the spatial navigation
+2. Using the spatial navigation API:
+If the spatial navigation is implemented, one of the APIs can be used to detect whether spatial navigation is enabled.
 For example,
 
 ```
@@ -386,7 +386,7 @@ For example, the spatial navigation feature is allowed when the feature policy i
 
 | Origin | Policy |
 |-|-|
-| Default | sptialnavigation 'self' |
+| Default | spatialnavigation 'self' |
 | example.com | `Feature-Policy: spatialnavigation https://game.com` |
 | game.com | `<iframe src=“game.com" allow=“spatialnavigation https://good-ad.com"></iframe>` |
 
