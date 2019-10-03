@@ -3577,24 +3577,154 @@ Serialization</h3>
 
 	Issue: This section is still <a href="https://lists.w3.org/Archives/Member/w3c-css-wg/2016AprJun/0239.html">under discussion</a>.
 
-	<div algorithm="serialize a calc() value">
-		To <dfn export>serialize a ''calc()'' value</dfn>
+	<div algorithm>
+		To <dfn export>serialize a math function</dfn> |fn|:
 
-		1. [=Simplify the calculation=] inside of it.
+		1. If |fn| is a ''calc()'' function,
+			and the root of the [=calculation tree=] it represents
+			is a numeric value
+			(number, percentage, or dimension),
+			and the serialization being produced is of a [=computed value=] or later,
+			then clamp the value to the range allowed for its context
+			(if necessary),
+			then serialize the value as normal
+			and return the result.
 
-		2. If this simplification process results in only a single value
-			(one <<number>>, one <<dimension>>, or one <<percentage>>),
-			and the value being serialized is a <a>computed value</a> or later,
-			serialize it just as that one value,
-			without the ''calc()'' wrapper.
-			If this value is outside the allowed range for the context,
-			it must be clamped to the nearest allowed value.
+		2. Let |s| be a [=string=] that initially contains
+			the |fn|'s name
+			(such as "calc", "sin", etc)
+			followed by a "(" (open parenthesis).
 
-		3. Otherwise,
-			[=serialize the summation=],
-			prefix the result with "calc("
-			and suffix it with ")",
+		3. For each comma-separated [=calculation=] argument of |fn|,
+			[=serialize the calculation tree=].
+			If a result of this starts with a "(" (open parenthesis)
+			and ends with a ")" (close parenthesis),
+			remove those characters from the result.
+			[=string/Concatenate=] all of the results
+			using ", " (comma followed by space),
+			then append the result to |s|.
+
+		4. Append ")" (close parenthesis) to |s|.
+
+		5. Return |s|.
+	</div>
+
+	<div algorithm>
+		To <dfn export lt="serialize a calculation tree|serialize the calculation tree|serializing a calculation tree|serializing the calculation tree">serialize a calculation tree</dfn>:
+
+		1. Let |root| be the root node
+			of the [=calculation tree=].
+
+		2. If |root| is a numeric value,
+			or a non-[=math function=],
+			serialize |root| per the normal rules for it
+			and return the result.
+
+		3. If |root| is anything but
+			a Sum,
+			Negate,
+			Product,
+			or Invert node,
+			[=serialize a math function=]
+			for the function corresponding to the node type,
+			treating the node's children as the function's comma-separated [=calculation=] arguments,
+			and return the result.
+
+		4. If |root| is a Negate node,
+			let |s| be a [=string=]
+			initially containing "(-1 * ".
+
+			[=serialize a calculation tree|Serialize=] |root|'s child,
+			and append it to |s|.
+
+			Append ")" to |s|,
 			then return it.
+
+		5. If |root| is an Invert node,
+			let |s| be a [=string=]
+			initially containing "(1 / ".
+
+			[=serialize a calculation tree|Serialize=] |root|'s child,
+			and append it to |s|.
+
+			Append ")" to |s|,
+			then return it.
+
+		6. If |root| is a Sum node,
+			let |s| be a [=string=]
+			initially containing "(".
+
+			[=sort a calculation's children|Sort root's children=].
+
+			[=serialize a calculation tree|Serialize=] |root|'s first child,
+			and append it to |s|.
+
+			[=list/For each=] |child| of |root| beyond the first:
+
+			1. If |child| is a Negate node,
+				append " - " to |s|,
+				then [=serialize a calculation tree|serialize=] the Negate's child
+				and append the result to |s|.
+
+			3. If |child| is a negative numeric value,
+				append " - " to |s|,
+				then serialize the negation of |child| as normal
+				and append the result to |s|.
+
+			2. Otherwise,
+				append " + " to |s|,
+				then [=serialize a calculation tree|serialize=] |child|
+				and append the result to |s|.
+
+			Finally, append ")" to |s|
+			and return it.
+
+		7. If |root| is a Product node,
+			let |s| be a [=string=]
+			initially containing "(".
+
+			[=sort a calculation's children|Sort root's children=].
+
+			[=serialize a calculation tree|Serialize=] |root|'s first child,
+			and append it to |s|.
+
+			[=list/For each=] |child| of |root| beyond the first:
+
+			1. If |child| is an Invert node,
+				append " / " to |s|,
+				then [=serialize a calculation tree|serialize=] the Invert's child
+				and append the result to |s|.
+
+			2. Otherwise,
+				append " * " to |s|,
+				then [=serialize a calculation tree|serialize=] |child|
+				and append the result to |s|.
+
+			Finally, append ")" to |s|
+			and return it.
+	</div>
+
+	<div algorithm>
+		To <dfn>sort a calculation's children</dfn> |nodes|:
+
+		1. Let |ret| be an empty list.
+
+		2. If |nodes| contains a number,
+			remove it from |nodes| and append it to |ret|.
+
+		3. If |nodes| contains a percentage,
+			remove it from |nodes| and append it to |ret|.
+
+		4. If |nodes| contains any dimensions,
+			remove them from |nodes|,
+			sort them by their units,
+			ordered [=ASCII case-insensitively=],
+			and append them to |ret|.
+
+		5. If |nodes| still contains any items,
+			append them to |ret| in the same order.
+
+		6. Return |ret|.
 	</div>
 
 	<wpt>
@@ -3606,63 +3736,9 @@ Serialization</h3>
 	css/css-values/calc-background-position-003.html
 	</wpt>
 
-	<div algorithm="serialize a min()/max() value">
-		To <dfn export lt="serialize a non-calc() math function">serialize a non-''calc()'' [=math function=]</dfn>:
-
-		1. For each comma-separated [=calculation=] inside of the [=math function=],
-			[=simplify the calculation=].
-
-		2. Let |s| initially be the name of the [=math function=],
-			followed by "(".
-			(E.g. "min(", "sin(", etc.)
-
-		3. [=serialize the summation|Serialize each summation=],
-			then join them into a single string,
-			with ", " between each term.
-			Append the result to |s|.
-
-		4. Append ")" to |s|,
-			then return it.
-	</div>
-
-	<div algorithm="simplify a calculation">
-		To <dfn export lt="simplify a calculation | simplify the calculation" for="math function">simplify a calculation</dfn>:
-
-		1. Replace any ''calc()'' values with parentheses containing their contents.
-		2. Resolve all multiplications and divisions.
-		3. Combine identical units.
-		4. Recurse into remaining [=math functions=].
-		5. Return the result.
-
-		Note: The value-computation process can transform disparate units into identical ones.
-		For example, ''em'' and ''px'' are obviously different at specified-value time,
-		but at computed-value time they're both absolutized to ''px''.
-
-		The result must be a summation of unique units and/or [=math functions=].
-		(Terms with a value of zero <strong>must</strong> be preserved in this summation.)
-	</div>
-
 	<wpt>
 	css/css-values/calc-nesting-002.html
 	</wpt>
-
-	<div algorithm="serialize a summation">
-		To <dfn export lt="serialize a summation|serialize the summation" for="math function">serialize a summation</dfn>:
-
-		1. Sort the terms in the following order:
-
-			1. The number, if present
-			2. The percentage, if present
-			3. The dimensions, ordered by their units <a>ASCII case-insensitive</a> alphabetically
-			4. <a href="#comp-func">Comparison</a>, <a href="#trig-funcs">trigonometric</a>
-				and <a href="#exponent-funcs">exponential</a> functions,
-				in the order they appeared in the original expression.
-
-		2. Serialize all the terms,
-			then join them into a single string,
-			with " + " between each term.
-			Return the result.
-	</div>
 
 	<div class="example">
 		For example, ''calc(20px + 30px)'' would serialize as ''calc(50px)'' as a specified value,
