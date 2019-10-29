@@ -166,7 +166,7 @@ function gam_a98rgb(RGB) {
 	});
 }
 
-function lin_a98-rgb_to_XYZ(rgb) {
+function lin_a98rgb_to_XYZ(rgb) {
 	// convert an array of linear-light a98-rgb values to CIE XYZ
 	// using  D50 (so no chromatic adaptation needed afterwards)
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
@@ -181,7 +181,7 @@ function lin_a98-rgb_to_XYZ(rgb) {
 	return Math.multiply(M, rgb).valueOf();
 }
 
-function XYZ_to_lin_a98-rgb(XYZ) {
+function XYZ_to_lin_a98rgb(XYZ) {
 	// convert XYZ to linear-light a98-rgb
 	var M = Math.matrix([
 	[  2.0415879038107465,    -0.5650069742788596,   -0.34473135077832956 ],
