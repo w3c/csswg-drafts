@@ -1,5 +1,5 @@
 // utility functions for color conversions
-import "conversions.js";
+// needs conversions.js nd math.js (not Math)
 
 function sRGB_to_luminance(RGB) {
     // convert an array of gamma-corrected sRGB values
