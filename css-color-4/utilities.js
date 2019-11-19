@@ -35,7 +35,7 @@ function sRGB_to_LCH(RGB) {
     return Lab_to_LCH(XYZ_to_Lab(D65_to_D50(lin_sRGB_to_XYZ(lin_sRGB(RGB)))));
 }
 
-functions LCH_to_sRGB(LCH) {
+function LCH_to_sRGB(LCH) {
     // convert an array of CIE LCH values
     // to CIE Lab, and then to XYZ,
     // adapt from D50 to D65,
@@ -46,5 +46,5 @@ functions LCH_to_sRGB(LCH) {
     // or components greater than 1.0
     // so check for that :)
 
-    return gam(sRGB(XYZ_to_lin_sRGB(Lab_to_XYZ(D50_to_D65(LCH_to_Lab(LCH)))));
+    return gam(sRGB(XYZ_to_lin_sRGB(Lab_to_XYZ(D50_to_D65(LCH_to_Lab(LCH))))));
 }
