@@ -1,5 +1,5 @@
 // utility functions for color conversions
-// needs conversions.js nd math.js (not Math)
+// needs conversions.js and math.js (not Math)
 
 function sRGB_to_luminance(RGB) {
     // convert an array of gamma-corrected sRGB values
@@ -46,5 +46,5 @@ function LCH_to_sRGB(LCH) {
     // or components greater than 1.0
     // so check for that :)
 
-    return gam(sRGB(XYZ_to_lin_sRGB(Lab_to_XYZ(D50_to_D65(LCH_to_Lab(LCH))))));
+    return gam_sRGB(XYZ_to_lin_sRGB(Lab_to_XYZ(D50_to_D65(LCH_to_Lab(LCH)))));
 }
