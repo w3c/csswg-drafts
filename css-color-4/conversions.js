@@ -134,7 +134,7 @@ function lin_ProPhoto_to_XYZ(rgb) {
 	[ 0.0,                 0.0,                  0.8251046025104601     ]
 	]);
 
-	return Math.multiply(M, rgb).valueOf();
+	return math.multiply(M, rgb).valueOf();
 }
 
 function XYZ_to_lin_ProPhoto(XYZ) {
@@ -145,7 +145,7 @@ function XYZ_to_lin_ProPhoto(XYZ) {
   	[  0.0,                  0.0,                   1.2119675456389454  ]
 	]);
 
-	return Math.multiply(M, XYZ).valueOf();
+	return math.multiply(M, XYZ).valueOf();
 }
 
 // a98-rgb functions
@@ -172,24 +172,24 @@ function lin_a98rgb_to_XYZ(rgb) {
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	// which has greater numerical precsion than section 4.3.5.3 of
 	// https://www.adobe.com/digitalimag/pdfs/AdobeRGB1998.pdf
-	var M = Math.matrix([
+	var M = math.matrix([
 	[ 0.5766690429101305,   0.1855582379065463,   0.1882286462349947  ],
 	[ 0.29734497525053605,  0.6273635662554661,   0.07529145849399788 ],
 	[ 0.02703136138641234,  0.07068885253582723,  0.9913375368376388  ]
 	]);
 
-	return Math.multiply(M, rgb).valueOf();
+	return math.multiply(M, rgb).valueOf();
 }
 
 function XYZ_to_lin_a98rgb(XYZ) {
 	// convert XYZ to linear-light a98-rgb
-	var M = Math.matrix([
+	var M = math.matrix([
 	[  2.0415879038107465,    -0.5650069742788596,   -0.34473135077832956 ],
 	[ -0.9692436362808795,     1.8759675015077202,    0.04155505740717557 ],
 	[  0.013444280632031142,  -0.11836239223101838,   1.0151749943912054  ]
 	]);
 
-	return Math.multiply(M, XYZ).valueOf();
+	return math.multiply(M, XYZ).valueOf();
 }
 
 //Rec. 2020-related functions
