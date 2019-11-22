@@ -91,8 +91,8 @@ ResizeObserver's notifications can be used to respond to changes in {{Element}}'
   <pre highlight="js">
     // In response to resize, elipse paints an elipse inside a canvas
     document.querySelector('#elipse').handleResize = entry => {
-        entry.target.width = entry.borderBoxSize.inlineSize;
-        entry.target.height = entry.borderBoxSize.blockSize;
+        entry.target.width = entry.borderBoxSize[0].inlineSize;
+        entry.target.height = entry.borderBoxSize[0].blockSize;
         let rx = Math.floor(entry.target.width / 2);
         let ry = Math.floor(entry.target.height / 2);
         let ctx = entry.target.getContext('2d');
@@ -103,7 +103,7 @@ ResizeObserver's notifications can be used to respond to changes in {{Element}}'
     // In response to resize, change title visibility depending on width
     document.querySelector('#menu').handleResize = entry => {
         let title = entry.target.querySelector(".title")
-        if (entry.borderBoxSize.inlineSize < 40)
+        if (entry.borderBoxSize[0].inlineSize < 40)
             title.style.display = "none";
         else
             title.style.display = "inline-block";
@@ -115,8 +115,8 @@ ResizeObserver's notifications can be used to respond to changes in {{Element}}'
         console.log('watching element:', entry.target);
         console.log(entry.contentRect.top,' is ', cs.paddingTop);
         console.log(entry.contentRect.left,' is ', cs.paddingLeft);
-        console.log(entry.borderBoxSize.inlineSize,' is ', cs.width);
-        console.log(entry.borderBoxSize.blockSize,' is ', cs.height);
+        console.log(entry.borderBoxSize[0].inlineSize,' is ', cs.width);
+        console.log(entry.borderBoxSize[0].blockSize,' is ', cs.height);
         if (entry.target.handleResize)
             entry.target.handleResize(entry);
       }
@@ -247,9 +247,9 @@ This callback delivers {{ResizeObserver}}'s notifications. It is invoked by a
 interface ResizeObserverEntry {
     readonly attribute Element target;
     readonly attribute DOMRectReadOnly contentRect;
-    readonly attribute ResizeObserverSize borderBoxSize;
-    readonly attribute ResizeObserverSize contentBoxSize;
-    readonly attribute ResizeObserverSize devicePixelContentBoxSize;
+    readonly attribute sequence&lt;ResizeObserverSize> borderBoxSize;
+    readonly attribute sequence&lt;ResizeObserverSize> contentBoxSize;
+    readonly attribute sequence&lt;ResizeObserverSize> devicePixelContentBoxSize;
 };
 </pre>
 
@@ -264,14 +264,25 @@ interface ResizeObserverEntry {
         {{Element}}'s <a>content rect</a> when {{ResizeObserverCallback}} is invoked.
     : <dfn>borderBoxSize</dfn>
     ::
-        {{Element}}'s <a>border box</a> size when {{ResizeObserverCallback}} is invoked.
+        A sequence containing the {{Element}}'s <a>border box</a> size when {{ResizeObserverCallback}} is invoked.
     : <dfn>contentBoxSize</dfn>
     ::
-        {{Element}}'s <a>content rect</a> size when {{ResizeObserverCallback}} is invoked.
+        A sequence containing the {{Element}}'s <a>content rect</a> size when {{ResizeObserverCallback}} is invoked.
     : <dfn>devicePixelContentBoxSize</dfn>
     ::
-        {{Element}}'s <a>content rect</a> size in integral device pixels when {{ResizeObserverCallback}} is invoked.
+        A sequence containing the {{Element}}'s <a>content rect</a> size in integral device pixels when {{ResizeObserverCallback}} is invoked.
+
 </div>
+
+<p class="note">
+The box size properties are exposed as sequences in order to support elements that have multiple fragments,
+which occur in <a>multi-column</a> scenarios.
+However the current definitions of <a>content rect</a> and <a>border box</a>
+do not mention how those boxes are affected by <a>multi-column</a> layout.
+In this spec, there will only be a single ResizeObserverSize returned in the sequences,
+which will correspond to the dimensions of the first column.
+A future version of this spec will extend the returned sequences to contain the per-fragment size information.
+</p>
 
 <div dfn-type="method" dfn-for="ResizeObserverEntry">
     : <dfn constructor lt="ResizeObserverEntry(target)">new ResizeObserverEntry(target)</dfn>
@@ -323,7 +334,7 @@ interface is not visible to Javascript.</p>
 interface ResizeObservation {
     readonly attribute Element target;
     readonly attribute ResizeObserverBoxOptions observedBox;
-    readonly attribute ResizeObserverSize lastReportedSize;
+    readonly attribute sequence&lt;ResizeObserverSize> lastReportedSizes;
 };
 </pre>
 <div dfn-type="attribute" dfn-for="ResizeObservation">
@@ -331,8 +342,8 @@ interface ResizeObservation {
     :: The observed {{Element}}.
     : <dfn>observedBox</dfn>
     :: Which box is being observed.
-    : <dfn>lastReportedSize</dfn>
-    :: Last reported size.
+    : <dfn>lastReportedSizes</dfn>
+    :: Ordered sequence of last reported sizes.
 </div>
 <div dfn-type="method" dfn-for="ResizeObservation">
     : <dfn constructor lt="ResizeObservation(target, options)">new ResizeObservation(target, observedBox)</dfn>
@@ -343,14 +354,14 @@ interface ResizeObservation {
 
         3. Set |this| internal {{ResizeObservation/observedBox}} slot to |observedBox|
 
-        4. Set |this| internal {{ResizeObservation/lastReportedSize}} slot to (0,0)
+        4. Set |this| internal {{ResizeObservation/lastReportedSizes}} slot to [(0,0)]
 
     : <dfn method lt="isActive()">isActive()</dfn>
     ::
 
         1. Set |currentSize| by <a>calculate box size</a> given |target| and |observedBox|.
 
-        2. Return true if |currentSize| is not equal to this.{{ResizeObservation/lastReportedSize}}.
+        2. Return true if |currentSize| is not equal to the first entry in this.{{ResizeObservation/lastReportedSizes}}.
 
         3. Return false.
 
@@ -467,13 +478,13 @@ run these steps:
 
         2. Add |entry| to |entries|.
 
-        3. Set |observation|.{{lastReportedSize}} to matching |entry| size.
+        3. Set |observation|.{{lastReportedSizes}} to matching |entry| sizes.
 
-            1. Matching size is |entry|.{{ResizeObserverEntry/borderBoxSize}} if |observation|.{{ResizeObservation/observedBox}} is "border-box"
+            1. Matching sizes are |entry|.{{ResizeObserverEntry/borderBoxSize}} if |observation|.{{ResizeObservation/observedBox}} is "border-box"
 
-            2. Matching size is |entry|.{{ResizeObserverEntry/contentBoxSize}} if |observation|.{{ResizeObservation/observedBox}} is "content-box"
+            2. Matching sizes are |entry|.{{ResizeObserverEntry/contentBoxSize}} if |observation|.{{ResizeObservation/observedBox}} is "content-box"
 
-            3. Matching size is |entry|.{{ResizeObserverEntry/devicePixelContentBoxSize}} if |observation|.{{ResizeObservation/observedBox}} is "device-pixel-content-box"
+            3. Matching sizes are |entry|.{{ResizeObserverEntry/devicePixelContentBoxSize}} if |observation|.{{ResizeObservation/observedBox}} is "device-pixel-content-box"
 
         4. Set |targetDepth| to the result of <a>calculate depth for node</a> for |observation|.{{ResizeObservation/target}}.
 
