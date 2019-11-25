@@ -611,7 +611,8 @@ This event occurs when there is a valid result of <a>selecting the best candidat
             <th>Attributes of the event
             <td><dl>
                 <dt>{{Event}}.{{Event/target}}
-                <dd>The element receiving focus
+                <dd>The focused element or if no element focused,
+                then <a>the body element</a> if available, otherwise the root element
 
                 <dt>{{NavigationEvent}}.{{NavigationEvent/relatedTarget}}
                 <dd>The DOM anchor of the focusable area that will be focused
@@ -682,16 +683,23 @@ the <a spec=html for="/">origin</a> of the [=active document=] of the [=top-leve
     document.addEventListener('navbeforefocus', e => {
         e.preventDefault();
 
-        let target = e.relatedTarget;
-        if (target.isSameNode(target.getSpatialNavigationContainer())) {
-            const areas = target.focusableAreas();
+        let nextTarget = e.relatedTarget;
+        if (isSpatialNavigationContainer(nextTarget)) {
+            const areas = nextTarget.focusableAreas();
 
-            if (areas.length === 0) { break; }
-
-            target = target.spatialNavigationSearch(e.dir, { candidates: areas });
+            if (areas.length > 0) {
+                nextTarget = nextTarget.spatialNavigationSearch(e.dir, { candidates: areas });
+            }
         }
-        target.focus();
+        nextTarget.focus();
     });
+
+    function isSpatialNavigationContainer(element) {
+        return (!element.parentElement) ||
+            (element.nodeName === 'IFRAME') ||
+            (isScrollContainer(element)) ||
+            (isCSSSpatNavContain(element));
+    }
     </code></pre>
 </div>
 
@@ -722,7 +730,8 @@ when it cannot be scrolled further.
             <th>Attributes of the event
             <td><dl>
                 <dt>{{Event}}.{{Event/target}}
-                <dd>The element receiving focus
+                <dd>The focused element or if no element focused,
+                then <a>the body element</a> if available, otherwise the root element
 
                 <dt>{{NavigationEvent}}.{{NavigationEvent/relatedTarget}}
                 <dd>The <a>spatial navigation container</a> that was searched in.
@@ -846,41 +855,31 @@ the <a spec=html for="/">origin</a> of the [=active document=] of the [=top-leve
 
 <div class=example id=loop>
     The following code changes the behavior of spatial navigation
-    to trap the focus within a <a>spatial navigation container</a>:
-    when no further focusable elements can be found in the requested direction
+    to trap the focus within a <a>spatial navigation container</a> which is vertically scrollable.
+    When no further focusable elements can be found in the requested direction
     and the <a>spatial navigation container</a> cannot be scrolled any further,
-    the focus loops back to the other side instead of moving outside of it,
-    either by focusing or scrolling depending on what is available.
+    the focus loops back to the other side instead of moving outside of it.
 
     However, the focus can still be moved outside by sequential navigation,
     mouse interaction,
     or programmatic calls to {{focus()}}.
 
     <pre><code highlight=javascript>
-    document.addEventListener('navnotarget', e => {
-        e.preventDefault();
+    scrollContainer.addEventListener('navnotarget', e => {
+        let nextTarget = null;
+        const verticalDir = ['up', 'down'];
+        const candidates = e.relatedTarget.focusableAreas({'mode': 'all'});
 
-        const container = e.relatedTarget;
-        const areas = container.focusableAreas({ mode: 'all' });
+        // Prevent default only when navigation direction is on y-axis
+        if (dirArray.includes(e.dir) && (candidates.length > 0)) {
+            e.preventDefault();
 
-        if (areas.length === 0) {
-            switch (e.dir) {
-                case 'down':
-                    container.scrollTop = 0;
-                    break;
-                case 'up':
-                    container.scrollTop = container.scrollHeight;
-                    break;
-                case 'right':
-                    container.scrollLeft = 0;
-                    break;
-                case 'left':
-                    container.scrollLeft = container.scrollWidth;
-                    break;
+            if (e.dir === 'down') {
+                nextTarget = candidates[0];
+            } else if (e.dir === 'up') {
+                nextTarget = candidates[candidates.length-1];
             }
-        } else {
-            const target = container.spatialNavigationSearch(e.dir, { candidates: areas });
-            target.focus();
+            nextTarget.focus();
         }
     });
     </code></pre>
