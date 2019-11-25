@@ -86,6 +86,7 @@ urlPrefix: http://heycam.github.io/webidl/
     type: dfn; text: converted to an IDL value; url: dfn-convert-ecmascript-to-idl-value
 url: https://www.w3.org/TR/DOM-Level-3-Events/#interface-MouseEvent; type: interface; text: MouseEvent
 url: https://drafts.csswg.org/mediaqueries-4/#mf-colors; type: dfn; text: color media query
+url: https://drafts.csswg.org/css-overscroll/#scroll-boundary; type: dfn; text: scroll boundary
 </pre>
 
 <pre class='link-defaults'>
@@ -381,13 +382,17 @@ the following steps must be run:
   Otherwise, perform an <a>instant scroll</a> of <var>box</var> to <var>position</var>.
 </ol>
 
+The scroll is considered <dfn lt="scroll completed">completed</dfn> when there is no further changes needed for the scroll position for the
+current scroll.
+
 When a user agent is to perform a <dfn id=concept-smooth-scroll>smooth scroll</dfn> of a <a>scrolling box</a> <var>box</var> to <var>position</var>,
 it must update the scroll position of <var>box</var> in a user-agent-defined fashion over a user-agent-defined amount of time. When the scroll is
-<dfn lt="smooth scroll completed">completed</dfn>, the scroll position of <var>box</var> must be <var>position</var>. The scroll can also
+<a lt="scroll completed">completed</a>, the scroll position of <var>box</var> must be <var>position</var>. The scroll can also
 be <dfn lt="smooth scroll aborted">aborted</dfn>, either by an algorithm or by the user. <!--fingerprint-->
 
 When a user agent is to perform an <dfn id=concept-instant-scroll>instant scroll</dfn> of a <a>scrolling box</a> <var>box</var> to
-<var>position</var>, it must update the scroll position of <var>box</var> to <var>position</var>.
+<var>position</var>, it must update the scroll position of <var>box</var> to <var>position</var> and then the scroll is considered
+<a lt="scroll completed">completed</a>.
 
 To <dfn>scroll to the beginning of the document</dfn> for a document <var>document</var>, follow these steps:
 
@@ -1564,6 +1569,22 @@ The <dfn attribute for=MouseEvent>offsetY</dfn> attribute must follow these step
 1. If the event's <a>dispatch flag</a> is set, return the y-coordinate of the position where the event occurred relative to the origin of the <a>padding edge</a> of the target node, ignoring the <a>transforms</a> that apply to the element and its ancestors, and terminate these steps.
 1. Return the value of the event's {{MouseEvent/pageY}} attribute.
 
+<h2 id=overscroll-event-interface>Overscroll Event Interface</h2>
+
+<pre class=idl>
+dictionary OverscrollEventInit : EventInit {
+  double deltaX = 0.0;
+  double deltaY = 0.0;
+};
+interface OverscrollEvent : Event {
+    readonly attribute double deltaX;
+    readonly attribute double deltaY;
+};
+</pre>
+
+The <dfn>deltaX</dfn> attribute must return the overscroll amount in the horizontal direction.
+
+The <dfn>deltaY</dfn> attribute must return the overscroll amount in the vertical direction.
 
 <h2 id=geometry>Geometry</h2>
 
@@ -1660,28 +1681,48 @@ When asked to <dfn>run the resize steps</dfn> for a {{Document}} <var>doc</var>,
 
 This section integrates with the <a spec=html>event loop</a> defined in HTML. [[!HTML]]
 
-Each {{Document}} has an associated list of <dfn>pending scroll event targets</dfn>, initially empty.
+Each {{Document}} has an associated list of <dfn>pending scroll event targets</dfn> and an associated list of
+<dfn>pending scrollend event targets</dfn>, initially empty.
 
-Whenever a <a>viewport</a> gets scrolled (whether in response to user interaction or by an API), the user agent must run these steps:
+Whenever a <a>viewport</a> or an element gets scrolled (whether in response to user interaction or by an API), the user agent must run these steps:
 
-1. Let <var>doc</var> be the <a>viewport’s</a> associated {{Document}}.
-1. If <var>doc</var> is already in <var>doc</var>'s <a>pending scroll event targets</a>, abort these steps.
-1. Append <var>doc</var> to <var>doc</var>'s <a>pending scroll event targets</a>.
+1. If a <a>viewport</a> is getting scrolled, let <var>doc</var> be the <a>viewport’s</a> associated {{Document}} and <var>target</var> be the <a>viewport</a>.
+Otherwise, an element is gettings scolled and let <var>doc</var> be the element's <a>node document</a> and <var>target</var> be the element.
+1. If the <var>target</var> is at its <a>scroll boundary</a> and does not overflow in the direction of scroll, let <var>type</var> be "overscroll"
+and <var>deltaX</var> and <var>deltaY</var> be the scroll position difference if the <var>target</var> were to overflow in the direction of scroll hypothetically
+(e.g. <var>deltaX<var> = new hypothetical scroll position in X direction - real scroll position in X direction).
+Otherwise, let <var>type</var> be "scroll" and <var>deltaX</var> and <var>deltaY</var> be zero.
+1. Let <var>scroll event target</var> be (<var>target</var>, <var>type</var>, <var>deltaX</var>, <var>deltaY</var>).
+1. If a struct with <var>target</var> is already in <var>doc</var>'s <a>pending scroll event targets</a>, then replace that item with <var>scroll event target</var>.
+Otherwise, append <var>scroll event target</var> to <var>doc</var>'s <a>pending scroll event targets</a>.
 
-Whenever an element gets scrolled (whether in response to user interaction or by an API), the user agent must run these steps:
+Whenever a scrolling is <a lt="scroll completed">completed</a>, the user agent must run these steps:
 
-1. Let <var>doc</var> be the element's <a>node document</a>.
-1. If the element is already in <var>doc</var>'s <a>pending scroll event targets</a>, abort these steps.
-1. Append the element to <var>doc</var>'s <a>pending scroll event targets</a>.
+1. If scrolling was done on a <a>viewport</a>, let <var>doc</var> be the <a>viewport’s</a> associated {{Document}} and <var>target</var> be the <a>viewport</a>.
+Otherwise, scrolling is done on an element and let <var>doc</var> be the element's <a>node document</a> and <var>target</var> be the element.
+1. If <var>target</var> is already in <var>doc</var>'s <a>pending scrollend event targets</a>, abort these steps.
+1. Append <var>target</var> to <var>doc</var>'s <a>pending scrollend event targets</a>.
 
 When asked to <dfn>run the scroll steps</dfn> for a {{Document}} <var>doc</var>, run these steps:
 
-1. For each item <var>target</var> in <var>doc</var>'s <a>pending scroll event targets</a>,
+1. For each item (<var>target</var>, <var>type</var>, <var>deltaX</var>, <var>deltaY</var>) in <var>doc</var>'s <a>pending scroll event targets</a>,
     in the order they were added to the list, run these substeps:
 
-    1. If <var>target</var> is a {{Document}}, <a>fire an event</a> named <a event>scroll</a> that bubbles at <var>target</var>.
-    1. Otherwise, <a>fire an event</a> named <a event>scroll</a> at <var>target</var>.
+    1. If <var>type</var> is "scroll", run these steps:
+        1. If <var>target</var> is a {{Document}}, <a>fire an event</a> named <a event>scroll</a> that bubbles at <var>target</var>.
+        1. Otherwise, <a>fire an event</a> named <a event>scroll</a> at <var>target</var>.
+    1. If <var>type</var> is "overscroll", run these step:
+        1. If <var>target</var> is a {{Document}}, <a>fire an event</a> named <a event>overscroll</a> that bubbles at <var>target</var>
+        with attributes initalized to <var>deltaX</var> and <var>deltaY</var>.
+        1. Otherwise, <a>fire an event</a> named <a event>scroll</a> at <var>target</var>
+        with attributes initalized to <var>deltaX</var> and <var>deltaY</var>.
 1. Empty <var>doc</var>'s <a>pending scroll event targets</a>.
+1. For each item <var>target</var> in <var>doc</var>'s <a>pending scrollend event targets</a>,
+    in the order they were added to the list, run these substeps:
+
+    1. If <var>target</var> is a {{Document}}, <a>fire an event</a> named <a event>scrollend</a> that bubbles at <var>target</var>.
+    1. Otherwise, <a>fire an event</a> named <a event>scrollend</a> at <var>target</var>.
+1. Empty <var>doc</var>'s <a>pending scrollend event targets</a>.
 
 
 <h3 id=event-summary>Event summary</h3>
@@ -1694,18 +1735,38 @@ When asked to <dfn>run the scroll steps</dfn> for a {{Document}} <var>doc</var>,
    <th>Event
    <th>Interface
    <th>Interesting targets
+   <th>Bubbles
+   <th>Cancelable
    <th>Description
  <tbody>
   <tr>
    <td><dfn event for=Window>resize</dfn>
    <td>{{Event}}
    <td>{{Window}}
+   <td>No
+   <td>No
    <td>Fired at the {{Window}} when the <a>viewport</a> is resized.
   <tr>
    <td><dfn event for="Document, Element">scroll</dfn>
    <td>{{Event}}
    <td>{{Document}}, elements
+   <td>Yes only if the target is {{Document}}
+   <td>No
    <td>Fired at the {{Document}} or element when the <a>viewport</a> or element is scrolled, respectively.
+  <tr>
+   <td><dfn event for="Document, Element">overscroll</dfn>
+   <td>{{OverscrollEvent}}
+   <td>{{Document}}, elements
+   <td>Yes only if the target is {{Document}}
+   <td>No
+   <td>Fired at the {{Document}} or element when the <a>viewport</a> or element is overscrolled, respectively.
+  <tr>
+   <td><dfn event for="Document, Element">scrollend</dfn>
+   <td>{{Event}}
+   <td>{{Document}}, elements
+   <td>Yes only if the target is {{Document}}
+   <td>No
+   <td>Fired at the {{Document}} or element when the <a>viewport</a> or element scrolling is finished, respectively.
 </table>
 
 <h2 id=css-properties>CSS properties</h2>
