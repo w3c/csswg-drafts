@@ -46,5 +46,5 @@ function LCH_to_sRGB(LCH) {
     // or components greater than 1.0
     // so check for that :)
 
-    return gam_sRGB(XYZ_to_lin_sRGB(Lab_to_XYZ(D50_to_D65(LCH_to_Lab(LCH)))));
+    return gam_sRGB(XYZ_to_lin_sRGB(D50_to_D65(Lab_to_XYZ(LCH_to_Lab(LCH)))));
 }
