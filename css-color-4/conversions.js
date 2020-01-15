@@ -54,25 +54,25 @@ function XYZ_to_lin_sRGB(XYZ) {
 	return math.multiply(M, XYZ).valueOf();
 }
 
-//  image-3-related functions
+//  display-p3-related functions
 
 
 function lin_P3(RGB) {
-	// convert an array of image-p3 RGB values in the range 0.0 - 1.0
+	// convert an array of display-p3 RGB values in the range 0.0 - 1.0
 	// to linear light (un-companded) form.
 
 	return lin_sRGB(RGB);	// same as sRGB
 }
 
 function gam_P3(RGB) {
-	// convert an array of linear-light image-p3 RGB  in the range 0.0-1.0
+	// convert an array of linear-light display-p3 RGB  in the range 0.0-1.0
 	// to gamma corrected form
 
 	return gam_sRGB(RGB);	// same as sRGB
 }
 
 function lin_P3_to_XYZ(rgb) {
-	// convert an array of linear-light image-p3 values to CIE XYZ
+	// convert an array of linear-light display-p3 values to CIE XYZ
 	// using  D65 (no chromatic adaptation)
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	var M = math.matrix([
@@ -195,7 +195,7 @@ function XYZ_to_lin_a98rgb(XYZ) {
 //Rec. 2020-related functions
 
 function lin_2020(RGB) {
-	// convert an array of rec-2020 RGB values in the range 0.0 - 1.0
+	// convert an array of rec2020 RGB values in the range 0.0 - 1.0
 	// to linear light (un-companded) form.
 	const α = 1.09929682680944 ;
 	const β = 0.018053968510807;
@@ -211,7 +211,7 @@ function lin_2020(RGB) {
 //check with standard this really is 2.4 and 1/2.4, not 0.45 was wikipedia claims
 
 function gam_2020(RGB) {
-	// convert an array of linear-light rec-2020 RGB  in the range 0.0-1.0
+	// convert an array of linear-light rec2020 RGB  in the range 0.0-1.0
 	// to gamma corrected form
 	const α = 1.09929682680944 ;
 	const β = 0.018053968510807;
@@ -226,7 +226,7 @@ function gam_2020(RGB) {
 }
 
 function lin_2020_to_XYZ(rgb) {
-	// convert an array of linear-light rec-2020 values to CIE XYZ
+	// convert an array of linear-light rec2020 values to CIE XYZ
 	// using  D65 (no chromatic adaptation)
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	var M = math.matrix([
@@ -240,7 +240,7 @@ function lin_2020_to_XYZ(rgb) {
 }
 
 function XYZ_to_lin_2020(XYZ) {
-	// convert XYZ to linear-light rec-2020
+	// convert XYZ to linear-light rec2020
 	var M = math.matrix([
 		[1.7166511879712674,   -0.35567078377639233, -0.25336628137365974],
 		[-0.6666843518324892,   1.6164812366349395,   0.01576854581391113],
