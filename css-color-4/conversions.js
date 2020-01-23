@@ -54,25 +54,25 @@ function XYZ_to_lin_sRGB(XYZ) {
 	return math.multiply(M, XYZ).valueOf();
 }
 
-//  image-3-related functions
+//  display-p3-related functions
 
 
 function lin_P3(RGB) {
-	// convert an array of image-p3 RGB values in the range 0.0 - 1.0
+	// convert an array of display-p3 RGB values in the range 0.0 - 1.0
 	// to linear light (un-companded) form.
 
 	return lin_sRGB(RGB);	// same as sRGB
 }
 
 function gam_P3(RGB) {
-	// convert an array of linear-light image-p3 RGB  in the range 0.0-1.0
+	// convert an array of linear-light display-p3 RGB  in the range 0.0-1.0
 	// to gamma corrected form
 
 	return gam_sRGB(RGB);	// same as sRGB
 }
 
 function lin_P3_to_XYZ(rgb) {
-	// convert an array of linear-light image-p3 values to CIE XYZ
+	// convert an array of linear-light display-p3 values to CIE XYZ
 	// using  D65 (no chromatic adaptation)
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	var M = math.matrix([
@@ -96,12 +96,12 @@ function XYZ_to_lin_P3(XYZ) {
 	return math.multiply(M, XYZ).valueOf();
 }
 
-// ProPhotoRGB functions
+// prophoto-rgb functions
 
 function lin_ProPhoto(RGB) {
-	// convert an array of ProPhotoRGB values in the range 0.0 - 1.0
+	// convert an array of prophoto-rgb values in the range 0.0 - 1.0
 	// to linear light (un-companded) form.
-	// Transfer curve is gamma 1.0 with a small linear portion
+	// Transfer curve is gamma 1.8 with a small linear portion
 	return RGB.map(function (val) {
 		if (val < 0.031248) {
 			return val / 16;
@@ -112,9 +112,9 @@ function lin_ProPhoto(RGB) {
 }
 
 function gam_ProPhoto(RGB) {
-	// convert an array of linear-light ProPhotoRGB  in the range 0.0-1.0
+	// convert an array of linear-light prophoto-rgb  in the range 0.0-1.0
 	// to gamma corrected form
-	// Transfer curve is gamma 1.0 with a small linear portion
+	// Transfer curve is gamma 1.8 with a small linear portion
 	return RGB.map(function (val) {
 		if (val > 0.001953) {
 			return Math.pow(val, 1/1.8);
@@ -125,33 +125,33 @@ function gam_ProPhoto(RGB) {
 }
 
 function lin_ProPhoto_to_XYZ(rgb) {
-	// convert an array of linear-light ProPhotoRGB values to CIE XYZ
+	// convert an array of linear-light prophoto-rgb values to CIE XYZ
 	// using  D50 (so no chromatic adaptation needed afterwards)
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
-	var M = Math.matrix([
+	var M = math.matrix([
 	[ 0.7977604896723027,  0.13518583717574031,  0.0313493495815248     ],
 	[ 0.2880711282292934,  0.7118432178101014,   0.00008565396060525902 ],
 	[ 0.0,                 0.0,                  0.8251046025104601     ]
 	]);
 
-	return Math.multiply(M, rgb).valueOf();
+	return math.multiply(M, rgb).valueOf();
 }
 
 function XYZ_to_lin_ProPhoto(XYZ) {
-	// convert XYZ to linear-light ProPhotoRGB
-	var M = Math.matrix([
+	// convert XYZ to linear-light prophoto-rgb
+	var M = math.matrix([
   	[  1.3457989731028281,  -0.25558010007997534,  -0.05110628506753401 ],
   	[ -0.5446224939028347,   1.5082327413132781,    0.02053603239147973 ],
   	[  0.0,                  0.0,                   1.2119675456389454  ]
 	]);
 
-	return Math.multiply(M, XYZ).valueOf();
+	return math.multiply(M, XYZ).valueOf();
 }
 
-// a98rgb functions
+// a98-rgb functions
 
 function lin_a98rgb(RGB) {
-	// convert an array of a98rgb values in the range 0.0 - 1.0
+	// convert an array of a98-rgb values in the range 0.0 - 1.0
 	// to linear light (un-companded) form.
 	return RGB.map(function (val) {
 	  return Math.pow(val, 563/256);
@@ -159,7 +159,7 @@ function lin_a98rgb(RGB) {
 }
 
 function gam_a98rgb(RGB) {
-	// convert an array of linear-light a98rgb  in the range 0.0-1.0
+	// convert an array of linear-light a98-rgb  in the range 0.0-1.0
 	// to gamma corrected form
 	return RGB.map(function (val) {
 		return Math.pow(val, 256/563);
@@ -167,35 +167,35 @@ function gam_a98rgb(RGB) {
 }
 
 function lin_a98rgb_to_XYZ(rgb) {
-	// convert an array of linear-light a98rgb values to CIE XYZ
+	// convert an array of linear-light a98-rgb values to CIE XYZ
 	// using  D50 (so no chromatic adaptation needed afterwards)
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	// which has greater numerical precsion than section 4.3.5.3 of
 	// https://www.adobe.com/digitalimag/pdfs/AdobeRGB1998.pdf
-	var M = Math.matrix([
+	var M = math.matrix([
 	[ 0.5766690429101305,   0.1855582379065463,   0.1882286462349947  ],
 	[ 0.29734497525053605,  0.6273635662554661,   0.07529145849399788 ],
 	[ 0.02703136138641234,  0.07068885253582723,  0.9913375368376388  ]
 	]);
 
-	return Math.multiply(M, rgb).valueOf();
+	return math.multiply(M, rgb).valueOf();
 }
 
 function XYZ_to_lin_a98rgb(XYZ) {
-	// convert XYZ to linear-light a98rgb
-	var M = Math.matrix([
+	// convert XYZ to linear-light a98-rgb
+	var M = math.matrix([
 	[  2.0415879038107465,    -0.5650069742788596,   -0.34473135077832956 ],
 	[ -0.9692436362808795,     1.8759675015077202,    0.04155505740717557 ],
 	[  0.013444280632031142,  -0.11836239223101838,   1.0151749943912054  ]
 	]);
 
-	return Math.multiply(M, XYZ).valueOf();
+	return math.multiply(M, XYZ).valueOf();
 }
 
 //Rec. 2020-related functions
 
 function lin_2020(RGB) {
-	// convert an array of Rec. 2020 RGB values in the range 0.0 - 1.0
+	// convert an array of rec2020 RGB values in the range 0.0 - 1.0
 	// to linear light (un-companded) form.
 	const α = 1.09929682680944 ;
 	const β = 0.018053968510807;
@@ -211,7 +211,7 @@ function lin_2020(RGB) {
 //check with standard this really is 2.4 and 1/2.4, not 0.45 was wikipedia claims
 
 function gam_2020(RGB) {
-	// convert an array of linear-light Rec. 2020 RGB  in the range 0.0-1.0
+	// convert an array of linear-light rec2020 RGB  in the range 0.0-1.0
 	// to gamma corrected form
 	const α = 1.09929682680944 ;
 	const β = 0.018053968510807;
@@ -226,7 +226,7 @@ function gam_2020(RGB) {
 }
 
 function lin_2020_to_XYZ(rgb) {
-	// convert an array of linear-light Rec. 2020 values to CIE XYZ
+	// convert an array of linear-light rec2020 values to CIE XYZ
 	// using  D65 (no chromatic adaptation)
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	var M = math.matrix([
@@ -240,7 +240,7 @@ function lin_2020_to_XYZ(rgb) {
 }
 
 function XYZ_to_lin_2020(XYZ) {
-	// convert XYZ to linear-light Rec. 2020
+	// convert XYZ to linear-light rec2020
 	var M = math.matrix([
 		[1.7166511879712674,   -0.35567078377639233, -0.25336628137365974],
 		[-0.6666843518324892,   1.6164812366349395,   0.01576854581391113],

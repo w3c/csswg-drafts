@@ -8,44 +8,58 @@ TR: https://www.w3.org/TR/css-color-5/
 ED: https://drafts.csswg.org/css-color-5/
 Work Status: exploring
 Editor: Chris Lilley, W3C, chris@w3.org, w3cid 1438
-Editor: Una Kravets, Google, w3cid 115525
+Editor: Una Kravets, Google, https://una.im, w3cid 115525
 Editor: Lea Verou, Invited Expert, http://lea.verou.me/about, w3cid 52258
+Editor: Adam Argyle, Google, https://nerdy.dev, w3cid 112669
 Abstract: This module extends CSS Color [[css-color-4]] to add color modification functions.
 Repository: w3c/csswg-drafts
 </pre>
+
+<pre class="link-defaults">
+spec:css-color-4; type:dfn; text:colorspace
+spec:css-color-4; type:dfn; text:gamut
+</pre>
+<link rel="stylesheet" href="style.css" />
 
 Introduction {#intro}
 =====================
 
 	<em>This section is not normative.</em>
 
-	Web developers and design systems developers
-	often use functions to design components.
-	With the increasing usage of design systems that support multiple platforms,
-	and increased capability of Dark Mode in UI,
+	Web developers, design tools and design system developers
+	often use color functions to assist in scaling the design
+	of their component color relations.
+	With the increasing usage of design systems that support multiple platforms
+	and multiple user preferences, like the increased capability of Dark Mode in UI,
 	this becomes even more useful to not need to manually set color,
-	and to instead have a single source from which layouts are calculated.
+	and to instead have a single source from which schemes are calculated.
 
 	Currently Sass, calc() on HSL values, or PostCSS is used to do this.
 	Preprocessors are unable to work on dynamically adjusted colors,
-	and all current solutions are restricted to the sRGB gamut
-	and to the perceptual limitations of HSL.
+	all current solutions are restricted to the sRGB gamut
+	and to the perceptual limitations of HSL
+	(colors are bunched up in the color wheel,
+	and two colors with visually different lightness,
+	like yellow and blue, can have the same HSL lightness).
 
 	This module adds three functions:
 	''color-mix'',
-	''color-contrast''
-	and a way to modify existing colors.
+	''color-contrast'',
+	and [[#colormodify|a way to modify colors]].
 
-	Issue(3187): there are two proposals for color modification.
-	The CSS WG expects that the best aspects of each
-	will be chosen to produce a single eventual solution.
+	The perceptually uniform ``lch()`` colorspace
+	is used for mixing by default,
+	as this has no gamut restrictions
+	and colors are evenly distributed.
+	However, other colorspaces can be specified,
+	including ``hsl()`` or ``srgb`` if desired.
 
 Mixing colors: the ''color-mix'' function {#colormix}
 =====================================================
 
 	This function takes two <<color>> specifications
 	and returns the result of mixing them,
-	in a given colorspace,
+	in a given [=colorspace=],
 	by a specified amount.
 
 	Unless otherwise specified,
@@ -59,10 +73,32 @@ Mixing colors: the ''color-mix'' function {#colormix}
 </pre>
 
 <div class="example">
+	This example produces the mixture of red and white,
+	in ''lch()'' colorspace (the default),
+	with the lightness being 50% of the lightness of red
+	(and thus, 50% of the lightness of white).
+	The chroma and hue of red are left unchanged.
+
+	<pre class="lang-css">mix-color(red, white, lightness(50%));</pre>
+
+	The calculation is as follows:
+	  * sRGB red (#F00) is lch(54.2917 106.8390 40.8526)
+	  * sRGB white (#FFF) is lch(100 0 0)
+	  * mix lightness is 54.2917 * 0.5 + 100 * 0.5 = 77.14585
+	  * mixed result is lch(77.14585 81.95 37.192)
+	  * which results in a lighter red, like a Salmon color
+
+	<!-- showing out of gamut colors next -->
+
+</div>
+
+<img src="images/mix_red_white_lightness50.png" alt="Result of mix-color(red, white, lightness(50%)" />
+
+<div class="example">
 	This example produces the mixture of red and yellow,
-	in ''lch'' colorspace (the default),
+	in ''lch()'' colorspace (the default),
 	with the lightness being 30% of the lightness of red
-	and 70% of the lightness of yellow.
+	(and thus, 70% of the lightness of yellow).
 	The chroma and hue of red are left unchanged.
 
 	<pre class="lang-css">mix-color(red, yellow, lightness(30%));</pre>
@@ -73,7 +109,11 @@ Mixing colors: the ''color-mix'' function {#colormix}
 	  * mix lightness is 54.2917 * 0.3 + 97.6071 * 0.7 = 84.6125
 	  * mixed result is lch(84.6125 106.8390 40.8526)
 	  * which is a very light red (and outside the gamut of sRGB: rgb(140.4967% 51.2654% 32.6891%))
+
+	<!-- Maybe the first example should reslve to an in-gamut color; show out of gamut colors later? -->
 </div>
+
+<img src="images/mix_red_yellow_lightness30.png" alt="Result of mix-color(red, yellow, lightness(30%)" />
 
 Instead of a list of color functions,
 a plain number or percentage can be specified,
@@ -101,6 +141,8 @@ which applies to all color channels.
 		* which is a red-orange: rgb(75.3600% 65.6304% 16.9796%)
 </div>
 
+<img src="images/mix_red_yellow_65.png" alt="Result of mix-color(red, yellow, 65%" />
+
 Selecting the most contrasting color: the ''color-contrast()'' function {#colorcontrast}
 ========================================================================================
 
@@ -115,7 +157,191 @@ Selecting the most contrasting color: the ''color-contrast()'' function {#colorc
 		<pre class="lang-css">color-contrast(wheat tan, sienna, var(--myAccent), #d2691e)</pre>
 
 		The calculation is as follows:
-			* wheat (#f5deb3) has relative luminance
+			* wheat (#f5deb3), the background, has relative luminance 0.749
+			* tan (#d2b48c) has relative luminance 0.482 and contrast ratio 1.501
+			* sienna (#a0522d) has relative luminance 0.137 and contrast ratio 4.273
+			* suppose myAccent has the value #b22222
+			* #b22222 has relative luminance 0.107 and contrast ratio 5.081
+			* #d2691e has relative luminance 0.305 and contrast ratio 2.249
+			* The highest contrast ratio is 5.081 so var(--myAccent) wins
 
 	</div>
 
+Modifying colors {#colormodify}
+===============================
+
+Note: There are currently two proposals for modifying colors:
+''color-adjust'' and [[#relative-colors|Relative color syntax]].
+
+Issue(3187): there are two proposals for color modification (<a href="https://github.com/w3c/csswg-drafts/issues/3187#issuecomment-499126198">proposal 1</a>, <a href="https://gist.github.com/una/edcfa0d3600e0b89b2ebf266bf549721">proposal 2</a>).
+The CSS WG expects that the best aspects of each
+will be chosen to produce a single eventual solution.
+
+<!--
+	From minutes of Toronto f2f
+	https://lists.w3.org/Archives/Public/www-style/2019Jul/0008.html
+
+- RESOLVED: Put all the proposals into css-color-5, ChrisL and
+              future Una as editors
+- RESOLVED: Rename to put 'color' first, adjust-color -> color-mod()
+- RESOLVED: Add color-mix(), try to align syntax with cross-fade()
+- RESOLVED: Put both color adjustment proposals into css-color-5,
+              with keywords instead of underscores for Lea's proposal
+      - Proposal A: https://gist.github.com/una/edcfa0d3600e0b89b2ebf266bf549721
+      - Proposal B: https://github.com/w3c/csswg-drafts/issues/3187
+- RESOLVED: Add Lea Verou as editor of css-color-5
+ -->
+
+Adjusting colors: the ''color-adjust'' function {#coloradjust}
+--------------------------------------------------------------
+
+	This function takes one <<color>> specification
+	and returns the result of adjusting that color,
+	in a given colorspace,
+	by a specified transform function.
+
+	Unless otherwise specified,
+	the adjustment is done in the ''lch()'' colorspace.
+
+	Multiple color functions can be specified.
+
+	<pre class='prod'>
+		<dfn>color-adjust()</dfn> = color-adjust( <<color>> [ <<color-function>> <<colorspace>>? ]?] )
+	</pre>
+
+	<div class="example">
+		This example produces the adjustment of peru (#CD853F),
+		in ''lch()'' colorspace (the default),
+		with the lightness being reduced by 20%.
+		The chroma and hue of red are left unchanged.
+
+		<pre class="lang-css">adjust-color(peru, lightness(-20%));</pre>
+
+		The calculation is as follows:
+		* <span class="swatch" style="--color: peru"></span> peru (#CD853F) is lch(62.2532% 54.0114 63.6769)
+		* adjusted lightness is 62.2532% - 20% = 42.2532%
+		* adjusted result is lch(42.2532% 54.0114 63.6769)
+		* which is <span class="swatch" style="--color: rgb(57.58%, 32.47%, 3.82%)"></span> rgb(57.58%, 32.47%, 3.82%)
+	</div>
+
+<img src="images/adjust_red_lightness30.png" alt="Result of adjust-color(red, lightness(30%)" />
+
+Relative color syntax {#relative-colors}
+--------------------------------------------------------
+
+Besides specifying absolute coordinates, all color functions can also be used with a *relative syntax* to produce colors in the function's target color space, based on an existing color (henceforth referred to as "origin color"). This syntax consists of the keyword ''from'', a <<color>> value, and optionally numerical coordinates specific to the color function. To allow calculations on the original color's coordinates, there are single-letter keywords for each coordinate and `alpha` that corresponds to the color's alpha. If no coordinates are specified, the function merely converts the origin color to the target function's color space.
+
+The following sections outline the relative color syntax for each color function.
+
+Issue: A future version of this specification may define a relative syntax for ''color()'' as well.
+
+<h4>Relative RGB colors</h4>
+
+The grammar of the ''rgb()'' function is extended as follows:
+
+<pre class='prod'>
+<dfn>rgb()</dfn> = rgb([from <<color>>]? <<percentage>>{3} [ / <<alpha-value>> ]? ) |
+		rgb([from <<color>>]? <<number>>{3} [ / <<alpha-value>> ]? )
+<dfn>&lt;alpha-value></dfn> = <<number>> | <<percentage>>
+</pre>
+
+When an origin color is present, the following keywords can also be used in this function (provided the end result conforms to the expected type for the parameter) and correspond to:
+
+- 'r' is a <<percentage>> that corresponds to the origin color's red channel after its conversion to sRGB
+- 'g' is a <<percentage>> that corresponds to the origin color's green channel after its conversion to sRGB
+- 'b' is a <<percentage>> that corresponds to the origin color's blue channel after its conversion to sRGB
+- 'alpha' is a <<percentage>> that corresponds to the origin color's alpha transparency
+
+<h4>Relative HSL colors</h4>
+
+The grammar of the ''hsl()'' function is extended as follows:
+
+<pre class='prod'>
+<dfn>hsl()</dfn> = hsl([from <<color>>]? <<hue>> <<percentage>> <<percentage>> [ / <<alpha-value>> ]? )
+<dfn>&lt;hue></dfn> = <<number>> | <<angle>>
+</pre>
+
+When an origin color is present, the following keywords can also be used in this function (provided the end result conforms to the expected type for the parameter) and correspond to:
+
+- 'h' is a <<number>> that corresponds to the origin color's HSL hue after its conversion to sRGB, normalized to a [0, 360) range.
+- 's' is a <<percentage>> that corresponds to the origin color's HSL saturation after its conversion to sRGB
+- 'l' is a <<percentage>> that corresponds to the origin color's HSL lightness after its conversion to sRGB
+- 'alpha' is a <<percentage>> that corresponds to the origin color's alpha transparency
+
+<h4>Relative HWB colors</h4>
+
+The grammar of the ''hwb()'' function is extended as follows:
+
+<pre class='prod'>
+	<dfn>hwb()</dfn> = hwb([from <<color>>]? <<hue>> <<percentage>> <<percentage>> [ / <<alpha-value>> ]? )
+</pre>
+
+When an origin color is present, the following keywords can also be used in this function (provided the end result conforms to the expected type for the parameter) and correspond to:
+
+- 'h' is a <<number>> that corresponds to the origin color's HWB hue after its conversion to sRGB
+- 'w' is a <<percentage>> that corresponds to the origin color's HWB whiteness after its conversion to sRGB
+- 'b' is a <<percentage>> that corresponds to the origin color's HWB blackness after its conversion to sRGB
+- 'alpha' is a <<percentage>> that corresponds to the origin color's alpha transparency
+
+<h4>Relative Lab colors</h4>
+
+The grammar of the ''lab()'' function is extended as follows:
+
+<pre class='prod'>
+<dfn>lab()</dfn> = lab([from <<color>>]? <<percentage>> <<number>> <<number>> [ / <<alpha-value>> ]? )
+</pre>
+
+When an origin color is present, the following keywords can also be used in this function (provided the end result conforms to the expected type for the parameter) and correspond to:
+
+- 'l' is a <<percentage>> that corresponds to the origin color's CIE Lightness
+- 'a' is a <<number>> that corresponds to the origin color's CIELab a axis
+- 'b' is a <<number>> that corresponds to the origin color's CIELab b axis
+- 'alpha' is a <<percentage>> that corresponds to the origin color's alpha transparency
+
+<div class="example">
+	Multiple ways to adjust the transparency of a base color:
+
+	* ''lab(from var(--mycolor) l a b / 100%)'' sets the alpha of ''var(--mycolor)'' to 100% regardless of what it originally was.
+	* ''lab(from var(--mycolor) l a b / calc(alpha * 0.8))'' reduces the alpha of ''var(--mycolor)'' by 20% of its original value.
+	* ''lab(from var(--mycolor) l a b / calc(alpha - 20%))'' reduces the alpha of ''var(--mycolor)'' by 20% of 100%.
+
+	Note that all the adjustments are lossless in the sense that no gamut clipping occurs, since lab() encompasses all visible color.
+	This is not true for the alpha adjustments in the sRGB based functions (such as'rgb()', 'hsl()', or 'hwb()'), which would also convert to sRGB in addition to adjusting the alpha transparency.
+</div>
+
+<h4>Relative LCH colors</h4>
+
+The grammar of the ''lch()'' function is extended as follows:
+
+<pre class='prod'>
+<dfn>lch()</dfn> = lch([from <<color>>]? <<percentage>> <<number>> <<hue>> [ / <<alpha-value>> ]? )
+</pre>
+
+When an origin color is present, the following keywords can also be used in this function (provided the end result conforms to the expected type for the parameter) and correspond to:
+
+- 'l' is a <<percentage>> that corresponds to the origin color's CIE Lightness
+- 'c' is a <<number>> that corresponds to the origin color's LCH chroma
+- 'h' is a <<number>> that corresponds to the origin color's LCH hue, normalized to a [0, 360) range.
+- 'alpha' is a <<percentage>> that corresponds to the origin color's alpha transparency
+
+<div class="example">
+	''lch(from peru calc(l * 0.8) c h)'' produces a color that is 20% darker than <span class="swatch" style="--color: peru"></span> peru or lch(62.2532% 54.0114 63.6769), with its chroma and hue left unchanged.
+	The result is <span class="swatch" style="--color: rgb(57.58%, 32.47%, 3.82%)"> </span> lch(49.80256% 54.0114 63.6769)
+</div>
+
+<h4>Relative grayscale colors</h4>
+
+The grammar of the ''gray()'' function is extended as follows:
+
+<pre class='prod'>
+<dfn>gray()</dfn> = gray([from <<color>>]? <<number>>  [ / <<alpha-value>> ]? )
+</pre>
+
+When an origin color is present, the following keywords can also be used in this function (provided the end result conforms to the expected type for the parameter) and correspond to:
+
+- 'l' is a <<percentage>> that corresponds to the origin color's CIE Lightness
+- 'alpha' is a <<percentage>> that corresponds to the origin color's alpha transparency
+
+<div class="example">
+	''gray(from var(--base-color) l)'' produces a grayscale version of ''var(--base-color)'' with the same lightness.
+</div>
