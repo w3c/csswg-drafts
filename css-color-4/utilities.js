@@ -46,7 +46,7 @@ function P3_to_LCH(RGB) {
     return Lab_to_LCH(XYZ_to_Lab(D65_to_D50(lin_P3_to_XYZ(lin_P3(RGB)))));
 }
 
-function 2020_to_LCH(RGB) {
+function r2020_to_LCH(RGB) {
     // convert an array of gamma-corrected rec.2020 values
     // in the 0.0 to 1.0 range
     // to linear-light sRGB, then to CIE XYZ,
@@ -85,7 +85,7 @@ function LCH_to_P3(LCH) {
     return gam_P3(XYZ_to_lin_P3(D50_to_D65(Lab_to_XYZ(LCH_to_Lab(LCH)))));
 }
 
-function LCH_to_2020(LCH) {
+function LCH_to_r2020(LCH) {
     // convert an array of CIE LCH values
     // to CIE Lab, and then to XYZ,
     // adapt from D50 to D65,
@@ -96,5 +96,5 @@ function LCH_to_2020(LCH) {
     // or components greater than 1.0
     // so check for that :)
 
-    return gam_2020(XYZ_to_lin_2020(D50_to_D65(Lab_to_XYZ(LCH_to_Lab(LCH)))));
+    return gam_2020(XYZ_to_lin_r2020(D50_to_D65(Lab_to_XYZ(LCH_to_Lab(LCH)))));
 }
