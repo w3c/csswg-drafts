@@ -96,5 +96,5 @@ function LCH_to_r2020(LCH) {
     // or components greater than 1.0
     // so check for that :)
 
-    return gam_2020(XYZ_to_lin_r2020(D50_to_D65(Lab_to_XYZ(LCH_to_Lab(LCH)))));
+    return gam_2020(XYZ_to_lin_2020(D50_to_D65(Lab_to_XYZ(LCH_to_Lab(LCH)))));
 }
