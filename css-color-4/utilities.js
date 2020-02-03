@@ -98,3 +98,33 @@ function LCH_to_r2020(LCH) {
 
     return gam_2020(XYZ_to_lin_2020(D50_to_D65(Lab_to_XYZ(LCH_to_Lab(LCH)))));
 }
+
+// this is straight from the CSS Color 4 spec
+
+function hslToRgb(hue, sat, light) {
+    // 	For simplicity, this algorithm assumes that the hue has been normalized
+    //  to a number in the half-open range [0, 6), and the saturation and lightness
+    //  have been normalized to the range [0, 1]. It returns an array of three numbers
+    //  representing the red, green, and blue channels of the colors,
+    //  normalized to the range [0, 1]
+    if( light <= .5 ) {
+      var t2 = light * (sat + 1);
+    } else {
+      var t2 = light + sat - (light * sat);
+    }
+    var t1 = light * 2 - t2;
+    var r = hueToRgb(t1, t2, hue + 2);
+    var g = hueToRgb(t1, t2, hue);
+    var b = hueToRgb(t1, t2, hue - 2);
+    return [r,g,b];
+  }
+
+  function hueToRgb(t1, t2, hue) {
+    if(hue < 0) hue += 6;
+    if(hue >= 6) hue -= 6;
+
+    if(hue < 1) return (t2 - t1) * hue + t1;
+    else if(hue < 3) return t2;
+    else if(hue < 4) return (t2 - t1) * (4 - hue) + t1;
+    else return t1;
+  }
