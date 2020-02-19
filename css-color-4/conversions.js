@@ -34,6 +34,8 @@ function lin_sRGB_to_XYZ(rgb) {
 	// convert an array of linear-light sRGB values to CIE XYZ
 	// using sRGB's own white, D65 (no chromatic adaptation)
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
+	// also
+	// https://www.image-engineering.de/library/technotes/958-how-to-convert-between-srgb-and-ciexyz
 	var M = math.matrix([
 		[0.4124564,  0.3575761,  0.1804375],
 		[0.2126729,  0.7151522,  0.0721750],
@@ -54,7 +56,7 @@ function XYZ_to_lin_sRGB(XYZ) {
 	return math.multiply(M, XYZ).valueOf();
 }
 
-//  display-p3-related functions
+//  image-p3-related functions
 
 
 function lin_P3(RGB) {
@@ -168,10 +170,12 @@ function gam_a98rgb(RGB) {
 
 function lin_a98rgb_to_XYZ(rgb) {
 	// convert an array of linear-light a98-rgb values to CIE XYZ
-	// using  D50 (so no chromatic adaptation needed afterwards)
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
-	// which has greater numerical precsion than section 4.3.5.3 of
+	// has greater numerical precsion than section 4.3.5.3 of
 	// https://www.adobe.com/digitalimag/pdfs/AdobeRGB1998.pdf
+	// but the vaues below were calculated from first principles
+	// from the chromaticity coordinates of R G B W
+	// see matrixmaker.html
 	var M = math.matrix([
 	[ 0.5766690429101305,   0.1855582379065463,   0.1882286462349947  ],
 	[ 0.29734497525053605,  0.6273635662554661,   0.07529145849399788 ],
