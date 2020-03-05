@@ -1,21 +1,4 @@
 <style type="text/css">
-  table.play-state-transitions {
-    empty-cells: hide;
-    border-spacing: 0px;
-  }
-  table.play-state-transitions td {
-    padding: 0.2em 1em;
-    border: 1px solid black;
-  }
-  table.play-state-transitions th {
-    text-align: center;
-  }
-  table.play-state-transitions th.rowgroup {
-    transform: rotate(-180deg);
-    writing-mode: vertical-lr;
-    padding-left: 5px;
-  }
-
   table.event-state-transitions {
     width: 100%;
     border-spacing: 0px;
@@ -49,15 +32,7 @@ Abstract: This CSS module describes a way for authors to animate the values of C
 Ignored Vars: auto-rewind
 </pre>
 <pre class="anchors">
-urlPrefix: https://w3c.github.io/web-animations/; type: interface; spec: web-animations
-    text: Animation
-    text: KeyframeEffectReadOnly
-urlPrefix: https://w3c.github.io/web-animations/; type: method; for: Animation; spec: web-animations
-    text: play()
-    text: pause()
-urlPrefix: https://w3c.github.io/web-animations/; type: method; for: KeyframeEffectReadOnly; spec: web-animations
-    text: getFrames()
-urlPrefix: https://w3c.github.io/web-animations/; type: dfn; spec: web-animations
+urlPrefix: https://drafts.csswg.org/web-animations-1/; type: dfn; spec: web-animations
     text: active duration
     text: active phase
     text: active time
@@ -74,17 +49,24 @@ urlPrefix: https://w3c.github.io/web-animations/; type: dfn; spec: web-animation
     text: global animation list
     text: idle play state
     text: idle phase
+    text: iteration count
     text: iteration duration
     text: iteration start
+    text: keyframe
     text: pause an animation
+    text: paused play state
     text: pending play state
+    text: playback direction
     text: play an animation
+    text: play state
     text: sampling
     text: start delay
     text: target element
     text: target effect
     text: target effect end
     text: unresolved
+urlPrefix: https://drafts.csswg.org/css-writing-modes-4/; type: dfn; spec: css-writing-modes-4
+    text: equivalent physical property; url: logical-to-physical
 </pre>
 
 <h2 id="delta">Delta specification</h2>
@@ -95,6 +77,74 @@ Once the Level 1 specification is closer to complete, it will be merged
 with the additions here into a complete level 2 specification.</p>
 
 # Animations # {#animations}
+
+Changes to any of the animation properties defined in this specification
+cause the corresponding {{CSSAnimation}} object and its associated objects
+to be updated according to the correspondance between these properties
+and Web Animations concepts defined in [[#keyframes]].
+
+However, if the author modifies the animation
+using the Web Animations programming interface,
+the changes from the programming interface take precedence as follows:
+
+*   After a successful call to {{KeyframeEffect/setKeyframes()}}
+    on the {{KeyframeEffect}} associated with a {{CSSAnimation}},
+    any subsequent change to matching ''@keyframes'' rules or the resolved value
+    of the 'animation-timing-function' property for the target element
+    will not be reflected in that animation.
+
+    However, if the last matching ''@keyframes'' rule is removed
+    the animation must still be canceled.
+
+*   After a successful call to {{AnimationEffect/updateTiming()}}
+    on the {{KeyframeEffect}} associated with a {{CSSAnimation}},
+    for each property included in the
+    {{AnimationEffect/updateTiming(timing)/timing}} parameter,
+    any subsequent change to a corresponding animation property
+    will not be reflected in that animation.
+
+    For example, calling
+    <code>cssAnimation.effect.updateTiming({ duration: 1000 })</code>
+    would cause subsequent changes to 'animation-duration' to be ignored
+    whilst changes to 'animation-delay' would still be reflected
+    in the {{KeyframeEffect}}'s timing.
+
+*   After a successful call to {{Animation/play()}} or {{Animation/pause()}}
+    on a {{CSSAnimation}},
+    any subsequent change to the 'animation-play-state' will no longer
+    cause the {{CSSAnimation}} to be played or paused
+    as defined in [[#animation-play-state]].
+
+*   After a successful call to {{Animation/reverse()}} on a {{CSSAnimation}}
+    or after successfully setting the {{Animation/startTime}}
+    on a {{CSSAnimation}},
+    if, as a result of that call the [=play state=] of the
+    {{CSSAnimation}} changes to or from the [=paused play state=],
+    any subsequent change to the 'animation-play-state' will no longer
+    cause the {{CSSAnimation}} to be played or paused
+    as defined in [[#animation-play-state]].
+
+    The requirement for a change to or from the [=paused play state=]
+    ensures that even after calling
+    {{Animation/reverse()}} or setting the {{Animation/startTime}}
+    on a running animation,
+    the animation continues to observe changes in 'animation-play-state'.
+
+*   After successfully setting the {{Animation/effect}} of a {{CSSAnimation}}
+    to <code>null</code>
+    or some {{AnimationEffect}} other than the original {{KeyframeEffect}},
+    all subsequent changes to animation properties other than
+    'animation-name' or 'animation-play-state'
+    will not be reflected in that animation.
+    Similarly, any change to matching ''@keyframes'' rules will not be reflected
+    in that animation.
+    However, if the last matching ''@keyframes'' rule is removed
+    the animation must still be canceled.
+
+Note, the reference to a successful call in the above rules
+is necessary to ensure that
+when an exception is thrown by any of these methods,
+the override behavior is <em>not</em> applied.
 
 ## Owning element ## {#owning-element-section}
 
@@ -195,104 +245,187 @@ from its <a>owning element</a> always causes it to enter (or remain) in the
 
 # Keyframes # {#keyframes}
 
+For a given target (pseudo-)element, |element|, an animation name, |name|,
+and the position of the animation in |element|'s 'animation-name' list,
+|position|,
+[=keyframe=] objects are generated as follows:
+
+1.   Let |default timing function| be
+     the timing function at position |position|
+     of the [=resolved value=] of the 'animation-timing-function' for |element|,
+     repeating the list as necessary as described in
+     [[CSS-ANIMATIONS-1#animation-name]].
+
+1.   Find the last ''@keyframes'' at-rule in document order
+     with <<keyframes-name>> matching |name|.
+
+     If there is no ''@keyframes'' at-rule
+     with <<keyframes-name>> matching |name|,
+     abort this procedure.
+     In this case no animation is generated,
+     and any existing animation matching |name| is canceled.
+
+1.   Let |keyframes| be an empty sequence of [=keyframe=] objects.
+
+1.   Let |animated properties| be an empty set of longhand CSS property names.
+
+1.   Perform a stable sort of the keyframe blocks in the ''@keyframes'' rule
+     by the offset specified in the keyframe selector,
+     and iterate over the result in reverse
+     applying the following steps:
+
+     1.   Let |keyframe offset| be the value of the keyframe selector
+          converted to a value in the range 0 &le; |keyframe offset| &le; 1.
+
+     1.   Let |keyframe timing function| be the value of
+          the last valid declaration of 'animation-timing-function'
+          specified on the keyframe block, or,
+          if there is no such valid declaration, |default timing function|.
+
+     1.   After converting |keyframe timing function| to its canonical form
+          (e.g. such that ''step-end'' becomes ''steps(1, end)'')
+          let |keyframe| refer to the existing keyframe in |keyframes| with
+          matching keyframe offset and timing function, if any.
+
+          If there is no such existing keyframe,
+          let |keyframe| be a new empty keyframe with
+          offset, |keyframe offset|,
+          and timing function, |keyframe timing function|,
+          and prepend it to |keyframes|.
+
+     1.   Iterate over all declarations in the keyframe block and
+          add them to |keyframe| such that:
+
+          *     All variable references are resolved to their current values.
+
+          *     Each shorthand property is expanded to its longhand
+                subproperties.
+
+          *     All logical properties are converted to their
+                [=equivalent physical properties=].
+
+          *     For any expanded physical longhand properties that appear more
+                than once,
+                only the last declaration in source order is added.
+
+                Note, since multiple keyframe blocks may specify the same
+                |keyframe offset|,
+                and since this algorithm iterates over these blocks in reverse,
+                this implies that if any properties are encountered that
+                have already added at this same |keyframe offset|,
+                they should be skipped.
+
+           *    All property values are replaced with their computed values.
+
+     1.   Add each physical longhand property name that was added to |keyframe|
+          to |animated properties|.
+
+1.   If there is no keyframe in |keyframes| with offset 0,
+     or if amongst the keyframes in |keyframes| with offset 0
+     not all of the properties in |animated properties| are present,
+
+     1.   Let |initial keyframe| be the [=keyframe=] in |keyframes|
+          with offset 0 and timing function |default timing function|.
+
+          If there is no such keyframe,
+          let |initial keyframe| be a new empty keyframe with offset 0,
+          and timing function |default timing function|,
+          and add it to |keyframes| after the last keyframe with offset 0.
+
+     1.   For each property in |animated properties| that is not present
+          in some other keyframe with offset 0,
+          add the [=computed value=] of that property for |element|
+          to the keyframe.
+
+1.   Similarly, if there is no keyframe in |keyframes| with offset 1,
+     or if amongst the keyframes in |keyframes| with offset 1
+     not all of the properties in |animated properties| are present,
+
+     1.   Let |final keyframe| be the [=keyframe=] in |keyframes|
+          with offset 1 and timing function |default timing function|.
+
+          If there is no such keyframe,
+          let |final keyframe| be a new empty keyframe with offset 1,
+          and timing function |default timing function|,
+          and add it to |keyframes| after the last keyframe with offset 1.
+
+     1.   For each property in |animated properties| that is not present
+          in some other keyframe with offset 1,
+          add the [=computed value=] of that property for |element|
+          to the keyframe.
+
+Issue: The above procedure requires iterating over keyframe blocks in reverse.
+It could be rewritten so this is not required but that will likely change
+the behavior for some edge cases.
+We should verify what current implementations do and possible remove the
+requirement to iterate in reverse.
+
+Issue: In practice, implementations will likely maintain specified values and
+variable references internally and only resolve them to computed values when
+{{KeyframeEffect/getKeyframes()}} is called on a {{KeyframeEffect}}
+associated with a {{CSSAnimation}}
+(and, more specifically, a {{CSSAnimation}} whose effect has not been replaced
+and whose keyframes have not been overridden
+using {{KeyframeEffect/setKeyframes()}}).
+It is not clear that soing so would produce an observable difference in
+behavior, however.
+If it does, the above procedure might need to be adjusted so that the
+requirement to expand variables and convert to property values to computed
+values is limited to the result of {{KeyframeEffect/getKeyframes()}} and
+not the internal representation of keyframes.
+
+## The 'animation-duration' property ## {#animation-duration}
+
+The 'animation-duration' property specifies the [=iteration duration=]
+of the animation's associated [=animation effect=].
+
+## The 'animation-timing-function' property ## {#animation-timing-function}
+
+The 'animation-timing-function' is used to determine the [=timing function=]
+applied to each [=keyframe=] as defined in [[#keyframes]].
+
+## The 'animation-iteration-count' property ## {#animation-iteration-count}
+
+The 'animation-iteration-count' property specifies the [=iteration count=]
+of the animation's associated [=animation effect=].
+
+## The 'animation-direction' property ## {#animation-direction}
+
+The 'animation-direction' property specifies the [=playback direction=]
+of the animation's associated [=animation effect=].
+
 ## The 'animation-play-state' property ## {#animation-play-state}
 
-### Interaction between 'animation-play-state' and the Web Animations API ### {#interaction-between-animation-play-state-and-web-animations-API}
+The 'animation-play-state' is used to pause or play the animation.
 
-Both this specification and the Web Animations specification [[WEB-ANIMATIONS]]
-define mechanisms for pause control, specifically the 'animation-play-state'
-property, and the {{Animation/play()}} and {{Animation/pause()}} methods
-respectively.
+If at any time,
+including when the animation is first generated,
+the resolved value of 'animation-play-state'
+corresponding to an animation is newly ''running'',
+the implementation must run the procedure to [=play an animation=]
+for the given animation
+with the <var ignore>auto-rewind flag</var> set to false.
 
-<div class="note">
+If at any time,
+including when the animation is first generated,
+the resolved value of 'animation-play-state'
+corresponding to an animation is newly ''paused'',
+the implementation must run the procedure to [=pause an animation=]
+for the given animation.
 
-The interaction of these methods can be summarized as follows:
+The above requirements do not apply
+if the animation's play state is being overridden by the Web Animations API
+as described in [[#animations]].
 
-*   Calling {{Animation/pause()}} is sticky. The animation will remain paused
-    until there is a subsequent call to {{Animation/play()}} after which point
-    the animation will begin tracking changes to the computed value of the
-    'animation-play-state' property on the <a>owning element</a> from the next
-    moment it becomes newly ''paused''.
-*   If the computed 'animation-play-state' on the <a>owning element</a> is
-    ''paused'', calling {{Animation/play()}} will temporarily override the
-    'animation-play-state' until it next becomes ''running''.
+## The 'animation-delay' property ## {#animation-delay}
 
-</div>
+The 'animation-delay' property specifies the [=start delay=]
+of the animation's associated [=animation effect=].
 
-With regards to the pausing, an animation can be considered to be in one of
-five mutually-exclusive states:
+## The 'animation-fill-mode' property ## {#animation-fill-mode}
 
-<ul style="list-style-type: upper-latin">
-<li>Running
-<li>Running and temporarily overriding 'animation-play-state': ''paused''
-<li>Paused and sticky overriding 'animation-play-state': ''running''
-<li>Paused and sticky overriding 'animation-play-state': ''paused''
-<li>Paused by 'animation-play-state'
-</ul>
-
-A state transition chart follows:
-
-<table class="play-state-transitions">
-<tr>
-  <td rowspan="2"></td>
-  <td></td>
-  <th colspan="5">Initial state</th>
-</tr>
-<tr>
-  <th>Event</th>
-  <th>A</th>
-  <th>B</th>
-  <th>C</th>
-  <th>D</th>
-  <th>E</th>
-</tr>
-<tr>
-  <th rowspan="4" class="rowgroup">Resulting state</th>
-  <td>{{Animation/play()}}</td>
-  <td>A</td>
-  <td>B</td>
-  <td>A</td>
-  <td>B</td>
-  <td>B</td>
-</tr>
-<tr>
-  <td>{{Animation/pause()}}</td>
-  <td>C</td>
-  <td>D</td>
-  <td>C</td>
-  <td>D</td>
-  <td>D</td>
-</tr>
-<tr>
-  <td>'animation-play-state' &rarr; ''running''</td>
-  <td>A</td>
-  <td>A</td>
-  <td>C</td>
-  <td>C</td>
-  <td>A</td>
-</tr>
-<tr>
-  <td>'animation-play-state' &rarr; ''paused''</td>
-  <td>E</td>
-  <td>B</td>
-  <td>D</td>
-  <td>D</td>
-  <td>E</td>
-</tr>
-</table>
-
-If any change causes an animation to change from  one of the running states (A,
-B) to one of the paused states (C, D, E), the user agent must run the <a>pause
-an animation</a> procedure on the animation.
-
-Likewise, for any change from one of the the paused states to one of the
-running states, the user agent must run the <a>play an animation</a> procedure
-on the animation. If the change is due to a change in the computed value of
-'animation-play-state' (i.e. the transition E &rarr; A) the
-<var>auto-rewind</var> flag for that procedure must be set to false; otherwise
-it must be set to true.
-
-</div>
+The 'animation-fill-mode' property specifies the [=fill mode=]
+of the animation's associated [=animation effect=].
 
 ## The 'animation-composition' property ## {#animation-composition}
 
