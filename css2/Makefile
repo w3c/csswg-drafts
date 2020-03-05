@@ -225,10 +225,10 @@ LN= ln
 
 %.subtoc: %.srd Project.cfg
 	@echo "=========== making" $@
-	echo "<div class=\"subtoc\">" >$@
-	echo "<p><strong>Contents</strong>" >>$@
+	echo "<nav id=\"toc\">" >$@
+	echo "<h2>Table of Contents</h2>" >>$@
 	$(MKTOC) -l 2 -r $*.html $(HEADINGDB) >>$@
-	echo "</div>" >>$@
+	echo "</nav>" >>$@
 	if [ `cat $@ | wc -l` = 3 ]; then $(RM) $@; touch $@; fi
 
 # Use the shorter line to avoid regenerating all .html if one .src changed,
