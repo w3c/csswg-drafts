@@ -36,7 +36,7 @@ THE_WARNING = <div>							\
    Snapshot</cite> for a list of specifications and the sections they	\
    replace.	       	    	 		    		 	\
    <p>The CSS Working Group is also developing 				\
-   <a href=\"http://www.w3.org/TR/CSS22/\" >CSS level\&nbsp;2		\
+   <a href=\"https://www.w3.org/TR/CSS22/\" >CSS level\&nbsp;2		\
    revision\&nbsp;2 (CSS\&nbsp;2.2).</a>				\
   </div>								\
  </div>
@@ -46,9 +46,9 @@ THE_WARNING =
 THE_DATE = $(THE_DAY) $(THE_MONTHNAME) $(THE_YEAR)
 THE_ID = $(THE_STYLE)-$(PERMANENT_NAME)-$(THE_YEAR)$(THE_MONTH)$(THE_DAY)
 THE_LOC = $(THE_YEAR)/$(THE_ID)
-THIS_VERSION = http://www.w3.org/TR/$(THE_LOC)
-THE_LATEST_VERSION = http://www.w3.org/TR/$(PERMANENT_NAME)
-THE_UPDATE_DIR = http://www.w3.org/Style/css2-updates
+THIS_VERSION = https://www.w3.org/TR/$(THE_LOC)/
+THE_LATEST_VERSION = https://www.w3.org/TR/$(PERMANENT_NAME)/
+THE_UPDATE_DIR = https://www.w3.org/Style/css2-updates
 
 INSTALLDIR = dist/
 
