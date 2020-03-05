@@ -383,7 +383,7 @@ $(PROPBLKSDIR)/blocks.ok: $(PROPSRC)
 	touch $@
 
 
-cover.srd: cover.src build/contents.srb build/minicontents.srb Makefile
+cover.srd: cover.src build/contents.srb Makefile
 	@echo "=========== making" $@
 	$(HIPP) $(INCLUDES) $<  |\
 	$(ADDCITE) -r $(REFS) $(REFSRCS) >$@
@@ -407,10 +407,6 @@ build/contents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.src=.s
 	@echo "=========== making" $@
 	$(MKTOC) -h 5 $(HEADINGDB) $@
 
-
-build/minicontents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.src=.srd) $(INDEXSRCS:.src=.srd) Project.cfg
-	@echo "=========== making" $@
-	$(MKTOC) -h 1 $(HEADINGDB) $@
 
 ### general index related rules
 build/indexlist.srb: $(MAINSRCS) $(APPSRCS) $(INDEXDB)
