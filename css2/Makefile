@@ -235,7 +235,7 @@ LN= ln
 # at the cost of possibly incorrect xrefs in the other .html files
 #
 #%.html: %.subtoc Project.cfg
-%.html: %.subtoc $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) Project.cfg build/warning #$(SPECSRCS:.src=.srd)
+%.html: %.subtoc $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) Project.cfg build/warning style/default.css #$(SPECSRCS:.src=.srd)
 	@echo "=========== making" $@
 	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- value-inst-/value-def- |\
 	$(ADDIDXANCH) -r $@ $(INDEXDB) - |\
@@ -448,6 +448,9 @@ propidx.srd:: build/propidx.srb #propidx.src
 #	@echo "=========== making" $@
 #	$(HIPP) $(INCLUDES) $< $@
 
+
+style/default.css: ../default.css
+	cp $< $@
 
 ### check on the document to see if it's valid
 
