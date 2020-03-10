@@ -1,0 +1,277 @@
+<pre class='metadata'>
+Title: CSS Overscroll Behavior Module Level 1
+Shortname: css-overscroll
+Level: 1
+Status: ED
+Work Status: Exploring
+Group: CSSWG
+URL: https://drafts.csswg.org/css-overscroll-1/
+TR: https://www.w3.org/TR/css-overscroll-1/
+Editor: Benoit Girard, Facebook, bgirard@fb.com
+Editor: Majid Valipour, Google, majidvp@google.com, w3cid 81464
+
+Abstract: This module defines 'overscroll-behavior' to control the behavior when the scroll position
+Abstract: of a <a>scroll container</a> reaches the edge of the <a>scrollport</a>.
+Abstract: This allows content authors to hint that the <a>boundary default actions</a>,
+Abstract: such as scroll chaining and overscroll, should not be triggered.
+</pre>
+
+<pre class='anchors'>
+urlPrefix: https://www.w3.org/TR/css-display-3/
+    type: dfn; text: containing block chain
+url: https://drafts.csswg.org/css-overflow-3/#scroll-container
+    type: dfn; text: scroll container
+    type: dfn; text: scroll containers
+url: https://drafts.csswg.org/cssom-view/#viewport
+    type: dfn; text: viewport
+url: https://drafts.csswg.org/cssom-view/#dom-document-scrollingelement
+    type: dfn; text: scrollingElement
+url: https://www.w3.org/TR/uievents/#default-action
+    type: dfn; text: default action
+    type: dfn; text: default actions
+url: https://dom.spec.whatwg.org/#dom-event-preventdefault
+    type: dfn; text: preventDefault
+url: https://dom.spec.whatwg.org/#dom-eventtarget-addeventlistener
+    type: dfn; text: passive flag
+
+</pre>
+
+Introduction {#intro}
+=====================
+
+<em>This section is not normative.</em>
+
+A content author does not necessarily want <a>scroll chaining</a> to occur for all <a>scroll
+containers</a>. Some <a>scroll containers</a> may be part of a <a>containing block chain</a> but may
+serve a different logical purpose in the document and may want to prevent scrolling from continuing
+up the <a>scroll chain</a>. To achieve this, a content author will install event listeners without
+the <a>passive flag</a> set and will use <a>preventDefault</a> when there is a risk that scroll
+chaining will occur. This is detrimental for the following reasons:
+
+* The user agent may in the future introduce new input methods for scrolling that are not supported
+    by the content author's event listeners.
+* A non passive event listener will delay scrolling because the user agent will have to wait for the
+    result of the event listener to determine if <a>preventDefault</a> was called causing increased
+    scroll latency.
+* When scrolling is performed near the edge of the <a>scroll boundary</a>, the <a>default action</a>
+    may cause both scrolling to the edge of the <a>scroll container</a> and a <a>boundary default
+    action</a>. Calling <a>preventDefault</a> will not only cancel the <a>boundary default action</a>
+    but also the scroll to the edge of the <a>scrollport</a>.
+* The <a>default action</a> for the event may also provide additional behavior that the author does
+    not want to cancel such as an overscroll affordance. <a>preventDefault</a> doesn't allow the
+    content author to cancel only some of the <a>default actions</a> such as scroll chaining.
+
+Thus, it is not possible for a content author to control <a>scroll chaining</a> and overscroll in a
+robust, performant and forward compatible way. The 'overscroll-behavior' property fixes this
+shortcoming.
+
+Value Definitions {#values}
+---------------------------
+
+This specification follows the <a href="https://www.w3.org/TR/CSS2/about.html#property-defs">CSS property definition conventions</a> from [[!CSS2]]
+using the <a href="https://www.w3.org/TR/css-values-3/#value-defs">value definition syntax</a> from [[!CSS-VALUES-3]].
+Value types not defined in this specification are defined in CSS Values &amp; Units [[!CSS-VALUES-3]].
+Combination with other CSS modules may expand the definitions of these value types.
+
+In addition to the property-specific values listed in their definitions,
+all properties defined in this specification
+also accept the <a>CSS-wide keywords</a> keywords as their property value.
+For readability they have not been repeated explicitly.
+
+Motivating Examples {#motivating-examples}
+==========================================
+
+
+<div class=example>
+A position fixed left navigation bar does not want to hand off scrolling to the document because a
+scroll gesture performed on the navigation bar is almost never meant to scroll the document. Note
+that using the native overscroll affordances are still desirable while scroll chaining is to be
+prevented.
+
+  <pre class="lang-css">
+  #sidebar {
+    overscroll-behavior: contain;
+  }
+  </pre>
+
+In this case, the author can use <a value for=overscroll-behavior>contain</a> on the sidebar to
+prevent scrolling from being chained to the parent document element.
+</div>
+
+<div class=example>
+A page wants to implement their own pull-to-refresh effect and thus needs to disable browser
+native overscroll action.
+
+  <pre class="lang-css">
+  html {
+    /* only disable pull-to-refresh but allow swipe navigations */
+    overscroll-behavior-y: contain;
+  }
+  </pre>
+
+In this case, the author can use <a value for=overscroll-behavior>contain</a> on the viewport
+defining element to prevent overscroll from triggering navigation actions.
+</div>
+
+<div class=example>
+A infinite scrollers loads more content as user reaches the boundary and thus wants to disable the
+potentially confusing rubber banding effect in addition to scroll chaining.
+
+  <pre class="lang-css">
+  #infinite_scroller {
+    overscroll-behavior-y: none;
+  }
+  </pre>
+
+In this case the the author can use <a value for=overscroll-behavior>none</a> on the infinite
+scroller to prevent both scroll chaining and overscroll affordance.
+</div>
+
+Scroll chaining and boundary default actions {#scroll-chaining-and-boundary-default-actions}
+============================================================================================
+
+<em>Operating Systems have rules for scrolling such as scroll chaining and overscroll affordances.
+This specification does not mandate if and how scroll chaining or overscroll affordances be
+implemented. This specification only allows the content author to disable them if any are
+implemented.</em>
+
+<dfn>Scroll chaining</dfn> is when scrolling is propagated from one <a>scroll container</a> to an
+ancestor <a>scroll container</a> following the <a>scroll chain</a>. Typically scroll chaining is
+performed starting at the event target recursing up the <a>containing block chain</a>. When a
+<a>scroll container</a> in this chain receives a scroll event or gesture it may act on it and/or
+pass it up the chain. Chaining typically occurs when the <a>scrollport</a> has reached its boundary.
+
+A <dfn>scroll chain</dfn> is the order in which scrolling is propagated from one <a>scroll
+container</a> to another. The <a>viewport</a> participates in <a>scroll chaining</a> as the
+document's <a>scrollingElement</a>, both regarding placement in the scroll chain as well as adhering
+to the chaining rules applied to it.
+
+
+<dfn>Scroll boundary</dfn> refers to when the scroll position of a <a>scroll container</a> reaches
+the edge of the <a>scrollport</a>. If a scroll container has no potential to scroll, because it does
+not <a>overflow</a> in the direction of the scroll, the element is always considered to be at the
+scroll boundary.
+
+<dfn>Boundary default action</dfn> refers to the user-agent-defined <a>default action</a> performed
+when scrolling against the edge of the <a>scrollport</a>. A <dfn>local boundary default action</dfn>
+is a <a>boundary default action</a> which is performed on the <a>scroll container</a> without
+interacting with the page, for example displaying a overscroll UI affordance. Conversely, a
+<dfn>non-local boundary default action</dfn> interacts with the page, for example scroll chaining or
+a navigation action.
+
+
+
+Overscroll Behavior Properties {#overscroll-behavior-properties}
+================================================================
+
+The <dfn>overscroll behavior</dfn> controls the permitted <a>boundary default action</a> for a
+<a>scroll container</a> element when its <a>scrollport</a> reaches the boundary of its scroll box.
+
+
+The 'overscroll-behavior' property specifies the <a>overscroll behavior</a> for a <a>scroll
+container</a> element. It allows the content author to specify that a <a>scroll container</a>
+element must prevent scroll chaining and/or overscroll affordances.
+
+An element that is not <a>scroll container</a> must accept but ignore the values of this property.
+This property must be applied to all scrolling methods supported by the user agent.
+
+Note: This property should provide guarantees that are, at least, as strong as <a>preventDefault</a>
+for preventing both scroll chaining and overscroll. Doing otherwise would cause content authors to
+use <a>preventDefault</a> instead.
+
+<pre class=propdef>
+Name: overscroll-behavior
+Value: [ contain | none | auto ]{1,2}
+Initial: auto auto
+Applies to: <a>scroll container</a> elements
+Inherited: no
+Media: visual
+Computed value: see individual properties
+Animation type: discrete
+Canonical order: <abbr title="follows order of property value definition">per grammar</abbr>
+</pre>
+
+
+The 'overscroll-behavior' property is a shorthand property that sets the specified values of
+'overscroll-behavior-x' and 'overscroll-behavior-y' in that order. If only one value is specified,
+the second value defaults to the same value.
+
+Values have the following meanings:
+
+<dl dfn-for="overscroll-behavior, overscroll-behavior-x, overscroll-behavior-y, overscroll-behavior-inline, overscroll-behavior-block" dfn-type="value">
+  <dt><dfn>contain</dfn>
+  <dd>
+    This value indicates that the element must not perform <a>non-local boundary default actions</a>
+    such as scroll chaining or navigation. The user agent must not perform scroll chaining to any
+    ancestors along the <a>scroll chain</a> regardless of whether the scroll originated at this
+    element or one of its descendants. This value must not modify the behavior of how <a>local
+    boundary default actions</a> should behave, such as showing any overscroll affordances.
+  <dt><dfn>none</dfn>
+  <dd>
+    This value implies the same behavior as <a value for=overscroll-behavior>contain</a> and in
+    addition this element must also not perform <a>local boundary default actions</a> such as
+    showing any overscroll affordances.
+  <dt><dfn>auto</dfn>
+  <dd>
+    This value indicates that the user agent should perform the usual <a>boundary default action</a>
+    with respect to <a>scroll chaining</a>, overscroll and navigation gestures.
+</dl>
+
+Note: In the case where a user agent does not implement scroll chaining and overscroll affordances,
+these values will have no side effects for a compliant implementation.
+
+Note: Programmatic scrolling is clamped and can not trigger any <a>boundary default actions</a>.
+
+
+Physical Longhands for 'overscroll-behavior'  {#overscroll-behavior-longhands-physical}
+---------------------------------------------------------------------------------------
+
+<pre class=propdef>
+Name: overscroll-behavior-x, overscroll-behavior-y
+Value: contain | none | auto
+Initial: auto
+Applies to: <a>scroll container</a> elements
+Inherited: no
+Percentages: N/A
+Media: visual
+Computed value: as specified
+Animation type: discrete
+Canonical order: <abbr title="follows order of property value definition">per grammar</abbr>
+</pre>
+
+The 'overscroll-behavior-x' property specifies the <a>overscroll behavior</a> in the horizontal
+axis and the 'overscroll-behavior-y' property specifies the <a>overscroll behavior</a> in the
+vertical axis. When scrolling is performed along both the horizontal and vertical axes at the
+same time, the <a>overscroll behavior</a> of each respective axis should be considered
+independently.
+
+
+Flow-relative Longhands for 'overscroll-behavior'  {#overscroll-behavior-longhands-logical}
+-------------------------------------------------------------------------------------------
+
+<pre class=propdef>
+Name: overscroll-behavior-inline, overscroll-behavior-block
+Value: contain | none | auto
+Initial: auto
+Applies to: <a>scroll container</a> elements
+Inherited: no
+Percentages: N/A
+Media: visual
+Computed value: as specified
+Animation type: discrete
+Canonical order: <abbr title="follows order of property value definition">per grammar</abbr>
+</pre>
+
+These properties correspond to the 'overscroll-behavior-x' and 'overscroll-behavior-y' properties.
+The mapping depends on the element's 'writing-mode'.
+
+
+Security and Privacy Considerations {#security-and-privacy}
+===========================================================
+There are no known security or privacy impacts of this feature. The feature may be used to prevent
+certain native UI features such as overscroll affordances and overscroll navigations (e.g., pull-
+to-refresh, swipe navigations). However, this does not expose any additional abilities beyond what
+is already possible in the platform e.g., by preventing the default action of the event that would
+cause a scroll.
+
+
