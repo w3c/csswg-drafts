@@ -223,7 +223,7 @@ LN= ln
 
 .SUFFIXES: .src .html .srd .idraw .gif .ps .subtoc .png .fig .pdf
 
-%.subtoc: %.srd Project.cfg
+build/%.subtoc: build/%.srd Project.cfg
 	@echo "=========== making" $@
 	echo "<nav id=\"toc\">" >$@
 	echo "<h2>Table of Contents</h2>" >>$@
@@ -235,15 +235,15 @@ LN= ln
 # at the cost of possibly incorrect xrefs in the other .html files
 #
 #%.html: %.subtoc Project.cfg
-%.html: %.subtoc $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) Project.cfg build/warning style/default.css #$(SPECSRCS:.src=.srd)
+%.html: build/%.subtoc $(addprefix build/, $(MAINSRCS:.src=.srd)) $(addprefix build/, $(APPSRCS:.src=.srd)) Project.cfg build/warning style/default.css #$(SPECSRCS:.src=.srd)
 	@echo "=========== making" $@
-	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- value-inst-/value-def- |\
+	$(ADDLINKS) $(VALUEDB) build/$*.srd propinst-/propdef- value-inst-/value-def- |\
 	$(ADDIDXANCH) -r $@ $(INDEXDB) - |\
 	$(ADDMARKUP) - |\
 	$(ADDLONGDESC) - |\
 	$(ADDNAVBAR) -r $@ |\
 	$(INSAFTER) - build/warning /H1 - |\
-	$(INSAFTER) - $*.subtoc /H1 - |\
+	$(INSAFTER) - build/$*.subtoc /H1 - |\
 	$(MKCHAIN) -r $@ - |\
 	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
 	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
@@ -255,7 +255,7 @@ LN= ln
 	       -e "s|_THE_ID_|$(THE_ID)|g" \
 	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" >$@
 
-%.srd: %.src build/blocks.ok $(REFSRC:.src=.srd)
+build/%.srd: %.src build/blocks.ok $(addprefix build/, $(REFSRC:.src=.srd))
 	@echo "=========== making" $@
 	$(HIPP) $(INCLUDES) $< |\
 	$(ADDCITE) -r $(REFS) $(REFSRCS) |\
@@ -383,12 +383,12 @@ $(PROPBLKSDIR)/blocks.ok: $(PROPSRC)
 	touch $@
 
 
-cover.srd: cover.src build/contents.srb Makefile
+build/cover.srd: cover.src build/contents.srb Makefile
 	@echo "=========== making" $@
 	$(HIPP) $(INCLUDES) $<  |\
 	$(ADDCITE) -r $(REFS) $(REFSRCS) >$@
 
-cover.html: cover.srd Project.cfg
+cover.html: build/cover.srd Project.cfg
 	@echo "=========== making" $@
 	$(ADDNAVBAR) -r $@ $< |\
 	$(MKCHAIN) -r $@ - |\
@@ -403,7 +403,7 @@ cover.html: cover.srd Project.cfg
 	       -e "s|_THE_ID_|$(THE_ID)|g" \
 	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" >$@
 
-build/contents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.src=.srd) $(INDEXSRCS:.src=.srd) Project.cfg
+build/contents.srb: $(addprefix build/, $(MAINSRCS:.src=.srd)) $(addprefix build/, $(APPSRCS:.src=.srd)) $(addprefix build/, $(REFSRCS:.src=.srd)) $(addprefix build/, $(INDEXSRCS:.src=.srd)) Project.cfg
 	@echo "=========== making" $@
 	$(MKTOC) -h 5 $(HEADINGDB) $@
 
@@ -416,11 +416,11 @@ build/indexlist.srb: $(MAINSRCS) $(APPSRCS) $(INDEXDB)
 $(INDEXDB): $(MAINSRCS:.src=.html) $(APPSRCS:.src=.html) #$(SPECSRCS:.src=.html)
 	touch $(INDEXDB)
 
-indexlist.srd:: build/indexlist.srb #indexlist.src build/blocks.ok
+build/indexlist.srd:: build/indexlist.srb #indexlist.src build/blocks.ok
 #	@echo "=========== making" $@
 #	$(CP) $< $@
 
-indexlist.html: indexlist.srd build/indexlist.srb Project.cfg build/warning
+indexlist.html: build/indexlist.srd build/indexlist.srb Project.cfg build/warning
 	@echo "=========== making" $@
 	$(ADDNAVBAR) -r $@ $< |\
 	$(INSAFTER) - build/warning /H1 - |\
@@ -440,7 +440,7 @@ build/propidx.srb: $(PROPSRC)
 	@echo "=========== making" $@
 	$(MKPROPIDX) -r $@ $@ $(PROPSRC)
 
-propidx.srd:: build/propidx.srb #propidx.src
+build/propidx.srd:: build/propidx.srb #propidx.src
 #	@echo "=========== making" $@
 #	$(HIPP) $(INCLUDES) $< $@
 
@@ -535,7 +535,6 @@ checkx: build/checkx.out
 
 clean:
 	$(RM) $(SPECOBJS) $(PROPBLKSDIR)/* \
-	$(SPECOBJS:.html=.srd) $(SPECOBJS:.html=.subtoc) \
         build/* css2.* linklint images/links.ok
 
 realclean: clean
