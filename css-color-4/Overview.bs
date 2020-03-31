@@ -2795,8 +2795,8 @@ Device-dependent CMYK Colors: the ''device-cmyk()'' function</h2>
 	it is useful to express CMYK colors
 	in a device-dependent way.
 
-	Note: because the actual resulting color is unknown,
-	CSS processors will attempt to approximate it.
+	Note: because the actual resulting color may be unknown,
+	CSS processors may attempt to approximate it.
 	This approximation is likely to be visually very far from the actual printed result.
 
 	The ''device-cmyk()'' function allows authors to specify a color in this way:
@@ -2823,34 +2823,51 @@ Device-dependent CMYK Colors: the ''device-cmyk()'' function</h2>
 
 	Typically, print-based applications will actually store the used colors as CMYK,
 	and send them to the printer in that form.
-	<!-- Unfortunately, CSS cannot do that;
-	various CSS features require an RGB color,
-	so that compositing/blending/etc. can be done. -->
-	As such, Device CMYK colors must be converted to an equivalent RGB color.
+	However, such colors do not have a colorimetric interpretation,
+	and thus cannot be used in gradients, compositing, blending and so on.
+
+	As such, Device CMYK colors must be converted to an equivalent color.
 	This is not trivial, like the conversion from HSL or HWB to RGB;
 	the precise conversion depends on the precise characteristics of the output device.
 
-	<!-- hopelessly handwavy and untestable -->
-	If the user agent has information about the output device such that it believes
-	it can accurately convert the CMYK color to a correct RGB color,
-	the computed value of the ''device-cmyk()'' function must be that RGBA color.
-	Otherwise, the computed value must be the fallback color.
+	<ol>
+		<li>If the user, author, or user-agent stylesheet
+			has an ''@color-profile'' definition for device-cmyk,
+			and the resource specified by the src descriptor can be retrieved,
+			and the resource is a valid CMYK ICC profile,
+			and the user agent can process ICC profiles,
+			the computed value of the ''device-cmyk()'' function
+			must be the Lab value of the CMYK color.</li>
+		<li>Otherwise, if a valid fallback color has been specified,
+			the computed value of the ''device-cmyk()'' function
+			must be that fallback color.</li>
+		<li>Otherwise,
+			the computed value of the ''device-cmyk()'' function must be
+			the sRGB value of the CMYK color,
+			as converted with the following naive conversion algorithm.
+		</li>
+	</ol>
 
 	<div class='example'>
-		For example, the following colors are equivalent
-		(under the default conversion listed above):
+		For example, with no ''@color-profile'' and no fallback specified,
+		the following colors are equivalent, using the naive conversion.
 
 		<pre class="lang-css">
-			color: device-cmyk(0 81% 81% 30%);
-			color: rgb(178 34 34);
-			color: firebrick;
+			color: <span class="swatch" style="--color: rgb(178 34 34)"></span> device-cmyk(0 81% 81% 30%);
+			color: <span class="swatch" style="--color: rgb(178 34 34)"></span> rgb(178 34 34);
+			color: <span class="swatch" style="--color: rgb(178 34 34)"></span> firebrick;
 		</pre>
+	</div>
 
-		Note: these colors might not match precisely
-		if the browser knows a more precise conversion between CMYK and RGB colors.
-		It's recommended that if authors use <strong>any</strong> CMYK colors in their document,
-		that they use <strong>only</strong> CMYK colors in their document
-		to avoid any color-matching difficulties.
+	<div class='example'>
+		With the ''@color-profile'' specified as in the example stylesheet,
+		the following colors are equivalent, using colorimetric conversion.
+
+		<pre class="lang-css">
+			color: <span class="swatch" style="--color: rgb(70.690% 26.851% 19.724%)"></span> device-cmyk(0 81% 81% 30%);
+			color: <span class="swatch" style="--color: rgb(70.690% 26.851% 19.724%)"></span> lab(45.060% 45.477 35.459)
+			color: <span class="swatch" style="--color: rgb(70.690% 26.851% 19.724%)"></span> rgb(70.690% 26.851% 19.724%);
+		</pre>
 	</div>
 
 	The naive conversion is necessarily approximate,
@@ -2862,7 +2879,7 @@ Device-dependent CMYK Colors: the ''device-cmyk()'' function</h2>
 		<img src="images/macbeth-naive.svg" style="width: 60vmin">
 		<figcaption>
 			A color checker, used for ensuring color fidelity
-			in the print and photographic inductries.
+			in the print and photographic industries.
 			Averaged measured Lab values are available for each patch.
 			The rectangles show the Lab values, converted to sRGB.
 			The circles show the Lab values, passed through an ICC profile to convert them to CMYK.
@@ -2871,32 +2888,9 @@ Device-dependent CMYK Colors: the ''device-cmyk()'' function</h2>
 	</figure>
 
 <h3 id='cmyk-rgb'>
-Converting Between Uncalibrated CMYK and RGB-Based Colors</h3>
-
-	While most colors defined in this specification are directly compatible with RGBA,
-	and thus can be mechanically and consistently converted back and forth with it,
-	device-CMYK colors are not  directly compatible;
-	a given device-CMYK color
-	will map to various RGBA colors
-	depending on the physical characteristics of the output device.
-
-	Ideally, the user agent will be aware of the output device's color profiles for RGBA and device-CMYK.
-	If this is true,
-	then the user agent must convert between device-CMYK and RGBA colors (and vice versa)
-	by first converting the color into an appropriate device-independent color space,
-	such as CIELab,
-	and then converting into the output color space,
-	using the appropriate color profiles for each operation.
-
-	This is not always possible, however.
-	In that case, the user agent must use the following naive conversion algorithms.
+Naively Converting Between Uncalibrated CMYK and sRGB-Based Colors</h3>
 
 	To <dfn export lt="naively convert from CMYK to RGBA | naively converted to RGBA">naively convert from CMYK to RGBA</dfn>:
-
-	If a fallback color was specified,
-	return that color
-	(converting it to RGB as well, if necessary).
-	Otherwise:
 
 	<ul class="lang-javascript">
 		<li><code>red   = 1 - min(1, cyan * (1 - black) + black)</code>
@@ -2904,6 +2898,8 @@ Converting Between Uncalibrated CMYK and RGB-Based Colors</h3>
 		<li><code>blue  = 1 - min(1, yellow  * (1 - black) + black)</code>
 		<li>Alpha is same as for input color.
 	</ul>
+
+	<!-- nice, but when is RGBA to naive CMYK convesion actually triggered? -->
 
 	To <dfn lt="naively convert from RGBA to CMYK | naively converted to CMYK">naively convert from RGBA to CMYK</dfn>:
 
