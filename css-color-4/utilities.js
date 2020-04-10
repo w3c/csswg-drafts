@@ -161,9 +161,9 @@ function naive_sRGB_to_CMYK(RGB) {
     var red = RGB[0], green= RGB[1], blue = RGB[2];
 
     var black = 1 - Math.max(red, green, blue);
-    var cyan = (black = 1.0)? 0: (1 - red - black) / (1 - black);
-    var magenta = (black = 1.0)? 0: (1 - green - black) / (1 - black);
-    var yellow = (black = 1.0)? 0: (1 - blue - black) / (1 - black);
+    var cyan = (black == 1.0)? 0: (1 - red - black) / (1 - black);
+    var magenta = (black == 1.0)? 0: (1 - green - black) / (1 - black);
+    var yellow = (black == 1.0)? 0: (1 - blue - black) / (1 - black);
 
     return [cyan, magenta, yellow, black];
 }
