@@ -167,3 +167,37 @@ function naive_sRGB_to_CMYK(RGB) {
 
     return [cyan, magenta, yellow, black];
 }
+
+// Chromaticity utilities
+
+function XYZ_to_xy(XYZ) {
+    // Convert an array of three XYZ values
+    // to x,y chromaticity coordinates
+
+    var X = XYZ[0];
+    var Y = XYZ[1];
+    var Z = XYZ[2];
+    var sum = X+Y+Z;
+    return [X/sum, Y/sum];
+}
+
+function xy_to_uv(xy) {
+    // convert an x,y chromaticity pair
+    // to u*,v* chromaticities
+
+    var x = xy[0];
+    var y = xy[1];
+    var denom = -2*x + 12*y +3;
+    return [4*x / denom, 9*y / denom];
+}
+
+function XYZ_to_uv(XYZ) {
+    // Convert an array of three XYZ values
+    // to u*,v* chromaticity coordinates
+
+    var X = XYZ[0];
+    var Y = XYZ[1];
+    var Z = XYZ[2];
+    var denom = X + 15*Y +3*Z;
+    return [4*X / denom, 9*Y / denom];
+}
