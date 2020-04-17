@@ -1,5 +1,5 @@
 // utility functions for color conversions
-// needs conversions.js and math.js (not Math)
+// needs conversions.js
 
 function sRGB_to_luminance(RGB) {
     // convert an array of gamma-corrected sRGB values
@@ -20,7 +20,10 @@ function contrast(RGB1, RGB2) {
     var L1 = sRGB_to_luminance(RGB1);
     var L2 = sRGB_to_luminance(RGB2);
 
-    if (L1 > L2) return (L1 + 0.05) / (L2 + 0.05);
+    if (L1 > L2) {
+        return (L1 + 0.05) / (L2 + 0.05);
+    }
+    
     return (L2 + 0.05) / (L1 + 0.05);
 }
 
