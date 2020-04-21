@@ -171,9 +171,9 @@ function gam_a98rgb(RGB) {
 function lin_a98rgb_to_XYZ(rgb) {
 	// convert an array of linear-light a98-rgb values to CIE XYZ
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
-	// has greater numerical precsion than section 4.3.5.3 of
+	// has greater numerical precision than section 4.3.5.3 of
 	// https://www.adobe.com/digitalimag/pdfs/AdobeRGB1998.pdf
-	// but the vaues below were calculated from first principles
+	// but the values below were calculated from first principles
 	// from the chromaticity coordinates of R G B W
 	// see matrixmaker.html
 	var M = [
