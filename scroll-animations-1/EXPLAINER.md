@@ -246,9 +246,9 @@ polyfill](https://flackr.github.io/scroll-timeline/demo/parallax/index.html).
 Parallax is a most popular scroll-linked effects on the web today. See Android 10 launch
 [site](https://www.android.com/android-10/) for an example of this.
 
-TODO: Add image
+![Parallax example](https://gist.github.com/majido/a1279d6d986ab8881d51a77e98769e69/raw/307c1f83367c59a1c0d15f9f696fa483daaf828b/explainer-parallax.gif)
 
-To use parallax with ScrollTimeline APIs, one can simply do:
+To create a parallax effect with ScrollTimeline APIs, one can simply do:
 
 ```js
 let header = document.querySelector('.header');
@@ -270,7 +270,8 @@ often used to create interactive stories. For example see how New York Times app
 animations for creative
 [storytelling](http://www.nytimes.com/projects/2013/tomato-can-blues/index.html).
  
-TODO: Add image
+![Reveal example](https://gist.github.com/majido/a1279d6d986ab8881d51a77e98769e69/raw/307c1f83367c59a1c0d15f9f696fa483daaf828b/explainer-reveal.gif)
+
 
 Here is a simple example where we reveal each header as they enters the viewport. This example uses
 the still unspecified element-based offset syntax.
@@ -302,7 +303,7 @@ the still unspecified element-based offset syntax.
 Another common example of an animation that tracks scroll position is a progress bar that is used
 to indicate the reader’s position in a long article.
 
-TODO: add image
+![Progressbar example](img/usecase3-2.svg)
 
 Below is a simple example where a progress bar is animate from 0 to full width as we scroll the 
 document.
@@ -321,10 +322,9 @@ document.querySelector('#progressbar').animate({
 ### Image Zoom In/Out
 
 This is another common usage pattern when an image scales up to fill a larger canvas. For an
-example of this see [iPhone 11 launch site](https://www.apple.com/iphone-11/). This can be easily
-done by animating the scale or clipe property.
+example of this see [iPhone 11 launch site](https://www.apple.com/iphone-11/). 
  
-TODO: add image
+![Zoom example](https://gist.github.com/majido/a1279d6d986ab8881d51a77e98769e69/raw/307c1f83367c59a1c0d15f9f696fa483daaf828b/explainer-zoom.gif)
 
 In this example we start scaling a DIV as soon as its container fully enters the scrollport and
 until it starts existing the scroll port. Not how in this case the animating element is different
@@ -501,7 +501,6 @@ Animations time value to no longer be scalar but value could be a bag of values 
 positions, touch position etc. This combined with custom js animation callback (e.g., Animation
 Worklet) could allow very sophisticated scroll-linked animations but this was also scrapped as we
 believed this may not be compatible with the Web Animation model.
-
 
 
 ## Stakeholder Feedback / Opposition
