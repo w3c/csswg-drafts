@@ -1,7 +1,8 @@
 
 # Scroll-linked Animations Explainer
 
-Note: This document follows the [w3ctag best-practice](https://w3ctag.github.io/explainers) for explainers.
+Note: This document follows the [w3ctag best-practice](https://w3ctag.github.io/explainers) for
+explainers.
 
 ## Participate
 [Issue tracker](https://github.com/w3c/csswg-drafts/labels/scroll-animations)
@@ -11,12 +12,12 @@ Note: This document follows the [w3ctag best-practice](https://w3ctag.github.io/
 Scroll-linked animations are a common UX pattern on the web. We are proposing a new API that works
 in conjunction with existing [Web Animations](https://drafts.csswg.org/web-animations/) and [CSS
 Animations](https://drafts.csswg.org/css-animations/) APIs to enable declarative scroll-linked
-animations improving their smoothness and ergonomics. In  Web Animations, an
+animations to improve their smoothness and ergonomics. In  Web Animations, an
 [AnimationTimeline](https://drafts.csswg.org/web-animations/#timelines) is the source of time
 progress that drives the animations. ScrollTimeline is a new timeline whose function is to
 translate “changes in scroll position” of an element into “changes in time”. This allows animations
 to be driven by scrolling as opposed to by wall clock thus taking advantage of all existing
-animation machinery in the web.
+animation machinery on the web.
 
 ## Motivating Use Cases and Goals
 
@@ -25,22 +26,24 @@ Scroll-linked animated effect are common in web design:
 * Reveal/Unreveal effects
 * Image Zoom effects
 * Progress-bar animations
-* Before/After panoramas
+* Scroll-driven Before/After Image slider
 * Creative scroll-driven story-telling
 
 
-Currently the only way to achieve them is to respond to scroll events in the main thread. This
-means that these animations have to run on the main thread. There are two main problems to this:
-Modern browsers perform scrolling on separate thread/process so scroll events are delivered
-asynchronously Main thread animations are subject to jank. Creating performant scroll-linked
-animation can be impossible or [very
+Currently the only way to achieve them is to respond to scroll events on the main thread. This
+means that these animations have to run on the main thread. There are two main problems with this:
+1. Modern browsers perform scrolling on separate thread/process so scroll events are delivered
+asynchronously
+2. Main thread animations are subject to jank. 
+
+Creating performant scroll-linked animation can be impossible or [very
 difficult](https://developers.google.com/web/updates/2016/12/performant-parallaxing).
 
 
 Our primary goal is to enable declarative scroll-linked animations that can be easily moved off
-thread similar to existing time-based web animations. Our secondary goal is to bring scroll-linked
-animation under the existing common web-animation model allowing them to be created, inspected,
-controlled via a common animations API.
+main thread similar to existing time-based web animations. Our secondary goal is to bring
+scroll-linked animation under the existing common web-animation model allowing them to be created,
+inspected, controlled via a common animations API.
 
 ### Non-goals
 * **Scroll-triggered animations**: these are time-based animations that may be triggered when a
@@ -52,8 +55,8 @@ controlled via a common animations API.
   ScrollTimeline proposal does not prohibit.
 
 * **Stateful scripted scroll driven animations**: Some scroll-linked animations may not fit well
-  within declarative animations (e.g., those that depend on scroll velocity, or direction, or have
-  custom per frame logic etc.). We believe these can continue to be solved using rAF (and in future
+  within declarative animations such as those that depend on scroll velocity, or direction, or have
+  custom per frame logic. We believe these can continue to be solved using rAF (and in future
   be made more efficient with [CSS Animation
   Worklet](https://drafts.css-houdini.org/css-animationworklet/)). ScrollTimeline may be used in
   conjunction with these.
@@ -120,11 +123,11 @@ A ScrollTimeline is specified by a number of parameters:
 
 #### CSS syntax
 
-We are introducing a new @timline rule similar to existing @keyframes rule. This will allow
+We are introducing a new `@timeline` rule similar to the existing `@keyframes` rule. This will allow
 scroll-linked animation to be specified in CSS.
 
-Here is a simple example to demonstrate this which fades the target as `#scroller` scroll from
-0 to max.
+Here is an example to demonstrate this which fades the target as `#scroller` scroll from zero to
+max.
 
 ```css
 #target {
@@ -214,11 +217,11 @@ const scroller = document.getElementById("scroller");
 const image = document.getElementById("image");
 
 const revealTimeline = new ScrollTimeline({
-  // timeline starts at the offset that corresponds with image starting 
+  // Timeline starts at the offset that corresponds with image starting 
   // to enter scrollport (i.e., 0% intersect with scroller at its “end” edge). 
   start: { target: image, edge: 'end', threshold: 0 },
 
-  // timeline ends at the offset that corresponds with image becoming
+  // Timeline ends at the offset that corresponds with image becoming
   // fully visible (i.e., 100% intersect with scroller at its “end” edge).
   end: { target: image, edge: 'end', threshold: 1 },
 });
@@ -243,10 +246,10 @@ polyfill](https://flackr.github.io/scroll-timeline/demo/parallax/index.html).
 ### Scenario 1 - Parallax
 
 
-Parallax is a most popular scroll-linked effects on the web today. See Android 10 launch
+Parallax is one of the most popular scroll-linked effects on the web today. See Android 10 launch
 [site](https://www.android.com/android-10/) for an example of this.
 
-![Parallax example](https://gist.github.com/majido/a1279d6d986ab8881d51a77e98769e69/raw/307c1f83367c59a1c0d15f9f696fa483daaf828b/explainer-parallax.gif)
+![Parallax example](https://gist.github.com/majido/a1279d6d986ab8881d51a77e98769e69/raw/explainer-parallax.gif)
 
 To create a parallax effect with ScrollTimeline APIs, one can simply do:
 
@@ -270,7 +273,7 @@ often used to create interactive stories. For example see how New York Times app
 animations for creative
 [storytelling](http://www.nytimes.com/projects/2013/tomato-can-blues/index.html).
  
-![Reveal example](https://gist.github.com/majido/a1279d6d986ab8881d51a77e98769e69/raw/307c1f83367c59a1c0d15f9f696fa483daaf828b/explainer-reveal.gif)
+![Reveal example](https://gist.github.com/majido/a1279d6d986ab8881d51a77e98769e69/raw/explainer-reveal.gif)
 
 
 Here is a simple example where we reveal each header as they enters the viewport. This example uses
@@ -324,7 +327,7 @@ document.querySelector('#progressbar').animate({
 This is another common usage pattern when an image scales up to fill a larger canvas. For an
 example of this see [iPhone 11 launch site](https://www.apple.com/iphone-11/). 
  
-![Zoom example](https://gist.github.com/majido/a1279d6d986ab8881d51a77e98769e69/raw/307c1f83367c59a1c0d15f9f696fa483daaf828b/explainer-zoom.gif)
+![Zoom example](https://gist.github.com/majido/a1279d6d986ab8881d51a77e98769e69/raw/explainer-zoom.gif)
 
 In this example we start scaling a DIV as soon as its container fully enters the scrollport and
 until it starts existing the scroll port. Not how in this case the animating element is different
@@ -365,12 +368,13 @@ Some of the complexities that come from this decision are:
   addresses this issue among other benefits. 
 
 * **Exclusive end ranges**: In Web Animations, ranges have exclusive ends to
-  help make it easier to use overlapping ranges (e.g., putting animations in a
-  sequence). ScrollTimeline scroll range also has exclusive ends to match this.
-  However this is problematic for a common case where scroll range is full size.
-  Our solution was to [special case](https://github.com/w3c/csswg-drafts/issues/4341) this one.
+  help make it easier to use overlapping ranges such as putting multiple
+  animations in a sequence. ScrollTimeline scroll range also has exclusive ends
+  to match this. However this is problematic for a common case where scroll
+  range is full size. Our solution was to [special
+  case](https://github.com/w3c/csswg-drafts/issues/4341) this one.
 
-* **Dynamic Scrollability**: It is possible for an scroller to no longer
+* **Dynamic Scrollability**: It is possible for a scroller to no longer
   overflow (`overflow: auto`). It is not clear how best to model this behavior.
   One option is to model this as an idle timeline. One current limitation of web
   animation is that when a timeline goes from playing to idle, its attached
@@ -383,61 +387,70 @@ The ability for scrolling to drive the progress of an animation, gives rise to t
 layout cycles, where a change to a scroll offset causes an animation’s effect to update, which in
 turn causes a new change to the scroll offset. Imagine that an animation shrinks the height of the
 content of the scroller which may cause the max scroll offset to reduce which may change the scroll
-offset. To avoid such layout cycles, animations with a ScrollTimeline are sampled once per frame,
-after scrolling in response to input events has taken place, but before `requestAnimationFrame()`
+offset. 
+
+
+To avoid such layout cycles, animations with a ScrollTimeline are sampled once per frame, after
+scrolling in response to input events has taken place, but before `requestAnimationFrame()`
 callbacks are run. If the sampling of such an animation causes a change to a scroll offset, the
 animation will not be re-sampled to reflect the new offset until the next frame. 
  
 ![Ordering of scroll-linked animations](img/explainer-ordering.svg)
 
-Note that this ensures the output of scroll-linked animation is always up-to-date when
-the user is scrolling and avoids layout cycle. But it also means that in some situations the
-rendered scroll offset may not be consistent with the output of scroll-driven animations for
-example when the scroll-linked animation is indirectly changing the scroll offset itself. We
-believe this is rare and often not actually desired by authors. Another thing to note is that if
-one updates scroll offsets in requestAnimationFrame it is not reflected in scroll-linked animations
-in the same frame. This is because rAF are specced to run after updating web animations which
-includes scroll-linked animations. 
+Note that this ensures the output of scroll-linked animation is always up-to-date when the user is
+scrolling and avoids layout cycle. But it also means that in some situations the rendered scroll
+offset may not be consistent with the output of scroll-driven animations. For example when the
+scroll-linked animation itself is indirectly causing the scroll offset to change. We believe this
+is rare and often not actually desired by authors. 
 
+
+Another thing to note is that if one updates scroll offsets in a `requestAnimationFrame` callback
+it is not reflected in scroll-linked animations in the same frame. This is because
+`requestAnimationFrame` callback are specified to run after updating web animations step which includes
+scroll-linked animations.
 
 ### Accommodate Asynchronous Scrolling
-Most modern browsers perform scrolling asynchronous (i.e. off main-thread). We have opted for the
-following model to ensure that is not affected: 
+
+Most modern browsers [perform scrolling
+asynchronously](https://blogs.windows.com/msedgedev/2017/03/08/scrolling-on-the-web/) to ensure
+smoothness and responsiveness to user actions. In other words the majority of scrolling is handled
+off main-thread. We have opted for the following model to ensure that is not affected: 
+
 1. The scroll-linked effects are expressed declaratively similar to other
    web-animations and may be sampled asynchronously. 
-2. User-agent is allowed to sample scroll-linked animations more often than main
-   thread animation frames. These two mean that scroll-linked animation can
-   potentially run off-main thread and in sync with asynchronous scrolling that
-   happens off thread. 
-3. User-agent is allowed to sample the scroll-linked effects on main-thread once
+2. The user-agent is allowed to sample scroll-linked animations more often than main
+   thread animation frames.
+3. The user-agent is allowed to sample the scroll-linked effects on main-thread once
    per main-thread animation frame and use the last known scroll offset. 
 
-The above give a minimum guarantee that scroll-linked animations would render as
-often as the current existing approach of using scroll events while also
-enabling user-agents to optimize such animations to potentially run off-thread
-and more in sync with asynchronous scrolling.
+
+(1) and (2) mean that scroll-linked animation can potentially run off-main thread and in sync with
+asynchronous scrolling that happens off thread. (3) ensures they can also run on main-thread
+without forcing scrolling itself to be on main thread. Together they guarantee that scroll-linked
+animations would render as often as the current existing approach of using scroll events while also
+enabling user-agents to optimize such animations to potentially run off-thread and in sync with
+asynchronous scrolling.
 
 ### Progress-Based Animations
  
-As mentioned before we like to eliminate the need for `ScrollTimeline.timeRange`
-to map scroll units into time units. One approach we are exploring is the
-addition of progress-based animations to Web Animations. This will allow the
-scroll timeline to produce a “progress” value which can drive animations without
-a need for durations. Progress-based animations will have other value beside
-scroll linked-animations. This is a work-in-progress and there is an ongoing
-discussion around it [here](https://github.com/w3c/csswg-drafts/issues/4862).
+As mentioned before we like to eliminate the need for `ScrollTimeline.timeRange` to map scroll
+units into time units. One approach we are exploring is the addition of progress-based animations
+to Web Animations. This will allow the scroll timeline to produce a “progress” value which can
+drive animations without a need for durations. Progress-based animations will have other value
+beside scroll linked-animations. This is a work-in-progress and there is an ongoing discussion
+around it [here](https://github.com/w3c/csswg-drafts/issues/4862).
  
 ### Access top-level window scroll in iframes
 
 It is desirable to perhaps allow scroll-linked animations to respond to the top-level window
-viewport in . The current specification does not allow this as we are not sure of the security
-impact of enabling this in cross-origin iframes. But in terms of API it may be just as simple of
-allowing empty source attributes to mean top-level window scroller. More discussion on the usecase
-and possible solutions are [here](https://github.com/w3c/csswg-drafts/issues/4344)
+viewport in an iframe. The current specification does not allow this as we are not sure of the
+security impact of enabling this in cross-origin iframes. But in terms of API it may be just as
+simple of allowing empty source attributes to mean top-level window scroller. More discussion on
+the use case and possible solutions are [here](https://github.com/w3c/csswg-drafts/issues/4344)
  
 ###  Logical Scrolling vs Animation of Physical properties
 
-This is not an issue directly related to Scroll-Linked animation but one that gets exposed more
+This is not an issue directly related to Scroll-linked animation but one that gets exposed more
 clearly with it. The issue is that many CSS properties, most predominantly transform, are physical
 but ScrollTimeline orientation is logical in that it can be affected by writing-mode). So authors
 have to be careful to use physical orientation with a scroll timeline if they intend to use it to
@@ -458,17 +471,17 @@ instead. See additional CSSWG discussion [here](https://github.com/w3c/csswg-dra
 A common usage pattern for scroll-linked animation is to start animation when an element enters
 scrollport (or viewport) until it leaves viewport. The current proposal achieves this by allowing
 start/end offset to be declared in terms of intersection of the scroller and one of its
-descendants. This is still a work in progress but most of the details are spelled out
+descendants. This is still a work-in-progress but most of the details are spelled out
 [here](https://github.com/w3c/csswg-drafts/issues/4337).
 
 Below are alternatives we have considered: 
 
 1. Only expose static offsets and leave it to authors to compute these offset based on element and
    scroller bounding client rects. While this seems simple on surface but putting the onus on
-   authors has a number of problems: Also requiring getBoundingClientRect usage can cause layout
-   thrashing if not careful. Anything else that affects layout, e.g. new content added to the page
-   may invalidate these offsets. Authors have to ensure they correctly recompute these offsets.
-   Some size changes (e.g. zooms) may not be easily detectable.
+   authors has a number of problems: Also requiring `getBoundingClientRect()` usage can cause layout
+   thrashing if not careful. Anything else that affects layout such as new content added to the page
+   may invalidate these offsets. So authors have to ensure they correctly recompute these offsets.
+   Worst still, some size changes such as ping-zooms may not be easily detectable.
 
 2. Use scroll-snap like alignment syntax (at the moment only exists in CSS). This may be a viable
    alternative compared to intersection observer style syntax (at the moment only exists in JS).
@@ -479,7 +492,7 @@ Below are alternatives we have considered:
 ## CSS animation-timebase
 
 This is an [idea](https://lists.w3.org/Archives/Public/www-style/2014Sep/0135.html) that most
-closely matches the spirit of this current proposal. It proposed css syntax that allow animations
+closely matches the spirit of this current proposal. It proposed css syntax that allows animations
 to be scrubbed in response to scroll. It also suggests a syntax for trigger. The current proposal
 captures most of the functionality proposed for animation-timebase and defines exactly how it
 integrates with web animations.
@@ -488,7 +501,7 @@ integrates with web animations.
 ### Exposed Scroll Offset in Worker/Worklet
 This is an idea that was first proposed in Compositor Worker and then was explored more in [Houdini
 Animation Worklet](https://github.com/w3c/css-houdini-drafts/tree/master/css-animationworklet). The
-idea was to simply expose scroll offset to special JS based `animate` callbacks that can run off
+idea was to simply expose scroll offset to special JS based `animate()` callbacks that can run off
 thread. We believe ScrollTimeline can be used in conjunction with Houdini Animation Worklet thus
 there is no need to expose scroll offsets directly. This can enable more complex scroll-linked
 animations using Animation Worklet while also making it easy to create fully declarative animations
@@ -498,8 +511,8 @@ for common simpler use cases via Web Animations.
 
 Another [take on this idea](https://github.com/w3c/csswg-drafts/issues/2493) was to change Web
 Animations time value to no longer be scalar but value could be a bag of values which may be scroll
-positions, touch position etc. This combined with custom js animation callback (e.g., Animation
-Worklet) could allow very sophisticated scroll-linked animations but this was also scrapped as we
+positions, touch position etc. This combined with custom js animation callback, such as Animation
+Worklet, could allow very sophisticated scroll-linked animations but this was also scrapped as we
 believed this may not be compatible with the Web Animation model.
 
 
