@@ -31,12 +31,13 @@ Scroll-linked animated effect are common in web design:
 
 
 Currently the only way to achieve them is to respond to scroll events on the main thread. This
-means that these animations have to run on the main thread. There are two main problems with this:
+means that these animations have to run on the main thread which leads to two main problems:
 1. Modern browsers perform scrolling on separate thread/process so scroll events are delivered
-asynchronously
+   asynchronously.
 2. Main thread animations are subject to jank. 
 
-Creating performant scroll-linked animation can be impossible or [very
+These make creating performant scroll-linked animations that are in-sync with
+scrolling impossible or [very
 difficult](https://developers.google.com/web/updates/2016/12/performant-parallaxing).
 
 
@@ -46,27 +47,47 @@ scroll-linked animation under the existing common web-animation model allowing t
 inspected, controlled via a common animations API.
 
 ### Non-goals
-* **Scroll-triggered animations**: these are time-based animations that may be triggered when a
-  scroller reaches a certain offset. These are also common but do not suffer from jank issues since
-  time-based animations can easily be off-thread. The current best practice is to use
-  IntersectionObserver to kick-off such animation which seems sufficient. Other alternative ideas
-  (`:ever-been-visible` pseudo class or generic animation-trigger) have been proposed
-  [here](https://github.com/w3c/csswg-drafts/issues/4339#issuecomment-499666491) that the current
-  ScrollTimeline proposal does not prohibit.
 
-* **Stateful scripted scroll driven animations**: Some scroll-linked animations may not fit well
-  within declarative animations such as those that depend on scroll velocity, or direction, or have
-  custom per frame logic. We believe these can continue to be solved using rAF (and in future
-  be made more efficient with [CSS Animation
-  Worklet](https://drafts.css-houdini.org/css-animationworklet/)). ScrollTimeline may be used in
-  conjunction with these.
+#### Scroll-triggered animations
+
+These are a class of animation whose progress is driven by time but whose activation may be
+triggered when scrolling past a certain position or into a given scroll range.  These are also
+common on the web but they don't suffer from main thread jank and synchronous scrolling lad in the
+same way that scroll-linked animations do. This is becuase only their activation is tied to scroll
+position and and not their progress.
+
+However, we found that in the vast majority of cases where a web author would want to do this, they
+would want to do it for a CSS transition (as opposed to a CSS animation). Unfortunately, it's not
+possible to trigger CSS transitions from the compositor thread (because triggering a transition
+requires style resolution, which cannot be performed on the compositor thread). 
+
+Earlier versions of this specification included a triggering mechanims. But given the extent to
+which triggering complicated the API and because of the smaller benefit that these type of
+animation will receive, we decided it wasn't worth it if you can't use it for transitions, so this
+feature was remove and scroll-triggered animations are non-goal for this API.
+
+
+At the moment, the current best practice is to use IntersectionObserver to kick-off such animation
+which seems sufficient. Other alternative ideas (`:ever-been-visible` pseudo class or generic
+animation-trigger) have been proposed
+[here](https://github.com/w3c/csswg-drafts/issues/4339#issuecomment-499666491) that the current
+ScrollTimeline proposal does not prohibit. The design space for triggering animations is still open
+and we welcome input on this subject for future revisions in this specification.
+
+#### Stateful scripted scroll driven animations
+
+Some scroll-linked animations may not fit well within declarative animations such as those that
+depend on scroll velocity, or direction, or have custom per frame logic. We believe these can
+continue to be solved using rAF (and in future be made more efficient with [Houdini Animation
+Worklet](https://drafts.css-houdini.org/css-animationworklet/)). ScrollTimeline may be used in
+conjunction with these.
 
 ## New APIs
 
 The [Scroll-linked Animations](https://drafts.csswg.org/scroll-animations-1/) spec introduces one
 new concept: ScrollTimeline
 
-### Scroll Timeline API
+### Scroll Timeline
 
 A [ScrollTimeline](https://drafts.csswg.org/scroll-animations-1/#scrolltimeline-interface) is an
 [AnimationTimeline](https://drafts.csswg.org/web-animations-1/#the-animationtimeline-interface)
