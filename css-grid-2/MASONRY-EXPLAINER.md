@@ -163,7 +163,7 @@ Since items within each column are not aligned with items in adjacent columns, t
   justify-content: center;
   
   /* align items in each column to the bottom of the container */
-  align-tracks: bottom;
+  align-tracks: end;
 }
 ...
 </style>
