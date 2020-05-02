@@ -8,6 +8,7 @@ function lin_sRGB(RGB) {
 	// convert an array of sRGB values in the range 0.0 - 1.0
 	// to linear light (un-companded) form.
 	// https://en.wikipedia.org/wiki/SRGB
+	// TODO for negative values, extend linear portion on reflection of axis, then add pow below that
 	return RGB.map(function (val) {
 		if (val < 0.04045) {
 			return val / 12.92;
@@ -21,6 +22,7 @@ function gam_sRGB(RGB) {
 	// convert an array of linear-light sRGB values in the range 0.0-1.0
 	// to gamma corrected form
 	// https://en.wikipedia.org/wiki/SRGB
+	// TODO for negative values, extend linear portion on reflection of axis, then add pow below that
 	return RGB.map(function (val) {
 		if (val > 0.0031308) {
 			return 1.055 * Math.pow(val, 1/2.4) - 0.055;
@@ -104,6 +106,7 @@ function lin_ProPhoto(RGB) {
 	// convert an array of prophoto-rgb values in the range 0.0 - 1.0
 	// to linear light (un-companded) form.
 	// Transfer curve is gamma 1.8 with a small linear portion
+	// TODO for negative values, extend linear portion on reflection of axis, then add pow below that
 	return RGB.map(function (val) {
 		if (val < 0.031248) {
 			return val / 16;
@@ -117,6 +120,7 @@ function gam_ProPhoto(RGB) {
 	// convert an array of linear-light prophoto-rgb  in the range 0.0-1.0
 	// to gamma corrected form
 	// Transfer curve is gamma 1.8 with a small linear portion
+	// TODO for negative values, extend linear portion on reflection of axis, then add pow below that
 	return RGB.map(function (val) {
 		if (val > 0.001953) {
 			return Math.pow(val, 1/1.8);
@@ -155,16 +159,18 @@ function XYZ_to_lin_ProPhoto(XYZ) {
 function lin_a98rgb(RGB) {
 	// convert an array of a98-rgb values in the range 0.0 - 1.0
 	// to linear light (un-companded) form.
+	// negative values are also now accepted
 	return RGB.map(function (val) {
-	  return Math.pow(val, 563/256);
+	  return Math.pow(Math.abs(val), 563/256)*Math.sign(val);
 	});
 }
 
 function gam_a98rgb(RGB) {
 	// convert an array of linear-light a98-rgb  in the range 0.0-1.0
 	// to gamma corrected form
+	// negative values are also now accepted
 	return RGB.map(function (val) {
-		return Math.pow(val, 256/563);
+		return Math.pow(Math.abs(val), 256/563)*Math.sign(val);
 	});
 }
 
