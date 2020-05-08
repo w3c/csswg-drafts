@@ -144,7 +144,7 @@ A ScrollTimeline is specified by a number of parameters:
 
 #### CSS syntax
 
-We are introducing a new `@timeline` rule similar to the existing `@keyframes` rule. This will allow
+We are introducing a new `@scroll-timeline` rule similar to the existing `@keyframes` rule. This will allow
 scroll-linked animation to be specified in CSS.
 
 Here is an example to demonstrate this which fades the target as `#scroller` scroll from zero to
@@ -160,9 +160,8 @@ max.
   to { opacity: 0 }
 }
 
-@timeline fade {
-    timeline-type: scroll;
-    scroll-source: selector(#scroller);
+@scroll-timeline fade {
+  source: selector(#scroller);
 }
 ```
 
@@ -189,20 +188,18 @@ div.circle {
   animation-timeline: union-timeline;
 }
 
-@timeline collision-timeline {
-  timeline-type: scroll;
-  scroll-source: selector(#container);
-  scroll-direction: block;
-  scroll-start:  200px;
-  scroll-end: 300px;
+@scroll-timeline collision-timeline {
+  source: selector(#container);
+  direction: block;
+  start:  200px;
+  end: 300px;
 }
 
-@timeline union-timeline {
-  timeline-type: scroll;
-  scroll-source: selector(#container);
-  scroll-direction: block;
-  scroll-start:  250px;
-  scroll-end: 300px;
+@scroll-timeline union-timeline {
+  source: selector(#container);
+  direction: block;
+  start:  250px;
+  end: 300px;
 }
 
 @keyframes left-circle {
@@ -483,7 +480,7 @@ should consider [logical transforms](https://github.com/w3c/fxtf-drafts/issues/3
 ## Considered alternatives
 
 ### CSS Syntax
-We have considered alternatives function based css syntax but decided to go with a @timeline rule
+We have considered alternatives function based css syntax but decided to go with a @scroll-timeline rule
 instead. See additional CSSWG discussion [here](https://github.com/w3c/csswg-drafts/issues/4338).
 
 
