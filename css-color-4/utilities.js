@@ -1,5 +1,5 @@
 // utility functions for color conversions
-// needs conversions.js and math.js (not Math)
+// needs conversions.js
 
 function sRGB_to_luminance(RGB) {
     // convert an array of gamma-corrected sRGB values
@@ -20,7 +20,10 @@ function contrast(RGB1, RGB2) {
     var L1 = sRGB_to_luminance(RGB1);
     var L2 = sRGB_to_luminance(RGB2);
 
-    if (L1 > L2) return (L1 + 0.05) / (L2 + 0.05);
+    if (L1 > L2) {
+        return (L1 + 0.05) / (L2 + 0.05);
+    }
+    
     return (L2 + 0.05) / (L1 + 0.05);
 }
 
@@ -128,3 +131,76 @@ function hslToRgb(hue, sat, light) {
     else if(hue < 4) return (t2 - t1) * (4 - hue) + t1;
     else return t1;
   }
+
+// These are the naive algorithms from CS Color 4
+
+function naive_CMYK_to_sRGB(CMYK) {
+    // CMYK is an array of four values
+    // in the range [0.0, 1.0]
+    // the optput is an array of [RGB]
+    // also in the [0.0, 1.0] range
+    // because the naive algorithm does not generate out of gamut colors
+    // neither does it generate accurate simulations of practical CMYK colors
+
+    var cyan = CMYK[0], magenta = CMYK[1], yellow = CMYK[2], black = CMYK[3];
+
+    var red = 1 - Math.min(1, cyan * (1 - black) + black);
+    var green = 1 - Math.min(1, magenta * (1 - black) + black);
+    var blue = 1 - Math.min(1, yellow * (1 - black) + black);
+
+    return [red, green, blue];
+
+}
+
+function naive_sRGB_to_CMYK(RGB) {
+    // RGB is an arravy of three values
+    // in the range [0.0, 1.0]
+    // the output is an array of [CMYK]
+    // also in the [0.0, 1.0] range
+    // with maximum GCR and (I think) 200% TAC
+    // the naive algorithm does not generate out of gamut colors
+    // neither does it generate accurate simulations of practical CMYK colors
+
+    var red = RGB[0], green= RGB[1], blue = RGB[2];
+
+    var black = 1 - Math.max(red, green, blue);
+    var cyan = (black == 1.0)? 0: (1 - red - black) / (1 - black);
+    var magenta = (black == 1.0)? 0: (1 - green - black) / (1 - black);
+    var yellow = (black == 1.0)? 0: (1 - blue - black) / (1 - black);
+
+    return [cyan, magenta, yellow, black];
+}
+
+// Chromaticity utilities
+
+function XYZ_to_xy(XYZ) {
+    // Convert an array of three XYZ values
+    // to x,y chromaticity coordinates
+
+    var X = XYZ[0];
+    var Y = XYZ[1];
+    var Z = XYZ[2];
+    var sum = X+Y+Z;
+    return [X/sum, Y/sum];
+}
+
+function xy_to_uv(xy) {
+    // convert an x,y chromaticity pair
+    // to u*,v* chromaticities
+
+    var x = xy[0];
+    var y = xy[1];
+    var denom = -2*x + 12*y +3;
+    return [4*x / denom, 9*y / denom];
+}
+
+function XYZ_to_uv(XYZ) {
+    // Convert an array of three XYZ values
+    // to u*,v* chromaticity coordinates
+
+    var X = XYZ[0];
+    var Y = XYZ[1];
+    var Z = XYZ[2];
+    var denom = X + 15*Y +3*Z;
+    return [4*X / denom, 9*Y / denom];
+}
