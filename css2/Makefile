@@ -36,7 +36,7 @@ THE_WARNING = <div>							\
    Snapshot</cite> for a list of specifications and the sections they	\
    replace.	       	    	 		    		 	\
    <p>The CSS Working Group is also developing 				\
-   <a href=\"http://www.w3.org/TR/CSS22/\" >CSS level\&nbsp;2		\
+   <a href=\"https://www.w3.org/TR/CSS22/\" >CSS level\&nbsp;2		\
    revision\&nbsp;2 (CSS\&nbsp;2.2).</a>				\
   </div>								\
  </div>
@@ -46,9 +46,9 @@ THE_WARNING =
 THE_DATE = $(THE_DAY) $(THE_MONTHNAME) $(THE_YEAR)
 THE_ID = $(THE_STYLE)-$(PERMANENT_NAME)-$(THE_YEAR)$(THE_MONTH)$(THE_DAY)
 THE_LOC = $(THE_YEAR)/$(THE_ID)
-THIS_VERSION = http://www.w3.org/TR/$(THE_LOC)
-THE_LATEST_VERSION = http://www.w3.org/TR/$(PERMANENT_NAME)
-THE_UPDATE_DIR = http://www.w3.org/Style/css2-updates
+THIS_VERSION = https://www.w3.org/TR/$(THE_LOC)/
+THE_LATEST_VERSION = https://www.w3.org/TR/$(PERMANENT_NAME)/
+THE_UPDATE_DIR = https://www.w3.org/Style/css2-updates
 
 INSTALLDIR = dist/
 
@@ -105,12 +105,7 @@ SPECSRCS= $(SRCS0) $(MAINSRCS) $(APPSRCS) $(INDEXSRCS) $(REFS)
 SPECOBJS= $(SPECSRCS:.src=.html)
 
 IMAGESSRC = \
-$(wildcard images/*.eps) \
-$(wildcard images/*.fig) \
-$(wildcard images/*.gif) \
-$(wildcard images/*.idraw) \
-$(wildcard images/*.svg) \
-$(wildcard images/*.ps)
+$(wildcard images/*.svg)
 
 IMAGESBUILT = $(addsuffix .png, $(basename $(IMAGESSRC)))
 
@@ -228,27 +223,27 @@ LN= ln
 
 .SUFFIXES: .src .html .srd .idraw .gif .ps .subtoc .png .fig .pdf
 
-%.subtoc: %.srd Project.cfg
+build/%.subtoc: build/%.srd Project.cfg
 	@echo "=========== making" $@
-	echo "<div class=\"subtoc\">" >$@
-	echo "<p><strong>Contents</strong>" >>$@
+	echo "<nav id=\"toc\">" >$@
+	echo "<h2>Table of Contents</h2>" >>$@
 	$(MKTOC) -l 2 -r $*.html $(HEADINGDB) >>$@
-	echo "</div>" >>$@
+	echo "</nav>" >>$@
 	if [ `cat $@ | wc -l` = 3 ]; then $(RM) $@; touch $@; fi
 
 # Use the shorter line to avoid regenerating all .html if one .src changed,
 # at the cost of possibly incorrect xrefs in the other .html files
 #
 #%.html: %.subtoc Project.cfg
-%.html: %.subtoc $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) Project.cfg build/warning #$(SPECSRCS:.src=.srd)
+%.html: build/%.subtoc $(addprefix build/, $(MAINSRCS:.src=.srd)) $(addprefix build/, $(APPSRCS:.src=.srd)) Project.cfg build/warning style/default.css #$(SPECSRCS:.src=.srd)
 	@echo "=========== making" $@
-	$(ADDLINKS) $(VALUEDB) $*.srd propinst-/propdef- value-inst-/value-def- |\
+	$(ADDLINKS) $(VALUEDB) build/$*.srd propinst-/propdef- value-inst-/value-def- |\
 	$(ADDIDXANCH) -r $@ $(INDEXDB) - |\
 	$(ADDMARKUP) - |\
 	$(ADDLONGDESC) - |\
 	$(ADDNAVBAR) -r $@ |\
 	$(INSAFTER) - build/warning /H1 - |\
-	$(INSAFTER) - $*.subtoc /H1 - |\
+	$(INSAFTER) - build/$*.subtoc /H1 - |\
 	$(MKCHAIN) -r $@ - |\
 	$(SED) -e "s|_THIS_VERSION_|$(THIS_VERSION)|g" \
 	       -e "s|_THE_LATEST_VERSION_|$(THE_LATEST_VERSION)|g" \
@@ -260,7 +255,7 @@ LN= ln
 	       -e "s|_THE_ID_|$(THE_ID)|g" \
 	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" >$@
 
-%.srd: %.src build/blocks.ok $(REFSRC:.src=.srd)
+build/%.srd: %.src build/blocks.ok $(addprefix build/, $(REFSRC:.src=.srd))
 	@echo "=========== making" $@
 	$(HIPP) $(INCLUDES) $< |\
 	$(ADDCITE) -r $(REFS) $(REFSRCS) |\
@@ -268,12 +263,10 @@ LN= ln
 	$(MKANCHDB) -r $*.html value-def- $(VALUEDB) $@
 	$(MKANCHDB) -r $*.html propdef- $(VALUEDB) $@
 
-%.png: %.eps; convert -density 96x96 $< $@
-%.png: %.ps; convert -density 96x96 $< $@
-%.png: %.idraw; convert -density 96x96 $< $@
-%.png: %.svg; convert -density 96x96 $< $@
-%.png: %.gif; convert -density 96x96 $< $@
-%.eps: %.fig; fig2dev -L eps -F -c $< $@
+%.big.png: %.svg; convert -density 96x96 $< $@
+
+%.png: %.big.png
+	zopflipng -m -y $< $@ || cp $< $@
 
 #.idraw.gif:
 #	$(RM) $@
@@ -390,12 +383,12 @@ $(PROPBLKSDIR)/blocks.ok: $(PROPSRC)
 	touch $@
 
 
-cover.srd: cover.src build/contents.srb build/minicontents.srb Makefile
+build/cover.srd: cover.src build/contents.srb Makefile
 	@echo "=========== making" $@
 	$(HIPP) $(INCLUDES) $<  |\
 	$(ADDCITE) -r $(REFS) $(REFSRCS) >$@
 
-cover.html: cover.srd Project.cfg
+cover.html: build/cover.srd Project.cfg
 	@echo "=========== making" $@
 	$(ADDNAVBAR) -r $@ $< |\
 	$(MKCHAIN) -r $@ - |\
@@ -410,14 +403,10 @@ cover.html: cover.srd Project.cfg
 	       -e "s|_THE_ID_|$(THE_ID)|g" \
 	       -e "s|_THE_UPDATE_DIR_|$(THE_UPDATE_DIR)|g" >$@
 
-build/contents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.src=.srd) $(INDEXSRCS:.src=.srd) Project.cfg
+build/contents.srb: $(addprefix build/, $(MAINSRCS:.src=.srd)) $(addprefix build/, $(APPSRCS:.src=.srd)) $(addprefix build/, $(REFSRCS:.src=.srd)) $(addprefix build/, $(INDEXSRCS:.src=.srd)) Project.cfg
 	@echo "=========== making" $@
 	$(MKTOC) -h 5 $(HEADINGDB) $@
 
-
-build/minicontents.srb: $(MAINSRCS:.src=.srd) $(APPSRCS:.src=.srd) $(REFSRCS:.src=.srd) $(INDEXSRCS:.src=.srd) Project.cfg
-	@echo "=========== making" $@
-	$(MKTOC) -h 1 $(HEADINGDB) $@
 
 ### general index related rules
 build/indexlist.srb: $(MAINSRCS) $(APPSRCS) $(INDEXDB)
@@ -427,11 +416,11 @@ build/indexlist.srb: $(MAINSRCS) $(APPSRCS) $(INDEXDB)
 $(INDEXDB): $(MAINSRCS:.src=.html) $(APPSRCS:.src=.html) #$(SPECSRCS:.src=.html)
 	touch $(INDEXDB)
 
-indexlist.srd:: build/indexlist.srb #indexlist.src build/blocks.ok
+build/indexlist.srd:: build/indexlist.srb #indexlist.src build/blocks.ok
 #	@echo "=========== making" $@
 #	$(CP) $< $@
 
-indexlist.html: indexlist.srd build/indexlist.srb Project.cfg build/warning
+indexlist.html: build/indexlist.srd build/indexlist.srb Project.cfg build/warning
 	@echo "=========== making" $@
 	$(ADDNAVBAR) -r $@ $< |\
 	$(INSAFTER) - build/warning /H1 - |\
@@ -451,10 +440,13 @@ build/propidx.srb: $(PROPSRC)
 	@echo "=========== making" $@
 	$(MKPROPIDX) -r $@ $@ $(PROPSRC)
 
-propidx.srd:: build/propidx.srb #propidx.src
+build/propidx.srd:: build/propidx.srb #propidx.src
 #	@echo "=========== making" $@
 #	$(HIPP) $(INCLUDES) $< $@
 
+
+style/default.css: ../default.css
+	cp $< $@
 
 ### check on the document to see if it's valid
 
@@ -543,7 +535,6 @@ checkx: build/checkx.out
 
 clean:
 	$(RM) $(SPECOBJS) $(PROPBLKSDIR)/* \
-	$(SPECOBJS:.html=.srd) $(SPECOBJS:.html=.subtoc) \
         build/* css2.* linklint images/links.ok
 
 realclean: clean
