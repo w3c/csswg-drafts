@@ -324,7 +324,7 @@ the still unspecified element-based offset syntax.
 Another common example of an animation that tracks scroll position is a progress bar that is used
 to indicate the reader’s position in a long article.
 
-![Progressbar example](img/usecase3-2.svg)
+![Progressbar example](https://gist.github.com/majido/a1279d6d986ab8881d51a77e98769e69/raw/explainer-progressbar.gif)
 
 Below is a simple example where a progress bar is animate from 0 to full width as we scroll the 
 document.
