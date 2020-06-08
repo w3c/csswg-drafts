@@ -539,7 +539,8 @@ There are engineers from all four browsers as editors in the specification.
 Additional links
  - [Mozilla standard positions](https://github.com/mozilla/standards-positions/issues/347)
  - [Chromium status](https://chromestatus.com/feature/6752840701706240)
- - TODO: Webkit-dev thread
+ - [WebKit-dev thread](https://lists.webkit.org/pipermail/webkit-dev/2020-June/031228.html)
+
 
 ## References & acknowledgements
 Many thanks for valuable contributions, feedback and advice from:
