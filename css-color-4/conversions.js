@@ -107,8 +107,9 @@ function lin_ProPhoto(RGB) {
 	// to linear light (un-companded) form.
 	// Transfer curve is gamma 1.8 with a small linear portion
 	// TODO for negative values, extend linear portion on reflection of axis, then add pow below that
+	const Et2 = 16/512;
 	return RGB.map(function (val) {
-		if (val < 0.031248) {
+		if (val < Et2) {
 			return val / 16;
 		}
 
@@ -121,8 +122,9 @@ function gam_ProPhoto(RGB) {
 	// to gamma corrected form
 	// Transfer curve is gamma 1.8 with a small linear portion
 	// TODO for negative values, extend linear portion on reflection of axis, then add pow below that
+	const Et = 1/512;
 	return RGB.map(function (val) {
-		if (val > 0.001953) {
+		if (val > Et) {
 			return Math.pow(val, 1/1.8);
 		}
 
