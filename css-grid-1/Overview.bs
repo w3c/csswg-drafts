@@ -776,7 +776,7 @@ Reordering and Accessibility</h2>
 		This layout can be easily achieved with grid layout:
 
 		<pre class="lang-css">
-			main { display: grid;
+			body { display: grid;
 			       grid: "h h h"
 			             "a b c"
 			             "f f f";
@@ -1107,7 +1107,7 @@ Grid Items</h2>
 	vary by their [[css-align-3#self-alignment|self-alignment values]]:
 
 	: ''align-self/normal''
-	:: 
+	::
 		If the grid item is a [=replaced element=] with an intrinsic size in the relevant dimension
 		(or with an aspect ratio and an intrinsic size in the other dimension)
 		the grid item is sized as for ''align-self: start''
@@ -1120,14 +1120,14 @@ Grid Items</h2>
 		when resolving ''width/auto'' sizes in [[CSS-SIZING-4]]).
 
 	: ''align-self/stretch''
-	:: 
+	::
 		Use the [=inline size=] calculation rules for non-replaced boxes
 		(defined in [[CSS2/visudet#blockwidth]],
 		and modified by the rules for handling the 'aspect-ratio' property
 		when resolving ''width/auto'' sizes in [[CSS-SIZING-4]]).
 
 		Note: This may distort the aspect ratio of the item, if it has one.
-		
+
 	: all other values
 	:: Size the item as ''width/fit-content''.
 
@@ -1414,7 +1414,7 @@ The Explicit Grid</h3>
 	while negative indexes count from the <a>end</a> side
 	(starting from -1 for the <a>end</a>-most <a>explicit</a> line).
 
-	The 'grid' and 'grid-template' properties are a <a>shorthands</a>
+	The 'grid' and 'grid-template' properties are <a>shorthands</a>
 	that can be used to set all three <dfn>explicit grid properties</dfn>
 	('grid-template-rows', 'grid-template-columns', and 'grid-template-areas')
 	at the same time.
@@ -1950,6 +1950,35 @@ Resolved Value of a Track Listing</h4>
 			Adjacent line names collapsed into a single bracketed set.
 	</ul>
 
+	<div class=issue>
+		The first bullet point of the above list
+		means that implicit tracks get serialized
+		as part of 'grid-template-rows'/etc.,
+		despite the fact that an author <em>cannot</em>
+		actually specify implicit track sizes in those properties!
+		So 'grid-template-rows' and 'grid-template-columns' values
+		might not round-trip correctly:
+
+		<pre highlight=js>
+		const s = getComputedStyle(gridEl);
+		gridEl.style.gridTemplateRows = s.gridTemplateRows;
+		// Code like this <em>should</em> be a no-op,
+		// but if there are any implicit rows,
+		// this will convert them into explicit rows,
+		// possibly changing how grid items are positioned
+		// and altering the overall size of the grid!
+		</pre>
+
+		This is an accidental property of an early implementation
+		that leaked into later implementations
+		without much thought given to it.
+		We intend to remove it from the spec,
+		but not until after we've defined a CSSOM API
+		for getting information about implicit tracks,
+		as currently this is the only way to get that information
+		and a number of pages rely on that.
+	</div>
+
 	Otherwise, (e.g. when the element has ''display: none'' or is not a <a>grid container</a>)
 	the resolved value is simply the <a>computed value</a>.
 
@@ -2269,7 +2298,9 @@ The Implicit Grid</h3>
 	<dfn export lt="implicit grid track|implicit grid row|implicit grid column">implicit grid tracks</dfn>
 	by adding <dfn>implicit grid lines</dfn> to the <a>grid</a>.
 	These lines together with the <a>explicit grid</a> form the <dfn export local-lt="implicit">implicit grid</dfn>.
-	The 'grid-auto-rows' and 'grid-auto-columns' properties size these <a>implicit grid tracks</a>.
+	The 'grid-auto-rows' and 'grid-auto-columns' properties size these [=implicit grid tracks=],
+	as well as any [=explicit grid tracks=] created by 'grid-template-areas'
+	but not explicitly sized by 'grid-template-rows' or 'grid-template-columns'
 
 	The 'grid-auto-flow' property controls auto-placement of <a>grid items</a>
 	without an explicit position.
@@ -2306,19 +2337,21 @@ Implicit Track Sizing: the 'grid-auto-rows' and 'grid-auto-columns' properties</
 	Animation type: by computed value type
 	</pre>
 
-	If a grid item is positioned into a row or column that is not explicitly sized
-	by 'grid-template-rows' or 'grid-template-columns',
-	<a>implicit grid tracks</a> are created to hold it.
-	This can happen either by explicitly positioning into a row or column that is out of range,
-	or by the <a>auto-placement algorithm</a> creating additional rows or columns.
-	The 'grid-auto-columns' and 'grid-auto-rows' properties specify the size of such implicitly-created tracks.
-
+	The 'grid-auto-columns' and 'grid-auto-rows' properties specify
+	the size of tracks not assigned a size
+	by 'grid-template-rows' or 'grid-template-columns'.
 	If multiple track sizes are given, the pattern is repeated as necessary
-	to find the size of the implicit tracks.
-	The first <a>implicit grid track</a> after the <a>explicit grid</a>
+	to find the size of the affected tracks.
+	The first track after the last explicitly-sized track
 	receives the first specified size, and so on forwards;
 	and the last <a>implicit grid track</a> before the <a>explicit grid</a>
 	receives the last specified size, and so on backwards.
+
+	Note: If a grid item is positioned into a row or column that is not explicitly declared
+	by 'grid-template-rows'/'grid-template-columns' and/or 'grid-template-areas',
+	[=implicit grid tracks=] are created to hold it.
+	This can happen either by explicitly positioning into a row or column that is out of range,
+	or by the [=auto-placement algorithm=] creating additional rows or columns.
 
 	<div class="example">
 		<pre class="lang-html">
@@ -3639,26 +3672,30 @@ Grid Container Baselines</h3>
 
 	<ol>
 		<li>
-			If any of the <a>grid items</a> whose areas intersect the <a>grid container</a>’s first (last) row
-			participate in <a>baseline alignment</a>,
+			Find the first (last) row of the [=grid container=]
+			containing at least one [=grid item=].
+
+			If any of the [=grid items=] intersecting this row
+			participate in [=baseline alignment=] in that row,
 			the grid container's <a>baseline set</a>
 			is <a lt="generate baselines">generated</a> from
 			the shared <a>alignment baseline</a> of those <a>grid items</a>.
 
-		<li>
-			Otherwise, if the grid container has at least one <a>grid item</a>,
+			Otherwise,
 			the grid container's first (last) baseline set
 			is <a lt="generate baselines">generated</a> from
 			the <a>alignment baseline</a> of the first (last) <a>grid item</a>
 			in row-major <a>grid order</a> (according to the <a>writing mode</a> of the <a>grid container</a>).
-			If the item has no <a>alignment baseline</a> in the grid's inline axis,
+			If the [=grid item=] has no <a>alignment baseline</a> in the grid's inline axis,
 			then one is first <a lt="synthesize baselines">synthesized</a>
 			from its border edges.
 
 		<li>
-			Otherwise, the grid container has no first (last) <a>baseline set</a>,
+			If the [=grid container=] does not contain any [=grid items=],
+			the grid container has no first (last) <a>baseline set</a>,
 			and one is <a lt="synthesize baselines">synthesized</a> if needed
 			according to the rules of its <a>alignment context</a>.
+			Exit from this algorithm.
 	</ol>
 
 	<dfn export lt="grid order|grid-modified document order">Grid-modified document order (grid order)</dfn>
@@ -4820,11 +4857,9 @@ Major Changes</h4>
 				set its <a>growth limit</a> to its <a>base size</a>.
 			</blockquote>
 
-		<!--
-		Need test written.
-		layout-algorithm/grid-flex-track-intrinsic-sizes-* don't cover intrinsic-sized items,
-		but are otherwise close to what's needed.
-		-->
+		<wpt>
+		layout-algorithm/grid-flex-track-intrinsic-sizes-003.html
+		</wpt>
 
 		<li id="change-2017-min-content-flex">
 			Treat min-content constraints the same as zero free space
@@ -4839,9 +4874,9 @@ Major Changes</h4>
 				</dl>
 			</blockquote>
 
-		<!--
-		Needs test written.
-		-->
+		<wpt>
+		layout-algorithm/flex-and-intrinsic-sizes-001.html
+		</wpt>
 	</ul>
 <h4 id="minor-2017">
 Minor Changes</h4>
@@ -4867,9 +4902,9 @@ Minor Changes</h4>
 				</ul>
 			</blockquote>
 
-			<!--
-			Needs test.
-			-->
+			<wpt>
+			alignment/grid-baseline-004.html
+			</wpt>
 
 		<li id="change-2017-repeat-min-max">
 			Floor the max track sizing function by the min track sizing function
@@ -4882,10 +4917,12 @@ Minor Changes</h4>
 				and taking 'gap' into account) &hellip;
 			</blockquote>
 
-			<!--
-			Needs test (or verify with Rego that there's no test???)
-			-->
-
+			<wpt>
+			grid-definition/grid-auto-fill-columns-001.html
+			grid-definition/grid-auto-fill-rows-001.html
+			grid-definition/grid-auto-fit-columns-001.html
+			grid-definition/grid-auto-fit-rows-001.html
+			</wpt>
 
 		<li id="change-2017-flex-initial-growth-limit">
 			Initialize the <a>growth limit</a> of <a>flexible tracks</a> to infinity,
@@ -4909,16 +4946,104 @@ Minor Changes</h4>
 						an infinite <a>growth limit</a>
 			</blockquote>
 			This change is purely editorial; it should have no effect on implementations.
+
 		<li id="change-2017-template-string-whitespace">
 			Clarified that white space is normalized in 'grid-template-areas' <<string>>values.
 			(<a href="https://github.com/w3c/csswg-drafts/issues/4335">Issue 4335</a>)
 			See [[#serialize-template]].
+
+			<wpt>
+			grid-definition/grid-support-grid-template-areas-001.html
+			</wpt>
+
+		<li id="change-2017-grid-baseline-search">
+			Properly specified that the "use baseline-aligned items if possible"
+			and "use first item that shows up, even if not in the first row"
+			conditions properly combine together,
+			so if there's nothing in the first row
+			but a baseline-aligned item in the second,
+			we'll use that
+			(rather than just taking the first item in that row).
+			Part of <a href="https://github.com/w3c/csswg-drafts/issues/3645">Issue 3645</a>.
+
+			<blockquote>
+				<ol>
+					<li>
+						<p><ins>Find the first (last) row of the [=grid container=]
+						containing at least one [=grid item=].
+
+						<p><del>If any of the <a>grid items</a> whose areas intersect the <a>grid container</a>’s first (last) row
+						participate in <a>baseline alignment</a>,</del>
+						<ins>If any of the [=grid items=] intersecting this row
+						participate in [=baseline alignment=],</ins>
+						the grid container's <a>baseline set</a>
+						is <a lt="generate baselines">generated</a> from
+						the shared <a>alignment baseline</a> of those <a>grid items</a>.
+
+						<p><del>Otherwise, if the grid container has at least one <a>grid item</a>,</del>
+						<ins>Otherwise,</ins>
+						the grid container's first (last) baseline set
+						is <a lt="generate baselines">generated</a> from
+						the <a>alignment baseline</a> of the first (last) <a>grid item</a>
+						in row-major <a>grid order</a> (according to the <a>writing mode</a> of the <a>grid container</a>).
+						<del>If the item has no <a>alignment baseline</a> in the grid's inline axis,</del>
+						<ins>If the [=grid item=] has no <a>alignment baseline</a> in the grid's inline axis,</ins>
+						then one is first <a lt="synthesize baselines">synthesized</a>
+						from its border edges.
+
+					<li>
+						<del>Otherwise, the grid container has no first (last) <a>baseline set</a>,</del>
+						<ins>If the [=grid container=] does not contain any [=grid items=],
+						the grid container has no first (last) <a>baseline set</a>,</ins>
+						and one is <a lt="synthesize baselines">synthesized</a> if needed
+						according to the rules of its <a>alignment context</a>.
+				</ol>
+			</blockquote>
+
+		<li id="change-2017-need-correct-baseline-align">
+			Properly limit the item search to just
+			the items participating <em>in the correct baseline alignment</em>.
+			(<a href="https://github.com/w3c/csswg-drafts/issues/5293">Issue 5293</a>)
+
+			<blockquote>
+				If any of the [=grid items=] intersecting this row
+				participate in [=baseline alignment=] <ins>in that row</ins>,
+				the grid container's <a>baseline set</a>
+				is <a lt="generate baselines">generated</a> from
+				the shared <a>alignment baseline</a> of those <a>grid items</a>.
+			</blockquote>
 	</ul>
 
 <h4 id="clarify-2017">
 Clarifications</h4>
 
 	<ul>
+		<li id="change-2017-implicitly-sized-explicit-tracks">
+			Clarified that 'grid-auto-rows' and 'grid-auto-columns' apply to
+			[=explicit tracks=] created by 'grid-template-areas'
+			that are not assigned a size by 'grid-template-rows' or 'grid-template-columns'.
+			(<a href="https://github.com/w3c/csswg-drafts/issues/4914">Issue 4914</a>)
+			<blockquote>
+				<p>&hellip; These lines together with the <a>explicit grid</a> form the [=implicit grid=].
+				The 'grid-auto-rows' and 'grid-auto-columns' properties size these [=implicit grid tracks=]<ins>,
+				as well as any [=explicit tracks=] created by 'grid-template-areas'
+				but not explicitly sized by 'grid-template-rows' or 'grid-template-columns'</ins></p>
+			</blockquote>
+			<blockquote>
+				<p>The 'grid-auto-columns' and 'grid-auto-rows' properties specify
+				the size of <del>such implicitly-created tracks</del>
+				<ins>tracks not assigned a size
+				by 'grid-template-rows' or 'grid-template-columns'.</ins>
+			</blockquote>
+			<blockquote>
+				If multiple track sizes are given, the pattern is repeated as necessary
+				to find the size of the <del>implicit</del><ins>affected</ins> tracks.
+				The first <del>implicit grid</del> track after the <del>explicit grid</del>
+				<ins>last explicitly-sized</ins> track
+				receives the first specified size, and so on forwards;
+				and the last <a>implicit grid track</a> before the <a>explicit grid</a>
+				receives the last specified size, and so on backwards.
+			</blockquote>
 		<li id="change-2017-gutter-tracks">
 			Added reminder to <a>track sizing algorithm</a>
 			that gutters are treated as fixed-size tracks;
@@ -4942,6 +5067,9 @@ Clarifications</h4>
 		<li id="change-2017-inner-outer">
 			Ensure that track sizes remain floored at zero during intrinsic sizing.
 			(<a href="https://github.com/w3c/csswg-drafts/issues/2655">Issue 2655</a>)
+			<wpt>
+			grid-model/grid-gutters-and-tracks-001.html
+			</wpt>
 		<li id="change-2017-animation">
 			More clearly defined computed value and animation type lines of each property,
 			particularly 'grid-template-rows' and 'grid-template-columns'.
@@ -5278,20 +5406,20 @@ Significant Adjustments and Fixes</h4>
 			<blockquote>
 				<ol>
 					<li value=2>
- 						For each considered item,
- 						<ol>
- 							<li>&hellip;
- 							<li>
- 								<strong>Distribute space to base sizes up to growth limits:</strong>
+						For each considered item,
+						<ol>
+							<li>&hellip;
+							<li>
+								<strong>Distribute space to base sizes up to growth limits:</strong>
 								<del>Distribute the space equally to the planned increase of each spanned track with an affected size</del>
 								<ins>Find the |item-incurred increase| for each spanned track with an affected size
 								by distributing the space equally among them</ins>,
 								freezing tracks as their size reaches their <a>growth limit</a>
 								(and continuing to grow the unfrozen tracks as needed).
 								&hellip;
-			 				<li>
+							<li>
 								<strong>Distribute space beyond growth limits:</strong>
-			 					If space remains after all tracks are frozen,
+								If space remains after all tracks are frozen,
 								unfreeze and continue to distribute space to
 								<ins>the |item-incurred increase| of</ins>…
 							<li>
