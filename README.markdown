@@ -17,4 +17,3 @@ contributing using Mercurial is also possible.
 Also see the related repositories:
 * [fxtf-drafts github repository](https://github.com/w3c/fxtf-drafts/) - [fxtf mercurial repository](https://hg.fxtf.org/drafts/) - [FX Task Force generated specification index](https://drafts.fxtf.org/)
 * [css-houdini-drafts github repository](https://github.com/w3c/css-houdini-drafts/) - [css-houdini mercurial repository](https://hg.css-houdini.org/drafts/) - [CSS-TAG Houdini Task Force generated specification index](https://drafts.css-houdini.org/)
-
