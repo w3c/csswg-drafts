@@ -12,7 +12,7 @@ This script takes diffs from the specified directory,
 applies them to all of that module’s specs with a higher level number,
 and issues a `git commit` command if requested.
 
-cross-commit.pl SPECDIR
+  xcommit.pl SPECDIR
 
 For example,
   xcommit.pl css-grid-1
