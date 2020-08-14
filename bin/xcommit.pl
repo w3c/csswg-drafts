@@ -39,30 +39,32 @@ chomp $sourcedir;
 $sourcedir =~ m#(.*)/([^/]+)-([\d+])$#;
 my $rootdir = $1;
 my $specname = $2;
-my $speclevel = $3;
+my $sourcelevel = $3;
 my @failed = ();
 
 # confirm before continuing
-print "Sourcing diffs from $specname level $speclevel under root $rootdir:\n";
+print "Sourcing diffs from $specname level $sourcelevel under root $rootdir:\n";
 chdir $rootdir;
 $_ = `ls -d $specname-*`;
 my @dirlist = split;
 print "Matching specs: @dirlist\n";
 
-print "Press enter to continue, q to quit:";
+# ask what levels to patch
+print "Press enter to patch levels higher than $sourcelevel, q to quit, or an integer for a different lowest level to patch:\n";
 $_ = <STDIN>;
 chomp;
-exit if ($_);
+exit if ($_ && $_ == undef);   # abort if any value other than a number
+my $minlevel = $_ || $sourcelevel;
 
 # main patching loop
 foreach (@dirlist) {
   /(\d+)$/;
   my $level = $1;
-  if ($level > $speclevel) {
+  if (($level >= $minlevel) && ($level != $sourcelevel)) {
     print "\nPatching $_ ...\n";
     chdir $_;
-    print `git diff $sourcedir | patch -p2`;
-    push @failed, $specname . '-' . $speclevel if $?;
+    print `git diff -U3 --minimal $sourcedir | patch -p2`;
+    push @failed, $specname . '-' . $level if $?;
     chdir $rootdir;
   }
 }
@@ -81,5 +83,5 @@ if (@failed == 0) {
   }
 }
 else {
-  die "Patching failed for @failed, please fix and commit manually.\n";
+  die "\n\nPatching failed for @failed, please fix and commit manually.\n";
 }
