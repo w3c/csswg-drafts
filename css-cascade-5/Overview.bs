@@ -828,6 +828,7 @@ Cascade Sorting Order</h3>
 			can set defaults that are easily overridden by the outer context,
 			while [=important=] declarations belonging to an [=encapsulation context=]
 			can enforce requirements that cannot be overridden by the outer context.
+
 <!--
 		<dt id='cascade-scope'>Scope
 		<dd>
@@ -856,14 +857,34 @@ Cascade Sorting Order</h3>
 			is to match the behavior defined in CSS Levels 1 and 2,
 			where style attributes simply have higher specificity than any other author rules. [[CSS2]]
 -->
+
+		<dt id='style-attr'>The Style Attribute
+		<dd>
+			Declarations that do not belong to a style rule
+			(such as the <a href="https://www.w3.org/TR/css-style-attr/#interpret">contents of a style attribute</a>)
+			take precedence over declarations that do belong to a style rule.
+		<dt id='cascade-layering'>Layers
+		<dd>
+			Declarations can be explicitly assigned to a [=cascade layer=].
+			Explicit layers are listed in the document order where they are first introduced.
+			For the purpose of this step,
+			any declaration not assigned to an explicit layer is added to an implicit final layer.
+
+			When comparing declarations that belong to different layers,
+			then for [=normal=] rules the last declaration whose [=cascade layer=] is last wins,
+			and for [=important=] rules the declaration whose [=cascade layer=] is first wins.
+
+			Note: This follows the same logic used for layering [=normal=] and [=important=] [=origins=],
+			so that ''!important'' maintains the same semantic purpose.
+
+			Issue(w3c/csswg-drafts#5003): Where do Layers fit in the cascade?
+
+			Issue(w3c/csswg-drafts#4971): How do Layers interact with ''!important''?
+
 		<dt id='cascade-specificity'>Specificity
 		<dd>
 			The <a href="https://www.w3.org/TR/selectors/#specificity">Selectors module</a> [[!SELECT]] describes how to compute the specificity of a selector.
 			Each declaration has the same specificity as the style rule it appears in.
-			For the purpose of this step,
-			declarations that do not belong to a style rule
-			(such as the <a href="https://www.w3.org/TR/css-style-attr/#interpret">contents of a style attribute</a>)
-			are considered to have a specificity higher than any selector.
 			The declaration with the highest specificity wins.
 
 		<dt id='cascade-order'>Order of Appearance
@@ -1009,6 +1030,211 @@ Important Declarations: the ''!important'' annotation</h3>
 					<td>''sans-serif''
 		</table>
 	</div>
+
+<h3 id='layering'>
+Cascade Layers</h3>
+
+	In the same way that [=cascade origins=] provide a balance of power
+	between user and author styles,
+	<dfn export>Cascade Layers</dfn> provide an explicit way
+	to balance concerns within a single origin.
+	Authors can create layers to represent element defaults,
+	third-party libraries, themes, components, overrides, and other styling concerns --
+	and re-order the cascade of layers in a deterministic way,
+	without altering selectors or specificity within each layer,
+	or relying on source-order to resolve conflicts across layers.
+
+	<div class="example">
+	For example, the following generates an explicit ''defaults'' layer,
+	with lower cascade weight than any un-layered styles:
+
+	<pre class='lang-css'>
+	audio {
+		/* speceficity of 0,0,1 - implicit (final) layer */
+		display: flex;
+	}
+
+	@layer defaults {
+		audio[controls] {
+			/* speceficity of 0,1,1 - explicit "defaults" layer */
+			display: block;
+		}
+	}
+	</pre>
+
+	The un-layered declarations on the ''audio'' element take precedence
+	over the explicitly layered declarations on ''audio[controls]'' --
+	even though the un-layered styles have a lower specificity,
+	and come first in the source order.
+	</div>
+
+<h4 id="at-layer">
+Layering Styles: the ''@layer'' rule</h4>
+
+	The <dfn at-rule id="at-ruledef-layer">@layer</dfn> rule
+	describes an explicit [=cascade layer=],
+	with the option to assign style rules as either a block or an import.
+	The syntax is:
+
+	<pre class='prod'>
+		@layer [ <<layer-ident>>? [ <<url>>; | {
+			<<stylesheet>>
+		} ]? ]!
+	</pre>
+
+	where the optional <dfn><<layer-ident>></dfn> is a
+	CSS <a href="https://www.w3.org/TR/CSS21/syndata.html#value-def-identifier">identifier</a>
+	that either matches an existing layer name, or defines a new named layer,
+	the optional [<<url>>;|{<<stylesheet>>}]
+	either gives the URL of the style sheet to be imported into that layer,
+	or contains style rules to be added to the layer.
+
+	Issue(w3c/csswg-drafts#5681): Is ''@layer'' the proper way to handle layered url imports?
+
+<h5 id="layer-identifiers" class="no-toc">
+Layer Identifiers</h5>
+
+	Layer identifiers are optional,
+	but provide a way to apply mutliple style blocks
+	to a single layer.
+
+	<div class="example">
+	<pre class='lang-css'>
+	@layer default url(headings.css);
+	@layer default url(links.css);
+
+	@layer default {
+		audio[controls] {
+			display: block;
+		}
+	}
+	</pre>
+	</div>
+
+	This also allows authors to establish a layer order in advance,
+	regardless of the order styles are added to each layer.
+
+	<div class="example">
+	<pre class='lang-css'>
+	@layer default;
+	@layer theme;
+	@layer components;
+
+	@layer theme url(theme.css);
+
+	@layer default {
+		audio[controls] {
+			display: block;
+		}
+	}
+	</pre>
+
+	See also [[#at-layers]]
+	</div>
+
+<h5 id="nested-layers" class="no-toc">
+Nested Layers</h5>
+
+	When multiple layer rules are nested,
+	internal layer identifiers are scoped to their parent layer.
+
+	<div class="example">
+	In this example,
+	the nested "framework default" layer is distinct
+	from the top-level "default" layer:
+
+	<pre class='lang-css'>
+	@layer default {
+		p { max-width: 70ch; }
+	}
+
+	@layer framework {
+		@layer default {
+			p { margin-block: 0.75em; }
+		}
+
+		@layer theme {
+			p { color: #222; }
+		}
+	}
+	</pre>
+
+	The resulting layers can be represented as a tree:
+
+	1. default
+	2. framework
+		1. default
+		2. theme
+
+	or as a flat list with nested identifiers:
+
+	1. default
+	2. framework default
+	3. framework theme
+
+	</div>
+
+	It is not possible for nested layers
+	to reference a layer identifier in an outer layer-scope,
+	but it is possible to reference nested layers
+	from an outer scope,
+	by combining identifiers with a full stop (. U+002E) character.
+
+	Issue: What is the appropriate syntax for nested layer identifiers?
+
+	<div class="example">
+	<pre class='lang-css'>
+	@layer framework {
+		@layer default {
+			p { margin-block: 0.75em; }
+		}
+
+		@layer theme {
+			p { color: #222; }
+		}
+	}
+
+	@layer framework.theme {
+		/* These styles will be added to the theme layer inside the framework layer */
+		blockquote { color: rebeccapurple; }
+	}
+	</pre>
+	</div>
+
+<h5 id="unnamed-layers" class="no-toc">
+Un-Named Layers</h5>
+
+	Layers without an identifier are also added to the layer order when invoked,
+	but only describe a single rule-block or file import --
+	without any external hook for re-arranging or adding styles.
+	This can be used to create "private" layers
+	that should not be manipulated or re-ordered
+	by other layer rules.
+
+	<div class="example">
+	In the following example,
+	additional styles can be added to the ''default'' layer,
+	but not the layer containing ''framework.css'':
+
+	<pre class='lang-css'>
+	@layer default url(headings.css);
+	@layer url(framework.css);
+	</pre>
+	</div>
+
+	Issue: Should un-named layers be allowed?
+
+<h4 id="at-layers">
+Layer-Ordering Shorthand: the ''@layers'' rule</h3>
+
+	The <dfn at-rule id="at-ruledef-layers">@layers</dfn> rule
+	describes a list of explicit [=cascade layers=],
+	in order from lowest to highest priority.
+	Its syntax is:
+
+	<pre class='prod'>
+		@layers <<custom-ident>> [, <<custom-ident>>]* ;
+	</pre>
 
 <h3 id="preshint">
 Precedence of Non-CSS Presentational Hints</h3>
