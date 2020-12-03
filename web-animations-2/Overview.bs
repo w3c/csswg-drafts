@@ -106,6 +106,7 @@ previous level of this specification:
 *   an <a>animation effect</a>-specific
     <a lt="animation effect playback rate">playback rate</a>,
 *   <a>custom effects</a>.
+*   Support for non-monotonic (scroll) timelines.
 
 <h2 id="timing-model">Timing model</h2>
 
@@ -149,6 +150,82 @@ Along with the following updated description:
 
 <h4 id="setting-the-timeline">Setting the timeline of an animation</h4>
 
+The procedure to <dfn>set the timeline of an animation</dfn>,
+<var>animation</var>, to <var>new timeline</var> which may be null, is as
+follows:
+
+1.  Let <var>old timeline</var> be the current <a>timeline</a> of
+    <var>animation</var>, if any.
+1.  If <var>new timeline</var> is the same object as <var>old timeline</var>,
+    abort this procedure.
+1.  Let |previous play state| be |animation|'s [=play state=].
+1.  Let |previous current time| be the |animation|'s [=current time=].
+1.  Let |from finite timeline| be true if |old timeline| is not null and
+    not [=monotonically increasing=].
+1.  Let |to finite timeline| be true if |timeline| is not null and not
+    [=monotonically increasing=].
+1.  Let the <a>timeline</a> of <var>animation</var> be <var>new timeline</var>.
+1.  Set the flag |reset current time on resume| to false.
+1.  Perform the steps corresponding to the <em>first</em> matching
+    condition from the following, if any:
+
+    <div class="switch">
+
+    :   If |to finite timeline|,
+
+    ::  1.  [=Apply any pending playback rate=] on |animation|
+        1.  Let |seek time| be zero if [=playback=] rate &ge; 0, and
+            |animation|'s <a>associated effect end</a> otherwise.
+        1.  Update the animation based on the first matching condition if any:
+
+            <div class="switch">
+
+            :   If <em>either</em> of the following conditions are true:
+                *    |previous play state| is 'running' or,
+                *    |previous play state| is 'finished'
+
+            ::  Set |animation|'s [=start time=] to |seek time|.
+
+            :   If |previous play state| is 'paused':
+
+                :: If |previous current time| is resolved:
+
+                    ::  1.  Set the flag |reset current time on resume| to true.
+                        1.  Set [=start time=] to unresolved.
+                        1.  Set [=hold time=] to |previous current time|.
+
+                        <p class="note">
+                        This step ensures that the [=current time=] is preserved
+                        even in the case of a pause-pending animation with a resolved [=start time=].
+                        <p>
+
+                :: Otherwise
+
+                    ::  1. Set [=start time=] to |seek time|.
+
+            </div>
+
+    :   If |from finite timeline| and |previous current time| is resolved,
+
+    ::  Run the procedure to <a>set the current time</a> to
+        |previous current time|.
+
+    </div>
+
+1.  If the [=start time=] of <var>animation</var> is <a
+    lt=unresolved>resolved</a>, make <var>animation</var>'s <a>hold time</a>
+    <a>unresolved</a>.
+
+    <p class="note">
+    This step ensures that the <a>finished play state</a> of
+    <var>animation</var> is not &ldquo;sticky&rdquo; but is re-evaluated
+    based on its updated <a>current time</a>.
+    <p>
+
+1.  Run the procedure to <a>update an animation's finished state</a> for
+    <var>animation</var> with the <var>did seek</var> flag set to false, and
+    the <var>synchronously notify</var> flag set to false.
+
 Issue: If <var>new timeline</var> is null, we should ensure that <a>custom
 effects</a> get called with an <a>unresolved</a> <a>iteration progress</a>
 (unless a subsequent change in the same script execution context makes this
@@ -175,7 +252,7 @@ After the step to assign <var>new effect</var> as <var>animation</var>'s
 >       This is not quite right. If <var>old effect</var> is attached to another
 >       animation in the same task then we should probably not do an extra
 >       callback with <a>unresolved</a>.
-> 
+>
 >       The definition of when <a>custom effects</a> gets called needs to be
 >       audited and probably rewritten.
 >     </div>
@@ -194,9 +271,345 @@ descendant effects and custom effects such that the first condition is:
 >     <a>animation effect</a>.
 
 
+<h4 id='setting-the-current-time-of-an-animation'>Setting the current time of an
+Animation</h4>
+
+The <a>current time</a> of an animation can be set to a new value to
+<em>seek</em> the animation.
+The procedure for setting the current time is defined in two parts.
+
+The procedure to <dfn>silently set the current time</dfn> of
+an animation, <var>animation</var>, to <var>seek time</var> is as follows:
+
+1.  If <var>seek time</var> is an <a>unresolved</a> time value,
+    then perform the following steps.
+
+    1.   If the <a>current time</a> is <a lt=unresolved>resolved</a>, then
+         <a>throw</a> a <span class=exceptionname>TypeError</span>.
+
+    1.   Abort these steps.
+
+1.  Update either <var>animation</var>'s <a>hold time</a> or
+    [=start time=] as follows:
+
+    <div class="switch">
+
+    :   If <em>any</em> of the following conditions are true:
+
+        *   <var>animation</var>'s <a>hold time</a> is
+            <a lt="unresolved">resolved</a>, or
+        *   <var>animation</var>'s [=start time=]
+            is <a lt="unresolved">unresolved</a>, or
+        *   <var>animation</var> has no associated <a>timeline</a> or the
+            associated <a>timeline</a> is
+            <a lt="inactive timeline">inactive</a>, or
+        *   <var>animation</var>'s [=playback rate=] is 0,
+
+    ::  Set <var>animation</var>'s <a>hold time</a> to <var>seek time</var>.
+
+    :   Otherwise,
+    ::  Set <var>animation</var>'s [=start time=] to the result of evaluating
+        <code>|timeline time| - (|seek time| / [=playback rate=])</code>
+        where <var>timeline time</var> is the current <a>time value</a>
+        of <a>timeline</a> associated with <var>animation</var>.
+
+    </div>
+
+1.  If <var>animation</var> has no associated <a>timeline</a> or the associated
+    <a>timeline</a> is <a lt="inactive timeline">inactive</a>,
+    make <var>animation</var>'s [=start time=] <a>unresolved</a>.
+
+    <p class=note>
+      This preserves the invariant that when we don't have an active timeline it
+      is only possible to set <em>either</em> the [=start time=]
+      <em>or</em> the animation's <a>current time</a>.
+    </p>
+
+1.  Make <var>animation</var>'s <a>previous current time</a> <a>unresolved</a>.
+
+1. Set the |reset current time on resume| flag to false.
+
+
+The procedure to <dfn>set the current time</dfn> of an animation,
+<var>animation</var>, to <var>seek time</var> is as follows:
+
+1.  Run the steps to <a>silently set the current time</a> of
+    <var>animation</var> to <var>seek time</var>.
+1.  If <var>animation</var> has a <a>pending pause task</a>, synchronously
+    complete the pause operation by performing the following steps:
+    1.  Set <var>animation</var>'s <a>hold time</a> to <var>seek time</var>.
+    1.  [=Apply any pending playback rate=] to |animation|.
+    1.  Make <var>animation</var>'s [=start time=] <a>unresolved</a>.
+    1.  Cancel the <a>pending pause task</a>.
+    1.  <a lt="resolve a Promise">Resolve</a> <var>animation</var>'s
+        <a>current ready promise</a> with <var>animation</var>.
+1.  Run the procedure to <a>update an animation's finished state</a> for
+    <var>animation</var> with the <var>did seek</var> flag set to true, and
+    the <var>synchronously notify</var> flag set to false.
+
+<h4 id='setting-the-start-time-of-an-animation'>Setting the start time of an
+Animation</h4>
+
+
+The procedure to <dfn>set the start time</dfn>
+of <a>animation</a>, <var>animation</var>, to <var>new start time</var>,
+is as follows:
+
+1.  Let <var>timeline time</var> be the current <a>time value</a> of the
+    <a>timeline</a> that <var>animation</var> is associated with.
+    If there is no <a>timeline</a> associated with <var>animation</var> or the
+    associated timeline is <a lt="inactive timeline">inactive</a>,
+    let the <var>timeline time</var> be <a>unresolved</a>.
+
+1.  If <var>timeline time</var> is <a>unresolved</a> and <var>new start
+    time</var> is <a lt="unresolved">resolved</a>, make <var>animation</var>'s
+    <a>hold time</a> <a>unresolved</a>.
+
+    <p class=note>
+      This preserves the invariant that when we don't have an active timeline it
+      is only possible to set <em>either</em> the [=start time=]
+      <em>or</em> the animation's <a>current time</a>.
+    </p>
+
+1.  Let <var>previous current time</var> be <var>animation</var>'s <a>current
+    time</a>.
+
+    Note: This is the <a>current time</a> after applying the changes from the
+    previous step which may cause the <a>current time</a> to become
+    <a>unresolved</a>.
+
+1.  [=Apply any pending playback rate=] on |animation|.
+
+1.  Set <var>animation</var>'s [=start time=] to <var>new start time</var>.
+
+1.  Set the |reset current time on resume| flag to false.
+
+1.  Update <var>animation</var>'s <a>hold time</a> based on the first matching
+    condition from the following,
+
+    <div class="switch">
+
+    :   If <var>new start time</var> is <a lt="unresolved">resolved</a>,
+    ::  If <var>animation</var>'s [=playback rate=] is not zero,
+        make <var>animation</var>'s <a>hold time</a> <a>unresolved</a>.
+
+    :   Otherwise (<var>new start time</var> is <a>unresolved</a>),
+    ::  Set <var>animation</var>'s <a>hold time</a> to <var>previous current
+        time</var> even if <var>previous current time</var> is
+        <a>unresolved</a>.
+
+    </div>
+
+1.  If <var>animation</var> has a <a>pending play task</a> or
+    a <a>pending pause task</a>, cancel that task and
+    <a lt="resolve a Promise">resolve</a> <var>animation</var>'s
+    <a>current ready promise</a> with <var>animation</var>.
+
+1.  Run the procedure to <a>update an animation's finished state</a> for
+    <var>animation</var> with the <var>did seek</var> flag set to true, and
+    the <var>synchronously notify</var> flag set to false.
+
 <h4 id='playing-an-animation-section'>Playing an animation</h4>
 
-The procedure to [=play an animation=] needs to include scheduling a task for
+The procedure to <dfn>play an animation</dfn>, <var>animation</var>, given
+a flag <var>auto-rewind</var>, is as follows:
+
+Note: The <var>auto-rewind</var> flag is provided for other specifications
+that build on this model but do not require the rewinding behavior, such
+as CSS Animations [[CSS-ANIMATIONS-1]].
+
+1.  Let <var>aborted pause</var> be a boolean flag that is true if
+    <var>animation</var> has a <a>pending pause task</a>, and false otherwise.
+1.  Let <var>has pending ready promise</var> be a boolean flag that is
+    initially false.
+1.  Let <var>seek time</var> be a <a>time value</a> that is initially <a>unresolved</a>.
+1.  Let <var>has finite timeline</var> be true if |animation| has an associated
+    <a>timeline</a> that is not [=monotonically increasing=].
+1.  Let <var>previous current time</var> be the |animation|'s [=current time=]
+1.  If |reset current time on resume| is set:
+
+    * Set <var>previous current time</var> to unresolved.
+    * Set the |reset curent time on resume| flag to false.
+
+1.  Perform the steps corresponding to the <em>first</em> matching
+    condition from the following, if any:
+
+    <div class="switch">
+
+    :   If |animation|'s [=effective playback rate=] &gt; 0,
+        the <var>auto-rewind</var> flag is true and <em>either</em>
+        <var>animation</var>'s:
+
+        *   <var>previous current time</var> is <a>unresolved</a>, or
+        *   <var>previous current time</var> &lt; zero, or
+        *   <var>previous current time</var> &ge; <a>associated effect end</a>,
+
+    ::  Set <var>seek time</var> to zero.
+
+    :   If |animation|'s [=effective playback rate=] &lt; 0,
+        the <var>auto-rewind</var> flag is true and <em>either</em>
+        <var>animation</var>'s:
+
+        *   <var>previous current time</var> is <a>unresolved</a>, or
+        *   <var>previous current time</var> &le; zero, or
+        *   <var>previous current time</var> &gt; <a>associated effect end</a>,
+    ::
+        <div class="switch">
+
+        :   If <a>associated effect end</a> is positive infinity,
+        ::  <a>throw</a> an "{{InvalidStateError}}" {{DOMException}} and
+            abort these steps.
+        :   Otherwise,
+        ::  Set <var>seek time</var> to |animation|'s <a>associated effect end</a>.
+
+        </div>
+
+    :   If |animation|'s [=effective playback rate=] = 0 and |animation|'s
+        [=current time=] is [=unresolved=],
+
+        ::  Set <var>seek time</var> to zero.
+
+    </div>
+
+1.  If |seek time| is <a lt=unresolved>resolved</a>,
+
+        <div class="switch">
+
+        :   If |has finite timeline| is true,
+        ::  1.  Set <var>animation</var>'s <a>start time</a> to <var>seek time</var>.
+            1.  Let |animation|'s [=hold time=] be <a>unresolved</a>.
+            1.  [=Apply any pending playback rate=] on |animation|.
+        :   Otherwise,
+        ::  Set <var>animation</var>'s <a>hold time</a> to <var>seek time</var>.
+
+        </div>
+
+1.  If <var>animation</var>'s <a>hold time</a> is <a lt=unresolved>resolved</a>,
+    let its [=start time=] be <a>unresolved</a>.
+
+1.  If <var>animation</var> has a <a>pending play task</a> or a
+    <a>pending pause task</a>,
+
+    1.  Cancel that task.
+    1.  Set <var>has pending ready promise</var> to true.
+
+1.  If the following four conditions are <em>all</em> satisfied:
+
+    * |animation|'s [=hold time=] is [=unresolved=], and
+    * |seek time| is [=unresolved=], and
+    * |aborted pause| is false, and
+    * |animation| does <em>not</em> have a [=pending playback rate=],
+
+    abort this procedure.
+
+1.  If <var>has pending ready promise</var> is false,
+    let <var>animation</var>'s <a>current ready promise</a> be
+    <a>a new promise</a> in the <a>relevant Realm</a> of <var>animation</var>.
+
+1.  Schedule a task to run as soon as <var>animation</var> is <a>ready</a>.
+    The task shall perform the following steps:
+
+    1.  Assert that at least one of |animation|'s [=start time=] or [=hold
+        time=] is <a lt=unresolved>resolved</a>.
+
+    1.  Let <var>ready time</var> be the <a>time value</a> of
+        the <a>timeline</a> associated with <var>animation</var> at the moment
+        when <var>animation</var> became <a>ready</a>.
+
+    1.  Perform the steps corresponding to the first matching condition below,
+        if any:
+
+        <div class="switch">
+
+        :   If |animation|'s [=hold time=] is <a lt=unresolved>resolved</a>,
+
+        ::  1.  [=Apply any pending playback rate=] on |animation|.
+
+            1.  Let |new start time| be the result of evaluating
+                <code>|ready time| - [=hold time=] / [=playback rate=]</code>
+                for |animation|.
+                If the [=playback rate=] is zero, let
+                |new start time| be simply |ready time|.
+
+            1.  Set the [=start time=] of |animation| to |new start time|.
+
+            1.  If |animation|'s [=playback rate=] is not 0, make |animation|'s
+                [=hold time=] [=unresolved=].
+
+        :   If |animation|'s [=start time=] is resolved and |animation| has
+            a [=pending playback rate=],
+
+        ::  1.  Let |current time to match| be the result of evaluating
+                <code>(|ready time| - [=start time=]) &times;
+                [=playback rate=]</code> for |animation|.
+
+            1.  [=Apply any pending playback rate=] on |animation|.
+
+            1.  If |animation|'s [=playback rate=] is zero, let |animation|'s
+                [=hold time=] be |current time to match|.
+
+            1.  Let |new start time| be the result of evaluating
+                <code>|ready time| - |current time to match| /
+                [=playback rate=]</code> for |animation|.
+                If the [=playback rate=] is zero, let |new start time| be simply
+                |ready time|.
+
+            1.  Set the [=start time=] of |animation| to |new start time|.
+
+        </div>
+
+    1.  <a lt="resolve a promise">Resolve</a> <var>animation</var>'s <a>current
+        ready promise</a> with <var>animation</var>.
+
+    1.  Run the procedure to <a>update an animation's finished state</a> for
+        <var>animation</var> with the <var>did seek</var> flag set to false,
+        and the <var>synchronously notify</var> flag set to false.
+
+        <div class="note">
+            Note that the order of the above two steps is important
+            since it means that an animation with zero-length <a>associated
+            effect</a> will resolve its <a>current ready promise</a>
+            before its <a>current finished promise</a>.
+        </div>
+
+    So long as the above task is scheduled but has yet to run,
+    <var>animation</var> is described as having a
+    <dfn>pending play task</dfn>.
+    While the task is running, however, |animation| does <em>not</em> have
+    a [=pending play task=].
+
+    If a user agent determines that |animation| is immediately <a>ready</a>, it
+    may schedule the above task as a microtask such that it runs at the next
+    <a lt="perform a microtask checkpoint">microtask checkpoint</a>, but it must
+    <em>not</em> perform the task synchronously.
+
+    <div class="note">
+
+    The above requirement to run the <a>pending play task</a> asynchronously
+    ensures that code such as the following behaves consistently between
+    implementations:
+
+    <div class='example'><pre class='lang-javascript'>
+    animation.play();
+    animation.ready.then(
+      () => { console.log('Playback commenced'); },
+      () => { console.log('Playback was canceled'); }
+    );
+    // Suppose some condition requires playback to be canceled...
+    animation.cancel();
+    // "Playback was canceled" will be printed to the console.
+    </pre></div>
+
+    In the above code, were the [=pending play task=] run synchronously, the
+    [=current ready promise=] would not be rejected.
+
+    </div>
+
+1.  Run the procedure to <a>update an animation's finished state</a> for
+    <var>animation</var> with the <var>did seek</var> flag set to false, and
+    the <var>synchronously notify</var> flag set to false.
+
+Issue: The procedure to [=play an animation=] needs to include scheduling a task for
 updating [=custom effects=].
 
 
@@ -1514,23 +1927,6 @@ partial interface AnimationTimeline {
     </div>
 
 </div>
-
-<h3 id="the-animation-interface">The <code>Animation</code> interface</h3>
-
-The <a>Animation</a> interface is amended to make the <var>timeline</var> member mutable:
-
-<pre class='idl'>
-partial interface Animation {
-               attribute AnimationTimeline?       timeline;
-};
-</pre>
-
-<div class='attributes'>
-
-:   <dfn attribute for=Animation>timeline</dfn>
-::  The <a>timeline</a> associated with this animation.
-    Setting this attribute updates the object's <a>timeline</a> using
-    the procedure to <a>set the timeline of an animation</a>.
 
 <h3 id="the-animationeffect-interface">The <code>AnimationEffect</code> interface</h3>
 

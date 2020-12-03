@@ -7,6 +7,7 @@ Work Status: Exploring
 Group: CSSWG
 ED: https://drafts.csswg.org/css-nesting/
 Editor: Tab Atkins Jr., Google, http://xanthir.com/contact/, w3cid 42199
+Editor: Adam Argyle, Google, https://nerdy.dev, w3cid 112669
 Abstract: This module introduces the ability to nest one style rule inside another, with the selector of the child rule relative to the selector of the parent rule.  This increases the modularity and maintainability of CSS stylesheets.
 Link Defaults: css-color-4 (property) color
 </pre>
@@ -26,6 +27,16 @@ Module Interactions</h3>
 
 	This module introduces new parser rules that extend the [[!CSS21]] parser model.
 	This module introduces selectors that extend the [[SELECTORS4]] module.
+
+<pre class=idl>
+interface CSSNestingRule : CSSRule {
+  attribute CSSOMString selectorText;
+  [SameObject] readonly attribute CSSRuleList cssRules;
+  [SameObject, PutForwards=cssText] readonly attribute CSSStyleDeclaration style;
+  unsigned long insertRule(CSSOMString rule, optional unsigned long index = 0);
+  undefined deleteRule(unsigned long index);
+};
+</pre>
 
 <h3 id="values">
 Values</h3>
@@ -99,7 +110,7 @@ Nesting Selector: the ''&'' selector {#nest-selector}
 	<div class="note">
 		The <a>nesting selector</a> can be desugared
 		by replacing it with the parent style rule's selector,
-		wrapped in a '':matches()'' selector.
+		wrapped in a '':is()'' selector.
 		For example,
 
 		<pre class=lang-css>
@@ -111,7 +122,7 @@ Nesting Selector: the ''&'' selector {#nest-selector}
 		is equivalent to
 
 		<pre class=lang-css>
-		:matches(a, b) c { color: blue; }
+		:is(a, b) c { color: blue; }
 		</pre>
 	</div>
 
@@ -202,8 +213,8 @@ Direct Nesting {#direct}
 			& > .bar { color: red; }
 		}
 		/* equivalent to
-		   .foo { color: blue; }
-		   .foo > .bar { color: red; }
+			 .foo { color: blue; }
+			 .foo > .bar { color: red; }
 		 */
 
 		.foo {
@@ -211,8 +222,8 @@ Direct Nesting {#direct}
 			&.bar { color: red; }
 		}
 		/* equivalent to
-		   .foo { color: blue; }
-		   .foo.bar { color: red; }
+			 .foo { color: blue; }
+			 .foo.bar { color: red; }
 		 */
 
 		.foo, .bar {
@@ -220,9 +231,80 @@ Direct Nesting {#direct}
 			& + .baz, &.qux { color: red; }
 		}
 		/* equivalent to
-		   .foo, .bar { color: blue; }
-		   :matches(.foo, .bar) + .baz,
-		   :matches(.foo, .bar).qux { color: red; }
+			 .foo, .bar { color: blue; }
+			 :is(.foo, .bar) + .baz,
+			 :is(.foo, .bar).qux { color: red; }
+		 */
+
+		.foo {
+			color: blue;
+			& .bar & .baz & .qux { color: red; }
+		}
+		/* equivalent to
+			 .foo { color: blue; }
+			 .foo .bar .foo .baz .foo .qux { color: blue; }
+		 */
+
+		.foo {
+			color: blue;
+			& { padding: 2ch; }
+		}
+		/* equivalent to
+			 .foo { color: blue; }
+			 .foo { padding: 2ch; }
+
+			 // and
+
+			 .foo { 
+				 color: blue; 
+				 padding: 2ch;
+			 }
+		 */
+
+		.error, #404 {
+			&:not(.foo,.bar) > .baz { color: red; }
+		}
+		/* equivalent to
+			 :is(.error, #404):not(.foo,.bar) > .baz { color: red; }
+		 */
+
+		.foo {
+			&:is(.bar, &.baz) { color: red; }
+		}
+		/* equivalent to
+			 .foo:is(.bar, .foo.baz) { color: red; }
+		 */
+
+		figure {
+			margin: 0;
+
+			& > figcaption {
+				background: hsl(0 0% 0% / 50%);
+
+				& > p {
+					font-size: .9rem;
+				}
+			}
+		}
+		/* equivalent to
+			 figure { margin: 0; }
+			 figure > figcaption { background: hsl(0 0% 0% / 50%); }
+			 figure > figcaption > p { font-size: .9rem; }
+		 */
+
+		main {
+			& > section,
+			& > article {
+				background: white;
+
+				& > header {
+					font-size: 1.25rem;
+				}
+			}
+		}
+		/* equivalent to
+			 main > :is(section, article) { background: white; }
+			 main > :is(section, article) > header { font-size: 1.25rem; }
 		 */
 		</pre>
 
@@ -243,10 +325,17 @@ Direct Nesting {#direct}
 
 		.foo {
 			color: red;
+			&&.bar { color: blue; }
+		}
+		/* Invalid because the second & is no longer 
+			 at the start of a compound selector */
+
+		.foo {
+			color: red;
 			&.bar, .baz { color: blue; }
 		}
 		/* Invalid because the second selector in the list doesn't
-		   contain a nesting selector. */
+			 contain a nesting selector. */
 		</pre>
 	</div>
 
@@ -304,8 +393,8 @@ The Nesting At-Rule: ''@nest'' {#at-nest}
 			}
 		}
 		/* equivalent to
-		   .foo { color: red; }
-		   .foo > .bar { color: blue; }
+			 .foo { color: red; }
+			 .foo > .bar { color: blue; }
 		 */
 
 		.foo {
@@ -315,8 +404,8 @@ The Nesting At-Rule: ''@nest'' {#at-nest}
 			}
 		}
 		/* equivalent to
-		   .foo { color: red; }
-		   .parent .foo { color: blue; }
+			 .foo { color: red; }
+			 .parent .foo { color: blue; }
 		 */
 
 		.foo {
@@ -326,8 +415,8 @@ The Nesting At-Rule: ''@nest'' {#at-nest}
 			}
 		}
 		/* equivalent to
-		   .foo { color: red; }
-		   :not(.foo) { color: blue; }
+			 .foo { color: red; }
+			 :not(.foo) { color: blue; }
 		 */
 		</pre>
 
@@ -349,8 +438,129 @@ The Nesting At-Rule: ''@nest'' {#at-nest}
 			}
 		}
 		/* Invalid because not all selectors in the list
-		   contain a nesting selector */
+			 contain a nesting selector */
 		</pre>
+	</div>
+
+Nesting Conditional Rules {#conditionals}
+-----------------------------------------------
+
+  A style rule can have any number of <a>conditional rules</a> inside of it, of any type,
+  intermixed with any number of declarations, in any order.
+
+  The presence of a nested conditional engages the same logic as if ''@nest'' was present. 
+  The nested conditional rules must contain a <a>nesting selector</a> and follow the same 
+  rules as outlined in <a href="#direct">direct nesting</a>. 
+
+  <div class="example">
+    For example, the following conditional nestings are valid:
+
+    <pre class="lang-css">
+    .foo {
+      display: grid;
+
+      @media (orientation: landscape) {
+        & { 
+          grid-auto-flow: column; 
+        }
+      }
+    }
+    /* equivalent to
+       .foo { display: grid; }
+
+       @media (orientation: landscape) {
+         .foo { 
+           grid-auto-flow: column; 
+         }
+       }
+     */
+
+    .foo {
+      display: grid;
+
+      @media (orientation: landscape) {
+        & { 
+          grid-auto-flow: column; 
+        }
+
+        @media (min-inline-size > 1024px) {
+          & {
+            max-inline-size: 1024px;
+          }
+        }
+      }
+    }
+
+    /* equivalent to
+       .foo { display: grid; }
+
+       @media (orientation: landscape) {
+         .foo { 
+           grid-auto-flow: column; 
+         }
+       }
+
+       @media (orientation: landscape) and (min-inline-size > 1024px) {
+         .foo { 
+           max-inline-size: 1024px;
+         }
+       }
+     */
+
+    .foo {
+      color: red;
+
+      @media (min-width: 480px) {
+        & > .bar,
+        & > .baz { 
+          color: blue;
+        }
+      }
+    }
+    /* equivalent to
+       .foo { color: red; }
+
+       @media (min-width: 480px) {
+         .foo > :is(.bar, .baz) { 
+           color: blue;
+         }
+       }
+     */
+    </pre>
+
+    But the following are invalid:
+
+    <pre class=lang-css>
+    .foo {
+      display: grid;
+
+      @media (orientation: landscape) {
+        grid-auto-flow: column;
+      }
+    }
+    /* Invalid because there's no nesting selector */
+
+    .foo {
+      color: red;
+      
+      @media (min-width: 480px) {
+        & h1, h2 { color: blue; }
+      }
+    }
+    /* Invalid because not all selectors in the list
+       contain a nesting selector */
+
+    .foo {
+      color: red;
+      
+      @nest @media (min-width: 480px) {
+        & { color: blue; }
+      }
+    }
+    /* Invalid because @nest expects a selector prelude, 
+       instead a conditional rule was provided */
+    </pre>
+  </div>
 
 Mixing Nesting Rules and Declarations {#mixing}
 -----------------------------------------------
@@ -360,11 +570,90 @@ Mixing Nesting Rules and Declarations {#mixing}
 	intermixed with any number of declarations,
 	in any order.
 
-	The relative ordering of <a>nested style rules</a> and other declarations <strong>is</strong> important;
+	The relative ordering of <a>nested style rules</a>, <a>nested conditional rules</a> and 
+	other declarations <strong>is</strong> important;
 	it's possible for a given style rule and a <a>nested style rule</a> within it to match the same element,
 	and if the specificity of the two rules is otherwise equivalent,
 	the relative order in the stylesheet of the applicable declarations
 	determines which declaration "wins" the <a>cascade</a>.
+
+  <div class="example">
+    For example, consider the following where the specificity is the same and the 
+    cascade is used for value resolution:
+
+    <pre class="lang-css">
+    article {
+      & .blue { color: blue; } /* (0,1,1) */
+      & .red  { color: red; }  /* (0,1,1) */
+    }
+
+    /* equivalent to
+     article .blue { color: blue; }
+     article .red  { color: red; }
+    */
+    </pre>
+
+    <pre class="lang-html">
+    &#60;article&#62;
+      &#60;div class="red blue"&#62;&#60;/div&#62;
+    &#60;/article&#62;
+
+    &#60;!-- div text color is red --&#62;
+    </pre>
+
+    The specificity of ''article .blue'' and ''article .red'' is (0,1,1).
+
+    Now consider this follow up which adds an ID selector:
+
+    <pre class="lang-css">
+    article {
+      & .blue, & #gotcha { color: blue; } /* (1,1,1) */
+      & .red { color: red; }              /* (0,1,1) */
+    }
+
+    /* equivalent to
+     article :is(.blue, #gotcha) { color: blue; }
+     article .red { color: red; }
+    */
+    </pre>
+
+    <pre class="lang-html">
+    &#60;article&#62;
+      &#60;div class="red blue"&#62;&#60;/div&#62;
+    &#60;/article&#62;
+
+    &#60;!-- div text color is blue --&#62;
+    </pre>
+
+    ''article :is(.blue, #gotcha)'' now has a specificity score of (1,1,1). 
+    Nesting uses '':is()'' which assumes the specificity of it's highest selector. 
+    
+
+    To work around it, the following could be written instead:
+
+    <pre class="lang-css">
+    article {
+      & .blue { color: blue; }    /* (0,1,1) */
+      & .red { color: red; }      /* (0,1,1) */
+      & #gotcha { color: blue; }  /* (1,0,1) */
+    }
+
+    /* equivalent to
+     article .blue { color: blue; }
+     article .red { color: red; }
+     article #gotcha { color: blue; }
+    */
+    </pre>
+
+    <pre class="lang-html">
+    &#60;article&#62;
+      &#60;div class="red blue"&#62;&#60;/div&#62;
+    &#60;/article&#62;
+
+    &#60;!-- div text color is red --&#62;
+    </pre>
+
+  </div>
 
 
 CSS Object Model Modifications {#cssom}
