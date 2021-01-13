@@ -6,7 +6,7 @@ drafts!
 Contributions to this repository are intended to become part of Recommendation-track 
 documents governed by the: 
 
-  * [W3C Patent Policy](https://www.w3.org/Consortium/Patent-Policy-20040205/)
+  * [W3C Patent Policy](https://www.w3.org/Consortium/Patent-Policy-20200915/)
   * [Software and Document License](https://www.w3.org/Consortium/Legal/copyright-software)
 
 To make substantive contributions to specifications, you must either participate
