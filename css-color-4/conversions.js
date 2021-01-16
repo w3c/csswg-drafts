@@ -10,11 +10,14 @@ function lin_sRGB(RGB) {
 	// https://en.wikipedia.org/wiki/SRGB
 	// TODO for negative values, extend linear portion on reflection of axis, then add pow below that
 	return RGB.map(function (val) {
-		if (val < 0.04045) {
+		let sign = val < 0? -1 : 1;
+		let abs = Math.abs(val);
+
+		if (abs < 0.04045) {
 			return val / 12.92;
 		}
 
-		return Math.pow((val + 0.055) / 1.055, 2.4);
+		return sign * Math.pow((abs + 0.055) / 1.055, 2.4);
 	});
 }
 
@@ -22,10 +25,14 @@ function gam_sRGB(RGB) {
 	// convert an array of linear-light sRGB values in the range 0.0-1.0
 	// to gamma corrected form
 	// https://en.wikipedia.org/wiki/SRGB
-	// TODO for negative values, extend linear portion on reflection of axis, then add pow below that
+	// For negative values, linear portion extends on reflection
+	// of axis, then uses reflected pow below that
 	return RGB.map(function (val) {
-		if (val > 0.0031308) {
-			return 1.055 * Math.pow(val, 1/2.4) - 0.055;
+		let sign = val < 0? -1 : 1;
+		let abs = Math.abs(val);
+
+		if (abs > 0.0031308) {
+			return sign * 1.055 * Math.pow(abs, 1/2.4) - 0.055;
 		}
 
 		return 12.92 * val;
