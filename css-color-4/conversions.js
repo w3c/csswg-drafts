@@ -17,7 +17,7 @@ function lin_sRGB(RGB) {
 			return val / 12.92;
 		}
 
-		return sign * Math.pow((abs + 0.055) / 1.055, 2.4);
+		return sign * (Math.pow((abs + 0.055) / 1.055, 2.4));
 	});
 }
 
@@ -32,7 +32,7 @@ function gam_sRGB(RGB) {
 		let abs = Math.abs(val);
 
 		if (abs > 0.0031308) {
-			return sign * 1.055 * Math.pow(abs, 1/2.4) - 0.055;
+			return sign * (1.055 * Math.pow(abs, 1/2.4) - 0.055);
 		}
 
 		return 12.92 * val;
@@ -229,7 +229,7 @@ function lin_2020(RGB) {
 			return val / 4.5;
 		}
 
-		return sign * Math.pow((val + α -1 ) / α, 1/0.45);
+		return sign * (Math.pow((val + α -1 ) / α, 1/0.45));
 	});
 }
 
@@ -246,7 +246,7 @@ function gam_2020(RGB) {
 
 	return RGB.map(function (val) {
 		if (abs > β ) {
-			return sign * α * Math.pow(val, 0.45) - (α - 1);
+			return sign * (α * Math.pow(val, 0.45) - (α - 1));
 		}
 
 		return 4.5 * val;
