@@ -229,7 +229,7 @@ function lin_2020(RGB) {
 			return val / 4.5;
 		}
 
-		return sign * (Math.pow((val + α -1 ) / α, 1/0.45));
+		return sign * (Math.pow((abs + α -1 ) / α, 1/0.45));
 	});
 }
 
@@ -247,7 +247,7 @@ function gam_2020(RGB) {
 		let abs = Math.abs(val);
 
 		if (abs > β ) {
-			return sign * (α * Math.pow(val, 0.45) - (α - 1));
+			return sign * (α * Math.pow(abs, 0.45) - (α - 1));
 		}
 
 		return 4.5 * val;
