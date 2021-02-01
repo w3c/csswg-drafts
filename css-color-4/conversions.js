@@ -221,10 +221,10 @@ function lin_2020(RGB) {
 	const α = 1.09929682680944 ;
 	const β = 0.018053968510807;
 
-	let sign = val < 0? -1 : 1;
-	let abs = Math.abs(val);
-
 	return RGB.map(function (val) {
+		let sign = val < 0? -1 : 1;
+		let abs = Math.abs(val);
+
 		if (abs < β * 4.5 ) {
 			return val / 4.5;
 		}
@@ -241,10 +241,11 @@ function gam_2020(RGB) {
 	const α = 1.09929682680944 ;
 	const β = 0.018053968510807;
 
-	let sign = val < 0? -1 : 1;
-	let abs = Math.abs(val);
 
 	return RGB.map(function (val) {
+		let sign = val < 0? -1 : 1;
+		let abs = Math.abs(val);
+
 		if (abs > β ) {
 			return sign * (α * Math.pow(val, 0.45) - (α - 1));
 		}
