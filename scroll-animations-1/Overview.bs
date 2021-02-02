@@ -41,6 +41,9 @@ urlPrefix: https://drafts.csswg.org/cssom-view/; type: dfn; spec: cssom-view-1
     text: overflow direction; url: overflow-directions
 urlPrefix: https://html.spec.whatwg.org/multipage/browsers.html; type: dfn; spec: html
     text: document associated with a window; url: concept-document-window
+urlPrefix: https://drafts.csswg.org/css-animations-1/; type: dfn; spec: css-animations-1
+    text: findRule; url: interface-csskeyframesrule-findrule
+    text: CSSKeyframeRule; url: csskeyframerule
 </pre>
 <pre class=link-defaults>
 spec:html; type:dfn; for:/; text:browsing context
@@ -156,15 +159,13 @@ Using the CSS markup:
   @scroll-timeline collision-timeline {
     source: selector(#container);
     orientation: block;
-    start:  200px;
-    end: 300px;
+    scroll-offsets: 200px, 300px;
   }
 
   @scroll-timeline union-timeline {
     source: selector(#container);
     orientation: block;
-    start:  250px;
-    end: 300px;
+    scroll-offsets: 250px, 300px;
   }
 
   @keyframes left-circle {
@@ -187,8 +188,7 @@ if (window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
 
   const collisionTimeline = new ScrollTimeline({
     source: scrollableElement,
-    start: CSS.px(200),
-    end: CSS.px(300)
+    scrollOffsets: [CSS.px(200), CSS.px(300)]
   });
 
   const left = leftCircle.animate({ transform: 'translate(300px)' }, 1000);
@@ -200,8 +200,7 @@ if (window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
   const union = unionCircle.animate({ opacity: 1 }, { duration: 1000, fill: "forwards" });
   union.timeline = new ScrollTimeline({
     source: scrollableElement,
-    start: CSS.px(250),
-    end: CSS.px(300)
+    scrollOffsets: [CSS.px(250), CSS.px(300)]
   });
 }
 </pre>
@@ -234,8 +233,7 @@ this example could be written as follows:
 @media (prefers-reduced-motion: no-preference) {
   @scroll-timeline progress-timeline {
     source: selector(#body);
-    start: 0;
-    end: 100%;
+    scroll-offsets: 0, 100%;
   }
 
   @keyframes progress {
@@ -258,8 +256,7 @@ if (window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
   var animation = div.animate({ width: '100%' }, { duration: 1000, fill: "forwards" });
   animation.timeline = new ScrollTimeline(
     {
-      start: 0,
-      end: CSS.percent(100)
+      scrollOffsets: [0, CSS.percent(100)]
     }
   );
 }
@@ -294,8 +291,7 @@ if (window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
   var scrollTimeline = new ScrollTimeline({
     source: scrollableElement,
     orientation: "vertical",
-    scrollOffset: '0px',
-    end: '200px'
+    scrollOffsets: [CSS.px(0), CSS.px(250)]
   });
   animation.timeline = scrollTimeline;
 
@@ -363,8 +359,7 @@ typedef (ContainerBasedOffset or ElementBasedOffset) ScrollTimelineOffset;
 dictionary ScrollTimelineOptions {
   Element? source;
   ScrollDirection orientation = "block";
-  ScrollTimelineOffset start = "auto";
-  ScrollTimelineOffset end = "auto";
+  sequence&lt;ScrollTimelineOffset&gt; scrollOffsets = [];
   (double or ScrollTimelineAutoKeyword) timeRange = "auto";
 };
 
@@ -373,8 +368,7 @@ interface ScrollTimeline : AnimationTimeline {
   constructor(optional ScrollTimelineOptions options = {});
   readonly attribute Element? source;
   readonly attribute ScrollDirection orientation;
-  readonly attribute ScrollTimelineOffset start;
-  readonly attribute ScrollTimelineOffset end;
+  readonly attribute FrozenArray&lt;ScrollTimelineOffset&gt; scrollOffsets;
   readonly attribute (double or ScrollTimelineAutoKeyword) timeRange;
 };
 </pre>
@@ -409,8 +403,8 @@ determined not by wall-clock time, but by the progress of scrolling in a
 
     1.  Set the {{ScrollTimeline/source}} of |timeline| to |source|.
 
-    1.  Assign the {{ScrollTimeline/orientation}}, {{ScrollTimeline/start}},
-        {{ScrollTimeline/end}}, and {{ScrollTimeline/timeRange}} properties of
+    1.  Assign the {{ScrollTimeline/orientation}}, {{ScrollTimeline/scrollOffsets}}
+        and {{ScrollTimeline/timeRange}} properties of
         |timeline| to the corresponding value from |options|.
 
 </div>
@@ -425,17 +419,14 @@ determined not by wall-clock time, but by the progress of scrolling in a
 ::  Determines the direction of scrolling which triggers the activation and
     drives the progress of the timeline.
 
-:   <dfn attribute for=ScrollTimeline>start</dfn>
-::  A [=scroll timeline offset=] which determines the [=effective scroll
-    offset=] in the direction specified by {{orientation}} that constitutes the
-    beginning of the range in which the timeline is active.
-
-    On setting, run the procedure to [=set the offset value=] with the provided
-    value as |val|.
-
+:   <dfn attribute for=ScrollTimeline>scrollOffsets</dfn>
+::  [=scroll timeline offset=]s which determine the [=effective scroll
+    offset=]s in the direction specified by {{orientation}} that constitute the
+    equally-distanced in progress intervals in which the timeline is active.
 
     The procedure to <dfn>set the offset value</dfn> with |val| as the provided
-    value has the following steps:
+    value, |pos| as the position in {{ScrollTimeline/scrollOffsets}} and |size|
+    as the {{ScrollTimeline/scrollOffsets}} array size has the following steps:
 
     1.  If |val| is a {{DOMString}}, let |val| be the result of
         <a lt="rectify a keywordish value">rectifying the keywordish value</a>.
@@ -446,7 +437,7 @@ determined not by wall-clock time, but by the progress of scrolling in a
         <div class="switch">
 
         :   If |val| is a {{CSSKeywordValue}} and <a lt="match the grammar">
-            matches the grammar</a> `auto`:
+            matches the grammar</a> `auto` and |pos| equals to 0 or |size| - 1:
         ::  Return |val|.
 
         :   If |val| is a {{CSSNumericValue}} and <a lt="match the grammar">
@@ -461,16 +452,6 @@ determined not by wall-clock time, but by the progress of scrolling in a
             {{SyntaxError}}.
 
         </div>
-
-
-:   <dfn attribute for=ScrollTimeline>end</dfn>
-::  A [=scroll timeline offset=] which determines the [=effective scroll
-    offset=] in the direction specified by {{orientation}} that constitutes the
-    end of the range in which the timeline is active.
-
-    On setting, run the procedure to [=set the offset value=] with the provided
-    value as |val|.
-
 
 :   <dfn attribute for=ScrollTimeline>timeRange</dfn>
 ::  A time duration that allows mapping between a distance scrolled, and
@@ -506,9 +487,11 @@ There are two types of scroll timeline offset: [=container-based offset=], and
 offset=] or to [=resolve an element-based offset=] depending on the offset type.
 It is possible for a [=scroll timeline offset=] to be resolved to null.
 
-The <dfn>effective start offset</dfn> is the [=effective scroll offset=] that is
-resolved from {{start}}. The <dfn>effective end offset</dfn> is
-the [=effective scroll offset=] that is resolved from {{end}}.
+The <dfn>effective start offset</dfn> is the value of first offset in
+[=effective scroll offsets=] array or null if the array is empty.
+
+The <dfn>effective end offset</dfn> is the value of last offset in
+[=effective scroll offsets=] array or null if the array is empty.
 
 #### Container-based Offset #### {#container-based-offset-section}
 A <dfn>container-based offset</dfn> is a scroll timeline offset that is declared
@@ -518,7 +501,8 @@ A [=container-based offset=] is provided in the {{CSSNumericValue}} or
 {{CSSKeywordValue}} forms.
 
 The procedure to <dfn>resolve a container-based offset</dfn> given
-|offset| is as follows:
+|offset| and a flag <var>is first</var> (to indicate if the <var>offset</var>
+is being inserted first into [=effective scroll offsets=]) is as follows:
 
 1.  If <em>any</em> of the following are true:
 
@@ -534,8 +518,9 @@ The procedure to <dfn>resolve a container-based offset</dfn> given
 
     :   If |offset| is a {{CSSKeywordValue}} and
         <a lt="match the grammar">matches</a> `auto`:
-    ::  Either the beginning or the ending of {{source}}'s scroll range in
-        {{orientation}} depending on whether the offset is {{start}} or {{end}}.
+    ::  The beginning of {{source}}'s scroll range in {{orientation}} if
+        <var>is first</var> is true or the ending of {{source}}'s scroll range in
+        {{orientation}} otherwise.
 
     :   If |offset| is a {{CSSNumericValue}} and
         <a lt="match the grammar">matches</a> <<length-percentage>>:
@@ -566,7 +551,7 @@ outside the source's scroll range and thus not reachable e.g., '120%'.
 
 An <dfn>element-based offset</dfn> is a scroll timeline offset that is declared
 in terms of the intersection of the <a>scroll container</a> as specified by
-{{source}} and one of its descendents as specified by {{target}}.
+{{source}} and one of its descendants as specified by {{target}}.
 
 An [=element-based offset=] is provided in the {{ElementBasedOffset}} form.
 
@@ -718,8 +703,8 @@ if (window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
 
   const timeline = new ScrollTimeline({
     source: scrollableElement,
-    start: {target: image, edge: 'end'},
-    end: {target: image, edge: 'start'},
+    scrollOffsets: [{target: image, edge: 'end'},
+                    {target: image, edge: 'start'}],
   });
 
   const slideIn = target.animate({
@@ -751,8 +736,7 @@ The same logic can be done in CSS markup:
 
   @scroll-timeline image-in-scrollport {
     source: selector(#container);
-    start: selector(#image) end;
-    end: selector(#image) start;
+    scroll-offsets: selector(#image) end, selector(#image) start;
   }
 
   #target {
@@ -789,28 +773,73 @@ follows:
 
 </div>
 
-### The effective scroll range of a {{ScrollTimeline}} ### {#effective-scroll-range-algorithm}
+### The effective scroll offsets of a {{ScrollTimeline}} ### {#effective-scroll-offsets-algorithm}
 
-The procedure to calculate <dfn>effective scroll range</dfn> of a
-{{ScrollTimeline}} is as follows:
+The <dfn>effective scroll offsets</dfn> are calculated by the procedure to
+<dfn>resolve scroll timeline offsets</dfn> from {{ScrollTimeline/scrollOffsets}}
+as follows:
 
-1.  Run the procedure to [=resolve a scroll timeline offset=] for both {{start}}
-    and {{end}}.
+1.  Let <var>effective scroll offsets</var> be an empty list of
+    <a>effective scroll offset</a>s.
+1.  Let <var>first offset</var> be true.
+1.  If {{ScrollTimeline/scrollOffsets}} is empty
+    1.  Run the procedure to [=resolve a scroll timeline offset=] for 'auto'
+        with the <var>is first</var> flag set to <var>first offset</var> and
+        add the resulted value into <var>effective scroll offsets</var>.
+    1.  Set <var>first offset</var> to false.
+    1.  Run the procedure to [=resolve a scroll timeline offset=] for 'auto'
+        with the <var>is first</var> flag set to <var>first offset</var> and
+        add the resulted value into <var>effective scroll offsets</var>.
+1.  If {{ScrollTimeline/scrollOffsets}} has exactly one element
+    1.  Run the procedure to [=resolve a scroll timeline offset=] for 'auto'
+        with the <var>is first</var> flag set to <var>first offset</var> and
+        add the resulted value into <var>effective scroll offsets</var>.
+    1.  Set <var>first offset</var> to false.
+1.  For each <var>scroll offset</var> in the list of
+    {{ScrollTimeline/scrollOffsets}}, perform the following steps:
+    1.  Let <var>effective offset</var> be the result of applying the procedure
+        to [=resolve a scroll timeline offset=] for <var>scroll offset</var>
+        with the <var>is first</var> flag set to <var>first offset</var>.
+    1.  If <var>effective offset</var> is null, the
+        [=effective scroll offsets=] is empty and abort the remaining steps.
+    1.  Add <var>effective offset</var> into
+        <var>effective scroll offsets</var>.
+    1.  Set <var>first offset</var> to false.
+1.  Return <var>effective scroll offsets</var>.
 
-1.  Calculate [=effective scroll range=] as follow:
-    <div class="switch">
-    :   If [=effective start offset=] or [=effective end offset=] is null.
-    ::  The [=effective scroll range=] is null.
+### The progress of a {{ScrollTimeline}} ### {#progress-calculation-algorithm}
+The <dfn>scroll timeline progress</dfn> is calculated by applying the procedure
+to <dfn>calculate scroll timeline progress</dfn> given |offset| as follows:
 
-    :   Otherwise
-    ::  The [=effective scroll range=] is the result of evaluating the following
-        expression:
-        <blockquote>
-        `[=effective end offset=] - [=effective start offset=]`
-        </blockquote>
+1.  Let <var>scroll offsets</var> be the result of applying the procedure to
+    [=resolve scroll timeline offsets=] for {{scrollOffsets}}.
+1.  Let <var>offset index</var> correspond to the position of the last offset in
+    <var>scroll offsets</var> whose value is less than or equal to
+    <var>offset</var> and the value at the following position greater than
+    <var>offset</var.
+1.  Let <var>start offset</var> be the offset value at position
+    <var>offset index</var> in <var>scroll offsets</var>.
+1.  Let <var>end offset</var> be the value of next offset in <var>scroll
+    offsets</var> after <var>start offset</var>.
+1.  Let <var>size</var> be the number of offsets in <var>scroll offsets</var>.
+1.  Let <var>offset weight</var> be the result of evaluating
+    <code> 1 / (<var>size</var> - 1)</code>.
+1.  Let <var>interval progress</var> be the result of evaluating
+    <code>(<var>offset</var> - <var>start offset</var>) /
+    (<var>end offset</var> - <var>start offset</var>)</code>.
+1.  Return the result of evaluating
+    <code>(<var>offset index</var> + <var>interval progress</var>) &times;
+    <var>offset weight</var></code>.
 
-    </div>
+Note: This procedure guarantees that given <var>offset</var> belongs to
+scroll range within first and last offsets of <var>scroll offsets</var>.
+This is because the case when <var>offset</var> falls outside of the scroll
+range is handled before calling this procedure, as part of [=current time=]
+calculation.
 
+Note: The rationale behind choosing last matching offset in the array is to
+be consistent with [=findRule=] method for finding which [=CSSKeyframeRule=]
+applies in a comma separated list of overlapping keyframes.
 
 ### The phase of a {{ScrollTimeline}} ### {#phase-algorithm}
 
@@ -821,7 +850,7 @@ The [=phase=] of a {{ScrollTimeline}} is calculated as follows:
     * {{source}} is null, or
     * {{source}} does not currently have a [=CSS layout box=], or
     * {{source}}'s layout box is not a [=scroll container=], or
-    * [=effective scroll range=] is null.
+    * [=effective scroll offsets=] is empty.
 
     The [=phase=] is [=inactive phase|inactive=] and abort remaining steps.
 
@@ -864,7 +893,7 @@ The [=current time=] of a {{ScrollTimeline}} is calculated as follows:
     * {{source}} is null, or
     * {{source}} does not currently have a [=CSS layout box=], or
     * {{source}}'s layout box is not a [=scroll container=], or
-    * [=effective scroll range=] is null.
+    * [=effective scroll offsets=] is empty.
 
     The [=current time=] is an unresolved time value and abort remaining steps.
 
@@ -884,18 +913,19 @@ The [=current time=] of a {{ScrollTimeline}} is calculated as follows:
 ::  The [=current time=] is the [=effective time range=].
 
 :   Otherwise,
-::  The [=current time=] is the result of evaluating the following expression:
+::  1.  Let |progress| be a result of applying
+        [=calculate scroll timeline progress=] procedure for <var>current scroll offset</var>.
+    1.  The [=current time=] is the result of evaluating the following expression:
 
     <blockquote>
-      `(|current scroll offset| - [=effective start offset=]) / [=effective scroll range=] &times; [=effective time range=]`
+      <code>|progress| &times; [=effective time range=]</code>
     </blockquote>
 
 </div>
-
-Note: To be considered active a scroll timeline requires its [=effective start
-offset=] and its [=effective end offset=] to be non-null. This means that for
-example if one uses an element-based offset whose {{target}} is not a descendant
-of the scroll timeline {{source}}, the timeline remains inactive.
+Note: To be considered active a scroll timeline requires its [=effective scroll
+offsets=] to be non-empty. This means that for example if one uses an
+element-based offset whose {{target}} is not a descendant of the scroll timeline
+{{source}}, the timeline remains inactive.
 
 ## The '@scroll-timeline' at-rule ## {#scroll-timeline-at-rule}
 
@@ -967,15 +997,14 @@ instead of document's scrolling Element for `auto`.
 
 'orientation' descriptor determines the scroll timeline's {{orientation}}.
 
-
 <pre class='descdef'>
-  Name: start
+  Name: scroll-offsets
   For: @scroll-timeline
-  Value: <<scroll-timeline-offset>>
-  Initial: auto
+  Value: [ none | <<scroll-timeline-offset>> ]#
+  Initial: none
 </pre>
 
-'start' descriptor determines the scroll timeline's {{start}}.
+'scroll-offsets' descriptor determines the scroll timeline's {{scrollOffsets}}.
 
 [=Scroll timeline offsets=] in CSS are represented by the
 <<scroll-timeline-offset>> type:
@@ -1006,16 +1035,6 @@ following:
 </div>
 
 <pre class='descdef'>
-  Name: end
-  For: @scroll-timeline
-  Value: <<scroll-timeline-offset>>
-  Initial: auto
-</pre>
-
-'end' descriptor determines the scroll timeline's {{end}}.
-
-
-<pre class='descdef'>
   Name: time-range
   For: @scroll-timeline
   Value: auto | <<time>>
@@ -1034,8 +1053,7 @@ interface CSSScrollTimelineRule : CSSRule {
     readonly attribute CSSOMString name;
     readonly attribute CSSOMString source;
     readonly attribute CSSOMString orientation;
-    readonly attribute CSSOMString start;
-    readonly attribute CSSOMString end;
+    readonly attribute CSSOMString scrollOffsets;
     readonly attribute CSSOMString timeRange;
 };
 </pre>
@@ -1057,14 +1075,9 @@ interface CSSScrollTimelineRule : CSSRule {
     The 'orientation' descriptor associated with the ''@scroll-timeline'', or "auto" if not specified.
   </dd>
 
-  <dt><dfn>start</dfn></dt>
+  <dt><dfn>scrollOffsets</dfn></dt>
   <dd>
-    The 'start' descriptor associated with the ''@scroll-timeline'', or "auto" if not specified.
-  </dd>
-
-  <dt><dfn>end</dfn></dt>
-  <dd>
-    The 'end' descriptor associated with the ''@scroll-timeline'', or "auto" if not specified.
+    The 'scroll-offsets' descriptor associated with the ''@scroll-timeline'', or "none" if not specified.
   </dd>
 
   <dt><dfn>timeRange</dfn></dt>
