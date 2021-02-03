@@ -42,30 +42,28 @@ function gam_sRGB(RGB) {
 function lin_sRGB_to_XYZ(rgb) {
 	// convert an array of linear-light sRGB values to CIE XYZ
 	// using sRGB's own white, D65 (no chromatic adaptation)
-	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
-	// also
-	// https://www.image-engineering.de/library/technotes/958-how-to-convert-between-srgb-and-ciexyz
-	var M = [
-		[0.4124564,  0.3575761,  0.1804375],
-		[0.2126729,  0.7151522,  0.0721750],
-		[0.0193339,  0.1191920,  0.9503041]
-	];
 
+	var M = [
+		[ 0.41239079926595934, 0.357584339383878,   0.1804807884018343  ],
+		[ 0.21263900587151027, 0.715168678767756,   0.07219231536073371 ],
+		[ 0.01933081871559182, 0.11919477979462598, 0.9505321522496607  ]
+	];
 	return multiplyMatrices(M, rgb);
 }
 
 function XYZ_to_lin_sRGB(XYZ) {
 	// convert XYZ to linear-light sRGB
+
 	var M = [
-		[ 3.2404542, -1.5371385, -0.4985314],
-		[-0.9692660,  1.8760108,  0.0415560],
-		[ 0.0556434, -0.2040259,  1.0572252]
+		[  3.2409699419045226,  -1.537383177570094,   -0.4986107602930034  ],
+		[ -0.9692436362808796,   1.8759675015077202,   0.04155505740717559 ],
+		[  0.05563007969699366, -0.20397695888897652,  1.0569715142428786  ]
 	];
 
 	return multiplyMatrices(M, XYZ);
 }
 
-//  image-p3-related functions
+//  display-p3-related functions
 
 
 function lin_P3(RGB) {
