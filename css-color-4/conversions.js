@@ -10,11 +10,14 @@ function lin_sRGB(RGB) {
 	// https://en.wikipedia.org/wiki/SRGB
 	// TODO for negative values, extend linear portion on reflection of axis, then add pow below that
 	return RGB.map(function (val) {
-		if (val < 0.04045) {
+		let sign = val < 0? -1 : 1;
+		let abs = Math.abs(val);
+
+		if (abs < 0.04045) {
 			return val / 12.92;
 		}
 
-		return Math.pow((val + 0.055) / 1.055, 2.4);
+		return sign * (Math.pow((abs + 0.055) / 1.055, 2.4));
 	});
 }
 
@@ -22,10 +25,14 @@ function gam_sRGB(RGB) {
 	// convert an array of linear-light sRGB values in the range 0.0-1.0
 	// to gamma corrected form
 	// https://en.wikipedia.org/wiki/SRGB
-	// TODO for negative values, extend linear portion on reflection of axis, then add pow below that
+	// For negative values, linear portion extends on reflection
+	// of axis, then uses reflected pow below that
 	return RGB.map(function (val) {
-		if (val > 0.0031308) {
-			return 1.055 * Math.pow(val, 1/2.4) - 0.055;
+		let sign = val < 0? -1 : 1;
+		let abs = Math.abs(val);
+
+		if (abs > 0.0031308) {
+			return sign * (1.055 * Math.pow(abs, 1/2.4) - 0.055);
 		}
 
 		return 12.92 * val;
@@ -35,30 +42,28 @@ function gam_sRGB(RGB) {
 function lin_sRGB_to_XYZ(rgb) {
 	// convert an array of linear-light sRGB values to CIE XYZ
 	// using sRGB's own white, D65 (no chromatic adaptation)
-	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
-	// also
-	// https://www.image-engineering.de/library/technotes/958-how-to-convert-between-srgb-and-ciexyz
-	var M = [
-		[0.4124564,  0.3575761,  0.1804375],
-		[0.2126729,  0.7151522,  0.0721750],
-		[0.0193339,  0.1191920,  0.9503041]
-	];
 
+	var M = [
+		[ 0.41239079926595934, 0.357584339383878,   0.1804807884018343  ],
+		[ 0.21263900587151027, 0.715168678767756,   0.07219231536073371 ],
+		[ 0.01933081871559182, 0.11919477979462598, 0.9505321522496607  ]
+	];
 	return multiplyMatrices(M, rgb);
 }
 
 function XYZ_to_lin_sRGB(XYZ) {
 	// convert XYZ to linear-light sRGB
+
 	var M = [
-		[ 3.2404542, -1.5371385, -0.4985314],
-		[-0.9692660,  1.8760108,  0.0415560],
-		[ 0.0556434, -0.2040259,  1.0572252]
+		[  3.2409699419045226,  -1.537383177570094,   -0.4986107602930034  ],
+		[ -0.9692436362808796,   1.8759675015077202,   0.04155505740717559 ],
+		[  0.05563007969699366, -0.20397695888897652,  1.0569715142428786  ]
 	];
 
 	return multiplyMatrices(M, XYZ);
 }
 
-//  image-p3-related functions
+//  display-p3-related functions
 
 
 function lin_P3(RGB) {
@@ -209,28 +214,38 @@ function XYZ_to_lin_a98rgb(XYZ) {
 function lin_2020(RGB) {
 	// convert an array of rec2020 RGB values in the range 0.0 - 1.0
 	// to linear light (un-companded) form.
+	// ITU-R BT.2020-2 p.4
+
 	const α = 1.09929682680944 ;
 	const β = 0.018053968510807;
 
 	return RGB.map(function (val) {
-		if (val < β * 4.5 ) {
+		let sign = val < 0? -1 : 1;
+		let abs = Math.abs(val);
+
+		if (abs < β * 4.5 ) {
 			return val / 4.5;
 		}
 
-		return Math.pow((val + α -1 ) / α, 2.4);
+		return sign * (Math.pow((abs + α -1 ) / α, 1/0.45));
 	});
 }
-//check with standard this really is 2.4 and 1/2.4, not 0.45 was wikipedia claims
 
 function gam_2020(RGB) {
 	// convert an array of linear-light rec2020 RGB  in the range 0.0-1.0
 	// to gamma corrected form
+	// ITU-R BT.2020-2 p.4
+
 	const α = 1.09929682680944 ;
 	const β = 0.018053968510807;
 
+
 	return RGB.map(function (val) {
-		if (val > β ) {
-			return α * Math.pow(val, 1/2.4) - (α - 1);
+		let sign = val < 0? -1 : 1;
+		let abs = Math.abs(val);
+
+		if (abs > β ) {
+			return sign * (α * Math.pow(abs, 0.45) - (α - 1));
 		}
 
 		return 4.5 * val;
