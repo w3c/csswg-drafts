@@ -12973,7 +12973,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * `add`
 	   *
 	   * This function does not support collections (Array or Matrix), and does
-	   * not validate the number of of inputs.
+	   * not validate the number of inputs.
 	   *
 	   * @param  {number | BigNumber | Fraction | Complex | Unit} x   First value to add
 	   * @param  {number | BigNumber | Fraction | Complex} y          Second value to add
@@ -19115,7 +19115,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * `multiply`
 	   *
 	   * This function does not support collections (Array or Matrix), and does
-	   * not validate the number of of inputs.
+	   * not validate the number of inputs.
 	   *
 	   * @param  {number | BigNumber | Fraction | Complex | Unit} x   First value to multiply
 	   * @param  {number | BigNumber | Fraction | Complex} y          Second value to multiply
@@ -19182,7 +19182,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * `divide` and `inv`.
 	   *
 	   * This function does not support collections (Array or Matrix), and does
-	   * not validate the number of of inputs.
+	   * not validate the number of inputs.
 	   *
 	   * @param  {number | BigNumber | Fraction | Complex | Unit} x   Numerator
 	   * @param  {number | BigNumber | Fraction | Complex} y          Denominator

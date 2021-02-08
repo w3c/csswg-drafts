@@ -36,7 +36,7 @@ There are 4 normative changes, all based on feedback from actual implementations
 * Allow, but stop requiring support for SVG images without intrinsic sizes for cursors (corresponding test update).
 * Align the spec with implementations, and make cursor: auto look like text over selectable text, and over editable elements (corresponding tests).
 
-The first 3 changes are are small tweaks and cannot make an implementation that conformed to the spec prior to the changes become non-conformant.
+The first 3 changes are small tweaks and cannot make an implementation that conformed to the spec prior to the changes become non-conformant.
 
 The 4th change could theoretically impact conformance, but in practice does not.
 Zero known implementations (Gecko/Edge/Webkit/Blink/Presto) conformed with the previous wording (the [issue 1598 was openly reviewed and discussed](https://github.com/w3c/csswg-drafts/issues/1598) for several months),
