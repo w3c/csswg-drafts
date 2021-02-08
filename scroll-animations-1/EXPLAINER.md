@@ -54,7 +54,7 @@ These are a class of animation whose progress is driven by time but whose activa
 triggered when scrolling past a certain position or into a given scroll range.  These are also
 common on the web but they don't suffer from main thread jank and synchronous scrolling lad in the
 same way that scroll-linked animations do. This is becuase only their activation is tied to scroll
-position and and not their progress.
+position and not their progress.
 
 However, we found that in the vast majority of cases where a web author would want to do this, they
 would want to do it for a CSS transition (as opposed to a CSS animation). Unfortunately, it's not
