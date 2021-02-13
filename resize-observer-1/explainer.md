@@ -13,7 +13,7 @@ These components need to be responsive too.
 Unfortunatelly, Web Platform currently does not provide a way for components to keep track of their size.
 
 There is no component counterpart to CSS media queries.
-Attempts to design such were unsucessful due to their [inability to deal](http://www.xanthir.com/b4PR0) with circular references.
+Attempts to design such were unsuccessful due to their [inability to deal](http://www.xanthir.com/b4PR0) with circular references.
 
 There is no component counterpart to `window.resize` event either.
 ResizeObserver wants to be that counterpart.

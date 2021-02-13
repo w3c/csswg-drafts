@@ -8,7 +8,7 @@ CSS Color Module Level 3
 
 https://drafts.csswg.org/css-color-3/
 
-First Tuesday or Thursday after a sucessful transition decision.
+First Tuesday or Thursday after a successful transition decision.
 
 ## The document Abstract and Status sections
 

@@ -8,7 +8,7 @@ FULL TITLE
 
 https://drafts.csswg.org/DIRECTORY/
 
-First Tuesday or Thursday after a sucessful transition decision.
+First Tuesday or Thursday after a successful transition decision.
 
 ## The document Abstract and Status sections
 
