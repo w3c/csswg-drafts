@@ -53,7 +53,7 @@ None
 
 [Test suite](https://test.csswg.org/harness/suite/css-color-3_dev/)
 
-The [implementatin report](https://test.csswg.org/harness/results/css-color-3_dev/grouped/) shows that
+The [implementation report](https://test.csswg.org/harness/results/css-color-3_dev/grouped/) shows that
 75 of 75 required tests meet CR exit criteria.
 
 More relevantly for this transition, there is [one test](https://test.csswg.org/harness/test/css-color-3_dev/single/t44-currentcolor-inherited-c/) for the substantive change, which is [passed by two implementations](https://test.csswg.org/harness/results/css-color-3_dev/grouped/t44-currentcolor-inherited-c/).
