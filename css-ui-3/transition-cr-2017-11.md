@@ -60,7 +60,7 @@ is within the scope defined in the CSS WG's charter,
 
 The following normative reference to W3C documents is not yet at CR:
 
-* [CSS-COLOR-4](https://www.w3.org/TR/css-color-4/), in order to refer to a precise definition of a concept that exists implicitely since CSS21.
+* [CSS-COLOR-4](https://www.w3.org/TR/css-color-4/), in order to refer to a precise definition of a concept that exists implicitly since CSS21.
 
 <!-- Only relevant for the PR transition
 
