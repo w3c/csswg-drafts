@@ -53,7 +53,7 @@ inspected, controlled via a common animations API.
 These are a class of animation whose progress is driven by time but whose activation may be
 triggered when scrolling past a certain position or into a given scroll range.  These are also
 common on the web but they don't suffer from main thread jank and synchronous scrolling lad in the
-same way that scroll-linked animations do. This is becuase only their activation is tied to scroll
+same way that scroll-linked animations do. This is because only their activation is tied to scroll
 position and not their progress.
 
 However, we found that in the vast majority of cases where a web author would want to do this, they
