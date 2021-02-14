@@ -34,4 +34,4 @@ where:
 * contain - Hint to disable scroll chaining. The user agent may show an appropriate overscroll affordance. If the scroll chaining would trigger a non-scroll action, such as a navigation action, this property should be a hint to disable the navigation action.
 * none - Same as contain but also hint that no overscroll affordance should be triggered.
 
-This should apply to all, non-programatic, user scroll actions.
+This should apply to all, non-programmatic, user scroll actions.
