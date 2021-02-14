@@ -61,7 +61,7 @@ would want to do it for a CSS transition (as opposed to a CSS animation). Unfort
 possible to trigger CSS transitions from the compositor thread (because triggering a transition
 requires style resolution, which cannot be performed on the compositor thread).
 
-Earlier versions of this specification included a triggering mechanims. But given the extent to
+Earlier versions of this specification included a triggering mechanism. But given the extent to
 which triggering complicated the API and because of the smaller benefit that these type of
 animation will receive, we decided it wasn't worth it if you can't use it for transitions, so this
 feature was remove and scroll-triggered animations are non-goal for this API.
