@@ -37,7 +37,7 @@ Scroll position controls progress:
 # Deferred Usecases
 
 See [EXPLAINER](https://github.com/w3c/csswg-drafts/blob/master/scroll-animations-1/EXPLAINER.md#non-goals)
-for an explanation of why theses usecases are deferreing in the first version of this specification.
+for an explanation of why theses usecases are deferring in the first version of this specification.
 The design space for triggering animations is still open. We welcome input on this subject for next
 revision of this specification.
 
