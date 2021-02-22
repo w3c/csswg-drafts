@@ -53,7 +53,7 @@ inspected, controlled via a common animations API.
 These are a class of animation whose progress is driven by time but whose activation may be
 triggered when scrolling past a certain position or into a given scroll range.  These are also
 common on the web but they don't suffer from main thread jank and synchronous scrolling lad in the
-same way that scroll-linked animations do. This is becuase only their activation is tied to scroll
+same way that scroll-linked animations do. This is because only their activation is tied to scroll
 position and not their progress.
 
 However, we found that in the vast majority of cases where a web author would want to do this, they
@@ -61,7 +61,7 @@ would want to do it for a CSS transition (as opposed to a CSS animation). Unfort
 possible to trigger CSS transitions from the compositor thread (because triggering a transition
 requires style resolution, which cannot be performed on the compositor thread).
 
-Earlier versions of this specification included a triggering mechanims. But given the extent to
+Earlier versions of this specification included a triggering mechanism. But given the extent to
 which triggering complicated the API and because of the smaller benefit that these type of
 animation will receive, we decided it wasn't worth it if you can't use it for transitions, so this
 feature was remove and scroll-triggered animations are non-goal for this API.
