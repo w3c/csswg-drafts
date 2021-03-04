@@ -5,7 +5,7 @@ https://wicg.github.io/overscroll-behavior/
 
 # Problem
 
-Scroll chaining is the process of propagating the scroll event to the the nearest scrollable parent element once a scrollable reaches its limit. Scroll chaining is not always desirable. For example, consider a fixed/absolute position scroller whose scroll should not chain to the parent scroller, i.e. the document. You can find this UX pattern used in most chat boxes that live at the bottom of a page such as in Facebook or GMail UIs.
+Scroll chaining is the process of propagating the scroll event to the nearest scrollable parent element once a scrollable reaches its limit. Scroll chaining is not always desirable. For example, consider a fixed/absolute position scroller whose scroll should not chain to the parent scroller, i.e. the document. You can find this UX pattern used in most chat boxes that live at the bottom of a page such as in Facebook or GMail UIs.
 
 To give you a sense of how popular preventing scroll chaining may be, according to my quick http-archive search "-ms-scroll-chaining: none" is used in 0.4% of top 300K pages despite being limited in functionality and only supported on IE/Edge.
 
@@ -34,4 +34,4 @@ where:
 * contain - Hint to disable scroll chaining. The user agent may show an appropriate overscroll affordance. If the scroll chaining would trigger a non-scroll action, such as a navigation action, this property should be a hint to disable the navigation action.
 * none - Same as contain but also hint that no overscroll affordance should be triggered.
 
-This should apply to all, non-programatic, user scroll actions.
+This should apply to all, non-programmatic, user scroll actions.

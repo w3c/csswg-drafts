@@ -8,7 +8,7 @@ CSS Flexible Box Layout Module Level 1
 
 https://drafts.csswg.org/css-flexbox/
 
-First Tuesday or Thursday after a sucessful transition decision
+First Tuesday or Thursday after a successful transition decision
 
 ## The document Abstract and Status sections
 
