@@ -67,7 +67,7 @@ function deltaE2000 (reference, sample) {
 	let habs = Math.abs(hdiff);
 	let Δh;
 
-	if (Cdash1 == 0 && Cdash2 == 0) {
+	if (Cdash1 * Cdash2 === 0) {
 		Δh = 0;
 	}
 	else if (habs <= 180) {
