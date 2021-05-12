@@ -143,7 +143,7 @@ The core features of the CSSOM are oriented towards providing basic capabilities
 and manipulation of style related state information and processes.
 
 The features defined below are fundamentally based on prior specifications of the W3C DOM Working Group, primarily
-[[DOM-LEVEL-2-STYLE]]. The purposes of the present document are (1) to improve on that prior work by providing
+[[DOM]]. The purposes of the present document are (1) to improve on that prior work by providing
 more technical specificity (so as to improve testability and interoperability), (2) to deprecate or remove certain less-widely implemented
 features no longer considered to be essential in this context, and (3) to newly specify certain extensions that have been
 or expected to be widely implemented.
@@ -293,22 +293,22 @@ typedef DOMString CSSOMString;
 </pre>
 
 <div class=note>
-	The difference is only observable from web content
-	when <a>surrogate</a> code units are involved.
-	{{DOMString}} would preserve them,
-	whereas {{USVString}} would replace them with U+FFFD REPLACEMENT CHARACTER.
+  The difference is only observable from web content
+  when <a>surrogate</a> code units are involved.
+  {{DOMString}} would preserve them,
+  whereas {{USVString}} would replace them with U+FFFD REPLACEMENT CHARACTER.
 
-	This choice effectively allows implementations to do this replacement,
-	but does not require it.
+  This choice effectively allows implementations to do this replacement,
+  but does not require it.
 
-	Using {{USVString}} enables an implementation
-	to use UTF-8 internally to represent strings in memory.
-	Since well-formed UTF-8 specifically disallows <a>surrogate</a> code points,
-	it effectively requires this replacement.
+  Using {{USVString}} enables an implementation
+  to use UTF-8 internally to represent strings in memory.
+  Since well-formed UTF-8 specifically disallows <a>surrogate</a> code points,
+  it effectively requires this replacement.
 
-	On the other hand,
-	implementations that internally represent strings as 16-bit <a>code units</a>
-	might prefer to avoid the cost of doing this replacement.
+  On the other hand,
+  implementations that internally represent strings as 16-bit <a>code units</a>
+  might prefer to avoid the cost of doing this replacement.
 </div>
 
 
@@ -743,7 +743,38 @@ CSS Style Sheets {#css-style-sheets}
 
 A <dfn export>CSS style sheet</dfn> is an abstract concept that
 represents a style sheet as defined by the CSS specification. In the CSSOM a
-<a>CSS style sheet</a> is represented as a {{CSSStyleSheet}} object. A
+<a>CSS style sheet</a> is represented as a {{CSSStyleSheet}} object.
+
+<dl>
+  <dt><dfn constructor for=CSSStyleSheet>CSSStyleSheet(<var>options</var>)</dfn></dt>
+  <dd>
+    When called, execute these steps:
+    <ol>
+      <li>Construct a new {{/CSSStyleSheet}} object <var>sheet</var> with the following properties:
+      <ul>
+        <li><a spec=cssom>location</a> set to the <a spec=html>base URL</a> of the <a>associated Document</a> for the <a>current global object</a>.
+        <li><a>stylesheet base URL</a> set to the {{CSSStyleSheetInit/baseURL}} attribute value from <var>options</var>.
+        <li>No <a spec=cssom>parent CSS style sheet</a>.
+        <li>No <a spec=cssom>owner node</a>.
+        <li>No <a spec=cssom>owner CSS rule</a>.
+        <li><a spec=cssom>title</a> set to the the empty string.
+        <li>Unset <a spec=cssom>alternate flag</a>.
+        <li>Set <a spec=cssom>origin-clean flag</a>.
+        <li>Set <a>constructed flag</a>.
+        <li><a>Constructor document</a> set to the <a>associated Document</a> for the <a>current global object</a>.
+      </ul>
+      <li>If the {{CSSStyleSheetInit/media}} attribute of <var>options</var> is a string,
+        <a>create a MediaList object</a> from the string
+        and assign it as <var>sheet</var>'s <a spec=cssom>media</a>.
+        Otherwise, <a>serialize a media query list</a> from the attribute and then <a>create a MediaList object</a>
+        from the resulting string and set it as <var>sheet</var>'s <a spec=cssom>media</a>.
+      <li>If the {{CSSStyleSheetInit/disabled}} attribute of <var>options</var> is true,
+        set <var>sheet</var>'s <a spec=cssom>disabled flag</a>.
+      <li>Return <var>sheet</var>.
+    </ol>
+  </dd>
+</dl>
+
 <a>CSS style sheet</a> has a number of associated state items:
 
 <dl dfn-for="CSSStyleSheet">
@@ -855,6 +886,22 @@ represents a style sheet as defined by the CSS specification. In the CSSOM a
 
  <dt><dfn id=concept-css-style-sheet-origin-clean-flag>origin-clean flag</dfn>
  <dd>Specified when created. Either set or unset. If it is set, the API allows reading and modifying of the <a for=CSSStyleSheet>CSS rules</a>.
+
+ <dt><dfn id=concept-css-style-sheet-constructed-flag>constructed flag</dfn></dt>
+ <dd>Specified when created. Either set or unset. Unset by default.
+ Signifies whether this stylesheet was created by invoking the IDL-defined constructor.
+ 
+ <dt><dfn id=concept-css-style-sheet-disallow-modification-flag>disallow modification flag</dfn></dt>
+ <dd>Either set or unset. Unset by default. If set, modification of the stylesheet's rules is not allowed.
+ 
+ <dt><dfn id=concept-css-style-sheet-constructor-document>constructor document</dfn></dt>
+ <dd>Specified when created. The {{Document}} a constructed stylesheet is associated with. Null by default.
+ Only non-null for stylesheets that have <a>constructed flag</a> set.
+
+ <dt><dfn id=concept-css-style-sheet-stylesheet-base-url>stylesheet base URL</dfn></dt>
+ <dd>The base URL to use when resolving relative URLs in the stylesheet. Null by default.
+ Only non-null for stylesheets that have <a>constructed flag</a> set.
+
 </dl>
 
 
@@ -903,10 +950,21 @@ The {{CSSStyleSheet}} interface represents a <a>CSS style sheet</a>.
 <pre class=idl>
 [Exposed=Window]
 interface CSSStyleSheet : StyleSheet {
+  constructor(optional CSSStyleSheetInit options = {});
+
   readonly attribute CSSRule? ownerRule;
   [SameObject] readonly attribute CSSRuleList cssRules;
   unsigned long insertRule(CSSOMString rule, optional unsigned long index = 0);
   undefined deleteRule(unsigned long index);
+
+  Promise&lt;CSSStyleSheet> replace(USVString text);
+  undefined replaceSync(USVString text);
+};
+
+dictionary CSSStyleSheetInit {
+  DOMString baseURL = null;
+  (MediaList or DOMString) media = "";
+  boolean disabled = false;
 };
 </pre>
 
@@ -933,6 +991,11 @@ The <dfn method for=CSSStyleSheet>insertRule(<var>rule</var>, <var>index</var>)<
 <ol>
  <li>If the <a>origin-clean flag</a> is unset,
  <a>throw</a> a {{SecurityError}} exception.
+ <li>If the <a>disallow modification flag</a> is set, throw a {{NotAllowedError}} {{DOMException}}.
+ <li>Let <var>parsed rule</var> be the return value of invoking <a>parse a rule</a> with <var>rule</var>.
+ <li>If <var>parsed rule</var> is a syntax error, return <var>parsed rule</var>.
+ <li>If <var>parsed rule</var> is an <a>@import</a> rule, and the <a>constructed flag</a> or any ancestor
+ style sheet's <a>constructed flag</a> is set, throw a {{NotAllowedError}} {{DOMException}}.
  <li>Return the result of invoking <a>insert a CSS rule</a> <var>rule</var> in the <a for=CSSStyleSheet>CSS rules</a>
  at <var>index</var>.
 </ol>
@@ -942,7 +1005,58 @@ The <dfn method for=CSSStyleSheet>deleteRule(<var>index</var>)</dfn> method must
 <ol>
  <li>If the <a>origin-clean flag</a> is unset,
  <a>throw</a> a {{SecurityError}} exception.
+ <li>If the <a>disallow modification flag</a> is set, throw a {{NotAllowedError}} {{DOMException}}.
  <li><a>Remove a CSS rule</a> in the <a for=CSSStyleSheet>CSS rules</a> at <var>index</var>.
+</ol>
+
+The <dfn method for=CSSStyleSheet>replace(<a for=CSSRule>text</a>)</dfn> method must run the following steps:
+<ol>
+ <li>Let <var>promise</var> be a promise.
+ <li>If the <a>constructed flag</a> is not set, or the <a>disallow modification flag</a> is set, reject <var>promise</var> with a
+ {{NotAllowedError}} {{DOMException}} and return <var>promise</var>.
+ <li>Set the <a>disallow modification flag</a>.
+ <li><a>In parallel</a>, do these steps:
+ <ol>
+   <li>Let <var>rules</var> be the result of running <a>parse a list of rules</a> from <var>text</var>. If <var>rules</var> is not a list of rules
+   (i.e. an error occurred during parsing), set <var>rules</var> to an empty list.
+   <li>Wait for loading of <a>@import</a> rules in <var>rules|</var>and any nested <a>@import</a>s from those rules (and so on).
+   <ul>
+     <li>If any of them failed to load, <a>terminate</a> fetching of the remaining <a>@import</a> rules,  and <a>queue a task</a> on the
+     <a>networking task source</a> to perform the following steps:
+     <ol>
+       <li>Unset <var>sheet</var>'s <a>disallow modification flag</a>.
+       <li>Reject <var>promise</var> with a {{NetworkError}} {{DOMException}}.
+     </ol>
+     <li>Otherwise, once  all of them have finished loading, <a>queue a task</a> on the [<a>etworking task source</a> to perform the
+     following steps:
+     <ol>
+       <li>Set <var>sheet</var>'s <a>CSS rules</a> to <var>rules</var>.
+       <li>Unset <var>sheet</var>'s <a>disallow modification flag</a>.
+       <li>Resolve <var>promise</var> with <var>sheet</var>.
+     </ol>
+   </ul>
+    <p class="note">
+      Note: Loading  of <a>@import</a> rules should follow the rules used for fetching style sheets for <a>@import</a> rules of
+      stylesheets from &lt;link> elements, in regard to what counts as success, CSP, and Content-Type header checking.
+    </p>
+    <p class="note">
+      Note: We will use the <a>fetch group</a> of <var>sheet</var>'s <a>constructor document</a>'s <a>relevant settings object</a> for
+      <a>@import</a> rules and other (fonts, etc) loads.
+    </p>
+    <p class="note">
+      Note: The rules regarding loading mentioned above are currently not specified rigorously anywhere.
+    </p>
+   <li>Return <var>promise</var>.
+</ol>
+
+The <dfn method for=CSSStyleSheet>replaceSync(<a for=CSSRule>text</a>)</dfn> method must run the following steps:
+<ol>
+ <li>If the <a>constructed flag</a> is not set, or the <a>disallow modification flag</a> is set, throw a {{NotAllowedError}}
+ {{DOMException}}.
+ <li>Let <var>rules</var> be the result of running <a>parse a list of rules</a> from <var>text</var>. If <var>rules</var> is
+ not a list of rules (i.e. an error occurred during parsing), set <var>rules</var> to an empty list.
+ <li>If <var>rules</var> contains one or more <a>@import</a> rules, throw a {{NotAllowedError}} {{DOMException}}.
+ <li>Set <a>CSS rules</a> to <var>rules</var>.
 </ol>
 
 #### Deprecated CSSStyleSheet members #### {#legacy-css-style-sheet-members}
