@@ -5,10 +5,13 @@
 // sRGB-related functions
 
 function lin_sRGB(RGB) {
-	// convert an array of sRGB values in the range 0.0 - 1.0
+	// convert an array of sRGB values
+	// where in-gamut values are in the range [0 - 1]
 	// to linear light (un-companded) form.
 	// https://en.wikipedia.org/wiki/SRGB
-	// TODO for negative values, extend linear portion on reflection of axis, then add pow below that
+	// Extended transfer function:
+	// for negative values,  linear portion is extended on reflection of axis,
+	// then reflected power function is used.
 	return RGB.map(function (val) {
 		let sign = val < 0? -1 : 1;
 		let abs = Math.abs(val);
@@ -25,6 +28,7 @@ function gam_sRGB(RGB) {
 	// convert an array of linear-light sRGB values in the range 0.0-1.0
 	// to gamma corrected form
 	// https://en.wikipedia.org/wiki/SRGB
+	// Extended transfer function:
 	// For negative values, linear portion extends on reflection
 	// of axis, then uses reflected pow below that
 	return RGB.map(function (val) {
@@ -108,17 +112,21 @@ function XYZ_to_lin_P3(XYZ) {
 // prophoto-rgb functions
 
 function lin_ProPhoto(RGB) {
-	// convert an array of prophoto-rgb values in the range 0.0 - 1.0
+	// convert an array of prophoto-rgb values
+	// where in-gamut colors are in the range [0.0 - 1.0]
 	// to linear light (un-companded) form.
 	// Transfer curve is gamma 1.8 with a small linear portion
-	// TODO for negative values, extend linear portion on reflection of axis, then add pow below that
+	// Extended transfer function
 	const Et2 = 16/512;
 	return RGB.map(function (val) {
-		if (val <= Et2) {
+		let sign = val < 0? -1 : 1;
+		let abs = Math.abs(val);
+
+		if (abs <= Et2 {
 			return val / 16;
 		}
 
-		return Math.pow(val, 1.8);
+		return sign * Math.pow(val, 1.8);
 	});
 }
 
@@ -129,8 +137,11 @@ function gam_ProPhoto(RGB) {
 	// TODO for negative values, extend linear portion on reflection of axis, then add pow below that
 	const Et = 1/512;
 	return RGB.map(function (val) {
-		if (val >= Et) {
-			return Math.pow(val, 1/1.8);
+		let sign = val < 0? -1 : 1;
+		let abs = Math.abs(val);
+
+		if (abs >= Et) {
+			return sign * Math.pow(abs, 1/1.8);
 		}
 
 		return 16 * val;
@@ -168,7 +179,10 @@ function lin_a98rgb(RGB) {
 	// to linear light (un-companded) form.
 	// negative values are also now accepted
 	return RGB.map(function (val) {
-	  return Math.pow(Math.abs(val), 563/256)*Math.sign(val);
+		let sign = val < 0? -1 : 1;
+		let abs = Math.abs(val);
+
+	  	return sign * Math.pow(abs, 563/256);
 	});
 }
 
@@ -177,7 +191,10 @@ function gam_a98rgb(RGB) {
 	// to gamma corrected form
 	// negative values are also now accepted
 	return RGB.map(function (val) {
-		return Math.pow(Math.abs(val), 256/563)*Math.sign(val);
+		let sign = val < 0? -1 : 1;
+		let abs = Math.abs(val);
+
+		return sign * Math.pow(abs, 256/563);
 	});
 }
 
