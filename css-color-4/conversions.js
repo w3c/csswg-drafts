@@ -122,7 +122,7 @@ function lin_ProPhoto(RGB) {
 		let sign = val < 0? -1 : 1;
 		let abs = Math.abs(val);
 
-		if (abs <= Et2 {
+		if (abs <= Et2) {
 			return val / 16;
 		}
 
