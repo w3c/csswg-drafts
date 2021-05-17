@@ -21,6 +21,7 @@ spec:dom; type:dfn;
 	text:root; for:tree
 	text:find slottables
 	text:find flattened slottables
+	text:element; for:/
 spec:html; type:element; text:style
 spec:selectors-4; type:dfn;
 	text: static profile
@@ -69,7 +70,7 @@ Default Styles for Custom Elements</h2>
 	to create a stylesheet of "default element styles" for a given element.
 	This stylesheet applies across the entire document,
 	in all <a>shadow trees</a>,
-	and the rules in it apply at the <a>user agent origin</a>,
+	and the rules in it apply at the <a>user-agent origin</a>,
 	so author-level rules automatically win.
 
 	{{Window}}s gain a private slot <dfn attribute for=Window>\[[defaultElementStylesMap]]</dfn>
@@ -80,7 +81,7 @@ Default Styles for Custom Elements</h2>
 
 	Note: This implies, in particular,
 	that they apply to all <a>shadow trees</a> in every document,
-	and that the declarations in them are from the <a>user agent origin</a>.
+	and that the declarations in them are from the <a>user-agent origin</a>.
 
 	For the purpose of the <a>cascade</a>,
 	these stylesheets are ordered after the user agent's own stylesheets;
@@ -528,6 +529,15 @@ Slots and Slotted Elements in a Shadow Tree</h4>
 	and any deeper <a>slots</a> that their <a>slot</a> gets assigned to,
 	don't affect inheritance.
 
+<!--
+████████ ████████  ████████ ████████          ██████   ██████   ███████  ████████  ████████ ████████
+   ██    ██     ██ ██       ██               ██    ██ ██    ██ ██     ██ ██     ██ ██       ██     ██
+   ██    ██     ██ ██       ██               ██       ██       ██     ██ ██     ██ ██       ██     ██
+   ██    ████████  ██████   ██████   ███████  ██████  ██       ██     ██ ████████  ██████   ██     ██
+   ██    ██   ██   ██       ██                     ██ ██       ██     ██ ██        ██       ██     ██
+   ██    ██    ██  ██       ██               ██    ██ ██    ██ ██     ██ ██        ██       ██     ██
+   ██    ██     ██ ████████ ████████          ██████   ██████   ███████  ██        ████████ ████████
+-->
 
 <h3 id='shadow-names'>
 Name-Defining Constructs and Inheritance</h3>
@@ -555,7 +565,7 @@ Name-Defining Constructs and Inheritance</h3>
 	and doesn't give surprising results.
 
 	If an at-rule or property defines a name that other CSS constructs can refer to it by,
-	such as a 'font-family!!descriptor' name
+	such as a ''@font-face'' '@font-face/font-family!!descriptor' name
 	or an ''@keyframes'' name,
 	it must be defined as a <dfn export for=CSS>tree-scoped name</dfn>.
 	[=Tree-scoped names=] are "global" within a particular [=node tree=];
@@ -576,8 +586,13 @@ Name-Defining Constructs and Inheritance</h3>
 
 	Whenever a [=tree-scoped reference=] is dereferenced
 	to find the CSS construct it is referencing,
-	only the [=tree-scoped names=] associated with the same [=root=]
+	first search only the [=tree-scoped names=] associated with the same [=root=]
 	as the [=tree-scoped reference=] must be searched.
+	If no relevant [=tree-scoped name=] is found,
+	and the [=root=] is a [=shadow root=],
+	then repeat this search in the [=root=]'s [=host=]'s [=node tree=].
+	(In other words, [=tree-scoped names=] "inherit" into descendant shadow trees,
+	so long as they don't define the same name themselves.)
 
 	<div class=issue>
 		TODO: Fix all the at-rules that define global names,
@@ -593,10 +608,119 @@ Name-Defining Constructs and Inheritance</h3>
 		* others?
 	</div>
 
+	<div class=example>
+
+		For example,
+		given the following document
+		(using the imaginary <::shadow></::shadow> markup
+		to indicate an element's [=shadow tree=]):
+
+		<xmp highlight=markup>
+			<p class=outer>Here's some text in the outer document's "foo" font.
+			<style>
+				@font-face {
+					font-family: foo;
+					src: url(https://example.com/outer.woff);
+				}
+				body { font-family: foo; }
+				my-component::part(text) { font-family: foo; }
+			</style>
+
+			<my-component>
+				<::shadow>
+					<p class=inner-default>I'm inheriting the outer document's font-family.
+					<p class=inner-styled>And I'm explicitly styled to be in the component's "foo" font.
+					<p class=part-styled part=text>
+						I'm explicitly styled by the outer document,
+						and get the outer document's "foo" font.
+					<style>
+						@font-face {
+							font-family: foo;
+							src: url(https://example.com/inner.woff);
+						}
+						.inner-styled { font-family: foo; }
+					</style>
+				</::shadow>
+			</my-component>
+		</xmp>
+
+		The ''.outer'' element references the outer ''@font-face'', using the "outer.woff" file.
+
+		The ''.inner-default'' element inherits the ''font-family: foo'' value from the outer document,
+		using the same [=tree-scoped reference=] as ''.outer'',
+		and thus also uses the "outer.woff" font file.
+
+		The ''.inner-style'' element, on the other hand,
+		receives a ''font-family: foo'' from the stylesheet inside the shadow,
+		and thus its [=tree-scoped reference=] refers to the shadow's ''@font-family'',
+		and it uses the "inner.woff" file.
+
+		The ''.part-styled'' element also receives its style from the outer document,
+		tho by being directly set rather than by inheritance.
+		Thus, its [=tree-scoped reference=] also refer's to the outer document,
+		and it uses the "outer.woff" file.
+	</div>
+
+	<div class=example>
+		Here is a more complex example,
+		showing three levels of trees,
+		and illustrating precisely how [=tree-scoped names=] and [=tree-scoped references=] inherit.
+
+		<xmp highlight=markup>
+			<style>
+				@font-face {
+					font-family: foo;
+					src: url(https://example.com/outer.woff);
+				}
+				body { font-family: foo; }
+			</style>
+
+			<child-component>
+				<::shadow>
+					<style>
+						@font-face {
+							font-family: foo;
+							src: url(https://example.com/inner.woff);
+						}
+					</style>
+
+					<grandchild-component>
+						<::shadow>
+							<p class=inner-default>
+								I'm inheriting the outer document's "foo" font.
+							</p>
+							<p class=inner-search>
+								And I can't find a local "foo" font,
+								so I'm searching further up the tree,
+								and find the shadow's "foo" font.
+							</p>
+							<style>
+							.inner-search { font-family: foo; }
+							</style>
+						</::shadow>
+					</grandchild-component>
+				</::shadow>
+			</child-component>
+		</xmp>
+
+		Here, just as in the previous example,
+		''.inner-default'' is inheriting the ''font-family: foo'' declared in the outer document,
+		and so it ends up referencing the outer document's ''@font-face'',
+		and is rendered with the "outer.woff" file.
+
+		On the other hand,
+		''.inner-search'' recieves its style from a stylesheet in <code>&lt;grandchild-component></code>'s shadow tree,
+		so it attempts to find a ''@font-face'' defining a ''foo'' font in that tree.
+		There is no such ''@font-face'',
+		so it starts walking up the shadow trees,
+		finding an appropriate ''@font-face'' in <code>&lt;child-component></code>,
+		so it's rendered with the "inner.woff" file.
+	</div>
+
 <h4 id='shadow-names-serialization'>
 Serialized Tree-Scoped References</h4>
 
-	If a [=tree-scoped reference=] is [=serialized=],
+	If a [=tree-scoped reference=] is serialized,
 	it serializes only its value;
 	the associated [=root=] is lost.
 
@@ -618,7 +742,7 @@ Serialized Tree-Scoped References</h4>
 					font-family: foo;
 					src: url(foo.woff);
 				}
-				.outer { font-family: foo; }
+				body { font-family: foo; }
 			</style>
 
 			<my-component>
