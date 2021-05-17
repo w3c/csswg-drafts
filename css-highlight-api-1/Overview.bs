@@ -103,7 +103,7 @@ Introduction</h2>
 			r.setStart(document.body, 0);
 			r.setEnd(document.body, 2);
 
-			CSS.highlights.add(new Highlight("example-highlight", r));
+			CSS.highlights.set("example-highlight", new Highlight(r));
 			</script>
 		</xmp>
 
@@ -139,7 +139,7 @@ Setting up Custom Highlights</h2>
 <h3 id=creation>
 Creating Custom Highlights</h3>
 
-	A <dfn>custom highlight</dfn> is a named collection of [=ranges=]
+	A <dfn>custom highlight</dfn> is a collection of [=ranges=]
 	representing portions of a document.
 	They do not necessarily fit into the element tree,
 	and can arbitrarily cross element boundaries without honoring its nesting structure.
@@ -160,35 +160,24 @@ Creating Custom Highlights</h3>
 	authors can chose between using {{Range}} objects and {{StaticRange}} objects.
 	See [[#range-invalidation]] for more details about this choice and its implications.
 
-	The <dfn for="custom highlight">name</dfn> of a [=custom highlight=]
-	is represented by its {{Highlight/name}} attribute,
-	which must be a valid <<ident-token>>.
-
 	<xmp class="idl">
 	[Exposed=Window]
 	interface Highlight {
-		constructor(CSSOMString name, AbstractRange... initialRanges);
+		constructor(AbstractRange... initialRanges);
 		setlike<AbstractRange>;
-		attribute double priority;
-		readonly attribute CSSOMString name;
+		attribute long priority;
 	};
 	</xmp>
 
 	See [[#priorities]] for more information on the {{Highlight/priority}} attribute.
 
 	<div algorithm="to create a custom highlight">
-		When the <dfn for=Highlight constructor>Highlight(CSSOMString name, AbstractRange... initialRanges)</dfn> constructor is invoked,
+		When the <dfn for=Highlight constructor>Highlight(AbstractRange... initialRanges)</dfn> constructor is invoked,
 		run the following steps:
 
 		<ol>
 			<li>
 				Let |highlight| be the new {{Highlight}} object.
-			<li>
-				If {{name!!argument}} does not [=CSS/parse=] as an <<ident-token>>, then [=throw=] a {{"SyntaxError"}}.
-			<li>
-				Let |nameArg| be the result of [=converted to an ECMAScript value|converting=] {{name!!argument}} to an ECMAScript value.
-			<li>
-				Set |highlight|'s {{Highlight/name}} to |nameArg|
 			<li>
 				Set |highlight|'s {{Highlight/priority}} to <code>0</code>.
 			<li>
@@ -206,13 +195,13 @@ Creating Custom Highlights</h3>
 Registering Custom Highlights</h3>
 
 	In order to have any effect,
-	[=custom highlights=] then needs to be
-	[=registered=] it into the [=highlight registry=].
+	[=custom highlights=] need to be
+	[=registered=] into the [=highlight registry=].
 
 	The <dfn>highlight registry</dfn> is accessed via the {{CSS/highlights}} attribute of the {{CSS}} namespace,
 	and represents all the [=custom highlights=] [=registered=] for the [=current global object=]’s [=associated Document=].
-	It is a [=setlike=], and can be updated using the usual methods.
-	It's [=set entries=] is initially empty.
+	It is a [=maplike=], and can be updated using the usual methods.
+	It's [=map entries=] is initially empty.
 
 	A [=custom highlight=] is said to be <dfn>registered</dfn>
 	if it is in the [=highlight registry=].
@@ -225,26 +214,57 @@ Registering Custom Highlights</h3>
 
 	[Exposed=Window]
 	interface HighlightRegistry {
-		setlike<Highlight>;
-		HighlightRegistry add(Highlight value);
+		maplike<DOMString, Highlight>;
 	};
 	</xmp>
 
 	<div algorithm="to register a custom highlight">
 		To [=register=] a [=custom highlight=],
-		invoke the {{HighlightRegistry/add()}} of the [=highlight registry=]
-		with the [=custom highlight=] as the argument.
+		invoke the <code>set</code> method of the [=highlight registry=]
+		which will run [[webidl#es-map-set|the steps for a built-in maplike set function]],
+		with the [=context object=] as the <code>this</code> value,
+		the passed-in [=custom highlight name=] as |keyArg|,
+		and the passed-in highlight as |valueArg|.
 
-		When invoked,
-		the <dfn method for=HighlightRegistry>add(Highlight value)</dfn> method must run these steps:
+		The <dfn>custom highlight name</dfn> assigned to a [=custom highlight=] when it is [=registered=]
+		is used to identify the highlight during styling (see [[#styling-highlights]]).
 
-		1. If there is already a [=set entry=] with the same {{Highlight/name}} as the {{Highlight/name}} of {{value}},
-			then [=throw=] an {{"OperationError"}}.
-		3. Let |valueArg| be the result of [=converted to an ECMAScript value|converting=] {{value}} to an ECMAScript value.
-		4. Let |result| be the result of running [[webidl#es-add-delete|the steps for a built-in setlike add function]],
-			with the [=context object=] as the <code>this</code> value
-			and with |valueArg| as the argument.
-		5. Return |result|.
+	Note: When registering a [=custom highlight=], authors are recommended to use a
+	[=custom highlight name=] that is a valid CSS [=identifier=]. Using a name that is not a valid
+	identifier can make the highlight hard, and in some cases impossible, to style via CSS.
+
+	Note: It is possible to [=register=] a [=custom highlight=] with more than one [=custom highlight name=].
+	However, using more than one name to style a highlight will assign the highlight multiple different sets
+	of styles, without a way to control the stacking order of conflicting styles within these sets
+	during [[#painting|painting]]. This may be limiting for authors and may cause confusing painting behavior
+	(see the [[#styling-problems-with-multiple-names-per-highlight|example]] below for more context). Therefore,
+	<b>it is recommended that authors only use one name per highlight during styling</b>.
+	<div class=example id=styling-problems-with-multiple-names-per-highlight>
+		<xmp highlight=html>
+			<style>
+			div::highlight(bar) {
+				color: red;
+			}
+			div::highlight(foo) {
+				color: green;
+			}
+			</style>
+			<body><div>abc</div>
+			<script>
+			let r = new Range();
+			r.setStart(div, 0);
+			r.setEnd(div, 1);
+			let h = new Highlight(r);
+			CSS.highlights.set('foo', h);
+			CSS.highlights.set('bar', h);
+			</script>
+		</xmp>
+		In the example above, the same [=custom highlight=] object is [=registered=] under the names 'foo' and 'bar'.
+		Since each of the [=style rules=] target the same highlight and have the same [=specificity=], authors may
+		expect the last rule to win in cascading order and the highlighted content to be green. However, each highlight
+		name gets an independent set of highlight styles, and the highlight will be painted once per name. In
+		this case, because 'foo' was registered before 'bar', the highlight will be first painted with 'foo''s
+		color (green) and then with 'bar''s color (red). As a result, the highlighted content will appear red.
 	</div>
 
 <h2 id=styling-highlights>
@@ -253,14 +273,14 @@ Styling Custom Highlights</h2>
 <h3 id=custom-highlight-pseudo>
 The Custom Highlight Pseudo-element: ''::highlight()''</h3>
 
-	The <dfn>::highlight(<<highlight-name>>)</dfn> pseudo-element
+	The <dfn>::highlight(<<custom-highlight-name>>)</dfn> pseudo-element
 	(also known as the <dfn>custom highlight pseudo-element</dfn>)
 	represents the portion of a document that
 	is being [=contained=] or [=partially contained=]
 	in all the [=ranges=] of the [=registered=] [=custom highlight=]
-	with the [=custom highlight/name=] <<highlight-name>>,
+	with the [=custom highlight name=] <<custom-highlight-name>>,
 	if any.
-	<dfn type><<highlight-name>></dfn> must be a valid CSS <<ident-token>>.
+	<dfn type><<custom-highlight-name>></dfn> must be a valid CSS <<ident-token>>.
 
 
 <h3 id=processing-model>
@@ -318,7 +338,7 @@ Painting</h4>
 						r2.setStart(textNode, 3);
 						r2.setEnd(textNode, 7);
 
-						CSS.highlights.add(new Highlight("sample", r1, r2));
+						CSS.highlights.set("sample", new Highlight(r1, r2));
 					</script>
 				</xmp>
 
@@ -335,7 +355,7 @@ Painting</h4>
 
 		<li>
 			The [=highlight overlays=] of the [=custom highlights=]
-			are above those of the built-in [=highlight pseudo-elements=]
+			are below those of the built-in [=highlight pseudo-elements=]
 			in the stacking order described in [[css-pseudo-4#highlight-painting]].
 
 		<li>
@@ -353,30 +373,11 @@ Priority of Overlapping Highlights</h4>
 	This is used to determine the stacking order of the corresponding [=highlight overlay=]
 	during painting operations (see [[#painting]]).
 	A higher [=priority=] results in being above in the stacking order.
+	A custom highlight will have a default numerical priority of 0
+	if its {{Highlight/priority}} attribute has not been explicitly set.
 
-	When two ore more [=custom highlights=] have the same numerical priority,
+	When two or more [=custom highlights=] have the same numerical priority,
 	the one most recently [=registered=] has the higher effective [=priority=].
-
-	Issue(4593): should negative numbers mean stacking
-	below the built-in [=highlight pseudo-elements=]?
-
-	Issue(4592): Should priority be an (unsigned) integer instead?
-	That would make comparisons more reliable,
-	but would likely lead to numbering reminiscent of BASIC line numbers.
-
-	Issue(4591): Should we drop priority by numbers entirely,
-	and replace it with some other ordering mechanism?
-	Experience with BASIC line number or z-index
-	does not give much confidence that ordering by number is a good idea.
-	Is placing in an ordered data-structure better?
-	Should authors be able to express a desired to be placed above/below
-	other named highlights,
-	and let the UA figure it out?
-
-	Issue(4594): Should the built-in [=highlight pseudo-elements=]
-	be exposed as well,
-	so that they too can be reordered,
-	and so that they can be interleaved with custom ones freely?
 
 	<div class=example id=overlap-highlight-ex>
 		<xmp highlight=html>
@@ -436,11 +437,11 @@ Repaints</h3>
 
 	The addition or removal
 	of a [=custom highlight=] in the [=highlight registry=],
-	or of a [=range=] in a [registered=] [=custom highlight=],
-	must cause the User Agent to reevaluate the rendering,
+	or of a [=range=] in a [=registered=] [=custom highlight=],
+	must cause the user agent to reevaluate the rendering,
 	and to repaint if appropriate.
 
-	The User Agent must also repaint highlights as needed
+	The user agent must also repaint highlights as needed
 	in response to changes by the author
 	to the {{Highlight/priority}},
 	or to the [=boundary points=] of {{Range}}s
@@ -459,14 +460,14 @@ Range Updating and Invalidation</h3>
 	in case the underlying document is modified.
 
 	{{Range}}s are [=live ranges=].
-	The User Agent will adjust the [=boundary points=] of {{Range}}s
+	The user agent will adjust the [=boundary points=] of {{Range}}s
 	in response to DOM changes overlapping the range or at its boundary,
 	and [[#repaint|repaint]] accordingly.
 	[=Boundary points=] of [=live ranges=] can also be changed
 	by the author.
 
 	On the other hand,
-	the User Agent must not adjust the [=boundary points=] of {{StaticRange}}s
+	the user agent must not adjust the [=boundary points=] of {{StaticRange}}s
 	in response to DOM changes,
 	nor can they be modified by the author after creation.
 
@@ -488,13 +489,13 @@ Range Updating and Invalidation</h3>
 	if [=start node=] or [=end node=] of any [=range=]
 	in the [=highlight regsitry=]
 	refer to a {{Node}} which is no longer [=in a document tree=],
-	the User Agent must ignored that [=range=].
+	the user agent must ignore that [=range=].
 	If the [=start offset=] or [=end offset=] of any [=range=]
 	are greater than the corresponding node’s <a spec=dom>length</a>,
-	The User Agent must behave as if it was equal to that <a spec=dom>length</a>.
+	The user agent must behave as if it was equal to that <a spec=dom>length</a>.
 
 	Issue(4597): As far as I am aware,
-	prior uses of {{StaticRange}}s were for [=ranges=] created by the User Agent
+	prior uses of {{StaticRange}}s were for [=ranges=] created by the user agent
 	and passed to the author.
 	Here, it's the other way around,
 	which raises (for the first time?)

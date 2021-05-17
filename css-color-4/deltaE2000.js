@@ -31,7 +31,7 @@ function deltaE2000 (reference, sample) {
 	let G = 0.5 * (1 - Math.sqrt(C7/(C7+Gfactor)));
 
 	// scale a axes by asymmetry factor
-	// this by the way is why there is no Lab2000 colorspace
+	// this by the way is why there is no Lab2000 color space
 	let adash1 = (1 + G) * a1;
 	let adash2 = (1 + G) * a2;
 
@@ -67,7 +67,7 @@ function deltaE2000 (reference, sample) {
 	let habs = Math.abs(hdiff);
 	let Δh;
 
-	if (Cdash1 == 0 && Cdash2 == 0) {
+	if (Cdash1 * Cdash2 === 0) {
 		Δh = 0;
 	}
 	else if (habs <= 180) {
