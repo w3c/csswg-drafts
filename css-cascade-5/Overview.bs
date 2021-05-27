@@ -127,7 +127,7 @@ Importing Style Sheets: the ''@import'' rule</h2>
 
 	<pre class='prod'>
 		@import [ <<url>> | <<string>> ]
-		        [ layer | layer(<<layer-ident>>) ]?
+		        [ layer | layer(<<layer-name>>) ]?
 		        [ supports( [ <<supports-condition>> | <<declaration>> ] ) ]?
 		        <<media-query-list>>? ;</pre>
 
@@ -1179,6 +1179,9 @@ Cascade Layers</h3>
 	between user and author styles,
 	<dfn export local-lt="layer">cascade layers</dfn> provide a structured way
 	to organize and balance concerns within a single origin.
+	Rules within a single [=cascade layer=] cascade together,
+	without interleaving with style rules outside the layer.
+
 	Authors can create layers to represent element defaults,
 	third-party libraries, themes, components,
 	overrides, and other styling concerns--
@@ -1210,54 +1213,43 @@ Cascade Layers</h3>
 		and come first in the source order.
 	</div>
 
-<h4 id="at-layer">
-Declaring Cascade Layers: the ''@layer'' rule</h4>
+<h4 id="layer-declaration">
+Declaring Cascade Layers</h4>
 
-	The <dfn at-rule id="at-ruledef-layer">@layer</dfn> rule
-	defines an explicit [=cascade layer=], with the option to assign style rules.
+	Cascade layers can be declared:
 
-	The block layer-assignment syntax is:
+	* using an ''@import'' rule with the ''layer'' keyword or ''layer()'' function,
+		assigning the contents of the imported file into that layer.
+	* using a [[#layer-block|@layer block at-rule]],
+		assigning its child style rules into that layer.
+	* using a [[#layer-empty|@layer statement at-rule]],
+		declaring a named layer without assigning any rules.
 
-	<pre class='prod'>
-		@layer <<layer-ident>>? {
-		  <<stylesheet>>
-		}
-	</pre>
+	Issue(w3c/csswg-drafts#5853): Provide an attribute for assigning link or style elements to cascade layers?
 
-	Such ''@layer'' block rules have the same restrictions and processing
-	as a [=conditional group rule=] [[CSS-CONDITIONAL-3]]
-	with a true condition.
+<h4 id=layer-names>
+Layer Naming and Nesting</h4>
 
-	The optional <dfn for='@layer'><<layer-ident>></dfn>
-	is a [=CSS identifier=] (<<ident>>)
-	that represents its <dfn>layer name</dfn>.
-	If the [=layer name=] matches that of a [=cascade layer=]
-	already defined within this [=origin=] and [=context=]
-	(and the same [=layer=] scope, see [[#nested-layers]]),
-	then its style rules are assigned to that same [=cascade layer=].
-	Otherwise, or if no <<layer-ident>> is provided,
-	a new [=cascade layer=] is created.
+	A [=cascade layer=] has a <dfn>layer name</dfn>,
+	which is an ordered list representing each level of layer nesting,
+	each segment of which can be named (as a [=CSS identifier=])
+	or anonymous.
+	(Thus, when a layer is nested inside of another layer,
+	this concatenates their names.)
+	One layer is nested in another
+	when it is declared within the scope of another layer,
+	e.g. an ''@layer'' rule inside another ''@layer'',
+	a layered ''@import'' inside a layered import,
+	or an ''@layer'' rule inside a layered import.
 
-	Note: Layer name matching does not cross the shadow DOM boundary,
-	so the ordering of layers in the light DOM has no impact
-	on the order of identically-named layers in the shadow DOM.
-
-	The ''@layer'' rule can also be used to define new layers
-	without assigning any style rules, by providing only a [=layer name=]:
-
-	<pre class='prod'>
-		@layer <<layer-ident>>#;
-	</pre>
-
-	Such empty ''@layer'' are allowed
-	anywhere either ''@import'' or other ''@layer'' rules are allowed.
-
-	Issue(w3c/csswg-drafts#5853): Provide an attribute for assigning link or style elements to cascade layers
+	[=Layer names=] represent the same [=cascade layer=]
+	if they contain the same segments in the same order;
+	however anonymous segments have unique identities for each occurrence.
+	Note that nesting can cause multiple layers to share the same anonymous segment.
 
 	<div class="example">
-		Layer identifiers are optional,
-		but provide a way to apply multiple style blocks
-		to a single layer.
+		Explicit layer identifiers provide a way
+		to assign multiple style blocks to a single layer.
 		In the following example,
 		the contents of <code>headings.css</code> and <code>links.css</code>
 		are cascaded within the same layer as the <code>audio[controls]</code> rule:
@@ -1275,62 +1267,17 @@ Declaring Cascade Layers: the ''@layer'' rule</h4>
 	</div>
 
 	<div class="example">
-		The identifier-only syntax
-		allows establishing a layer order in advance,
-		regardless of the order in which style rules are added to each layer.
-
 		In this example,
-		the imported <code>theme.css</code> style rules will override
-		any rules added in the later <css>default</css> block
-		since the order of layers has already been established.
+		the nested ''framework.base'' layer is distinct
+		from the top-level ''base'' layer:
 
 		<pre class='lang-css'>
-			@layer default;
-			@layer theme;
-			@layer components;
-
-			@import url(theme.css) layer(theme);
-
-			@layer default {
-			  audio[controls] {
-			    display: block;
-			  }
-			}
-		</pre>
-
-		It can also be written with the comma-separated syntax as:
-
-		<pre class='lang-css'>
-			@layer default, theme, components;
-
-			@import url(theme.css) layer(theme);
-
-			@layer default {
-			  audio[controls] {
-			    display: block;
-			  }
-			}
-		</pre>
-	</div>
-
-<h5 id="nested-layers" class="no-toc">
-Nested Layers</h5>
-
-	When ''@layer'' rules are nested,
-	[=layer names=] are scoped to their parent layer.
-
-	<div class="example">
-		In this example,
-		the nested ''framework default'' layer is distinct
-		from the top-level ''default'' layer:
-
-		<pre class='lang-css'>
-			@layer default {
+			@layer base {
 			  p { max-width: 70ch; }
 			}
 
 			@layer framework {
-			  @layer default {
+			  @layer base {
 			    p { margin-block: 0.75em; }
 			  }
 
@@ -1342,24 +1289,29 @@ Nested Layers</h5>
 
 		The resulting layers can be represented as a tree:
 
-		1. default
-		2. framework
-			1. default
-			2. theme
+		1. ''base''
+		2. ''framework''
+			1. ''base''
+			2. ''theme''
 
 		or as a flat list with nested identifiers:
 
-		1. default
-		2. framework default
-		3. framework theme
-
+		1. ''base''
+		2. ''framework.base''
+		3. ''framework.theme''
 	</div>
 
-	It is not possible for nested layers
-	to reference a [=layer name=] in an outer layer’s scope,
-	but it is possible to reference nested layers
-	from an outer scope,
-	by combining identifiers with a full stop (. U+002E) character.
+	Syntactically, an explicit [=layer name=] is represented
+	by the <<layer-name>> in ''@layer'' and ''@import'' rules,
+	which is a period-separated list of <<ident>> tokens
+	with no intervening white space:
+
+	<pre class='prod'>
+		<dfn><<layer-name>></dfn> = <<ident>> [ '.' <<ident>> ]*
+	</pre>
+
+	When multiple identifiers are concatenated with a period,
+	this is a shorthand representing those layers nested in order.
 
 	<div class="example">
 		<pre class='lang-css'>
@@ -1380,57 +1332,64 @@ Nested Layers</h5>
 		</pre>
 	</div>
 
-	This syntax is provided as a shorthand for defining nested layers,
-	and has the same effect as declaring each [=layer name=]
-	inside nested ''@layer'' rules.
+	Note: A nested layer cannot “escape” its parent layer
+	to reference layers outside itself.
+
+<h5 id="unnamed-layers">
+Anonymous Layers</h5>
+
+	When a ''@layer'' rule omits its <<layer-name>>,
+	or an ''@import'' rule uses the ''layer'' keyword (which does not provide a <<layer-name>>),
+	its [=layer name=] gains a unique anonymous segment;
+	it therefore cannot be referenced from the outside.
 
 	<div class="example">
-		That means the shorthand syntax can also be used in defining new layers,
-		and establishing layer order.
+		Each occurrence of an anonymous layer declaration
+		represents a unique cascade layer,
+		thus:
 
-		The following example defines <css>framework.theme</css> before <css>framework.default</css>:
+		* Multiple unnamed layer rules
+			place their styles into separate layers,
+			as each occurence is referencing a distinct anonymous layer name.
 
-		<pre class='lang-css'>
-			@layer framework.theme {
-			  blockquote { color: rebeccapurple; }
+			<pre class=lang-css>
+			@layer { /* layer 1 */ }
+			@layer { /* layer 2 */ }
+			</pre>
+
+		* Within a single unnamed layer,
+			child layers with the same name refer to the same cascade layer,
+			because they share the same anonymous parent layer.
+
+			<pre class=lang-css>
+			@layer {
+				@layer foo { /* layer 1 */ }
+				@layer foo { /* also layer 1 */ }
 			}
+			</pre>
 
-			@layer framework {
-			  @layer default {
-			     p { margin-block: 0.75em; }
-			  }
+		* Whereas in separate unnamed layers,
+			child layers with the same name refer to different cascade layers,
+			because they have distinct anonymous parent layers.
 
-			  @layer theme {
-			    p { color: #222; }
-			  }
+			<pre class=lang-css>
+			@layer {
+				@layer foo { /* layer 1 */ }
 			}
-		</pre>
-
-		The <css>framework.theme</css> shorthand is purely syntax sugar for the following longhand:
-
-		<pre class='lang-css'>
-			@layer framework {
-			  @layer theme {
-			    blockquote { color: rebeccapurple; }
-			  }
+			@layer {
+				@layer foo { /* layer 2 */ }
 			}
-		</pre>
+			</pre>
 	</div>
 
-	Issue(w3c/csswg-drafts#5791): What is the appropriate syntax for appending to nested layers?
-
-<h5 id="unnamed-layers" class="no-toc">
-Un-Named Layers</h5>
-
-	<div class="example">
-		A layer declared without a [=layer name=]
+	<div class=example>
+		A layer declared without a <<layer-name>>
 		does not provide any external hook for re-arranging or adding styles.
 
-		In most use-cases this would only be syntax-sugar for brevity --
-		relying on well-organized source-order rather than any explicit names.
-		However, it could be used by teams as a way to "force" an organizing convention
-		(all layer code must be defined in one place),
-		or by libraries wanting to merge & hide a set of internal "private" layers
+		While this can be a mere convenience for brevity,
+		it can also be used by teams as a way to force an organizing convention
+		(all code in that layer must be defined in the same place),
+		or by libraries wanting to merge & hide a set of internal “private” layers
 		that they don't want exposed to author manipulation:
 
 		<pre class='lang-css'>
@@ -1439,16 +1398,177 @@ Un-Named Layers</h5>
 			@import url(base-forms.css) layer;
 			@import url(base-links.css) layer;
 			@import url(base-headings.css) layer;
-
+		</pre>
+		<pre class=lang-css>
 			/* bootstrap.css */
 			/* the internal names are hidden from access, subsumed in "base" */
 			@import url(bootstrap-base.css) layer(base);
-
+		</pre>
+		<pre class=lang-css>
 			/* author.css */
 			/* author has access to bootstrap.base layer, but not into unnamed layers */
 			@import url(bootstrap.css) layer(bootstrap);
+
+			/* Adds additional styles to the bootstrap layer: */
+			@layer bootstrap {...}
 		</pre>
 	</div>
+
+
+<h4 id="layer-ordering">
+Layer Ordering</h4>
+
+	Cascade layers are sorted
+	by the order in which they first are declared,
+	with nested layers grouped within their parent layers
+	before any unlayered rules.
+
+	<div class="example">
+		Given the following layer rules:
+
+		<pre class='lang-css'>
+			@layer framework.default {
+			  strong { font-weight: bold; }
+			}
+
+			@layer utilities {
+			  [hidden] { display: none; }
+			}
+
+			@layer framework {
+			  .title { font-weight: 100; }
+
+			  @layer theme {
+			    h1, h2 { color: maroon; }
+			  }
+			}
+		</pre>
+
+		The outer layers are sorted first:
+
+		1. ''framework''
+		2. ''utilities''
+
+		Within each layer,
+		nested layers are sorted in appearance order,
+		and style rules without further nesting
+		are added to an implicit sub-layer which
+		takes priority over (comes after) explicitly nested layers:
+
+		1. ''framework.default''
+		2. ''framework.theme''
+		3. ''framework'' (implicit sub-layer)
+		4. ''utilities''
+	</div>
+
+	Note: [=Cascade layers=] are scoped to their [=origin=] and [=context=],
+	so the ordering of layers in the light DOM has no impact
+	on the order of identically-named layers in the shadow DOM
+	(and vice versa).
+
+<h4 id="at-layer">
+Declaring Layers Inline: the ''@layer'' rule</h4>
+
+	The <dfn at-rule id="at-ruledef-layer">@layer</dfn> rule
+	declares a [=cascade layer=], with the option to assign style rules.
+
+<h5 id="layer-block">
+Assigning Styles Inline: the ''@layer'' block at-rule</h5>
+
+	The ''@layer'' [=block at-rule=]
+	assigns its child style rules to a particular named [=cascade layer=].
+	This block layer-assignment syntax is:
+
+	<pre class='prod'>
+		@layer <<layer-name>>? {
+			<<stylesheet>>
+		}
+	</pre>
+
+	Such ''@layer'' block rules have the same restrictions and processing
+	as a [=conditional group rule=] [[CSS-CONDITIONAL-3]]
+	with a true condition.
+
+	<div class=example>
+		For example, ''@layer'' and ''@media'' can be mixed:
+
+		<pre class=lang-css>
+		@layer framework {
+			h1, h2 { color: maroon; background: white;}
+
+			@media (prefers-color-scheme: dark) {
+				h1, h2 { color: red; background: black; }
+			}
+		}
+		</pre>
+	</div>
+
+	Note: ''@layer'' [=block at-rules=] cannot be interleaved with ''@import'' rules.
+
+<h5 id="layer-empty">
+Declaring Without Styles: the ''@layer'' statement at-rule</h5>
+
+	The ''@layer'' rule can also be used to define new layers
+	without assigning any style rules, by providing only the [=layer name=]:
+
+	<pre class='prod'>
+		@layer <<layer-name>>#;
+	</pre>
+
+	Such empty ''@layer'' rules are allowed
+	anywhere either ''@import'' or other ''@layer'' rules are allowed.
+
+	Unlike the [[#layer-block|block syntax]],
+	multiple comma-separated layer names can be provided in this syntax,
+	declaring each of the layers in the order specified.
+
+	Note: Since layer ordering is defined by first occurence of the layer name
+	(see [[#layer-ordering]]),
+	this rule allows a page to declare the order of its layers up front,
+	so that their order is apparent without having to read the entire style sheet.
+	It also allows inline layers to be interleaved with imported layers,
+	which is not possible with the [[#layer-block|block syntax]].
+
+	<div class="example">
+		The statement syntax
+		allows establishing a layer order in advance,
+		regardless of the order in which style rules are added to each layer.
+
+		In this example,
+		the imported <code>theme.css</code> style rules will override
+		any rules added in the later <css>default</css> block
+		since the order of layers has already been established.
+
+		<pre class='lang-css'>
+			@layer default;
+			@import url(theme.css) layer(theme);
+			@layer components;
+
+			@layer default {
+			  audio[controls] {
+			    display: block;
+			  }
+			}
+		</pre>
+
+		It can also be written with the comma-separated syntax as:
+
+		<pre class='lang-css'>
+			@layer default, theme, components;
+			@import url(theme.css) layer(theme);
+
+			@layer default {
+			  audio[controls] {
+			    display: block;
+			  }
+			}
+		</pre>
+	</div>
+
+
+
+
+
 
 <h3 id="preshint">
 Precedence of Non-CSS Presentational Hints</h3>
