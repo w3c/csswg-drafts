@@ -144,9 +144,48 @@ Along with the following updated description:
 </div>
 
 
+<h3 id="timelines">Timelines</h3>
+
+Add:
+
+> The <dfn lt="timeline duration">duration</dfn> of a timeline gives the
+> maximum value a timeline may generate for its current time. This value is
+> used to calculate the [=intrinsic iteration duration=] for the target effect
+> of an animation that is associated with the timeline when the effect's
+> [=iteration duration=] is 'auto'. The value is computed such that the effect
+> fills the available time.  For a monotonic timeline, there is no upper bound
+> on current time, and [=timeline duration=] is unresolved. For a progress based
+> timeline, the [=timeline duration=] is 100%.
+
 <h3 id="animations">Animations</h3>
 
-<div class="informative-bg"><em>This section is non-normative</em>
+Add:
+
+> Animation effects associated with a progress-based timeline require their
+> timing properties to be converted to proportions. The procedure for converting
+> a <dfn lt="time-based animation to a proportional animation"></dnf> is as
+> follows:
+>
+> 1.  If the [=iteration duration=] is auto, then perform the following steps.
+>
+>     1.   Compute [=start delay=] and [=end delay=] to 0, as it is not possible
+>          to mix time and proportions. Future versions may allow these properties
+>          to be assigned percentages.
+>
+> 1.  Otherwise,
+>
+> 1.  Let <var>total time</var> be equal to the result of evaluating
+>     <code>|start delay| + |iteration count| * |iteration duration| +
+>     |end delay|</code>.
+>
+> 1.  Compute [=start delay=] to be the result of evaluating
+>     <code>|start delay| / |total time| * |timeline duration|</code>.
+>
+> 1.  Compute [=iteration duration=] to be the result of evaluating
+>     <code>|iteration duration| / |total time| * |timeline duration|</code>.
+>
+> 1.  Compute [=end delay=] to be the result of evaluating
+>     <code>|end delay| / |total time| * |timeline duration|</code>.
 
 <h4 id="setting-the-timeline">Setting the timeline of an animation</h4>
 
@@ -944,13 +983,24 @@ Add:
 
 >     The initial <a>iteration duration</a> of an animation effect is simply its
 >     <a>intrinsic iteration duration</a>.
+>     The <dfn>intrinsic iteration duration</dfn> is calculated from the first
+>     matching condition from below:
 >
->     The <dfn>intrinsic iteration duration</dfn> of an animation effect is
->     zero, however some specific types of animation effect such as
->     <a>group effects</a> override this behavior and provide an
->     alternative intrinsic duration (see
->     [[#the-intrinsic-iteration-duration-of-a-group-effect]] and
->     [[#the-intrinsic-iteration-duration-of-a-sequence-effect]]).
+> <div class="switch">
+> :   If the animation effect is a <a>group effect</a>,
+> ::  Follow the procedure in
+>     [[#the-intrinsic-iteration-duration-of-a-group-effect]]
+>
+> :   If the animation effect is a <a>sequence effect</a>,
+> ::  Follow the procedure in
+>     [[#the-intrinsic-iteration-duration-of-a-sequence-effect]]
+>
+> :   If [=timeline duration=] is unresolved,
+> ::  Return 0
+>
+> :   Otherwise
+> ::  Return  [=timeline duration=] / <a>iteration count</a>
+> </div>
 >
 >     The <a>iteration duration</a> of an <a>animation effect</a> may be set
 >     by the author to represent a value other than the <a>intrinsic
@@ -1886,9 +1936,17 @@ Items sorted earlier are executed before those sorted later.
 <pre class="idl">
 [Exposed=Window]
 partial interface AnimationTimeline {
+    readonly attribute CSSNumberish? duration;
     Animation play (optional AnimationEffect? effect = null);
 };
 </pre>
+
+<div class='attributes'>
+
+:   <dfn attribute for=AnimationTimeline>duration</dfn>
+::  Returns the <a lt="timeline duration">duration</a> for this timeline.
+
+</div>
 
 <div class='methods'>
 
@@ -2054,6 +2112,10 @@ partial dictionary OptionalEffectTiming {
     > The <a>start delay</a> which represents the number of milliseconds from an
     > <a>animation effect</a>'s <a lt="animation effect start time">start
     > time</a> to the start of the <a>active interval</a>.
+    > If the <a lt="timeline duration">duration</dfn> of the Animation's
+    > <a>timeline</a> is a percentage, the start delay will be treated as the
+    > result of applying the procedure to convert a
+    > [=time-based animation to a proportional animation=].
 
 :   <dfn>endDelay</dfn>
 ::  Update the description as:
@@ -2063,11 +2125,20 @@ partial dictionary OptionalEffectTiming {
     > until the <a lt='animation effect start time'>start time</a> of any
     > <a>animation effect</a> that may
     > follow, for example, in a <a>sequence effect</a>.
+    > If the <a lt="timeline duration">duration</dfn> of the Animation's
+    > <a>timeline</a> is a percentage, the end delay will be treated as the
+    > result of applying the procedure to convert a
+    > [=time-based animation to a proportional animation=].
 
 </div>
 
 :   <dfn>duration</dfn>
 ::  Add:
+
+    > If the <a lt="timeline duration">duration</dfn> of the Animation's
+    > <a>timeline</a> is a percentage, a non <code>auto</code> duration will
+    > be treated as the result of applying the procedure to convert a
+    > [=time-based animation to a proportional animation=].
 
     > The string value <code>auto</code> is used to indicate that the
     > <a>iteration duration</a> reflects the animation effect's
@@ -2086,7 +2157,11 @@ partial dictionary OptionalEffectTiming {
 
 <pre class='idl'>
 partial dictionary ComputedEffectTiming {
-    double startTime;
+    CSSNumberish         startTime;
+    CSSNumberish         endTime;
+    CSSNumberish         activeDuration;
+    CSSNumberish?        localTime;
+    CSSNumberish?        progress;
 };
 </pre>
 
@@ -2094,7 +2169,8 @@ partial dictionary ComputedEffectTiming {
 
 :   <dfn dict-member for=ComputedEffectTiming>startTime</dfn>
 ::  The <a lt='animation effect start time'>start time</a> of this
-    <a>animation effect</a> in milliseconds.
+    <a>animation effect</a> in milliseconds or as a percentage of the
+    [=timeline duration=].
     This is the time at which the <a>parent group</a>, if
     any, has scheduled this child to run within its <a
     lt="transformed time">transformed time space</a>, that is, the
@@ -2110,7 +2186,7 @@ partial dictionary ComputedEffectTiming {
 
     > The <a>end time</a> of the <a>animation effect</a> expressed
     > in milliseconds in <a lt="inherited time">inherited time
-    > space</a>.
+    > space</a> or as a percentage of the [=timeline duration=].
 
     > This corresponds to the end of the <a>animation effect</a>'s active
     > interval plus any <a>end delay</a>.
@@ -2478,8 +2554,8 @@ Replace:
 
 with:
 
->     If the duration is not specified, the <a>intrinsic iteration
->     duration</a> is used which, for a <a>keyframe effect</a>, is zero.
+>     If the duration is not specified, the [=intrinsic iteration duration=] is
+>     used.
 
 Add:
 
