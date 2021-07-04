@@ -857,11 +857,11 @@ const float MB[24][4] = {
     {0.525847, 0.433151, 0.389007, 0.865985}
 };
 int main() {
-    float r,g,b = 0;
-    int i =0;
-    for (i=0; i<24; i++) {
+    float r = 0.0, g = 0.0, b = 0.0;
+    int i;
+    for (i = 0; i < 24; i++) {
         AdobeCMYK_to_sRGB(MB[i][0], MB[i][1], MB[i][2], MB[i][3], r, g, b);
-        printf ("rgb(%f%%,%f%%,%f%%) \n", r*100, g*100, b*100);
+        printf("rgb(%f%%,%f%%,%f%%) \n", r*100, g*100, b*100);
     }
 
 }
