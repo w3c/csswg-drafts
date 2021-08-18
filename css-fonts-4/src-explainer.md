@@ -197,7 +197,7 @@ and also a desire to avoid microsyntaxes which:
 
 > wreak havoc on object models [source](https://github.com/w3c/csswg-drafts/issues/633#issuecomment-372928475)
 
-Thus, it was [resolved](https://github.com/w3c/csswg-drafts/issues/633#issuecomment-380469287)] in 2018 to put the extra "supports" requirements inside the parentheses of the format hint, but without string concatenation.
+Thus, it was [resolved](https://github.com/w3c/csswg-drafts/issues/633#issuecomment-380469287) in 2018 to put the extra "supports" requirements inside the parentheses of the format hint, but without string concatenation.
 
 There was also Issue 6340 [Drop bracket matching step from @font-face src: line parsing](https://github.com/w3c/csswg-drafts/issues/6340), resolved in June 2021,
 about whether to do parenthesis matching before splitting the value of the src descriptor on commas.
