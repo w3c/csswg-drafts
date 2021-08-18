@@ -92,7 +92,7 @@ Useage of WebFonts has taken off,
 from near-zero in 2011
 to 80% of all web sites in 2020.
 
-[!Growth in Web Font usage](https://www.w3.org/TR/2020/NOTE-PFE-evaluation-20201015/images/2020-07-22_Web_Font_Usage.png)
+![Growth in Web Font usage](https://www.w3.org/TR/2020/NOTE-PFE-evaluation-20201015/images/2020-07-22_Web_Font_Usage.png)
 
 This success has enabled the use of fonts on the web
 to be further refined and improved,
@@ -162,7 +162,7 @@ so putting both X and Y in one font increases download size unacceptably.
 All fonts are in "opentype" format,
 so the font format by itself cannot be used to make the choice.
 
-  [!Please work](https://www.w3.org/TR/css-fonts-4/images/please.png)
+  ![Please work](https://www.w3.org/TR/css-fonts-4/images/please.png)
 
 2. A minority language is best supported by Graphite features,
 but Graphite is only implemented in Firefox.
