@@ -1,15 +1,22 @@
 # The @font-face src descriptor
 
+## Authors
+
+* Chris Liley, [@svgeesus](chris@w3.org)
+* Dominik Röttsches, [@drott](drott@chromium.org)
+
 ## Introduction
 
-The @font-face rule is used
+The `@font-face` rule is used
 to automatically download Web Fonts on demand,
 and use them for rendering
 without the user having to install them.
 The fonts are discarded after use,
 and do not become installed fonts.
 
-The src descriptor contains the url of the font to be downloaded, plus additional metadata so that unsuitable or unusable fonts are not wastefully downloaded.
+The `src` descriptor contains the url of the font to be downloaded,
+plus additional metadata so that unsuitable or
+unusable fonts are not wastefully downloaded.
 
 Other descriptors include the font family name,
 the range of font weights supported,
@@ -150,6 +157,12 @@ and that combinatorial explosion would result
 but "opentype-variation-SVG-Graphite" would become
 unweildy and error-prone).
 
+With the upcoming [COLRv1 color font format](https://github.com/googlefonts/colr-gradients-spec/),
+selection of the right font resource and detectability are once again
+important use cases which have been requested by early adopters of COLRv1,
+similar to the need to detect availability and prefer such font resources at the time
+when variable fonts where introduced.
+
 ## Use cases
 
 1. I want to use color fonts,
@@ -170,7 +183,22 @@ For Chrome and Safari, I want to fall back to OpenType features.
 Both fonts are in "opentype" format,
 so again the font format by itself cannot be used to make the choice.
 
+3. I want to know programmatically in my script code what level of font support is available.
+
+Where 3. is in line in line with the TAG design principles, which recommend
+[detectability of a feature](https://w3ctag.github.io/design-principles/#feature-detect).
+
+## Non-Goals
+
+This proposal is not-intended as a server-side content negotiation solution. In
+many cases, third-party font providers currently choose based on User Agent
+which resources they deliver to clients at the time of the request to the
+included CSS. This is a different content negotiation mechanism from what is
+discussed in this proposal.
+
 ## Design constraints & alternative solutions
+
+### Backwards compatibility
 
 The largest constraint is that older browsers must continue
 to sucessfully parse the src descriptor,
@@ -199,29 +227,10 @@ and also a desire to avoid microsyntaxes which:
 
 Thus, it was [resolved](https://github.com/w3c/csswg-drafts/issues/633#issuecomment-380469287) in 2018 to put the extra "supports" requirements inside the parentheses of the format hint, but without string concatenation.
 
+### Strings vs. Keywords
+
 There was also Issue 6340 [Drop bracket matching step from @font-face src: line parsing](https://github.com/w3c/csswg-drafts/issues/6340), resolved in June 2021,
 about whether to do parenthesis matching before splitting the value of the src descriptor on commas.
-
-The use cases mentioned above are then solved
-using [the current syntax](https://drafts.csswg.org/css-fonts-4/#src-desc)
-as follows:
-
-    /* 1. prefer COLRv1, then SVG-in-OpenType, then COLRv0 */
-    @font-face {
-      font-family: jewel;
-      src: url(jewel-v1.woff2) format("woff2" supports COLRv1),
-            url(jewel-svg.woff2) format("woff2" supports SVG),
-            url(jewel-v0.woff2) format("woff2" supports COLRv0),
-            url(boring.ttf) format("woff2");
-    }
-
-    /* 2. prefer Graphite over OpenType layout, if supported */
-    @font-face {
-      font-family: rare;
-      src: url(rare-graphite.otf) format("opentype" supports features(graphite)),
-            url(rare.otf) format("opentype" supports features(opentype)),
-            url(fallback.ttf) format("truetype");
-    }
 
 The original format hints were strings, although limited to a defined set.
 In CSS Fonts 4, either strings or keywords may be used for the format.
@@ -229,3 +238,83 @@ The new font technology specifiers are keywords.
 There is an open Issue 6328 [@font-face src: url() format() keywords vs. strings ambiguous in spec](https://github.com/w3c/csswg-drafts/issues/6328) regarding how to serialize this.
 
 An alternative solution to putting supports inside format is proposed in Issue 6520 [Nesting of @supports inside @font-face](https://github.com/w3c/csswg-drafts/issues/6520).
+
+### Detectability
+
+Detetecting font capabilities of the UA programmatically proves difficult due to
+no direct mapping of font technologies to `CSS.supports()`.
+
+Testing of font capabilities is possible through probing for rendered pixels on
+a 2D canvas and testing for RGB color values, as done in @RoelN's
+[Chromacheck](https://pixelambacht.nl/chromacheck/) tool. However, this is an
+extremely wasteful approach, requiring canvas resources for something that can
+be returned by the UA and detected more efficienlty.
+
+## Proposed Syntax
+
+See
+[4.3.1 Parsing the src descriptor of the CSS Fonts Level 4 spec](https://drafts.csswg.org/css-fonts-4/#font-face-src-parsing)
+
+## Examples
+
+With the introduction of the `supports` part, the use cases 1 and 2 are then solved
+using [the current syntax](https://drafts.csswg.org/css-fonts-4/#src-desc)
+as follows:
+
+### Use Case 1: Color Fonts
+
+
+```CSS
+/* 1. prefer COLRv1, then SVG-in-OpenType, then COLRv0 */
+@font-face {
+  font-family: jewel;
+  src: url(jewel-v1.woff2) format("woff2" supports COLRv1),
+        url(jewel-svg.woff2) format("woff2" supports SVG),
+        url(jewel-v0.woff2) format("woff2" supports COLRv0),
+        url(boring.ttf) format("woff2");
+}
+```
+
+### Use Case 2: Graphite Preference
+
+```CSS
+/* 2. prefer Graphite over OpenType layout, if supported */
+@font-face {
+  font-family: rare;
+  src: url(rare-graphite.otf) format("opentype" supports features(graphite)),
+        url(rare.otf) format("opentype" supports features(opentype)),
+        url(fallback.ttf) format("truetype");
+}
+```
+
+### Use Case 3: Detectability
+
+The wording of the current specification currently reads:
+
+> If a component value is parsed correctly and is of a format and font
+> technology that the UA supports, add it to the list of supported sources. If
+> parsing a component value results in a parsing error or its format or
+> technology are unsupported, do not add it to the list of supported sources.
+
+Using this rule, availability of a particular font technology
+can be programmatically tested for
+by evaluating a `@font-face` rule and
+accessing its result `src:` descriptor value.
+Without downloading any font resources,
+knowledge about technology support can be retrieved.
+
+```HTML
+<style>
+  @font-face {
+    font-family: a;
+    src: url(/FEATURETESTVAR) format(woff2 supports variations);
+  }
+</style>
+<script>
+  window.onload = () => {
+    var variations_supported = document.styleSheets[0].cssRules[0].cssText.includes("FEATURETESTVAR")
+        ? "Variations supported." : "Variations NOT supported.")
+    console.log("Variations supported: " + variations);
+  }
+</script>
+```
