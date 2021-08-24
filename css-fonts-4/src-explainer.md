@@ -2,7 +2,7 @@
 
 ## Authors
 
-* Chris Liley, [@svgeesus](chris@w3.org)
+* Chris Lilley, [@svgeesus](chris@w3.org)
 * Dominik Röttsches, [@drott](drott@chromium.org)
 
 ## Introduction
