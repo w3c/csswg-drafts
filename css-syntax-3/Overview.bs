@@ -2230,6 +2230,31 @@ Parse a declaration</h4>
 		</ol>
 	</div>
 
+<h4 id="parse-style-blocks-contents">
+Parse a style block's contents</h4>
+
+	Note: This algorithm parses the contents of [=style rules=],
+	which need to allow <em>nested</em> style rules
+	and other [=at-rules=].
+	If you don't need nested [=style rules=],
+	such as in ''@page''
+	or in ''@keyframes'' child rules,
+	use [=parse a list of declarations=].
+
+	<div algorithm>
+		To <dfn export>parse a style block's contents</dfn> from |input|:
+
+		<ol>
+			<li>
+				[=Normalize=] |input|,
+				and set |input| to the result.
+
+			<li>
+				<a>Consume a style block's contents</a> from |input|,
+				and return the result.
+		</ol>
+	</div>
+
 <h4 id="parse-list-of-declarations">
 Parse a list of declarations</h4>
 
@@ -2238,6 +2263,10 @@ Parse a list of declarations</h4>
 	as CSS 2.1 does for ''@page''.
 	Unexpected at-rules (which could be all of them, in a given context)
 	are invalid and will be ignored by the consumer.
+
+	Note: This algorithm does not handle nested [=style rules=].
+	If your use requires that,
+	use [=parse a style block's contents=].
 
 	<div algorithm>
 		To <dfn export>parse a list of declarations</dfn> from |input|:
@@ -2482,6 +2511,58 @@ Consume a qualified rule</h4>
 			<a>Reconsume the current input token</a>.
 			<a>Consume a component value</a>.
 			Append the returned value to the qualified rule's prelude.
+	</dl>
+
+
+<h4 id="consume-style-block">
+Consume a style block's contents</h4>
+
+	To <dfn>consume a style block's contents</dfn>:
+
+	Create an initially empty [=list=] of declarations |decls|,
+	and an initially empty [=list=] of rules |rules|.
+
+	Repeatedly consume the <a>next input token</a>:
+
+	<dl>
+		<dt><<whitespace-token>>
+		<dt><<semicolon-token>>
+		<dd>
+			Do nothing.
+
+		<dt><<EOF-token>>
+		<dd>
+			[=list/Extend=] |decls| with |rules|, then return |decls|.
+
+		<dt><<at-keyword-token>>
+		<dd>
+			<a>Reconsume the current input token</a>.
+			<a>Consume an at-rule</a>,
+			and append the result to |rules|.
+
+		<dt><<ident-token>>
+		<dd>
+			Initialize a temporary list initially filled with the <a>current input token</a>.
+			As long as the <a>next input token</a> is anything other than a <<semicolon-token>> or <<EOF-token>>,
+			<a>consume a component value</a> and append it to the temporary list.
+			<a>Consume a declaration</a> from the temporary list.
+			If anything was returned,
+			append it to |decls|.
+
+		<dt><<delim-token>> with a value of "&" (U+0026 AMPERSAND)
+		<dd>
+			[=Reconsume the current input token=].
+			[=Consume a qualified rule=].
+			If anything was returned,
+			append it to |rules|.
+
+		<dt>anything else</dd>
+		<dd>
+			This is a <a>parse error</a>.
+			<a>Reconsume the current input token</a>.
+			As long as the <a>next input token</a> is anything other than a <<semicolon-token>> or <<EOF-token>>,
+			<a>consume a component value</a>
+			and throw away the returned value.
 	</dl>
 
 
@@ -3184,6 +3265,10 @@ Defining Block Contents: the <<declaration-list>>, <<rule-list>>, and <<styleshe
 	Defining the generic grammar of the blocks in terms of tokens is non-trivial,
 	but there are dedicated and unambiguous algorithms defined for parsing this.
 
+	The <dfn>&lt;style-block></dfn> production represents the contents of a [=style rule's=] block.
+	It may only be used in grammars as the sole value in a block,
+	and represents that the contents of the block must be parsed using the <a>consume a style block's contents</a> algorithm.
+
 	The <dfn>&lt;declaration-list></dfn> production represents a list of declarations.
 	It may only be used in grammars as the sole value in a block,
 	and represents that the contents of the block must be parsed using the <a>consume a list of declarations</a> algorithm.
@@ -3196,6 +3281,46 @@ Defining Block Contents: the <<declaration-list>>, <<rule-list>>, and <<styleshe
 	It is identical to <<rule-list>>,
 	except that blocks using it default to accepting all rules
 	that aren't otherwise limited to a particular context.
+
+	<div class=note>
+		All four of these productions are pretty similar to each other,
+		so this table summarizes what they accept
+		and lists some example instances of each:
+
+		<table class=data>
+			<thead>
+				<tr>
+					<td>
+					<th>Allows [=declarations=]
+					<th>Allows [=nested style rules=]
+					<th>Allow arbitrary [=qualified rules=]
+					<th>Allows [=at-rules=]
+					<th>Examples
+			</thead>
+			<tr>
+				<th><<style-block>>
+				<td>✓<td>✓<td>✗<td>✓
+				<td>[=style rules=], ''@nest'', [=nested conditional group rules=]
+			<tr>
+				<th><<declaration-list>>
+				<td>✓<td>✗<td>✗<td>✓
+				<td>''@font'', ''@counter-style'', ''@page'', ''@keyframes'' child rules
+			<tr>
+				<th><<rule-list>>
+				<td>✗<td>✗<td>✓<td>✓
+				<td>''@keyframes'', ''@font-feature-values''
+			<tr>
+				<th><<stylesheet>>
+				<th><<rule-list>>
+				<td>✗<td>✗<td>✓<td>✓
+				<td>[=stylesheets=], non-nested [=conditional group rules=]
+		</table>
+
+		If a given context is <em>only</em> intended to accept [=at-rules=],
+		such as in ''@font-features-values'',
+		it doesn't actually matter which production is used,
+		but <<rule-list>> is preferred for its more straightforward name.
+	</div>
 
 	<div class='example'>
 		For example, the ''@font-face'' rule is defined to have an empty prelude,
@@ -3214,14 +3339,14 @@ Defining Block Contents: the <<declaration-list>>, <<rule-list>>, and <<styleshe
 		<pre>@keyframes <<keyframes-name>> { <<rule-list>> }</pre>
 	</div>
 
-	For rules that use <<declaration-list>>,
+	For rules that use <<style-block>> or <<declaration-list>>,
 	the spec for the rule must define which properties, descriptors, and/or at-rules are valid inside the rule;
 	this may be as simple as saying "The @foo rule accepts the properties/descriptors defined in this specification/section.",
 	and extension specs may simply say "The @foo rule additionally accepts the following properties/descriptors.".
 	Any declarations or at-rules found inside the block that are not defined as valid
 	must be removed from the rule's value.
 
-	Within a <<declaration-list>>,
+	Within a <<style-block>> or <<declaration-list>>,
 	<code>!important</code> is automatically invalid on any descriptors.
 	If the rule accepts properties,
 	the spec for the rule must define whether the properties interact with the cascade,
@@ -3331,7 +3456,8 @@ Style rules</h3>
 
 	A <dfn export>style rule</dfn> is a <a>qualified rule</a>
 	that associates a <a>selector list</a>
-	with a list of property declarations.
+	with a list of property declarations
+	and possibly a list of nested rules.
 	They are also called
 	<a href="https://www.w3.org/TR/CSS2/syndata.html#rule-sets">rule sets</a> in [[CSS2]].
 	CSS Cascading and Inheritance [[CSS-CASCADE-3]] defines how the declarations inside of style rules participate in the cascade.
@@ -3342,11 +3468,15 @@ Style rules</h3>
 	the entire style rule is <a>invalid</a>.
 
 	The content of the qualified rule’s block is parsed as a
-	<a lt="parse a list of declarations">list of declarations</a>.
+	<a lt="parse a style block's contents">style block's contents</a>.
 	Unless defined otherwise by another specification or a future level of this specification,
 	at-rules in that list are <a>invalid</a>
 	and must be ignored.
-	Declaration for an unknown CSS property
+
+	Note: [[CSS-NESTING-1]] defines that ''@nest'' and [=conditional group rules=]
+	are allowed inside of [=style rules=].
+
+	Declarations for an unknown CSS property
 	or whose value does not match the syntax defined by the property are <a>invalid</a>
 	and must be ignored.
 	The validity of the style rule’s contents have no effect on the validity of the style rule itself.
@@ -3354,13 +3484,13 @@ Style rules</h3>
 
 	Note: The names of Custom Properties [[CSS-VARIABLES]] are case-sensitive.
 
-	<a>Qualified rules</a> at the top-level of a CSS stylesheet are style rules.
+	<a>Qualified rules</a> at the top-level of a CSS stylesheet are [=style rules=].
 	Qualified rules in other contexts may or may not be style rules,
 	as defined by the context.
 
 	<p class='example'>
 		For example, qualified rules inside ''@media'' rules [[CSS3-CONDITIONAL]] are style rules,
-		but qualified rules inside ''@keyframes'' rules are not [[CSS3-ANIMATIONS]].
+		but qualified rules inside ''@keyframes'' rules [[CSS3-ANIMATIONS]] are not.
 
 <h3 id="at-rules">
 At-rules</h3>
@@ -3612,6 +3742,10 @@ Changes from the 16 August 2019 Candidate Recommendation</h3>
 	The following substantive changes were made:
 
 	* Added a new [[#parse-comma-list]] algorithm.
+
+	* Added a new [[#parse-style-blocks-contents]] algorithm
+		and a corresponding <<style-block>> production,
+		and defined that [=style rules=] use it.
 
 	The following editorial changes were made:
 
