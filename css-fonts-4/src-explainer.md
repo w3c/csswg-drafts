@@ -95,16 +95,16 @@ in the src descriptor:
            url(example.woff) format("woff");
     }
 
-Useage of WebFonts has taken off,
+Usage of WebFonts has taken off,
 from near-zero in 2011
-to 80% of all web sites in 2020.
+to 80% of all websites in 2020.
 
 ![Growth in Web Font usage](https://www.w3.org/TR/2020/NOTE-PFE-evaluation-20201015/images/2020-07-22_Web_Font_Usage.png)
 
 This success has enabled the use of fonts on the web
 to be further refined and improved,
 but also poses a significant long-tail Web-compatibility issue
-if an changes are made to this src descriptor.
+if any changes are made to this src descriptor.
 
 _Further historical background may be found in the
 introductory sections of the
@@ -117,7 +117,7 @@ These were soon improved by adding vector outlines of the glyphs,
 although sadly with multiple, competing, non-interoperable technologies.
 PostScript™ Type 1 outlines, from Adobe,
 were soon joined by TrueType™ outlines, from Apple
-(to say nothing of less sucessful vector outlines such as Speedo or Intellifont).
+(to say nothing of less successful vector outlines such as Speedo or Intellifont).
 
 The typographic and layout capabilities of fonts were also improved,
 with TrueType GX and AApple Advanced Typography from Apple,
@@ -138,7 +138,7 @@ in ensuring a downloaded font has the desired features:
 Font formats continued to evolve;
 OpenType 1.7 added
 [color font support](https://docs.microsoft.com/en-us/typography/opentype/otspec170/)
-although sadly, as implementation largely preceeded standardization,
+although sadly, as implementation largely preceded standardization,
 there were four different ways
 each largely tied to a single vendor, OS, or browser.
 OpenType 1.8, with rather more coordination, added
@@ -150,18 +150,18 @@ in 2017
 continued to refine font features
 and added support for [variable fonts](https://www.w3.org/TR/css-fonts-4/#font-variation-props)
 and [color fonts](https://www.w3.org/TR/css-fonts-4/#color-font-support).
-It was becoming clear however,
+It was becoming clear, however,
 that the format hint was insufficient by itself
 and that combinatorial explosion would result
 (formats such as "opentype-variation" were briefly specified,
 but "opentype-variation-SVG-Graphite" would become
-unweildy and error-prone).
+unwieldy and error-prone).
 
 With the upcoming [COLRv1 color font format](https://github.com/googlefonts/colr-gradients-spec/),
 selection of the right font resource and detectability are once again
 important use cases which have been requested by early adopters of COLRv1,
 similar to the need to detect availability and prefer such font resources at the time
-when variable fonts where introduced.
+when variable fonts were introduced.
 
 ## Use cases
 
@@ -190,7 +190,7 @@ Where 3. is in line in line with the TAG design principles, which recommend
 
 ## Non-Goals
 
-This proposal is not-intended as a server-side content negotiation solution. In
+This proposal is not intended as a server-side content negotiation solution. In
 many cases, third-party font providers currently choose based on User Agent
 which resources they deliver to clients at the time of the request to the
 included CSS. This is a different content negotiation mechanism from what is
@@ -201,8 +201,8 @@ discussed in this proposal.
 ### Backwards compatibility
 
 The largest constraint is that older browsers must continue
-to sucessfully parse the src descriptor,
-and to end up ignoring links to fonts containg unsupported features,
+to successfully parse the src descriptor,
+and to end up ignoring links to fonts containing unsupported features,
 while following the desired link to the fallback.
 
 This was discussed in 2016, in Issue 663 [@font-family src: should accept a specifier which lists font requirements](https://github.com/w3c/csswg-drafts/issues/633)
@@ -218,7 +218,7 @@ There were various proposals, such as an additional "features" function using Op
             url(how-old-is-your-browser-font.ttf) format("ttf");
     }
 
-but that was unacceptable because of backwards compatibiity
+but that was unacceptable because of backwards compatibility
 (older browsers would drop the _entire_ src descriptor,
 not just the first element in the comma-separated list),
 and also a desire to avoid microsyntaxes which:
@@ -241,14 +241,14 @@ An alternative solution to putting supports inside format is proposed in Issue 6
 
 ### Detectability
 
-Detetecting font capabilities of the UA programmatically proves difficult due to
+Detecting font capabilities of the UA programmatically proves difficult due to
 no direct mapping of font technologies to `CSS.supports()`.
 
 Testing of font capabilities is possible through probing for rendered pixels on
 a 2D canvas and testing for RGB color values, as done in @RoelN's
 [Chromacheck](https://pixelambacht.nl/chromacheck/) tool. However, this is an
 extremely wasteful approach, requiring canvas resources for something that can
-be returned by the UA and detected more efficienlty.
+be returned by the UA and detected more efficiently.
 
 ## Proposed Syntax
 
