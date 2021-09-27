@@ -21,7 +21,7 @@ An [experimental Polyfill](https://wicg.github.io/spatial-navigation/polyfill/) 
   Devices like TV, InVehicleInfotainment, game console mainly use the D-pad for navigating focus directionally.
   More rare today, but possibly increasingly going forward, input mechanisms such as voice command, hand gesture, eye tracking can be used for navigation.
 
-- **Making life better for users of desktop browsers who use the keyboard to navigate**
+- **Making life better for users who use the keyboard to navigate**
 
    For non-sighted users, navigating in document order tends to be appropriate,
    and spatial navigation may not be in high demand.
