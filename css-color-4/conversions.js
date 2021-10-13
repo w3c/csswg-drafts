@@ -387,3 +387,58 @@ function LCH_to_Lab(LCH) {
 		LCH[1] * Math.sin(LCH[2] * Math.PI / 180) // b
 	];
 }
+
+// OKLab and OKLCH
+// https://bottosson.github.io/posts/oklab/
+
+function XYZ_to_OKLab(XYZ) {
+	// Given XYZ relative to D65, convert to OKLab
+	var XYZtoLMS = [
+		[  0.8189330101,  0.3618667424,  -0.1288597137 ],
+		[  0.0329845436,  0.9293118715,   0.0361456387 ],
+		[  0.0482003018,  0.2643662691,   0.6338517070 ]
+    ];
+	var LMStoOKLab = [
+		[  0.2104542553,   0.7936177850,  -0.0040720468 ],
+		[  1.9779984951,  -2.4285922050,   0.4505937099 ],
+		[  0.0259040371,   0.7827717662,  -0.8086757660 ]
+	];
+
+	var LMS = multiplyMatrices(XYZtoLMS, XYZ);
+	return multiplyMatrices(LMStoOKLab, LMS.map(c => Math.cbrt(c)));
+
+}
+
+function OKLab_to_XYZ(OKLab) {
+	// Given OKLab, convert to XYZ relative to D65
+	var LMStoXYZ =  [
+        [  1.227013851103521026,    -0.5577999806518222383,  0.28125614896646780758  ],
+        [ -0.040580178423280593977,  1.1122568696168301049, -0.071676678665601200577 ],
+        [ -0.076381284505706892869, -0.42148197841801273055, 1.5861632204407947575   ]
+    ];
+	var OKLabtoLMS = [
+        [ 0.99999999845051981432,  0.39633779217376785678,   0.21580375806075880339  ],
+        [ 1.0000000088817607767,  -0.1055613423236563494,   -0.063854174771705903402 ],
+        [ 1.0000000546724109177,  -0.089484182094965759684, -1.2914855378640917399   ]
+    ];
+
+	var LMSnl = multiplyMatrices(OKLabtoLMS, OKLab);
+	return multiplyMatrices(LMStoXYZ, LMSnl.map(c => c ** 3));
+}
+
+function OKLab_to_OKLCH(OKLab) {
+	var hue = Math.atan2(OKLab[2], OKLab[1]) * 180 / Math.PI;
+	return [
+		OKLab[0], // L is still L
+		Math.sqrt(OKLab[1] ** 2 + OKLab[2] ** 2), // Chroma
+		hue >= 0 ? hue : hue + 360 // Hue, in degrees [0 to 360)
+	];
+}
+
+function OKLCH_to_OKLab(OKLCH) {
+	return [
+		OKLCH[0], // L is still L
+		OKLCH[1] * Math.cos(OKLCH[2] * Math.PI / 180), // a
+		OKLCH[1] * Math.sin(OKLCH[2] * Math.PI / 180)  // b
+	];
+}
