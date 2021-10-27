@@ -2,6 +2,10 @@
 // Conversion can also be done using ICC profiles and a Color Management System
 // For clarity, a library is used for matrix multiplication (multiply-matrices.js)
 
+// standard white points, defined by 4-figure CIE x,y chromaticities
+const D50 = [0.3457 / 0.3585, 1.00000, (1.0 - 0.3457 - 0.3585) / 0.3585];
+const D65 = [0.3127 / 0.3290, 1.00000, (1.0 - 0.3127 - 0.3290) / 0.3290];
+
 // sRGB-related functions
 
 function lin_sRGB(RGB) {
@@ -330,10 +334,9 @@ function XYZ_to_Lab(XYZ) {
 	// from CIE standard, which now defines these as a rational fraction
 	var ε = 216/24389;  // 6^3/29^3
 	var κ = 24389/27;   // 29^3/3^3
-	var white = [0.96422, 1.00000, 0.82521]; // D50 reference white
 
 	// compute xyz, which is XYZ scaled relative to reference white
-	var xyz = XYZ.map((value, i) => value / white[i]);
+	var xyz = XYZ.map((value, i) => value / D50[i]);
 
 	// now compute f
 	var f = xyz.map(value => value > ε ? Math.cbrt(value) : (κ * value + 16)/116);
@@ -350,7 +353,6 @@ function Lab_to_XYZ(Lab) {
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	var κ = 24389/27;   // 29^3/3^3
 	var ε = 216/24389;  // 6^3/29^3
-	var white = [0.96422, 1.00000, 0.82521]; // D50 reference white
 	var f = [];
 
 	// compute f, starting with the luminance-related term
@@ -366,7 +368,7 @@ function Lab_to_XYZ(Lab) {
 	];
 
 	// Compute XYZ by scaling xyz by reference white
-	return xyz.map((value, i) => value * white[i]);
+	return xyz.map((value, i) => value * D50[i]);
 }
 
 function Lab_to_LCH(Lab) {
