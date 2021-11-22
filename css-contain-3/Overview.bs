@@ -78,7 +78,7 @@ Strong Containment: the 'contain' property</h2>
 
 	<pre class='propdef partial'>
 		Name: contain
-		New Values: layout || style || paint || [ size | inline-size | block-size ]
+		New Values: layout || style || paint || [ size | inline-size ]
 	</pre>
 
 	<dl dfn-type=value dfn-for=contain>
@@ -86,11 +86,6 @@ Strong Containment: the 'contain' property</h2>
 		<dd>
 			The value turns on <a>inline-size containment</a> for the element.
 			This ensures that the inline [=size containment box|containment box=] can be laid out
-			without needing to examine its descendants.
-		<dt><dfn>block-size</dfn>
-		<dd>
-			The value turns on <a>block-size containment</a> for the element.
-			This ensures that the block [=size containment box|containment box=] can be laid out
 			without needing to examine its descendants.
 	</dl>
 
@@ -104,21 +99,85 @@ Types of Containment</h2>
 Inline-Size Containment</h3>
 
 	Giving an element <dfn export>inline-size containment</dfn>
-	makes its [=principal box=] behave as a [=size containment box=]
-	on the [=inline axis=].
+	applies [=size containment=] on the element’s [=inline axis=].
+	That means the [=intrinsic size=] of the [=size containment box=]
+	on the element’s [=inline axis=]
+	is determined as if the element had no content.
+	However, content continues to impact the element’s [=block axis=] [=intrinsic size=].
+
+	In some cases,
+	changes in the [=block size=] can impact layout in the parent formatting context,
+	which then impacts the [=inline axis|inline=] [=available space=]
+	(e.g. by triggering scrollbars on an ancestor element)
+	or the result of [=container size queries=],
+	which then impacts the element’s [=inline size=],
+	creating a dependency of this [=inline size=] on the element’s content.
+	To prevent infinite cycles,
+	if this then results in a different [=block size=] on the element,
+	that new [=block size=] can impact the parent formatting context,
+	but not in a way that reverts it to the previously-problematic layout.
+	For example, if scrollbars were introduced, they are not then removed;
+	or if the inline size was reduced, it is not then restored to its previous size.
+
+	Note: This is similar to the logic governing float placement,
+	in which a float whose logical height cannot fit
+	is shifted down to find more space,
+	which might also give it more inline-axis available space
+	and thus produce a shorter float
+	whose height could have fit in the initial space,
+	but it is not moved back up
+	(where it would again be narrower, and thus taller, and thus not fit).
+
+	<div class=example>
+		For example,
+		the following <code>article</code> is constrained by both
+		the overall <code>section</code> ''width'',
+		and impacted by the floated <code>div</code>s.
+
+		<pre class=lang-css>
+		&lt;section style="width: 200px; border: solid; display: flow-root;">
+		  &lt;!-- floated elements that impact the available space -->
+		  &lt;div style="float: left; width: 50px; height: 80px; background: red;">&lt;/div>
+		  &lt;div style="float: right; width: 50px; height: 80px; background: red;">&lt;/div>
+		  &lt;div style="float: left; width: 160px; height: 80px; background: red;">&lt;/div>
+
+		  &lt;!-- parent layout, determining context -->
+		  &lt;article style="border: solid; display: flow-root; min-width: min-content;">
+		    &lt;header style="background: orange; aspect-ratio: 1/1;">
+		      &lt;h4 style="margin:0;">Article Title&lt;/h4>
+		    &lt;/header>
+		  &lt;/article>
+		&lt;/section>
+		</pre>
+
+		The block layout algorithm will attempt to layout the <code>article</code>
+		in the first available space between the first two floated <code>div</code>s.
+		However, the <code>header</code> ''aspect-ratio''
+		requires a space with ''height'' equal or greater to the ''width'',
+		and the available space is 100px wide by 80px tall,
+		so the <code>article</code> is unable to fit.
+		As a result, the block layout algorithm moves on,
+		and attempts to layout the <code>article</code> in the next available space.
+
+		Since <code>article</code> ''min-width'' depends on the ''min-ccontent'' size,
+		it will likley be too large to fit in the 40px wide space
+		beside the final floated <code>div</code>,
+		and continue to layout below that <code>div</code> as well--
+		forming a 200px square below all the floated elements.
+
+		However, if the ''min-width'' is removed from the <code>article</code>,
+		or if [=inline-size containment=] is added to
+		either the <code>article</code> or <code>header</code>,
+		then the <code>article</code> will fit as a 40px square
+		next to the final floated <code>div</code>.
+		Even though this resulting size could also fit in the initial space,
+		agents do not backtrack
+		and attempt to place the <code>article</code>
+		in a context that previously failed.
+	</div>
 
 	Issue(1031): Define inline-size containment in more detail
-
-
-<h3 id='containment-block-size'>
-Block-Size Containment</h3>
-
-	Giving an element <dfn export>block-size containment</dfn>
-	makes its [=principal box=] behave as a [=size containment box=]
-	on the [=block axis=].
-
-	Issue(1031): Define block-size containment in more detail
-
+	(including additional examples)
 
 <h2 id="container-queries">
 Container Queries</h2>
@@ -190,7 +249,7 @@ Creating Query Containers: the 'container-type' property</h3>
 	<dl dfn-type=value dfn-for=container-type>
 		<dt><dfn>size</dfn>
 		<dd>
-			Establishes a [=query container=] for [=size queries=]
+			Establishes a [=query container=] for [=container size queries=]
 			on both the [=inline axis|inline=] and [=block axis=].
 			Applies [=layout containment=],
 			[=style containment=],
@@ -198,23 +257,15 @@ Creating Query Containers: the 'container-type' property</h3>
 			to the [=principal box=].
 		<dt><dfn>inline-size</dfn>
 		<dd>
-			Establishes a [=query container=] for [=size queries=]
+			Establishes a [=query container=] for [=container size queries=]
 			on the container’s own [=inline axis=].
 			Applies [=layout containment=],
 			[=style containment=],
 			and [=inline-size containment=]
 			to the [=principal box=].
-		<dt><dfn>block-size</dfn>
-		<dd>
-			Establishes a [=query container=] for [=size queries=]
-			on the container’s own [=block axis=].
-			Applies [=layout containment=],
-			[=style containment=],
-			and [=block-size containment=]
-			to the [=principal box=].
 		<dt><dfn>style</dfn>
 		<dd>
-			Establishes a [=query container=] for [=style queries=].
+			Establishes a [=query container=] for [=container style queries=].
 		<dt><dfn>state</dfn>
 		<dd>
 			Establishes a [=query container=] for [=state queries=].
@@ -374,7 +425,7 @@ Container Queries: the ''@container'' rule</h3>
 	The <dfn at-rule id="at-ruledef-container">@container</dfn> rule
 	is a [=conditional group rule=] whose condition is
 	a <dfn export>container query</dfn>,
-	which is a boolean combination of [=size queries=] and/or [=style queries=].
+	which is a boolean combination of [=container size queries=] and/or [=container style queries=].
 	Style declarations within the <<stylesheet>> block of an ''@container'' rule
 	are [[css-cascade-4#filtering|filtered]] by its condition
 	to only match when the [=container query=]
@@ -432,7 +483,7 @@ Container Queries: the ''@container'' rule</h3>
 	is a match for both ''container-type/inline-size'' and ''container-type/block-size''.
 
 	Once an eligible [=query container=] has been selected for an element,
-	each [=container feature=] in the <<container-query-list>>
+	each [=container feature=] in the <<container-condition>>
 	is evaluated against that [=query container=].
 	If the selected [=query container=]
 	is not a valid 'container-type' for the feature,
@@ -451,14 +502,14 @@ Container Queries: the ''@container'' rule</h3>
 
 		The styles above will only be applied
 		if there nearest ancestor container named "card"
-		meets both the '@container/inline-size' and [=style queries|style=] conditions.
+		meets both the '@container/inline-size' and [=container style query|style=] conditions.
 	</div>
 
 	Style rules defined on an element inside multiple nested [=container queries=]
 	apply when all of the wrapping [=container queries=] are true for that element.
 
 	Note: Nested [=container queries=] can evaluate in relation to different containers,
-	so it is not always possible to merge the individual <<container-query-list>>s
+	so it is not always possible to merge the individual <<container-condition>>s
 	into a single query.
 
 <h3 id="animated-containers">
@@ -534,7 +585,7 @@ Container Features</h2>
 <h3 id="size-container">
 Size Container Features</h3>
 
-	A <dfn export>size query</dfn>
+	A <dfn export>container size query</dfn>
 	(syntactically represented as <<size-query>>)
 	allows querying
 	the size of the [=query container=]’s [=principal box=].
@@ -550,7 +601,7 @@ Size Container Features</h3>
 
 	If the [=query container=] does not have a [=principal box=],
 	or the principal box is not a [=layout containment box=],
-	or the [=query container=] does not support [=size queries=] on the relevant axes,
+	or the [=query container=] does not support [=container size queries=] on the relevant axes,
 	then the result of evaluating the [=size feature=] is unknown.
 
 	[=Relative length=] units in [=container query=] conditions
@@ -685,7 +736,7 @@ Orientation: the '@container/orientation' feature</h4>
 <h3 id="style-container">
 Style Container Features</h3>
 
-	A <dfn export>style queries</dfn>
+	A <dfn export>container style query</dfn>
 	(syntactically represented by <<style-query>>)
 	allows querying
 	the [=computed values=] of the [=query container=].
@@ -749,11 +800,11 @@ Container Relative Lengths: the ''cqw'', ''cqh'', ''cqi'', ''cqb'', ''cqmin'', '
 
 	For each element,
 	[=container query length=] units are evaluated
-	as [=size queries=] on the relevant axis (or axes)
+	as [=container size queries=] on the relevant axis (or axes)
 	described by the unit.
 	The [=query container=] for each axis
 	is the nearest ancestor container
-	that accepts [=size queries=] on that axis.
+	that accepts [=container size queries=] on that axis.
 	If no eligible [=query container=] is available,
 	then use the [=small viewport size=] for that axis.
 
