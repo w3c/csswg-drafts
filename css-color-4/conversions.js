@@ -327,7 +327,7 @@ function D50_to_D65(XYZ) {
 	return multiplyMatrices(M, XYZ);
 }
 
-// Lab and LCH
+// CIE Lab and LCH
 
 function XYZ_to_Lab(XYZ) {
 	// Assuming XYZ is relative to D50, convert to CIE Lab
@@ -346,6 +346,7 @@ function XYZ_to_Lab(XYZ) {
 		500 * (f[0] - f[1]), // a
 		200 * (f[1] - f[2])  // b
 	];
+	// L in range [0,100]. For use in CSS, add a percent
 }
 
 function Lab_to_XYZ(Lab) {
@@ -411,7 +412,7 @@ function XYZ_to_OKLab(XYZ) {
 
 	var LMS = multiplyMatrices(XYZtoLMS, XYZ);
 	return multiplyMatrices(LMStoOKLab, LMS.map(c => Math.cbrt(c)));
-
+	// L in range [0,1]. For use in CSS, multiply by 100 and add a percent
 }
 
 function OKLab_to_XYZ(OKLab) {
