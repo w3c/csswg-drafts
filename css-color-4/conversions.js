@@ -448,3 +448,44 @@ function OKLCH_to_OKLab(OKLCH) {
 		OKLCH[1] * Math.sin(OKLCH[2] * Math.PI / 180)  // b
 	];
 }
+
+// Premultiplied alpha conversions
+
+function rectangular_premultiply(color, alpha) {
+// given a color in a rectangular orthogonal colorspace
+// and an alpha value
+// return the premultiplied form
+	return color.map((c) => c * alpha)
+}
+
+function rectangular_un_premultiply(color, alpha) {
+// given a premultiplied color in a rectangular orthogonal colorspace
+// and an alpha value
+// return the actual color
+	return color.map((c) => c / alpha)
+}
+
+function polar_premultiply(color, alpha, hueIndex) {
+	// given a color in a cylindicalpolar colorspace
+	// and an alpha value
+	// return the premultiplied form.
+	// the index says which entry in the color array corresponds to hue angle
+	// for example, in OKLCH it would be 2
+	// while in HSL it would be 0
+	return color.map((c, i) => c * (hueIndex === i? 1 : alpha))
+}
+
+function polar_un_premultiply(color, alpha, hueIndex) {
+	// given a color in a cylindicalpolar colorspace
+	// and an alpha value
+	// return the actual color.
+	// the hueIndex says which entry in the color array corresponds to hue angle
+	// for example, in OKLCH it would be 2
+	// while in HSL it would be 0
+	return color.map((c, i) => c / (hueIndex === i? 1 : alpha))
+}
+
+// Convenience functions can easily be defined, such as
+function hsl_premultiply(color, alpha) {
+	return polar_premultiply(color, alpha, 0);
+}
