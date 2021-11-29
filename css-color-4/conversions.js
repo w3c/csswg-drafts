@@ -462,6 +462,9 @@ function rectangular_un_premultiply(color, alpha) {
 // given a premultiplied color in a rectangular orthogonal colorspace
 // and an alpha value
 // return the actual color
+	if (alpha = 0) {
+		return color; // avoid divide by zero
+	}
 	return color.map((c) => c / alpha)
 }
 
@@ -482,6 +485,9 @@ function polar_un_premultiply(color, alpha, hueIndex) {
 	// the hueIndex says which entry in the color array corresponds to hue angle
 	// for example, in OKLCH it would be 2
 	// while in HSL it would be 0
+	if (alpha = 0) {
+		return color; // avoid divide by zero
+	}
 	return color.map((c, i) => c / (hueIndex === i? 1 : alpha))
 }
 
