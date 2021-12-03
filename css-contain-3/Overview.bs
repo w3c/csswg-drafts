@@ -30,10 +30,7 @@ spec:css-contain-2; type:dfn; text:size containment box
 spec:css-sizing-4; type:property; text:contain-intrinsic-size
 spec:css-sizing-4; type:property; text:aspect-ratio
 spec:intersection-observer; type:dfn; text:intersection root
-spec:css-sizing-3; type:value; for:height; text:auto
 spec:css-sizing-3; type:property; 
-	text:width
-	text:height
 	text:min-width
 	text:min-height
 spec:css-sizing-3; type:dfn; text:width
@@ -107,75 +104,131 @@ Inline-Size Containment</h3>
 	is determined as if the element had no content.
 	However, content continues to impact the element’s [=block axis=] [=intrinsic size=].
 
-	In some cases,
-	changes in the [=block size=] can impact layout in the parent formatting context,
-	which then impacts the [=inline axis|inline=] [=available space=]
-	(e.g. by triggering scrollbars on an ancestor element)
-	or the result of [=container size queries=],
-	which then impacts the element’s [=inline size=],
-	creating a dependency of this [=inline size=] on the element’s content.
-	To prevent infinite cycles,
-	if this then results in a different [=block size=] on the element,
-	that new [=block size=] can impact the parent formatting context,
-	but not in a way that reverts it to the previously-problematic layout.
-	For example, if scrollbars were introduced, they are not then removed;
-	or if the inline size was reduced, it is not then restored to its previous size.
+	<div class=note>
+		In some cases,
+		changes in the [=block size=] can impact layout in the parent formatting context,
+		which then impacts the [=inline axis|inline=] [=available space=]
+		(e.g. by triggering scrollbars on an ancestor element)
+		or the result of [=container size queries=],
+		which then impacts the element’s [=inline size=],
+		creating a dependency of this [=inline size=] on the element’s content.
 
-	Note: This is similar to the logic governing float placement,
-	in which a float whose logical height cannot fit
-	is shifted down to find more space,
-	which might also give it more inline-axis available space
-	and thus produce a shorter float
-	whose height could have fit in the initial space,
-	but it is not moved back up
-	(where it would again be narrower, and thus taller, and thus not fit).
+		This sort of "cycle" is not new;
+		it is possible to construct examples of this
+		using elements with aspect ratios,
+		or complex usages of floats and clearing.
+		In general, the relationship between an element's available inline space
+		and it's resulting block size
+		is unpredictable and non-monotonic,
+		with the block size capable of bouncing up and down arbitrarily
+		as the available inline space is changed.
 
-	<div class=example>
-		For example,
-		the following <code>article</code> is constrained by both
-		the overall <code>section</code> '/width',
-		and impacted by the floated <code>div</code>s.
+		Implementations today prevent infinite cycling
+		by ensuring that layout always "moves forward";
+		in other words,
+		that certain aspects of a container's layout
+		do not "revert" to a previous (known-problematic) state,
+		even if a naive analysis of the constraints would allow for such.
+		The mitigation for these issues
+		is that certain aspects of layout
+		are on a "ratchet",
+		allowed to progress in one direction but not another:
+		the available size a container presents to its contents is one such example,
+		allowed to shrink
+		(as a result of scrollbars, etc)
+		but not to then reverse and grow again;
+		the presence of scrollbars themselves is another,
+		allowed to be added to an element
+		but not to then be removed
+		if the reduced inline available size
+		causes the contents to no longer overflow;
+		the "starting point" for elements to be laid out
+		along the block axis is another,
+		allowed to move downward as a result of floats
+		but not to then move back upward
+		and possibly cause already laid-out floats
+		to have to move again.
 
-		<pre class=lang-markup>
-		&lt;section style="width: 200px; border: solid; display: flow-root;">
-		  &lt;!-- floated elements that impact the available space -->
-		  &lt;div style="float: left; width: 50px; height: 80px; background: red;">&lt;/div>
-		  &lt;div style="float: right; width: 50px; height: 80px; background: red;">&lt;/div>
-		  &lt;div style="float: left; width: 160px; height: 80px; background: red;">&lt;/div>
+		These algorithm ratchets are well-known and common among implementations,
+		and container queries
+		(and the associated [=inline-size containment=])
+		do not introduce any conceptually new problems here.
+		To the best of the specification editors' knowledge,
+		existing layout techniques suffice to ensure that layout cycles do not occur,
+		and the design of this feature
+		attempts to make them rare in practice in any case.
 
-		  &lt;!-- parent layout, determining context -->
-		  &lt;article style="border: solid; display: flow-root; min-width: min-content;">
-		    &lt;header style="background: orange; aspect-ratio: 1/1;">
-		      &lt;h4 style="margin:0;">Article Title&lt;/h4>
-		    &lt;/header>
-		  &lt;/article>
-		&lt;/section>
-		</pre>
+		The precise details of each implementation's mitigation strategies
+		are not fully interoperable,
+		unfortunately,
+		so we hope to capture them in a future specification.
 
-		The block layout algorithm will attempt to layout the <code>article</code>
-		in the first available space between the first two floated <code>div</code>s.
-		However, the <code>header</code> '/aspect-ratio'
-		requires a space with '/height' equal or greater to the '/width',
-		and the available space is 100px wide by 80px tall,
-		so the <code>article</code> is unable to fit.
-		As a result, the block layout algorithm moves on,
-		and attempts to layout the <code>article</code> in the next available space.
+		<div class=example>
+			For example,
+			the following <code>article</code> is constrained by both
+			the overall <code>section</code> '/width',
+			and impacted by the floated <code>div</code>s.
 
-		Since <code>article</code> 'min-width' depends on the [=min-content size=],
-		it will likely be too large to fit in the 40px wide space
-		beside the final floated <code>div</code>,
-		and continue to layout below that <code>div</code> as well--
-		forming a 200px square below all the floated elements.
+			<xmp class=lang-markup>
+				<section style="width: 200px; border: solid; display: flow-root;">
+				  <!-- floated elements that impact the available space -->
+				  <div style="float: left; width: 50px; height: 80px; background: red;"></div>
+				  <div style="float: right; width: 50px; height: 80px; background: red;"></div>
+				  <div style="float: left; width: 160px; height: 80px; background: red;"></div>
 
-		However, if the 'min-width' is removed from the <code>article</code>,
-		or if [=inline-size containment=] is added to
-		either the <code>article</code> or <code>header</code>,
-		then the <code>article</code> will fit as a 40px square
-		next to the final floated <code>div</code>.
-		Even though this resulting size could also fit in the initial space,
-		agents do not backtrack
-		and attempt to place the <code>article</code>
-		in a context that previously failed.
+				  <!-- parent layout, determining context -->
+				  <article style="border: solid; display: flow-root;">
+				    <div style="background: orange; aspect-ratio: 1/1;">
+				      text
+				    </div>
+				  </article>
+				</section>
+			</xmp>
+
+			The block layout algorithm will first place the floating elements,
+			with the first two sitting in the left and right corners of the container,
+			and the third being pushed below them,
+			since its width does not fit in the remaining space
+			if it was placed with its top edge flush with the top of the container.
+
+			The following <code>article</code> will then be laid out.
+			Because it is ''display: flow-root'',
+			it avoids intersecting with any floats,
+			and thus must take them into account 
+			when figuring out how to size and position itself.
+
+			The layout engine first attempts to put the <code>article</code> flush with the top of the container,
+			as there is enough inline space to accommodate its [=min-content size=];
+			resulting in it becoming ''100px'' wide.
+			However, due the aspect ratio of its contents,
+			this would cause the <code>article</code> to be ''100px'' tall as well,
+			but there is only ''80px'' of available block space
+			before it would intersect the third float,
+			so this layout opportunity is discarded.
+
+			It then attempts to position the <code>article</code>
+			flush with the top of the third float,
+			in the narrow ''40px''-wide space to its right.
+			It fits, and its resulting ''40px'' height
+			doesn't violate any layout rules either,
+			so this is acceptable.
+
+			At this point, the width and height of the <code>article</code>
+			(''40px'' each)
+			<em>would</em> fit back in the original considered space,
+			flush with the top of the container.
+			However, "progress" along the block axis
+			when considering layout opportunities
+			is one such "ratchet" in layout,
+			and an element is not allowed to return to a higher position
+			after it determines its size.
+
+			Thus, the <code>article</code> is sized to ''40px'' wide and tall
+			and positioned alongside the third float,
+			even tho a similar element with an <em>explicit</em> <css>width: 40px</css>
+			would be positioned at the top of the container,
+			between the first two floats.
+		</div>
 	</div>
 
 	Issue(1031): Define inline-size containment in more detail
