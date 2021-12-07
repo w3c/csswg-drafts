@@ -3172,7 +3172,7 @@ Device-independent Colors: CIE Lab and LCH, OKLab and OKLCH</h2>
 	The hue angles between CIE LCH and OKLCH are broadly similar,
 	but not identical.
 
-	<figure>
+	<figure id="CIELCH-blue-hueshift">
 		<img src="images/CIELCH-blue-slice.png" width="541" height="411"
 			alt="diagram showing purpling in CIE LCH">
 		<figcaption>A constant CIE LCH hue slice,
@@ -3181,7 +3181,7 @@ Device-independent Colors: CIE Lab and LCH, OKLab and OKLCH</h2>
 		</figcaption>
 	</figure>
 
-	<figure>
+	<figure id="OKLCH-blue-no-hueshift">
 		<img src="images/OKLCH-blue-slice.png" width="552" height="405"
 			alt="diagram showing hue constancy in OKLCH">
 		<figcaption>A constant OKLCH hue slice,
@@ -4642,9 +4642,188 @@ Hue interpolation</h3>
 
 	Issue(4928):
 
+<h2 id="gamut-mapping">
+Gamut Mapping
+</h2>
+
+<h3 id="gamut-mapping-intro">An Introduction to Gamut Mapping</h3>
+
+<p><i>This section is non-normative</i></p>
+
+	When a color in an origin colorspace
+	is converted to another, destination colorspace
+	which has a smaller gamut,
+	some colors will be outside the destination gamut.
+
+	For intermediate color calculations,
+	these out of gamut values are preserved.
+	However, if the destination is the display device
+	(a screen, or a printer)
+	then out of gamut values ust be converted to
+	an in-gamut color.
+
+	Gamut mapping is the process of finding an in-gamut color
+	with the least objectionable change in visual apprearance.
+
+	The simplest and least acceptable method
+	is simply to clip the component values
+	to the displayable range.
+	This changes the proportions of (for an RGB display)
+	the three primary colors,
+	resulting in a hue shift.
+
+	A better method is to mapped colors
+	in a perceptually uniform colorspace,
+	by finding the closest in-gamut color
+	(so-called minimum ΔE or <dfn export>MINDE</dfn>).
+	Clearly, the sucess of this technique
+	depends on
+	the degree of uniformity of the gamut mapping colorspace
+	and the predictive accuracy of the deltaE function used.
+
+	However, when doing gamut mapping
+	(and we are really talking about gamut reduction, here),
+	changes in Hue are <em>particularly</em> objectionable;
+	changes in Chroma are more tolerable,
+	and
+	small changes in Lightness can also be acceptable
+	especially if the alternative is a larger Chroma reduction.
+	MINDE weights changes in each dimension equally,
+	and thus gives suboptimal results.
+
+	To improve on MINDE algorithms,
+	colors are mapped in a perceptually uniform, <em>polar</em> colorspace
+	by holding the hue constant,
+	and reducing the chroma until the color falls in gamut.
+
+<div class="example" id="ex-gamutmap-p3-yellow-to-srgb">
+	In this example, Display P3 primary yellow
+	is being mapped to an sRGB display.
+	The gamut mapping colorspace is OKLCH.
+
+	<pre class="lang-css">
+	color(display-p3 1 1 0) is
+	color(srgb 1 1 -0.3463) which is
+	color(oklch 0.96476 <b>0.24503</b> 110.23).
+	</pre>
+
+	By progressively reducing the chroma component
+	until the resulting color falls inside the sRGB gamut
+	(has no components negative, or greater than one)
+	a gamut mapped color is obtained.
+
+	<pre class="lang-css">
+	<span class="swatch" style="--color: rgb(99.116% 99.733% 0.001%)"></span>   color(oklch 0.96476 <b>0.21094</b> 110.23)	which is
+	<span class="swatch" style="--color: rgb(99.116% 99.733% 0.001%)"></span>   color(srgb 0.99116 0.99733 0.00001)
+	</pre>
+	<figure id="gamutmap-p3-yellow">
+		<figcaption>A constant-hue slice of OKLCH colorspace.
+			The vertical axis represents lightness,
+			the horizontal axis is chroma.
+			The color to be mapped,
+			shown as a yellow circle,
+			has the chroma reduced
+			while keeping hue and lightness constant.
+			The color therefore moves along the maroon line in the diagram,
+			towards the neutral axis on the left.
+			The gamut boundary of sRGB
+			is shown in green.
+		</figcaption>
+		<img src="./images/slice-ok-110.23.svg" alt="">
+	</figure>
+</div>
+
+	A practical implementation will converge more quickly than a linear reduction;
+	either by binary search,
+	or by computing an analytical intersection
+	of the line of constant hue and lightness with the gamut boundary.
+
+	Also, this simple approach will give sub-optimal results
+	for certain colors, principally very light colors
+	like yellow and cyan,
+	if the upper edge of the gamut boundary is shallow,
+	or even slightly concave.
+	The line of constant lightness can skim just above the gamut boundary,
+	resulting in an excessively low chroma in those cases.
+
+	The choice of colorspace will affect the acceptability of the gamut mapped colors.
+
+	Note: Using the CIE LCH colorspace
+	and deltaE2000 distance metric,
+	is known to give suboptimal results
+	with <a href="#CIELCH-blue-hueshift">significant hue shifts</a>,
+	for colors in the hue range
+	270° to 330°.
+	Using OKLCH colorspace
+	and deltaEOK distance metric
+	<a href="OKLCH-blue-no-hueshift">avoids this issue</a>.
 
 
+	<h3 id="css-gamut-mapping">
+	CSS Gamut Mapping to an RGB destination
+	</h3>
 
+	This <dfn export>CSS gamut mapping algorithm</dfn>
+	applies to individual,
+	Standard Dynamic Range (SDR) CSS colors
+	which are out of gamut
+	of an RGB display
+	and thus require gamut mapping.
+	It implements a relative colorimetric intent,
+	and colors inside the destination gamut are unchanged.
+
+	Note: other situations,
+	in particular mapping to printer gamuts
+	where the maximum black level is significantly above zero,
+	will require different algorithms
+	which align the respective black and white points,
+	which will result in lightness changes
+	for very light and very dark colors
+	as chroma is reduced..
+
+	Note: this algorithm is for individual, distinct colors;
+	for color images,
+	where relationships between neighboring pixels are important
+	and detail and texture must be preserved,
+	a perceptual rendering intent is more appropriate
+	and in that case,
+	colors inside the destinatin gamut
+	may well be changed.
+
+	CSS gamut mapping occurs in the OKLCH colorspace,
+	and the color difference formula used is deltaEOK.
+
+	The skimming/concavity problem is substantialy improved
+	by a two-stage in-gamut check.
+	For the binary search implementation,
+	at each step,
+	the deltaEOK is computed between the current mapped color
+	and a clipped version of that color.
+	If the current color is outside the gamut boundary,
+	but the deltaEOK between it and the clipped version
+	is below a threshold for a <em>just noticeable difference</em> (JND),
+	the clipped version of the color is returned as the mapped result.
+	Effectively, this is doing a MINDE mapping at each stage,
+	but constrained so the hue and lightness changes
+	are very small,
+	and thus are not noticeable.
+
+	For the analytical implementation,
+	having found the exact intersection,
+	project outwards (higher chroma) along the line of constant lightness
+	until the deltaEOK between the projected point
+	and a clipped version of that point
+	exceeds one JND.
+
+	For the OKLCH colorspace,
+	one JND is is an OKLCH difference of 0.02.
+
+
+<!-- color(display-p3 1 1 0)
+	color(oklch 0.96476 0.24503 110.23)
+	mapped
+	color(oklch 0.9651 0.20983 109.359)
+ -->
 
 <!--
  ██████  ████████ ██    ██ ██       ████████       ████████  ██     ██ ██       ████████  ██████
