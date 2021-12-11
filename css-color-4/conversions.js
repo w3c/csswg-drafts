@@ -462,7 +462,7 @@ function rectangular_un_premultiply(color, alpha) {
 // given a premultiplied color in a rectangular orthogonal colorspace
 // and an alpha value
 // return the actual color
-	if (alpha = 0) {
+	if (alpha === 0) {
 		return color; // avoid divide by zero
 	}
 	return color.map((c) => c / alpha)
