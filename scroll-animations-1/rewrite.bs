@@ -115,10 +115,10 @@ spec: cssom-view-1; type: dfn;
 
 	[=Scroll progress timelines=] can be referenced in 'animation-timeline'
 	anonymously using the ''scroll()'' [=functional notation=]
-	or by naming them using the 'scroll-timeline' properties
-	and referring to them by name.
+	or by name (see [[#timeline-scope]])
+	after declaring them using the 'scroll-timeline' properties.
 	In the Web Animations API,
-	can be represented by the {{ScrollTimeline}} interfaces.
+	they can be represented anonymously by a {{ScrollTimeline}} object.
 
 ## Anonymous Scroll Progress Timelines ## {#scroll-timelines-anonymous}
 
@@ -197,10 +197,12 @@ spec: cssom-view-1; type: dfn;
 		  constructor(optional ScrollTimelineOptions options = {});
 		  readonly attribute Element? source;
 		  readonly attribute ScrollDirection axis;
+		  readonly attribute double startTime;
+		  readonly attribute double endTime;
 		};
 	</pre>
 
-	A <dfn>{{ScrollTimeline}}</dfn> is an {{AnimationTimeline}}
+	A {{ScrollTimeline}} is an {{AnimationTimeline}}
 	that specifies a [=scroll progress timeline=].
 	It can be passed to
 	the {{Animation}} constructor or the {{Animatable/animate()}} method
@@ -215,6 +217,18 @@ spec: cssom-view-1; type: dfn;
 		::  Specifies the axis of scrolling
 			that drives the progress of the timeline.
 			See <<axis>>, above.
+
+		:   <dfn>startTime</dfn>
+		::  Represents the [=scroll container=]’s startmost (reachable) scroll position
+			as its scroll offset in ''px''
+			when the timeline is [=timeline active phase|active=].
+			Null when it is [=timeline inactive phase|inactive=].
+
+		:   <dfn>endTime</dfn>
+		::  Represents the [=scroll container=]’s endmost (reachable) scroll position
+			as its scroll offset in ''px''
+			when the timeline is [=timeline active phase|active=].
+			Null when it is [=timeline inactive phase|inactive=].
 	</dl>
 
 	<dl class="constructors">
@@ -239,16 +253,39 @@ spec: cssom-view-1; type: dfn;
 				to the corresponding value from |options|.
 	</dl>
 
+	Inherited attributes:
+	<dl>
+		:   {{AnimationTimeline/currentTime}} (inherited from {{AnimationTimeline}}
+		::  Represents the scroll progress of the [=scroll container=]
+			as its scroll offset in ''px''
+			when the timeline is [=timeline active phase|active=].
+			Null when it is [=timeline inactive phase|inactive=].
+	</dl>
+
 	If the {{ScrollTimeline/source}} of a {{ScrollTimeline}}
 	is an element whose [=principal box=] does not exist
 	or is not a [=scroll container=],
 	then the {{AnimationTimeline/phase}} is the [=timeline inactive phase=].
 	It is otherwise in the [=timeline active phase|active=] phase.
 
-	The {{AnimationTimeline/currentTime}} of a {{ScrollTimeline}}
-	represents the scroll progress of the [=scroll container=].
-	It is <span class="issue">????</span> when the timeline is [=timeline active phase|active=]
-	and null when it is [=timeline inactive phase|inactive=].
+	Note: The {{ScrollTimeline/startTime}} and {{ScrollTimeline/endTime}} attributes
+	have odd names for being specific to ScrollTimeline;
+	this is to keep them consistent with {{AnimationTimeline/currentTime}},
+	which represents the currently-active position on the same scale.
+
+	Percentage progress along the [=scroll progress timeline=]
+	is calculated as
+	({{AnimationTimeline/currentTime}} &minus; {{ScrollTimeline/startTime}})
+	&div;
+	({{ScrollTimeline/startTime}} - {{ScrollTimeline/endTime}}).
+
+	ISSUE: Should there be a convenience function to get this info?
+
+	ISSUE: Review effect of [=writing modes=] and [=box alignment properties=]
+	and make sure we're getting what we want here.
+	Afaict, 0% will represent the initial scroll position
+	unless alignment changes it to initialize at a different scroll position,
+	in which case 0% will be the startmost, but not the initial, scroll position.
 
 	A {{ScrollTimeline}}’s {{EffectTiming/duration}} is 100%.
 
@@ -312,7 +349,9 @@ spec: cssom-view-1; type: dfn;
 
 	Often animations are desired to start and end
 	during the portion of the [=scroll progress timeline=]
-	that a particular element is in view within the [=scrollport=].
+	that a particular element
+	(the <dfn>view progress subject</dfn> element)
+	is in view within the [=scrollport=].
 	<dfn export>View progress timelines</dfn>
 	are segments of a [=scroll progress timeline=]
 	that are scoped to the scroll positions
@@ -322,10 +361,102 @@ spec: cssom-view-1; type: dfn;
 	and the endmost such scroll position represents 100% progress.
 
 	[=View progress timelines=] can be referenced in 'animation-timeline' by name
-	after declaring them using the 'view-timeline' properties.
+	(see [[#timeline-scope]])
+	after declaring them using the 'view-timeline' properties
+	on the view progress subject.
+	In the Web Animations API,
+	they can be represented anonymously by a {{ViewTimeline}} object.
+
+## Anonymous View Progress Timelines ## {#view-timelines-anonymous}
+
+### The {{ViewTimeline}} Interface ### {#viewtimeline-interface}
+
+	<pre class="idl">
+		dictionary ViewTimelineOptions {
+		  Element source;
+		  ScrollDirection axis = "block";
+
+		};
+
+		[Exposed=Window]
+		interface ViewTimeline : ScrollTimeline {
+		  constructor(optional ViewTimelineOptions options = {});
+		  readonly attribute Element subject;
+		};
+	</pre>
+
+	A {{ViewTimeline}} is an {{AnimationTimeline}}
+	that specifies a [=view progress timeline=].
+	It can be passed to
+	the {{Animation}} constructor or the {{Animatable/animate()}} method
+	to link the animation to a [=view progress timeline=].
+
+	<dl class="attributes" dfn-type=attribute dfn-for=ViewTimeline>
+		:   <dfn>subject</dfn>
+		::  The element whose [=principal box=]’s visibility in the [=scrollport=]
+			defines the progress of the timeline.
+	</dl>
+
+	<dl class="constructors">
+		:   <dfn constructor for=ViewTimeline lt="ViewTimeline(options)">ViewTimeline(options)</dfn>
+		::  Creates a new {{ViewTimeline}} object using the following procedure:
+
+			1.  Let |timeline| be the new {{ViewTimeline}} object.
+
+			1.  Set the {{ViewTimeline/subject}} and {{ScrollTimeline/axis}} properties of |timeline|
+				to the corresponding values from |options|.
+	</dl>
+
+	Inherited attributes:
+
+	<dl>
+		:   {{ScrollTimeline/source}} (inherited {{ScrollTimeline}}
+		::  The nearest ancestor of the {{ViewTimeline/subject}}
+			whose [=principal box=] establishes a [=scroll container=],
+			whose scroll position drives the progress of the timeline.
+
+		:   {{ScrollTimeline/axis}} (inherited {{ScrollTimeline}}
+		::  Specifies the axis of scrolling
+			that drives the progress of the timeline.
+			See <<axis>>, above.
+
+		:   {{ScrollTimeline/startTime}} (inherited {{ScrollTimeline}}
+		::  Represents the starting (0% progress) scroll position
+			of the [=view progress timeline=]
+			as its [=scroll container=]’s scroll offset in ''px''
+			when the timeline is [=timeline active phase|active=].
+			Null when it is [=timeline inactive phase|inactive=].
+
+		:   {{ScrollTimeline/endTime}} (inherited from {{ScrollTimeline}}
+		::  Represents the ending (100%) scroll position
+			of the [=view progress timeline=]
+			as its [=scroll container=]’s scroll offset in ''px''
+			when the timeline is [=timeline active phase|active=].
+			Null when it is [=timeline inactive phase|inactive=].
+
+		:   {{AnimationTimeline/currentTime}} (inherited from {{AnimationTimeline}}
+		::  Represents the current progress
+			of the [=view progress timeline=]
+			as its [=scroll container=]’s scroll offset in ''px''
+			when the timeline is [=timeline active phase|active=].
+			Null when it is [=timeline inactive phase|inactive=].
+	</dl>
+
+	If the {{ScrollTimeline/source}} or {{ViewTimeline/subject}} of a {{ViewTimeline}}
+	is an element whose [=principal box=] does not exist
+	or is not a [=scroll container=],
+	then the {{AnimationTimeline/phase}} is the [=timeline inactive phase=].
+	It is otherwise in the [=timeline active phase|active=] phase.
+
+	ISSUE: Figure out how to incorporate fit/inset abilities.
+
+## Named View Progress Timelines ## {#view-timelines-named}
+
+	View timelines can also be defined declaratively
+	and then referenced by name.
 	See [[#timeline-scope]].
 
-## Naming a View Progress Timeline: the 'view-timeline-name' property ## {#view-timeline-name}
+### Naming a View Progress Timeline: the 'view-timeline-name' property ### {#view-timeline-name}
 
 	<pre class='propdef'>
 	Name: view-timeline-name
@@ -344,7 +475,7 @@ spec: cssom-view-1; type: dfn;
 	determines the number of [=view progress timelines=]
 	associated with this element.
 
-## Axis of a View Progress Timeline: the 'view-timeline-axis' property ## {#view-timeline-axis}
+### Axis of a View Progress Timeline: the 'view-timeline-axis' property ### {#view-timeline-axis}
 
 	<pre class='propdef'>
 	Name: view-timeline-axis
@@ -364,7 +495,7 @@ spec: cssom-view-1; type: dfn;
 	If 'view-timeline-name' has fewer names than 'view-timeline-axis' has specified axes,
 	the used 'view-timeline-axis' list is truncated.
 
-## Inset of a View Progress Timeline: the 'view-timeline-inset' property ## {#view-timeline-inset}
+### Inset of a View Progress Timeline: the 'view-timeline-inset' property ### {#view-timeline-inset}
 
 	<pre class='propdef'>
 	Name: view-timeline-inset
@@ -400,7 +531,7 @@ spec: cssom-view-1; type: dfn;
 
 	ISSUE: Do we need all the longhands? Seems like overkill...
 
-## Fit of a View Progress Timeline: the 'view-timeline-fit' property ## {#view-timeline-fit}
+### Fit of a View Progress Timeline: the 'view-timeline-fit' property ### {#view-timeline-fit}
 
 	<pre class='propdef'>
 	Name: view-timeline-fit
@@ -456,7 +587,7 @@ spec: cssom-view-1; type: dfn;
 	If 'view-timeline-name' has fewer names than 'view-timeline-axis' has specified axes,
 	the used 'view-timeline-fit' list is truncated.
 
-## View Timeline Shorthand: the 'view-timeline' shorthand ## {#view-timeline-shorthand}
+### View Timeline Shorthand: the 'view-timeline' shorthand ### {#view-timeline-shorthand}
 
 	<pre class='propdef shorthand'>
 	Name: view-timeline
