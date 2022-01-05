@@ -5,10 +5,12 @@ Level: 4
 Status: ED
 Work Status: Testing
 Group: csswg
-ED: https://drafts.csswg.org/css-cascade/
+ED: https://drafts.csswg.org/css-cascade-4/
 TR: https://www.w3.org/TR/css-cascade-4/
 Editor: Elika J. Etemad / fantasai, Invited Expert, http://fantasai.inkedblade.net/contact, w3cid 35400
 Editor: Tab Atkins Jr., Google, http://xanthir.com/contact/, w3cid 42199
+Previous Version: https://www.w3.org/TR/2021/WD-css-cascade-4-20211015/
+Previous Version: https://www.w3.org/TR/2021/WD-css-cascade-4-20210319/
 Previous Version: https://www.w3.org/TR/2020/WD-css-cascade-4-20200818/
 Previous Version: https://www.w3.org/TR/2018/CR-css-cascade-4-20180828/
 Previous Version: https://www.w3.org/TR/2016/CR-css-cascade-4-20160114/
@@ -42,7 +44,7 @@ spec:html; type:element; text:style
 
 <pre class=ignored-specs>
 spec:mediaqueries-5
-spec:css-values-4
+spec:css-values-5
 </pre>
 
 <style>
@@ -224,12 +226,11 @@ Conditional ''@import'' Rules</h3>
 		</pre>
 	</div>
 
-	A <dfn noexport for="@import"><<media-query>></dfn> corresponds to the <code>media_query_list</code> production
-	and is interpreted as a <a>media query</a>,
-	and a <dfn noexport for="@import"><<supports-condition>></dfn> corresponds to a <code>supports_condition</code> production
-	and is interpreted as an ''@supports'' condition.
-	If a <dfn noexport for="@import"><<declaration>></dfn> (a <code>declaration</code> production) is given in place of a <<supports-condition>>,
-	it must be interpreted as a <code>supports_declaration_condition</code> production
+	The [=import conditions=] are given by
+	<<media-query-list>>, which is parsed and interpreted as a <a>media query list</a>,
+	and <<supports-condition>>, is parsed and interpreted as a [[supports query]].
+	If a <<declaration>> is given in place of a <<supports-condition>>,
+	it must be interpreted as a <<supports-decl>>
 	(i.e. the extra set of parentheses is implied)
 	and treated as a <<supports-condition>>.
 
@@ -258,89 +259,52 @@ Processing Stylesheet Imports</h3>
 	it is perfectly appropriate for a UA to fetch a style sheet only once,
 	even though it's linked or imported multiple times.
 
-	The <a>origin</a> of an imported style sheet is the <a>origin</a> of the style sheet that imported it.
+	The [=cascade origin=] of an imported style sheet is the [=cascade origin=] of the style sheet that imported it.
 
 	The <a>environment encoding</a> of an imported style sheet is the encoding of the style sheet that imported it. [[css-syntax-3]]
 
 	<div algorithm>
 		To <dfn export>fetch an @import</dfn>, given an ''@import'' rule |rule|:
 
-		1. If |rule| has a <<supports-condition>>,
+		1. Let |parentStylesheet| be |rule|'s <a spec=cssom for=CSSRule>parent CSS style sheet</a>.
+			[[CSSOM]]
+
+		2. If |rule| has a <<supports-condition>>,
 			and that condition is not true,
-			return nothing.
+			return.
 
-		1. [=Parse a URL=] given |rule|'s URL,
-			relative to |rule|'s [=CSSRule/parent CSS style sheet's=] [=CSSStyleSheet/location=].
+		3. Let |parsedUrl| be the result of the [=URL parser=] steps with |rule|'s URL and
+			|parentStylesheet|'s <a spec=cssom>location</a>.
+			If the algorithm returns an error,
+			return. [[CSSOM]]
 
-			Issue: Make sure this is defined correctly,
-			drawing from the document when it's a <{style}> element, etc.
+		4. [=Fetch a style resource=] from |parsedUrl|,
+			with stylesheet |parentStylesheet|, 
+			destination "style", 
+			CORS mode "no-cors",
+			and processResponse being the following steps given [=/response=] |response| and
+			byte stream, null or failure |byteStream|:
 
-			If that fails, then return nothing. Otherwise, let |url| be the [=resulting URL record=].
+			1. If |maybeByteStream| is not a byte stream, return.
 
-		2. Let |request| be a new [=/request=]
-			whose [=request/URL=] is |url|,
-			[=request/destination=] is <code>"style"</code>,
-			[=request/mode=] is <code>"no-cors"</code>,
-			[=request/credentials mode=] is <code>"include"</code>,
-			and whose [=request/use-URL-credentials flag=] is set.
-
-		3. Set |request|'s client to ????
-
-			Issue: The Fetch spec doesn't provide any information about what a client is
-			or what it does,
-			so I have no idea of what to provide here.
-
-		4. Run the following steps [=in parallel=]:
-
-			1. Let |response| be the result of [=/fetching=] |request|.
-
-			2. Let |success| initially be true.
-
-			3. If |response| is a [=network error=]
-				or its [=response/status=] is not an [=ok status=],
-				set |success| to false.
-
-			4. If |rule|'s [=CSSRule/parent style sheet=] is in [=quirks mode=]
+			2. If |parentStylesheet| is in [=quirks mode=]
 				and |response| is [=CORS-same-origin=],
 				let |content type| be <code>"text/css"</code>.
 				Otherwise, let |content type| be the Content Type metadata of |response|.
 
-			5. If |content type| is not <code>"text/css"</code>,
+			3. If |content type| is not <code>"text/css"</code>,
 				return.
 
-			6. Issue: Do we wait for sub-imports to run now?
-				Need to explore this.
+			4. Let |importedStylesheet| be the result of [=Parse a stylesheet|parsing=] |byteStram|
+				given |parsedUrl|.
 
-			7. Let |global| be the result of [=finding the relevant global object for a stylesheet=]
-				given |rule|'s [=CSSRule/parent CSS style sheet=].
+			5. Set |importedStylesheet|'s <a spec=cssom>origin-clean flag</a> to
+				|parentStylesheet|'s <a spec=cssom>origin-clean flag</a>.
 
-			8. [=Queue a global task=],
-				given the [=networking task source=]
-				and |global|,
-				to [=process an imported stylesheet=]
-				given |rule|,
-				|success|,
-				and |response|.
-	</div>
+			6. If |response| is not [=CORS-same-origin=], unset |importedStylesheet|'s
+				<a spec=cssom>origin-clean flag</a>.
 
-	<div algorithm>
-		To <dfn export>find the relevant global object for a stylesheet</dfn> given a CSS style sheet |stylesheet|:
-
-		1. If |stylesheet| has a [=CSSStyleSheet/parent CSS style sheet=],
-			return the result of [=finding the relevant global object for a stylesheet=]
-			given the [=CSSStyleSheet/parent CSS style sheet=].
-
-		2. If |stylesheet| has an [=CSSStyleSheet/owner node=],
-			return the [=CSSStyleSheet/owner node's=] [=relevant global object=].
-	</div>
-
-	<div algorithm>
-		To <dfn export>process an imported stylesheet</dfn>
-		given a parent rule |rule|,
-		a success flag |success|,
-		and a response |response|:
-
-		Issue: Create a stylesheet, assign it to the parent rule.
+			7. Set |rule|'s {{CSSImportRule/styleSheet}} to |importedStylesheet|.
 	</div>
 
 <h3 id='content-type'>
@@ -441,7 +405,7 @@ Shorthand Properties</h2>
 	is equivalent to declaring all of its <a>sub-properties</a> to be ''!important''.
 
 <h3 id="aliasing">
-Aliasing</h3>
+Property Aliasing</h3>
 
 	Properties sometimes change names after being supported for a while,
 	such as vendor-prefixed properties being standardized.
@@ -600,6 +564,15 @@ Declared Values</h3>
 
 	These values are then processed by the <a>cascade</a>
 	to choose a single “winning value”.
+
+<h4 id="value-aliasing">
+Value Aliasing</h4>
+
+	Some property values have <dfn export for=CSS lt="legacy value alias">legacy value aliases</dfn>:
+	at parse time, the legacy syntax is converted into the new syntax,
+	resulting in a [=declared value=] different from the parsed input.
+	These aliases are typically used for handling legacy compatibility requirements,
+	such as converting [=vendor-prefixed=] values to their standard equivalents.
 
 <h3 id="cascaded">
 Cascaded Values</h3>
@@ -1163,19 +1136,24 @@ Precedence of Non-CSS Presentational Hints</h3>
 	The UA may choose to honor presentational hints in a source document's markup,
 	for example the <code>bgcolor</code> attribute or <{s}> element in [[HTML]].
 	All document language-based styling must be translated to corresponding CSS rules
-	and either enter the cascade as [=UA-origin=] rules or
-	be treated as [=author-origin=] rules with a specificity of zero
-	placed at the start of the [=author style sheet=].
+	and enter the cascade as rules in either
+	the [=UA-origin=] or a special-purpose <dfn>author presentational hint origin</dfn>
+	between the regular [=user origin=] and the [=author origin=].
+	For the purpose of [=cascading=]
+	this [=author presentational hint origin=] is treated as an independent [=origin=],
+	but for the purpose of the ''revert'' keyword
+	it is considered part of the [=author origin=].
+
 	A document language may define whether such a presentational hint
 	enters the [=cascade=] as [=UA-origin=] or [=author-origin=];
 	if so, the UA must behave accordingly.
-	For example, [[SVG11]] maps its presentation attributes into the author level.
+	For example, [[SVG11]] maps its presentation attributes into the [=author origin=].
 
 	Note: Presentational hints entering the [=cascade=] as [=UA-origin=] rules
 	can be overridden by [=author-origin=] or [=user-origin=] styles.
-	Presentational hints entering the cascade as [=author-origin=] rules
+	Presentational hints entering the cascade as [=author presentational hint origin=] rules
 	can be overridden by [=author-origin=] styles,
-	but not by non-important [=user-origin=] styles.
+	but not by non-[=important=] [=user-origin=] styles.
 	Host languages should choose the appropriate origin for presentational hints
 	with these considerations in mind.
 
@@ -1248,19 +1226,22 @@ Explicit Defaulting</h3>
 <h4 id="initial">
 Resetting a Property: the ''initial'' keyword</h4>
 
-	If the <a>cascaded value</a> of a property is the <dfn for=all caniuse="css-initial-value">''initial''</dfn> keyword,
+	If the <a>cascaded value</a> of a property is
+	the <dfn value for=all caniuse="css-initial-value">initial</dfn> keyword,
 	the property's <a>specified value</a> is its <a>initial value</a>.
 
 <h4 id="inherit">
 Explicit Inheritance: the ''inherit'' keyword</h4>
 
-	If the <a>cascaded value</a> of a property is the <dfn for=all>''inherit''</dfn> keyword,
+	If the <a>cascaded value</a> of a property is
+	the <dfn value for=all>inherit</dfn> keyword,
 	the property's <a lt="specified value">specified</a> and <a>computed values</a> are the <a>inherited value</a>.
 
 <h4 id="inherit-initial">
 Erasing All Declarations: the ''unset'' keyword</h4>
 
-	If the <a>cascaded value</a> of a property is the <dfn for=all caniuse="css-unset-value">''unset''</dfn> keyword,
+	If the <a>cascaded value</a> of a property is
+	the <dfn value for=all caniuse="css-unset-value">unset</dfn> keyword,
 	then if it is an inherited property, this is treated as ''inherit'',
 	and if it is not, this is treated as ''initial''.
 	This keyword effectively erases all <a>declared values</a> occurring earlier in the <a>cascade</a>,
@@ -1270,7 +1251,8 @@ Erasing All Declarations: the ''unset'' keyword</h4>
 <h4 id="default">
 Rolling Back Cascade Origins: the ''revert'' keyword</h4>
 
-	If the <a>cascaded value</a> of a property is the <dfn for=all caniuse="css-revert-value">''revert''</dfn> keyword,
+	If the <a>cascaded value</a> of a property is
+	the <dfn value for=all caniuse="css-revert-value">revert</dfn> keyword,
 	the behavior depends on the [=cascade origin=] to which the declaration belongs:
 
 	<dl>
@@ -1308,8 +1290,28 @@ Rolling Back Cascade Origins: the ''revert'' keyword</h4>
 <h2 id="changes">
 Changes</h2>
 
+<h3 id="changes-2021-10">
+Changes since the 15 Oct 2021 Working Draft</h3>
+
+Non-trivial changes since the <a href="https://www.w3.org/TR/2021/WD-css-cascade-4-20211015/">15 October 2021 Working Draft</a>:
+
+	* Added [[#value-aliasing]] section.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6193">Issue 6193</a>)
+
+
 <h3 id="changes-2018">
 Changes Since the 28 August 2018 Candidate Recommendation</h3>
+
+	Non-trivial changes since the <a href="https://www.w3.org/TR/2021/WD-css-cascade-4-20210319/">19 March 2021 Working Draft</a> include:
+
+	<ul class=non-normative>
+		<li id="change-2021-preshint-origin">
+			Defined [=author presentational hint origin=] to handle author-origin presentational hints,
+			instead of relying on zero-specificity and source order,
+			to correctly define their interaction with the [=encapsulation context=]
+			aspect of the cascade.
+			(<a href="https://github.com/w3c/csswg-drafts/issues/6659">Issue 66749</a>)
+	</ul>
 
 	Non-trivial changes since the <a href="https://www.w3.org/TR/2020/WD-css-cascade-4-20200818/">18 August 2020 Working Draft</a> include:
 
@@ -1479,7 +1481,7 @@ Additions Since Level 2</h3>
 
 <h2 class="no-num" id="acknowledgments">Acknowledgments</h2>
 
-	David Baron, Tantek Çelik, Simon Sapin, and Boris Zbarsky contributed to this specification.
+	David Baron, Tantek Çelik, Simon Sapin, Noam Rosenthal, and Boris Zbarsky contributed to this specification.
 
 <h2 class=no-num id=priv-sec>
 Privacy and Security Considerations</h2>

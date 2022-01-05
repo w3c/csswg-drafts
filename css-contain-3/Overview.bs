@@ -3,6 +3,7 @@ Title: CSS Containment Module Level 3
 Level: 3
 Shortname: css-contain
 Status: ED
+Prepare for TR: no
 Work Status: Exploring
 Group: csswg
 ED: https://drafts.csswg.org/css-contain-3/
@@ -30,16 +31,16 @@ spec:css-contain-2; type:dfn; text:size containment box
 spec:css-sizing-4; type:property; text:contain-intrinsic-size
 spec:css-sizing-4; type:property; text:aspect-ratio
 spec:intersection-observer; type:dfn; text:intersection root
-spec:css-sizing-3; type:value; for:height; text:auto
-spec:css-sizing-3; type:property; text:width
+spec:css-sizing-3; type:property;
+	text:min-width
+	text:min-height
 spec:css-sizing-3; type:dfn; text:width
 spec:css-sizing-3; type:property; text:height
 spec:css-sizing-3; type:dfn; text:height
 spec:css-sizing-3; type:dfn; text:size
-spec:css-sizing-3; type:value; for:width; text:min-content
-spec:css-sizing-3; type:value; for:width; text:max-content
 spec:css-syntax-3; type:dfn; text:identifier
 spec:css-values-4; type:dfn; text:relative length
+spec:web-animations-1; type:dfn; text:effect values
 </pre>
 
 <h2 id='intro'>
@@ -77,20 +78,18 @@ Strong Containment: the 'contain' property</h2>
 
 	<pre class='propdef partial'>
 		Name: contain
-		New Values: layout || style || paint || [ size | inline-size | block-size ]
+		New Values: layout || style || paint || [ size | inline-size ]
 	</pre>
 
 	<dl dfn-type=value dfn-for=contain>
 		<dt><dfn>inline-size</dfn>
 		<dd>
-			The value turns on <a>inline-size containment</a> for the element.
-			This ensures that the inline [=size containment box|containment box=] can be laid out
-			without needing to examine its descendants.
-		<dt><dfn>block-size</dfn>
-		<dd>
-			The value turns on <a>block-size containment</a> for the element.
-			This ensures that the block [=size containment box|containment box=] can be laid out
-			without needing to examine its descendants.
+			This value turns on [=inline-size containment=] for the element.
+			This prevents the [=inline-size=] of its [=principal box=]
+			from directly depending on its contents.
+
+			Note: There can still be indirect dependencies,
+			see [[#containment-inline-size]].
 	</dl>
 
 
@@ -103,21 +102,163 @@ Types of Containment</h2>
 Inline-Size Containment</h3>
 
 	Giving an element <dfn export>inline-size containment</dfn>
-	makes its [=principal box=] behave as a [=size containment box=]
-	on the [=inline axis=].
+	applies [=size containment=] to the [=inline-axis=] sizing of its [=principal box=].
+	This means the [=inline-axis=] [=intrinsic sizes=] of the [=principal box=]
+	are determined as if the element had no content.
+	However, content continues to impact the box’s [=block-axis=] [=intrinsic sizes=] as usual,
+	and the box is allowed to [=fragmentation|fragment=] normally in the [=block axis=].
+
+	<div class=note>
+		<span class="marker">Note:</span> In some cases,
+		a box’s [=block-axis=] [=intrinsic sizes=]
+		can impact layout in the parent [=formatting context=]
+		in ways that affect the box’s [=inline size=]
+		(e.g. by triggering scrollbars on an ancestor element),
+		creating a dependency of the box’s [=inline size=] on its own content.
+		If this changed [=inline size=] results in a different [=block size=],
+		that new [=block size=] can loop into further impacting the parent formatting context,
+		but not in a way that reverts it to the previously-problematic layout.
+
+		For example, if scrollbars were introduced,
+		they are not then removed,
+		even if the consequent [=block size=] is small enough to not need them;
+		or if a box’s logical height collides with a lower-placed float and is cleared down
+		to where it also has more available inline space
+		and thus becomes short enough to not have collided,
+		it is not them moved back up to its previous problematic size and position.
+
+		Thus, although [=inline-size containment=] prevents
+		the box’s content from directly affecting its [=inline size=]
+		through its [=inline-axis=] [=intrinsic sizes=],
+		its [=inline size=] can still indirectly depend on its contents
+		by their effect on its [=block size=].
+	</div>
+
+	ISSUE:
+		In general, the relationship between an element's inline size
+		and it's block size
+		is unpredictable and non-monotonic,
+		with the block size capable of shifting up and down arbitrarily
+		as the inline size is changed.
+		Infinite cycles are prevented
+		by ensuring that layout does not revert to a previous (known-problematic) state,
+		even if a naive analysis of the constraints would allow for such;
+		in other words, layout always “moves forward”.
+		We believe that current CSS layout specifications incorporate such rules,
+		but to the extent that they don't,
+		please <a href="https://github.com/w3c/csswg-drafts/issues">inform the CSSWG</a>
+		so that these errors can be corrected.
+
+	<div class=example>
+		Consider this example,
+		where float placement creates a dependency of block sizes on inline sizes:
+
+		<xmp class=lang-markup>
+			<section style="width: 200px; border: solid; display: flow-root;">
+			  <!-- floated elements that impact the available space -->
+			  <div style="float: left; width: 50px; height: 80px; background: blue;"></div>
+			  <div style="float: right; width: 50px; height: 80px; background: blue;"></div>
+			  <div style="float: left; width: 160px; height: 80px; background: navy;"></div>
+
+			  <!-- parent layout, determining context -->
+			  <article style="border: solid orangered; display: flow-root; min-width: min-content">
+			    <div style="background: orange; aspect-ratio: 1/1;">
+			      Article
+			    </div>
+			  </article>
+			</section>
+		</xmp>
+
+		<figure style="float: left; margin: 1em 0.5em">
+			<section style="width: 200px; border: solid; display: flow-root;">
+			  <!-- floated elements that impact the available space -->
+			  <div style="float: left; width: 50px; height: 80px; background: blue;"></div>
+			  <div style="float: right; width: 50px; height: 80px; background: blue;"></div>
+			  <div style="float: left; width: 160px; height: 80px; background: navy;"></div>
+
+			  <!-- parent layout, determining context -->
+			  <article style="border: solid orangered; display: flow-root; min-width: 50px">
+			    <div style="background: orange; aspect-ratio: 1/1;">
+			      Article
+			    </div>
+			  </article>
+			</section>
+		</figure>
+
+		The block layout algorithm will first place the floating boxes,
+		with the first two sitting in the left and right corners of the container,
+		and the third, being too wide to fit between, being pushed below them.
+
+		The following <code>article</code> will then be laid out.
+		Because it is ''display: flow-root'',
+		it cannot intersect any floats,
+		and thus must take them into account
+		when figuring out how to size and position itself.
+
+		The layout engine first attempts to place the <code>article</code>
+		flush with the top of the container,
+		resulting a ''100px'' width,
+		plenty wide enough to accommodate its [=min-content size=].
+		However, due the 'aspect-ratio' of its child,
+		this would cause the <code>article</code> to be ''100px'' tall as well,
+		which would intersect the third float 80px below,
+		so this layout opportunity is discarded.
+
+		It then attempts to position the <code>article</code>
+		flush with the top of the third float,
+		in the narrow ''40px''-wide space to its right.
+		However, since the <code>article</code>’s 'min-width' makes it too large
+		to fit in the 40px-wide space beside the third float,
+		it shifts below that one as well,
+		forming a 200px square below all the floated boxes.
+
+		<figure style="float: right; margin: 1em 0.5em">
+			<section style="width: 200px; border: solid; display: flow-root;">
+			  <!-- floated elements that impact the available space -->
+			  <div style="float: left; width: 50px; height: 80px; background: blue;"></div>
+			  <div style="float: right; width: 50px; height: 80px; background: blue;"></div>
+			  <div style="float: left; width: 160px; height: 80px; background: navy;"></div>
+
+			  <!-- parent layout, determining context -->
+			  <article style="border: solid orangered; display: flow-root;">
+			    <div style="background: orange; aspect-ratio: 1/1;">
+			      Article
+			    </div>
+			  </article>
+			</section>
+		</figure>
+
+		If the 'min-width' is removed from the <code>article</code>,
+		or if [=inline-size containment=] is added to
+		either the <code>article</code> or <code>header</code>
+		(causing ''min-width: min-content'' to resolve to zero),
+		then the <code>article</code> will fit as a 40px square
+		next to the final floated <code>div</code>
+		(possibly with some of its content overflowing).
+
+		At this point, the width and height of the <code>article</code>
+		(''40px'' each)
+		<em>would</em> fit back in the first considered space,
+		flush with the top of the container.
+		However, the box is not returned to the previous position,
+		because the layout engine knows already
+		that this position would result in an invalid layout.
+	</div>
+
+	Giving an element [=inline-size containment=]
+	has no effect if any of the following are true:
+
+	* if the element does not generate a <a>principal box</a>
+		(as is the case with ''display: contents'' or ''display: none'')
+	* if its [=inner display type=] is ''display/table''
+	* if its [=principal box=] is
+		an <a spec="css-display-3">internal table box</a>
+	* if its [=principal box=] is
+		an <a spec="css-display-3">internal ruby box</a>
+		or a <a spec="css-display-3" lt="atomic inline">non-atomic</a> <a spec="css-display-3">inline-level</a> box
 
 	Issue(1031): Define inline-size containment in more detail
-
-
-<h3 id='containment-block-size'>
-Block-Size Containment</h3>
-
-	Giving an element <dfn export>block-size containment</dfn>
-	makes its [=principal box=] behave as a [=size containment box=]
-	on the [=block axis=].
-
-	Issue(1031): Define block-size containment in more detail
-
+	(including additional examples)
 
 <h2 id="container-queries">
 Container Queries</h2>
@@ -163,7 +304,7 @@ Container Queries</h2>
 	</div>
 
 <h3 id="container-type">
-Creating Query Containers: the 'container-type' property</h2>
+Creating Query Containers: the 'container-type' property</h3>
 
 	<pre class='propdef'>
 		Name: container-type
@@ -189,7 +330,7 @@ Creating Query Containers: the 'container-type' property</h2>
 	<dl dfn-type=value dfn-for=container-type>
 		<dt><dfn>size</dfn>
 		<dd>
-			Establishes a [=query container=] for [=size queries=]
+			Establishes a [=query container=] for [=container size queries=]
 			on both the [=inline axis|inline=] and [=block axis=].
 			Applies [=layout containment=],
 			[=style containment=],
@@ -197,23 +338,15 @@ Creating Query Containers: the 'container-type' property</h2>
 			to the [=principal box=].
 		<dt><dfn>inline-size</dfn>
 		<dd>
-			Establishes a [=query container=] for [=size queries=]
+			Establishes a [=query container=] for [=container size queries=]
 			on the container’s own [=inline axis=].
 			Applies [=layout containment=],
 			[=style containment=],
 			and [=inline-size containment=]
 			to the [=principal box=].
-		<dt><dfn>block-size</dfn>
-		<dd>
-			Establishes a [=query container=] for [=size queries=]
-			on the container’s own [=block axis=].
-			Applies [=layout containment=],
-			[=style containment=],
-			and [=block-size containment=]
-			to the [=principal box=].
 		<dt><dfn>style</dfn>
 		<dd>
-			Establishes a [=query container=] for [=style queries=].
+			Establishes a [=query container=] for [=container style queries=].
 		<dt><dfn>state</dfn>
 		<dd>
 			Establishes a [=query container=] for [=state queries=].
@@ -262,7 +395,7 @@ Creating Query Containers: the 'container-type' property</h2>
 
 
 <h3 id="container-name">
-Naming Query Containers: the 'container-name' property</h2>
+Naming Query Containers: the 'container-name' property</h3>
 
 	<pre class='propdef'>
 		Name: container-name
@@ -339,7 +472,7 @@ Naming Query Containers: the 'container-name' property</h2>
 
 
 <h3 id="container-shorthand">
-Creating Named Containers: the 'container' shorthand</h2>
+Creating Named Containers: the 'container' shorthand</h3>
 
 	<pre class='propdef shorthand'>
 		Name: container
@@ -368,12 +501,12 @@ Creating Named Containers: the 'container' shorthand</h2>
 
 
 <h3 id="container-rule">
-Container Queries: the ''@container'' rule</h2>
+Container Queries: the ''@container'' rule</h3>
 
 	The <dfn at-rule id="at-ruledef-container">@container</dfn> rule
 	is a [=conditional group rule=] whose condition is
 	a <dfn export>container query</dfn>,
-	which is a boolean combination of [=size queries=] and/or [=style queries=].
+	which is a boolean combination of [=container size queries=] and/or [=container style queries=].
 	Style declarations within the <<stylesheet>> block of an ''@container'' rule
 	are [[css-cascade-4#filtering|filtered]] by its condition
 	to only match when the [=container query=]
@@ -431,7 +564,7 @@ Container Queries: the ''@container'' rule</h2>
 	is a match for both ''container-type/inline-size'' and ''container-type/block-size''.
 
 	Once an eligible [=query container=] has been selected for an element,
-	each [=container feature=] in the <<container-query-list>>
+	each [=container feature=] in the <<container-condition>>
 	is evaluated against that [=query container=].
 	If the selected [=query container=]
 	is not a valid 'container-type' for the feature,
@@ -450,15 +583,77 @@ Container Queries: the ''@container'' rule</h2>
 
 		The styles above will only be applied
 		if there nearest ancestor container named "card"
-		meets both the '@container/inline-size' and [=style queries|style=] conditions.
+		meets both the '@container/inline-size' and [=container style query|style=] conditions.
 	</div>
 
 	Style rules defined on an element inside multiple nested [=container queries=]
 	apply when all of the wrapping [=container queries=] are true for that element.
 
 	Note: Nested [=container queries=] can evaluate in relation to different containers,
-	so it is not always possible to merge the individual <<container-query-list>>s
+	so it is not always possible to merge the individual <<container-condition>>s
 	into a single query.
+
+<h3 id="animated-containers">
+Animated Containers</h3>
+
+	A change in the evaluation of a [=container query=] must be part of a [=style change event=],
+	even when the change occurred because of [=effect values|animation effects=].
+
+	<div class=example>
+		A transition on a sibling element can indirectly affect the size of a
+		container, triggering [=style change events=] whenever container queries
+		change their evaluation as a result:
+
+		<pre class=lang-css>
+			main {
+			  display: flex;
+			  width: 300px;
+			}
+
+			#container {
+			  container: inline-size;
+			  flex: 1;
+			}
+
+			/* Resolved width is initially 200px, but changes as the transition
+			   on #sibling progresses. */
+			#inner {
+			  transition: 1s background-color;
+			  background-color: tomato;
+			}
+
+			/* When this container query starts (or stops) applying, a transition
+			   must start on background-color on #inner. */
+			@container (width <= 150px) {
+			  #inner {
+			    background-color: skyblue;
+			  }
+			}
+
+			#sibling {
+			  width: 100px;
+			  transition: width 1s;
+			}
+
+			#sibling:hover {
+			  width: 200px;
+			}
+		</pre>
+
+		<pre class=lang-html>
+			&lt;main>
+			  &lt;div id=container>
+			    &lt;div id=inner>Inner&lt;/div>
+			  &lt;/div>
+			  &lt;div id=sibling>Sibling&lt;/div>
+			&lt;/main>
+		</pre>
+
+	</div>
+
+	Changes in [=computed values=] caused by [=container query length=] units
+	must also be part of a [=style change event=].
+
 
 <h2 id="container-features">
 Container Features</h2>
@@ -471,7 +666,7 @@ Container Features</h2>
 <h3 id="size-container">
 Size Container Features</h3>
 
-	A <dfn export>size query</dfn>
+	A <dfn export>container size query</dfn>
 	(syntactically represented as <<size-query>>)
 	allows querying
 	the size of the [=query container=]’s [=principal box=].
@@ -482,12 +677,12 @@ Size Container Features</h3>
 	a feature name, a comparator, and a value.
 	[[mediaqueries-5]]
 	The boolean syntax and logic combining [=size features=] into a <<size-query>>
-	is the same as for [=feature queries=].
+	is the same as for [=CSS feature queries=].
 	(See ''@supports''. [[!CSS-CONDITIONAL-3]])
 
 	If the [=query container=] does not have a [=principal box=],
 	or the principal box is not a [=layout containment box=],
-	or the [=query container=] does not support [=size queries=] on the relevant axes,
+	or the [=query container=] does not support [=container size queries=] on the relevant axes,
 	then the result of evaluating the [=size feature=] is unknown.
 
 	[=Relative length=] units in [=container query=] conditions
@@ -622,7 +817,7 @@ Orientation: the '@container/orientation' feature</h4>
 <h3 id="style-container">
 Style Container Features</h3>
 
-	A <dfn export>style queries</dfn>
+	A <dfn export>container style query</dfn>
 	(syntactically represented by <<style-query>>)
 	allows querying
 	the [=computed values=] of the [=query container=].
@@ -638,7 +833,7 @@ Style Container Features</h3>
 	unknown if the property or its value is unsupported,
 	and false otherwise.
 	The boolean syntax and logic combining [=style features=] into a <<style-query>>
-	is the same as for [=feature queries=].
+	is the same as for [=CSS feature queries=].
 	(See ''@supports''. [[!CSS-CONDITIONAL-3]])
 
 	Issue(6396): Do we like this proposed syntax for style queries?
@@ -654,14 +849,14 @@ State Container Features</h3>
 Issue(6402): Define a syntax for state-based container queries
 
 <h2 id="container-lengths">
-Container Relative Lengths: the ''qw'', ''qh'', ''qi'', ''qb'', ''qmin'', ''qmax'' units</h2>
+Container Relative Lengths: the ''cqw'', ''cqh'', ''cqi'', ''cqb'', ''cqmin'', ''cqmax'' units</h2>
 
-	<dfn lt="query length">Query length units</dfn>
+	<dfn lt="container query length">Container query length units</dfn>
 	specify a length relative to the dimensions of a [=query container=].
-	Style sheets that use [=query length=] units can more easily move components
+	Style sheets that use [=container query length=] units can more easily move components
 	from one [=query container=] to another.
 
-	The [=query length=] units are:
+	The [=container query length=] units are:
 
 	<table class="data">
 	<caption>Informative Summary of Container Units</caption>
@@ -669,42 +864,42 @@ Container Relative Lengths: the ''qw'', ''qh'', ''qi'', ''qb'', ''qmin'', ''qmax
 		<tr><th>unit<th>relative to
 	</thead>
 	<tbody>
-		<tr><td>''qw''
+		<tr><td>''cqw''
 			<td>1% of a [=query container=]’s [=width=]
-		<tr><td>''qh''
+		<tr><td>''cqh''
 			<td>1% of a [=query container=]’s [=height=]
-		<tr><td>''qi''
+		<tr><td>''cqi''
 			<td>1% of a [=query container=]’s [=inline size=]
-		<tr><td>''qb''
+		<tr><td>''cqb''
 			<td>1% of a [=query container=]’s [=block size=]
-		<tr><td>''qmin''
-			<td>The smaller value of ''qi'' or ''qb''
-		<tr><td>''qmax''
-			<td>The larger value of ''qi'' or ''qb''
+		<tr><td>''cqmin''
+			<td>The smaller value of ''cqi'' or ''cqb''
+		<tr><td>''cqmax''
+			<td>The larger value of ''cqi'' or ''cqb''
 	</tbody>
 	</table>
 
 	For each element,
-	[=query length=] units are evaluated
-	as [=size queries=] on the relevant axis (or axes)
+	[=container query length=] units are evaluated
+	as [=container size queries=] on the relevant axis (or axes)
 	described by the unit.
 	The [=query container=] for each axis
 	is the nearest ancestor container
-	that accepts [=size queries=] on that axis.
+	that accepts [=container size queries=] on that axis.
 	If no eligible [=query container=] is available,
 	then use the [=small viewport size=] for that axis.
 
-	Note: In some cases ''qi'' and ''qb'' units on the same element
+	Note: In some cases ''cqi'' and ''cqb'' units on the same element
 	will evaluate in relation to different [=query containers=].
-	Similarly, ''qmin'' and ''qmax'' units represent
-	the larger or smaller of the ''qi'' and ''qb'' units,
+	Similarly, ''cqmin'' and ''cqmax'' units represent
+	the larger or smaller of the ''cqi'' and ''cqb'' units,
 	even when those dimensions come from different [=query containers=].
 
 	Child elements do not inherit the relative values as specified for their parent;
 	they inherit the <a>computed values</a>.
 
 	<div class=example>
-		Authors can ensure that [=query length=] units
+		Authors can ensure that [=container query length=] units
 		have an appropriate [=query container=]
 		by applying them inside a [=container query=] with the required <<container-type>>.
 		Custom fallback values can be defined outside the [=container query=]:
@@ -715,12 +910,10 @@ Container Relative Lengths: the ''qw'', ''qh'', ''qi'', ''qb'', ''qmin'', ''qmax
 
 		@container type(inline-size) {
 		  /* only applies when an inline-size container is available */
-		  h2 { font-size: calc(1.2em + 1qi); }
+		  h2 { font-size: calc(1.2em + 1cqi); }
 		}
 		</pre>
 	</div>
-
-	Issue(5888): "container width" and "container height" units
 
 
 Suppressing An Element’s Contents Entirely: the 'content-visibility' property {#content-visibility}
