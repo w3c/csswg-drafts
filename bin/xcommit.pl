@@ -46,7 +46,7 @@ my @failed = ();
 print "Sourcing diffs from $specname level $sourcelevel under root $rootdir:\n";
 chdir $rootdir;
 $_ = `ls -d $specname-*`;
-my @dirlist = split;
+my @dirlist = grep /$specname-\d+/, split;
 print "Matching specs: @dirlist\n";
 
 # ask what levels to patch
