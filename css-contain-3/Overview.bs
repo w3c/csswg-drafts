@@ -257,8 +257,6 @@ Inline-Size Containment</h3>
 		an <a spec="css-display-3">internal ruby box</a>
 		or a <a spec="css-display-3" lt="atomic inline">non-atomic</a> <a spec="css-display-3">inline-level</a> box
 
-	Issue(1031): Define inline-size containment in more detail
-	(including additional examples)
 
 <h2 id="container-queries">
 Container Queries</h2>
@@ -273,8 +271,8 @@ Container Queries</h2>
 	A [=query container=] is established by specifying
 	the possible query types using the 'container-type' property
 	(or the 'container' [=shorthand=]).
-	Style rules applying to its descendants can then be conditioned
-	by querying against it,
+	Style rules applying to its <a>shadow-including descendants</a> can then be
+	conditioned by querying against it,
 	using the ''@container'' [=conditional group rule=].
 
 	<div class=example>
@@ -284,7 +282,7 @@ Container Queries</h2>
 
 		<pre class=lang-css>
 		main, aside {
-		  container: inline-size;
+		  container: my-layout / inline-size;
 		}
 
 		.media-object {
@@ -292,7 +290,7 @@ Container Queries</h2>
 		  grid-template: 'img' auto 'content' auto / 100%;
 		}
 
-		@container (inline-size > 45em) {
+		@container my-layout (inline-size > 45em) {
 		  .media-object {
 		    grid-template: 'img content' auto / auto 1fr;
 		  }
@@ -303,16 +301,95 @@ Container Queries</h2>
 		will each respond to their own container context.
 	</div>
 
+	For selectors with pseudo elements, query containers can be established by
+	the <a>shadow-including inclusive ancestors</a> of the <a>ultimate
+	originating element</a>.
+
+	<div class=note>
+		It follows that:
+
+		* Pseudo elements themselves can not be query containers
+		* ''::before'', ''::after'', ''::marker'', and ''::backdrop'' query their
+			originating elements
+		* ''::first-letter'' and ''::first-line'' query their originating elements,
+			even if the <a>fictional tag sequence</a> may push the
+			<code>::first-line</code> past other elements for the purpose of
+			inheritance and rendering
+		* Multiple pseudo elements do not allow pseudo elements to be query
+			containers for other pseudo elements. E.g., the host, but not the
+			<code>::part()</code>, can be the query container for
+			<code>::before</code> in <code>host::part()::before</code>. Similarly,
+			<code>::before</code> can not be the query container for the
+			<code>::marker</code> in <code>div::before::marker</code>
+		* ''::slotted()'' selectors can query containers inside the shadow tree,
+			including the slot itself
+		* ''::part()'' selectors can query its originating host, but not internal
+			query containers inside the shadow tree
+		* ''::placeholder'' and ''::file-selector-button'' can query the input
+			element, but do not expose any internal containers if the input element is
+			implemented using a shadow tree
+	</div>
+
+	<div class=example>
+		A ::before selector querying the size of the originating element:
+
+		<pre class=lang-html>
+		&lt;style>
+		  #container {
+		    width: 100px;
+		    container-type: inline-size;
+		  }
+		  @container (inline-size < 150px) {
+		    #inner::before {
+		      content: "BEFORE";
+		    }
+		  }
+		&lt;/style>
+		&lt;div id=container>
+		  &lt;span id=inner>&lt;/span>
+		&lt;/div>
+		</pre>
+	</div>
+
+	<div class=example>
+		A ::slotted() selector for styling a shadow host child can query a
+		container in the shadow tree:
+
+		<pre class=lang-html>
+		&lt;div id=host style="width:200px">
+		  &lt;template shadowroot=open>
+		    &lt;style>
+		      #container {
+		        width: 100px;
+		        container-type: inline-size;
+		      }
+		      @container (inline-size < 150px) {
+		        ::slotted(span) {
+		          color: green;
+		        }
+		      }
+		    &lt;/style>
+		    &lt;div id=container>
+		      &lt;slot />
+		    &lt;/div>
+		  &lt;/template>
+		  &lt;span id=slotted>Green&lt;/span>
+		&lt;/div>
+		</pre>
+	</div>
+
+	Issue(6205): Container Queries should have a matchContainer method
+
 <h3 id="container-type">
 Creating Query Containers: the 'container-type' property</h3>
 
 	<pre class='propdef'>
 		Name: container-type
-		Value: none | style || state || [ size | inline-size | block-size ]
+		Value: none | style || [ size | inline-size | block-size ]
 		Initial: none
 		Inherited: no
 		Applies to: all elements
-		Computed value: the keyword ''container-type/none'' or one or more of ''container-type/size'', ''container-type/inline-size'', ''container-type/block-size'', ''container-type/style'', ''container-type/state''
+		Computed value: the keyword ''container-type/none'' or one or more of ''container-type/size'', ''container-type/inline-size'', ''container-type/block-size'', ''container-type/style''
 		Animation type: not animatable
 	</pre>
 
@@ -321,9 +398,6 @@ Creating Query Containers: the 'container-type' property</h3>
 	allowing [=style rules=] styling its descendants
 	to query various aspects of its sizing, layout, and style
 	and respond accordingly.
-
-	Issue(6376): Bikeshed terms/property names to avoid confusion
-	with other usage of “contain” and “container”?
 
 	Values have the following meanings:
 
@@ -347,9 +421,6 @@ Creating Query Containers: the 'container-type' property</h3>
 		<dt><dfn>style</dfn>
 		<dd>
 			Establishes a [=query container=] for [=container style queries=].
-		<dt><dfn>state</dfn>
-		<dd>
-			Establishes a [=query container=] for [=state queries=].
 	</dl>
 
 	<div class=example>
@@ -393,13 +464,15 @@ Creating Query Containers: the 'container-type' property</h3>
 		</pre>
 	</div>
 
+	Issue(7066): Should all elements default to a style container-type?
+
 
 <h3 id="container-name">
 Naming Query Containers: the 'container-name' property</h3>
 
 	<pre class='propdef'>
 		Name: container-name
-		Value: none | [ <<custom-ident>> | <<string>> ]+
+		Value: none | <<custom-ident>>+
 		Initial: none
 		Inherited: no
 		Applies to: all elements
@@ -419,15 +492,7 @@ Naming Query Containers: the 'container-name' property</h3>
 	<dt><dfn><<custom-ident>></dfn>
 	<dd>
 		Specifies a [=query container name=] as an [=identifier=].
-	<dt><dfn><<string>></dfn>
-	<dd>
-		Specifies a [=query container name=] as a <<string>> value;
-		this computes to an [=identifier=]
-		with the same value as the given <<string>>.
 	</dl>
-
-	The keyword <css>none</css> and the string "none"
-	are invalid as <<custom-ident>> or <<string>> values.
 
 	<div class=example>
 		In some cases, we want to query aspects of a specific container,
@@ -438,36 +503,22 @@ Naming Query Containers: the 'container-name' property</h3>
 		<pre class=lang-css>
 		main {
 		  container-type: size;
-		  container-name: page-layout;
+		  container-name: my-page-layout;
 		}
 
 		.my-component {
 		  container-type: inline-size;
-		  container-name: component-library;
+		  container-name: my-component-library;
 		}
 
-		@container page-layout (block-size > 12em) {
+		@container my-page-layout (block-size > 12em) {
 		  .card { margin-block: 2em; }
 		}
 
-		@container component-library (inline-size > 30em) {
+		@container my-component-library (inline-size > 30em) {
 		  .card { margin-inline: 2em; }
 		}
 		</pre>
-	</div>
-
-	<div class=example>
-		Since <<string>> values are allowed,
-		we can also generate container names from attributes:
-
-		<pre class=lang-css>
-		[data-container] {
-		  container-name: attr(data-container);
-		}
-		</pre>
-
-		This will set the the [=query container name=]
-		to use the contents of the ''data-container'' attribute when provided.
 	</div>
 
 
@@ -476,12 +527,14 @@ Creating Named Containers: the 'container' shorthand</h3>
 
 	<pre class='propdef shorthand'>
 		Name: container
-		Value: <<'container-type'>> [ / <<'container-name'>> ]?
+		Value: <<'container-name'>>? [ / <<'container-type'>> ]?
 	</pre>
 
 	The 'container' [=shorthand property=] sets
 	both 'container-type' and 'container-name' in the same declaration.
 	If <<'container-name'>> is omitted,
+	it is reset to its [=initial value=].
+	If <<'container-type'>> is omitted,
 	it is reset to its [=initial value=].
 
 	<div class=example>
@@ -490,11 +543,11 @@ Creating Named Containers: the 'container' shorthand</h3>
 
 		<pre class=lang-css>
 		main {
-		  container: size / layout;
+		  container: my-layout / size;
 		}
 
 		.grid-item {
-		  container: inline-size / component;
+		  container: my-component / inline-size;
 		}
 		</pre>
 	</div>
@@ -512,63 +565,47 @@ Container Queries: the ''@container'' rule</h3>
 	to only match when the [=container query=]
 	is true for their element’s [=query container=].
 
-
 	The syntax of the ''@container'' rule is:
 
 	<pre class="prod def">
-	@container
-	  [ <<container-name>> | [ name(<<container-name>>) || type(<<container-type>>+) ] ]?
-	  <<container-query>> {
-	    <<stylesheet>>
+	@container [ <<container-name>> ]? <<container-condition>> {
+	  <<stylesheet>>
 	}
 	</pre>
 
 	where:
 
 	<pre class="prod def">
-	<dfn><<container-condition>></dfn> = not <<container-query>>
-	                      | <<container-query>> [ and <<container-query>> ]*
-	                      | <<container-query>> [ or <<container-query>> ]*
-	<dfn><<container-query>></dfn>     = ( <<container-condition>> )
-	                      | size( <<size-query>> )
+	<dfn><<container-condition>></dfn> = not <<query-in-parens>>
+	                      | <<query-in-parens>> [ [ and <<query-in-parens>> ]* | [ or <<query-in-parens>> ]* ]
+	<dfn><<query-in-parens>></dfn>     = ( <<container-condition>> )
+	                      | ( <<size-feature>> )
 	                      | style( <<style-query>> )
+	                      | <<general-enclosed>>
 
-	<dfn><<size-query>></dfn>     = <<size-feature>> | <<size-condition>>
-	<dfn><<size-condition>></dfn> = not ( <<size-query>> )
-	                 | ( <<size-query>> ) [ and ( <<size-query>> ) ]*
-	                 | ( <<size-query>> ) [ or  ( <<size-query>> ) ]*
-
-	<dfn><<style-query>></dfn>     = <<style-feature>> | <<style-condition>>
-	<dfn><<style-condition>></dfn> = not ( <<style-query>> )
-	                  | ( <<style-query>> ) [ and ( <<style-query>> ) ]*
-	                  | ( <<style-query>> ) [ or  ( <<style-query>> ) ]*
+	<dfn><<style-query>></dfn>         = <<style-condition>> | <<style-feature>>
+	<dfn><<style-condition>></dfn>     = not <<style-in-parens>>
+	                      | <<style-in-parens>> [ [ and <<style-in-parens>> ]* | [ or <<style-in-parens>> ]* ]
+	<dfn><<style-in-parens>></dfn>     = ( <<style-condition>> )
+	                      | ( <<style-feature>> )
+	                      | <<general-enclosed>>
 	</pre>
 
 
 	For each element,
 	the [=query container=] to be queried
-	is selected from among the element’s ancestor [=query containers=].
+	is selected from among the element’s ancestor [=query containers=]
+	that have a valid 'container-type'
+	for all the [=container features=]
+	in the <<container-condition>>.
 	The optional <dfn><<container-name>></dfn>
 	filters the set of [=query containers=] considered
-	to just those with a matching [=query container name=],
-	and the optional <dfn><<container-type>></dfn>
-	filters the set to just those with a matching 'container-type'.
-	The nearest remaining [=query container=] ancestor is selected.
-
-	ISSUE: Should the UA automatically filter to the nearest compatible query container
-	if no specific type is provided?
-
-	ISSUE(6393): Do we like this syntax for querying specific container types?
-
-	A [=query container=] with a 'container-type' of ''container-type/size''
-	is a match for both ''container-type/inline-size'' and ''container-type/block-size''.
+	to just those with a matching [=query container name=].
 
 	Once an eligible [=query container=] has been selected for an element,
 	each [=container feature=] in the <<container-condition>>
 	is evaluated against that [=query container=].
-	If the selected [=query container=]
-	is not a valid 'container-type' for the feature,
-	or no ancestor is an eligible [=query container=],
+	If no ancestor is an eligible [=query container=],
 	then the [=container query=] is ''unknown'' for that element.
 
 	<div class=example>
@@ -576,14 +613,15 @@ Container Queries: the ''@container'' rule</h3>
 		we can string together multiple conditions in a single query list:
 
 		<pre class=lang-css>
-		@container card (inline-size > 30em) and (--responsive = true) {
+		@container card (inline-size > 30em) and style(--responsive = true) {
 		  /* styles */
 		}
 		</pre>
 
 		The styles above will only be applied
-		if there nearest ancestor container named "card"
-		meets both the '@container/inline-size' and [=container style query|style=] conditions.
+		if there is an ancestor container named "card"
+		that meets both the '@container/inline-size'
+		and [=container style query|style=] conditions.
 	</div>
 
 	Style rules defined on an element inside multiple nested [=container queries=]
@@ -592,6 +630,12 @@ Container Queries: the ''@container'' rule</h3>
 	Note: Nested [=container queries=] can evaluate in relation to different containers,
 	so it is not always possible to merge the individual <<container-condition>>s
 	into a single query.
+
+	Global, name-defining [=at-rules=]
+	such as ''@keyframes'' or ''@font-face'' or ''@layer''
+	that are defined inside [=container queries=]
+	are not constrained by the [=container query=] conditions.
+
 
 <h3 id="animated-containers">
 Animated Containers</h3>
@@ -611,7 +655,7 @@ Animated Containers</h3>
 			}
 
 			#container {
-			  container: inline-size;
+			  container-type: inline-size;
 			  flex: 1;
 			}
 
@@ -661,7 +705,6 @@ Container Features</h2>
 	A <dfn export>container feature</dfn>
 	queries a specific aspect of a [=query container=].
 
-	Issue(5989): What container features can be queried?
 
 <h3 id="size-container">
 Size Container Features</h3>
@@ -836,17 +879,6 @@ Style Container Features</h3>
 	is the same as for [=CSS feature queries=].
 	(See ''@supports''. [[!CSS-CONDITIONAL-3]])
 
-	Issue(6396): Do we like this proposed syntax for style queries?
-
-<h3 id="state-container">
-State Container Features</h3>
-
-	<dfn export>State queries</dfn> allow querying
-	miscellaneous [=query container=] states, such as
-	whether a ''position: sticky'' box is displaced from its in-flow position,
-	or whether the box is visible on screen.
-
-Issue(6402): Define a syntax for state-based container queries
 
 <h2 id="container-lengths">
 Container Relative Lengths: the ''cqw'', ''cqh'', ''cqi'', ''cqb'', ''cqmin'', ''cqmax'' units</h2>
@@ -901,20 +933,55 @@ Container Relative Lengths: the ''cqw'', ''cqh'', ''cqi'', ''cqb'', ''cqmin'', '
 	<div class=example>
 		Authors can ensure that [=container query length=] units
 		have an appropriate [=query container=]
-		by applying them inside a [=container query=] with the required <<container-type>>.
+		by applying them inside a [=container query=]
+		that relies on the same ''container-type''.
 		Custom fallback values can be defined outside the [=container query=]:
 
 		<pre class=lang-css>
 		/* The fallback value does not rely on containment */
 		h2 { font-size: 1.2em; }
 
-		@container type(inline-size) {
+		@container (inline-size >= 0px) {
 		  /* only applies when an inline-size container is available */
 		  h2 { font-size: calc(1.2em + 1cqi); }
 		}
 		</pre>
 	</div>
 
+
+<h2 id="apis">APIs</h2>
+
+
+<h3 id="the-csscontainerrule-interface">
+The <code>CSSContainerRule</code> interface</h3>
+
+	The {{CSSContainerRule}} interface represents a ''@container'' rule.
+
+	<pre class='idl'>
+	[Exposed=Window]
+	interface CSSContainerRule : CSSConditionRule {
+	};
+	</pre>
+
+	<dl class='idl-attributes'>
+		<dt><code>conditionText</code> of type <code>CSSOMString</code> (CSSContainerRule-specific definition for attribute on CSSConditionRule)
+		<dd>The <code>conditionText</code> attribute (defined on the <code>CSSConditionRule</code> parent rule),
+			on getting, must return the condition that was specified,
+			without any logical simplifications,
+			so that the returned condition will evaluate to the same result
+			as the specified condition
+			in any conformant implementation of this specification
+			(including implementations that implement future extensions
+			allowed by the <<general-enclosed>> extensibility mechanism in this specification).
+			In other words,
+			token stream simplifications are allowed
+			(such as reducing whitespace to a single space
+			or omitting it in cases where it is known to be optional),
+			but logical simplifications (such as removal of unneeded parentheses,
+			or simplification based on evaluating results) are not allowed.
+	</dl>
+
+	Issue(7033): Add CSSOM API for CSSContainerRule
 
 Suppressing An Element’s Contents Entirely: the 'content-visibility' property {#content-visibility}
 =================
@@ -940,10 +1007,39 @@ Privacy and Security Considerations {#priv-sec}
 
 This appendix is <em>informative</em>.
 
+<h3 id="changes-2021-12">
+Changes since the 21 December 2021 First Public Working Draft</h3>
+
+	Significant changes since the <a href="https://www.w3.org/TR/2021/WD-css-contain-3-20211221/">21 December 2021 First Public Working Draft</a> include:
+
+	* Clarify the syntax of syntax of the ''@container'' rule
+		to appropriately handle parenthesis.
+	* Remove the <<string>> option from the 'container-name' syntax.
+		Container names must be <<custom-ident>>s.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6405">Issue 6405</a>)
+	* Reverse the order of <<container-name>> and <<container-type>>
+		in the 'container' shorthand property, with both being optional.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6393">Issue 6393</a>)
+	* Allow <<general-enclosed>> syntax in <<container-condition>>s,
+		for the sake of forward compatability.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6396">Issue 6396</a>)
+	* Remove the size function syntax from <<size-feature>> queries.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6870">Issue 6870</a>)
+	* Update the [=query container=] selection process
+		to account for necessary container-types,
+		and removed the explicit type-selection syntax.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6644">Issue 6644</a>)
+	* Remove state query features, which have been deferred.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6402">Issue 6402</a>)
+	* Clarify container selection around pseudo-elements and the shadow-DOM.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/5984">Issue 5984</a>
+		and <a href="https://github.com/w3c/csswg-drafts/issues/6711">Issue 6711</a>)
+
 <h3 id="l3-changes">
 Changes from <a href="https://www.w3.org/TR/css-contain-2/">CSS Containment Level 2</a>
 </h3>
 
+	* Introduces [=inline-size containment=].
 	* Defines the terms, properties, units, and at-rule
 		needed for [=Container Queries=]
 
