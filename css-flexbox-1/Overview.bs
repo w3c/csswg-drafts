@@ -2910,10 +2910,12 @@ Flex Container Intrinsic Main Sizes</h4>
 			For each <a>flex item</a>,
 			subtract its outer <a>flex base size</a> from its [[#intrinsic-item-contributions|max-content contribution]] size.
 			If that result is positive,
-			divide by its <a>flex grow factor</a>
-			(if dividing by zero, treat the result as infinity);
-			if negative,
-			divide by its <a>scaled flex shrink factor</a>
+			divide it by the item's <a>flex grow factor</a>
+			if the <a>flex grow factor</a> is &ge; 1,
+			or multiply it by the <a>flex grow factor</a>
+			if the <a>flex grow factor</a> is < 1;
+			if the result is negative,
+			divide it by the item's <a>scaled flex shrink factor</a>
 			(if dividing by zero, treat the result as negative infinity).
 			This is the item's <var>desired flex fraction</var>.
 
@@ -2926,9 +2928,13 @@ Flex Container Intrinsic Main Sizes</h4>
 			This is the line’s <var>chosen flex fraction</var>.
 
 		<li>
-			If the sum of the line’s <a>flex grow factors</a>
-			(<a>flex shrink factors</a>,
-			if the <var>chosen flex fraction</var> is negative)
+			If the <var>chosen flex fraction</var> is positive,
+			and the sum of the line’s <a>flex grow factors</a>
+			is less than 1,
+			divide the <var>chosen flex fraction</var> by that sum.
+
+			If the <var>chosen flex fraction</var> is negative,
+			and the sum of the line’s <a>flex shrink factors</a>
 			is less than 1,
 			multiply the <var>chosen flex fraction</var> by that sum.
 
@@ -2984,14 +2990,60 @@ Flex Container Intrinsic Main Sizes</h4>
 		but when the item is ''flex-grow: 1'' or higher, the <a>flex container</a> (and flex item) is ''200px'' wide.
 
 		There are several possible ways to make the overall behavior continuous between these two cases,
-		particularly when the sum of flexibilities on a line is between 0 and 1,
 		but all of them have drawbacks.
 		We chose one we feel has the least bad implications;
-		unfortunately, it "double-applies" the flexibility when the sum of the flexibilities is less than 1.
+		unfortunately, it "double-applies" the flexibility in cases with [=flex factors=] that are < 1.
 		In the above example, if the item has ''flex-grow: .5'',
 		then the <a>flex container</a> ends up ''150px'' wide,
 		but the item then sizes normally into that available space,
 		ending up ''125px'' wide.
+
+		<details class=note>
+			<summary>Even more involved notes on the specific behavior chosen</summary>
+
+			Principles:
+
+			1. Don't explode any sizes, whether growing or shrinking, as inputs approach zero.
+			2. When flex factors are all >=1, return the minimum size necessary for every item to be >= max-content size.
+			3. Items with a zero flex shouldn't affect the sizes at all.
+			4. Keep it continuous over variance of flex factors and item sizes.
+			5. Keep sizing variance as linear as possible with respect to linear changes to any input variable (size, flex factor).
+			6. When the sum of flex factors is >=1, return the minimum size necessary for every item to be >= max-content size.
+
+			To get these all to work together,
+			we have to apply some correction when either flex factors
+			or the sum of flex factors on a line
+			is < 1.
+
+			For shrink our behavior is somewhat easier;
+			since the explosive case of 0 shrink
+			results in a negative infinity desired fraction
+			which we'll never choose (since we always take the largest),
+			we can just apply the correction at the line level,
+			giving us double-application only when the sum is < 1.
+
+			For positives it's more complicated.
+			0 grow naively explodes into *positive* infinity,
+			which we'd choose,
+			so we need to apply the correction at the individual item level.
+			We do that by multiplying the space by the factor when factor is <1.
+			Leaving it at that would result in a double-application for items < 1
+			but sum >= 1,
+			but a *triple*-application when the sum is < 1.
+			To avoid *that* ridiculousness,
+			we apply a *reverse* correction when the sum is 1,
+			dividing by the sum instead.
+			This leaves us with a double correction in all cases for items with factors < 1.
+
+			We can't eliminate the double-applications entirely
+			without giving up other, more important principles
+			(in particular, principle 3 --
+			try to come up with rules that don't double-apply
+			when you have two items with ''flex-grow: .5'',
+			but also don't give a ''flex-grow: 0'' item any power
+			over a ''flex-grow: 1'' sibling;
+			you can't, as far as we can tell.)
+		</details>
 	</details>
 
 <h4 id='intrinsic-cross-sizes'>
