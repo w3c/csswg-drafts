@@ -113,6 +113,9 @@ spec: cssom-view-1; type: dfn;
 	along a particular axis.
 	The startmost scroll position represents 0% progress
 	and the endmost scroll position represents 100% progress.
+	If the 0% position and 100% position coincide
+	(i.e. the [=scroll container=] has no overflow to scroll),
+	the timeline is [=timeline inactive state/inactive=].
 
 	[=Scroll progress timelines=] can be referenced in 'animation-timeline'
 	anonymously using the ''scroll()'' [=functional notation=]
@@ -181,7 +184,7 @@ spec: cssom-view-1; type: dfn;
 ### The {{ScrollTimeline}} Interface ### {#scrolltimeline-interface}
 
 	<pre class="idl">
-		enum ScrollDirection {
+		enum ScrollAxis {
 		  "block",
 		  "inline",
 		  "horizontal",
@@ -190,19 +193,19 @@ spec: cssom-view-1; type: dfn;
 
 		dictionary ScrollTimelineOptions {
 		  Element? source;
-		  ScrollDirection axis = "block";
+		  ScrollAxis axis = "block";
 		};
 
 		[Exposed=Window]
 		interface ScrollTimeline : AnimationTimeline {
 		  constructor(optional ScrollTimelineOptions options = {});
 		  readonly attribute Element? source;
-		  readonly attribute ScrollDirection axis;
+		  readonly attribute ScrollAxis axis;
 		};
 	</pre>
 
 	A {{ScrollTimeline}} is an {{AnimationTimeline}}
-	that specifies a [=scroll progress timeline=].
+	that represents a [=scroll progress timeline=].
 	It can be passed to
 	the {{Animation}} constructor or the {{Animatable/animate()}} method
 	to link the animation to a [=scroll progress timeline=].
@@ -213,10 +216,29 @@ spec: cssom-view-1; type: dfn;
 			whose scroll position drives the progress of the timeline.
 
 		:   <dfn>axis</dfn>
-		::  Specifies the axis of scrolling
+		::  The axis of scrolling
 			that drives the progress of the timeline.
-			See <<axis>>, above.
+			See value definitions for <<axis>>, above.
 	</dl>
+
+	Inherited attributes:
+	<dl>
+		:   {{AnimationTimeline/currentTime}} (inherited from {{AnimationTimeline}})
+		::  Represents the scroll progress of the [=scroll container=]
+			as a percentage CSSUnitValue,
+			with 0% representing its startmost scroll position
+			(in the [=writing mode=] of the [=scroll container=]).
+			Null when the timeline is [=timeline inactive state|inactive=].
+	</dl>
+
+	ISSUE: While 0% will usually represent the [=scroll container=]’s initial scroll position,
+	it might not depending on its [=content distribution=].
+	See [[css-align-3#overflow-scroll-position]].
+	Is this what we want?
+	<!-- turn this into a note instead of a question once resolved -->
+
+	ISSUE: Add a note about whether {{AnimationTimeline/currentTime}}
+	can be negative or > 100%.
 
 	<dl class="constructors">
 		:   <dfn constructor for=ScrollTimeline lt="ScrollTimeline(options)">ScrollTimeline(options)</dfn>
@@ -240,27 +262,11 @@ spec: cssom-view-1; type: dfn;
 				to the corresponding value from |options|.
 	</dl>
 
-	Inherited attributes:
-	<dl>
-		:   {{AnimationTimeline/currentTime}} (inherited from {{AnimationTimeline}}
-		::  Represents the scroll progress of the [=scroll container=]
-			as a percentage CSSUnitValue,
-			with 0% representing its startmost scroll position
-			(using the [=writing mode=] of the [=scroll container=].
-			Null when the timeline is [=timeline inactive phase|inactive=].
-	</dl>
-
-	ISSUE: While 0% will usually represent the [=scroll container=]’s initial scroll position,
-	it might not depending on its [=content distribution=].
-	See [[css-align-3#overflow-scroll-position]].
-	Is this what we want?
-	<!-- turn this into a note instead of a question once resolved -->
-
 	If the {{ScrollTimeline/source}} of a {{ScrollTimeline}}
 	is an element whose [=principal box=] does not exist
 	or is not a [=scroll container=],
-	then its {{AnimationTimeline/phase}} is the [=timeline inactive phase=].
-	It is otherwise in the [=timeline active phase|active=] phase.
+	then the {{ScrollTimeline}} is [=timeline inactive state|inactive=].
+	It is otherwise in the [=timeline active state|active=] [=timeline state=].
 
 	A {{ScrollTimeline}}’s {{EffectTiming/duration}} is 100%.
 
@@ -347,15 +353,15 @@ spec: cssom-view-1; type: dfn;
 	<pre class="idl">
 		dictionary ViewTimelineOptions {
 		  Element subject;
-		  ScrollDirection axis = "block";
+		  ScrollAxis axis = "block";
 		};
 
 		[Exposed=Window]
 		interface ViewTimeline : ScrollTimeline {
 		  constructor(optional ViewTimelineOptions options = {});
 		  readonly attribute Element subject;
-		  readonly attribute CSSNumberish startTime;
-		  readonly attribute CSSNumberish endTime;
+		  readonly attribute CSSNumericValue startOffset;
+		  readonly attribute CSSNumericValue endOffset;
 		};
 	</pre>
 
@@ -370,25 +376,46 @@ spec: cssom-view-1; type: dfn;
 		::  The element whose [=principal box=]’s visibility in the [=scrollport=]
 			defines the progress of the timeline.
 
-		:   <dfn>startTime</dfn>
+		:   <dfn>startOffset</dfn>
 		::  Represents the starting (0% progress) scroll position
 			of the [=view progress timeline=]
-			as a percentage {{CSSUnitValue}}
-			representing its [=scroll container=]’s scroll progress at that position.
-			Null when the timeline is [=timeline inactive phase|inactive=].
+			as a length offset (in ''px'') from the scroll origin.
+			Null when the timeline is [=timeline inactive state|inactive=].
 
-		:   <dfn>endTime</dfn>
-		::  Represents the ending (100%) scroll position
+		:   <dfn>endOffset</dfn>
+		::  Represents the ending (100% progress) scroll position
+			of the [=view progress timeline=]
+			as a length offset (in ''px'') from the scroll origin.
+			Null when the timeline is [=timeline inactive state|inactive=].
+	</dl>
+
+	Note: The value of {{ViewTimeline/startOffset}} can be greater than {{ViewTimeline/endOffset}},
+	for example in the [=horizontal axis=] in a right-to-left (''rtl'') [=writing mode=].
+
+	ISSUE: This makes the offsets compatible with the way scrollLeft and scrollTop work,
+	which go negative from zero in RTL scroll containers,
+	is this how we want it to work here?
+
+	Inherited attributes:
+
+	<dl>
+		:   {{ScrollTimeline/source}} (inherited from {{ScrollTimeline}})
+		::  The nearest ancestor of the {{ViewTimeline/subject}}
+			whose [=principal box=] establishes a [=scroll container=],
+			whose scroll position drives the progress of the timeline.
+
+		:   {{ScrollTimeline/axis}} (inherited from {{ScrollTimeline}})
+		::  Specifies the axis of scrolling
+			that drives the progress of the timeline.
+			See <<axis>>, above.
+
+		:   {{AnimationTimeline/currentTime}} (inherited from {{AnimationTimeline}})
+		::  Represents the current progress
 			of the [=view progress timeline=]
 			as a percentage {{CSSUnitValue}}
 			representing its [=scroll container=]’s scroll progress at that position.
-			Null when the timeline is [=timeline inactive phase|inactive=].
+			Null when the timeline is [=timeline inactive state|inactive=].
 	</dl>
-
-	Note: The {{ViewTimeline/startTime}} and {{ViewTimeline/endTime}} attributes
-	have odd names for being specific to ScrollTimeline;
-	this is to keep them consistent with {{AnimationTimeline/currentTime}},
-	which represents the currently-active position on the same scale.
 
 	<dl class="constructors">
 		:   <dfn constructor for=ViewTimeline lt="ViewTimeline(options)">ViewTimeline(options)</dfn>
@@ -404,34 +431,10 @@ spec: cssom-view-1; type: dfn;
 				nearest ancestor [=scroll container=] element.
 	</dl>
 
-	Inherited attributes:
-
-	<dl>
-		:   {{ScrollTimeline/source}} (inherited {{ScrollTimeline}}
-		::  The nearest ancestor of the {{ViewTimeline/subject}}
-			whose [=principal box=] establishes a [=scroll container=],
-			whose scroll position drives the progress of the timeline.
-
-		:   {{ScrollTimeline/axis}} (inherited {{ScrollTimeline}}
-		::  Specifies the axis of scrolling
-			that drives the progress of the timeline.
-			See <<axis>>, above.
-
-		:   {{AnimationTimeline/currentTime}} (inherited from {{AnimationTimeline}}
-		::  Represents the current progress
-			of the [=view progress timeline=]
-			as a percentage {{CSSUnitValue}}
-			representing its [=scroll container=]’s scroll progress at that position.
-			Null when the timeline is [=timeline inactive phase|inactive=].
-	</dl>
-
 	If the {{ScrollTimeline/source}} or {{ViewTimeline/subject}} of a {{ViewTimeline}}
 	is an element whose [=principal box=] does not exist,
-	then its {{AnimationTimeline/phase}} is the [=timeline inactive phase=].
-	The timeline is otherwise
-	* in the [=timeline before phase|before=] phase when {{AnimationTimeline/currentTime}} < {{ViewTimeline/startTime}}
-	* in the [=timeline active phase|active=] phase when {{ViewTimeline/startTime}} &le; {{AnimationTimeline/currentTime}} &le; {{ViewTimeline/endTime}}
-	* in the [=timeline after phase|after=] phase when {{ViewTimeline/endTime}} < {{AnimationTimeline/currentTime}}
+	then the {{ViewTimeline}} is [=timeline inactive state|inactive=].
+	It is otherwise in the [=timeline active state|active=] [=timeline state=].
 
 	ISSUE: Figure out how to incorporate fit/inset abilities.
 
@@ -516,72 +519,16 @@ spec: cssom-view-1; type: dfn;
 
 	ISSUE: Do we need all the longhands? Seems like overkill...
 
-### Fit of a View Progress Timeline: the 'view-timeline-fit' property ### {#view-timeline-fit}
-
-	<pre class='propdef'>
-	Name: view-timeline-fit
-	Value: [ cover | contain | <<percentage>> ]#
-	Initial: cover
-	Applies to: all elements
-	Inherited: no
-	Percentages: corresponding dimension of the box
-	Computed value: a list of the specified keyword or <<percentage>> values
-	Animation type: by computed value type
-	</pre>
-
-	Specifies whether the in-view timeline is measured from the moment
-	any part of the box comes into view until all parts leave it
-	(''view-timeline-fit/cover'' or ''0%'')
-	or whether it is measured from the moment
-	all parts of the box come into view until any part leaves it
-	(''view-timeline-fit/contain'' or ''100%'').
-
-	<dl dfn-for=view-timeline-fit dfn-type=value>
-		<dt><dfn>cover</dfn>
-		<dd>
-			Computes to 0%.
-
-		<dt><dfn>contain</dfn>
-		<dd>
-			Computes to 100%.
-
-		<dt><dfn><<length-percentage>></dfn>
-			Like 'scroll-padding',
-			defines an inward offset from the corresponding edge of the scrollport.
-	</dl>
-
-	<div class=issue>
-		Some animations want to run
-		while the element is entering or exiting the scrollport,
-		rather than during the time of its visibility.
-		We should add some way to reference these intervals.
-
-		Possible ideas:
-
-		* Automatically generate entrance and exit timeline names
-			for each named view timeline,
-			e.g. ''view-timeline: foo'' also creates ''foo-enter'' and ''foo-exit'' timelines.
-		* Create an automagic value for 'view-timeline-fit'
-			that pins 25% to the point when 100% of the box has just become visible
-			and 75% to the point when it is just about to be cropped.
-			(Such a timeline would not be linearly related to the scroll progress.)
-	</div>
-
-	If 'view-timeline-name' has more names than 'view-timeline-fit' has values,
-	the excess timelines use the last 'view-timeline-fit' value.
-	If 'view-timeline-name' has fewer names than 'view-timeline-axis' has specified axes,
-	the used 'view-timeline-fit' list is truncated.
-
 ### View Timeline Shorthand: the 'view-timeline' shorthand ### {#view-timeline-shorthand}
 
 	<pre class='propdef shorthand'>
 	Name: view-timeline
-	Value: [ <<'view-timeline-fit'>> || <<'view-timeline-axis'>> || <<'view-timeline-name'>> ]#
+	Value: [ <<'view-timeline-name'>> || <<'view-timeline-axis'>> ]#
 	Applies to: all elements
 	</pre>
 
 	This property is a [=shorthand=] for setting
-	'view-timeline-name', 'view-timeline-axis', and 'view-timeline-fit'
+	'view-timeline-name' and 'view-timeline-axis'
 	in a single declaration.
 	It does not set 'view-timeline-inset'.
 
@@ -603,3 +550,49 @@ spec: cssom-view-1; type: dfn;
 	[=scroll progress timelines=] take precedence over [=view progress timelines=].
 
 	ISSUE: Do we want to expand this scope to preceding siblings and/or distant cousins?
+
+# Avoiding cycles with layout # {#avoiding-cycles}
+
+	The ability for scrolling to drive the progress of an animation,
+	gives rise to the possibility of <dfn>layout cycles</dfn>,
+	where a change to a scroll offset causes an animation's effect to update,
+	which in turn causes a new change to the scroll offset.
+
+	To avoid such [=layout cycles=],
+	animations with a [=scroll progress timeline=] are sampled once per frame,
+	after scrolling in response to input events has taken place,
+	but before {{requestAnimationFrame()}} callbacks are run.
+	If the sampling of such an animation causes a change to a scroll offset,
+	the animation will not be re-sampled to reflect the new offset
+	until the next frame.
+
+	The implication of this is that in some situations, in a given frame,
+	the rendered scroll offset of a scroll container might not be consistent
+	with the state of an animation driven by scrolling that scroll container.
+	However, this will only occur in situations where the animation's effect
+	changes the scroll offset of that same scroll container
+	(in other words, in situations where the animation's author is asking for trouble).
+	In normal situations, including&mdash;importantly--
+	when scrolling happens in response to input events,
+	the rendered scroll offset and the state of scroll-driven animations
+	will be consistent in each frame.
+
+	User agents that composite frames asynchronously
+	with respect to layout and/or script
+	may, at their discretion, sample scroll-driven animations
+	once per <em>composited</em> frame,
+	rather than (or in addition to) once per full layout cycle.
+	Again, if sampling such an animation causes a change to a scroll offset,
+	the animation will not be re-sampled to reflect the new offset
+	until the next frame.
+
+	Nothing in this section is intended to require
+	that scrolling block on layout or script.
+	If a user agent normally composites frames where scrolling has occurred
+	but the consequences of scrolling have not been fully propagated in layout or script
+	(for example, `scroll` event listeners have not yet run),
+	the user agent may likewise choose not to sample scroll-driven animations
+	for that composited frame.
+	In such cases, the rendered scroll offset
+	and the state of a scroll-driven animation
+	may be inconsistent in the composited frame.

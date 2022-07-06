@@ -337,9 +337,11 @@ the following steps must be run:
    'scroll-behavior' property is ''scroll-behavior/smooth''
    <li><var>behavior</var> is <code>smooth</code>
   </ul>
-  ...then perform a <a>smooth scroll</a> of <var>box</var> to <var>position</var>.
-  Otherwise, perform an <a>instant scroll</a> of <var>box</var> to <var>position</var>.
+  ...then perform a <a>smooth scroll</a> of <var>box</var> to <var>position</var>. Once the position has finished updating, emit the <a>scrollend</a> event.
+  Otherwise, perform an <a>instant scroll</a> of <var>box</var> to <var>position</var>. After an <a>instant scroll</a> emit the <a>scrollend</a> event.
 </ol>
+
+Scroll is <dfn lt="scroll completed">completed</dfn> when the scroll position has no more pending updates or translations. This includes smooth or instant mouse wheel scrolling, keyboard scrolling, scroll-snap events, or other APIs and gestures which cause the scroll position to update and possibly interpolate.
 
 When a user agent is to perform a <dfn export id=concept-smooth-scroll>smooth scroll</dfn> of a <a>scrolling box</a> <var>box</var> to <var>position</var>,
 it must update the scroll position of <var>box</var> in a user-agent-defined fashion over a user-agent-defined amount of time. When the scroll is
@@ -1014,7 +1016,7 @@ dictionary ScrollIntoViewOptions : ScrollOptions {
   ScrollLogicalPosition inline = "nearest";
 };
 
-dictionary IsVisibleOptions {
+dictionary CheckVisibilityOptions {
     boolean checkOpacity = false;
     boolean checkVisibilityCSS = false;
 };
@@ -1023,7 +1025,7 @@ partial interface Element {
   DOMRectList getClientRects();
   [NewObject] DOMRect getBoundingClientRect();
 
-  boolean isVisible(optional IsVisibleOptions options = {});
+  boolean checkVisibility(optional CheckVisibilityOptions options = {});
 
   undefined scrollIntoView(optional (boolean or ScrollIntoViewOptions) arg = {});
   undefined scroll(optional ScrollToOptions options = {});
@@ -1055,16 +1057,22 @@ The <dfn method for=Element>getClientRects()</dfn> method, when invoked, must re
 
 Note: The {{DOMRect}} objects returned by {{Element/getClientRects()}} are not <a spec=html>live</a>.
 
-The <dfn method for=Element caniuse=getboundingclientrect>getBoundingClientRect()</dfn> method, when invoked, must return the result of the following
-algorithm:
+The <dfn method for=Element caniuse=getboundingclientrect>getBoundingClientRect()</dfn> method, when
+invoked on an element <var>element</var>, must return the result of
+<a>getting the bounding box</a> for <var>element</var>.
 
-1. Let <var>list</var> be the result of invoking {{Element/getClientRects()}} on the same element this method was invoked on.
-1. If the <var>list</var> is empty return a {{DOMRect}} object
-    whose {{DOMRect/x}}, {{DOMRect/y}}, {{DOMRect/width}} and {{DOMRect/height}} members are zero.
-1. If all rectangles in <var>list</var> have zero width or height, return the first rectangle in
-    <var>list</var>.
-1. Otherwise, return a {{DOMRect}} object describing the smallest rectangle that includes all
-    of the rectangles in <var>list</var> of which the height or width is not zero.
+<div algorithm>
+To <dfn export for=Element>get the bounding box</dfn> for <var>element</var>,
+run the following steps:
+    1. Let <var>list</var> be the result of invoking {{Element/getClientRects()}} on
+        <var>element</var>.
+    1. If the <var>list</var> is empty return a {{DOMRect}} object whose {{DOMRect/x}},
+        {{DOMRect/y}}, {{DOMRect/width}} and {{DOMRect/height}} members are zero.
+    1. If all rectangles in <var>list</var> have zero width or height, return the first rectangle in
+        <var>list</var>.
+    1. Otherwise, return a {{DOMRect}} object describing the smallest rectangle that includes all
+        of the rectangles in <var>list</var> of which the height or width is not zero.
+</div>
 
 Note: The {{DOMRect}} object returned by {{Element/getBoundingClientRect()}} is not <a spec=html>live</a>.
 
@@ -1079,7 +1087,7 @@ Note: The {{DOMRect}} object returned by {{Element/getBoundingClientRect()}} is 
 </div>
 
 <div algorithm>
-    Note: The {{Element/isVisible()}} method
+    Note: The {{Element/checkVisibility()}} method
     provides a set of simple checks
     for whether an element is potentially "visible".
     It defaults to a very simple and straightforward method
@@ -1087,7 +1095,7 @@ Note: The {{DOMRect}} object returned by {{Element/getBoundingClientRect()}} is 
     but allows for several additional checks to be opted into,
     depending on what precise notion of "visibility" is desired.
 
-    The <dfn method for=Element>isVisible(|options|)</dfn> method
+    The <dfn method for=Element>checkVisibility(|options|)</dfn> method
     must run these steps,
     when called on an element |this|:
 
@@ -1096,12 +1104,12 @@ Note: The {{DOMRect}} object returned by {{Element/getBoundingClientRect()}} is 
     1. If a [=shadow-including ancestor=] of |this|
         has ''content-visibility: hidden'',
         return false.
-    1. If the {{IsVisibleOptions/checkOpacity}} dictionary member of |options|
+    1. If the {{CheckVisibilityOptions/checkOpacity}} dictionary member of |options|
         is true,
         and |this|, or a [=shadow-including ancestor=] of |this|,
         has a computed 'opacity' value of ''0'',
         return false.
-    1. If the {{IsVisibleOptions/checkVisibilityCSS}} dictionary member of |options|
+    1. If the {{CheckVisibilityOptions/checkVisibilityCSS}} dictionary member of |options|
         is true,
         and |this| is <l spec=css-display>[=invisible=]</l>,
         return false.
@@ -1682,6 +1690,17 @@ When asked to <dfn export for=Document>run the scroll steps</dfn> for a {{Docume
     1. Otherwise, <a>fire an event</a> named <a event>scroll</a> at <var>target</var>.
 1. Empty <var>doc</var>'s <a>pending scroll event targets</a>.
 
+Whenever scrolling is <a lt="scroll completed">completed</a>, the user agent must run these steps:
+
+1. If scrolling was done on a <a>viewport</a>, let <var>doc</var> be the <a>viewport’s</a> associated {{Document}} and <var>target</var> be the <a>viewport</a>.
+Otherwise, scrolling is done on an element and let <var>doc</var> be the element's <a>node document</a> and <var>target</var> be the element.
+1. If <var>target</var> is already in <var>doc</var>'s <a>pending scrollend event targets</a>, abort these steps.
+1. Append <var>target</var> to <var>doc</var>'s <a>pending scrollend event targets</a>.
+1. For each item <var>target</var> in <var>doc</var>'s <a>pending scrollend event targets</a>, in the order they were added to the list, run these substeps:
+
+    1. If <var>target</var> is a {{Document}}, <a>fire an event</a> named <a event>scrollend</a> that bubbles at <var>target</var>.
+    1. Otherwise, <a>fire an event</a> named <a event>scrollend</a> at <var>target</var>.
+1. Empty <var>doc</var>'s <a>pending scrollend event targets</a>.
 
 <h3 id=event-summary>Event summary</h3>
 
@@ -1709,7 +1728,7 @@ When asked to <dfn export for=Document>run the scroll steps</dfn> for a {{Docume
    <td><dfn event for="Document, Element">scrollend</dfn>
    <td>{{Event}}
    <td>{{Document}}, elements
-   <td>Fired at the {{Document}} or element when the <a>viewport</a> or element has been scrolled, the scroll sequence has ended and any scroll offset changes have been applied.
+   <td>Fired at the {{Document}} or element when scroll is <dfn lt="scroll completed">completed</dfn>: the <a>viewport</a> or element has been scrolled, the scroll sequence has ended and any scroll offset changes have been applied.
 </table>
 
 
