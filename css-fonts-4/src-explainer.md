@@ -257,9 +257,8 @@ See
 
 ## Examples
 
-With the introduction of the `supports` part, the use cases 1 and 2 are then solved
-using [the current syntax](https://drafts.csswg.org/css-fonts-4/#src-desc)
-as follows:
+With the introduction of the `tech()` function part, the use cases 1 and 2 are then solved using [the current
+syntax](https://drafts.csswg.org/css-fonts-4/#src-desc) as follows:
 
 ### Use Case 1: Color Fonts
 
@@ -268,9 +267,9 @@ as follows:
 /* 1. prefer COLRv1, then SVG-in-OpenType, then COLRv0 */
 @font-face {
   font-family: jewel;
-  src: url(jewel-v1.woff2) format("woff2" supports COLRv1),
-        url(jewel-svg.woff2) format("woff2" supports SVG),
-        url(jewel-v0.woff2) format("woff2" supports COLRv0),
+  src: url(jewel-v1.woff2) format("woff2") tech(color-COLRv1),
+        url(jewel-svg.woff2) format("woff2") tech(color-SVG),
+        url(jewel-v0.woff2) format("woff2") tech(color-COLRv0),
         url(boring.ttf) format("woff2");
 }
 ```
@@ -281,15 +280,21 @@ as follows:
 /* 2. prefer Graphite over OpenType layout, if supported */
 @font-face {
   font-family: rare;
-  src: url(rare-graphite.otf) format("opentype" supports features(graphite)),
-        url(rare.otf) format("opentype" supports features(opentype)),
+  src: url(rare-graphite.otf) format("opentype") tech(features-graphite),
+        url(rare.otf) format("opentype") tech(features-opentype),
         url(fallback.ttf) format("truetype");
 }
 ```
 
 ### Use Case 3: Detectability
 
-The wording of the current specification currently reads:
+Two solution exist for detectability.
+One is the addition of [`font-tech()` function to CSS Conditional 5](https://drafts.csswg.org/css-conditional-5/#at-supports-ext).
+If this is not available,
+the parsing result of the `tech()` function in the src line
+can be used for feature detection.
+
+The wording of the specification reads:
 
 > If a component value is parsed correctly and is of a format and font
 > technology that the UA supports, add it to the list of supported sources. If
@@ -307,7 +312,7 @@ knowledge about technology support can be retrieved.
 <style>
   @font-face {
     font-family: a;
-    src: url(/FEATURETESTVAR) format(woff2 supports variations);
+    src: url(/FEATURETESTVAR) format(woff2) tech(variations);
   }
 </style>
 <script>
