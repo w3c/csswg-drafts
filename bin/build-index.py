@@ -119,7 +119,7 @@ def build_redirect(shortname, spec_folder):
     template = jinja_env.get_template("redirect.html.j2")
     contents = template.render(spec_folder=spec_folder)
 
-    folder = os.path.join("./csswg-drafts", shortname)
+    folder = os.join(".", shortname)
     try:
         os.mkdir(folder)
     except FileExistsError:
@@ -147,7 +147,7 @@ constants.setErrorLevel("nothing")
 
 specgroups = defaultdict(list)
 
-for entry in os.scandir("./csswg-drafts"):
+for entry in os.scandir("."):
     if entry.is_dir():
         # Not actual specs, just examples.
         if entry.name in ["css-module"]:
@@ -198,6 +198,6 @@ for shortname, specgroup in specgroups.items():
         if shortname == "css-snapshot":
             build_redirect("css", currentWorkDir)
 
-with open("./csswg-drafts/index.html", mode='w', encoding="UTF-8") as f:
+with open("./index.html", mode='w', encoding="UTF-8") as f:
     template = jinja_env.get_template("index.html.j2")
     f.write(template.render(specgroups=specgroups))
