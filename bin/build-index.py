@@ -119,7 +119,7 @@ def build_redirect(shortname, spec_folder):
     template = jinja_env.get_template("redirect.html.j2")
     contents = template.render(spec_folder=spec_folder)
 
-    folder = os.join(".", shortname)
+    folder = os.path.join(".", shortname)
     try:
         os.mkdir(folder)
     except FileExistsError:
