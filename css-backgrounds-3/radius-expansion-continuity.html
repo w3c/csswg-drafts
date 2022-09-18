@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<style>
+body {
+  display: flex;
+  height: 100vh;
+  margin: 0;
+}
+#output {
+  flex: 1;
+  border-left: 1px solid;
+  margin-left: 1em;
+  overflow: auto;
+}
+#output, form {
+  padding: 1em;
+}
+hr {
+  border: none;
+  border-top: 1px dotted;
+}
+label {
+  display: flex;
+  width: max-content;
+  margin: .5em 0;
+}
+</style>
+<form>
+  <label>
+    <input type="radio" name="algorithm" value="do-not-polyfill" checked>
+    Do not polyfill
+  </label>
+  <label>
+    <input type="radio" name="algorithm" value="increase-by-spread">
+    Increase radius by spread
+  </label>
+  <label>
+    <input type="radio" name="algorithm" value="current-spec">
+    Current spec
+  </label>
+  <label>
+    <input type="radio" name="algorithm" value="percentage-min-axis">
+    Percentage of min axis
+  </label>
+  <label>
+    <input type="radio" name="algorithm" value="percentage-max-axis">
+    Percentage of max axis
+  </label>
+  <label>
+    <input type="radio" name="algorithm" value="percentage-same-axis">
+    Percentage of same axis
+  </label>
+  <label>
+    <input type="radio" name="algorithm" value="percentage-same-axis-ratio">
+    Percentage of same axis,<br>ceiling to keep ratio if possible
+  </label>
+</form>
+<div id="output"></div>
+<script>
+const output = document.getElementById("output");
+const {algorithm} = document.forms[0].elements;
+const testCases = [
+  {width: 50, height: 50, spread: 50, borderRadius: "0px"},
+  {width: 50, height: 50, spread: 50, borderRadius: "1px"},
+  {width: 10, height: 10, spread: 70, borderRadius: "100%"},
+  {width: 200, height: 40, spread: 50, borderRadius: "100px / 20px"},
+  {width: 200, height: 40, spread: 50, borderRadius: "20px / 4px"},
+  {width: 500, height: 50, spread: 30, borderRadius: "15px"},
+  {width: 500, height: 50, spread: 30, borderRadius: "1px 1px 49px 49px"},
+  {width: 500, height: 50, spread: 30, borderRadius: "50%"},
+  {width: 500, height: 50, spread: 30, borderRadius: "50% 50% 1px 50%"},
+];
+function show() {
+  output.textContent = "";
+  for (let testCase of testCases) {
+    output.append(JSON.stringify(testCase));
+    const inner = document.createElement("div");
+    inner.style.width = testCase.width + "px";
+    inner.style.height = testCase.height + "px";
+    inner.style.borderRadius = testCase.borderRadius;
+    inner.style.backgroundColor = "#fff";
+    const outer = document.createElement("div");
+    outer.appendChild(inner);
+    if (algorithm.value === "do-not-polyfill") {
+      inner.style.boxShadow = `0 0 0 ${testCase.spread}px #000`;
+      outer.style.padding = testCase.spread + "px";
+      output.appendChild(outer);
+    } else {
+      outer.style.backgroundColor = "#000";
+      outer.style.borderStyle = "solid";
+      outer.style.borderWidth = testCase.spread + "px";
+      outer.style.width = "max-content";
+      output.appendChild(outer);
+      outer.style.borderRadius = resolve(testCase, inner);
+    }
+    output.append(document.createElement("hr"));
+  }
+}
+function resolve(testCase, element) {
+  function parseLength(value, percentageBasis) {
+    if (value.endsWith("%")) {
+      return parseFloat(value) * percentageBasis / 100;
+    }
+    return parseFloat(value);
+  }
+  function parseCorner(value) {
+    const raw = value.split(" ");
+    if (raw.length === 1) {
+      raw[1] = raw[0];
+    }
+    return [
+      parseLength(raw[0], testCase.width),
+      parseLength(raw[1], testCase.height),
+    ];
+  }
+  const cs = getComputedStyle(element);
+  const radii = {
+    topLeft: parseCorner(cs.borderTopLeftRadius),
+    topRight: parseCorner(cs.borderTopRightRadius),
+    bottomLeft: parseCorner(cs.borderBottomLeftRadius),
+    bottomRight: parseCorner(cs.borderBottomRightRadius),
+  };
+  const f = Math.min(
+    testCase.width / (radii.topLeft[0] + radii.topRight[0]),
+    testCase.width / (radii.bottomLeft[0] + radii.bottomRight[0]),
+    testCase.height / (radii.topLeft[1] + radii.bottomLeft[1]),
+    testCase.height / (radii.topRight[1] + radii.bottomRight[1])
+  );
+  if (f < 1) {
+    for (let corner in radii) {
+      radii[corner] = radii[corner].map(v => v * f);
+    }
+  }
+  let r;
+  switch (algorithm.value) {
+    case "increase-by-spread": {
+      const map = (value) => value + testCase.spread;
+      r = {
+        topLeft: radii.topLeft.map(map),
+        topRight: radii.topRight.map(map),
+        bottomLeft: radii.bottomLeft.map(map),
+        bottomRight: radii.bottomRight.map(map),
+      };
+      break;
+    }
+    case "current-spec": {
+      const map = (value) => {
+        if (value >= testCase.spread) {
+          return value + testCase.spread;
+        }
+        let r = value / testCase.spread;
+        return value + testCase.spread * (1 + (r - 1)**3);
+      }
+      r = {
+        topLeft: radii.topLeft.map(map),
+        topRight: radii.topRight.map(map),
+        bottomLeft: radii.bottomLeft.map(map),
+        bottomRight: radii.bottomRight.map(map),
+      };
+      break;
+    }
+    case "percentage-min-axis": {
+      const min = Math.min(testCase.width, testCase.height);
+      const ratio = 1 + 2 * testCase.spread / min;
+      const map = (value) => value * ratio;
+      r = {
+        topLeft: radii.topLeft.map(map),
+        topRight: radii.topRight.map(map),
+        bottomLeft: radii.bottomLeft.map(map),
+        bottomRight: radii.bottomRight.map(map),
+      };
+      break;
+    }
+    case "percentage-max-axis": {
+      const min = Math.max(testCase.width, testCase.height);
+      const ratio = 1 + 2 * testCase.spread / min;
+      const map = (value) => value * ratio;
+      r = {
+        topLeft: radii.topLeft.map(map),
+        topRight: radii.topRight.map(map),
+        bottomLeft: radii.bottomLeft.map(map),
+        bottomRight: radii.bottomRight.map(map),
+      };
+      break;
+    }
+    case "percentage-same-axis": {
+      debugger;
+      const xRatio = 1 + 2 * testCase.spread / testCase.width;
+      const yRatio = 1 + 2 * testCase.spread / testCase.height;
+      const map = ([x, y]) => [x * xRatio, y * yRatio];
+      r = {
+        topLeft: map(radii.topLeft),
+        topRight: map(radii.topRight),
+        bottomLeft: map(radii.bottomLeft),
+        bottomRight: map(radii.bottomRight),
+      };
+      break;
+    }
+    case "percentage-same-axis-ratio": {
+      debugger;
+      const xRatio = 1 + 2 * testCase.spread / testCase.width;
+      const yRatio = 1 + 2 * testCase.spread / testCase.height;
+      const map = ([x, y]) => [x * xRatio, y * yRatio];
+      const map2 = ([x, y]) => [x * yRatio, y * xRatio];
+      r = {
+        topLeft: map(radii.topLeft),
+        topRight: map(radii.topRight),
+        bottomLeft: map(radii.bottomLeft),
+        bottomRight: map(radii.bottomRight),
+      };
+      const other = {
+        topLeft: map2(radii.topLeft),
+        topRight: map2(radii.topRight),
+        bottomLeft: map2(radii.bottomLeft),
+        bottomRight: map2(radii.bottomRight),
+      };
+      const shadowWidth = testCase.width + 2 * testCase.spread;
+      const shadowHeight = testCase.height + 2 * testCase.spread;
+      const adjust = (prop1, prop2, idx) => {
+        if (r[prop1][idx] < other[prop1][idx] || r[prop2][idx] < other[prop2][idx]) {
+          const desiredGrowths = [
+            Math.max(0, other[prop1][idx] - r[prop1][idx]),
+            Math.max(0, other[prop2][idx] - r[prop2][idx]),
+          ];
+          const desiredGrowth = desiredGrowths[0] + desiredGrowths[1];
+          const available = (idx ? shadowHeight : shadowWidth) - r[prop1][idx] - r[prop2][idx];
+          const factor = Math.min(1, available / desiredGrowth);
+          r[prop1][idx] += desiredGrowths[0] * factor;
+          r[prop2][idx] += desiredGrowths[1] * factor;
+        }
+      }
+      adjust("topLeft", "topRight", 0);
+      adjust("bottomLeft", "bottomRight", 0);
+      adjust("topLeft", "bottomLeft", 1);
+      adjust("topRight", "bottomRight", 1);
+      break;
+    }
+    default: {
+      throw "Not implemented: " + algorithm.value;
+      break;
+    }
+  }
+  return `${r.topLeft[0]}px ${r.topRight[0]}px ${r.bottomRight[0]}px ${r.bottomLeft[0]}px / ${r.topLeft[1]}px ${r.topRight[1]}px ${r.bottomRight[1]}px ${r.bottomLeft[1]}px`;
+}
+show();
+document.querySelector("form").addEventListener("change", show);
+</script>
