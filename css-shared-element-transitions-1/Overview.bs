@@ -40,17 +40,92 @@ spec:css-shapes-3; type:function; text:rect()
 
 # Introduction # {#intro}
 
+<em>This section is non-normative.</em>
+
+Shared element transitions is a set of API that allow DOM changes to smoothly
+animate between states. This is accomplished by leveraging user-agents ability
+to persist visual representations of state (i.e. snapshots) and blend them with
+current DOM state's visual output. The API also allows the animations to be
+customized via standard CSS animation properties.
+
 This spec describes the CSS and JS mechanics of the single-page transition API.
 
 # Transitions as an enhancement # {#transitions-as-enhancements}
 
 <em>This section is non-normative.</em>
 
-A key part of this API design is the view that an animated transition is an enhancement to a DOM change.
+A key part of this API design is the view that an animated transition is an
+enhancement to a DOM change. Specifically, there are two components of the API:
+the DOM change, and the visual state animation. 
 
-If a transition cannot run, or is skipped, the DOM change should still happen. If the DOM change should also be skipped, then that should be handled by another feature. The <a href="https://wicg.github.io/navigation-api/#navigate-event-class">`signal` on `NavigateEvent`</a> is an example of a feature developers could use to handle this.
+In order for the user-agent to generate a set of snapshots prior to the DOM
+change, the API is designed to take the DOM change callback as part of the
+request to initiate a transition. This means that the user-agent has an
+opportunity to generate snapshots for the existing visual representation, run
+the given callback to update the state, and finally generate structures and set
+up animations required for the transition to occur. All this is accomplished
+with a single call to the JavaScript API.
 
-Although the transition API allows DOM changes to be asynchronous via the {{DOMTransitionInit/updateDOM}} callback, the transition API is not responsible for queuing or otherwise scheduling the DOM changes, beyond the scheduling needed for the transition itself. Some asynchronous DOM changes can happen concurrently (e.g if they're happening within independent components), whereas others need to queue, or abort an earlier change. This is best left to a feature or framework that has a more holistic view of the update.
+The user-agent provides additional JavaScript functionality and promises to
+control and observe the state of the animations. These are described in detail
+in the [=DOMTransition=] section.
+
+After the callback has finished running, the user-agent creates a structure of
+pseudo-elements that represent both the "before" and "after" states of the
+transition. The structure of the pseudo-elements is dictated by the
+''page-transition-tag'' property. Specifically, each element that is "tagged"
+with a ''page-transition-tag'' creates a separate snapshot and thus a separate
+group of pseudo-elements that are animated independently from the rest. Note
+that for convenience, the root element is tagged with name "root" in the
+user-agent style sheet.
+
+The groups induced by the ''page-transition-tag'' are all positioned within a
+common pseudo-element root, which itself is attached to the root element of the
+page.
+
+Each of the groups is comprised of up to four pseudo elements:
+* Container pseudo-element: this element initially mirrors the size and
+    position of the "before" state element that it represents (i.e. the tagged
+    element that caused this group to be created). The element is animated to
+    the "after" state and position.
+* Wrapper pseudo-element: this element is a child of the container element and
+    provides ''isolation: isolate'' for its children. It's needed so that its
+    children can be blended with non-normal blend modes without affecting other
+    visual outputs.
+* Outgoing image: this element is a child of the wrapper element. It is a
+    replaced element that produced the visual representation of the "before"
+    state taken from user-agent provided snapshots. Note that the contents of
+    this element can be manipulated with ''object-*'' properties in the same way
+    that regular images can be.
+* Incoming image: this element is a child of the wrapper element. It is a
+    replaced element that produces the visual representation of the "after"
+    state, taken from the page's visual output of the represented elements. Like
+    outgoing image, the contents can be manipulated with ''object-*'' properties.
+    Note that because this element's snapshots are taken from the pages output,
+    the visual output changes if the visual output of the represented element
+    changes. This is similar to how an 'element()' function would work.
+
+ISSUE: This sections can benefit from diagrams.
+
+Each of the pseudo-elements generated can be targeted by CSS in order to
+customize its appearance and behavior. This enables full customization of the
+transition.
+
+Note that because these APIs are an enhancement to the DOM change, some principles emerge:
+* If a transition cannot run, or is skipped, the DOM change should still
+    happen. If the DOM change should also be skipped, then that should be handled
+    by another feature. The <a
+    href="https://wicg.github.io/navigation-api/#navigate-event-class">`signal`
+    on `NavigateEvent`</a> is an example of a feature developers could use to
+    handle this.
+* Although the transition API allows DOM changes to be asynchronous via the
+    {{DOMTransitionInit/updateDOM}} callback, the transition API is not
+    responsible for queuing or otherwise scheduling the DOM changes, beyond the
+    scheduling needed for the transition itself. Some asynchronous DOM changes
+    can happen concurrently (e.g if they're happening within independent
+    components), whereas others need to queue, or abort an earlier change. This
+    is best left to a feature or framework that has a more holistic view of the
+    update.
 
 # CSS properties # {#css-properties}
 
@@ -92,6 +167,17 @@ the following style in the [=user-agent origin=].
     }
  </code></pre>
 
+<div class=note>This property causes the user-agent to both capture separate
+snapshots from the elements, as well as create separate pseudo-element
+structure representing this element's "before" and "after" states. Note that
+for the purposes of this API, if one element has a tag "foo" in the before
+state, and another element has a tag "foo" in the after state, they are treated
+as representing different visual state of the same element. This may be
+confusing, since the elements themselves are not necessarily referring to the
+same object, but it is a useful model to consider them to be visual states of
+the same conceptual page entity, that we happen to call element.
+</div>
+
 # Pseudo-elements # {#pseudo}
 
 While the UA is [=animating a page transition=],
@@ -129,7 +215,8 @@ the same <<custom-ident>> value. The specificity of a page-transition selector
 with a <<custom-ident>> argument is the same as for other pseudo-elements, and
 is equivalent to a [=type selector=].
 
-The following describes all of the [=page-transition pseudo-elements=] and their function:
+The following describes all of the [=page-transition pseudo-elements=] and
+their function:
 
 : <dfn>::page-transition</dfn>
 :: This pseudo-element is the grouping container of all the other
@@ -271,9 +358,21 @@ algorithm.
 
 ## Phases ## {#phases-concept}
 
-<dfn>Phases</dfn> represent an ordered sequence of states. Since [=phases=] are ordered, prose can refer to phases <dfn for="phases">before</dfn> a particular phase, meaning they appear earlier in the sequence, or <dfn for="phases">after</dfn> a particular phase, meaning they appear later in the sequence.
+<dfn>Phases</dfn> represent an ordered sequence of states. Since [=phases=] are
+ordered, prose can refer to phases <dfn for="phases">before</dfn> a particular
+phase, meaning they appear earlier in the sequence, or <dfn
+for="phases">after</dfn> a particular phase, meaning they appear later in the
+sequence.
 
 The initial phase is the first item in the sequence.
+
+Note: For the most part, a developer using this API does not need to worry
+about the different phases, since they progress automatically. It is, however,
+important to understand what steps happen in each of the phases: when the
+snapshots are captured, when pseudo-element DOM is created, etc. The
+description of the phases below tries to be as precise as possible, with an
+intent to provide an unambiguous set of steps for implementors to follow in
+order to produce a spec-compliant implementation.
 
 ## The [=page-transition layer=] stacking layer ## {#page-transition-stacking-layer}
 
@@ -371,7 +470,12 @@ callback UpdateDOMCallback = Promise<any> ();
     1. If |document|'s [=active DOM transition=] is not null, then [=skip the page transition=] |document|'s [=active DOM transition=]
         with an "{{AbortError}}" {{DOMException}} in [=this's=] [=relevant Realm=].
 
-        Note: This can result in two asynchronous [=DOMTransition/DOM update callbacks=] running concurrently. One for the |document|'s current [=active DOM transition=], and another for this |transition|. As per the [design of this feature](#transitions-as-enhancements), it's assumed that the developer is using another feature or framework to correctly schedule these DOM changes.
+        Note: This can result in two asynchronous [=DOMTransition/DOM update
+        callbacks=] running concurrently. One for the |document|'s current
+        [=active DOM transition=], and another for this |transition|. As per
+        the [design of this feature](#transitions-as-enhancements), it's
+        assumed that the developer is using another feature or framework to
+        correctly schedule these DOM changes.
 
     1. Set |document|'s [=active DOM transition=] to |transition|.
 
