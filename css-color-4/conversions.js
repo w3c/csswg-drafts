@@ -49,23 +49,29 @@ function gam_sRGB(RGB) {
 
 function lin_sRGB_to_XYZ(rgb) {
 	// convert an array of linear-light sRGB values to CIE XYZ
-	// using sRGB's own white, D65 (no chromatic adaptation)
+	// using sRGB's own white, D65 (no chromatic adaptation),
+	// the matrix has infinite precision,
+	// second row is just BT.709 YCbCr, must add to 1 per
+	// SMPTE RP 177
 
 	var M = [
-		[ 506752 / 1228815,  87881 / 245763,   12673 /   70218 ],
-		[  87098 /  409605, 175762 / 245763,   12673 /  175545 ],
-		[   7918 /  409605,  87881 / 737289, 1001167 / 1053270 ],
+		[ 0.4124, 0.3576, 0.1805 ],
+		[ 0.2126, 0.7152, 0.0722 ],
+		[ 0.0193, 0.1191, 0.9505 ],
 	];
 	return multiplyMatrices(M, rgb);
 }
 
 function XYZ_to_lin_sRGB(XYZ) {
 	// convert XYZ to linear-light sRGB
+	// this matrix should ideally depend on bit depth,
+	// but we just use 16 bits per component per 
+	// IEC 61966-2-1:1999/AMD1:2003
 
 	var M = [
-		[   12831 /   3959,    -329 /    214, -1974 /   3959 ],
-		[ -851781 / 878810, 1648619 / 878810, 36519 / 878810 ],
-		[     705 /  12673,   -2585 /  12673,   705 /    667 ],
+		[ 3.2406255, -1.5372080, -0.4986286 ],
+		[ 0.9689307, 1.8757561, 0.0415175 ],
+		[ -0.0557101, -0.2040211, 1.0569959 ],
 	];
 
 	return multiplyMatrices(M, XYZ);
