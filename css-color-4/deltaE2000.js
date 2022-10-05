@@ -5,6 +5,11 @@
 // but is wicked complicated
 // and many implementations have small errors!
 
+/**
+ * @param {number[]} reference - Array of CIE Lab values: L as 0..100, a and b as around -150..150
+ * @param {number[]} sample - Array of CIE Lab values: L as 0..100, a and b as around -150..150
+ * @return {number} How different a color sample is from reference
+ */
 
 function deltaE2000 (reference, sample) {
 
