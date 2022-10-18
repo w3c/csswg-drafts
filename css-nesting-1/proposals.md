@@ -139,6 +139,7 @@ Add your name and preferred proposals below:
 | fantasai    | 3 or 4.ii or 4.iii | 2.ii or 2.iii | |
 | LeaVerou    | 3          | 2.iii     | 2.ii |
 | tabatkins   | 3          | 1          | 2.iii |
+| Loirooriol  | 1          | 4.i or 4.iii | 2.i or 3 |
 
 ***Note:** It is not required to be a WG member to add your name to this list,
 only to have followed the [discussion](https://github.com/w3c/csswg-drafts/issues/7834)
