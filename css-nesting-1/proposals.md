@@ -13,7 +13,7 @@ To organize the discussion a bit, the options we're looking at are:
 4. [Postfix proposal](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1276360012) - Block after main rule containing nested rules, no `&` needed in nested selectors except for disambiguation. Style rules effectively consist of a selector, a declaration block, and an optional style rule block.
    1. Could add the rule block with an `@nest` rule
    2. Could add the rule block with special ASCII selector like bare `&` or `&&` to indicate association of nested rules with the previous selector
-   3. Could add the rule block with bare braces, essentially giving the selector prelude associated two blocks (one declaration block, one optional rule block).
+   3. Could [add the rule block with bare braces](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1282630354), essentially giving the selector prelude associated two blocks (one declaration block, one optional rule block).
 
 ------
 
