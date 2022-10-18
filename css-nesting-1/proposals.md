@@ -128,11 +128,9 @@ If it were up to you, what syntax would you prefer for CSS Nesting?
 - (**58%**) `&` should be optional for descendants and combinators
 
 
-
-
 ## Discussion Participant Positions
 
-Add your name and preferred proposals below:
+[Add](https://github.com/w3c/csswg-drafts/edit/main/css-nesting-1/proposals.md) your name and preferred proposals below:
 
 | Participant | Top choice | Runner-up | Third choice |
 |-------------|------------|-----------|--------------|
