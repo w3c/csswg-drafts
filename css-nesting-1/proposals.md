@@ -1,6 +1,6 @@
 # Summary of Nesting proposals
 
-*Originally posted in [#7834](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1275197850)*
+*Original posted in [#7834](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1275197850)*
 
 To organize the discussion a bit, the options we're looking at are:
 
@@ -11,6 +11,9 @@ To organize the discussion a bit, the options we're looking at are:
 	3. [(link)](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1270665794) The above, plus any style rule starting with a non-ident. (So `.foo`, `:hover`, etc will trigger the switch, but `div` won't.) (Rules following the switch can start with whatever.)
 3. [Lea's proposal](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1272373216) - No parsing switch, instead every nested rule has to be unambiguous on its own, by starting with anything but an ident. (You can write  `& div` or `:is(div)` if you need to start a selector with a type selector.) (This employs the same parsing strat as (2.3) to avoid accidentally parsing invalid properties like `//color: red;` as rules.)
 4. [Post-nesting proposal](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1276360012) - Block after main rule containing nested rules, no `&` needed in nested selectors except for disambiguation
+   1. Could add the rule block with an `@nest` rule
+   2. Could add the rule block with special ASCII selector like bare `&` or `&&` to indicate association of nested rules with the previous selector
+   3. Could add the rule block with bare braces, essentially giving the selector prelude associated two blocks (one declaration block, one optional rule block).
 
 ------
 
@@ -84,5 +87,22 @@ Arguments for each of the above options:
 
 - Rules are invalid if they start with a type selector, requiring them to be rephrased somehow. (Using `:is(div)`, starting with `&`, etc.)
 - Like (2.3), prevents us from changing property syntax to start with an ascii glyph in the future. (But similarly, this is probably already lost to us.)
+
+<tr>
+<th>(4)
+<td>
+
+- Blocks either contain declarations or rules, not both
+- No double-nested indentation
+- No `&` for selectors that do not require it
+- Full compatibility with `@scope` and root contexts
+
+<td>
+
+- Nesting that is not nested
+- Requires another pair of brackets
+- Requires either noisy `@nest` everywhere or cryptic ASCII syntax
+- CSSOM with (arguably) a different structure than the syntax
+- Can't mix properties and rules - all properties have to come first. (But this matches the data model anyway.)
 
 </table>
