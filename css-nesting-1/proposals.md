@@ -140,6 +140,7 @@ If it were up to you, what syntax would you prefer for CSS Nesting?
 | Loirooriol  | 1          | 4.i or 4.iii | 2.i or 3 |
 | argyleink   | 1          | 3          | 4          |
 | bradkemper  | 2.iii      | 2.ii       | 3          |
+| mirisuzanne | 3          | 2.iii      | 4          |
 
 ***Note:** It is not required to be a WG member to add your name to this list,
 only to have followed the [discussion](https://github.com/w3c/csswg-drafts/issues/7834)
