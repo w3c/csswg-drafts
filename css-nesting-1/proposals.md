@@ -108,3 +108,16 @@ Arguments for each of the above options:
 - If you are *only* nesting rules, you still need an empty declaration block (`{}`), which looks awkward
 
 </table>
+
+## Discussion Participant Positions
+
+Add your name and preferred proposals below:
+
+| Participant | Top choice | Runner-up | Third choice |
+|-------------|------------|-----------|--------------|
+| fantasai    | 3 or 4.ii or 4.iii | 2.ii or 2.iii | |
+| LeaVerou    | 3          | 2.iii     | 2.ii |
+
+Note: It is not required to be a WG member to add your name to this list,
+only to have followed the [discussion](https://github.com/w3c/csswg-drafts/issues/7834)
+and considered the proposals (summarized above) carefully.
