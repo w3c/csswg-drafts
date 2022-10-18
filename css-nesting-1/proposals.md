@@ -109,6 +109,27 @@ Arguments for each of the above options:
 
 </table>
 
+## Twitter Polls
+
+*(Percentages normalized to exclude "Just show results" answers)*
+
+### [Poll 1: What do authors prefer for their own code](https://twitter.com/LeaVerou/status/1579902585540345857) (1,613 votes)
+
+Which of the following best expresses how you want to write nested CSS when it's implemented by browsers?
+
+- (**52%**) I want to use `&` in every selector, as I think it makes code more clear
+- (**48%**) I want to be able to omit `&` whenever possible, as it's noisy to read and a hassle to type
+
+### [Poll 2: What do authors want to be the general rule](https://twitter.com/LeaVerou/status/1580215877705687040) (592 votes)
+
+If it were up to you, what syntax would you prefer for CSS Nesting?
+
+- (**42%**) `&` should be mandatory, even in descendants and combinators
+- (**58%**) `&` should be optional for descendants and combinators
+
+
+
+
 ## Discussion Participant Positions
 
 Add your name and preferred proposals below:
@@ -119,6 +140,6 @@ Add your name and preferred proposals below:
 | LeaVerou    | 3          | 2.iii     | 2.ii |
 | tabatkins   | 3          | 1          | 2.iii |
 
-Note: It is not required to be a WG member to add your name to this list,
+***Note:** It is not required to be a WG member to add your name to this list,
 only to have followed the [discussion](https://github.com/w3c/csswg-drafts/issues/7834)
-and considered the proposals (summarized above) carefully.
+and considered the proposals (summarized above) carefully.*
