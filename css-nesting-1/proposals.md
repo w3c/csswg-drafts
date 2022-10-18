@@ -9,7 +9,7 @@ To organize the discussion a bit, the options we're looking at are:
 	1. Just at-rules. This means any nested at-rule, like a nested @media, or the no-op `@nest;` rule we'd introduce.
 	2. [(link)](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1268979633) The above, plus any style rule starting with an `&`. (Rules following the switch can start with whatever.)
 	3. [(link)](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1270665794) The above, plus any style rule starting with a non-ident. (So `.foo`, `:hover`, etc will trigger the switch, but `div` won't.) (Rules following the switch can start with whatever.)
-3. [Lea's proposal](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1272373216) - No parsing switch, instead every nested rule has to be unambiguous on its own, by starting with anything but an ident. (You can write  `& div` or `:is(div)` if you need to start a selector with a type selector.) (This employs the same parsing strat as (2.3) to avoid accidentally parsing invalid properties like `//color: red;` as rules.)
+3. [Lea's proposal](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1272373216) - No parsing switch, instead every nested rule has to be unambiguous on its own, by starting with anything but an ident. (You can write  `& div` or `:is(div)` if you need to start a selector with a type selector.) (This employs the same parsing strat as (2.iii) to avoid accidentally parsing invalid properties like `//color: red;` as rules.)
 4. [Post-nesting proposal](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1276360012) - Block after main rule containing nested rules, no `&` needed in nested selectors except for disambiguation
    1. Could add the rule block with an `@nest` rule
    2. Could add the rule block with special ASCII selector like bare `&` or `&&` to indicate association of nested rules with the previous selector
@@ -39,7 +39,7 @@ Arguments for each of the above options:
 - More verbose than Sass/etc-style, which many authors are used to. (And is arguably just a good design.)
 
 <tr>
-<th>(2.1)
+<th>(2.i)
 <td>
 
 - After the switch, syntax is the same as other nesting contexts.
@@ -52,10 +52,10 @@ Arguments for each of the above options:
 - Can't mix properties and rules - all properties have to come first. (But this matches the data model anyway.)
 
 <tr>
-<th>(2.2)
+<th>(2.ii)
 <td>
 
-- Same as (2.1), but you can avoid using `@nest;` most of the time if you instead start your first rule with `&`.
+- Same as (2.i), but you can avoid using `@nest;` most of the time if you instead start your first rule with `&`.
 
 
 <td>
@@ -63,14 +63,14 @@ Arguments for each of the above options:
 - Need to pay somewhat more attention to context, and make sure your first rule is written correctly - either preceded by an at-rule, or starting with `&`.
 
 <tr>
-<th>(2.3)
+<th>(2.iii)
 <td>
 
-- Same as (2.2), but you can avoid using `@nest;` in even more cases: unless your first selector starts with a type selector, you can just nest naively.
+- Same as (2.ii), but you can avoid using `@nest;` in even more cases: unless your first selector starts with a type selector, you can just nest naively.
 
 <td>
 
-- Still somewhat context-sensitive, just less so than (2.2).
+- Still somewhat context-sensitive, just less so than (2.ii).
 - Prevents us from ever changing property syntax to start with an ascii glyph. (Like `+transform:...;` for additive properties?) (But these are probably already ruled out anyway, due to people using garbage to "comment out" their properties, like `//color: red;`, or `*color:red;` for an old IE hack.)
 
 <tr>
@@ -86,7 +86,7 @@ Arguments for each of the above options:
 <td>
 
 - Rules are invalid if they start with a type selector, requiring them to be rephrased somehow. (Using `:is(div)`, starting with `&`, etc.)
-- Like (2.3), prevents us from changing property syntax to start with an ascii glyph in the future. (But similarly, this is probably already lost to us.)
+- Like (2.iii), prevents us from changing property syntax to start with an ascii glyph in the future. (But similarly, this is probably already lost to us.)
 
 <tr>
 <th>(4)
@@ -96,6 +96,7 @@ Arguments for each of the above options:
 - No double-nested indentation
 - No `&` for selectors that do not require it
 - Full compatibility with `@scope` and root contexts
+- No `@nest` in variants (4.ii) and (4.iii)
 
 <td>
 
@@ -104,5 +105,6 @@ Arguments for each of the above options:
 - Requires either noisy `@nest` everywhere or cryptic ASCII syntax
 - CSSOM with (arguably) a different structure than the syntax
 - Can't mix properties and rules - all properties have to come first. (But this matches the data model anyway.)
+- If you are *only* nesting rules, you still need an empty declaration block (`{}`), which looks awkward
 
 </table>
