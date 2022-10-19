@@ -82,6 +82,7 @@ Arguments for each of the above options:
 - Like the (2.X) set, syntax is same as Sass/etc-style except for selectors starting with a type selector.
 - Like (1), can theoretically mix properties and rules again, but the data model will still have to act as if all properties as coming first.
 - No `@nest` rule needed
+- In the future we could theoretically relax the syntax further, if we find a way to parse desecendant element selectors properly without infinite lookahead
 
 <td>
 
@@ -101,6 +102,7 @@ Arguments for each of the above options:
 <td>
 
 - Nesting that is not nested
+- No nesting in inline styles or other CSSStyleDeclaration contexts
 - Requires another pair of brackets
 - Requires either noisy `@nest` everywhere or cryptic ASCII syntax
 - CSSOM with (arguably) a different structure than the syntax
@@ -144,7 +146,7 @@ If it were up to you, what syntax would you prefer for CSS Nesting?
 | romainmenke | 1          | 3          | 4          |
 | FremyCompany | 4.iii     | 1          | 3          |
 | dbaron | 3 [*](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1283019419) | 4.iii | 1 |
-| alohci      | 3          | 1          | 4          |	
+| alohci      | 3          | 1          | 4          |
 
 ***Note:** It is not required to be a WG member to add your name to this list,
 only to have followed the [discussion](https://github.com/w3c/csswg-drafts/issues/7834)
