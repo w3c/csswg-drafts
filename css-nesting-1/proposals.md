@@ -148,6 +148,7 @@ If it were up to you, what syntax would you prefer for CSS Nesting?
 | dbaron | 3 [*](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1283019419) | 4.iii | 1 |
 | alohci      | 3          | 1          | 4          |
 | svgeesus    | 3          | 2.iii      |            |
+| bramus      | 3          | 1          | 2.iii      |
 
 ***Note:** It is not required to be a WG member to add your name to this list,
 only to have followed the [discussion](https://github.com/w3c/csswg-drafts/issues/7834)
