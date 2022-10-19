@@ -9,6 +9,7 @@ import os
 import os.path
 import re
 import sys
+import subprocess
 from collections import defaultdict
 
 from html.parser import HTMLParser
@@ -59,6 +60,13 @@ def title_from_html(file):
     return parser.title if parser.done else None
 
 
+def get_date_authored_timestamp_from_git(path):
+    source = os.path.realpath(path)
+    proc = subprocess.run(["git", "log", "-1", "--format=%at", source],
+                          capture_output = True, encoding = "utf_8")
+    return int(proc.stdout.splitlines()[-1])
+
+
 def get_bs_spec_metadata(folder_name, path):
     spec = Spec(path)
     spec.assembleDocument()
@@ -84,6 +92,7 @@ def get_bs_spec_metadata(folder_name, path):
             shortname = spec.md.shortname
 
     return {
+        "timestamp": get_date_authored_timestamp_from_git(path),
         "shortname": shortname,
         "level": level,
         "title": spec.md.title,
@@ -112,6 +121,9 @@ def create_symlink(shortname, spec_folder):
     """Creates a <shortname> symlink pointing to the given <spec_folder>.
     """
 
+    if spec_folder in timestamps:
+        timestamps[shortname] = timestamps[spec_folder]
+
     try:
         os.symlink(spec_folder, shortname)
     except OSError:
@@ -134,6 +146,7 @@ CURRENT_WORK_EXCEPTIONS = {
 constants.setErrorLevel("nothing")
 
 specgroups = defaultdict(list)
+timestamps = defaultdict(list)
 
 for entry in os.scandir("."):
     if entry.is_dir(follow_symlinks=False):
@@ -145,6 +158,7 @@ for entry in os.scandir("."):
         html_file = os.path.join(entry.path, "Overview.html")
         if os.path.exists(bs_file):
             metadata = get_bs_spec_metadata(entry.name, bs_file)
+            timestamps[entry.name] = metadata["timestamp"]
         elif os.path.exists(html_file):
             metadata = get_html_spec_metadata(entry.name, html_file)
         else:
@@ -185,6 +199,9 @@ for shortname, specgroup in specgroups.items():
             create_symlink(shortname, currentWorkDir)
         if shortname == "css-snapshot":
             create_symlink("css", currentWorkDir)
+
+with open('./timestamps.json', 'w') as f:
+    json.dump(dict(sorted(timestamps.items())), f, indent = 2)
 
 with open("./index.html", mode='w', encoding="UTF-8") as f:
     template = jinja_env.get_template("index.html.j2")
