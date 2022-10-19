@@ -166,12 +166,12 @@ and considered the proposals (summarized above) carefully.*
 | Proposal | Top choice votes | Runner-up votes | Third choice votes |
 |----------|------------------|-----------------|--------------------|
 | 1        | 5    | 7   | 1   |
-| 2 (all)  | 1    | 5   | ?   |
+| 2 (all)  | 1    | 5   | 4   |
 | 2.i      | 0    | ?   | ?   |
 | 2.ii     | 0    | ?   | ?   |
 | 2.iii    | 1    | ?   | ?   |
 | 3        | 10   | 4   | 4   |
-| 4 (all)  | 3    | 2   | ?   |
+| 4 (all)  | 3    | 2   | 5   |
 | 4.i      | 0    | ?   | ?   |
 | 4.ii     | 3    | ?   | ?   |
 | 4.iii    | 3    | ?   | ?   |
