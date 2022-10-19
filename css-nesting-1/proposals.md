@@ -152,6 +152,7 @@ If it were up to you, what syntax would you prefer for CSS Nesting?
 | jonathantneal | 3 [*](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1283433494) | 1 | |
 | sesse       | 1          | 3          |            |	
 | lilles      | 1          | 3          |            |
+| ydaniv      | 4.iii or 4.ii | 1       | 3          |
 | andruud     | 3          | 1          | 4          |
 
 ***Note:** It is not required to be a WG member to add your name to this list,
