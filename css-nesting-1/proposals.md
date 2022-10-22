@@ -154,6 +154,7 @@ If it were up to you, what syntax would you prefer for CSS Nesting?
 | lilles      | 1          | 3          |            |
 | ydaniv      | 4.iii or 4.ii | 1       | 3          |
 | andruud     | 3          | 1          | 4          |
+| valtlai     | 3          | 1          | 2.iii      |
 
 ***Note:** It is not required to be a WG member to add your name to this list,
 only to have followed the [discussion](https://github.com/w3c/csswg-drafts/issues/7834)
@@ -161,16 +162,16 @@ and considered the proposals (summarized above) carefully.*
 
 ### Counts
 
-18 participants voted.
+19 participants voted.
 
 | Proposal | Top choice votes | Runner-up votes | Third choice votes |
 |----------|------------------|-----------------|--------------------|
-| 1        | 5    | 7   | 1   |
-| 2 (all)  | 1    | 5   | 4   |
+| 1        | 5    | 8   | 1   |
+| 2 (all)  | 1    | 5   | 5   |
 | 2.i      | 0    | 0   | 1   |
 | 2.ii     | 0    | 2   | 1   |
-| 2.iii    | 1    | 4   | 2   |
-| 3        | 10   | 4   | 4   |
+| 2.iii    | 1    | 4   | 3   |
+| 3        | 11   | 4   | 4   |
 | 4 (all)  | 3    | 2   | 5   |
 | 4.i      | 0    | 1   | 0   |
 | 4.ii     | 2    | 0   | 0   |
