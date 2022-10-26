@@ -157,7 +157,7 @@ If it were up to you, what syntax would you prefer for CSS Nesting?
 | valtlai     | 3          | 1          | 2.iii      |
 | jensimmons  | 4          | 3          |            |
 | rossen      | 4          | 3          | 1          |
-| flackr      | 3          | 2.iii      | 1          |
+| flackr      | 3          | 1          | 2.iii      |
 | JakeA       | 1          | 3          |            |
 
 
@@ -171,11 +171,11 @@ and considered the proposals (summarized above) carefully.*
 
 | Proposal | Top choice votes | Runner-up votes | Third choice votes |
 |----------|------------------|-----------------|--------------------|
-| 1        | 6    | 8   | 3   |
+| 1        | 6    | 9   | 2   |
 | 2 (all)  | 1    | 6   | 5   |
 | 2.i      | 0    | 0   | 1   |
 | 2.ii     | 0    | 2   | 1   |
-| 2.iii    | 1    | 5   | 3   |
+| 2.iii    | 1    | 4   | 4   |
 | 3        | 12   | 7   | 4   |
 | 4 (all)  | 5    | 2   | 5   |
 | 4.i      | 0    | 1   | 0   |
