@@ -157,6 +157,8 @@ If it were up to you, what syntax would you prefer for CSS Nesting?
 | valtlai     | 3          | 1          | 2.iii      |
 | jensimmons  | 4          | 3          |            |
 | rossen      | 4          | 3          | 1          |
+| flackr      | 3.         | 2.iii.     | 1.         |
+
 
 ***Note:** It is not required to be a WG member to add your name to this list,
 only to have followed the [discussion](https://github.com/w3c/csswg-drafts/issues/7834)
