@@ -12,7 +12,7 @@ To organize the discussion a bit, the options we're looking at are:
 3. [Non-letter start proposal](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1272373216) - No parsing switch, instead every nested rule has to be unambiguous on its own, by starting with anything but an ident. (You can write  `& div` or `:is(div)` if you need to start a selector with a type selector.) (This employs the same parsing strat as (2.iii) to avoid accidentally parsing invalid properties like `//color: red;` as rules.)
 4. [Postfix proposal](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1276360012) - Block after main rule containing nested rules, no `&` needed in nested selectors except for disambiguation. Style rules effectively consist of a selector, a declaration block, and an optional style rule block.
    1. Could add the rule block with an `@nest` rule
-   2. Could add the rule block with special ASCII selector like bare `&` or `&&` to indicate association of nested rules with the previous selector
+   2. Could add the rule block with special ASCII selector (e.g. `&&`) to indicate association of nested rules with the previous selector
    3. Could [add the rule block with bare braces](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1282630354), essentially giving the selector prelude associated two blocks (one declaration block, one optional rule block).
 
 ------
@@ -107,7 +107,7 @@ Arguments for each of the above options:
 - Requires either noisy `@nest` everywhere or cryptic ASCII syntax
 - CSSOM with (arguably) a different structure than the syntax
 - Can't mix properties and rules - all properties have to come first. (But this matches the data model anyway.)
-- If you are *only* nesting rules, you still need an empty declaration block (`{}`), which looks awkward
+- If you are *only* nesting rules, and we are using bare parens (4.iii) you still need an empty declaration block (`{}`), which looks awkward
 
 </table>
 
@@ -155,7 +155,6 @@ If it were up to you, what syntax would you prefer for CSS Nesting?
 | ydaniv      | 4.iii or 4.ii | 1       | 3          |
 | andruud     | 3          | 1          | 4          |
 | valtlai     | 3          | 1          | 2.iii      |
-| jensimmons  | 4          | 3          |            |	
 
 ***Note:** It is not required to be a WG member to add your name to this list,
 only to have followed the [discussion](https://github.com/w3c/csswg-drafts/issues/7834)
