@@ -155,6 +155,7 @@ If it were up to you, what syntax would you prefer for CSS Nesting?
 | ydaniv      | 4.iii or 4.ii | 1       | 3          |
 | andruud     | 3          | 1          | 4          |
 | valtlai     | 3          | 1          | 2.iii      |
+| jensimmons  | 4          | 3          |            |
 
 ***Note:** It is not required to be a WG member to add your name to this list,
 only to have followed the [discussion](https://github.com/w3c/csswg-drafts/issues/7834)
