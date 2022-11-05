@@ -1116,9 +1116,6 @@ Cycle Detection</h4>
 	If the graph contains a cycle,
 	any ''element()'' functions participating in the cycle are <a>invalid images</a>.
 
-
-
-
 <!--
  ██████   ████████     ███    ████████  ████ ████████ ██    ██ ████████  ██████
 ██    ██  ██     ██   ██ ██   ██     ██  ██  ██       ███   ██    ██    ██    ██
@@ -1897,15 +1894,90 @@ Color Stop “Fixup”</h4>
 		</pre>
 	</div>
 
-
-
+<!--
+ ██████  ████████ ████████  ████ ████████  ███████  ██████    ███ ███
+██    ██    ██    ██     ██  ██  ██     ██ █       ██    ██  ██     ██
+██          ██    ██     ██  ██  ██     ██ █       ██       ██       ██
+ ██████     ██    ████████   ██  ████████  █████    ██████  ██       ██
+      ██    ██    ██   ██    ██  ██        █             ██ ██       ██
+██    ██    ██    ██    ██   ██  ██        █       ██    ██  ██     ██
+ ██████     ██    ██     ██ ████ ██        ███████  ██████    ███ ███
+-->
 
 1D Image Values: the ''stripes()'' notation {#stripes}
 ======================================================
 
-	Issue: <a href="https://github.com/w3c/csswg-drafts/issues/2532">Per WG resolution</a>,
-	define the ''stripes()'' function
-	which creates a 1D image for use in borders/outlines.
+	While most <<image>> values represent a 2-dimensional image,
+	and <<color>> can be thought of as a "0-dimensional" image
+	(unvarying in either axis),
+	there are some contexts where a 1-dimensional image makes sense,
+	specifying colors along a <dfn export>paint line</dfn>
+	without defining a <em>direction</em> for the line.
+	The <<1d-image>> type represents such images.
+	
+	<pre class=prod>
+		<dfn>&lt;1d-image></dfn> = <<stripes()>>
+		<dfn>stripes()</dfn> = stripes( <<color-stripe>># )
+		<dfn>&lt;color-stripe></dfn> = <<color>> && [ <<length-percentage>> | <<flex>> ]?
+	</pre>
+	
+	The ''stripes()'' function defines a 1d-image
+	as a number of colored stripes with different widths.
+	
+	Each comma-separated entry defines a solid-color stripe,
+	each placed end-to-end on the [=paint line=] in the order given,
+	with the specified <<color>> and thickness.
+	If the thickness is omitted,
+	it defaults to ''1fr''.
+	
+	In each entry, a <<percentage>> is relative to the |painting area|
+	and must be between ''0%'' and ''100%'' inclusive
+	or else the function is invalid.
+	A <<flex>> is evaluated as a fraction of the |painting area|
+	relative to the total sum of <<flex>> entries in the function,
+	after subtracting the thickness of any non-<<flex>> entries
+	(flooring the subtraction result at zero).
+	If the sum of <<flex>> values is less than 1fr,
+	the result of the subtraction is multiplied by the sum's value
+	before being distributed.
+	
+	<div class=example>
+		For example, 
+		''stripes(red 1fr, green 2fr, blue 100px)``
+		with a |painting area| of ''400px''
+		will result in a 100px red stripe and 200px green stripe,
+		giving red 1 share and green 2 shares of the 300px remaining
+		after subtracting blue's 100px from the 400px total.
+		
+		On the other hand,
+		''stripes(red .1fr, green .2fr, blue 100px)``
+		with a |painting area| of ''400px''
+		will instead give a 30px red stripe and 60px green stripe,
+		followed by 100px of blue and then 210px of transparent.
+		The 300px of leftover space is multiplied by .3,
+		the value of the sum of the <<flex>> values,
+		to obtain only 90px,
+		which is then distributed in the 1:2 ratio
+		the <<flex>> values would dictate.
+		
+		(This is similar to how [=flex layout=] deals with small <<flex>> sums on a line,
+		and ensures smoothly continuous behavior
+		as the <<flex>> values approach zero.)
+	</div>
+
+	The |painting area| is defined by the context in which the ''stripes()'' function is used.
+	If used generically as an <<image>>,
+	the |painting area| is the height of the [=concrete image size=].
+
+	If the sum thickness of the stripes is smaller than the |painting area|,
+	the [=paint line=] is [=transparent black=] for its remaining length,
+	as if a final ''transparent'' argument were given.
+	If the sum thickness is larger,
+	any stripes or portions thereof that would be past the end of the [=paint line=] have no effect.
+
+	The computed value of this function is the [=specified value=]
+	with all <<color>>s computed
+	and all <<length-percentage>>s absolutized and computed to the extent possible.
 
 <!--
  ██████  ████ ████████ ████ ██    ██  ██████
@@ -2393,6 +2465,39 @@ Interpolating <<gradient>> {#interpolating-gradients}
 		Then, for each pair of color-stops,
 		interpolate the position and color independently.
 
+Interpolating <<1d-image>> {#interpolating-1d-images}
+-----------------------------------------------
+
+	Similar to <a lt="interpolating-gradients">gradient images</a>,
+	one-dimensional images can be interpolated directly in CSS transitions and animations,
+	smoothly animating from one image to another.
+	There are only a few restrictions on what images are allowed to be interpolated:
+
+	1. Both the starting and ending image must have the same number of <<color-stripe>>s.
+
+	2. Neither image uses a combination of <<length>>, <<percentage>>, and <<flex>> stripes.
+
+	If the two image satisfy both constraints,
+	they must be interpolated as described below.
+	If they fail the second one only,
+	they must be abruptly transitioned at 50%
+	(unless otherwise specified by a future specification).
+	If they fail the first constraint,
+	they must be interpolated using ''cross-fade()''
+	as for generic images.
+
+	Note: The abrupt transition at 50% is so that content will not rely on cross-fading,
+	and smarter interpolation rules can be added for this case in the future.
+
+	1. Interpolate each component and stripe of the images independently.
+
+	2. To interpolate a stripe,
+		first match each stripe in the start image
+		to the corresponding stripe at the same index in the end image.
+		Then, for each pair of stripes,
+		interpolate the <a href="https://www.w3.org/TR/css3-transitions/#animtype-length">thickness</a>
+		and <a href="https://www.w3.org/TR/css3-transitions/#animtype-color">color</a> independently.
+
 <!--
  ██████  ████████ ████████  ████    ███    ██       ████ ████████    ███    ████████ ████  ███████  ██    ██
 ██    ██ ██       ██     ██  ██    ██ ██   ██        ██       ██    ██ ██      ██     ██  ██     ██ ███   ██
@@ -2471,7 +2576,7 @@ Changes {#changes}
 - Switched color-stop grammar to repeat at end for readability
 - Clarified that object-fit and image-resolution use discrete animation
 - Fixed definition of cross-fade() image blending
-- Added placeholder section for the stripes() function
+- Added &lt;1d-image> data type and stripes() function and added &1d-image> to &lt;image> data type
 - Moved interpolation of images from [[css3-images]]
 - Clarifed that cross-fade() takes 1+ arguments. Defined sizing and painting of the new function arguments in detail.
 - Moved cross-fade() from [[css3-images]]
