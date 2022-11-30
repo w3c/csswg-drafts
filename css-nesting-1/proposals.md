@@ -118,7 +118,8 @@ Arguments for each of the above options:
 - Easier to understand and teach, no special rules for when `&` is needed or understanding what an ident is
 - No changes to parsing or OM
 - No `&` for selectors that do not require it
-- Similar to `@scope` and @layer
+- Similar to `@scope` and `@layer`
+- `@nest` provides conext and something that's searchable for authors encountering it for the first time
 - Existing rules can be pasted into a `@nest` block without modification
 - Can tranparently handle multiple levels of nesting
 
