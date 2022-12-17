@@ -1,0 +1,720 @@
+<pre class='metadata'>
+Title: CSS Backgrounds and Borders Module Level 4
+Shortname: css-backgrounds
+Level: 4
+Status: ED
+Work Status: Exploring
+Group: csswg
+TR: https://www.w3.org/TR/css-backgrounds-4/
+ED: https://drafts.csswg.org/css-backgrounds-4/
+Editor: Bert Bos, W3C, bert@w3.org, w3cid 3343
+Editor: Elika J. Etemad / fantasai, Invited Expert, http://fantasai.inkedblade.net/contact, w3cid 35400
+Editor: Lea Verou, Invited Expert, http://lea.verou.me/about/, w3cid 52258
+Editor: Sebastian Zartner, Invited Expert, sebastianzartner@gmail.com, w3cid 64937
+Abstract: This module contains the features of CSS relating to the borders and backgrounds of boxes on the page. It includes and extends the functionality of <a href="https://www.w3.org/TR/css3-background/">CSS Backgrounds and Borders Level&nbsp;3</a>. [[CSS3BG]] The main extensions compared to level&nbsp;3 are shaping ('corner-shape') and clipping borders ('border-clip'), logical background positions ('background-position'), and the ''extend'' ability of 'background-repeat'.
+Ignored Terms: total width
+Warning: Not Ready
+</pre>
+
+<pre class="link-defaults">
+spec:css-text-4; type:value; text:collapse
+spec:css-shapes-2; type:function; text:path()
+</pre>
+
+<link rel="stylesheet" href="style.css" />
+
+<h2 id="intro">
+Introduction</h2>
+
+	<p class="issue">
+		This module is currently maintained as a diff against Level 3.
+		We will fold in the text once it's all formatted up and in CR again,
+		as this will reduce the effort of keeping them in sync
+		(source diffs will be accurate in reflecting the differences).
+
+<h2 id="backgrounds">
+Backgrounds</h2>
+
+<h3 id="the-background-position">
+Background Positioning: the 'background-position' shorthand property</h3>
+
+	<pre class="propdef shorthand">
+		Name: background-position
+		Value: <<position>>#
+	</pre>
+
+	See [[CSS3BG]] for definition.
+
+	<p>Where
+	<pre class=prod><dfn>&lt;position&gt;</dfn> = [
+	  [ left | center | right | top | bottom | start | end | <<length-percentage>> ]
+	|
+	  [ left | center | right | x-start | x-end | <<length-percentage>> ]
+	  [ top | center | bottom | y-start | y-end | <<length-percentage>> ]
+	|
+	  [ center | [ left | right | x-start | x-end ] <<length-percentage>>? ] &amp;&amp;
+	  [ center | [ top | bottom | y-start | y-end ] <<length-percentage>>? ]
+	|
+	  [ center | [ start | end ] <<length-percentage>>? ]
+	  [ center | [ start | end ] <<length-percentage>>? ]	]</pre>
+
+	Values have the following meanings:
+	<dl>
+		<dt>One value
+		<dd>
+			If only one value is given,
+			and that value is ''background-position/start'' or ''background-position/end'',
+			then the keyword is duplicated;
+			otherwise the second keyword defaults to ''background-position/center''.
+			The resulting value is treated as a two-component value.
+
+		<dt>More than one value
+		<dd>
+			If the value contains a ''background-position/start'' or ''background-position/end'' keyword,
+			then the shorthand sets
+			'background-position-inline' and 'background-position-block' to the specified values.
+			Otherwise
+			the shorthand sets
+			'background-position-x' and 'background-position-y' to the specified values.
+
+			Issue: Specify the value assignment in more detail. Should expand just like Level 3.
+	</dl>
+
+	Issue: Specify what happens to set of properties that are not set. Maybe they're just not set?
+
+<h4 id="background-position-longhands">
+Background Positioning Longhands: the 'background-position-x', 'background-position-y', 'background-position-inline', and 'background-position-block' properties</h4>
+
+	Issue: This section is still being worked out. The tricky thing is making all the start/end keywords work sanely.
+
+	<pre class="propdef">
+		Name: background-position-x
+		Value: [ center | [ [ left | right | x-start | x-end ]? <<length-percentage>>? ]! ]#
+		Initial: 0%
+		Inherited: no
+		Percentages: refer to width of background positioning area <em>minus</em> width of background image
+		Computed value: A list, each item consisting of: an offset given as a computed <<length-percentage>> value, plus an origin keyword
+		Animation type: repeatable list
+	</pre>
+
+	This property specifies the background position's horizontal component.
+	An omitted origin keyword is assumed to be ''left''.
+
+	<pre class="propdef">
+		Name: background-position-y
+		Value: [ center | [ [ top | bottom | y-start | y-end ]? <<length-percentage>>? ]! ]#
+		Initial: 0%
+		Inherited: no
+		Percentages: refer to height of background positioning area <em>minus</em> height of background image
+		Computed value: A list, each item consisting of: an offset given as a computed <<length-percentage>> value, plus an origin keyword
+		Animation type: repeatable list
+	</pre>
+
+	This property specifies the background position's vertical component.
+	An omitted origin keyword is assumed to be ''top''.
+
+	<pre class="propdef">
+		Name: background-position-inline
+		Value: [ center | [ start | end ]? <<length-percentage>>? ]#
+		Initial: 0%
+		Inherited: no
+		Percentages: refer to inline-size of background positioning area <em>minus</em> inline-size of background image
+		Computed value: A list, each item consisting of: an offset given as a computed <<length-percentage>> value, plus an origin keyword
+		Animation type: repeatable list
+	</pre>
+
+	This property specifies the background position's inline-axis component.
+	An omitted origin keyword is assumed to be ''background-position-inline/start''.
+
+	<pre class="propdef">
+		Name: background-position-block
+		Value: [ center | [ start | end ]? <<length-percentage>>? ]#
+		Initial: 0%
+		Inherited: no
+		Percentages: refer to size of background positioning area <em>minus</em> size of background image
+		Computed value: A list, each item consisting of: an offset given as a computed <<length-percentage>> value, plus an origin keyword
+		Animation type: repeatable list
+	</pre>
+
+	This property specifies the background position's block-axis component.
+	An omitted origin keyword is assumed to be ''background-position-block/start''.
+
+<h3 id='background-clip'>
+Painting Area: the 'background-clip' property</h3>
+
+	<pre class="propdef">
+		Name: background-clip
+		Value: <<bg-clip>>#
+		Initial: border-box
+		Inherited: no
+		Animation type: repeatable list
+	</pre>
+
+	Determines the <dfn export>background painting area</dfn>,
+	which determines the area within which the background is painted.
+	The syntax of the property is given with
+
+	<pre class=prod>
+	<dfn>&lt;bg-clip></dfn> = <<box>> | border | text
+	</pre>
+
+	Issue: Or should this be defining the <css>-webkit-background-clip</css> property,
+	saying that all the values are identical,
+	with this additional ''text'' value?
+
+	<dl dfn-type=value dfn-for="background-clip, <bg-clip>">
+		<dt><dfn><<box>></dfn>
+		<dd>
+			The background is painted within (clipped to)
+			the specified box of the element.
+
+		<dt><dfn>text</dfn>
+		<dd>
+			The background is painted within (clipped to)
+			the intersection of the border box
+			and the geometry of the text in the element and its in-flow and floated descendants.
+
+		<dt><dfn>border</dfn></dt>
+		<dd>
+			The background is clipped to the area painted by the border, taking 'border-width' and 'border-style' into account but ignoring any transparency introduced by 'border-color'.
+		</dd>
+	</dl>
+
+<h2 id="borders">
+	Borders</h2>
+
+<h3 id="the-border-color">Line Colors: the 'border-color' properties</h3>
+
+	<pre class=propdef>
+	Name: border-top-color, border-right-color, border-bottom-color, border-left-color
+	Value: <<color>> | <<image-1D>>
+	Initial: currentcolor
+	Applies to: all elements
+	Inherited: no
+	Percentages: n/a
+	Computed Value: the computed color and/or a one-dimensional image function
+	Animation type: see prose
+	</pre>
+
+	<pre class="propdef shorthand">
+	Name: border-color
+	Value: [ <<color>> | <<image-1D>> ]{1,4}
+	</pre>
+
+	These properties set the foreground color of the border specified
+	by the 'border-style' properties.
+
+	The stripes defined by <<image-1D>> follow the shape of the border
+	on the side to which they apply,
+	and are drawn in bands starting from the [=padding edge=] and progressing outwards.
+	The border width at each point
+	defines the |total width| of the stripes at that point.
+
+	'border-color' is a shorthand for the four 'border-*-color' properties.
+	The four values set the top, right, bottom and left border, respectively.
+	A missing left is the same as right,
+	a missing bottom is the same as top,
+	and a missing right is also the same as top.
+	This is resolved individually for each list item.
+
+	<div class="example">
+		Using multiple colors for each side:
+
+		<pre class=lang-css>
+		.foo {
+			border: 30px solid;
+			border-color: stripes(<span class="swatch" tabIndex="0" style="--color: dodgerblue"></span>dodgerblue, <span class="swatch" tabIndex="0" style="--color: skyblue"></span>skyblue) stripes(<span class="swatch" tabIndex="0" style="--color: yellow"></span>yellow, <span class="swatch" tabIndex="0" style="--color: gold"></span>gold) stripes(<span class="swatch" tabIndex="0" style="--color: lightgreen"></span>lightgreen, <span class="swatch" tabIndex="0" style="--color: limegreen"></span>limegreen) stripes(<span class="swatch" tabIndex="0" style="--color: indianred"></span>indianred, <span class="swatch" tabIndex="0" style="--color: orange"></span>orange);
+		}
+		</pre>
+
+		Sample rendering:
+
+		<img src="images/multicolor-border.png" alt="">
+
+		The same border colors with ''border-style: dotted'':
+
+		<img src="images/multicolor-border-dotted.png" alt="">
+	</div>
+
+	Issue: The syntax for comma-separated multiple colors
+	<a href="https://github.com/w3c/csswg-drafts/issues/1172#issuecomment-379878579">is still under active discussion</a> in the CSS WG.
+
+<h2 id="corners">
+Corners</h2>
+
+<h3 id=corner-sizing>
+Corner Sizing: the 'border-radius' property</h3>
+
+	<pre class="propdef">
+		Name: border-radius
+		Value: <<length-percentage [0,&infin;]>>{1,4} [ / <<length-percentage [0,&infin;]>>{1,4} ]?
+		Initial: 0
+		Applies to: all elements, except table element when 'border-collapse' is ''collapse''
+		Inherited: no
+		Animation type: see individual properties
+	</pre>
+
+	See [[CSS3BG]].
+
+<h3 id=corner-shaping>
+Corner Shaping: the 'corner-shape' property</h3>
+
+	<pre class="propdef">
+		Name: corner-shape
+		Value: [ round | angle ]{1,4}
+		Initial: round
+		Applies to: all elements, except table element when 'border-collapse' is ''collapse''
+		Inherited: no
+		Animation type: discrete
+	</pre>
+
+	By default, non-zero border-radii define
+	a quarter-ellipse that rounds the affected corners.
+	However in some cases, other corner shapes are desired.
+	The 'corner-shape' property specifies a reinterpretation of the radii
+	to define other corner shapes.
+
+	<dl dfn-type="value" dfn-for="corner-shape">
+		<dt><dfn>''round''</dfn>
+		<dd>Border radii define a convex elliptical curve at the corner.
+		<dt><dfn>''angle''</dfn>
+		<dd>Border radii define a diagonal slice at the corner.
+	</dl>
+
+	<div class="example">
+		For example, the following declarations create a right-pointing next button.
+		<pre>
+			a {
+				border-radius: .3em .8em .8em .3em / .3em 50% 50% .3em;
+				corner-shape: round angle angle round;
+				padding: .5em 1em .5em .5em;
+			}
+		</pre>
+		<div style='font: bold 200%/1 sans-serif;
+			width: 2.3em;
+			width: min-content;
+			white-space: nowrap;
+			padding: .5em 1.1em .5em .5em;
+			border-radius: .3em 0 0 .3em;
+			background: url(&apos;data:image/svg+xml,\
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40">\
+			    <path d="m 0 0 h 65 l 10 20 l -10 20 h -65 z" fill="yellowgreen" />\
+			</svg>&apos;) no-repeat 0 / auto 100%'>
+			Next
+		</div>
+		As a fallback in UAs that don't support 'border-radius',
+		the right side would be rounded rather than pointy:
+		<div style='font: bold 200%/1 sans-serif;
+			width: 2.3em;
+			width: min-content;
+			white-space: nowrap;
+			padding: .5em 1em .5em .5em;
+			border-radius: .3em .8em .8em .3em / .3em 50% 50% .3em;
+			background: yellowgreen'>
+			Next
+		</div>
+	</div>
+
+	<p class="issue">
+		How to allow custom corners? Perhaps a ''path()'' function? Or a ''cubic-bezier()''?
+		Something else?
+
+<h3 id="corners-shorthand">
+Corner Shape and Size: the 'corners' shorthand</h3>
+
+	<pre class="propdef shorthand">
+		Name: corners
+		Value: <<'corner-shape'>> || <<'border-radius'>>
+	</pre>
+
+	The 'corners' shorthand sets 'corner-shape' and 'border-radius' in the same declaration.
+	If either is omitted, it is reset to its initial value.
+
+	<div class="example">
+		For example, the following declaration creates a diamond shape.
+		<pre>corners: angle 50%;</pre>
+		In UAs that don't support 'corner-shape', the declaration is ignored
+		(falls back to a rectangle).
+	</div>
+
+	<div class="example">
+		In this example, the first declaration creates tabs with vertical sides and rounded corners using 'border-radius',
+		while the second example makes them trapezoid-shaped in UAs that support 'corners'.
+		<pre>
+			border-radius: 0.25em 0.25em 0 0;
+			corners: angle 0.25em 0.25em 0 0 / 50% 50% 0 0;
+		</pre>
+	</div>
+
+<h2 id="partial-borders">
+Partial borders</h2>
+
+	<p>CSS borders traditionally cover an entire border edge. Sometimes,
+	however, it can be useful to hide some parts of the border.
+
+	<p class="issue">
+		Here are two proposals for doing this:
+		the second one is from GCPM, the first one is an attempt to recast it more readably.
+		The names are terrible, known problem, proposals accepted.
+		There is a problem with conceiving this as clipping:
+		if you have dotted borders, you want whole dots always, not parts of dots.
+		So it should be a drawing limit, not a clip.
+
+<h3 id="border-limit">
+Partial Borders: the 'border-limit' property</h3>
+
+	<pre class="propdef">
+		Name: border-limit
+		Value: all | [ sides | corners ] <<length-percentage [0,&infin;]>>?
+					| [ top | right | bottom | left ] <<length-percentage [0,&infin;]>>
+		Initial: round
+		Applies to: all elements, except table element when 'border-collapse' is ''collapse''
+		Inherited: no
+		Percentages: relative to border-box
+		Animation type: discrete
+	</pre>
+
+	<p>By default, the entire border is drawn. However, border rendering can be
+		limited to only part of a border. The keyword specifies which part, and
+		the length or percentage specifies how much.
+
+	<dl dfn-type="value" dfn-for="border-limit">
+		<dt><dfn>''sides''</dfn>
+			<dd>The sides are drawn up to but not including the corners (as defined
+			by the border radii). A length or percentage is measured from the center
+			of each side: ''50%'' draws the middle 50% of the border; by default the
+			entire side is drawn.
+		<dt><dfn>''corners''</dfn>
+			<dd>The corners are drawn plus the specified distance into the sides if
+			specified. A length is measured from the closest edge of the corner area.
+			A percentage is measured from the absolute corner of the border box.
+		<dt><dfn>''left''</dfn>
+		<dt><dfn>''right''</dfn>
+			<dd>For the left and right (vertical) sides, draws the entire side and
+			corner. For the top and bottom (horizontal) sides, draws the left/right
+			portion, as specified. Distances are measured as for ''corners''.
+		<dt><dfn>''top''</dfn>
+		<dt><dfn>''bottom''</dfn>
+			<dd>For the top and bottom (horizontal) sides, draws the entire side and
+			corner. For the left and right (vertical) sides, draws the top/bottom
+			portion, as specified. Distances are measured as for ''corners''.
+	</dl>
+
+	<div class="example">
+		<p>The following example draws only the middle 50% of the sides.</p>
+		<pre>box { border: solid; border-parts: sides 50% }</pre>
+		<p>The following example draws only the curved parts of the corners.</p>
+		<pre>box { border: solid; border-radius: 1em 2em; border-parts: corners; }</pre>
+		<p>The following example draws only the left 4em of the top border.</p>
+		<pre>box { border-top: solid; border-parts: left 4em; }</pre>
+		<p>The following example draws only the first 10px of each corner:</p>
+		<pre>box { border: solid; border-parts: corners 10px; }</pre>
+		<p>The following example draws the curved part of the corner plus 5px
+		along the sides:</p>
+		<pre>box { border: solid; border-radius: 5px; border-shape: round; border-parts: corners 5px; }</pre>
+		<p>The following example draws the curved part of the corner and all of
+		the side except the middle 40%.</p>
+		<pre>box { border: solid; border-radius: 5px; border-shape: round; border-parts: corners 30%; }</pre>
+	</div>
+
+<h3 id="border-clip">
+The 'border-clip' properties</h3>
+
+		<pre class="propdef">
+  		Name: border-clip, border-clip-top, border-clip-right, border-clip-bottom, border-clip-left
+  		Value: normal | [ <<length-percentage [0,&infin;]>> | <<flex>> ]+
+  		Initial: normal
+  		Inherited: no
+  		Percentages: refer to length of border-edge side
+  		Computed value: ''border-clip/normal'', or a list consisting of absolute lengths, or percentages as specified
+		Animation type: by computed value
+		</pre>
+
+		<p class=issue>Should these properties be simplified to only accept <code>normal | <<length-percentage>>+</code>?
+
+		<p>These properties split their respective borders into parts along
+		the border edge. The first part is visible, the second is invisible,
+		the third part is visible, etc. Parts can be specified with lengths,
+		percentages, or flexible lengths (expressed by the ''fr'' unit, as per
+		[[CSS3GRID]]).
+		The ''border-clip/normal'' value means
+		that the border is not split, but shown normally.
+
+		<p>'border-clip' is a shorthand property for the four individual properties.
+
+		<p>If the listed parts are shorter than the border, any remaining
+		border is split proportionally between the specified flexible lengths. If
+		there are no flexible lengths, the behavior is as if ''1fr'' had been
+		specified at the end of the list.
+
+		<p>If the listed parts are longer than the border, the specified parts
+		will be shown in full until the end of the border. In this case, all
+		flexible lengths will be zero.
+
+		<p>For horizontal borders, parts are listed from left to right. For
+		vertical borders, parts are listed from top to bottom.
+
+		<p>The exact border parts are determined by laying out the specified border
+		parts with all flexible lengths initially set to zero. Any remaining border is
+		split proportionally between the flexible lengths specified.
+
+		<div class="example">
+
+			<pre>border-clip: 10px 1fr 10px;</pre>
+
+			<div style="position: relative; width: 250px; height: 150px; background: white;">
+				<div style="border: 2px solid black; width: 200px; height: 100px; position: absolute; top: 20px; left: 20px">
+					<div style="position: absolute; background: white; left: 15px; top: -5px; height: 110px; width: 170px"></div>
+					<div style="position: absolute; background: white; left: -5px; top: 15px; height: 70px; width: 210px"></div>
+				</div>
+			</div>
+		</div>
+
+		<div class="example">
+
+			<pre>
+				border-clip-top: 10px 1fr 10px;
+				border-clip-bottom: 10px 1fr 10px;
+				border-clip-right: 5px 1fr 5px;
+				border-clip-left: 5px 1fr 5px;
+			</pre>
+			<div style="position: relative; width: 250px; height: 150px; background: white;">
+				<div style="border: 2px solid black; width: 200px; height: 100px; position: absolute; top: 20px; left: 20px">
+					<div style="position: absolute; background: white; left: 15px; top: -5px; height: 110px; width: 170px"></div>
+					<div style="position: absolute; background: white; left: -5px; top: 5px; height: 90px; width: 210px"></div>
+				</div>
+			</div>
+		</div>
+
+		<div class="example">
+
+			<p>By making the first part have zero length, the inverse border of
+			the previous example can easily be created:
+
+			<pre>
+				border-clip-top: 0 10px 1fr 10px;
+				border-clip-bottom: 0 10px 1fr 10px;
+				border-clip-right: 0 5px 1fr 5px;
+				border-clip-left: 0 5px 1fr 5px;
+			</pre>
+
+		<div style="position: relative; width: 250px; height: 150px; background: white;">
+			<div style="border: 2px solid black; width: 200px; height: 100px; position: absolute; top: 20px; left: 20px">
+				<div style="position: absolute; background: white; left: -5px; top: -5px; height: 10px; width: 15px"></div>
+				<div style="position: absolute; background: white; right: -5px; top: -5px; height: 10px; width: 15px"></div>
+				<div style="position: absolute; background: white; left: -5px; top: 95px; height: 10px; width: 15px"></div>
+				<div style="position: absolute; background: white; right: -5px; top: 95px; height: 10px; width: 15px"></div>
+			</div>
+		</div>
+	</div>
+
+		<div class="example">
+			<pre>
+				border: thin solid black;
+				border-clip: 0 1fr; /* hide borders */
+				border-clip-top: 10px 1fr 10px; /* make certain borders visible */
+				border-clip-bottom: 10px 1fr 10px;
+			</pre>
+
+			<div style="position: relative; width: 250px; height: 150px; background: white;">
+				<div style="border: 2px solid black; width: 200px; height: 100px; position: absolute; top: 20px; left: 20px">
+					<div style="position: absolute; background: white; left: 15px; top: -5px; height: 110px; width: 170px"></div>
+					<div style="position: absolute; background: white; left: -5px; top: 0px; height: 100px; width: 210px"></div>
+				</div>
+			</div>
+	</div>
+
+	<div class="example">
+		<pre>
+	<!-- -->border-top: thin solid black;
+	<!-- -->border-bottom: thin solid black;
+	<!-- -->border-clip-top: 10px;
+	<!-- -->border-clip-bottom: 10px;
+	<!-- --></pre>
+
+		<div style="position: relative; width: 250px; height: 150px; background: white;">
+			<div style="border: 2px solid black; width: 200px; height: 100px; position: absolute; top: 20px; left: 20px">
+				<div style="position: absolute; background: white; left: 15px; top: -5px; height: 110px; width: 200px"></div>
+				<div style="position: absolute; background: white; left: -5px; top: 0px; height: 100px; width: 210px"></div>
+			</div>
+		</div>
+	</div>
+
+	<div class="example">
+		<pre>
+			border-top: thin solid black;
+			border-clip: 10px;
+		</pre>
+		<div style="position: relative; width: 250px; height: 150px; background: white;">
+			<div style="border: 2px solid black; width: 200px; height: 100px; position: absolute; top: 20px; left: 20px">
+				<div style="position: absolute; background: white; left: 15px; top: -5px; height: 110px; width: 200px"></div>
+				<div style="position: absolute; background: white; left: -5px; top: 0px; height: 110px; width: 210px"></div>
+			</div>
+		</div>
+	</div>
+
+	<div class="example">
+		<p>This rendering:
+		<div style="background: white; padding: 0.2em 0.5em">
+			<pre style="margin-left: 0">
+				A sentence consists of words&#xB9;.
+			</pre>
+			<div style="width: 3em; height: 2px; background: black"></div>
+			<pre style="margin-left: 0">
+				&#xB9; Most often.
+			</pre>
+		</div>
+		can be achieved with this style sheet:
+		<pre>
+			@footnote {
+				border-top: thin solid black;
+				border-clip: 4em;
+			}
+		</pre>
+	</div>
+
+	<div class="example">
+		<pre>
+			border: 2px solid black;
+			border-top-parts: repeat(10px 10px);
+		</pre>
+		<p>In this example, the repeat pattern is shown five times and there is, by coincidence,	no remaining border.
+		<div style="position: relative; width: 100px; background: white; padding: 20px">
+			<div style="border: 2px solid black; height: 40px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 2px; top: 20px; left: 30px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 2px; top: 20px; left: 50px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 2px; top: 20px; left: 70px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 2px; top: 20px; left: 90px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 2px; top: 20px; left: 110px"></div>
+		</div>
+	</div>
+
+	<div class="example">
+		<pre>
+			border: 2px solid black;
+			border-top-parts: repeat(10px 10px);
+		</pre>
+		<p>In this example, the repeat pattern is shown five times. The box in this example is slightly wider than the box in the previous example. The remaining border is taken up by a flexible length, as if this code had been specified:
+		<pre>
+			border: 2px solid black;
+			border-top-parts: repeat(10px 10px) 1fr;
+		</pre>
+		<div style="position: relative; width: 105px; background: white; padding: 20px">
+			<div style="border: 2px solid black; height: 40px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 2px; top: 20px; left: 30px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 2px; top: 20px; left: 50px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 2px; top: 20px; left: 70px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 2px; top: 20px; left: 90px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 2px; top: 20px; left: 110px"></div>
+			<div style="position: absolute; background: red; width: 5px; height: 2px; top: 20px; left: 120px"></div>
+		</div>
+		<p>The fragment is shown in red for illustrative purposes; it should be shown in black by a compliant UA.
+	</div>
+
+	<div class="example">
+		<pre>
+			border: 4px solid black;
+			border-top-parts: 40px 20px 0 1fr repeat(20px 20px) 0 1fr 40px;
+		</pre>
+		<p>In this example, there will be a visible 40px border part on each end of the top border. Inside the 40px border parts, there will be an invisible border part of at least 20px. Inside these invisible border parts, there will be visible border parts, each 20px long with 20px invisible border parts between them.
+		<div style="position: relative; width: 192px; background: white; padding: 40px">
+			<div style="border: 4px solid black; height: 40px"></div>
+			<div style="position: absolute; background: white; width: 20px; height: 4px; top: 40px; left: 80px"></div>
+			<div style="position: absolute; background: red; width: 6px; height: 4px; top: 40px; left: 100px"></div>
+			<div style="position: absolute; background: white; width: 20px; height: 4px; top: 40px; left: 126px"></div>
+			<div style="position: absolute; background: white; width: 20px; height: 4px; top: 40px; left: 166px"></div>
+			<div style="position: absolute; background: red; width: 6px; height: 4px; top: 40px; left: 186px"></div>
+		</div>
+		<p>The fragments are shown in red for illustrative purposes; they should not be visible in compliant UAs.
+	</div>
+
+	<div class="example">
+		<pre>
+			border: 4px solid black;
+			border-top-parts: 40px 20px 0 1fr 20px 20px 0 1fr 40px;
+		</pre>
+		<p>In this example, there will be a visible 40px border part on each end of the top border. Inside the 40px border parts, there will be an invisible border part of at least 20px. Inside these invisible border parts, there will be visible border parts, each 20px long with 20px invisible border parts between them.
+		<div style="position: relative; width: 192px; background: white; padding: 40px">
+			<div style="border: 4px solid black; height: 40px"></div>
+			<div style="position: absolute; background: white; width: 20px; height: 4px; top: 40px; left: 80px"></div>
+			<div style="position: absolute; background: red; width: 6px; height: 4px; top: 40px; left: 100px"></div>
+			<div style="position: absolute; background: white; width: 20px; height: 4px; top: 40px; left: 126px"></div>
+			<div style="position: absolute; background: white; width: 20px; height: 4px; top: 40px; left: 166px"></div>
+			<div style="position: absolute; background: red; width: 6px; height: 4px; top: 40px; left: 186px"></div>
+		</div>
+		<p>The fragments are shown in red for illustrative purposes; they should not be visible in compliant UAs.
+	</div>
+
+	<div class="example">
+		<pre>
+			border: 4px solid black;
+			border-clip-top: 3fr 10px 2fr 10px 1fr 10px 10px 10px 1fr 10px 2fr 10px 3fr;
+		</pre>
+
+		<p>All but one of the visible border parts are represented as flexible lengths in this example. The length of these border parts will change when the width of the element changes. Here is one rendering where 1fr ends up being 10px:
+		<div style="position: relative; width: 190px; background: white; padding: 40px">
+			<div style="border: 4px solid black; border-top: none; height: 40px"></div>
+			<div style="position: absolute; background: red; width: 30px; height: 4px; top: 40px; left: 40px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 4px; top: 40px; left: 70px"></div>
+			<div style="position: absolute; background: red; width: 20px; height: 4px; top: 40px; left: 80px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 4px; top: 40px; left: 100px"></div>
+			<div style="position: absolute; background: red; width: 10px; height: 4px; top: 40px; left: 110px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 4px; top: 40px; left: 120px"></div>
+			<div style="position: absolute; background: black; width: 10px; height: 4px; top: 40px; left: 130px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 4px; top: 40px; left: 140px"></div>
+			<div style="position: absolute; background: red; width: 10px; height: 4px; top: 40px; left: 150px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 4px; top: 40px; left: 160px"></div>
+			<div style="position: absolute; background: red; width: 20px; height: 4px; top: 40px; left: 170px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 4px; top: 40px; left: 190px"></div>
+			<div style="position: absolute; background: red; width: 30px; height: 4px; top: 40px; left: 200px"></div>
+		</div>
+
+		<p>Here is another rendering where 1fr ends up being 30px:
+
+		<div style="position: relative; width: 440px; background: white; padding: 40px">
+			<div style="border: 4px solid black; border-top: none; height: 40px"></div>
+			<div style="position: absolute; background: red; width: 90px; height: 4px; top: 40px; left: 40px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 4px; top: 40px; left: 130px"></div>
+			<div style="position: absolute; background: red; width: 60px; height: 4px; top: 40px; left: 140px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 4px; top: 40px; left: 200px"></div>
+			<div style="position: absolute; background: red; width: 30px; height: 4px; top: 40px; left: 210px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 4px; top: 40px; left: 240px"></div>
+			<div style="position: absolute; background: black; width: 10px; height: 4px; top: 40px; left: 250px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 4px; top: 40px; left: 260px"></div>
+			<div style="position: absolute; background: red; width: 30px; height: 4px; top: 40px; left: 270px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 4px; top: 40px; left: 300px"></div>
+			<div style="position: absolute; background: red; width: 60px; height: 4px; top: 40px; left: 310px"></div>
+			<div style="position: absolute; background: white; width: 10px; height: 4px; top: 40px; left: 370px"></div>
+			<div style="position: absolute; background: red; width: 90px; height: 4px; top: 40px; left: 390px"></div>
+		</div>
+		<p>The fragments are shown in red for illustrative purposes; they should be black in compliant UAs.
+	</div>
+
+<h2 id="changes">
+Changes</h2>
+
+<h3 id="level-changes">
+Additions Since Level 3</h3>
+
+	<p class="issue">Additions are a work in progress... here's what we're planning to add. :)
+
+	<ul>
+		<li>logical 'background-position' values (''background-position/start'', ''background-position/end'')
+		<li>the ''extend'' keyword of 'background-repeat'
+		<li>'corner-shape'
+		<li><<image-1D>> as value for ''border-color'' and its longhands
+		<li>multiple border colors per border
+		<li>logical border properties
+		<li><a href="#partial-borders">Partial Borders</a> (make part of border shorthand as well!)
+		<li><a href="http://lists.w3.org/Archives/Public/www-style/2012Oct/0314.html">More <css>border-radius</css> shorthands</a> for doing both corners on a side at once.
+		<li>Splitting horizontal / vertical spread radius for box-shadow, if we can come up with a sane syntax for it.
+	</ul>
+
+<h2 id="acknowledgments">Acknowledgments</h2>
+
+	<p>In addition to the many contributors to the [[CSS1]], [[CSS21]],
+	and [[CSS3BG]] predecessors to this module,
+	the editors would like to thank
+	Tab Atkins,
+	and Håkon Wium Lie
+	for their suggestions and feedback specifically for this Level 4.
