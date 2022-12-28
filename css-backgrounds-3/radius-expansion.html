@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radius expansion algorithms</title>
+<style>
+	body {
+		display: flex;
+		height: 100vh;
+		margin: 0;
+	}
+	#output {
+		flex: 1;
+		border-left: 1px solid;
+		margin-left: 1em;
+		overflow: auto;
+	}
+	#output, form {
+		padding: 1em;
+	}
+	hr {
+		border: none;
+		border-top: 1px dotted;
+	}
+	label {
+		display: flex;
+		width: max-content;
+		margin: .5em 0;
+	}
+
+	article {
+		padding: 1em;
+	}
+
+	input:not([type]) {
+		font: 100%/1.5 Consolas, Monaco, monospace;
+		width: 80ch;
+		margin-bottom: .5em;
+	}
+</style>
+
+</head>
+<body>
+
+<form>
+	<label>
+		<input type="radio" name="algorithm" value="do-not-polyfill" checked>
+		Do not polyfill
+	</label>
+	<label>
+		<input type="radio" name="algorithm" value="increase-by-spread">
+		Increase radius by spread
+	</label>
+	<label>
+		<input type="radio" name="algorithm" value="old-spec">
+		Old spec (discontinuous)
+	</label>
+	<label>
+		<input type="radio" name="algorithm" value="current-spec">
+		Current spec
+	</label>
+	<label>
+		<input type="radio" name="algorithm" value="percentage-same-axis">
+		Percentage of same axis
+	</label>
+	<label>
+		<input type="radio" name="algorithm" value="elika">
+		Elika’s Interpolation based on rounded/straight ratio
+	</label>
+</form>
+<output id="output"></output>
+<script>
+const {algorithm} = document.forms[0].elements;
+const testCases = [
+  {width: 50, height: 50, spread: 50, borderRadius: "0px"},
+  {width: 50, height: 50, spread: 50, borderRadius: "1px"},
+  {width: 10, height: 10, spread: 70, borderRadius: "100%"},
+  {width: 200, height: 40, spread: 50, borderRadius: "100px / 20px"},
+  {width: 200, height: 40, spread: 50, borderRadius: "20px / 4px"},
+  {width: 500, height: 50, spread: 30, borderRadius: "15px"},
+  {width: 500, height: 50, spread: 30, borderRadius: "25px"},
+  {width: 500, height: 50, spread: 30, borderRadius: "1px 1px 49px 49px"},
+  {width: 500, height: 50, spread: 30, borderRadius: "50%"},
+  {width: 500, height: 50, spread: 30, borderRadius: "50% 50% 1px 50%"},
+];
+
+function show({incremental = false} = {}) {
+	for (let i = 0, testCase; testCase = testCases[i]; i++) {
+		let container = output.children[i];
+
+		if (!container) {
+			container = document.createElement("article");
+			container.id = `testcase${i}`;
+			output.appendChild(container);
+		}
+
+		if (!incremental) {
+			let input = document.createElement("input");
+			input.value = JSON.stringify(testCase);
+			input.oninput = () => {
+				try {
+					testCases[i] = JSON.parse(input.value);
+					show({incremental: true});
+				}
+				catch (e) {}
+			};
+
+			container.append(input);
+		}
+
+		Array.from(container.querySelectorAll("div")).forEach(e => e.remove());
+
+		const inner = document.createElement("div");
+		inner.style.width = testCase.width + "px";
+		inner.style.height = testCase.height + "px";
+		inner.style.borderRadius = testCase.borderRadius;
+		inner.style.backgroundColor = "#fff";
+
+		const outer = document.createElement("div");
+		outer.appendChild(inner);
+
+		if (algorithm.value === "do-not-polyfill") {
+			inner.style.boxShadow = `0 0 0 ${testCase.spread}px #000`;
+			outer.style.padding = testCase.spread + "px";
+			container.appendChild(outer);
+		}
+		else {
+			outer.style.backgroundColor = "#000";
+			outer.style.borderStyle = "solid";
+			outer.style.borderWidth = testCase.spread + "px";
+			outer.style.width = "max-content";
+			container.appendChild(outer);
+			outer.style.borderRadius = resolve(testCase, inner);
+		}
+	}
+}
+
+function parseCorner(value, testCase) {
+	const raw = value.split(" ");
+	if (raw.length === 1) {
+		raw[1] = raw[0];
+	}
+	return [
+		parseLength(raw[0], testCase.width),
+		parseLength(raw[1], testCase.height),
+	];
+}
+
+function parseLength(value, percentageBasis) {
+	if (value.endsWith("%")) {
+		return parseFloat(value) * percentageBasis / 100;
+	}
+
+	return parseFloat(value);
+}
+
+function resolve(testCase, box) {
+	const cs = getComputedStyle(box);
+
+	// Corners to array[2] of radii
+	const radii = {
+		topLeft: parseCorner(cs.borderTopLeftRadius, testCase),
+		topRight: parseCorner(cs.borderTopRightRadius, testCase),
+		bottomLeft: parseCorner(cs.borderBottomLeftRadius, testCase),
+		bottomRight: parseCorner(cs.borderBottomRightRadius, testCase),
+	};
+
+	// Normalize radii that add up to > 100%
+	const f = Math.min(
+		testCase.width / (radii.topLeft[0] + radii.topRight[0]),
+		testCase.width / (radii.bottomLeft[0] + radii.bottomRight[0]),
+		testCase.height / (radii.topLeft[1] + radii.bottomLeft[1]),
+		testCase.height / (radii.topRight[1] + radii.bottomRight[1])
+	);
+	if (f < 1) {
+		for (let corner in radii) {
+			radii[corner] = radii[corner].map(v => v * f);
+		}
+	}
+
+	let r = {
+		topLeft: radii.topLeft,
+		topRight: radii.topRight,
+		bottomLeft: radii.bottomLeft,
+		bottomRight: radii.bottomRight,
+	};
+	const algorithm = document.forms[0].elements.algorithm.value;
+
+	let {width, height} = testCase;
+	let spreadWidth = width + testCase.spread * 2;
+	let spreadHeight = height + testCase.spread * 2;
+
+	let percentageSameAxis = {};
+
+	for (let corner in r) {
+		let c = r[corner];
+		let [rx, ry] = c;
+
+		let px = rx / width;
+		let py = ry / height;
+
+		percentageSameAxis[corner] = [px * spreadWidth, py * spreadHeight];
+	}
+
+	let currentSpec = {};
+
+	for (let corner in r) {
+		currentSpec[corner] = r[corner].map(value => {
+			if (value >= testCase.spread) {
+				return value + testCase.spread;
+			}
+			let r = value / testCase.spread;
+			return value + testCase.spread * (1 + (r - 1)**3);
+		});
+	}
+
+	if (algorithm === "increase-by-spread") {
+		for (let corner in r) {
+			r[corner] = r[corner].map(v => v + testCase.spread);
+		}
+	}
+	else if (algorithm === "old-spec") {
+		for (let corner in r) {
+			let c = r[corner];
+			r[corner] = c[0] + c[1] === 0 ? [0, 0] : [c[0] + testCase.spread, c[1] + testCase.spread];
+		}
+	}
+	else if (algorithm === "percentage-same-axis") {
+		r = percentageSameAxis;
+	}
+	else if (algorithm === "current-spec") {
+		r = currentSpec;
+	}
+	else if (algorithm === "elika") {
+		let {width, height} = testCase;
+		let spreadWidth = width + testCase.spread * 2;
+		let spreadHeight = height + testCase.spread * 2;
+
+		let straights = {
+			top: width - r.topLeft[0] - r.topRight[0],
+			bottom: width - r.bottomLeft[0] - r.bottomRight[0],
+			left: height - r.topLeft[1] - r.bottomLeft[1],
+			right: height - r.topRight[1] - r.bottomRight[1],
+		}
+
+		function getStraightSegment(corner, axis) {
+			/*
+			Example straight segment returned:
+			topLeft, 0 --> top
+			topLeft, 1 --> left
+			bottomRight, 0 --> bottom
+			bottomRight, 1 --> right
+			*/
+
+			let parts = corner.split(/(?=[A-Z])/).map(part => part.toLowerCase());
+			return straights[parts[axis]];
+		}
+
+		for (let corner in r) {
+			r[corner] = r[corner].map((value, axis) => {
+				let straight = getStraightSegment(corner, axis);
+				let ratio = straight / value;
+				ratio = Math.min(ratio, 1);
+				let ret = ratio * currentSpec[corner][axis] + (1 - ratio) * percentageSameAxis[corner][axis];
+
+				return Math.min(ret, straight + value + testCase.spread);
+			});
+
+		}
+	}
+
+	return `${r.topLeft[0]}px ${r.topRight[0]}px ${r.bottomRight[0]}px ${r.bottomLeft[0]}px / ${r.topLeft[1]}px ${r.topRight[1]}px ${r.bottomRight[1]}px ${r.bottomLeft[1]}px`;
+}
+
+show();
+document.querySelector("form").addEventListener("change", evt => show({incremental: true}));
+
+</script>
+
+</body>
+</html>

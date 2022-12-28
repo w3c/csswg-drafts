@@ -3,11 +3,12 @@ Title: CSS Color Adjustment Module Level 1
 Shortname: css-color-adjust
 Level: 1
 Status: ED
-Work Status: refining
+Work Status: testing
 Group: CSSWG
 TR: https://www.w3.org/TR/css-color-adjust-1/
 ED: https://drafts.csswg.org/css-color-adjust-1/
-Previous Version: https://www.w3.org/TR/2021/WD-css-color-adjust-1-20210520/
+Previous Version: https://www.w3.org/TR/2022/CRD-css-color-adjust-1-20220614/
+Implementation Report: https://wpt.fyi/results/css/css-color-adjust?label=experimental&label=master&aligned
 Editor: Elika J. Etemad / fantasai, Invited Expert, http://fantasai.inkedblade.net/contact, w3cid 35400
 Editor: Rossen Atanassov, Microsoft, ratan@microsoft.com, w3cid 49885
 Editor: Rune Lillesveen, Google, futhark@google.com, w3cid 45291
@@ -158,15 +159,20 @@ Opting Into a Preferred Color Scheme: the 'color-scheme' property {#color-scheme
 	user agents cannot automatically adapt the colors used in elements under their control,
 	as it might cause unreadable color contrast with the surrounding page.
 
+	Host languages can define the <dfn export>page's supported color schemes</dfn>,
+	a list of [=color schemes=] supported by default for all elements on that page.
+
+	Note: [[HTML]] specifies a
+	<a id="color-scheme-meta" href="https://html.spec.whatwg.org/multipage/semantics.html#meta-color-scheme">color-scheme</a>
+	<{meta}> tag which can be used to set the [=page's supported color schemes=].
+
 	Values are defined as follows:
 
 	<dl dfn-type=value dfn-for=color-scheme>
 		: <dfn>normal</dfn>
 		::
-			Indicates that the element doesn't support [=color schemes=] at all,
-			and so the element should be rendered with the browser's default [=color scheme=].
-
-			(This is typically, tho not always, similar to ''light''.)
+			Indicates that the element supports the [=page's supported color schemes=],
+			if they are set, or that it supports no [=color schemes=] at all otherwise.
 
 		: <dfn>light</dfn>
 		::
@@ -315,11 +321,6 @@ Opting Into a Preferred Color Scheme: the 'color-scheme' property {#color-scheme
 		will be opted into the ''light'' or ''dark'' themes specifically;
 		the rest of the page will respect the user's preference.
 	</div>
-
-	Note: [[HTML]] specifies a
-	<a href="https://html.spec.whatwg.org/multipage/semantics.html#meta-color-scheme">color-scheme</a>
-	<{meta}> tag which can be used to set the color-scheme on the root element as
-	a [[css-cascade-4#preshint|non-CSS presentational hint]].
 
 	Note: Repeating a keyword, such as ''color-scheme: light light'',
 	is valid but has no additional effect
@@ -503,11 +504,7 @@ Properties Affected by Forced Colors Mode {#forced-colors-properties}
 	if its [=computed value=] is a color other than a [=system color=],
 	its [=used value=] is instead forced to a [=system color=] as follows:
 
-	* If the color value indicates a “fallback” color
-		(as in the ''color()'' function in [[CSS-COLOR-5]])
-		and that fallback color is a [=system color=],
-		then the color is forced to that [=system color=].
-	* Else for 'background-color' in particular,
+	* For 'background-color' in particular,
 		it is forced to
 		the color opposite the 'color' property’s [=system color=] value
 		in the [=system color pairings=],
@@ -559,7 +556,7 @@ Opting Out of a Forced Color Palette: the 'forced-color-adjust' property {#force
 
 	<pre class=propdef>
 	Name: forced-color-adjust
-	Value: auto | none
+	Value: auto | none | preserve-parent-color
 	Initial: auto
 	Applies to: all elements and text
 	Inherited: yes
@@ -587,16 +584,39 @@ Opting Out of a Forced Color Palette: the 'forced-color-adjust' property {#force
 			and need to make changes to the UA’s default adjustments
 			to provide a more appropriate user experience
 			for those elements.
+
+		: <dfn>preserve-parent-color</dfn>
+		:: In [=forced colors mode=],
+			if the 'color' property inherits from its parent
+			(i.e. there is no [=cascaded value=]
+			or the [=cascaded value=] is ''currentColor'', ''inherit'',
+			or another keyword that inherits from the parent),
+			then it computes to the [=used value|used=] color of its parent’s 'color' value.
+
+			In all other respects, behaves the same as ''none''.
+
+			Note: This value is intended solely to get a reasonable behavior
+			from embedded SVG elements that expect to receive the outer document's text color
+			(and stay consistent with adjustments from [=forced colors mode=]),
+			while otherwise defaulting SVGs
+			to preserving their exact colors,
+			as [=forced colors mode=] can't generally be usefully applied to illustrations.
 	</dl>
 
 	In order to not break SVG content,
 	UAs are expected to add the following rules to their UA style sheet:
 
-	<pre>
+	<pre highlight=css>
 		@namespace "http://www.w3.org/2000/svg";
-		svg|svg { forced-color-adjust: none; }
+		svg|svg { forced-color-adjust: preserve-parent-color; }
 		svg|foreignObject { forced-color-adjust: auto; }
 	</pre>
+
+	UAs must propagate the 'forced-color-adjust' value set on the root element
+	to the document viewport
+	(where it can affect e.g. the canvas background).
+	Note that 'forced-color-adjust' is <em>not</em> propagated from HTML <{body}>.
+
 
 <!--
  ██████   ███████  ██        ███████  ████████             ███    ████████        ██ ██     ██  ██████  ████████
@@ -687,12 +707,17 @@ Ink Economy: the 'print-color-adjust' property {#print-color-adjust}
 			when distracted in a car.
 	</dl>
 
+	UAs must propagate the 'print-color-adjust' value set on the root element
+	to the document viewport
+	(where it can affect e.g. the canvas background).
+	Note that 'print-color-adjust' is <em>not</em> propagated from HTML <{body}>.
+
 The 'color-adjust' Shorthand {#color-adjust}
 --------------------------------------------
 
 	<pre class="propdef shorthand">
 	Name: color-adjust
-	Value: <'print-color-adjust'>
+	Value: <<'print-color-adjust'>>
 	</pre>
 
 	The 'color-adjust' shorthand allows an author
@@ -716,6 +741,23 @@ Privacy and Security Considerations {#priv-sec}
 	via {{getComputedStyle()}},
 	which can increase fingerprinting surface.
 
+	<div class=note>
+		Avoiding this comes with unfortunate drawbacks that were deemed too significant to be ignored.
+		Namely:
+
+		* preserving system colors as keywords until actual-value time
+			would break a significant amount of deployed script,
+			as the initial value of 'color' is a system color already
+			(but a huge amount of script implicitly expects to see an RGB color from 'color')
+		* lying about system colors from the scripting APIs
+			(pretending they're always some static values)
+			can result in any colors calculated <em>from</em> page colors in script
+			being unreadable when used with the <em>actual</em> system colors.
+
+		See <a href="https://github.com/w3c/csswg-drafts/issues/5710#issuecomment-840772752">Issue 5710</a>
+		for discussion on this topic.
+	</div>
+
 	Additionally, it may be possible for an embedded document
 	to use timing attacks to determine whether its own 'color-scheme'
 	matches that of its embedding <{iframe}> or not.
@@ -738,42 +780,11 @@ Acknowledgements {#acknowledgements}
 Changes {#changes}
 =======
 
-	Changes since the <a href="https://www.w3.org/TR/2020/WD-css-color-adjust-1-20201109/">9 November 2020 Working Draft</a>:
-
-	* Added 'scrollbar-color', 'caret-color', 'flood-color', 'lighting-color', 'stop-color', and 'accent-color'
-			resets to [=forced colors mode=].
-			(<a href="https://github.com/w3c/csswg-drafts/issues/5778">Issue 5778</a>,
-			 <a href="https://github.com/w3c/csswg-drafts/issues/5873">Issue 5873</a>,
-			 <a href="https://github.com/w3c/csswg-drafts/issues/5987">Issue 5987</a>)
-	* Renamed 'color-adjust' to 'print-color-adjust', and re-added 'color-adjust' as an alias/shorthand.
-		(<a href="https://github.com/w3c/csswg-drafts/issues/3880">Issue 3880</a>)
-
-	Changes since the <a href="https://www.w3.org/TR/2020/WD-css-color-adjust-1-20200402/">2 April 2020 Working Draft</a>:
+	Changes since the <a href="https://www.w3.org/TR/2022/CR-css-color-adjust-1-20220210/">10 February 2022 Candidate Recommendation Snapshot</a>:
 
 	<ul>
-		<li>Removed the <css>only</css> keyword.
-		(<a href="https://github.com/w3c/csswg-drafts/issues/3881">Issue 3881</a>)
-		<li>Moved the definition of the <code>color-scheme</code> <{meta}> value to the [[HTML]] specification.
-		<li>Added 'color-scheme' to list of properties affected by [=forced colors mode=].
-		(<a href="https://github.com/w3c/csswg-drafts/issues/3885">Issue 3885</a>)
-		<li>Exempted properties already set as system colors from color forcing.
-		(<a href="https://github.com/w3c/csswg-drafts/issues/4178">Issue 4178</a>)
-		<li>Switched color forcing to a [=used value=] rather than [=computed value=] operation.
-		(<a href="https://github.com/w3c/csswg-drafts/issues/4915">Issue 4915</a>)
+		<li>Removed special handling of ''color()'' fallback system colors, since the feature was removed from [[CSS-COLOR-4]].
+			(<a href="https://github.com/w3c/csswg-drafts/issues/7007">Issue 7007</a>)
 	</ul>
 
-	Changes since the <a href="https://www.w3.org/TR/2019/WD-css-color-adjust-1-20190523/">23 May 2019 Working Draft</a>:
-
-	<ul>
-		<li>Forced background colors don't revert, they force all color channels other than alpha (to preserve author’s transparency).
-			<a href="https://github.com/w3c/csswg-drafts/issues/4175">Issue 4175</a>.
-		<li>Other properties revert by rewriting author-level rules to specify ''revert'',
-			not by injecting ''revert !important'' rules into the cascade.
-			<a href="https://github.com/w3c/csswg-drafts/issues/4020">Issue 4020</a>.
-		<li>Force opaque background if color-adjust mismatches between <{iframe}> and embedded document.
-			<a href="https://github.com/w3c/csswg-drafts/issues/4472">Issue 4472</a>.
-		<li>Don't force colors on SVG text.
-		<li>Rename ''color-scheme: auto'' to ''color-scheme: normal''.
-			<a href="https://github.com/w3c/csswg-drafts/issues/3849">Issue 3849</a>.
-		<li>Miscellaneous clarifications.
-	</ul>
+  <strong>See also <a href="https://www.w3.org/TR/2022/CR-css-color-adjust-1-20220210/#changes">Changes prior to Candidate Recommendation</a>.</strong>

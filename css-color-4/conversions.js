@@ -2,6 +2,10 @@
 // Conversion can also be done using ICC profiles and a Color Management System
 // For clarity, a library is used for matrix multiplication (multiply-matrices.js)
 
+// standard white points, defined by 4-figure CIE x,y chromaticities
+const D50 = [0.3457 / 0.3585, 1.00000, (1.0 - 0.3457 - 0.3585) / 0.3585];
+const D65 = [0.3127 / 0.3290, 1.00000, (1.0 - 0.3127 - 0.3290) / 0.3290];
+
 // sRGB-related functions
 
 function lin_sRGB(RGB) {
@@ -48,9 +52,9 @@ function lin_sRGB_to_XYZ(rgb) {
 	// using sRGB's own white, D65 (no chromatic adaptation)
 
 	var M = [
-		[ 0.41239079926595934, 0.357584339383878,   0.1804807884018343  ],
-		[ 0.21263900587151027, 0.715168678767756,   0.07219231536073371 ],
-		[ 0.01933081871559182, 0.11919477979462598, 0.9505321522496607  ]
+		[ 506752 / 1228815,  87881 / 245763,   12673 /   70218 ],
+		[  87098 /  409605, 175762 / 245763,   12673 /  175545 ],
+		[   7918 /  409605,  87881 / 737289, 1001167 / 1053270 ],
 	];
 	return multiplyMatrices(M, rgb);
 }
@@ -59,9 +63,9 @@ function XYZ_to_lin_sRGB(XYZ) {
 	// convert XYZ to linear-light sRGB
 
 	var M = [
-		[  3.2409699419045226,  -1.537383177570094,   -0.4986107602930034  ],
-		[ -0.9692436362808796,   1.8759675015077202,   0.04155505740717559 ],
-		[  0.05563007969699366, -0.20397695888897652,  1.0569715142428786  ]
+		[   12831 /   3959,    -329 /    214, -1974 /   3959 ],
+		[ -851781 / 878810, 1648619 / 878810, 36519 / 878810 ],
+		[     705 /  12673,   -2585 /  12673,   705 /    667 ],
 	];
 
 	return multiplyMatrices(M, XYZ);
@@ -89,11 +93,10 @@ function lin_P3_to_XYZ(rgb) {
 	// using  D65 (no chromatic adaptation)
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	var M = [
-		[0.4865709486482162, 0.26566769316909306, 0.1982172852343625],
-		[0.2289745640697488, 0.6917385218365064,  0.079286914093745],
-		[0.0000000000000000, 0.04511338185890264, 1.043944368900976]
+		[ 608311 / 1250200, 189793 / 714400,  198249 / 1000160 ],
+		[  35783 /  156275, 247089 / 357200,  198249 / 2500400 ],
+		[      0 /       1,  32229 / 714400, 5220557 / 5000800 ],
 	];
-	// 0 was computed as -3.972075516933488e-17
 
 	return multiplyMatrices(M, rgb);
 }
@@ -101,9 +104,9 @@ function lin_P3_to_XYZ(rgb) {
 function XYZ_to_lin_P3(XYZ) {
 	// convert XYZ to linear-light P3
 	var M = [
-		[ 2.493496911941425,   -0.9313836179191239, -0.40271078445071684],
-		[-0.8294889695615747,   1.7626640603183463,  0.023624685841943577],
-		[ 0.03584583024378447, -0.07617238926804182, 0.9568845240076872]
+		[ 446124 / 178915, -333277 / 357830, -72051 / 178915 ],
+		[ -14852 /  17905,   63121 /  35810,    423 /  17905 ],
+		[  11844 / 330415,  -50337 / 660830, 316169 / 330415 ],
 	];
 
 	return multiplyMatrices(M, XYZ);
@@ -126,7 +129,7 @@ function lin_ProPhoto(RGB) {
 			return val / 16;
 		}
 
-		return sign * Math.pow(val, 1.8);
+		return sign * Math.pow(abs, 1.8);
 	});
 }
 
@@ -207,9 +210,9 @@ function lin_a98rgb_to_XYZ(rgb) {
 	// from the chromaticity coordinates of R G B W
 	// see matrixmaker.html
 	var M = [
-		[ 0.5766690429101305,   0.1855582379065463,   0.1882286462349947  ],
-		[ 0.29734497525053605,  0.6273635662554661,   0.07529145849399788 ],
-		[ 0.02703136138641234,  0.07068885253582723,  0.9913375368376388  ]
+		[ 573536 /  994567,  263643 / 1420810,  187206 /  994567 ],
+		[ 591459 / 1989134, 6239551 / 9945670,  374412 / 4972835 ],
+		[  53769 / 1989134,  351524 / 4972835, 4929758 / 4972835 ],
 	];
 
 	return multiplyMatrices(M, rgb);
@@ -218,9 +221,9 @@ function lin_a98rgb_to_XYZ(rgb) {
 function XYZ_to_lin_a98rgb(XYZ) {
 	// convert XYZ to linear-light a98-rgb
 	var M = [
-		[  2.0415879038107465,    -0.5650069742788596,   -0.34473135077832956 ],
-		[ -0.9692436362808795,     1.8759675015077202,    0.04155505740717557 ],
-		[  0.013444280632031142,  -0.11836239223101838,   1.0151749943912054  ]
+		[ 1829569 /  896150, -506331 /  896150, -308931 /  896150 ],
+		[ -851781 /  878810, 1648619 /  878810,   36519 /  878810 ],
+		[   16779 / 1248040, -147721 / 1248040, 1266979 / 1248040 ],
 	];
 
 	return multiplyMatrices(M, XYZ);
@@ -274,9 +277,9 @@ function lin_2020_to_XYZ(rgb) {
 	// using  D65 (no chromatic adaptation)
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	var M = [
-		[0.6369580483012914, 0.14461690358620832,  0.1688809751641721],
-		[0.2627002120112671, 0.6779980715188708,   0.05930171646986196],
-		[0.000000000000000,  0.028072693049087428, 1.060985057710791]
+		[ 63426534 / 99577255,  20160776 / 139408157,  47086771 / 278816314 ],
+		[ 26158966 / 99577255, 472592308 / 697040785,   8267143 / 139408157 ],
+		[        0 /        1,  19567812 / 697040785, 295819943 / 278816314 ],
 	];
 	// 0 is actually calculated as  4.994106574466076e-17
 
@@ -286,9 +289,9 @@ function lin_2020_to_XYZ(rgb) {
 function XYZ_to_lin_2020(XYZ) {
 	// convert XYZ to linear-light rec2020
 	var M = [
-		[1.7166511879712674,   -0.35567078377639233, -0.25336628137365974],
-		[-0.6666843518324892,   1.6164812366349395,   0.01576854581391113],
-		[0.017639857445310783, -0.042770613257808524, 0.9421031212354738]
+		[  30757411 / 17917100, -6372589 / 17917100, -4539589 / 17917100 ],
+		[ -19765991 / 29648200, 47925759 / 29648200,   467509 / 29648200 ],
+		[    792561 / 44930125, -1921689 / 44930125, 42328811 / 44930125 ],
 	];
 
 	return multiplyMatrices(M, XYZ);
@@ -323,17 +326,16 @@ function D50_to_D65(XYZ) {
 	return multiplyMatrices(M, XYZ);
 }
 
-// Lab and LCH
+// CIE Lab and LCH
 
 function XYZ_to_Lab(XYZ) {
 	// Assuming XYZ is relative to D50, convert to CIE Lab
 	// from CIE standard, which now defines these as a rational fraction
 	var ε = 216/24389;  // 6^3/29^3
 	var κ = 24389/27;   // 29^3/3^3
-	var white = [0.96422, 1.00000, 0.82521]; // D50 reference white
 
 	// compute xyz, which is XYZ scaled relative to reference white
-	var xyz = XYZ.map((value, i) => value / white[i]);
+	var xyz = XYZ.map((value, i) => value / D50[i]);
 
 	// now compute f
 	var f = xyz.map(value => value > ε ? Math.cbrt(value) : (κ * value + 16)/116);
@@ -343,6 +345,7 @@ function XYZ_to_Lab(XYZ) {
 		500 * (f[0] - f[1]), // a
 		200 * (f[1] - f[2])  // b
 	];
+	// L in range [0,100]. For use in CSS, add a percent
 }
 
 function Lab_to_XYZ(Lab) {
@@ -350,7 +353,6 @@ function Lab_to_XYZ(Lab) {
 	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	var κ = 24389/27;   // 29^3/3^3
 	var ε = 216/24389;  // 6^3/29^3
-	var white = [0.96422, 1.00000, 0.82521]; // D50 reference white
 	var f = [];
 
 	// compute f, starting with the luminance-related term
@@ -366,7 +368,7 @@ function Lab_to_XYZ(Lab) {
 	];
 
 	// Compute XYZ by scaling xyz by reference white
-	return xyz.map((value, i) => value * white[i]);
+	return xyz.map((value, i) => value * D50[i]);
 }
 
 function Lab_to_LCH(Lab) {
@@ -386,4 +388,109 @@ function LCH_to_Lab(LCH) {
 		LCH[1] * Math.cos(LCH[2] * Math.PI / 180), // a
 		LCH[1] * Math.sin(LCH[2] * Math.PI / 180) // b
 	];
+}
+
+// OKLab and OKLCH
+// https://bottosson.github.io/posts/oklab/
+
+// XYZ <-> LMS matrices recalculated for consistent reference white
+// see https://github.com/w3c/csswg-drafts/issues/6642#issuecomment-943521484
+
+function XYZ_to_OKLab(XYZ) {
+	// Given XYZ relative to D65, convert to OKLab
+	var XYZtoLMS = [
+		[ 0.8190224432164319,    0.3619062562801221,   -0.12887378261216414  ],
+		[ 0.0329836671980271,    0.9292868468965546,     0.03614466816999844 ],
+		[ 0.048177199566046255,  0.26423952494422764,    0.6335478258136937  ]
+	];
+	var LMStoOKLab = [
+		[  0.2104542553,   0.7936177850,  -0.0040720468 ],
+		[  1.9779984951,  -2.4285922050,   0.4505937099 ],
+		[  0.0259040371,   0.7827717662,  -0.8086757660 ]
+	];
+
+	var LMS = multiplyMatrices(XYZtoLMS, XYZ);
+	return multiplyMatrices(LMStoOKLab, LMS.map(c => Math.cbrt(c)));
+	// L in range [0,1]. For use in CSS, multiply by 100 and add a percent
+}
+
+function OKLab_to_XYZ(OKLab) {
+	// Given OKLab, convert to XYZ relative to D65
+	var LMStoXYZ =  [
+		[  1.2268798733741557,  -0.5578149965554813,   0.28139105017721583 ],
+		[ -0.04057576262431372,  1.1122868293970594,  -0.07171106666151701 ],
+		[ -0.07637294974672142, -0.4214933239627914,   1.5869240244272418  ]
+	];
+	var OKLabtoLMS = [
+        [ 0.99999999845051981432,  0.39633779217376785678,   0.21580375806075880339  ],
+        [ 1.0000000088817607767,  -0.1055613423236563494,   -0.063854174771705903402 ],
+        [ 1.0000000546724109177,  -0.089484182094965759684, -1.2914855378640917399   ]
+    ];
+
+	var LMSnl = multiplyMatrices(OKLabtoLMS, OKLab);
+	return multiplyMatrices(LMStoXYZ, LMSnl.map(c => c ** 3));
+}
+
+function OKLab_to_OKLCH(OKLab) {
+	var hue = Math.atan2(OKLab[2], OKLab[1]) * 180 / Math.PI;
+	return [
+		OKLab[0], // L is still L
+		Math.sqrt(OKLab[1] ** 2 + OKLab[2] ** 2), // Chroma
+		hue >= 0 ? hue : hue + 360 // Hue, in degrees [0 to 360)
+	];
+}
+
+function OKLCH_to_OKLab(OKLCH) {
+	return [
+		OKLCH[0], // L is still L
+		OKLCH[1] * Math.cos(OKLCH[2] * Math.PI / 180), // a
+		OKLCH[1] * Math.sin(OKLCH[2] * Math.PI / 180)  // b
+	];
+}
+
+// Premultiplied alpha conversions
+
+function rectangular_premultiply(color, alpha) {
+// given a color in a rectangular orthogonal colorspace
+// and an alpha value
+// return the premultiplied form
+	return color.map((c) => c * alpha)
+}
+
+function rectangular_un_premultiply(color, alpha) {
+// given a premultiplied color in a rectangular orthogonal colorspace
+// and an alpha value
+// return the actual color
+	if (alpha === 0) {
+		return color; // avoid divide by zero
+	}
+	return color.map((c) => c / alpha)
+}
+
+function polar_premultiply(color, alpha, hueIndex) {
+	// given a color in a cylindicalpolar colorspace
+	// and an alpha value
+	// return the premultiplied form.
+	// the index says which entry in the color array corresponds to hue angle
+	// for example, in OKLCH it would be 2
+	// while in HSL it would be 0
+	return color.map((c, i) => c * (hueIndex === i? 1 : alpha))
+}
+
+function polar_un_premultiply(color, alpha, hueIndex) {
+	// given a color in a cylindicalpolar colorspace
+	// and an alpha value
+	// return the actual color.
+	// the hueIndex says which entry in the color array corresponds to hue angle
+	// for example, in OKLCH it would be 2
+	// while in HSL it would be 0
+	if (alpha === 0) {
+		return color; // avoid divide by zero
+	}
+	return color.map((c, i) => c / (hueIndex === i? 1 : alpha))
+}
+
+// Convenience functions can easily be defined, such as
+function hsl_premultiply(color, alpha) {
+	return polar_premultiply(color, alpha, 0);
 }

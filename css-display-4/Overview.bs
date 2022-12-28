@@ -1,0 +1,2094 @@
+<pre class='metadata'>
+Title: CSS Display Module Level 3
+Status: ED
+Status Text: A <a href="http://test.csswg.org/harness/results/css-display-3_dev/grouped/">preliminary implementation report</a> is available. Further tests will be added during the CR period.
+Work Status: Testing
+ED: https://drafts.csswg.org/css-display/
+Shortname: css-display
+Group: csswg
+Level: 3
+TR: https://www.w3.org/TR/css-display-3/
+Previous Version: https://www.w3.org/TR/2021/CRD-css-display-3-20210903/
+Previous Version: https://www.w3.org/TR/2020/CRD-css-display-3-20201218/
+Previous Version: https://www.w3.org/TR/2020/CR-css-display-3-20200519/
+Previous Version: https://www.w3.org/TR/2019/CR-css-display-3-20190711/
+Previous Version: https://www.w3.org/TR/2018/CR-css-display-3-20180828/
+Previous Version: https://www.w3.org/TR/2018/WD-css-display-3-20180809/
+Previous Version: https://www.w3.org/TR/2018/WD-css-display-3-20180420/
+Previous Version: https://www.w3.org/TR/2017/WD-css-display-3-20170720/
+Previous Version: https://www.w3.org/TR/2017/WD-css-display-3-20170126/
+Previous Version: https://www.w3.org/TR/2015/WD-css-display-3-20151015/
+Previous Version: https://www.w3.org/TR/2015/WD-css-display-3-20150721/
+Previous Version: https://www.w3.org/TR/2014/WD-css-display-3-20140911/
+Implementation Report: https://wpt.fyi/results/css/css-display?label=master&label=experimental&aligned
+Editor: Tab Atkins Jr., Google, http://xanthir.com/contact/, w3cid 42199
+Editor: Elika J. Etemad / fantasai, Invited Expert, http://fantasai.inkedblade.net/contact, w3cid 35400
+Abstract: This module describes how the CSS formatting box tree is generated from the document element tree and defines the 'display' property that controls it.
+Ignored Terms: display-model, display-role, table row group box, absolutely positioned, table formatting context
+At Risk: Application of ''::first-letter'' in the presence of run-ins
+At Risk: ''display: run-in''
+At Risk: All multi-keyword values of 'display'
+</pre>
+<pre class="link-defaults">
+spec:css-align-3; type:value; text:stretch
+spec:css-break-3; type:dfn; text:fragment;
+spec:css2;
+	type:property; text:overflow;
+spec: html;
+	type: dfn; text: rendered legend
+	type: element; text: a
+spec:css-pseudo-4; type:selector;
+	text: ::first-letter
+	text: ::first-line
+	text: ::before
+	text: ::after
+spec: svg2;
+    type:dfn;
+        text: container element
+        text: text content child element
+        text: renderable element
+        text: non-rendered element
+        text: rendered element
+        text: presentation attribute
+</pre>
+
+<style>
+.code-and-figure {
+	display: table;
+	margin: 0 auto;
+	border-spacing: 1em;
+}
+.code-and-figure > div {
+	display: table-cell;
+	vertical-align: middle;
+}
+.code-and-figure img {
+	background: transparent;
+}
+</style>
+
+<h2 id="intro">
+Introduction</h2>
+
+	<p><em>This section is normative.</em>
+
+	CSS takes a source document organized as
+	a <dfn id="element-tree" oldids="css-element-tree" export for=CSS lt="element tree">tree</dfn>
+	of <dfn id="elements" oldids="css-element" for=CSS lt="element">elements</dfn>
+	(which can contain a mix of other [=CSS/elements=] and [=text nodes=])
+	and <dfn id="text-nodes" oldids="css-text-node" export for=CSS lt="text node">text nodes</dfn>
+	(which can contain text),
+	and renders it onto a <a href="https://www.w3.org/TR/CSS2/intro.html#canvas">canvas</a>
+	such as your screen, a piece of paper, or an audio stream.
+	Although any such source document can be rendered with CSS,
+	the most commonly used type is the DOM. [[DOM]]
+	(Some of these more complex tree types might have additional types of nodes,
+	such as the comment nodes in the DOM.
+	For the purposes of CSS,
+	all of these additional types of nodes are ignored,
+	as if they didn't exist.)
+
+	To do this, it generates an intermediary structure,
+	the <dfn id="box-tree" oldids="css-box-tree" export for=CSS>box tree</dfn>,
+	which represents the formatting structure of the rendered document.
+	Each <dfn id="box" oldids="css-box" export for=CSS>box</dfn> in the <a>box tree</a>
+	represents its corresponding [=CSS/element=] (or <a>pseudo-element</a>)
+	in space and/or time on the canvas,
+	while each <dfn id="text-run" oldids="css-text-run" export for=CSS>text run</dfn> in the <a>box tree</a>
+	likewise represents the contents of its corresponding <a>text nodes</a>.
+
+	To create the <a>box tree</a>,
+	CSS first uses <a href="https://www.w3.org/TR/css-cascade/">cascading and inheritance</a>,
+	to assign a <a>computed value</a> for each CSS property
+	to each [=CSS/element=] and <a>text node</a> in the source tree.
+	(See [[!CSS-CASCADE-3]].)
+
+	Then, for each [=CSS/element=],
+	CSS generates zero or more <a>boxes</a>
+	as specified by that element's 'display' property.
+	Typically, an element generates a single <a>box</a>,
+	the <a>principal box</a>,
+	which represents itself and contains its contents in the <a>box tree</a>.
+	However, some 'display' values
+	(e.g. ''display: list-item'')
+	generate more than one box
+	(e.g. a <a href="https://www.w3.org/TR/CSS2/visuren.html#principal-box">principal block box</a> and a child <a href="https://www.w3.org/TR/CSS2/generate.html#lists">marker box</a>).
+	And some values
+	(such as ''display/none'' or ''display/contents'')
+	cause the [=CSS/element=] and/or its descendants to not generate any <a>boxes</a> at all.
+	<a>Boxes</a> are often referred to by their 'display' type--
+	e.g. a <a>box</a> generated by an element with ''display: block'' is called a “block box” or just a “block”.
+
+	A <a>box</a> is assigned the same styles as its generating [=CSS/element=], unless otherwise indicated.
+	In general, <a>inherited properties</a> are assigned to the <a>principal box</a>,
+	and then inherit through the box tree
+	to any other boxes generated by the same element.
+	Non-inherited properties default to applying to the <a>principal box</a>,
+	but when the element generates multiple boxes,
+	are sometimes defined to apply to a different box:
+	for example, the 'border' properties applied to a table element
+	are applied to its <a>table grid box</a>,
+	not to its <a lt="principal box">principal</a> <a>table wrapper box</a>.
+	If the value computation process alters the styles of those boxes,
+	and the element's style is requested
+	(such as through {{getComputedStyle()}}),
+	the element reflects,
+	for each property,
+	the value from the box to which that property was applied.
+
+	Similarly, each contiguous sequence of sibling <a>text nodes</a> generates a <a>text run</a>
+	containing their text contents,
+	which is assigned the same styles as the generating <a>text nodes</a>.
+	If the sequence contains no text, however, it does not generate a <a>text run</a>.
+
+	In constructing the box tree,
+	boxes generated by an element are descendants of
+	the principal box of any ancestor elements.
+	In the general case,
+	the direct <dfn export for=CSS>parent box</dfn>
+	of an element’s <a>principal box</a>
+	is the <a>principal box</a>
+	of its nearest ancestor element that generates a <a>box</a>;
+	however, there are some exceptions,
+	such as for ''run-in'' boxes,
+	display types (like tables) that generate multiple container boxes,
+	and intervening <a>anonymous boxes</a>.
+
+	An <dfn id="anonymous" oldids="css-anonymous" for=CSS lt="anonymous|anonymous box" export>anonymous box</dfn> is a box that is not associated with any element.
+	<a>Anonymous boxes</a> are generated in certain circumstances
+	to fix up the <a>box tree</a> when it requires a particular nested structure
+	that is not provided by the boxes generated from the <a>element tree</a>.
+	For example, a <a href="https://www.w3.org/TR/CSS2/tables.html#table-display">table cell box</a>
+	requires a particular type of parent box (the <a href="https://www.w3.org/TR/CSS2/tables.html#table-display">table row box</a>),
+	and will generate an <a>anonymous</a> <a href="https://www.w3.org/TR/CSS2/tables.html#table-display">table row box</a> around itself
+	if its parent is not a <a href="https://www.w3.org/TR/CSS2/tables.html#table-display">table row box</a>.
+	(See [[CSS2]] &sect; <a href="https://www.w3.org/TR/CSS2/tables.html#anonymous-boxes">17.2.1</a>.)
+	Unlike element-generated boxes, whose styles inherit strictly through the element tree,
+	anonymous boxes (which only exist in the <a>box tree</a>)
+	<a href="https://www.w3.org/TR/css-cascade/#inheriting">inherit</a> through their <a>box tree</a> parentage.
+
+	In the course of layout,
+	<a>boxes</a> and <a>text runs</a> can be broken into multiple <a>fragments</a>.
+	This happens, for example, when an <a>inline box</a> and/or <a>text run</a>
+	is broken across lines,
+	or when a <a>block box</a> is broken across pages or columns,
+	in a process called <a>fragmentation</a>.
+	It can also happen due to bidi reordering of text
+	(see [[css-writing-modes-3#bidi-algo|Applying the Bidirectional Reordering Algorithm]]
+	in [[css-writing-modes-3#text-direction|CSS Writing Modes]])
+	or higher-level <a>display type</a> box splitting,
+	e.g. <a href="https://www.w3.org/TR/CSS2/visuren.html#img-anon-block">block-in-inline splitting</a>
+	(see <a href="https://www.w3.org/TR/CSS2/visuren.html#box-gen">CSS2&sect;9.2</a>)
+	or <a href="https://www.w3.org/TR/css-multicol-1/#spanning-columns">column-spanner-in-block</a> splitting
+	(see <a href="https://www.w3.org/TR/css-multicol-1/#spanning-columns">CSS Multi-column Layout</a>).
+	A <a>box</a> therefore consists of one or more <a>box fragments</a>,
+	and a <a>text run</a> consists of one or more <a lt=fragment>text fragments</a>.
+	See [[CSS-BREAK-3]] for more information on <a>fragmentation</a>.
+
+	Note: Many of the CSS specs were written before this terminology was ironed out,
+	or refer to things incorrectly,
+	so view older specs with caution when they're using these terms.
+	It should be possible to infer from context which term they really mean.
+	Please <a href="#sotd">report errors</a> in specs when you find them,
+	so they can be corrected.
+
+	Note: Further information on the “aural” box tree
+	and its interaction with the 'display' property
+	can be found in the <a href="https://www.w3.org/TR/css-speech-1/#aural-model">CSS Speech Module</a>.
+	[[!CSS-SPEECH-1]]
+
+<h3 id="placement">
+Module interactions</h3>
+
+	This module replaces and extends the definition of the 'display' property defined in [[!CSS2]] section 9.2.4.
+
+	None of the properties in this module apply to the <code>::first-line</code> or <code>::first-letter</code> pseudo-elements.
+
+<h3 id="values">
+Value Definitions</h3>
+
+	This specification follows the <a href="https://www.w3.org/TR/CSS2/about.html#property-defs">CSS property definition conventions</a> from [[!CSS2]]
+	using the <a href="https://www.w3.org/TR/css-values-3/#value-defs">value definition syntax</a> from [[!CSS-VALUES-3]].
+	Value types not defined in this specification are defined in CSS Values &amp; Units [[!CSS-VALUES-3]].
+	Combination with other CSS modules may expand the definitions of these value types.
+
+	In addition to the property-specific values listed in their definitions,
+	all properties defined in this specification
+	also accept the <a>CSS-wide keywords</a> as their property value.
+	For readability they have not been repeated explicitly.
+
+
+<!--
+████████  ████  ██████  ████████  ██          ███    ██    ██
+██     ██  ██  ██    ██ ██     ██ ██         ██ ██    ██  ██
+██     ██  ██  ██       ██     ██ ██        ██   ██    ████
+██     ██  ██   ██████  ████████  ██       ██     ██    ██
+██     ██  ██        ██ ██        ██       █████████    ██
+██     ██  ██  ██    ██ ██        ██       ██     ██    ██
+████████  ████  ██████  ██        ████████ ██     ██    ██
+-->
+
+<h2 id='the-display-properties'>
+Box Layout Modes: the 'display' property</h2>
+
+	<pre class="propdef">
+	Name: display
+	Value: [ <<display-outside>> || <<display-inside>> ] | <<display-listitem>> | <<display-internal>> | <<display-box>> | <<display-legacy>>
+	Initial: inline
+	Applies to: all elements
+	Inherited: no
+	Computed value: a pair of keywords representing the [=inner display type|inner=] and [=outer display type|outer=] display types plus optional ''list-item'' flag, or a <<display-internal>> or <<display-box>> keyword; see prose in a variety of specs for computation rules
+	Animation type:	not animatable
+	</pre>
+
+	<p class=all-media>User agents are expected to support this property on all media, including non-visual ones.
+	The 'display' property defines an element's <dfn export>display type</dfn>,
+	which consists of the two basic qualities of how an element generates boxes:
+
+	* the <dfn export local-lt="inner">inner display type</dfn>,
+		which defines (if it is a <a lt="replaced element">non-replaced element</a>) the kind of <a>formatting context</a> it generates,
+		dictating how its descendant boxes are laid out.
+		(The inner display of a <a>replaced element</a> is outside the scope of CSS.)
+	* the <dfn export local-lt="outer">outer display type</dfn>,
+		which dictates how the [=principal box=] itself participates in <a>flow layout</a>.
+
+	<a>Text runs</a> have no <a>display type</a>.
+
+	Some 'display' values have additional side-effects:
+	such as ''list-item'', which also generates a ''::marker'' pseudo-element,
+	and ''display/none'', which causes the element's entire subtree to be left out of the box tree.
+
+	<div class="advisement">
+		The 'display' property has no effect on an element’s semantics:
+		these are defined by the <a spec=selectors-4>document language</a> and <em>are not affected by CSS</em>.
+		Aside from the ''display/none'' value,
+		which also affects the aural/speech output [[!CSS-SPEECH-1]]
+		and interactivity of an element and its descendants,
+		the 'display' property only affects visual layout:
+		its purpose is to allow designers freedom
+		to change the layout behavior of an element
+		<em>without</em> affecting the underlying document semantics.
+	</div>
+
+	Values are defined as follows:
+
+	<pre class='prod'>
+	<dfn>&lt;display-outside></dfn>  = block | inline | run-in
+	<dfn>&lt;display-inside></dfn>   = flow | flow-root | table | flex | grid | ruby
+	<dfn>&lt;display-listitem></dfn> = <<display-outside>>? && [ flow | flow-root ]? && list-item
+	<dfn>&lt;display-internal></dfn> = table-row-group | table-header-group |
+	                     table-footer-group | table-row | table-cell |
+	                     table-column-group | table-column | table-caption |
+	                     ruby-base | ruby-text | ruby-base-container |
+	                     ruby-text-container
+	<dfn>&lt;display-box></dfn>      = contents | none
+	<dfn>&lt;display-legacy></dfn>   = inline-block | inline-table | inline-flex | inline-grid
+	</pre>
+
+	The following informative table summarizes the values of 'display':
+
+	<style>
+		#display-value-summary td,
+		#display-value-summary th { text-align: left; }
+	</style>
+	<table class='data' id="display-value-summary">
+		<thead>
+			<tr>
+				<th>Short 'display'
+				<th>Full 'display'
+				<th>Generated box
+		<tbody title="Box Suppression Display Types">
+			<tr>
+				<td>''display/none''
+				<td>&mdash;
+				<td>subtree omitted from <a>box tree</a>
+			<tr>
+				<td>''display/contents''
+				<td>&mdash;
+				<td>element replaced by contents in <a>box tree</a>
+		<tbody title="Flow Layout Display Types">
+			<tr>
+				<td>''block''
+				<td>''block flow''
+				<td><a>block-level</a> <a>block container</a>
+				    <abbr title="also known as">aka</abbr> <a>block box</a>
+			<tr>
+				<td>''flow-root''
+				<td>''block flow-root''
+				<td><a>block-level</a> <a>block container</a>
+				    that establishes a new <a>block formatting context</a> (<a>BFC</a>)
+			<tr>
+				<td>''inline''
+				<td>''inline flow''
+				<td><a>inline box</a>
+			<tr>
+				<td>''inline-block''
+				<td>''inline flow-root''
+				<td><a>inline-level</a> <a>block container</a>
+				    <abbr title="also known as">aka</abbr> <dfn export lt="inline block | inline block box">inline block</dfn>
+			<tr>
+				<td>''run-in''
+				<td>''run-in flow''
+				<td><a>run-in box</a> (<a>inline box</a> with special box-tree-munging rules)
+			<tr>
+				<td>''list-item''
+				<td>''block flow list-item''
+				<td><a>block box</a>
+				    with additional <a href="https://www.w3.org/TR/CSS2/generate.html#lists">marker box</a>
+			<tr>
+				<td>''inline list-item''
+				<td>''inline flow list-item''
+				<td><a>inline box</a>
+				    with additional <a href="https://www.w3.org/TR/CSS2/generate.html#lists">marker box</a>
+		<tbody title="Formatting Context Root Display Types">
+			<tr>
+				<td>''flex''
+				<td>''block flex''
+				<td><a>block-level</a> <a>flex container</a>
+			<tr>
+				<td>''inline-flex''
+				<td>''inline flex''
+				<td><a>inline-level</a> <a>flex container</a>
+			<tr>
+				<td>''grid''
+				<td>''block grid''
+				<td><a>block-level</a> <a>grid container</a>
+			<tr>
+				<td>''inline-grid''
+				<td>''inline grid''
+				<td><a>inline-level</a> <a>grid container</a>
+			<tr>
+				<td>''ruby''
+				<td>''inline ruby''
+				<td><a>inline-level</a> <a>ruby container</a>
+			<tr>
+				<td>''block ruby''
+				<td>''block ruby''
+				<td><a>block box</a> containing <a>ruby container</a>
+			<tr>
+				<td>''table''
+				<td>''block table''
+				<td><a>block-level</a> <a>table wrapper box</a> containing <a>table grid box</a>
+			<tr>
+				<td>''inline-table''
+				<td>''inline table''
+				<td><a>inline-level</a> <a>table wrapper box</a> containing <a>table grid box</a>
+		<tbody title="Layout-internal display types">
+			<!--
+			<tr>
+				<td>''table-cell''
+				<td>''table-cell flow-root''
+				<td>table cell <a>block container</a>
+			<tr>
+				<td>''table-caption''
+				<td>''table-caption flow-root''
+				<td>table cell <a>block container</a>
+			<tr>
+				<td>''ruby-base''
+				<td>''ruby-base flow''
+				<td><a href="#layout-specific-display">layout-specific internal box</a>
+			<tr>
+				<td>''ruby-text''
+				<td>''ruby-text flow''
+				<td><a href="#layout-specific-display">layout-specific internal box</a>
+			-->
+			<tr>
+				<td><<display-internal>> types
+				<td>&mdash;
+				<td><a href="#layout-specific-display">layout-specific internal box</a>
+	</table>
+
+	Note: Following the precedence rules of “most backwards-compatible, then shortest”,
+	serialization of equivalent 'display' values uses the “Short 'display'” column.
+	[[CSSOM]]
+
+<!--
+ ███████  ██     ██ ████████ ████████ ████████
+██     ██ ██     ██    ██    ██       ██     ██
+██     ██ ██     ██    ██    ██       ██     ██
+██     ██ ██     ██    ██    ██████   ████████
+██     ██ ██     ██    ██    ██       ██   ██
+██     ██ ██     ██    ██    ██       ██    ██
+ ███████   ███████     ██    ████████ ██     ██
+-->
+
+<h3 id="outer-role">
+Outer Display Roles for Flow Layout: the ''block'', ''inline'', and ''run-in'' keywords</h3>
+
+	The <<display-outside>> keywords specify the element's <a>outer display type</a>,
+	which is essentially its [=principal box’s=] role in <a>flow layout</a>.
+	They are defined as follows:
+
+	<dl dfn-type="value" dfn-for="display, <display-outside>">
+		<dt><dfn>block</dfn>
+		<dd>
+			The element generates a box that is
+			<dfn export dfn for lt="block-level box">block-level</dfn>
+			when placed in <a>flow layout</a>. [[!CSS2]]
+
+		<dt><dfn>inline</dfn>
+		<dd>
+			The element generates a box that is
+			<dfn export dfn for lt="inline-level box">inline-level</dfn>
+			when placed in <a>flow layout</a>. [[!CSS2]]
+
+		<dt><dfn>run-in</dfn>
+		<dd>
+			The element generates an <a>run-in box</a>,
+			which is a type of <a>inline-level box</a>
+			with special behavior that attempts to merge it into a subsequent block container.
+			See [[#run-in-layout]] for details.
+	</dl>
+
+	Note: [=Outer display types=] do affect [=replaced elements=].
+
+	If a <<display-outside>> value is specified but <<display-inside>> is omitted,
+	the element's <a>inner display type</a> defaults to ''flow''.
+
+<!--
+████ ██    ██ ██    ██ ████████ ████████
+ ██  ███   ██ ███   ██ ██       ██     ██
+ ██  ████  ██ ████  ██ ██       ██     ██
+ ██  ██ ██ ██ ██ ██ ██ ██████   ████████
+ ██  ██  ████ ██  ████ ██       ██   ██
+ ██  ██   ███ ██   ███ ██       ██    ██
+████ ██    ██ ██    ██ ████████ ██     ██
+-->
+
+<h3 id="inner-model">
+Inner Display Layout Models: the ''flow'', ''flow-root'', ''table'', ''flex'', ''grid'', and ''ruby'' keywords</h3>
+
+	The <<display-inside>> keywords specify the element's <a>inner display type</a>,
+	which defines the type of formatting context that lays out its contents
+	(assuming it is a <a lt="replaced element">non-replaced element</a>).
+	They are defined as follows:
+
+	<dl dfn-type="value" dfn-for="display, <display-inside>">
+		<dt><dfn>flow</dfn>
+		<dd>
+			The element lays out its contents using <dfn dfn for export>flow layout</dfn>
+			(<a href="https://www.w3.org/TR/CSS2/visuren.html">block-and-inline layout</a>).
+
+			If its <a>outer display type</a> is ''inline'' or ''run-in'',
+			and it is participating in a
+			<a lt="block formatting context">block</a>
+			or <a lt="inline formatting context">inline</a>
+			formatting context,
+			then it generates an <a>inline box</a>.
+
+			Otherwise it generates a <a>block container</a> box.
+
+			Depending on the value of other properties (such as 'position', 'float', or 'overflow')
+			and whether it is itself participating in a block or inline <a>formatting context</a>,
+			it either establishes a new <a>block formatting context</a> for its contents
+			or integrates its contents into its parent <a>formatting context</a>.
+			See <a href="https://www.w3.org/TR/CSS2/visuren.html">CSS2.1 Chapter 9</a>. [[!CSS2]]
+			A <a>block container</a> that establishes a new <a>block formatting context</a>
+			is considered to have a used <a>inner display type</a> of ''flow-root''.
+
+		<dt><dfn>flow-root</dfn>
+		<dd>
+			The element generates a <a>block container</a> box,
+			and lays out its contents using <a>flow layout</a>.
+			It always establishes a new <a>block formatting context</a> for its contents. [[!CSS2]]
+
+		<dt><dfn>table</dfn>
+		<dd>
+			The element generates a principal <a>table wrapper box</a>
+			that establishes a <a>block formatting context</a>,
+			and which contains
+			an additionally-generated <a>table grid box</a>
+			that establishes a <a>table formatting context</a>. [[!CSS2]]
+
+		<dt><dfn>flex</dfn>
+		<dd>
+			The element generates a principal <a>flex container</a> box
+			and establishes a <a>flex formatting context</a>. [[!CSS-FLEXBOX-1]]
+
+		<dt><dfn>grid</dfn>
+		<dd>
+			The element generates a principal <a>grid container</a> box,
+			and establishes a <a>grid formatting context</a>. [[!CSS-GRID-1]]
+
+			(Grids using ''subgrid'' might not generate a new [=grid formatting context=];
+			see [[CSS-GRID-2]] for details.)
+
+		<dt><dfn>ruby</dfn>
+		<dd>
+			The element generates a <a>ruby container</a> box
+			and establishes a <a>ruby formatting context</a>
+			in addition to integrating its base-level contents
+			into its parent <a>formatting context</a>
+			(if it is inline)
+			or generating a wrapper box of the appropriate <a>outer display type</a>
+			(if it is not). [[!CSS-RUBY-1]]
+	</dl>
+
+	If a <<display-inside>> value is specified but <<display-outside>> is omitted,
+	the element's <a>outer display type</a> defaults to ''block''--
+	except for ''ruby'', which defaults to ''inline''.
+
+<!--
+██       ████
+██        ██
+██        ██
+██        ██
+██        ██
+██        ██
+████████ ████
+-->
+
+<h3 id="list-items">
+Generating Marker Boxes: the ''list-item'' keyword</h3>
+
+	The <dfn value for="display, <display-list-item>">list-item</dfn> keyword
+	causes the element to generate a ''::marker'' pseudo-element [[!CSS-PSEUDO-4]]
+	with the content specified by its <l spec=css2>'list-style'</l> properties
+	(<a href="https://www.w3.org/TR/CSS2/generate.html#lists">CSS 2.1§12.5 Lists</a>) [[!CSS2]]
+	together with a principal box of the specified type for its own contents.
+
+	If no <a>inner display type</a> value is specified,
+	the principal box's <a>inner display type</a> defaults to ''flow''.
+	If no <a>outer display type</a> value is specified,
+	the principal box's <a>outer display type</a> defaults to ''block''.
+
+	Note: In this level, as restricted in the grammar,
+	list-items are limited to the <a>Flow Layout</a> display types
+	(''block''/''inline''/''run-in'' with ''flow''/''flow-root'' inner types).
+	This restriction may be relaxed in a future level of this module.
+
+
+<!--
+████████ ████████  ██████
+██          ██    ██    ██
+██          ██    ██
+██████      ██    ██
+██          ██    ██
+██          ██    ██    ██
+████████    ██     ██████
+-->
+
+<h3 id="layout-specific-display">
+Layout-Internal Display Types: the ''table-*'' and ''ruby-*'' keywords</h3>
+
+	Some layout models, such as ''table'' and ''ruby'',
+	have a complex internal structure,
+	with several different roles that their children and descendants can fill.
+	This section defines those “<dfn export>layout-internal</dfn>” 'display' values,
+	which only have meaning within that particular layout mode.
+
+	Unless otherwise specified,
+	both the <a>inner display type</a> and the <a>outer display type</a>
+	of elements using these 'display' values
+	are set to the given keyword.
+
+	When the 'display' property of a [=replaced element=] computes to
+	one of the [=layout-internal=] values,
+	it is handled as having a used value of ''display/inline''.
+	White space collapsing and anonymous box generation must happen around those replaced elements
+	based on that ''display/inline'' value,
+	as if they never had a [=layout-internal=] display value applied to them.
+
+	Advisement: Authors should not assign a [=layout-internal=] display value to [=replaced elements=].
+
+	The <<display-internal>> keywords are defined as follows:
+
+	<dl export dfn-type=value dfn-for="display, <display-internal>">
+		<dt><dfn>table-row-group</dfn>, <dfn>table-header-group</dfn>, <dfn>table-footer-group</dfn>, <dfn>table-row</dfn>, <dfn>table-cell</dfn>, <dfn>table-column-group</dfn>, <dfn>table-column</dfn>
+		<dd>
+			The element is an <dfn dfn for>internal table element</dfn>.
+			It generates the appropriate <dfn dfn for>internal table box</dfn>
+			which participates in a <a>table formatting context</a>.
+			See <a href="https://www.w3.org/TR/CSS2/tables.html#table-display">CSS2&sect;17.2</a> [[!CSS2]].
+
+			''table-cell'' boxes have a ''flow-root'' <a>inner display type</a>.
+
+		<dt><dfn>table-caption</dfn>
+		<dd>
+			The element generates a <dfn dfn for>table caption box</dfn>,
+			which is a <a>block box</a> with special behavior with respect to table and table wrapper boxes.
+			See <a href="https://www.w3.org/TR/CSS2/tables.html#table-display">CSS2&sect;17.2</a> [[!CSS2]].
+
+			''table-caption'' boxes have a ''flow-root'' <a>inner display type</a>.
+		<dt>
+
+		<dt><dfn>ruby-base</dfn>, <dfn>ruby-text</dfn>, <dfn>ruby-base-container</dfn>, <dfn>ruby-text-container</dfn>
+		<dd>
+			The element is an <dfn dfn for>internal ruby element</dfn>.
+			It generates the appropriate <dfn dfn for>internal ruby box</dfn>
+			which participates in a <a>ruby formatting context</a>. [[!CSS-RUBY-1]]
+
+			''ruby-base'' and ''ruby-text'' have a ''flow'' <a>inner display type</a>.
+	</dl>
+
+	Boxes with layout-specific display types generate anonymous wrapper boxes around themselves
+	when placed in an incompatible parent,
+	as defined by their respective specifications.
+
+	<div class='example'>
+		For example, Table Layout requires that a ''table-cell'' box
+		must have a ''table-row'' parent box.
+
+		If it is misparented, like so:
+
+		<pre class="lang-markup">
+		&lt;div style="display:block;">
+			&lt;div style="display:table-cell">...&lt;/div>
+		&lt;/div>
+		</pre>
+
+		It will generate wrapper boxes around itself,
+		producing a structure like:
+
+		<pre>
+		block box
+		└anonymous table box
+		 └anonymous table-row-group box
+		  └anonymous table-row box
+		   └table-cell box
+		</pre>
+
+		Even if the parent is another <a>internal table element</a>,
+		if it's not the <em>correct</em> one,
+		wrapper boxes will be generated.
+		For example, in the following markup:
+
+		<pre class="lang-markup">
+		&lt;div style="display:table;">
+			&lt;div style="display:table-row">
+				&lt;div style="display:table-cell">...&lt;/div>
+			&lt;/div>
+		&lt;/div>
+		</pre>
+
+		Anonymous wrapper box generation will produce:
+
+		<pre>
+		table box
+		└anonymous table-row-group box
+		 └table-row box
+		  └table-cell box
+		</pre>
+
+		This "fix-up" ensures that table layout has a predictable structure to operate on.
+	</div>
+
+
+<!--
+████████   ██  ██    ██  ███████  ██    ██ ████████
+██     ██ ████ ███   ██ ██     ██ ███   ██ ██
+██     ██  ██  ████  ██ ██     ██ ████  ██ ██
+██     ██      ██ ██ ██ ██     ██ ██ ██ ██ ██████
+██     ██  ██  ██  ████ ██     ██ ██  ████ ██
+██     ██ ████ ██   ███ ██     ██ ██   ███ ██
+████████   ██  ██    ██  ███████  ██    ██ ████████
+-->
+
+<h3 id="box-generation">
+Box Generation: the ''display/none'' and ''display/contents'' keywords</h3>
+
+	While 'display' can control the <em>types</em> of boxes an element will generate,
+	it can also control whether an element will generate any boxes at all.
+
+	The <<display-box>> keywords are defined as follows:
+
+	<dl dfn-type=value dfn-for="display, <display-box>">
+		<dt><dfn>contents</dfn>
+		<dd>
+			The element itself does not generate any boxes,
+			but its children and pseudo-elements still generate <a>boxes</a> and <a>text runs</a> as normal.
+			For the purposes of box generation and layout,
+			the element must be treated as if it had been replaced in the [=element tree=]
+			by its contents
+			(including both its source-document children and its pseudo-elements,
+			such as ''::before'' and ''::after'' pseudo-elements,
+			which are generated before/after the element's children as normal).
+
+			Note: As only the box tree is affected,
+			any semantics based on the document tree,
+			such as selector-matching, event handling,
+			and property <a>inheritance</a>,
+			are not affected.
+			<strong>As of writing, however,
+			<a href="https://github.com/w3c/csswg-drafts/issues/3040">this is not implemented correctly in major browsers</a>,
+			so using this feature on the Web must be done with care
+			as it can prevent accessibility tools
+			from accessing the element’s semantics.</strong>
+
+			This value computes to ''display: none'' on replaced elements
+			and other elements whose rendering is not entirely controlled by CSS;
+			see [[#unbox]] for details.
+
+			Note: Replaced elements and form controls are treated specially
+			because removing only the element’s own generating box
+			is a more-or-less undefined operation.
+			As this behavior may be refined if use cases
+			(and more precise rendering models) develop,
+			authors should use ''display: none'' rather than ''display: contents''
+			on such elements for forward-compatibility.
+
+		<dt><dfn>none</dfn>
+		<dd>
+			The [=CSS/element=] and its descendants generate no <a>boxes</a> or <a>text runs</a>.
+
+			Similarly, if a <a>text node</a> is defined to behave as ''display: none'',
+			it generates no <a>text runs</a>.
+	</dl>
+
+	Elements with either of these values do not have <a>inner</a> or <a>outer display types</a>,
+	because they don't generate any boxes at all.
+
+	Note: As these values cause affected elements to not generate a box,
+	anonymous box generation rules will ignore the elided elements entirely,
+	as if they did not exist in the box tree.
+
+	Markup-based relationships, however, are not affected by these values,
+	as they are solely rendering-time effects.
+	<span class=non-normative>
+		For example,
+		although they may affect which table cell <em>appears</em> in a column,
+		they do not affect which table cell is associated with a particular column <em>element</em>.
+		Similarly, they cannot affect which HTML <{summary}> element is associated with a particular table
+		or whether a <{legend}> is considered to be labelling the contents of a particular <{fieldset}>.
+	</span>
+
+<!--
+████ ██    ██ ██       ████ ██    ██ ████████
+ ██  ███   ██ ██        ██  ███   ██ ██
+ ██  ████  ██ ██        ██  ████  ██ ██
+ ██  ██ ██ ██ ██        ██  ██ ██ ██ ██████   ███████
+ ██  ██  ████ ██        ██  ██  ████ ██
+ ██  ██   ███ ██        ██  ██   ███ ██
+████ ██    ██ ████████ ████ ██    ██ ████████
+-->
+
+<h3 id='legacy-display'>
+Precomposed Inline-level Display Values</h3>
+
+	CSS level 2 used a single-keyword syntax for 'display',
+	requiring separate keywords for block-level and inline-level variants of the same layout mode.
+	These <<display-legacy>> keywords map as follows:
+
+	<dl dfn-type=value dfn-for="display, <display-legacy>">
+		<dt><dfn>inline-block</dfn>
+		<dd>
+			Computes to ''inline flow-root''.
+
+		<dt><dfn>inline-table</dfn>
+		<dd>
+			Computes to ''inline table''.
+
+		<dt><dfn>inline-flex</dfn>
+		<dd>
+			Computes to ''inline flex''.
+
+		<dt><dfn>inline-grid</dfn>
+		<dd>
+			Computes to ''inline grid''.
+	</dl>
+
+	Note: Although these keywords and their equivalents compute to the same value,
+	their [=specified values=] remain distinct.
+
+	Note: The {{Window/getComputedStyle()}} serialization rules
+	will always output these precomposed keywords
+	rather than the equivalent two-keyword pairs
+	due to the [[cssom#serializing-css-values|shortest, most backwards-compatible serialization principle]].
+
+<!--
+████████  ██        ███████   ██████  ██    ██ ████ ████████ ██    ██
+██     ██ ██       ██     ██ ██    ██ ██   ██   ██  ██        ██  ██
+██     ██ ██       ██     ██ ██       ██  ██    ██  ██         ████
+████████  ██       ██     ██ ██       █████     ██  ██████      ██
+██     ██ ██       ██     ██ ██       ██  ██    ██  ██          ██
+██     ██ ██       ██     ██ ██    ██ ██   ██   ██  ██          ██
+████████  ████████  ███████   ██████  ██    ██ ████ ██          ██
+-->
+
+<h3 id='transformations'>
+Automatic Box Type Transformations</h3>
+
+	Some layout effects require <dfn export lt="blockify|blockification">blockification</dfn>
+	or <dfn export lt="inlinify|inlinification">inlinification</dfn> of the box type,
+	which sets the box’s [=computed value|computed=] <a>outer display type</a>
+	to ''block'' or ''inline'' (respectively).
+	(This has no effect on <a>display types</a> that generate no box at all,
+	such as ''display/none'' or ''display/contents''.)
+	Additionally:
+
+	* If a [=block box=] (''block flow'') is <a>inlinified</a>,
+		its <a>inner display type</a> is set to ''flow-root''
+		so that it remains a block container.
+
+	* If an [=inline box=] (''inline flow'') is <a>inlinified</a>,
+		it recursively <a>inlinifies</a> all of its in-flow children,
+		so that no block-level descendants
+		break up the inline formatting context in which it participates.
+
+	* For legacy reasons,
+		if an [=inline block box=] (''inline flow-root'')
+		is <a>blockified</a>,
+		it becomes a ''block'' box
+		(losing its ''flow-root'' nature).
+		For consistency,
+		a ''run-in flow-root'' box
+		also [=blockifies=]
+		to a ''block'' box.
+
+	* If a [=layout-internal=] box is <a>blockified</a>,
+		its [=inner display type=] converts to ''flow''
+		so that it becomes a <a>block container</a>.
+		<a>Inlinification</a> has no effect on <a>layout-internal</a> boxes.
+		(However, placement in such an inline context
+		will typically cause them to be wrapped
+		in an appropriately-typed anonymous inline-level box.)
+
+	Note: There are two methods used to fix up box types when a box is mismatched to its context.
+	One is transformation of the <a>computed value</a> of 'display', such as <a>blockification</a> and <a>inlinification</a> described here.
+	The other, taking place during [[#intro|box tree construction]] (after computed values have been determined),
+	is the creation of intermediary anonymous boxes,
+	such as happens in <a href="https://www.w3.org/TR/CSS2/tables.html#anonymous-boxes">tables</a>,
+	[[css-ruby-1#box-fixup|ruby]],
+	and <a href="https://www.w3.org/TR/CSS21/visuren.html#box-gen">flow</a> layout.
+
+	<div class='example'>
+		Some examples of computed-value fixup include:
+
+		<ul>
+			<li>Absolute positioning or floating an element <a>blockifies</a> the box’s display type. [[CSS2]]
+			<li>Containment in a <a spec=css-ruby>ruby container</a> <a>inlinifies</a> the box’s display type, as described in [[CSS-RUBY-1]].
+			<li>A parent with a ''grid'' or ''flex'' 'display' value <a>blockifies</a> the box’s display type. [[CSS-GRID-1]] [[CSS-FLEXBOX-1]]
+		</ul>
+	</div>
+
+<h3 id='root'>
+The Root Element’s Principal Box</h3>
+
+	The [=root element=]’s display type is always <a>blockified</a>,
+	and its [=principal box=] always establishes an [=independent formatting context=].
+	This box’s [=containing block=] is the [=initial containing block=].
+
+	Additionally, a 'display' of ''display/contents'' computes to ''block'' on the root element.
+
+<!--
+██    ██  ███████  ██    ██ ████████
+███   ██ ██     ██ ███   ██ ██
+████  ██ ██     ██ ████  ██ ██
+██ ██ ██ ██     ██ ██ ██ ██ ██████
+██  ████ ██     ██ ██  ████ ██
+██   ███ ██     ██ ██   ███ ██
+██    ██  ███████  ██    ██ ████████
+-->
+<!--
+
+<h2 id='box-suppress'>
+Toggling Box Generation: the 'display-or-not' property</h2>
+
+	<pre class="propdef">
+	Name: display-or-not
+	Value: show | discard | hide
+	Initial: show
+	Applies to: all elements
+	Inherited: no
+	Percentages: n/a
+	Computed value: as specified
+	</pre>
+
+	<p class=all-media>User agents are expected to support this property on all media, including non-visual ones.
+	The ''display: none'' value was historically used as a "toggle"
+	to switch between showing and hiding an element.
+	Making this reversible requires either setting up the CSS <a>cascade</a> carefully,
+	or remembering what the 'display' value was before it was set to ''display/none''.
+	To make this common use-case easier,
+	this module introduces the separate 'display-or-not' property to do the same thing,
+	so that toggling whether or not an element appears in the formatting tree
+	can now be done without affecting its display type when it <em>is</em> displayed.
+
+	Issue: This property (which needs a better name)
+	along with a <css>display-type</css> (or possibly <css>display-as</css>) longhand
+	which takes all values of 'display' other than ''display/none'',
+	are intended to be longhands of 'display'.
+	This has not yet been edited in, as this split feature is likely to be deferred to the next level
+	in order to have time to thoroughly work through and accommodate the
+	<a href="https://lists.w3.org/Archives/Public/www-style/2016Aug/0025.html">various use cases</a> for showing/hiding an element.
+
+	Values have the following meanings:
+
+	<dl dfn-type="value" dfn-for="display-or-not">
+		<dt><dfn>show</dfn>
+		<dd>
+			The element generates boxes as normal,
+			per its 'display-*' properties.
+
+		<dt><dfn>discard</dfn>
+		<dd>
+			The element generates no boxes at all.
+
+		<dt><dfn>hide</dfn>
+		<dd>
+			The element generates boxes as normal,
+			but those boxes do not participate in layout in any way,
+			and must not be displayed.
+
+			For the purpose of any layout-related information,
+			such as querying for the computed value of the element's 'width' property,
+			it must be treated as if it did not generate any boxes.
+
+			Properties that rely on boxes but do not rely on layout,
+			such as animations, 'counter-increment', etc.,
+			must work as normal on this element and its descendants.
+
+			Issue: This needs more clarity about what "layout-related" and "participates in layout" means.
+			Does the box still generate anonymous boxes, etc.? How does it affect speech?
+			See <a href="https://lists.w3.org/Archives/Public/www-style/2015Jun/0346.html">proposal</a>.
+	</dl>
+
+	Issue: We welcome better naming suggestions on this property.
+
+	Issue: Please send use cases (examples of where this property or something close to it is useful and necessary)
+	<a href="mailto:www-style@w3.org?subject=%5Bcss-display%5D%20box-suppres%20use%20cases">to the CSSWG</a> so that we can be sure we're designing the details of its behavior correctly.
+
+-->
+
+
+
+<!--
+ ███████  ████████  ████████  ████████ ████████
+██     ██ ██     ██ ██     ██ ██       ██     ██
+██     ██ ██     ██ ██     ██ ██       ██     ██
+██     ██ ████████  ██     ██ ██████   ████████
+██     ██ ██   ██   ██     ██ ██       ██   ██
+██     ██ ██    ██  ██     ██ ██       ██    ██
+ ███████  ██     ██ ████████  ████████ ██     ██
+-->
+
+<h2 id='display-order'>
+Display Order</h2>
+
+	The 'layout-order' and 'reading-order' properties and their 'order' [=shorthand=]
+	allow creating deliberate divergence
+	between spatial arrangement on the 2D visual canvas,
+	the reading and document navigation order,
+	and the underlying order of elements in the source document
+	<em>in order to improve the accessibility of the document</em>
+	while creating interesting visual layouts.
+	They are not intended (and should not be used)
+	to apply semantic reordering operations.
+
+	Advisement: Author-facing documentation such as tutorials and references
+	should adequately address the accessibility impacts
+	of 'order', 'layout-order', and 'reading-order'
+	and discourage their misuse by authors and authoring tools.
+
+	<details class="note">
+		<summary>Design Considerations and Background</summary>
+
+		Some of the considerations that went into the design
+		of 'order', 'reading-order', and 'layout-order' are:
+
+		* There are clear use cases for disconnecting
+			the [=reading and navigation order=] from the box layout order,
+			the most fundamental of which is to make sure
+			the [=reading and navigation order=] matches the <strong>visual perception order</strong>
+			when it is not the same as the box layout order.
+			(Visual perception is non-linear, and is influenced by things like
+				the size, color contrast, and spacing of a visual element,
+				not just its spatial coordinates on the page.)
+		* It is a <a href="https://www.w3.org/TR/webarch/#pci">core principle of Web platform architecture</a>,
+			in order to allow content to be accessible to the widest possible audience
+			across devices that exist now and in the future,
+			for the underlying document to be sensical independent of CSS.
+			Therefore the underlying document order
+			should represent a logical ordering of its elements
+			regardless of its visual presentation.
+		* For components of a page that do not have a strong inherent order,
+			a document can have multiple visual presentations with different layouts,
+			all conveying the same semantic information.
+			It should be possible for all of these presentations to have good accessibility.
+		* Linear navigation, focus sequencing order, and screen-reader order
+			should always match, because there are users who use them together.
+		* Each component or hierarchical level of a page
+			can have different requirements for reordering,
+			so CSS reordering controls should not lend themselves
+			too easily to blanket use
+			(like 'box-sizing')
+			rather than tailored use
+			(like <a href="https://www.w3.org/TR/css-logical/">flow-relative vs. physical properties and values</a>).
+	</details>
+
+	ISSUE(7387): DOM needs a convenient reordering function
+	so that authors (even authors who don't usually write JS)
+	can easily perform source order reordering when necessary
+	instead of misusing 'order'.
+
+<h3 id='order-property'>
+Display Order Shorthand: the 'order' property</h3>
+
+	<pre class='propdef shorthand'>
+	Name: order
+	Value: [ <<'layout-order'>> <<'reading-order'>>? ] |
+	       [ reading && <<'reading-order'>> ] |
+	       [ layout && <<'layout-order'>> ] |
+	       [ reading-and-layout && <<integer>> ]
+	Applies to: [=flex items=] and [=grid items=]
+	Inherited: no
+	</pre>
+
+	Boxes are generally displayed and laid out
+	in the same order as they appear in the source document.
+	The 'order' property and its [=longhands=]
+	can be used to rearrange the order of boxes
+	to deliberately create a divergence
+	of the underlying order of elements
+	and their speech and navigation order
+	and/or their spatial arrangement on the 2D visual canvas.
+
+	Advisement: The 'order' property is not a replacement for correct source ordering.
+	The ordering of content within conformant documents must be sensical without CSS.
+	Authoring tools and documents that use 'order' or its [=longhands=]
+	as a lazy way of reordering the document
+	are non-conformant.
+
+	The 'order' property sets both 'layout-order' and 'reading-order'
+	in a single declaration.
+	Unless <dfn value for=order>reading-and-layout</dfn> is specified--
+	in which case both <<'reading-order'>> and <<'layout-order'>> are set to the specified <<integer>> value--
+	the omitted [=longhand=] is <em>set to zero</em>.
+
+	<div class='example'>
+		Here's an example of a catalog item card
+		which has a title, a photo, and a description.
+		Within each entry, the source document content is ordered logically
+		with the title first, followed by the description and the photo.
+		This provides a sensible ordering for speech rendering and in non-CSS browsers.
+		For a more compelling visual presentation, however,
+		'order' is used to pull the image up from later in the content to the top of the card.
+
+		<pre class="lang-css">
+		article.sale-item {
+			display: flex;
+			flex-flow: column;
+		}
+		article.sale-item > img {
+			order: -1; /* Shift image before other content (in layout order) */
+			align-self: center;
+		}
+		</pre>
+
+		<pre class="lang-markup">
+		&lt;article class="sale-item">
+			&lt;h1>Computer Starter Kit&lt;/h1>
+			&lt;p>This is the best computer money can buy, if you don’t have much money.
+			&lt;ul>
+				&lt;li>Computer
+				&lt;li>Monitor
+				&lt;li>Keyboard
+				&lt;li>Mouse
+			&lt;/ul>
+			&lt;img src="images/computer.jpg"
+				alt="You get: a white desktop computer with matching peripherals.">
+		&lt;/article>
+		</pre>
+
+		<figure>
+			<div id="order-example">
+				<img src="images/computer.jpg" alt='You get: a white desktop computer with matching keyboard and monitor.'>
+				<h1 id=quiet-pubrules-1 style="font-size: 1.4em;">Computer Starter Kit</h1>
+				<p>
+					This is the best computer money can buy,
+					if you don't have much money.
+				<ul>
+					<li>Computer
+					<li>Monitor
+					<li>Keyboard
+					<li>Mouse
+				</ul>
+			</div>
+			<figcaption>
+				An example rendering of the code above.
+			</figcaption>
+		</figure>
+
+		<style>
+		#order-example {
+			display:flex;
+			flex-flow: column;
+			margin: 0 auto 1em;
+			color: black;
+			background: white;
+			max-width: 250px;
+			padding: 0 1rem;
+			text-align: left;
+			border: thick solid;
+		}
+		#order-example > h1 {
+			color: black;
+		}
+		#order-example > img {
+			order: -1;
+			align-self: center;
+			max-width: 100%;
+			margin-inline: -1em;
+		}
+		</style>
+	</div>
+
+<h3 id='reading-order'>
+Reading Order: the 'reading-order' property</h3>
+
+	<pre class='propdef'>
+	Name: reading-order
+	Value: <<integer>>
+	Initial: 0
+	Applies to: all elements
+	Inherited: no
+	Computed value: specified integer
+	Animation type: by computed value type
+	</pre>
+
+	The 'reading-order' property controls the order in which
+	elements are rendered to speech
+	or are navigated to when using (linear) sequention navigation methods.
+	It takes a single <dfn value for=reading-order><<integer>></dfn> value,
+	which specifies which ordinal group the item belongs to.
+	Sibling elements are ordered starting from the lowest numbered ordinal group and going up;
+	elements with the same ordinal group are keep the order they appear in the source document.
+
+	The 'reading-order' property affects neither layout nor painting order
+	and therefore has no effect on rendering to the visual [=canvas=].
+
+	Advisement: The source document should express
+	the underlying logical order of elements.
+	The 'reading-order' property exists for cases where a given document
+	can have multiple reading orders depending on layout changes,
+	e.g. in response to [=media queries=].
+	In such cases, the most common or most fundamental reading order
+	should be encoded in the source order
+	so that the document is sensical without CSS.
+
+	If the host language defines features for explicitly controlling
+	the reading or navigation order
+	(such as <a href="https://html.spec.whatwg.org/multipage/interaction.html#attr-tabindex"><code>tabindex</code></a> [[HTML]]),
+	these take precedence over 'reading-order':
+	the modified document order created by 'reading-order'
+	essentially replaces the underlying source order
+	for the purpose of such features.
+
+	ISSUE: Is this the most appropriate interaction with with <code>tabindex</code>?
+
+<h3 id='layout-order'>
+Box Order: the 'layout-order' property</h3>
+
+	<pre class='propdef'>
+	Name: layout-order
+	Value: <<integer>>
+	Initial: 0
+	Applies to: [=flex items=] and [=grid items=]
+	Inherited: no
+	Computed value: specified integer
+	Animation type: by computed value type
+	</pre>
+
+	<wpt pathprefix="css/css-flexbox/">
+		flexible-order.html
+	</wpt>
+
+	By allowing the layout to be rearranged
+	without affecting the underlying document source order,
+	the 'layout-order' property lets authors keep
+	a document’s reading and interaction order matched to the visual perception order
+	in cases where it does not match the layout order.
+
+	Specifically, the 'layout-order' property controls the order in which
+	[=flex items=] or [=grid items=] appear within their container
+	by assigning them to the ordinal groups,
+	as specified by its <dfn value for=order><<integer>></dfn> value.
+
+	[=flex container|Flex=] and [=grid containers=] then lay out their contents
+	in <dfn export>order-modified document order</dfn>,
+	starting from the lowest numbered ordinal group and going up.
+	Items with the same ordinal group are laid out in the order they appear in the source document.
+
+	This also affects the <a href="https://www.w3.org/TR/CSS2/zindex.html">painting order</a> [[!CSS2]],
+	exactly as if the [=flex item|flex=]/[=grid items=] were reordered in the source document.
+	Absolutely-positioned children of a [=flex container|flex=]/[=grid container=]
+	are treated as having ''order: 0''
+	for the purpose of determining their painting order relative to [=flex item|flex=]/[=grid items=].
+
+	Advisement: Authors should generally use the 'order' [=shorthand=]
+	(which overrides prior values of 'reading-order')
+	rather than 'layout-order'.
+	This prevents inappropriate values of 'reading-order'
+	declared elsewhere in the [=cascade=]
+	from combining with 'layout-order'
+	to create incomprehensible layouts.
+
+	Note: Since it was introduced in <a href="https://www.w3.org/TR/css-display-3/">Level 3</a>,
+	'order' also has broader support than the 'layout-order' longhand.
+
+	Unless otherwise specified by a future specification,
+	this property has no effect on boxes that are not [=flex items=] or [=grid items=].
+
+<h3 id="order-accessibility">
+Reordering and Accessibility</h3>
+
+	The 'layout-order' property <em>does not</em> affect ordering in non-visual media
+	(such as <a href="https://www.w3.org/TR/css-speech-1/">speech</a>).
+	Likewise, 'layout-order' does not affect
+	the default traversal order of sequential navigation modes
+	(such as cycling through links, see e.g. <a href="https://html.spec.whatwg.org/multipage/interaction.html#attr-tabindex"><code>tabindex</code></a> [[HTML]]).
+
+	Advisement:
+	Authors <em>must</em> use 'layout-order' only for spatial, not logical, reordering of content.
+	Style sheets that use 'layout-order' to perform logical reordering are non-conforming.
+
+	Note: This is so that non-visual media and non-CSS UAs,
+	which typically present content linearly,
+	can rely on a logical source order,
+	while 'layout-order' is used to tailor the layout order.
+	(Since visual perception is two-dimensional and non-linear,
+	the desired layout order is not always logical.)
+
+	In order to preserve the author's intended ordering in all presentation modes,
+	authoring tools--
+	including WYSIWYG editors as well as Web-based authoring aids--
+	must reorder the underlying document source
+	and not use 'layout-order' to perform reordering
+	unless the author has explicitly indicated that
+	the spatial order should be <em>out-of-sync</em> with
+	the underlying document order (which determines speech and navigation order).
+
+	<div class="example">
+		For example, a tool might offer both drag-and-drop reordering of flex items
+		as well as handling of media queries for alternate layouts per screen size range.
+
+		Since most of the time, reordering should affect all screen ranges
+		as well as navigation and speech order,
+		the tool would perform drag-and-drop reordering at the DOM layer.
+		In some cases, however, the author may want different layouts per screen size.
+		The tool could offer this functionality by using 'order' together with media queries,
+		but also tie the smallest screen size's ordering to the underlying DOM order
+		(since this is most likely to be a logical linear presentation order)
+		while using 'order' to define the visual presentation order in other size ranges.
+
+		This tool would be conformant, whereas a tool that only ever used 'order'
+		to handle drag-and-drop reordering
+		(however convenient it might be to implement it that way)
+		would be non-conformant.
+	</div>
+
+	Note: User agents, including browsers, accessible technology, and extensions,
+	may offer spatial navigation features.
+	This section does not preclude respecting the 'layout-order' property
+	when determining element ordering in such spatial navigation modes;
+	indeed it would need to be considered for such a feature to work.
+	But 'layout-order' is not the only (or even the primary) CSS property
+	that would need to be considered for such a spatial navigation feature.
+	A well-implemented spatial navigation feature would need to consider
+	all the layout features of CSS that modify spatial relationships.
+
+
+<!--
+██     ██ ████  ██████  ████ ████████
+██     ██  ██  ██    ██  ██  ██     ██
+██     ██  ██  ██        ██  ██     ██
+██     ██  ██   ██████   ██  ████████
+ ██   ██   ██        ██  ██  ██     ██
+  ██ ██    ██  ██    ██  ██  ██     ██
+   ███    ████  ██████  ████ ████████
+-->
+
+<h2 id="visibility">
+Invisibility: the 'visibility' property</h2>
+
+	<pre class="propdef">
+	Name: visibility
+	Value: visible | hidden | collapse
+	Initial: visible
+	Applies to: all elements
+	Inherited: yes
+	Percentages: N/A
+	Media: visual
+	Computed Value: as specified
+	Animation type: discrete
+	</pre>
+
+	The 'visibility' property specifies whether the box is rendered.
+	[=Invisible=] boxes still affect layout.
+	(Set the 'display' property to ''display/none'' to suppress box generation altogether.).
+	Values have the following meanings:
+
+	<dl dfn-for=visibility dfn-type=value>
+		<dt><dfn>visible</dfn>
+		<dd>
+			The generated box is visible, as normal.
+		<dt><dfn>hidden</dfn>
+		<dd>
+			Any boxes generated by the element are [=invisible=].
+			Descendants of the element can, however, be visible
+			if they have ''visibility: visible''.
+		<dt><dfn>collapse</dfn>
+		<dd>
+			Indicates that the box is <dfn dfn for noexport>collapsed</dfn>,
+			which can cause it to take up less space than otherwise
+			in a formatting-context&ndash;specific way.
+			See <a href="https://www.w3.org/TR/CSS2/tables.html#dynamic-effects">dynamic row and column effects in tables</a> [[!CSS2]]
+			and [[css-flexbox-1#visibility-collapse|collapsed flex items]] in flex layout [[!CSS-FLEXBOX-1]].
+			In all other cases, however,
+			(i.e. unless otherwise specified)
+			this simply makes the box [=invisible=],
+			just like ''visibility/hidden''.
+	</dl>
+
+	Note: Currently, many user agents and/or accessibility tools
+	don't correctly implement the accessibility implications of
+	visible elements with semantic relationships to [=invisible=] elements,
+	so, for example,
+	making parent elements with special roles (such as table rows) [=invisible=]
+	while leaving child elements with special roles (such as table cells) visible
+	can be problematic for users of those tools.
+	Authors should avoid creating these situations
+	until the tooling situation improves.
+
+	<dfn>Invisible</dfn> boxes are not rendered
+	(as if they were fully transparent),
+	cannot be interacted with
+	(and behave as if they had ''pointer-events: none''),
+	are removed from navigation
+	(similar to ''display: none''),
+	and are also not rendered to speech
+	(except when 'speak' is ''speak/always'' [[CSS-SPEECH-1]]).
+	However, as with ''display: contents'',
+	their semantic role as a container is not affected,
+	to ensure that any ''visibility/visible'' descendants
+	are properly interpreted.
+
+	Note: If 'speak' is ''speak/always'',
+	an otherwise [=invisible=] box
+	<em>is</em> rendered to speech,
+	and may be interacted with using non-visual/spatial methods.
+
+	<div class=example>
+		While temporarily hiding things with ''display: none''
+		is often sufficient,
+		doing so removes the elements from layout entirely,
+		possibly causing unwanted movement or reflow of the page
+		when an element is hidden or shown.
+		''visibility: hidden'' can instead be used
+		to keep the page's layout stable
+		as something is hidden and displayed.
+
+		For example,
+		here is a (deliberately simplified) possible implementation of a "spoiler" element
+		that can be revealed by clicking on the hidden text:
+
+		<xmp highlight=markup>
+			<p>The symbolism earlier in the movie becomes obvious at the end,
+				when it's revealed that <spoiler-text><span>Luke is his own father</span></spoiler-text>,
+				making the wizard's cryptic riddles meaningful.
+			<style>
+			spoiler-text { border-bottom: 1px solid; }
+			spoiler-text > span { visibility: hidden; }
+			spoiler-text.shown > span { visibility: visible; }
+			</style>
+			<script>
+			[...document.querySelectorAll("spoiler-text")].forEach(el=>{
+				el.addEventListener("click", e=>el.classList.toggle("shown"));
+			});
+			</script>
+		</xmp>
+
+		Advisement: This example is deliberately significantly simplified.
+		It is missing a number of accessiblity and UX features
+		that a well-designed spoiler element would have
+		to show off the 'visibility' usage more plainly.
+		Don't copy this code for a real site.
+	</div>
+
+
+
+<!--
+████████  ██     ██ ██    ██         ████ ██    ██
+██     ██ ██     ██ ███   ██          ██  ███   ██
+██     ██ ██     ██ ████  ██          ██  ████  ██
+████████  ██     ██ ██ ██ ██ ███████  ██  ██ ██ ██
+██   ██   ██     ██ ██  ████          ██  ██  ████
+██    ██  ██     ██ ██   ███          ██  ██   ███
+██     ██  ███████  ██    ██         ████ ██    ██
+-->
+
+
+<h2 id='run-in-layout'>
+Run-In Layout</h2>
+
+	A <dfn export lt="run-in | run-in box">run-in box</dfn>
+	is a box that <em>merges into</em> a block that comes after it,
+	inserting itself at the beginning of that block’s inline-level content.
+	This is useful for formatting compact headlines, definitions, and other similar things,
+	where the appropriate DOM structure is to have a headline preceding the following prose,
+	but the desired display is an inline headline laying out with the text.
+
+	<div class="example">
+		For example, dictionary definitions are often formatted so that the word is inline with the definition:
+
+		<pre>
+		&lt;dl class='dict'>
+			&lt;dt>dictionary
+			&lt;dd>a book that lists the words of a language in alphabetical
+			    order and gives their meaning, or that gives the equivalent
+			    words in a different language.
+			&lt;dt>glossary
+			&lt;dd>an alphabetical list of terms or words found in or relating
+			    to a specific subject, text, or dialect, with explanations; a
+			    brief dictionary.
+		&lt;/dl>
+		&lt;style>
+		.dict > dt {
+			display: run-in;
+		}
+		.dict > dt::after {
+			content: ": "
+		}
+		&lt;/style>
+		</pre>
+
+		Which is formatted as:
+
+		<pre>
+		<b>dictionary:</b> a book that lists the words of a language
+		in alphabetical order and explains their meaning.
+
+		<b>glossary:</b> an alphabetical list of terms or words found
+		in or relating to a specific subject, text, or dialect,
+		with explanations; a brief dictionary.
+		</pre>
+	</div>
+
+	A <a>run-in box</a> behaves exactly as any other <a>inline-level box</a>, except:
+
+	<ul>
+		<li>
+			A <a>run-in box</a> with a ''flow'' <a>inner display type</a> <a>inlinifies</a> its contents.
+
+		<li>
+			If a <a>run-in sequence</a> is immediately followed by a block box
+			that does not establish a new <a>block formatting context</a>,
+			it is inserted as direct children of that block box:
+			after its ''::marker'' pseudo-element's boxes (if any),
+			but preceding any other boxes generated by the contents of the block
+			(including the box generated by the ''::before'' pseudo-element, if any).
+			This re-parenting recurses if possible
+			(so that the run-in effectively becomes
+			part of the deepest subsequent “paragraph” in its formatting context,
+			collecting newly-adjacent run-ins as it goes).
+
+			The reparented content is then formatted as if originally parented there.
+			<span class='note'>Note that only layout is affected, not inheritance,
+			because property inheritance for non-anonymous boxes is based only on the element tree.</span>
+
+		<li>
+			Otherwise
+			(if the <a>run-in sequence</a> is <em>not</em> followed by such a block),
+			an anonymous block box is generated around the <a>run-in sequence</a>
+			and all immediately following inline-level content
+			(up to, but not including, the next <a>run-in sequence</a>, if any).
+	</ul>
+
+	A <dfn>run-in sequence</dfn> is a maximal sequence of consecutive sibling <a>run-in boxes</a>
+	and intervening <a>white space</a> and/or out-of-flow boxes.
+
+	Note: This statement implies that out-of-flow boxes are reparented
+	if they are between two run-in boxes.
+	Another alternative would be to leave behind the intervening out-of-flow boxes,
+	or to have out-of-flow boxes impede the running-in of earlier boxes.
+	Implementers and authors are encouraged to contact the CSSWG if they have a preferred behavior, as this one was picked somewhat at random.
+
+	This fixup occurs before the anonymous block and inline box fixup described in <a href="https://www.w3.org/TR/CSS21/visuren.html#box-gen">CSS2&sect;9.2</a>,
+	and affects the determination of the <a>first formatted line</a>
+	of the affected elements
+	as if the <a>run-in sequence</a> were originally
+	in its final location in the box tree.
+
+	Note: As the earliest run-in represents the first text on the <a>first formatted line</a> of its containing block,
+	a ''::first-letter'' pseudo-element applied to that block element
+	selects the first letter of the run-in,
+	rather than the first letter of its own contents.
+
+	Note: This run-in model is slightly different from the one proposed in earlier revisions of [[!CSS2]].
+
+
+<!--
+ ██████   ██        ███████   ██████   ██████     ███    ████████  ██    ██
+██    ██  ██       ██     ██ ██    ██ ██    ██   ██ ██   ██     ██  ██  ██
+██        ██       ██     ██ ██       ██        ██   ██  ██     ██   ████
+██   ████ ██       ██     ██  ██████   ██████  ██     ██ ████████     ██
+██    ██  ██       ██     ██       ██       ██ █████████ ██   ██      ██
+██    ██  ██       ██     ██ ██    ██ ██    ██ ██     ██ ██    ██     ██
+ ██████   ████████  ███████   ██████   ██████  ██     ██ ██     ██    ██
+-->
+
+<h2 id='glossary' class=no-num>
+Appendix A: Glossary</h2>
+
+	The following terms are defined here for convenience:
+
+	<dl export>
+		<dt><dfn>root element</dfn>
+		<dd>
+			The [=CSS/element=] at the root of the [=document tree=].
+			In a [=document tree=] produced under the DOM,
+			this is the [=document element=];
+			in HTML it is the <{html}> element.
+			[[DOM]] [[HTML]]
+
+		<dt><dfn>principal box</dfn>
+		<dd>
+			When an [=CSS/element=] generates one or more [=boxes=],
+			one of them is the [=principal box=],
+			which contains its descendant boxes and generated content,
+			and is also the box involved in any positioning scheme.
+
+			Some elements may generate additional boxes in addition to the principal box
+			(such as ''display/list-item'' elements,
+			which generate an additional marker box,
+			or ''display/table'' elements,
+			which generate a [=principal box|principal=] [=table wrapper box=]
+			and an additional [=table grid box=]).
+			These additional boxes are placed with respect to the principal box.
+
+		<dt><dfn lt="inline-level|inline-level content">inline-level</dfn>
+		<dd>
+			Content that participates in inline layout.
+			Specifically, inline-level boxes and [=text runs=].
+
+		<dt><dfn lt="block-level|block-level content">block-level</dfn>
+		<dd>
+			Content that participates in [=block layout=].
+			Specifically, block-level boxes.
+
+		<dt><dfn>inline box</dfn>
+		<dd>
+			A non-replaced <a>inline-level</a> box whose <a>inner display type</a> is ''flow''.
+			The contents of an inline box participate in the same inline formatting context as the inline box itself.
+
+		<dt><dfn>inline</dfn>
+		<dd>
+			Used as a shorthand for <a>inline box</a> or <a>inline-level box</a>
+			where unambiguous,
+			or as an adjective meaning <a>inline-level</a>.
+			The latter usage is deprecated.
+
+		<dt><dfn lt="atomic inline|atomic inline box">atomic inline</dfn>
+		<dd>
+			An inline-level box that is replaced (such as an image)
+			or that establishes a new formatting context (such as an ''inline-block'' or ''inline-table'')
+			and cannot split across lines
+			(as <a>inline boxes</a> and <a>ruby containers</a> can).
+
+			Any inline-level box whose <a>inner display type</a> is not ''flow''
+			establishes a new formatting context of the specified <a>inner display type</a>.
+
+		<dt><dfn lt="block container|block container box">block container</dfn>
+		<dd>
+			A block container either contains only inline-level boxes
+			participating in an <a>inline formatting context</a>,
+			or contains only block-level boxes
+			participating in a <a>block formatting context</a>
+			(possibly generating anonymous block boxes to ensure this constraint,
+			as defined in <a href="https://www.w3.org/TR/CSS2/visuren.html#anonymous-block-level">CSS2&sect;9.2.1.1</a>).
+
+			A block container that contains only inline-level content
+			establishes a new <a>inline formatting context</a>.
+			The element then also generates a <a>root inline box</a>
+			which wraps all of its inline content.
+			<span class=note>Note, this <a>root inline box</a> concept
+			effectively replaces the "anonymous inline element" concept
+			introduced in <a href="https://www.w3.org/TR/CSS2/visuren.html#anonymous">CSS2&sect;9.2.2.1</a>.</span>
+
+			A block container establishes a new <a>block formatting context</a>
+			if its parent formatting context is <em>not</em> a <a>block formatting context</a>;
+			otherwise, when participating in a <a>block formatting context</a> itself,
+			it either establishes a new <a>block formatting context</a> for its contents
+			or continues the one in which it participates,
+			as determined by the constraints of other properties
+			(such as 'overflow' or 'align-content').
+
+			Note: A block container box can both establish a block formatting context
+			<em>and</em> an inline formatting context simultaneously.
+
+		<dt><dfn>block box</dfn>
+		<dd>
+			A <a>block-level box</a> that is also a <a>block container</a>.
+
+			Note: Not all <a>block container</a> boxes are <a>block-level</a> boxes:
+			non-replaced <a>inline blocks</a> and non-replaced table cells,
+			for example, are block containers
+			but not block-level boxes.
+			Similarly, not all block-level boxes are block containers:
+			block-level replaced elements (''display: block'')
+			and flex containers (''display: flex''), for example,
+			are not block containers.
+
+		<dt><dfn>block</dfn>
+		<dd>
+			Used as a shorthand for <a>block box</a>, <a>block-level box</a>, or <a>block container box</a>,
+			where unambiguous.
+
+		<dt><dfn lt="replaced element|replaced">replaced element</dfn>
+		<dd>
+			An element whose content is outside the scope of the CSS formatting model,
+			such as an image or embedded document.
+			<span class=non-normative>
+				For example, the content of the HTML <{img}> element
+				is often replaced by the image that its <{img/src}> attribute designates.
+			</span>
+
+			Replaced elements often have [=natural dimensions=].
+			For example, a bitmap image has a natural width and a natural height specified in absolute units
+			(from which the natural ratio can obviously be determined).
+			On the other hand, other objects may not have any natural dimensions
+			(for example, a blank HTML document).
+			See [[css-images-3]].
+
+			User agents may consider a [=replaced element=] to not have any [=natural dimensions=]
+			if it is believed that those dimensions could leak sensitive information to a third party.
+			For example, if an HTML document changed natural size depending on the user's bank balance,
+			then the UA might want to act as if that resource had no [=natural dimensions=].
+
+			The content of replaced elements is not considered in the CSS formatting model;
+			however, their [=natural dimensions=] are used in various layout calculations.
+			Replaced elements always establish an [=independent formatting context=].
+
+			A <dfn lt="non-replaced | non-replaced element">non-replaced</dfn> element is one that is not <a>replaced</a>,
+			i.e. whose rendering is dictated by the CSS model.
+
+		<dt><dfn>containing block</dfn>
+		<dd>
+			A rectangle that forms the basis of sizing and positioning
+			for the [=boxes=] associated with it.
+			Notably, a [=containing block=] is <em>not a [=box=]</em>
+			(it is a rectangle),
+			however it is often derived from the dimensions of a [=box=].
+			Each [=box=] is given a position with respect to its [=containing block=],
+			but it is not confined by this [=containing block=];
+			it can [=overflow=].
+			The phrase “a box’s containing block” means
+			“the [=containing block=] in which the box lives,”
+			not the one it generates.
+
+			In general, the [=box edge|edges=] of a [=box=]
+			act as the [=containing block=] for descendant boxes;
+			we say that a box “establishes”
+			the [=containing block=] for its descendants.
+			If properties of a [=containing block=] are referenced,
+			they reference the values on the [=box=] that generated the [=containing block=].
+			(For the <a>initial containing block</a>,
+			values are taken from the root element
+			unless otherwise specified.)
+
+			See [[CSS2]] <a href="https://www.w3.org/TR/CSS2/visuren.html#containing-block">Section 9.1.2</a>
+			and <a href="https://www.w3.org/TR/CSS2/visudet.html#containing-block-details">Section 10.1</a>
+			and [[CSS-POSITION-3#def-cb]] for details.
+
+		<dt><dfn>containing block chain</dfn>
+		<dd>
+			A sequence of successive <a>containing blocks</a>
+			that form an ancestor-descendant chain
+			through the <a>containing block</a> relation.
+			For example, an <a>inline box</a>’s containing block is the content box of its closest <a>block container</a> ancestor;
+			if that block container is an in-flow <a>block</a>,
+			then <em>its</em> containing block is formed by its parent <a>block container</a>;
+			if that grandparent <a>block container</a> is <a>absolutely positioned</a>,
+			then <em>its</em> containing block is the padding edges of its closest <em>positioned</em> ancestor (not necessarily its parent),
+			and so on up to the <a>initial containing block</a>.
+
+		<dt><dfn>initial containing block</dfn>
+		<dd>
+			The <a>containing block</a> of the [=root element=].
+			The [=initial containing block=] establishes a [=block formatting context=].
+			See <a href="https://www.w3.org/TR/CSS2/visudet.html#containing-block-details">CSS2.1&sect;10.1</a> for [=continuous media=];
+			and [[!CSS-PAGE-3]] for [=paged media=]
+			for its position and dimensions.
+
+		<dt><dfn>formatting context</dfn>
+		<dd>
+			A <a>formatting context</a> is the environment
+			into which a set of related boxes are laid out.
+			Different [=formatting contexts=] lay out their boxes
+			according to different rules.
+			For example, a <a>flex formatting context</a>
+			lays out boxes according to the <a>flex layout</a> rules [[CSS-FLEXBOX-1]],
+			whereas a <a>block formatting context</a>
+			lays out boxes according to the block-and-inline layout rules [[CSS2]].
+			Additionally, some types of [=formatting contexts=] interleave and co-exist:
+			for example, an [=inline formatting context=] exists within
+			and interacts with the [=block formatting context=]
+			of the element that establishes it,
+			and a [=ruby container=] overlays a [=ruby formatting context=]
+			over the [=inline formatting context=] in which its [=ruby base container=] participates.
+
+			A box either establishes a new [=independent formatting context=]
+			or continues the [=formatting context=] of its containing block.
+			In some cases,
+			it might additionally establish a new (non-independent) co-existing formatting context.
+			Unless otherwise specified, however,
+			establishing a new <a>formatting context</a>
+			creates an <a>independent formatting context</a>.
+			The type of formatting context established by the box
+			is determined by its <a>inner display type</a>.
+			E.g. a <a>grid container</a> establishes a new <a>grid formatting context</a>,
+			a <a>ruby container</a> establishes a new <a>ruby formatting context</a>,
+			and a <a>block container</a> can establish a new <a>block formatting context</a>
+			and/or a new <a>inline formatting context</a>.
+			See the 'display' property.
+
+		<dt><dfn>independent formatting context</dfn>
+		<dd>
+			When a box establishes an independent formatting context
+			(whether that [=formatting context=] is of the same type as its parent or not),
+			it essentially creates a new, independent layout environment:
+			except through the sizing of the box itself,
+			the layout of its descendants is (generally)
+			not affected by the rules and contents of
+			the [=formatting context=] outside the box, and vice versa.
+
+			<p class="example">
+				For example, in a <a>block formatting context</a>,
+				floated boxes affect the layout of surrounding boxes.
+				But their effects do not escape their <a>formatting context</a>:
+				the box establishing their <a>formatting context</a> grows to fully contain them,
+				and floats from outside that box
+				are not allowed to protrude into and affect the contents
+				inside the box.
+
+			<p class="example">
+				As another example, margins do not collapse across [=formatting context=] boundaries.
+
+			<p class="note">
+				Exclusions are able to affect content across [=independent formatting context=] boundaries.
+				(At time of writing, they are the only layout feature that can.)
+				[[CSS3-EXCLUSIONS]]
+
+			Certain properties can force a box to
+			<dfn lt="establish an independent formatting context|
+			         establishes an independent formatting context|
+			         establishing an independent formatting context|
+			         established an independent formatting context">
+				establish an independent formatting context</dfn>
+			in cases where it wouldn't ordinarily.
+			For example,
+			making a box <a>out-of-flow</a>
+			causes it to <a>blockify</a> as well as to [=establish an independent formatting context=].
+			As another example,
+			certain values of the 'contain' property
+			can cause a box to <a>establish an independent formatting context</a>.
+			Turning a block into a <a>scroll container</a>
+			will cause it to <a>establish an independent formatting context</a>;
+			however turning a <a>subgrid</a> into a <a>scroll container</a> will not--
+			it continues to act as a subgrid,
+			with its contents participating in the layout of its parent <a>grid container</a>.
+
+			A [=block box=] that [=establishes an independent formatting context=]
+			establishes a new [=block formatting context=] for its contents.
+			In most other cases,
+			forcing a box to [=establish an independent formatting context=] is a no-op--
+			either the box already establishes an <a>independent formatting context</a>
+			(e.g. <a>flex containers</a>),
+			or it's not possible to establish a totally independent new formatting context on that type of box
+			(e.g. non-replaced <a>inline boxes</a>).
+
+		<dt><dfn>block formatting context</dfn>
+		<dt><dfn>inline formatting context</dfn>
+		<dd>
+			[=block formatting context|Block=] and [=inline formatting contexts=] are defined in
+			<a href="https://www.w3.org/TR/CSS2/visuren.html#normal-flow">CSS 2.1 Section 9.4</a>.
+			[=Inline formatting contexts=] exist within
+			(are part of their containing)
+			[=block formatting contexts=];
+			for example, line boxes belonging to the [=inline formatting context=]
+			interact with floats belonging to the [=block formatting context=].
+
+		<dt><dfn>block layout</dfn>
+		<dd>
+			The layout of [=block-level boxes=],
+			performed within a [=block formatting context=].
+
+		<dt><dfn>block formatting context root</dfn>
+		<dd>
+			A <a>block container</a>
+			that establishes a new <a>block formatting context</a>.
+
+		<dt><dfn>BFC</dfn>
+		<dd>
+			Abbreviation for <a>block formatting context</a> or
+			<a>block formatting context root</a>.
+			Has various informal definitions referring to boxes which
+			contain internal floats, exclude external floats, and suppress margin collapsing,
+			and may therefore refer specifically to one of:
+
+				* a <a>block container</a>
+					that establishes a new <a>block formatting context</a> for its contents
+				* a <a>block box</a> (i.e. a <a>block-level</a> block container)
+					that establishes a [=block formatting context=] for its contents
+					(as distinguished from a block box which does not)
+				* (very loosely) any block-level box that establishes a new [=formatting context=]
+					(other than an inline formatting context)
+
+		<dt><dfn lt="out of flow | out-of-flow">out-of-flow</dfn>
+		<dt><dfn lt="in flow | in-flow">in-flow</dfn>
+		<dd>
+			A box is <a>out-of-flow</a> if it is
+			extracted from its expected position and interaction with surrounding content
+			and laid out using a different paradigm
+			outside the normal flow of content in its parent formatting context.
+			This occurs if the box is floated (via 'float')
+			or [=absolutely positioned=] (via 'position').
+			A box is <a>in-flow</a> if it is not <a>out-of-flow</a>.
+
+			Note: Some [=formatting contexts=] inhibit floating,
+			so that an element with ''float: left'' is not necessarily <a>out-of-flow</a>.
+
+		<dt><dfn>document order</dfn>
+		<dd>
+			The order in which boxes or content occurs in the document
+			(which can be different from the order in which it appears for rendering).
+			For the purpose of determining the relative order of pseudo-elements,
+			the box-tree order is used,
+			see [[css-pseudo-4#treelike]].
+	</dl>
+
+	See [[!CSS2]] <a href="https://www.w3.org/TR/CSS2/visuren.html">Chapter 9</a> for a fuller definition of these terms.
+
+
+<!--
+██     ██ ██    ██ ██     ██  ██████  ██     ██    ███    ██
+██     ██ ███   ██ ██     ██ ██    ██ ██     ██   ██ ██   ██
+██     ██ ████  ██ ██     ██ ██       ██     ██  ██   ██  ██
+██     ██ ██ ██ ██ ██     ██  ██████  ██     ██ ██     ██ ██
+██     ██ ██  ████ ██     ██       ██ ██     ██ █████████ ██
+██     ██ ██   ███ ██     ██ ██    ██ ██     ██ ██     ██ ██
+ ███████  ██    ██  ███████   ██████   ███████  ██     ██ ████████
+-->
+
+<h2 class="no-num non-normative" id="unbox">
+Appendix B: Effects of ''display: contents'' on Unusual Elements</h2>
+
+	<em>This section is (currently) non-normative.</em>
+
+	Some elements aren't rendered purely by CSS box concepts;
+	for example, replaced elements (such as <{img}>),
+	many form controls (such as <{input}>),
+	and SVG elements.
+
+	This appendix defines how they interact with ''display: contents''.
+
+HTML Elements {#unbox-html}
+-----------------------------
+
+	: <{br}>
+	: <{wbr}>
+	: <{meter}>
+	: <{progress}>
+	: <{canvas}>
+	: <{embed}>
+	: <{object}>
+	: <{audio}>
+	: <{iframe}>
+	: <{img}>
+	: <{video}>
+	: <{frame}>
+	: <{frameset}>
+	: <{input}>
+	: <{textarea}>
+	: <{select}>
+	::
+		''display: contents'' computes to ''display: none''.
+
+	: <{legend}>
+	::
+		Per HTML, a <{legend}> with ''display: contents'' is not a [=rendered legend=],
+		so it does not have magical display behavior.
+		(Thus, it reacts to ''display: contents'' normally.)
+
+	: <{button}>
+	: <{details}>
+	: <{fieldset}>
+	::
+		These elements don't have any special behavior;
+		''display: contents'' simply removes their [=principal box=],
+		and their contents render as normal.
+
+	: any other HTML element
+	::
+		Behaves as normal for ''display: contents''.
+
+SVG Elements {#unbox-svg}
+---------------------------
+
+	: An <{svg}> element that has CSS box layout
+		(this includes all <{svg}> whose parent is an HTML element,
+		as well as document root elements)
+	::
+		''display: contents'' computes to ''display: none''.
+
+	: All other SVG [=container elements=] that are also [=renderable elements=]
+	: SVG [=text content child elements=]
+	: <{use}>
+	::
+		''display: contents'' strips the element from the formatting tree,
+		and hoists its contents up to display in its place.
+		These contents include the shadow-DOM content for <{use}>.
+
+	: any other SVG elements
+	::
+		''display: contents'' computes to ''display: none''.
+
+	<div class="note">
+		The intention here is that
+		the ''display: none'' behavior applies
+		whenever the "rendering context" inside the element
+		is different than the context outside of it.
+		If the element's child elements would not be valid children
+		of the element's parent,
+		you cannot simply hoist them up the formatting tree.
+
+		For example, text content and text formatting elements in SVG
+		require a <{text}> element context;
+		if you remove a <{text}>,
+		its child text content and elements are no longer valid.
+		For that reason, ''display: contents'' on <{text}>
+		prevents the entire text element from being rendered.
+		In contrast, any valid content inside a <{tspan}> or <{textPath}>
+		is also valid content inside the parent text formatting context,
+		so the hoisting behavior applies for these elements.
+
+		Similarly, if hoisting would convert the children from
+		[=non-rendered elements=]
+		(e.g., a shape inside a <{pattern}> or <{symbol}>)
+		to [=rendered elements=]
+		(e.g., a shape that is a direct child of the <{svg}>),
+		that is an invalid change of rendering context.
+		Never-rendered container elements therefore cannot be "un-boxed"
+		by ''display: contents''.
+	</div>
+
+	When an element is stripped from the formatting tree,
+	then any SVG attributes on that element
+	that control layout and visual formatting
+	are ignored when rendering the contents.
+	However, SVG [=presentation attributes=]--
+	which map to CSS properties--
+	continue to affect value processing and inheritance [[CSS-CASCADE-3]];
+	thus such attributes can affect
+	the layout and visual formatting of the element’s descendants
+	by influencing the values of such properties on those descendants.
+	<!--
+		https://github.com/w3c/csswg-drafts/issues/2502#issuecomment-378809174
+		The rule here should be,
+		if this attribute were mapped to a CSS property,
+		would it inherit or no?
+		If it wouldn't inherit, then it goes away with display: contents.
+		If it would inherit, then it behaves as if it did.
+		(Because there's been an ongoing trend of converting SVG attributes to CSS properties,
+		we wouldn't want to have any difference in behavior as that process continued.)
+
+		Note that some CSS properties that affect descendant content aren't inherited
+		because we needed to know exactly at which point in the tree they were applied
+		and/or because their effects accumulate.
+		The same is likely to be true of some SVG attributes.
+	-->
+
+MathML Elements {#unbox-mathml}
+-------------------------------
+
+	For all MathML elements,
+	''display: contents'' computes to ''display: none''.
+
+
+<!--
+ ██████  ████████  ████████  ██████
+██    ██ ██     ██ ██       ██    ██
+██       ██     ██ ██       ██
+ ██████  ████████  ██████   ██
+      ██ ██        ██       ██
+██    ██ ██        ██       ██    ██
+ ██████  ██        ████████  ██████
+-->
+
+<h2 class=no-num id="box-guidelines">
+Appendix C: Box Construction Guidelines for Spec Authors</h2>
+
+	<em>This section is non-normative guidance for specification authors.</em>
+
+	* A box cannot be <a>blockified</a> and <a>inlinified</a> at the same time;
+		if such a thing would occur,
+		define which wins over the other.
+	* Non-principal non-anonymous boxes can't be <a>blockified</a>:
+		blockification affects the element’s computed values
+		and thus determines the type of its <a>principal box</a>.
+	* Boxes which <a>blockify</a> their contents
+		can't directly contain <a>inline-level</a> content;
+		any boxes or text runs generated within such an element
+		must be <a>blockified</a>
+		or wrapped in an <a>anonymous</a> <a>block container</a>.
+	* Boxes which <a>inlinify</a> their contents
+		can't directly contain <a>block-level</a> boxes;
+		any boxes generated within such an element
+		must be <a>inline-level</a>.
+	* Boxes that fundamentally cannot establish an [=independent formatting context=]
+		(such as non-replaced inlines)
+		must not be asked to [=establish an independent formatting context=].
+		Blockify them first,
+		or otherwise change their box type to one that can establish an [=independent formatting context=].
+
+<h2 class=no-num id="acknowledgments">
+Acknowledgments</h2>
+
+	We would like to thank the many people who have attempted to separate out the disparate details of box generation over the years,
+	most particularly Bert Bos,
+	whose last attempt with 'display-model' and 'display-role' didn't get anywhere,
+	but primed us for the current spec;
+	Anton Prowse,
+	whose relentless assault on CSS2.1 Chapter 9 forced some order out of the chaos;
+	and Oriol Brufau,
+	who teased apart dozens of fine distinctions and errors in this spec.
+	Honorable mentions also go to David Baron, Mats Palmgren, Ilya Streltsyn,
+	and Boris Zbarsky for their feedback.
+
+<!--
+	We would also like to thank the many JavaScript libraries such as jQuery
+	which have hacked around the "what 'display' should I give it when you call .show()?" problem,
+	making it extremely clear that something needed to be done on our part.
+-->
+
+<!--
+ ██████  ██     ██    ███    ██    ██  ██████   ████████  ██████
+██    ██ ██     ██   ██ ██   ███   ██ ██    ██  ██       ██    ██
+██       ██     ██  ██   ██  ████  ██ ██        ██       ██
+██       █████████ ██     ██ ██ ██ ██ ██   ████ ██████    ██████
+██       ██     ██ █████████ ██  ████ ██    ██  ██             ██
+██    ██ ██     ██ ██     ██ ██   ███ ██    ██  ██       ██    ██
+ ██████  ██     ██ ██     ██ ██    ██  ██████   ████████  ██████
+-->
+
+<h2 class=no-num id="changes">
+Changes</h2>
+
+<h3 id="changes-2020">
+Additions since Level 3</h3>
+
+	The following features were added since <a href="https://www.w3.org/TR/css-display-3/">CSS Display Module Level 3</a>:
+
+	* the 'layout-order' and 'reading-order' [=longhand properties=] of 'order'
+		(<a href="https://github.com/w3c/csswg-drafts/issues/7387#issuecomment-1217193918">Issue 7387</a>)
+
+<h2 id="priv" class="no-num">
+Privacy Considerations</h2>
+
+This specification introduces no new privacy considerations.
+
+<h3 id="sec" class="no-num">
+Security Considerations</h2>
+
+This specification introduces no new security considerations.
+
