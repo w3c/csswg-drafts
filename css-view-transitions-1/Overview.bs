@@ -1082,7 +1082,7 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 				then [=setup view transition=] with |document|'s [=document/active DOM transition=].
 
 			1. Otherwise, if |document|'s [=document/active DOM transition=]'s [=ViewTransition/phase=] is "`animating`",
-				then [=update transition DOM=] for |document|'s [=document/active DOM transition=].
+				then [=handle transition frame=] for |document|'s [=document/active DOM transition=].
 	</div>
 
 ## [=Setup view transition=] ## {#setup-view-transition-algorithm}
@@ -1090,6 +1090,87 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 	<div algorithm>
 		To <dfn>setup view transition</dfn> given a {{ViewTransition}} |transition|,
 			perform the following steps:
+
+		Note: This algorithm captures the current state of the document,
+		calls the transition's {{UpdateCallback}},
+		then captures the new state of the document.
+
+		1. Let |document| be |transition|'s [=relevant global object's=] [=associated document=].
+
+		1. [=Capture the old state=] for |transition|.
+
+			If failure is returned, then [=skip the view transition=] for |transition| with an "{{InvalidStateError}}" {{DOMException}} in |transition|'s [=relevant Realm=],
+			and return.
+
+		1. Set |document|'s [=document/transition suppressing rendering=] to true.
+
+		1. [=Queue a global task=] on the [=DOM manipulation task source=],
+			given |transition|'s [=relevant global object=],
+			to execute the following steps:
+
+				Note: A task is queued here because the texture read back in [=capturing the image=] may be async,
+					although the render steps in the HTML spec act as if it's synchronous.
+
+			1. If |transition|'s [=ViewTransition/phase=] is "`done`", then abort these steps.
+
+				Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
+					The [=skip the view transition=] steps [=call the update callback=],
+					ensuring the |transition|'s [=ViewTransition/update callback=] is always called.
+
+			1. [=Call the update callback=] of |transition|.
+
+			1. [=promise/React=] to |transition|'s [=ViewTransition/update callback done promise=]:
+
+				* If the promise does not settle within an implementation-defined timeout, then:
+
+					1. If |transition|'s [=ViewTransition/phase=] is "`done`", then return.
+
+						Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
+
+					1. [=Skip the view transition=] |transition| with a "{{TimeoutError}}" {{DOMException}}.
+
+				* If the promise was rejected with reason |reason|, then:
+
+					1. If |transition|'s [=ViewTransition/phase=] is "`done`", then return.
+
+						Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
+
+					1. [=Skip the view transition=] |transition| with |reason|.
+
+				* If the promise was resolved, then:
+
+					1. If |transition|'s [=ViewTransition/phase=] is "`done`", then return.
+
+						Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
+
+					1. If |transition|'s [=ViewTransition/initial snapshot root size=] is not equal to the [=snapshot root size=],
+						then [=skip the view transition=] for |transition|, and return.
+
+					1. Set [=document/transition suppressing rendering=] to false.
+
+					1. [=Capture the new state=] for |transition|.
+
+						If failure is returned, then [=skip the view transition=] for |transition| with an "{{InvalidStateError}}" {{DOMException}} in |transition|'s [=relevant Realm=],
+						and return.
+
+					1. [=Setup transition pseudo-elements=] for |transition|.
+
+					1. [=Update pseudo-element styles=] for |transition|.
+
+						Note: The above steps will require running document lifecycle phases,
+							to compute information calculated during style/layout.
+
+					1. Set |transition|'s [=ViewTransition/phase=] to "`animating`".
+
+					1. [=Resolve=] |transition|'s [=ViewTransition/ready promise=].
+	</div>
+
+### [=Capture the old state=] ### {#capture-old-state-algorithm}
+
+	<div algorithm>
+		To <dfn>capture the old state</dfn> for {{ViewTransition}} |transition|:
+
+		1. Let |document| be |transition|'s [=relevant global object's=] [=associated document=].
 
 		1. Let |namedElements| be |transition|'s [=ViewTransition/named elements=].
 
@@ -1121,9 +1202,7 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 
 				* |element| is not |element|'s [=tree/root=] and |element| allows [=fragmentation=].
 
-				Then [=skip the view transition=] for |transition| with an "{{InvalidStateError}}" {{DOMException}}
-					in |transition|'s [=relevant Realm=],
-					and return.
+				Then return failure.
 
 			1. [=set/Append=] |transitionName| to |usedTransitionNames|.
 
@@ -1158,280 +1237,61 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 				Issue: This needs proper types.
 
 			1. Set |namedElements|[|transitionName|] to |capture|.
-
-		1. Set |document|'s [=document/transition suppressing rendering=] to true.
-
-		1. [=Queue a global task=] on the [=DOM manipulation task source=],
-			given |transition|'s [=relevant global object=],
-			to execute the following steps:
-
-				Note: A task is queued here because the texture read back in [=capturing the image=] may be async,
-					although the render steps in the HTML spec act as if it's synchronous.
-
-				Issue: "DOM manipulation task source" doesn't link due to a [bikeshed bug](https://github.com/tabatkins/bikeshed/issues/2382).
-
-			1. If |transition|'s [=ViewTransition/phase=] is "`done`", then abort these steps.
-
-				Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
-
-			1. [=Call the update callback=] of |transition|.
-
-			1. [=promise/React=] to |transition|'s [=ViewTransition/update callback done promise=]:
-
-				* If the promise does not settle within an implementation-defined timeout, then:
-
-					1. If |transition|'s [=ViewTransition/phase=] is "`done`", then return.
-
-						Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
-
-					1. [=skip the view transition=] |transition| with a "{{TimeoutError}}" {{DOMException}}.
-
-				* If the promise was resolved, then:
-
-					1. If |transition|'s [=ViewTransition/phase=] is "`done`", then return.
-
-						Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
-
-					1. If |transition|'s [=ViewTransition/initial snapshot root size=] is not equal to the [=snapshot root size=],
-						then [=skip the view transition=] for |transition|, and return.
-
-					1. Set [=document/transition suppressing rendering=] to false.
-
-					1. Let |usedTransitionNames| be a new [=/set=] of strings.
-
-					1. [=list/For each=] |element| of every {{Element}} and [=pseudo-element=] connected to |document|,
-						in [paint order](https://drafts.csswg.org/css2/#painting-order):
-
-						Issue: The link for "paint order" doesn't seem right.
-							Is there a more canonical definition?
-
-						1. If any [=flat tree=] ancestor of this |element| [=skips its contents=], then [=continue=].
-
-						1. Let |transitionName| be the [=computed value=] of 'view-transition-name' for |element|.
-
-						1. If |transitionName| is ''view-transition-name/none'',
-							or |element| is [=element-not-rendered|not rendered=],
-							then [=continue=].
-
-						1. If any of the following is true:
-
-							* |usedTransitionNames| [=list/contains=] |transitionName|.
-
-							* |element| is not |element|'s [=tree/root=]
-								and |element| does not have [=layout containment=].
-
-							* |element| is not |element|'s [=tree/root=]
-								and |element| allows [=fragmentation=].
-
-							Then [=skip the view transition=] |transition| with an "{{InvalidStateError}}" {{DOMException}},
-								and return.
-
-						1. [=set/Append=] |transitionName| to |usedTransitionNames|.
-
-						1. If |namedElements|[|transitionName|] does not [=map/exist=],
-							then set |namedElements|[|transitionName|] to a new [=captured element=] struct.
-
-						1. Let |capture| be |namedElements|[|transitionName|].
-
-						1. Let |capture|'s [=new element=] item be |element|.
-
-					1. [=Setup transition pseudo-elements=] for |transition|.
-
-					1. [=Update pseudo-element styles=] for |transition|.
-
-						Note: The above steps will require running document lifecycle phases,
-							to compute information calculated during style/layout.
-
-					1. Set |transition|'s [=ViewTransition/phase=] to "`animating`".
-
-					1. [=Resolve=] |transition|'s [=ViewTransition/ready promise=].
-
-				* If the promise was rejected with reason |reason|, then:
-
-					1. If |transition|'s [=ViewTransition/phase=] is "`done`", then return.
-
-						Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
-
-					1. [=Skip the view transition=] |transition| with |reason|.
 	</div>
 
-## Skip the view transition ## {#skip-the-view-transition-algorithm}
+### [=Capture the new state=] ### {#capture-new-state-algorithm}
 
 	<div algorithm>
-		To <dfn>skip the view transition</dfn> for {{ViewTransition}} |transition| with reason |reason|:
+		To <dfn>capture the new state</dfn> for {{ViewTransition}} |transition|:
 
 		1. Let |document| be |transition|'s [=relevant global object's=] [=associated document=].
 
-		1. [=Assert=]: |document|'s [=document/active DOM transition=] is |transition|.
+		1. Let |usedTransitionNames| be a new [=/set=] of strings.
 
-		1. [=Assert=]: |transition|'s [=ViewTransition/phase=] is not "`done`".
+		1. [=list/For each=] |element| of every {{Element}} and [=pseudo-element=] connected to |document|,
+			in [paint order](https://drafts.csswg.org/css2/#painting-order):
 
-		1. If |transition|'s [=ViewTransition/phase=] is [=phases/before=] "`update-callback-called`", then [=call the update callback=] of |transition|.
+			Issue: The link for "paint order" doesn't seem right.
+				Is there a more canonical definition?
 
-		1. Set [=document/transition suppressing rendering=] to false.
+			1. If any [=flat tree=] ancestor of this |element| [=skips its contents=], then [=continue=].
 
-		1. [=Clear view transition=] |transition|.
+			1. Let |transitionName| be the [=computed value=] of 'view-transition-name' for |element|.
 
-		1. Set |transition|'s [=ViewTransition/phase=] to "`done`".
+			1. If |transitionName| is ''view-transition-name/none'',
+				or |element| is [=element-not-rendered|not rendered=],
+				then [=continue=].
 
-		1. If |transition|'s [=ViewTransition/ready promise=] has not yet been resolved, [=reject=] it with |reason|.
+			1. If any of the following is true:
 
-			Note: The ready promise would've been resolved if {{ViewTransition/skipTransition()}} is called after we start animating.
+				* |usedTransitionNames| [=list/contains=] |transitionName|.
 
-		1. [=promise/React=] to |transition|'s [=ViewTransition/update callback done promise=]:
+				* |element| is not |element|'s [=tree/root=]
+					and |element| does not have [=layout containment=].
 
-			* If |transition|'s [=ViewTransition/update callback done promise=] was resolved,
-				then [=resolve=] |transition|'s [=ViewTransition/finished promise=].
+				* |element| is not |element|'s [=tree/root=]
+					and |element| allows [=fragmentation=].
 
-			* If |transition|'s [=ViewTransition/update callback done promise=] was rejected with reason |reason|,
-				then [=reject=] |transition|'s [=ViewTransition/finished promise=] with |reason|.
+				Then return failure.
+
+			1. [=set/Append=] |transitionName| to |usedTransitionNames|.
+
+			1. If |namedElements|[|transitionName|] does not [=map/exist=],
+				then set |namedElements|[|transitionName|] to a new [=captured element=] struct.
+
+			1. Let |capture| be |namedElements|[|transitionName|].
+
+			1. Let |capture|'s [=new element=] item be |element|.
 	</div>
 
-## [=Capture the image=] ## {#capture-the-image-algorithm}
-
-	<div algorithm>
-		To <dfn lt="capture the image|capturing the image">capture the image</dfn> given an {{Element}} |element|, perform the following steps.
-		They return an image.
-
-		1. If |element| is the [=document element=], then:
-
-			1. Render the region of the |element| and the [=top layer=] that intersects the [=snapshot root=],
-				on a transparent canvas the size of the [=snapshot root=],
-				following the [=capture rendering characteristics=], and these additional characteristics:
-
-				- Areas outside |element|'s [=scrolling box=] should be rendered as if they were scrolled to, without moving or resizing the [=layout viewport=].
-					This must not trigger events related to scrolling or resizing, such as {{IntersectionObserver}}s.
-
-					<figure>
-						<img src="diagrams/phone-browser-with-url.svg" width="202" height="297" alt="A phone browser window, showing a URL bar, a fixed-position element directly beneath it, and some page content beneath that. A scroll bar indicates the page has been scrolled significantly.">
-						<img src="diagrams/phone-browser-without-url.svg" width="202" height="297" alt="The captured snapshot. It shows that content beneath the URL bar was included in the capture.">
-						<figcaption>
-							An example of what the user sees compared to the captured snapshot.
-							This example assumes the root is the only element with a transition name.
-						</figcaption>
-					</figure>
-
-				- Areas that cannot be scrolled to (i.e. they are out of scrolling bounds),
-					should render the [=canvas background=].
-
-					<figure>
-						<img src="diagrams/phone-browser-scrolled-to-top-with-url.svg" width="202" height="297" alt="A phone browser window, showing a URL bar, and some content beneath. A scroll bar indicates the page is scrolled to the top.">
-						<img src="diagrams/phone-browser-scrolled-to-top-without-url.svg" width="202" height="297" alt="The captured snapshot. It shows the area underneath the URL bar as the same color as the rest of the document.">
-						<figcaption>
-							An example of what the user sees compared to the captured snapshot.
-							This example assumes the root is the only element with a transition name.
-						</figcaption>
-					</figure>
-
-			1. Return the canvas as an image.
-				The natural size of the image is equal to the [=snapshot root=].
-
-		1. Otherwise:
-
-			1. Render |element| and its [=tree/descendants=],
-				at the same size it appears in its [=node document=],
-				over an infinite transparent canvas,
-				following the [=capture rendering characteristics=].
-
-			1. Let |interestRectangle| be the result of [=computing the interest rectangle=] for |element|.
-
-				Note: The |interestRectangle| is the subset of |element|'s [=ink overflow rectangle=] that should be captured.
-					This is required for cases where an element's ink overflow rectangle needs to be clipped because of hardware constraints.
-					For example, if it exceeds the maximum texture size.
-
-			1. Return the portion of the canvas within |interestRectangle| as an image.
-				The natural size of the image is equal to the |interestRectangle| bounds.
-	</div>
-
-	<div algorithm>
-		The <dfn>capture rendering characteristics</dfn> are as follows:
-
-		* The origin of |element|'s [=ink overflow rectangle=] is anchored to canvas origin.
-
-		* If the referenced element has a transform applied to it (or its ancestors),
-			then the transform is ignored.
-
-			Note: This transform is applied to the snapshot using the `transform` property of the associated ''::view-transition-group'' pseudo-element.
-
-		* Effects on the element, such as 'opacity' and 'filter' are applied to the capture.
-
-		* [=list/For each=] |descendant| of [=shadow-including descendant=] {{Element}} and [=pseudo-element=] of |element|,
-			if |descendant| has a [=computed value=] of 'view-transition-name' that is not ''view-transition-name/none'',
-			then skip painting |descendant|.
-
-			Note: This is necessary since the descendant will generate its own snapshot which will be displayed and animated independently.
-
-			Issue: Refactor this so the algorithm takes a set of elements that will be captured. This centralizes the logic for deciding if an element should be included or not.
-
-			Issue: Specify what happens with 'mix-blend-mode'.
-	</div>
-
-## [=Update transition DOM=] ## {#update-transition-dom-algorithm}
-
-	<div algorithm>
-		To <dfn>update transition DOM</dfn> given a {{ViewTransition}} |transition|:
-
-		1. Let |document| be |transition|'s [=relevant global object's=] [=associated document=].
-
-		1. Let |hasActiveAnimations| be a boolean, initially false.
-
-		1. [=list/For each=] |element| of |transition|'s [=ViewTransition/transition root pseudo-element=]'s [=tree/inclusive descendants=]:
-
-			1. For each |animation| whose [=timeline=] is a [=document timeline=] associated with |document|,
-				and contains at least one [=animation/associated effect=] whose [=effect target=] is |element|,
-				set |hasActiveAnimations| to true if any of the following conditions is true:
-
-				Issue: The prose around "effect target" is incorrect, but [#8001](https://github.com/w3c/csswg-drafts/issues/8001) needs to land before it can be fixed.
-
-				- |animation|'s [=animation/play state=] is [=play state/paused=] or [=play state/running=].
-
-				- |document|'s [=pending animation event queue=] has any events associated with |animation|.
-
-					Issue: This prose isn't quite right, but it's blocked on [#8004](https://github.com/w3c/csswg-drafts/issues/8004).
-
-		1. If |hasActiveAnimations| is false:
-
-			1. Set |transition|'s [=ViewTransition/phase=] to "`done`".
-
-			1. [=Clear view transition=] |transition|.
-
-			1. [=Resolve=] |transition|'s [=ViewTransition/finished promise=].
-
-			1. Return.
-
-		1. If |transition|'s [=ViewTransition/initial snapshot root size=] is not equal to the [=snapshot root size=],
-			then [=skip the view transition=] for |transition|, and return.
-
-		1. [=Update pseudo-element styles=] for |transition|.
-
-			Note: The above implies that a change in incoming element's size or position will cause a new keyframe to be generated.
-				This can cause a visual jump.
-				We could retarget smoothly but don't have a use-case to justify the complexity.
-				See [issue 7813](https://github.com/w3c/csswg-drafts/issues/7813) for details.
-	</div>
-
-## [=Compute the interest rectangle=] ## {#compute-the-interest-rectangle-algorithm}
-
-	<div algorithm>
-		To <dfn lt="computing the interest rectangle|compute the interest rectangle">compute the interest rectangle</dfn> of an {{Element}} |element|, perform the following steps.
-		They return a rectangle.
-
-		1. Assert: |element| is not |element|'s [=node document=]'s [=document element=].
-
-			Note: The [=document element=] is captured differently, as specified in [=capture the image=].
-
-		1. If |element|'s [=ink overflow area=] does not exceed an implementation-defined maximum size,
-			then return a rectangle that is equal to |element|'s [=ink overflow rectangle=].
-
-		1. Otherwise:
-
-			Issue: Define the algorithm used to clip the snapshot when it exceeds max size.
-	</div>
-
-## [=Setup transition pseudo-elements=] ## {#setup-transition-pseudo-elements-algorithm}
+### [=Setup transition pseudo-elements=] ### {#setup-transition-pseudo-elements-algorithm}
 
 	<div algorithm>
 		To <dfn>setup transition pseudo-elements</dfn> for a {{ViewTransition}} |transition|:
+
+		Note: This algorithm constructs the pseudo-element tree for the transition,
+		and generates initial styles.
+		The structure of the pseudo-tree is covered at a higher level in [[#view-transition-pseudos]].
 
 		1. Let |document| be [=this's=] [=relevant global object's=] [=associated document=].
 
@@ -1553,6 +1413,207 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 					Would it be simpler to always add it and try to optimize in the implementation?
 	</div>
 
+## [=Call the update callback=] ## {#call-dom-update-callback-algorithm}
+
+	<div algorithm>
+		To <dfn>call the update callback</dfn> of a {{ViewTransition}} |transition|:
+
+		Note: This is guaranteed to happen for every {{ViewTransition}},
+		even if the transition is [=Skip the view transition|skipped=].
+		The reasons for this are discussed in [[#transitions-as-enhancements]].
+
+		1. [=Assert=]: |transition|'s [=ViewTransition/phase=] is [=phases/before=] "`update-callback-called`".
+
+		1. Let |callbackPromise| be [=a new promise=] in |transition|'s [=relevant Realm=].
+
+			* If |transition|'s [=ViewTransition/update callback=] is null, then resolve |callbackPromise|.
+
+			* Otherwise, let |callbackPromise| be the result of [=/invoking=] |transition|'s [=ViewTransition/update callback=].
+
+		1. Set |transition|'s [=ViewTransition/phase=] to "`update-callback-called`".
+
+		1. [=promise/React=] to |callbackPromise|:
+
+			* If |callbackPromise| was resolved, then [=resolve=] |transition|'s [=ViewTransition/update callback done promise=].
+
+			* If |callbackPromise| was rejected with reason |r|, then [=reject=] |transition|'s [=ViewTransition/update callback done promise=] with |r|.
+	</div>
+
+## [=Skip the view transition=] ## {#skip-the-view-transition-algorithm}
+
+	<div algorithm>
+		To <dfn>skip the view transition</dfn> for {{ViewTransition}} |transition| with reason |reason|:
+
+		1. Let |document| be |transition|'s [=relevant global object's=] [=associated document=].
+
+		1. [=Assert=]: |document|'s [=document/active DOM transition=] is |transition|.
+
+		1. [=Assert=]: |transition|'s [=ViewTransition/phase=] is not "`done`".
+
+		1. If |transition|'s [=ViewTransition/phase=] is [=phases/before=] "`update-callback-called`", then [=call the update callback=] of |transition|.
+
+		1. Set [=document/transition suppressing rendering=] to false.
+
+		1. [=Clear view transition=] |transition|.
+
+		1. Set |transition|'s [=ViewTransition/phase=] to "`done`".
+
+		1. If |transition|'s [=ViewTransition/ready promise=] has not yet been resolved, [=reject=] it with |reason|.
+
+			Note: The ready promise would've been resolved if {{ViewTransition/skipTransition()}} is called after we start animating.
+
+		1. [=promise/React=] to |transition|'s [=ViewTransition/update callback done promise=]:
+
+			* If |transition|'s [=ViewTransition/update callback done promise=] was resolved,
+				then [=resolve=] |transition|'s [=ViewTransition/finished promise=].
+
+			* If |transition|'s [=ViewTransition/update callback done promise=] was rejected with reason |reason|,
+				then [=reject=] |transition|'s [=ViewTransition/finished promise=] with |reason|.
+	</div>
+
+## [=Capture the image=] ## {#capture-the-image-algorithm}
+
+	<div algorithm>
+		To <dfn lt="capture the image|capturing the image">capture the image</dfn> given an {{Element}} |element|, perform the following steps.
+		They return an image.
+
+		1. If |element| is the [=document element=], then:
+
+			1. Render the region of the |element| and the [=top layer=] that intersects the [=snapshot root=],
+				on a transparent canvas the size of the [=snapshot root=],
+				following the [=capture rendering characteristics=], and these additional characteristics:
+
+				- Areas outside |element|'s [=scrolling box=] should be rendered as if they were scrolled to, without moving or resizing the [=layout viewport=].
+					This must not trigger events related to scrolling or resizing, such as {{IntersectionObserver}}s.
+
+					<figure>
+						<img src="diagrams/phone-browser-with-url.svg" width="202" height="297" alt="A phone browser window, showing a URL bar, a fixed-position element directly beneath it, and some page content beneath that. A scroll bar indicates the page has been scrolled significantly.">
+						<img src="diagrams/phone-browser-without-url.svg" width="202" height="297" alt="The captured snapshot. It shows that content beneath the URL bar was included in the capture.">
+						<figcaption>
+							An example of what the user sees compared to the captured snapshot.
+							This example assumes the root is the only element with a transition name.
+						</figcaption>
+					</figure>
+
+				- Areas that cannot be scrolled to (i.e. they are out of scrolling bounds),
+					should render the [=canvas background=].
+
+					<figure>
+						<img src="diagrams/phone-browser-scrolled-to-top-with-url.svg" width="202" height="297" alt="A phone browser window, showing a URL bar, and some content beneath. A scroll bar indicates the page is scrolled to the top.">
+						<img src="diagrams/phone-browser-scrolled-to-top-without-url.svg" width="202" height="297" alt="The captured snapshot. It shows the area underneath the URL bar as the same color as the rest of the document.">
+						<figcaption>
+							An example of what the user sees compared to the captured snapshot.
+							This example assumes the root is the only element with a transition name.
+						</figcaption>
+					</figure>
+
+			1. Return the canvas as an image.
+				The natural size of the image is equal to the [=snapshot root=].
+
+		1. Otherwise:
+
+			1. Render |element| and its [=tree/descendants=],
+				at the same size it appears in its [=node document=],
+				over an infinite transparent canvas,
+				following the [=capture rendering characteristics=].
+
+			1. Let |interestRectangle| be the result of [=computing the interest rectangle=] for |element|.
+
+			1. Return the portion of the canvas within |interestRectangle| as an image.
+				The natural size of the image is equal to the |interestRectangle| bounds.
+	</div>
+
+### [=Capture rendering characteristics=] ### {#capture-rendering-characteristics-algorithm}
+
+	<div algorithm>
+		The <dfn>capture rendering characteristics</dfn> are as follows:
+
+		* The origin of |element|'s [=ink overflow rectangle=] is anchored to canvas origin.
+
+		* If the referenced element has a transform applied to it (or its ancestors),
+			then the transform is ignored.
+
+			Note: This transform is applied to the snapshot using the `transform` property of the associated ''::view-transition-group'' pseudo-element.
+
+		* Effects on the element, such as 'opacity' and 'filter' are applied to the capture.
+
+		* [=list/For each=] |descendant| of [=shadow-including descendant=] {{Element}} and [=pseudo-element=] of |element|,
+			if |descendant| has a [=computed value=] of 'view-transition-name' that is not ''view-transition-name/none'',
+			then skip painting |descendant|.
+
+			Note: This is necessary since the descendant will generate its own snapshot which will be displayed and animated independently.
+
+			Issue: Refactor this so the algorithm takes a set of elements that will be captured. This centralizes the logic for deciding if an element should be included or not.
+
+			Issue: Specify what happens with 'mix-blend-mode'.
+	</div>
+
+### [=Compute the interest rectangle=] ### {#compute-the-interest-rectangle-algorithm}
+
+	<div algorithm>
+		To <dfn lt="computing the interest rectangle|compute the interest rectangle">compute the interest rectangle</dfn> of an {{Element}} |element|, perform the following steps.
+		They return a rectangle.
+
+		Note: The interest rectangle is the subset of |element|'s [=ink overflow rectangle=] that should be captured.
+			This is required for cases where an element's ink overflow rectangle needs to be clipped because of hardware constraints.
+			For example, if it exceeds the maximum texture size.
+
+		1. Assert: |element| is not |element|'s [=node document=]'s [=document element=].
+
+			Note: The [=document element=] is captured differently, as specified in [=capture the image=].
+
+		1. If |element|'s [=ink overflow area=] does not exceed an implementation-defined maximum size,
+			then return a rectangle that is equal to |element|'s [=ink overflow rectangle=].
+
+		1. Otherwise:
+
+			Issue: Define the algorithm used to clip the snapshot when it exceeds max size.
+	</div>
+
+## [=Handle transition frame=] ## {#update-transition-dom-algorithm}
+
+	<div algorithm>
+		To <dfn>handle transition frame</dfn> given a {{ViewTransition}} |transition|:
+
+		1. Let |document| be |transition|'s [=relevant global object's=] [=associated document=].
+
+		1. Let |hasActiveAnimations| be a boolean, initially false.
+
+		1. [=list/For each=] |element| of |transition|'s [=ViewTransition/transition root pseudo-element=]'s [=tree/inclusive descendants=]:
+
+			1. For each |animation| whose [=timeline=] is a [=document timeline=] associated with |document|,
+				and contains at least one [=animation/associated effect=] whose [=effect target=] is |element|,
+				set |hasActiveAnimations| to true if any of the following conditions is true:
+
+				Issue: The prose around "effect target" is incorrect, but [#8001](https://github.com/w3c/csswg-drafts/issues/8001) needs to land before it can be fixed.
+
+				- |animation|'s [=animation/play state=] is [=play state/paused=] or [=play state/running=].
+
+				- |document|'s [=pending animation event queue=] has any events associated with |animation|.
+
+					Issue: This prose isn't quite right, but it's blocked on [#8004](https://github.com/w3c/csswg-drafts/issues/8004).
+
+		1. If |hasActiveAnimations| is false:
+
+			1. Set |transition|'s [=ViewTransition/phase=] to "`done`".
+
+			1. [=Clear view transition=] |transition|.
+
+			1. [=Resolve=] |transition|'s [=ViewTransition/finished promise=].
+
+			1. Return.
+
+		1. If |transition|'s [=ViewTransition/initial snapshot root size=] is not equal to the [=snapshot root size=],
+			then [=skip the view transition=] for |transition|, and return.
+
+		1. [=Update pseudo-element styles=] for |transition|.
+
+			Note: The above implies that a change in incoming element's size or position will cause a new keyframe to be generated.
+				This can cause a visual jump.
+				We could retarget smoothly but don't have a use-case to justify the complexity.
+				See [issue 7813](https://github.com/w3c/csswg-drafts/issues/7813) for details.
+	</div>
+
 ## [=Update pseudo-element styles=] ## {#style-transition-pseudo-elements-algorithm}
 
 	<div algorithm>
@@ -1633,26 +1694,6 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 		This algorithm must be executed to update styles in [=user-agent origin=] if its effects can be observed by a web API.
 
 		Note: An example of such a web API is `window.getComputedStyle(document.documentElement, "::view-transition")`.
-	</div>
-
-	<div algorithm>
-		To <dfn>call the update callback</dfn> of a {{ViewTransition}} |transition|:
-
-		1. [=Assert=]: |transition|'s [=ViewTransition/phase=] is [=phases/before=] "`update-callback-called`".
-
-		1. Let |callbackPromise| be [=a new promise=] in |transition|'s [=relevant Realm=].
-
-			* If |transition|'s [=ViewTransition/update callback=] is null, then resolve |callbackPromise|.
-
-			* Otherwise, let |callbackPromise| be the result of [=/invoking=] |transition|'s [=ViewTransition/update callback=].
-
-		1. Set |transition|'s [=ViewTransition/phase=] to "`update-callback-called`".
-
-		1. [=promise/React=] to |callbackPromise|:
-
-			* If |callbackPromise| was resolved, then [=resolve=] |transition|'s [=ViewTransition/update callback done promise=].
-
-			* If |callbackPromise| was rejected with reason |r|, then [=reject=] |transition|'s [=ViewTransition/update callback done promise=] with |r|.
 	</div>
 
 ## [=Clear view transition=] ## {#clear-view-transition-algorithm}
