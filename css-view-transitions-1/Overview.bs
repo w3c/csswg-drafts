@@ -80,6 +80,33 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 	pre {
 		tab-size: 2;
 	}
+	.domintro {
+		position: relative;
+		color: green;
+		background: #DDFFDD;
+		margin: 2.5em 0 2em 0;
+		padding: 1.5em 1em 0.5em 2em;
+	}
+	.domintro dt, .domintro dt * {
+		color: black;
+		font-size: inherit;
+	}
+	.domintro dd {
+		margin: 0.5em 0 1em 2em; padding: 0;
+	}
+	.domintro dd p {
+		margin: 0.5em 0;
+	}
+	.domintro::before {
+		content: 'For web developers (non-normative)';
+		background: green;
+		color: white;
+		padding: 0.15em 0.25em;
+		font-style: normal;
+		position: absolute;
+		top: -0.8em;
+		left: -0.8em;
+	}
 </style>
 
 # Introduction # {#intro}
@@ -857,20 +884,33 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 
 	<xmp class=idl>
 		partial interface Document {
-			ViewTransition startViewTransition(optional UpdateCallback? callback = null);
+			ViewTransition startViewTransition(optional UpdateCallback? updateCallback = null);
 		};
 
 		callback UpdateCallback = Promise<any> ();
 	</xmp>
 
+	<dl class="domintro non-normative">
+		: <code>{{ViewTransition|viewTransition}} = {{Document|document}}.{{startViewTransition}}({{UpdateCallback|updateCallback}})</code>
+		:: Starts a new view transition.
+
+			{{UpdateCallback|updateCallback}} is called asynchronously, once the current state of the document is captured.
+			Then, when the promise returned by {{UpdateCallback|updateCallback}} fulfills, the new state of the document is captured.
+
+			{{UpdateCallback|updateCallback}} is _always_ called, even if the transition cannot happen (e.g. due to duplicate `view-transition-name` values).
+			The transition is an enhancement around the state change, so a failure to create a transition never prevents the state change. See [[#transitions-as-enhancements]] for more details on this principle.
+
+			If the promise returned by {{UpdateCallback|updateCallback}} rejects, the transition is skipped.
+	</dl>
+
 ### {{Document/startViewTransition()}} ### {#ViewTransition-prepare}
 
 	<div algorithm>
-		The [=method steps=] for <dfn method for=Document>startViewTransition(|callback|)</dfn> are as follows:
+		The [=method steps=] for <dfn method for=Document>startViewTransition(|updateCallback|)</dfn> are as follows:
 
 		1. Let |transition| be a new {{ViewTransition}} object in [=this's=] [=relevant Realm=].
 
-		1. Set |transition|'s [=ViewTransition/update callback=] to |callback|.
+		1. Set |transition|'s [=ViewTransition/update callback=] to |updateCallback|.
 
 		1. Let |document| be [=this's=] [=relevant global object's=] [=associated document=].
 
@@ -894,16 +934,55 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 	<xmp class=idl>
 		[Exposed=Window]
 		interface ViewTransition {
-			undefined skipTransition();
-			readonly attribute Promise<undefined> finished;
-			readonly attribute Promise<undefined> ready;
 			readonly attribute Promise<undefined> updateCallbackDone;
+			readonly attribute Promise<undefined> ready;
+			readonly attribute Promise<undefined> finished;
+			undefined skipTransition();
 		};
 	</xmp>
 
 	Note: The {{ViewTransition}} represents and controls a single same-document transition.
 	That is, it controls a transition where the starting and ending document are the same,
 	possibly with changes to the document's DOM structure.
+
+	<dl class="domintro non-normative">
+		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/updateCallbackDone}}</code>
+		:: A promise that fulfills when the promise returned by {{UpdateCallback|updateCallback}} fulfills, or rejects when it rejects.
+
+			The View Transition API wraps a DOM change and creates a transition.
+			However, sometimes you don't care about the success/failure of the transition animation,
+			you just want to know if and when the DOM change happens.
+			{{ViewTransition/updateCallbackDone}} is for that use-case.
+
+		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/ready}}</code>
+		:: A promise that fulfills once the pseudo-elements for the transition are created,
+			and the animation is about to start.
+
+			It rejects if the transition cannot begin.
+			This can be due to misconfiguration, such as duplicate 'view-transition-name's,
+			or if {{ViewTransition/updateCallbackDone}} returns a rejected promise.
+
+			The point that {{ViewTransition/ready}} fulfills is the ideal opportunity to animate the view transition pseudo-elements with the [[web-animations-1#extensions-to-the-element-interface|web animation API]].
+
+		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/finished}}</code>
+		:: A promise that fulfills once the end state is fully visible and interactive to the user.
+
+			It only rejects if {{UpdateCallback|updateCallback}} returns a rejected promise,
+			as this indicates the end state wasn't created.
+
+			Otherwise, if a transition fails to begin, or is skipped during the transition, the end state is still reached,
+			so {{ViewTransition/finished}} fulfills.
+
+		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/skipTransition}}()</code>
+		:: Immediately finish the transition, or prevent it starting.
+
+			This never prevents {{UpdateCallback|updateCallback}} being called,
+			as the DOM change is separate to the transition. See [[#transitions-as-enhancements]] for more details on this principle.
+
+			If this is called before {{ViewTransition/ready}} resolves, {{ViewTransition/ready}} will reject.
+
+			If {{ViewTransition/finished}} hasn't resolved, it will fulfill or reject along with {{ViewTransition/updateCallbackDone}}.
+	</dl>
 
 	A {{ViewTransition}} has the following:
 
