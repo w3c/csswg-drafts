@@ -36,7 +36,32 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 	text: HTML user agent style sheet; url: #the-css-user-agent-style-sheet-and-presentational-hints
 </pre>
 
+<script async type="module" src="diagrams/resources/scaler.js"></script>
+
 <style>
+	spec-scaler {
+		display: block;
+	}
+	spec-scaler:not(:defined) > * {
+		display: none;
+	}
+	.spec-slides {
+		width: 100%;
+		height: 100%;
+		border: none;
+		display: block;
+	}
+	.spec-slide-controls {
+		text-align: center;
+	}
+	.main-example-video {
+		display: block;
+		width: 100%;
+		max-width: 702px;
+		height: auto;
+		margin: 0 auto;
+	}
+
 	/* Put nice boxes around each algorithm. */
 	[data-algorithm]:not(.heading) {
 		padding: .5em;
@@ -61,82 +86,349 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 
 	*This section is non-normative.*
 
-	View Transitions is a set of API that allow DOM changes to smoothly animate between states.
-	This is accomplished by leveraging user-agents ability to persist visual representations of state (i.e. snapshots)
-	and blend them with current DOM state's visual output.
-	The API also allows the animations to be customized via standard CSS animation properties.
+	View Transitions is a feature that allows DOM changes to smoothly animate between states.
 
-	This spec describes the CSS and JS mechanics of the single-page transition API.
+## Separating transitions from DOM updates ## {#separating-transitions}
 
-# Transitions as an enhancement # {#transitions-as-enhancements}
+	Traditionally, creating a transition between two states involves a period where both states are present in the DOM at the same time.
+	In fact, it usually involves creating a specific DOM structure that can contain both states.
+	If one element is "moving" between containers,
+	that element often needs to exist outside of either container for the period of the transition,
+	to avoid clipping from either container or ancestor elements.
 
-	*This section is non-normative.*
+	This extra in-between state often results in UX and accessibility issues,
+	as the structure of the DOM is compromised for a purely-visual effect.
 
-	A key part of this API design is the view that an animated transition is an enhancement to a DOM change.
-	Specifically, there are two components of the API: the DOM change, and the visual state animation.
+	View transitions avoid this troublesome in-between state by allowing the DOM to switch between states synchronously,
+	then performing a customizable visual transition between the two states in another layer,
+	using a static capture of the old state, and a live capture of the new state.
 
-	In order for the user-agent to generate a set of snapshots prior to the DOM change,
-	the API is designed to take the DOM change callback as part of the request to initiate a transition.
-	This means that the user-agent has an opportunity to generate snapshots for the existing visual representation,
-	run the given callback to update the state,
-	and finally generate structures and set up animations required for the transition to occur.
-	All this is accomplished with a single call to the JavaScript API.
+	These captures are used in a tree of pseudo-elements
+	(detailed in [[#view-transition-pseudos]]),
+	where the old state cross-fades with the new state,
+	while animating from the old to new size and position.
 
-	The user-agent provides additional JavaScript functionality and promises to control and observe the state of the animations.
-	These are described in detail in the {{ViewTransition}} section.
+	Since the captures are rendered in pseudo-elements,
+	developers can customize the transition using familiar features,
+	such as CSS and web animations.
 
-	After the callback has finished running, the user-agent creates a structure of pseudo-elements that represent both the "old" and "new" states of the transition.
-	The structure of the pseudo-elements is dictated by the 'view-transition-name' property.
-	Specifically, each element that is named with a 'view-transition-name' creates a separate snapshot
-	and thus a separate group of pseudo-elements that are animated independently from the rest.
-	Note that for convenience, the [=document element=] is given the 'view-transition-name' "root" in the user-agent style sheet.
+	The developer chooses which elements are captured independently,
+	meaning they can be animated independently,
+	using the 'view-transition-name' CSS property.
 
-	The groups induced by the 'view-transition-name' are all positioned within a common pseudo-element root,
-	which itself is attached to the [=document element=] of the page.
+## Lifecycle ## {#lifecycle}
 
-	Each of the groups is comprised of up to four pseudo elements:
+	A successful view transition goes through the following phases:
 
-	: Group
-	:: This element initially mirrors the size and position of the "old" element that it represents
-		(i.e. the transition-named element that caused this group to be created).
-		The element is animated to the "new" size and position.
+	1. Developer calls <code>document.{{Document/startViewTransition}}({{UpdateCallback|updateCallback}})</code>,
+		which returns <code>viewTransition</code>, a {{ViewTransition}}.
 
-	: Image-Pair
-	:: This element is a child of the group element and provides ''isolation: isolate'' for its children.
-		It's needed so that its children can be blended with non-normal blend modes without affecting other visual outputs.
+	1. Current state captured as the "old" state.
 
-	: Old image
-	:: This element is a child of the image-pair element.
-		It is a replaced element that produced the visual representation of the "old" state taken from user-agent provided snapshots.
-		Note that the contents of this element can be manipulated with `object-*` properties in the same way that other replaced elements can be.
+	1. Rendering paused.
 
-	: New image
-	:: This element is a child of the image-pair element.
-		It is a replaced element that produces the visual representation of the "new" state,
-		taken from the page's visual output of the represented elements.
-		Like the old image, the contents can be manipulated with `object-*` properties.
-		Note that because this element's snapshots are taken from the pages output,
-		the visual output changes if the visual output of the represented element changes.
-		This is similar to ''element()'', although it differs in terms of the captured area.
+	1. Developer's {{UpdateCallback|updateCallback}} is called,
+		where they update document state.
 
-	Issue: This sections can benefit from diagrams.
+	1. <code>viewTransition.{{ViewTransition/updateCallbackDone}}</code> fulfills.
 
-	Each of the pseudo-elements generated can be targeted by CSS in order to customize its appearance,
-	behavior and/or add animations.
-	This enables full customization of the transition.
+	1. Current state captured as the "new" state.
 
-	Note that because these APIs are an enhancement to the DOM change, some principles emerge:
+	1. Transition pseudo-elements created.
+		See [[#view-transition-pseudos]] for an overview of this structure.
 
-	* If a transition cannot run, or is skipped, the DOM change should still happen.
-		If the DOM change should also be skipped, then that should be handled by another feature.
-		The {{NavigateEvent/signal}} on {{NavigateEvent}} is an example of a feature developers could use to handle this.
+	1. Rendering unpaused, revealing the transition pseudo-elements.
 
-	* Although the transition API allows DOM changes to be asynchronous via the {{Document/startViewTransition()}} {{Document/startViewTransition(callback)/callback}},
-		the transition API is not responsible for queuing or otherwise scheduling the DOM changes,
-		beyond the scheduling needed for the transition itself.
-		Some asynchronous DOM changes can happen concurrently (e.g if they're happening within independent components),
-		whereas others need to queue, or abort an earlier change.
-		This is best left to a feature or framework that has a more holistic view of the update.
+	1. <code>viewTransition.{{ViewTransition/ready}}</code> fulfills.
+
+	1. Pseudo-elements animate until finished.
+
+	1. Transition pseudo-elements removed.
+
+	1. <code>viewTransition.{{ViewTransition/finished}}</code> fulfills.
+
+	<div id="phases-diagram">
+		<spec-scaler canvaswidth="1920" canvasheight="1080" style="aspect-ratio: 1920/1080">
+			<iframe class="spec-slides" src="diagrams/phases/"></iframe>
+		</spec-scaler>
+		<p class="spec-slide-controls">
+			<button disabled>Previous</button>
+			<button disabled>Next</button>
+		</p>
+		<script type="module">
+			const root = document.querySelector('#phases-diagram');
+			const [previous, next] = root.querySelectorAll('.spec-slide-controls button');
+			const iframe = root.querySelector('iframe');
+			next.disabled = false;
+
+			const updateButtons = (slide) => {
+				next.disabled = !slide.hasNext;
+				previous.disabled = !slide.hasPrevious;
+			};
+
+			next.addEventListener('click', async () => {
+				const slide = iframe.contentDocument.querySelector('spec-slide');
+				await slide.next();
+				updateButtons(slide);
+			});
+			previous.addEventListener('click', async () => {
+				const slide = iframe.contentDocument.querySelector('spec-slide');
+				await slide.previous();
+				updateButtons(slide);
+			});
+		</script>
+	</div>
+
+## Transitions as an enhancement ## {#transitions-as-enhancements}
+
+	A key part of this API design is that an animated transition is an enhancement to a document state change.
+
+	That means, a failure to create a transition,
+	which can happen due to misconfiguration or device constraints,
+	will not prevent the developer's {{UpdateCallback}} being called,
+	even if it's known in advance that the animated transition cannot happen.
+
+	For example, if the developer calls {{ViewTransition/skipTransition()}} at the start of the [[#lifecycle|lifecycle]],
+	the steps relating to the animated transition, such as creating the pseudo-elements, will not happen.
+	However, the {{UpdateCallback}} will still be called.
+	It's only the transition that's skipped, not the whole state change.
+
+	If the DOM change should also be skipped, then that should be handled by another feature.
+	<code>{{NavigateEvent|navigateEvent}}.{{NavigateEvent/signal}}</code> is an example of a feature developers could use to handle this.
+
+	Although the transition API allows DOM changes to be asynchronous via the {{UpdateCallback}},
+	the transition API is not responsible for queuing or otherwise scheduling the DOM changes beyond the scheduling needed for the transition itself.
+	Some asynchronous DOM changes can happen concurrently (e.g if they're happening within independent components),
+	whereas others need to queue, or abort an earlier change.
+	This is best left to a feature or framework that has a more holistic view of the application.
+
+## Examples ## {#examples}
+
+	<div class=example>
+		Taking a page that already updates its content using a pattern like this:
+
+		```js
+		function spaNavigate(data) {
+			updateTheDOMSomehow(data);
+		}
+		```
+
+		A transition could be added like this:
+
+		```js
+		function spaNavigate(data) {
+			// Fallback for browsers that don't support this API:
+			if (!document.startViewTransition) {
+				updateTheDOMSomehow(data);
+				return;
+			}
+
+			// With a transition:
+			document.startViewTransition(() => updateTheDOMSomehow(data));
+		}
+		```
+
+		This results in the default transition of a quick cross-fade:
+
+		<figure>
+			<video src="diagrams/videos/default.mp4" style="aspect-ratio: 1404/738" class="main-example-video" controls muted loop playsinline></video>
+		</figure>
+
+		The cross-fade is achieved using CSS animations on a [[#view-transition-pseudos|tree of pseudo-elements]],
+		so customizations can be made using CSS. For example:
+
+		```css
+		::view-transition-old(root),
+		::view-transition-new(root) {
+			animation-duration: 5s;
+		}
+		```
+
+		This results in a slower transition:
+
+		<figure>
+			<video src="diagrams/videos/slow.mp4" style="aspect-ratio: 1404/738" class="main-example-video" controls muted loop playsinline></video>
+		</figure>
+	</div>
+
+	<div class=example>
+		Building on the previous example, motion can be added:
+
+		```css
+		@keyframes fade-in {
+			from { opacity: 0; }
+		}
+
+		@keyframes fade-out {
+			to { opacity: 0; }
+		}
+
+		@keyframes slide-from-right {
+			from { transform: translateX(30px); }
+		}
+
+		@keyframes slide-to-left {
+			to { transform: translateX(-30px); }
+		}
+
+		::view-transition-old(root) {
+			animation: 90ms cubic-bezier(0.4, 0, 1, 1) both fade-out,
+				300ms cubic-bezier(0.4, 0, 0.2, 1) both slide-to-left;
+		}
+
+		::view-transition-new(root) {
+			animation: 210ms cubic-bezier(0, 0, 0.2, 1) 90ms both fade-in,
+				300ms cubic-bezier(0.4, 0, 0.2, 1) both slide-from-right;
+		}
+		```
+
+		Here's the result:
+
+		<figure>
+			<video src="diagrams/videos/slide.mp4" style="aspect-ratio: 1404/738" class="main-example-video" controls muted loop playsinline></video>
+		</figure>
+	</div>
+
+	<div class=example>
+		Building on the previous example,
+		the header and text within the header can be given their own ''::view-transition-group()''s for the transition:
+
+		```css
+		.main-header {
+			view-transition-name: main-header;
+		}
+
+		.main-header-text {
+			view-transition-name: main-header-text;
+			/* Give the element a consistent size, assuming identical text: */
+			width: fit-content;
+		}
+		```
+
+		By default, these groups will transition size and position from their "old" to "new" state,
+		while their visual states cross-fade:
+
+		<figure>
+			<video src="diagrams/videos/header.mp4" style="aspect-ratio: 1404/738" class="main-example-video" controls muted loop playsinline></video>
+		</figure>
+	</div>
+
+	<div class=example>
+		Building on the previous example, let's say some pages have a sidebar:
+
+		<figure>
+			<video src="diagrams/videos/bad-sidebar.mp4" style="aspect-ratio: 1404/738" class="main-example-video" controls muted loop playsinline></video>
+		</figure>
+
+		In this case, things would look better if the sidebar was static if it was in both the "old" and "new" states.
+		Otherwise, it should animate in or out.
+
+		The '':only-child'' pseudo-class can be used to create animations specifically for these states:
+
+		```css
+		.sidebar {
+			view-transition-name: sidebar;
+		}
+
+		@keyframes slide-to-right {
+			to { transform: translateX(30px); }
+		}
+
+		/* Entry transition */
+		::view-transition-new(sidebar):only-child {
+			animation: 300ms cubic-bezier(0, 0, 0.2, 1) both fade-in,
+				300ms cubic-bezier(0.4, 0, 0.2, 1) both slide-from-right;
+		}
+
+		/* Exit transition */
+		::view-transition-old(sidebar):only-child {
+			animation: 150ms cubic-bezier(0.4, 0, 1, 1) both fade-out,
+				300ms cubic-bezier(0.4, 0, 0.2, 1) both slide-to-right;
+		}
+		```
+
+		For cases where the sidebar has both an "old" and "new" state, the default animation is correct.
+
+		<figure>
+			<video src="diagrams/videos/good-sidebar.mp4" style="aspect-ratio: 1404/738" class="main-example-video" controls muted loop playsinline></video>
+		</figure>
+	</div>
+
+	<div class=example>
+		Not building from previous examples this time,
+		let's say we wanted to create a circular reveal from the user's cursor.
+		This can't be done with CSS alone.
+
+		Firstly, in the CSS, allow the "old" and "new" states to layer on top of one another without the default blending,
+		and prevent the default cross-fade animation:
+
+		```css
+		::view-transition-image-pair(root) {
+			isolation: auto;
+		}
+
+		::view-transition-old(root),
+		::view-transition-new(root) {
+			animation: none;
+			mix-blend-mode: normal;
+		}
+		```
+
+		Then, the JavaScript:
+
+		```js
+		// Store the last click event
+		let lastClick;
+		addEventListener('click', event => (lastClick = event));
+
+		function spaNavigate(data) {
+			// Fallback for browsers that don't support this API:
+			if (!document.startViewTransition) {
+				updateTheDOMSomehow(data);
+				return;
+			}
+
+			// Get the click position, or fallback to the middle of the screen
+			const x = lastClick?.clientX ?? innerWidth / 2;
+			const y = lastClick?.clientY ?? innerHeight / 2;
+			// Get the distance to the furthest corner
+			const endRadius = Math.hypot(
+				Math.max(x, innerWidth - x),
+				Math.max(y, innerHeight - y)
+			);
+
+			// Create a transition:
+			const transition = document.startViewTransition(() => {
+				updateTheDOMSomehow(data);
+			});
+
+			// Wait for the pseudo-elements to be created:
+			transition.ready.then(() => {
+				// Animate the root's new view
+				document.documentElement.animate(
+					{
+						clipPath: [
+							\`circle(0 at ${x}px ${y}px)\`,
+							\`circle(${endRadius}px at ${x}px ${y}px)\`,
+						],
+					},
+					{
+						duration: 500,
+						easing: 'ease-in',
+						// Specify which pseudo-element to animate
+						pseudoElement: '::view-transition-new(root)',
+					}
+				);
+			});
+		}
+		```
+
+		And here's the result:
+
+		<figure>
+			<video src="diagrams/videos/circle.mp4" style="aspect-ratio: 1404/738" class="main-example-video" controls muted loop playsinline></video>
+		</figure>
+	</div>
 
 # CSS properties # {#css-properties}
 
@@ -166,15 +458,6 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 			Note: The value <css>none</css> is invalid as a <<custom-ident>>.
 	</dl>
 
-	The [=document element=] participates in a view transition by default using the following rule,
-	added to the [=HTML user agent style sheet=]:
-
-	```css
-	html {
-		view-transition-name: root;
-	}
-	```
-
 	Note: This property causes the user-agent to both capture separate snapshots from the elements,
 	as well as create separate pseudo-element sub-trees representing this element's "old" and "new" states.
 	For the purposes of this API,
@@ -183,9 +466,9 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 	This may be confusing, since the elements themselves are not necessarily referring to the same object,
 	but it is a useful model to consider them to be visual states of the same conceptual page entity, that we happen to call "element".
 
-# User-agent keyframes # {#ua-keyframes}
+# User-agent styles # {#ua-styles}
 
-	The following <<@keyframes>> are added to the [=HTML user agent style sheet=]:
+	The following is added to the [=HTML user agent style sheet=]:
 
 	```css
 	@keyframes -ua-view-transition-fade-out {
@@ -195,7 +478,16 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 	@keyframes -ua-view-transition-fade-in {
 		from { opacity: 0; }
 	}
+
+	html {
+		view-transition-name: root;
+	}
 	```
+
+	<div class=note>
+		There are further additions to the [=HTML user agent style sheet=] defined in [[#view-transition-pseudos]] for each pseudo-element,
+		and other styles are added at runtime via the [=document=]'s [=document/view transition style sheet=].
+	</div>
 
 # Pseudo-elements # {#pseudo}
 
@@ -241,8 +533,36 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 
 ## View transition pseudo-elements ## {#view-transition-pseudos}
 
+	<div class=note>
+		Once the user-agent has captured both the "old" and "new" states of the document,
+		it creates a structure of pseudo-elements like the following:
+
+		```
+		::view-transition
+		├─ ::view-transition-group(name)
+		│  └─ ::view-transition-image-pair(name)
+		│     ├─ ::view-transition-old(name)
+		│     └─ ::view-transition-new(name)
+		└─ …other groups…
+		```
+
+		Each element with a 'view-transition-name' is captured separately,
+		and a ''::view-transition-group()'' is created for each unique 'view-transition-name'.
+
+		For convenience, the [=document element=] is given the 'view-transition-name' "root" in the [[#ua-styles|user-agent style sheet]].
+
+		Either ''::view-transition-old()'' or ''::view-transition-new()'' are absent in cases where the capture does not have an "old" or "new" state.
+
+		Each of the pseudo-elements generated can be targeted by CSS in order to customize its appearance,
+		behavior and/or add animations.
+		This enables full customization of the transition.
+	</div>
+
 	: <dfn>::view-transition</dfn>
-	:: A [=tree-abiding pseudo-element=] that is also
+	::
+		<div class=note>This element provides a containing block for all ''::view-transition-group()'' pseudo-elements.</div>
+
+		A [=tree-abiding pseudo-element=] that is also
 		a [=pseudo-element root=].
 		Its [=originating element=] is the document's [=document element=].
 
@@ -258,13 +578,27 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 		```
 
 		<div class="note">
-			This pseudo-element provides a containing block for all ''::view-transition-group()'' pseudo-elements.
 			The aim of the style is to size the pseudo-element to cover the [=snapshot root=]
 			and position all ''::view-transition-group()'' pseudo-elements relative to the [=snapshot root origin=].
 		</div>
 
 	: <dfn>::view-transition-group( <<pt-name-selector>> )</dfn>
-	:: A [=tree-abiding pseudo-element=]
+	::
+		<div class=note>
+			This element initially mirrors the size and position of the "old" element,
+			or the "new" element if there isn't an "old" element.
+			It is always a [=tree/child=] of a ''::view-transition''.
+
+			If there's both an "old" and "new" state,
+			styles in the [=document/view transition style sheet=] animate this pseudo-element's 'width' and 'height'
+			from the size of the old element's [=border box=] to that of the new element's [=border box=].
+
+			Also the element's 'transform' is animated from the old element's screen space transform to the new element's screen space transform.
+
+			This style is generated dynamically since the values of animated properties are determined at the time that the transition begins.
+		</div>
+
+		A [=tree-abiding pseudo-element=]
 		that is also a [=named view-transition pseudo-element=],
 		and [=tree/participates=] in a [=pseudo-element tree=].
 
@@ -283,19 +617,16 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 		}
 		```
 
-		<div class="note">
-			The aim of the style is to position the element relative to its ''::view-transition'' parent.
+	: <dfn>::view-transition-image-pair( <<pt-name-selector>> )</dfn>
+	::
+		<div class=note>
+			This element is a child of the group element and provides ''isolation: isolate'' for its children.
+			It's needed so that its children can be blended with non-normal blend modes without affecting other visual outputs.
 
-			In addition to above, styles in the [=document/view transition style sheet=] animate this pseudo-element's 'width' and 'height'
-			from the size of the old element's [=border box=] to that of the new element's [=border box=].
-			Also the element's 'transform' is animated from the old element's screen space transform to the new element's screen space transform.
-			This style is generated dynamically since the values of animated properties are determined at the time that the transition begins.
-
-			This is only ever a [=tree/child=] of a ''::view-transition''.
+			It is always present as a [=tree/child=] of each ''::view-transition-group()''.
 		</div>
 
-	: <dfn>::view-transition-image-pair( <<pt-name-selector>> )</dfn>
-	:: A [=tree-abiding pseudo-element=]
+		A [=tree-abiding pseudo-element=]
 		that is also a [=named view-transition pseudo-element=],
 		and [=tree/participates=] in a [=pseudo-element tree=].
 
@@ -313,17 +644,32 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 		}
 		```
 
-		Note: This is only ever a [=tree/child=] of a ''::view-transition-group()''.
-
 	: <dfn>::view-transition-old( <<pt-name-selector>> )</dfn>
-	:: A [=tree-abiding pseudo-element=]
+	::
+		<div class=note>
+
+			This element is a replaced element that produced the visual representation of the "old" state taken from user-agent provided snapshots.
+
+			This is only ever a [=tree/child=] of a ''::view-transition-image-pair()'',
+			never has any [=tree/children=],
+			and is omitted if there's no "old" state to represent.
+
+			'':only-child'' can be used to match cases where this element is the only element in the ''::view-transition-image-pair()''.
+
+			The appearance of this element can be manipulated with `object-*` properties in the same way that other replaced elements can be.
+
+		</div>
+
+		A [=tree-abiding pseudo-element=]
 		that is also a [=named view-transition pseudo-element=],
 		and [=tree/participates=] in a [=pseudo-element tree=].
 
 		It is selected from its [=ultimate originating element=], the [=document element=].
 
-		It is a [=replaced element=] displaying the old element's snapshot image.
-		It has [=natural dimensions=] equal to the snapshot's size.
+		It is a [=replaced element=], with [=natural dimensions=] equal to the content's size.
+
+		Note: The image content is captured in [=capture the image=],
+		then set and updated in [=setup transition pseudo-elements=] and [=update pseudo-element styles=].
 
 		The following is added to the [=HTML user agent style sheet=]:
 
@@ -334,6 +680,7 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 			inline-size: 100%;
 			block-size: auto;
 
+			animation-name: -ua-view-transition-fade-out;
 			animation-duration: inherit;
 			animation-fill-mode: inherit;
 		}
@@ -344,14 +691,24 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 
 		Note: Additional styles in the [=document/view transition style sheet=] added to animate these pseudo-elements are detailed in [=setup transition pseudo-elements=] and [=update pseudo-element styles=].
 
-		Note: This is only ever a [=tree/child=] of a ''::view-transition-image-pair()'', and never has any [=tree/children=].
-
 	: <dfn>::view-transition-new( <<pt-name-selector>> )</dfn>
 	:: Identical to ''::view-transition-old()'',
-		except it deals with the new element instead.
+		except the following styles added to the [=HTML user agent style sheet=]:
 
-	Note: The precise tree structure, and in particular the order of sibling pseudo-elements,
-	is defined in the [=setup transition pseudo-elements=] algorithm.
+		```css
+		html::view-transition-old(*) {
+			position: absolute;
+			inset-block-start: 0;
+			inline-size: 100%;
+			block-size: auto;
+
+			animation-name: -ua-view-transition-fade-in;
+			animation-duration: inherit;
+			animation-fill-mode: inherit;
+		}
+		```
+
+	Note: The construction of this tree is performed in the [=setup transition pseudo-elements=] algorithm.
 
 # Concepts # {#concepts}
 
@@ -416,8 +773,6 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 	In order to accomplish that, the [=view-transition layer=] cannot be a part of the captured top layer context,
 	since that results in a circular dependency.
 	Instead, this stacking context is a sibling of other page contents.
-
-	Issue: Create a diagram to explain these stacking contexts.
 
 	Issue: Do we need to clarify that the stacking context for the root and top layer elements has filters and effects coming from the [=document element=]'s style?
 
@@ -534,60 +889,6 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 		1. Return |transition|.
 	</div>
 
-	<div class=example>
-		If the default animations for the view transition are acceptable,
-		then kicking off a transition requires nothing more than setting 'view-transition-name' in the element's CSS,
-		and a single line of script to start it:
-
-		```js
-		document.startViewTransition(async () => {
-			await coolFramework.changeTheDOMToPageB();
-		});
-		```
-
-		If more precise management is needed, however, transition elements can be managed in script:
-
-		```js
-		async function doTransition() {
-			// Specify "old" elements. The name is used to match against
-			// "new" elements they should transition to, and to refer to
-			// the transitioning pseudo-element.
-			document.querySelector(".old-message").style.viewTransitionName = "message";
-
-			const transition = document.startViewTransition(async () => {
-				// This callback is invoked by the browser when "old"
-				// capture finishes and the DOM can be switched to the new
-				// state. No frames are rendered until this callback returns.
-
-				// DOM changes may be asynchronous
-				await coolFramework.changeTheDOMToPageB();
-
-				// Naming elements during the callback marks them as
-				// "new", to be matched up with the same-named "old"
-				// elements marked previously and transitioned between.
-				document.querySelector(".new-message").style.viewTransitionName = "message";
-
-				// viewTransitionNames must be unique, so the above assumes that
-				// `.old-message` has been removed/hidden by `changeTheDOMToPageB()`.
-			});
-
-			// When ready resolves, all pseudo-elements for this transition have
-			// been generated.
-			// They can now be accessed in script to set up custom animations.
-			await transition.ready;
-
-			document.documentElement.animate(keyframes, {
-				...animationOptions,
-				pseudoElement: "::view-transition-group(message)",
-			});
-
-			// When the finished promise resolves, that means the transition is
-			// finished.
-			await transition.finished;
-		}
-		```
-	</div>
-
 ## The {{ViewTransition}} interface ## {#the-domtransition-interface}
 
 	<xmp class=idl>
@@ -683,7 +984,7 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 
 	<div algorithm="suppress rendering">
 		In the definition for [=rendering opportunity=], add the following condition:
-		
+
 		A navigable has no rendering opportunities if active document has [=document/transition suppressing rendering=] set to true.
 
 		Note: These steps will be added to the [=update the rendering=] in the HTML spec.
