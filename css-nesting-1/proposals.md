@@ -14,6 +14,7 @@ To organize the discussion a bit, the options we're looking at are:
    1. Could add the rule block with an `@nest` rule
    2. Could add the rule block with special ASCII selector (e.g. `&&`) to indicate association of nested rules with the previous selector
    3. Could [add the rule block with bare braces](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1282630354), essentially giving the selector prelude associated two blocks (one declaration block, one optional rule block).
+5. [Top-level nesting container](https://github.com/w3c/csswg-drafts/issues/7970) - Top-level `@nest` rule having one or more selectors and a block of nested rules, no `&` needed in nested selectors except for attaching psuedos to the parent slector. No mixing of properties and rules.
 
 ------
 
@@ -109,6 +110,24 @@ Arguments for each of the above options:
 - Can't mix properties and rules - all properties have to come first. (But this matches the data model anyway.)
 - If you are *only* nesting rules, and we are using bare parens (4.iii) you still need an empty declaration block (`{}`), which looks awkward
 
+<tr>
+<th>(5)
+<td>
+
+- Blocks contain only style rules (& at-rules), style rules contain only properties
+- Easier to understand and teach, no special rules for when `&` is needed or understanding what an ident is
+- No changes to parsing or OM
+- No `&` for selectors that do not require it
+- Similar to `@scope` and `@layer`
+- `@nest` provides conext and something that's searchable for authors encountering it for the first time
+- Existing rules can be pasted into a `@nest` block without modification
+- Can tranparently handle multiple levels of nesting
+
+<td>
+
+- Requires an additional block of scope for properties on the primary sleector(s)
+- Requires non-local edits when refactoring existing code
+
 </table>
 
 ## Twitter Polls
@@ -164,6 +183,8 @@ If it were up to you, what syntax would you prefer for CSS Nesting?
 ***Note:** It is not required to be a WG member to add your name to this list,
 only to have followed the [discussion](https://github.com/w3c/csswg-drafts/issues/7834)
 and considered the proposals (summarized above) carefully.*
+
+***Note:** Proposal 5 was not considered in this poll.*
 
 ### Counts
 

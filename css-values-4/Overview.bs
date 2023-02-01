@@ -23,7 +23,7 @@ Include Can I Use Panels: yes
 </pre>
 <pre class='link-defaults'>
 spec: css-backgrounds-3; type: type; text: <position>
-spec: css2; type: property; text: border-collapse
+spec: css22; type: property; text: border-collapse
 spec: css-color-4; type: value; text: currentcolor
 spec: css-color-4; type: type; text: <color>
 spec: css-shapes-1; type: function; text: rect();
@@ -495,46 +495,65 @@ Representing Interpolated Values: the ''mix()'' notation</h3>
 	whose syntax is defined as follows:
 
 	<pre class="prod">
-		mix( <<percentage>> ';' <<start-value>> ';' <<end-value>> )
+		&lt;mix()> = mix( <<percentage>> ';' <<declaration-value>> ';' <<declaration-value>> )
 	</pre>
 
 	<dl dfn-for="mix()">
 		<dt><dfn value><<percentage>></dfn>
 		<dd>
-			Represents the interpolation point
-			as progress from <<start-value>> to <<end-value>>.
+			Represents the interpolation progress between the two values.
 
-		<dt><dfn type noexport><<start-value>></dfn>
+		<dt><dfn value><<declaration-value>></dfn>
 		<dd>
-			The value at the “start” (0%) of the interpolation range.
+			The first <<declaration-value>> represents
+			the value at the “start” (0%) of the interpolation range,
+			interpreted as a value for the property this function is used in.
 
-		<dt><dfn type noexport><<end-value>></dfn>
-		<dd>
-			The value at the “end” (100%) of the interpolation range.
+			The second <<declaration-value>> represents
+			the value at the “end” (100%) of the interpolation range,
+			interpreted the same.
 	</dl>
 
 	Note: This [=functional notation=] uses semicolons to separate arguments
 	rather than the more typical comma
 	because the values themselves can contain commas.
 
-	A ''mix()'' notation is invalid if either its <<start-value>> or <<end-value>>
-	is invalid if substituted in its place,
-	if it is not the sole value of the property,
+	The computed value of ''mix()'' is
+	the result of interpolating the two <<declaration-value>>s
+	to the progress given by the <<percentage>>,
+	using the interpolation rules for the property
+	in which this function is used.
+
+	A ''mix()'' notation is invalid if either of its <<declaration-value>>s
+	are invalid when interpreted as a whole value
+	for the property the function is used in,
 	or if the property using it is [=not animatable=].
 
 	<div class="example">
 		For example, the following declarations are invalid,
 		and will be ignored:
 		<pre>
+			/* Invalid start value */
 			color: mix(90% ; #invalid ; #F00);
+
+			/* Function is mixed with other values */
 			background: url(ocean) mix(10% ; blue ; yellow);
+
+			/* 'display' is not animatable */
 			display: mix(0% ; inline ; block);
 		</pre>
 	</div>
 
+	ISSUE(6700):
+	Define more precisely where mix() is allowed.
+	Is it a top-level functional notation only?
+	Or can it be nested more deeply in the grammar somehow?
+
 	Progress values below ''0%'' and above ''100%'' are valid;
 	they represent interpolation beyond the range represented
 	by the start and end values.
+
+	ISSUE(6245): Incorporate interpolation along an easing line.
 
 
 <h3 id="combining-range">
@@ -948,26 +967,48 @@ Relative URLs</h4>
 <h5 id='local-urls'>
 Fragment URLs</h5>
 
-	To work around some common eccentricities in browser URL handling,
-	CSS has special behavior for fragment-only urls.
+	To enable element ID references to work in CSS
+	regardless of base URL changes
+	or shadow DOM,
+	<<url>>s have special behavior
+	when they contain only a fragment.
 
 	If a <<url>>'s value starts with a U+0023 NUMBER SIGN (<code>#</code>) character,
-	parse it as per normal for URLs,
-	but additionally set the <dfn export for="url()">local url flag</dfn> of the <<url>>.
+	then the URL additionally has its
+	<dfn export for="<url>">local url flag</dfn> set,
+	and is a [=tree-scoped reference=]
+	for the URL's [=url/fragment=].
 
 	When matching a <<url>> with the <a>local url flag</a> set,
-	ignore everything but the URL's fragment,
-	and resolve that fragment against the [=node tree=]
-	of the stylesheet's [=CSSStyleSheet/owner node=].
-	This reference must always be treated as same-document
-	(rather than cross-document).
+	resolve it as a [=tree-scoped reference=]
+	with the tree's IDs as the associated [=tree-scoped names=]:
+	specifically, resolve to the first element
+	in [=tree order=]
+	among the associated [=node tree=]'s descendants
+	with the URL's [=url/fragment=] as its ID.
+	(And, as usual for [=tree-scoped references=],
+	continuing up to the host's tree if needed.)
+	If no such element is found,
+	the URL fails to resolve.
 
-	ISSUE(3320): This relative URL resolution behavior is under discussion.
+	Issue: Possibly reference <l spec=html>[=find a potential indicated element=]</l>,
+	but that is defined specifically for {{Document}}s,
+	not {{ShadowRoot}}s.
+
+	Issue: I'm just folding together "can't find the ID"
+	and "is a Media Fragment or other non-ID fragment",
+	and treating both of them as a failed reference.
+	I <em>think</em> this is reasonable.
 
 	Note: This means that such fragments will resolve
 	against the contents of the current document
-	(and in consideration of shadow DOM, only within the stylesheet's associated [=node tree=]),
-	regardless of what base URL relative URLs outside of CSS resolve against.
+	(or whichever [=node tree=] the stylesheet lives in,
+	if shadow DOM is involved)
+	regardless of how such relative URLs would resolve elsewhere
+	(ignoring, for example, <{base}> elements
+	changing the base URL,
+	or relative URLs in linked stylesheets
+	resolving against the stylesheet's URL).
 
 	<div class="example">
 		In the following example,
@@ -986,25 +1027,6 @@ Fragment URLs</h5>
 	a ''url()'' with the <a>local url flag</a> set,
 	it must serialize as just the fragment.
 
-	<details class=note>
-		<summary>What “browser eccentricities”?</summary>
-
-		Theoretically, browsers should re-resolve any relative URLs,
-		including fragment-only URLs,
-		whenever the document's base URL changes
-		(such as through mutation of the <{base}> element,
-		or calling {{History/pushState()}}).
-		In many cases they don't, however,
-		and so without special handling,
-		fragment-only URLs will suddenly become cross-document references
-		(pointing at the previous base URL)
-		and break in many of the places they're used.
-
-		Since fragment-only URLs express a clear semantic
-		of wanting to refer to the current document
-		regardless of what its current URL is,
-		this hack preserves the expected behavior at least in these cases.
-	</details>
 
 <h4 id="url-empty">
 Empty URLs</h4>
@@ -2541,10 +2563,10 @@ Frequency Units: the <<frequency>> type and ''Hz'', ''kHz'' units</h3>
 	The frequency unit identifiers are:
 
 	<dl export dfn-type=value dfn-for="<frequency>">
-	  <dt><dfn id="Hz">Hz</dfn>
-	  <dd>Hertz. It represents the number of occurrences per second.
-	  <dt><dfn id="kHz">kHz</dfn>
-	  <dd>KiloHertz. A kiloHertz is 1000 Hertz.
+		<dt><dfn id="Hz">Hz</dfn>
+		<dd>Hertz. It represents the number of occurrences per second.
+		<dt><dfn id="kHz">kHz</dfn>
+		<dd>KiloHertz. A kiloHertz is 1000 Hertz.
 	</dl>
 
 	For example, when representing sound pitches, 200Hz (or 200hz)
@@ -2787,7 +2809,7 @@ Functional Notations</h2>
 	Functions can take multiple arguments,
 	which are formatted similarly to a CSS property value.
 
-	Some legacy <a>functional notations</a>, such as ''rgba()'', use commas unnecessarily,
+	Note: Some legacy <a>functional notations</a>, such as ''rgba()'', use commas unnecessarily,
 	but generally commas are only used to separate items in a list,
 	or pieces of a grammar that would be ambiguous otherwise.
 	If a comma is used to separate arguments,
@@ -4987,7 +5009,7 @@ Recent Changes</h3>
 			(<a href="https://github.com/w3c/csswg-drafts/issues/6700">Issue 6700</a>)
 		<li>Updated to match latest Fetch terminology.
 			(<a href="https://github.com/whatwg/fetch/pull/1413">Fetch PR 1413</a>,
-			 <a href="https://github.com/w3c/csswg-drafts/pull/7160">CSS PR 7160</a>)
+			<a href="https://github.com/w3c/csswg-drafts/pull/7160">CSS PR 7160</a>)
 		<li>Clarified that the [=font-relative lengths=] are calculated without text shaping.
 		<li>Defined serialization of empty urls to be <code>url("")</code>.
 			(<a href="https://github.com/w3c/csswg-drafts/issues/6447">Issue 6447</a>)
@@ -5063,7 +5085,7 @@ Recent Changes</h3>
 			''lvh'', ''lvw'', ''lvi'', ''lvb'', ''lvmin'', and ''lvmax'' [=large viewport-percentage units=];
 			and ''dvh'', ''dvw'', ''dvi'', ''dvb'', ''dvmin'', and ''dvmax'' [=dynamic viewport-percentage units=].
 			(<a href="https://github.com/w3c/csswg-drafts/issues/4329">Issue 4329</a> and
-			 <a href="https://github.com/w3c/csswg-drafts/issues/6113">Issue 6113</a>)
+			<a href="https://github.com/w3c/csswg-drafts/issues/6113">Issue 6113</a>)
 		<li>Clamped excessively large <<angle>> values to multiples of ''360deg''.
 			(<a href="https://github.com/w3c/csswg-drafts/issues/6105">Issue 6105</a>)
 		<li>Added back [[#combining-range|rules on range-checking combined values]]
