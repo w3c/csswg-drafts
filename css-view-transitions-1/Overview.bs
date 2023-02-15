@@ -1015,9 +1015,17 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 		:: a {{Promise}}.
 			Initially [=a new promise=] in [=this's=] [=relevant Realm=].
 
+			Note: These promises are immediately created,
+			so rejections will cause {{unhandledrejection}}s unless they're [=mark as handled|handled=],
+			even if the getters such as {{updateCallbackDone}} are not accessed.
+
 		: <dfn>finished promise</dfn>
 		:: a {{Promise}}.
-			Initially [=a new promise=] in [=this's=] [=relevant Realm=].
+			Initially [=a new promise=] in [=this's=] [=relevant Realm=],
+				[=marked as handled=].
+
+			Note: This is [=marked as handled=] to prevent duplicate {{unhandledrejection}}s,
+			as this promise only ever rejects along with the [=update callback done promise=].
 
 		: <dfn>transition root pseudo-element</dfn>
 		:: a ''::view-transition''.
@@ -1134,6 +1142,11 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 					1. If |transition|'s [=ViewTransition/phase=] is "`done`", then return.
 
 						Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
+
+					1. [=Mark as handled=] |transition|'s [=ViewTransition/ready promise=].
+
+						Note: |transition|'s [=ViewTransition/update callback done promise=] will provide the {{unhandledrejection}}.
+						This step avoids a duplicate.
 
 					1. [=Skip the view transition=] |transition| with |reason|.
 
@@ -1424,19 +1437,20 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 
 		1. [=Assert=]: |transition|'s [=ViewTransition/phase=] is [=phases/before=] "`update-callback-called`".
 
-		1. Let |callbackPromise| be [=a new promise=] in |transition|'s [=relevant Realm=].
+		1. Let |callbackPromise| be null.
 
-			* If |transition|'s [=ViewTransition/update callback=] is null, then resolve |callbackPromise|.
+		1. If |transition|'s [=ViewTransition/update callback=] is null,
+			then set |callbackPromise| to [=a promise resolved with=] undefined,
+			in |transition|'s [=relevant Realm=].
 
-			* Otherwise, let |callbackPromise| be the result of [=/invoking=] |transition|'s [=ViewTransition/update callback=].
+		1. Otherwise, set |callbackPromise| to the result of [=/invoking=] |transition|'s [=ViewTransition/update callback=].
 
 		1. Set |transition|'s [=ViewTransition/phase=] to "`update-callback-called`".
 
-		1. [=promise/React=] to |callbackPromise|:
+		1. [=Resolve=] |transition|'s [=ViewTransition/update callback done promise=]
+			with the result of [=reacting=] to |callbackPromise|:
 
-			* If |callbackPromise| was resolved, then [=resolve=] |transition|'s [=ViewTransition/update callback done promise=].
-
-			* If |callbackPromise| was rejected with reason |r|, then [=reject=] |transition|'s [=ViewTransition/update callback done promise=] with |r|.
+			- If |callbackPromise| was resolved, then return undefined.
 	</div>
 
 ## [=Skip the view transition=] ## {#skip-the-view-transition-algorithm}
@@ -1458,17 +1472,16 @@ urlPrefix: https://html.spec.whatwg.org/multipage/rendering.html; type: dfn;
 
 		1. Set |transition|'s [=ViewTransition/phase=] to "`done`".
 
-		1. If |transition|'s [=ViewTransition/ready promise=] has not yet been resolved, [=reject=] it with |reason|.
+		1. [=Reject=] |transition|'s [=ViewTransition/ready promise=] with |reason|.
 
-			Note: The ready promise would've been resolved if {{ViewTransition/skipTransition()}} is called after we start animating.
+			Note: The [=ViewTransition/ready promise=] may already be resolved at this point,
+			if {{ViewTransition/skipTransition()}} is called after we start animating.
+			In that case, this step is a no-op.
 
-		1. [=promise/React=] to |transition|'s [=ViewTransition/update callback done promise=]:
+		1. [=Resolve=] |transition|'s [=ViewTransition/finished promise=] with the result of [=reacting=] to |transition|'s [=ViewTransition/update callback done promise=]:
 
-			* If |transition|'s [=ViewTransition/update callback done promise=] was resolved,
-				then [=resolve=] |transition|'s [=ViewTransition/finished promise=].
-
-			* If |transition|'s [=ViewTransition/update callback done promise=] was rejected with reason |reason|,
-				then [=reject=] |transition|'s [=ViewTransition/finished promise=] with |reason|.
+			- If |transition|'s [=ViewTransition/update callback done promise=] was resolved,
+				then return undefined.
 	</div>
 
 ## [=Capture the image=] ## {#capture-the-image-algorithm}
