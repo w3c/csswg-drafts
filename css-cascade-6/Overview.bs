@@ -20,11 +20,13 @@ Informative Classes: ex
 
 <pre class=link-defaults>
 spec:dom; type:dfn; text:shadow tree
+spec:dom; type:dfn; for:tree; text:root
 spec:css-color-4; type:property; text:color
 spec:css-values-3; type: value; text:ex
 spec:css-conditional-3; type:at-rule; text:@media
 spec:mediaqueries-4; type:type; for:@media; text:all
 spec:mediaqueries-4; type:type; text:<media-query>
+spec:selectors-4; type:dfn; text:subject
 </pre>
 
 <pre class=ignored-specs>
@@ -233,23 +235,25 @@ Scoped Styles</h2>
 
 	A <dfn>scope</dfn> is a subtree or fragment of a document,
 	which can be used by selectors for more targeted matching.
-	[=Scopes=] are described in CSS through a combination of two selector lists:
 
-	* The <dfn><<scope-start>></dfn> is a <<forgiving-selector-list>>.
-		Each element matched by <<scope-start>> is a [=scoping element=],
-		creating a scope with itself as the [=scoping root=].
-	* The <dfn><<scope-end>></dfn> is a <<forgiving-selector-list>>
-		that is [=scoped selector|scoped=] by the <<scope-start>> selector,
-		with the [=scoping roots=] as [=:scope elements=].
-		Each element matched by <<scope-end>> is a [=scoping limit=].
-		The <dfn>scoping limit</dfn> elements define the lower bounds of a scope,
-		so that [=scoped selectors=] are not able to match
-		any [=scoping limit=] elements,
-		or any elements nested within them.
+	A [=scope=] can be formed by determining:
 
-	Each resulting [=scope=] includes a [=scoping root=] and all its descendants,
-	up to any [=scoping limit=] elements. [=Scoping limit=] elements and
-	their descendants are not included in the [=scope=].
+	* The [=scoping root=] [=node=],
+		which acts as the upper bound of the scope,
+		and optionally:
+	* The <dfn>scoping limit</dfn> elements,
+		which act as the lower bounds.
+
+	An element is <dfn>in scope</dfn> if:
+
+	* It is an [=inclusive descendant=] of the [=scoping root=], and
+	* It is not an [=inclusive descendant=] of a [=scoping limit=].
+
+	Note: Only <em>elements</em> can be [=in scope=],
+		however the '':scope'' pseudo-class can match non-elements
+		when it is not the [=subject=] of a selector.
+
+	[=Scopes=] are described in CSS using the ''@scope'' rule.
 
 	Note: In contrast to [[CSS-SCOPING-1#shadow-dom|Shadow Encapsulation]],
 	which describes a persistent one-to-one relationship in the DOM
@@ -348,17 +352,51 @@ Scoping Styles: the ''@scope'' rule</h4>
 
 	The syntax of the ''@scope'' rule is:
 
-	<pre class='prod'>
-	@scope (<<scope-start>>) [to (<<scope-end>>)]? {
+	<pre class="prod def">
+	@scope [(<<scope-start>>)]? [to (<<scope-end>>)]? {
 	  <<stylesheet>>
 	}
 	</pre>
 
+	where:
+
+	<pre class="prod def">
+	<dfn><<scope-start>></dfn> = <<forgiving-selector-list>>
+	<dfn><<scope-end>></dfn> = <<forgiving-selector-list>>
+	</pre>
+
+	A ''@scope'' rule which specifies a <<scope-start>>
+	produces a number of <dfn>explicit scopes</dfn> as follows:
+
+	* For each element matched by <<scope-start>>,
+		create a [=scope=] using that element as the [=scoping root=].
+	* For each [=scope=] created by the above:
+		* Collect all elements that are [=in scope=]
+			and that match <<scope-end>>,
+			using the [=scoping root=] as the '':scope'' element, then
+		* Set those elements as the [=scoping limits=].
+
+	[=Pseudo-elements=] cannot be [=scoping roots=] or [=scoping limits=];
+	they are invalid both within <<scope-start>> and <<scope-end>>.
+
+	A ''@scope'' rule which does not specify a <<scope-start>>
+	produces a single <dfn>implicit scope</dfn> as follows:
+
+	* The [=scoping root=] is the [=parent element=] of the [=owner node=]
+		of the stylesheet where the ''@scope'' rule is defined.
+		If no such element exist,
+		then the [=scoping root=] is the [=root=] of the containing [=node tree=].
+	* Collect all elements that are [=in scope=]
+		and that match <<scope-end>>,
+		using the [=scoping root=] as the '':scope'' element, then
+	* Set those elements as the [=scoping limits=].
+
 	The ''@scope'' [=at-rule=] has three primary effects
 	on the [=style rules=] in its <<stylesheet>>:
 
-	* [=scoped selectors|Selectors are scoped=] to the given [=scope=],
-		with the [=:scope element=] being the [=scoping root=].
+	* Selectors can only match elements that are [=in scope=].
+		This only applies to the [=subject=];
+		the rest of the selector can match unrestricted.
 	* Selectors are given the added specificity of
 		the most specific [=complex selector=] in the <<scope-start>> argument.
 
@@ -476,6 +514,12 @@ Scoping Styles: the ''@scope'' rule</h4>
 	are [=scoped selectors|scoped by=]
 	the selectors of the outer one.
 
+	Global, name-defining [=at-rules=]
+	such as ''@keyframes'' or ''@font-face'' or ''@layer''
+	that are defined inside ''@scope'' are valid,
+	but are not scoped or otherwise affected
+	by the enclosing ''@scope'' rule.
+
 <h4 id="scope-combinator">
 Scoped Descendant Combinator</h4>
 
@@ -488,7 +532,7 @@ Scoped Descendant Combinator</h4>
 	This combinator differs from the [=descendant combinator=]
 	in that it applies [=weak scoping proximity=]
 	to the relationship between <css>A</css> and <css>B</css>.
-	It does not change the [=:scope element=].
+	It does not change the '':scope'' element.
 
 	ISSUE: Should the [=scoped descendant combinator=]
 	use strong or weak scoping proximity?
@@ -526,80 +570,59 @@ Scoped Descendant Combinator</h4>
 		</pre>
 	</div>
 
-	Note: Most simple scoping relationships can be represented with this syntax,
-	rather than the more complex [=selector scoping notation=] defined below.
-
-<h4 id='selector-scoping'>
-Selector Scoping Notation</h4>
-
-	The <dfn>selector scoping notation</dfn>
-	allows [=selectors=] to be scoped
-	to a subtree of the document,
-	and allows the possibility of excluding nested subtrees.
-	It is prepended to the selector or selector list,
-	and its syntax is as follows:
-
-	<pre class='prod'>
-	<dfn><<selector-scope>></dfn> = ( <<scope-start>> [/ <<scope-end>>]? )
-	</pre>
-
-	If, after parsing, <<scope-start>> is an empty list,
-	the selector is valid but matches nothing.
-	Otherwise, the selector matches any element
-	that is within the [=scope=] described
-	by the given <<scope-start>> and <<scope-end>> selectors.
-
-	<div class="note">
-		The purpose of the [=selector scoping notation=]
-		is to allow adding [=scoping limits=] to a selector:
-
-		<pre class=lang-css>
-		(.post / .comments) .title { font-size: 2em; }
-		</pre>
-
-		Without any such lower limits,
-		the [=selector scoping notation=] is similar to existing descendant selectors,
-		except that the [=scoping root=] can be matched
-		by the selector as well.
-	</div>
-
-	The specificity of
-	the most specific [=complex selector=] in <<scope-start>>
-	is added to the specificity of each such scoped selector.
-	The specificity of the <<scope-end>> is ignored.
-	The [=selector scoping notation=] also applies [=weak scoping proximity=]
-	between the [=scoping root=] and the [=subject=] of the scoped selector.
-
-	ISSUE: Should this have the same [=scope proximity=] weighting as ''@scope''
-	or different [=scope proximity=] weighting
-	(or no [=scope proximity=] weighting)?
-
-	<div class="example">
-		For example,
-		these three selectors will all select the same elements,
-		with the same specificity:
-
-		<pre class=lang-css>
-		(.ancestor) .child                { color: darkmagenta; }
-		.child:is(.ancestor, .ancestor *) { color: darkmagenta; }
-		.ancestor.child, .ancestor .child { color: darkmagenta; }
-		</pre>
-
-		However the first rule will win,
-		because it also applies [=weak scoping proximity=].
-	</div>
-
-	ISSUE: How does this interact with [[CSS-NESTING-1]]?
-
-	ISSUE: This notation was added in order to allow scoping limits
-	to be applied within <code>querySelector()</code>.
-	Is this something we want to have?
-
 <h3 id="preshint">
 Precedence of Non-CSS Presentational Hints</h3>
 
 	Issue: [[css-cascade-5#layering]]
 
+<!--
+ ██████   ██████   ██████   ███████  ██     ██
+██    ██ ██    ██ ██    ██ ██     ██ ███   ███
+██       ██       ██       ██     ██ ████ ████
+██        ██████   ██████  ██     ██ ██ ███ ██
+██             ██       ██ ██     ██ ██     ██
+██    ██ ██    ██ ██    ██ ██     ██ ██     ██
+ ██████   ██████   ██████   ███████  ██     ██
+-->
+
+CSSOM {#cssom}
+==============
+
+
+<h3 id="the-cssscoperule-interface">
+The <code>CSSScopeRule</code> interface</h3>
+
+	The {{CSSScopeRule}} interface represents the ''@scope'' rule:
+
+	<pre class='idl' export>
+	[Exposed=Window]
+	interface CSSScopeRule : CSSGroupingRule {
+	  readonly attribute CSSOMString start;
+	  readonly attribute CSSOMString end;
+	};
+	</pre>
+
+	<dl class='idl-attributes'>
+		<dt><code>start</code> of type <code>CSSOMString</code>
+		<dd>The <code>start</code> attribute must return a value as follows:
+
+			<dl class="switch">
+				<dt data-md>The ''@scope'' rule has an associated <<scope-start>>
+				<dd data-md>The result of serializing that <<scope-start>>.
+				<dt data-md>Otherwise
+				<dd data-md>An empty string.
+			</dl>
+
+		<dt><code>end</code> of type <code>CSSOMString</code>
+		<dd>The <code>end</code> attribute must return a value as follows:
+
+			<dl class="switch">
+				<dt data-md>The ''@scope'' rule has an associated <<scope-end>>
+				<dd data-md>The result of serializing that <<scope-end>>.
+				<dt data-md>Otherwise
+				<dd data-md>An empty string.
+			</dl>
+	</dl>
 
 <!--
 ████████ ████████  ██████
@@ -621,6 +644,17 @@ Changes since the 21 December 2021 First Public Working Draft</h3>
 
 	Significant changes since the
 	<a href="https://www.w3.org/TR/2021/WD-css-cascade-6-20211221/">21 December 2021 First Public Working Draft</a> include:
+
+	* Added the {{CSSScopeRule}} interface.
+
+	* Added [=implicit scopes=].
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6606">Issue 6606</a>)
+
+	* Disallowed [=pseudo-elements=] in the ''@scope'' prelude.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/7382">Issue 7382</a>)
+
+	* Removed selector scoping notation.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/7709">Issue 7709</a>)
 
 	* [=Scoping limit=] elements are excluded from the resulting [=scope=].
 		(<a href="https://github.com/w3c/csswg-drafts/issues/6577">Issue 6577</a>)
