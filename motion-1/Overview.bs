@@ -21,6 +21,8 @@ Abstract: Motion path allows authors to position any graphical object and animat
 <pre class=link-defaults>
 spec:css-transforms-1; type:dfn;
     text:local coordinate system
+spec:svg2; type:dfn;
+    text: segment-completing close path
 </pre>
 
 
@@ -38,7 +40,7 @@ These positions can be animated or transitioned with CSS,
 but only in relatively simple ways:
 moving a box in a straight line from its starting position to its ending position.
 
-This specification introduces the 'offset' function,
+This specification introduces the 'offset' property,
 which takes a number of functions introducing <em>paths</em> through space,
 and a distance to travel along that path,
 and transforms (and possibly rotates)
@@ -97,15 +99,6 @@ In addition to the property-specific values listed in their definitions, all pro
 Motion Paths {#motion-paths-overview}
 =====================================
 
-The properties in this specification allow defining an <dfn export>offset transform</dfn>
-according to a distance (from 'offset-distance')
-along a path (from 'offset-path')
-starting at a particular point in the parent box (from 'offset-position'),
-putting a particular point of the transformed element (the [=anchor point=], from 'offset-anchor')
-at the defined spot
-and possibly rotating the transformed element
-to match the path's direction at that point (from 'offset-rotate').
-
 <!--
         ████████     ███    ████████ ██     ██
         ██     ██   ██ ██      ██    ██     ██
@@ -121,9 +114,9 @@ Defining A Path: The 'offset-path' property {#offset-path-property}
 
 <pre class=propdef>
 Name: offset-path
-Value: none | <<ray()>> | <<url>> | [ <<basic-shape>> && <<coord-box>>? ] | <<coord-box>>
+Value: none | <<offset-path>> || <<coord-box>>
 Initial: none
-Applies to: <a href="https://drafts.csswg.org/css-transforms-1/#transformable-element">transformable elements</a>
+Applies to: [=transformable elements=]
 Inherited: no
 Percentages: n/a
 Computed value: as specified
@@ -132,80 +125,94 @@ Animation type: by computed value
 </pre>
 
 Specifies the <dfn export>offset path</dfn>,
-a geometrical path the box gets positioned on,
-the <dfn export for="offset path">initial position</dfn>
-(where on the [=offset path=] the element is positioned at ''offset-distance: 0%''),
-and the <dfn export for="offset path">initial direction</dfn>
-(the initial orientation of the box (per 'offset-rotate') at the [=initial position=]).
+a geometrical path the box gets positioned on.
+
+<pre class=prod>
+<dfn>&lt;offset-path></dfn> = <<ray()>> | <<url()>> | <<basic-shape>>
+</pre>
 
 Values have the following meanings:
 
 <dl dfn-for=offset-path dfn-type=value>
-    : <<ray()>>
+    : <dfn>none</dfn>
+    :: The element does not have an [=offset transform=].
+
+    : <dfn><<offset-path>> || <<coord-box>></dfn>
+    ::
+        The element has an [=offset transform=],
+        defined by some [=offset path=].
+        See [[#calculating-path-transform]] for details
+        on how to calculate the [=offset transform=].
+
+        All the usual effects of having a 'transform' apply
+        (such as creating a [=stacking context=], etc.)
+        See [[css-transforms-1#transform-rendering]] for details.
+
+        If <<offset-path>> is omitted,
+        it defaults to <css>inset(0 round <var>X</var>)</css>,
+        where <var>X</var> is the value of 'border-radius'
+        on the element that establishes the [=containing block=]
+        for this element.
+        If <<coord-box>> is omitted,
+        it defaults to ''&lt;coord-box>/border-box''.
+
+        See the specific values (below)
+        for the interpretation of each component.
+
+    : <dfn><<ray()>></dfn>
     ::
         The [=offset path=] is a line extending from the [=initial position=]
         at some angle.
         See [[#ray-function]] for details.
 
-    : <<basic-shape>>
+        The <<coord-box>> provides the [=<basic-shape>/reference box=]
+        for the ray.
+
+    : <dfn><<url>></dfn>
     ::
-        The <a>offset path</a> is a basic shape as specified in CSS Shapes [[!CSS-SHAPES]].
+        A URL reference to an SVG [=shape element=].
+        The [=offset path=] is the referenced element's <l spec=svg2>[=equivalent path=]</l>.
+        [[!SVG2]]
 
-        'offset-position' is ignored for circle and ellipse basic shapes with explicit center positions, and for other types of basic shapes. If a circle or ellipse basic shape has no explicit center position, the shape is centered at the [=initial position=] of the path, as described in 'offset-position'.
+        If the URL does not reference a [=shape element=]
+        (because it references a different element,
+        or resolves to a non-SVG document,
+        or doesn't resolve at all,
+        etc)
+        this behaves as ''path("m 0 0")''
+        (a <<basic-shape>>)
+        instead.
 
-        The [=initial position=] for basic shapes are defined as follows:
+        The <<coord-box>> defines the viewport and user coordinate system
+        for the [=shape element=],
+        with the origin (the 0,0 point) at the top left corner,
+        and units being ''1px'' in size.
 
-        : <<path()>>
-        ::
-            The [=initial position=] is defined by the first “move to” argument in the path string. For the initial direction follow SVG 1.1 [[!SVG11]].
-        : <<circle()>>
-        : <<ellipse()>>
-        ::
-            The [=initial position=] is defined by the point where a horizontal tangent to the circle/ellipse would reach the top vertical position.
-
-        : <<inset()>>
-        ::
-            The [=initial position=] is the left end of the top horizontal line, immediately to the right of any 'border-radius' arc.
-        : <<polygon()>>
-        ::
-            The [=initial position=] is defined by the first coordinate pair of the polygon.
-
-            The <var>initial direction</var> is defined by the vector connecting.
-
-            the [=initial position=] with the next following coordinate pair that isn't equal to the [=initial position=].
-
-        The <<coord-box>> specified in combination with a <<basic-shape>> provides the reference box for the <<basic-shape>>. If no reference box is specified, it defaults to ''&lt;coord-box>/border-box''.
-
-        Apart from polygons with non-zero length, the <var>initial direction</var> is 90 degrees (i.e. to the right).
-
-        Note: This gives ''0deg'' rotation when 'offset-rotate' is ''offset-rotate/auto''.
-
-    : <<coord-box>>
+    : <dfn><<basic-shape>></dfn>
     ::
-        The [=offset path=] is the specified [=edge=] of the box,
-        including the effect of any 'border-radius'.
+        The [=offset path=] is the [=&lt;basic-shape>/equivalent path=]
+        of the <<basic-shape>> function.
 
-        The [=initial position=] is the left end of the top horizontal line,
-        immediately to the right of any 'border-radius' arc,
-        and the <var>initial direction</var> is to the right.
+        If ''circle()'' or ''ellipse()'' is used,
+        and an explicit center position is not given,
+        they default to using the position specified by 'offset-position',
+        rather than their standard default.
 
-    : <<url>>
+        The <<coord-box>> provides the [=<basic-shape>/reference box=]
+        for the <<basic-shape>>.
+
+    : <dfn><<coord-box>></dfn>
     ::
-        References an SVG <a>shape element</a> and uses its geometry as <a>offset path</a>.
-        See SVG 1.1 for more information about the [=initial position=] and <var>initial direction</var> [[!SVG11]].
+        Defines the box that the <<offset-path>> sizes into.
 
-    : <dfn for=offset-path id=offsetpath-none>none</dfn>
-    ::
-        No <a>offset path</a> gets created. When 'offset-path' is <a href="#offsetpath-none">none</a>, 'offset-distance' and 'offset-rotate' have no effect.
+        In CSS contexts,
+        the boxes being referenced
+        are from the element that establishes the [=containing block=]
+        for this element.
+
+        In SVG contexts,
+        all values behave as ''&lt;coord-box>/view-box''.
 </dl>
-
-A computed value of other than <a href="#offsetpath-none">none</a> results in the creation of a <a>stacking context</a> [[!CSS21]] and [=containing block=], per usual for 'transform'.
-
-A reference that fails to download, is not a reference to an SVG <a>shape element</a>, or is non-existent, is treated as equivalent to <code>path("m 0 0")</code>.
-
-Note: This is a zero length path with <a href="https://www.w3.org/TR/SVG11/implnote.html#PathElementImplementationNotes">directionality</a> aligned with the positive x-axis.</p>
-
-See the section <a href="#calculating-path-transform">“Calculating the path transform”</a> for how to use the <a>offset path</a> to compute the transform.
 
 
 <!--
@@ -1349,6 +1356,88 @@ Applies to: <a href="https://drafts.csswg.org/css-transforms-1/#transformable-el
 </pre>
 
 This is a shorthand property for setting 'offset-position', 'offset-path', 'offset-distance', 'offset-rotate' and 'offset-anchor'. Omitted values are set to their initial values.
+
+
+<!--
+████████     ███    ████████ ██     ██  ██████ 
+██     ██   ██ ██      ██    ██     ██ ██    ██
+██     ██  ██   ██     ██    ██     ██ ██      
+████████  ██     ██    ██    █████████  ██████ 
+██        █████████    ██    ██     ██       ██
+██        ██     ██    ██    ██     ██ ██    ██
+██        ██     ██    ██    ██     ██  ██████ 
+-->
+
+Equivalent Paths For <<basic-shape>> {#paths}
+====================================
+
+The <<basic-shape>> definition given by [[css-shapes]]
+defines each function as producing a <em>shape</em>--
+a 2-dimensional figure with an outline, an inside, and an outside.
+
+This specification instead uses <<basic-shape>> as producing a <em>path</em>--
+a line with a starting point, ending point, and direction,
+that happens to trace out a particular shape's outline.
+The details of what makes up a path are defined by SVG.
+[[SVG2]]
+
+The <dfn export for="<basic-shape>">equivalent path</dfn>
+for all the <<basic-shape>> values are:
+
+<dl dfn-type=dfn export>
+    : <dfn for=path() lt="equivalent path"><<path()>></dfn>
+    : <dfn for=shape() lt="equivalent path"><<shape()>></dfn>
+    ::
+        The path is the defined path.
+        [[!SVG11]]
+
+    : <dfn for=circle() lt="equivalent path"><<circle()>></dfn>
+    : <dfn for=ellipse() lt="equivalent path"><<ellipse()>></dfn>
+    ::
+        The path is the outline of the circle/ellipse.
+        It starts at the topmost point of the circle/ellipse,
+        and then is composed of four circular arcs,
+        each comprising a quarter of the circle/ellipse,
+        proceeding clockwise,
+        ending with a [=segment-completing close path=] operation.
+
+        Issue(506): SVG defines the equivalent path of <{circle}>/<{ellipse}> differently,
+        starting from the rightmost point.
+        Should we align them?
+
+    : <dfn for=rect() lt="equivalent path">rect()</dfn>
+    : <dfn for=inset() lt="equivalent path">inset()</dfn>
+    : <dfn for=xywh() lt="equivalent path">xywh()</dfn>
+    ::
+        The path is the outline of the (possibly-rounded) rectangle,
+        composed of four or eight segments
+        (depending on whether rounded corners are specified or not),
+        and ending with a [=segment-completing close path=] operation.
+        It starts at the left end of the top straight edge,
+        immediately to the right of any rounded corners,
+        and continues to the right (clockwise).
+
+    : <dfn for=polygon() lt="equivalent path"><<polygon()>></dfn>
+    ::
+        The path is the outline of the polygon,
+        composed of straight line segments
+        connecting each coordinate pair to the following coordinate pair,
+        and finally connecting the last back to the first,
+        with a [=segment-completing close path=] operation.
+</dl>
+
+For all of these,
+the direction at any point along the path
+is defined by SVG;
+see [[svg2#PathDirectionality]].
+
+Note: This list should be in sync with the full set of <<basic-shape>> functions
+defined in [[css-shapes]].
+If anything is missing,
+this should be considered a specification bug.
+This list might move to Shapes in the future,
+but for now is kept here
+as this spec is the only consumer of this information.
 
 
 Privacy Considerations {#privacy}
