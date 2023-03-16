@@ -34,7 +34,8 @@ Introduction</h2>
 Module Interactions</h3>
 
 	This module introduces new parser rules that extend the [[!CSS21]] parser model.
-	This module introduces selectors that extend the [[SELECTORS4]] module.
+	It introduces selectors that extend the [[SELECTORS-4]] module.
+	It extends and modifies some IDL and algorithms defined in the [[CSSOM-1]] module.
 
 <h3 id="values">
 Values</h3>
@@ -268,11 +269,14 @@ Syntax {#syntax}
 		are relative to the elements represented by the [=nesting selector=].
 	* If a selector in the <<relative-selector-list>>
 		does not start with a [=combinator=]
-		but does contain the [=nesting selector=],
+		but does [=contain the nesting selector=],
 		it is interpreted as a non-[=relative selector=].
 
 	The precise details of how nested style rules are parsed
 	are defined in [[!CSS-SYNTAX-3]].
+
+	ISSUE(7961): The CSSWG is currently exploring the consequences of parsing lookahead,
+	and may adjust the allowed syntax as a result.
 
 	An invalid [=nested style rule=] is ignored,
 	along with its contents,
@@ -567,6 +571,35 @@ Syntax {#syntax}
 		</pre>
 	</div>
 
+	<div algorithm>
+		A selector is said to <dfn export>contain the nesting selector</dfn>
+		if, when it was [=CSS/parsed=] as any type of selector,
+		a <<delim-token>> with the value "&" (U+0026 AMPERSAND) was encountered.
+
+		Note: This is phrased in this explicit manner
+		so as to catch cases like '':is(:unknown(&), .bar)'',
+		where an unknown selector
+		(which, being unknown, we have no way of knowing
+		whether the argument is <em>meant</em> to be parsed as a selector or not)
+		is the only part of the selector that contains an ''&''.
+		As that <em>might</em> be a perfectly valid selector
+		that's only supported by newer browsers,
+		and we don't want parsing to be dependent on unrelated versioning issues,
+		we treat it as still [=containing the nesting selector=].
+	</div>
+
+	If a <<forgiving-selector-list>> has an item that [=contains the nesting selector=]
+	but is invalid,
+	that item is preserved exactly as-is
+	rather than being discarded.
+	(This does not change the matching behavior of the selector--
+	an invalid selector still fails to match anything--
+	just the serialization of the selector.)
+
+	Issue: The preceding paragraph needs to move to Selectors
+	when we move ''&'' itself to Selectors;
+	I'm monkey-patching for convenience here.
+
 
 
 <!--
@@ -721,6 +754,11 @@ Nesting Other At-Rules {#conditionals}
 	and nested in a [=nested style rule=]
 	with the selector ''&'',
 	and placed before all other child rules.
+	This includes in the OM.
+	(That is,
+	the {{CSSContainerRule/childRules}} attribute
+	actually starts with this [=nested style rule=],
+	containing all the directly-nested properties.)
 
 	<div class=example>
 
@@ -755,10 +793,10 @@ Nesting Other At-Rules {#conditionals}
 		containing the 'grid-auto-flow' property.
 	</div>
 
-	Issue: Need to modify the serialization rules,
-	as in <a href="https://github.com/w3c/csswg-drafts/issues/7850#issuecomment-1288883780">this comment</a>,
-	to remove the wrapping rule
-	when the first child rule is <code>& {...}</code>.
+	Note: This does mean that the serialization of such rules will differ
+	from how they were originally written,
+	with <em>no</em> directly-nested properties in the serialization.
+
 
 <h4 id=nesting-at-scope>
 Nested ''@scope'' Rules</h4>
@@ -882,6 +920,13 @@ Mixing Nesting Rules and Declarations {#mixing}
 	(This also happens to act slightly better in older user agents;
 	due to specifics of how parsing and error-recovery work,
 	properties appearing after nested rules can get skipped.)
+
+	Note: Like with other types of rules,
+	the serialization of style rules in the presence of nesting
+	can vary from how they were originally written.
+	Notably, all directly-nested properties
+	will be serialized before any nested rules,
+	which is <em>another</em> reason to write properties before rules.
 
 
 <!--
@@ -1133,6 +1178,7 @@ must return the result of
 invoking [=insert a CSS rule=] <var>rule</var>
 into the [=CSSRule/child CSS rules=] at <var>index</var>.
 
+
 The <dfn method for=CSSStyleRule>deleteRule(<var>index</var>)</dfn> method
 must [=remove a CSS rule=] from the [=CSSRule/child CSS rules=] at <var>index</var>.
 
@@ -1140,17 +1186,19 @@ Note: Serialization of {{CSSStyleRule}} with nested rules
 are already well-defined by [[CSSOM]],
 via [=serialize a CSS rule=].
 
-<div class=issue>
-	Whether we attach .cssRules to CSSStyleRule,
-	as described here,
-	or to CSSStyleDeclaration
-	(to be consistent with future work
-	allowing `style` attributes to have nested rules)
-	is still an open question.
+Note: The restriction on what a [=nested style rule's=]
+selector can start with
+counts as a "constraint imposed by CSS"
+in step 5 of [=insert a CSS rule=]
+(when invoked by anything that takes [=nested style rules=],
+not just {{CSSStyleRule}} itself).
 
-	Also, attaching it to .style
-	means existing code setting <code>rule.style=""</code>
-	and expecting
+When setting {{CSSStyleRule/selectorText}},
+if the {{CSSStyleRule}} is a [=nested style rule=],
+and the returned group of selectors
+starts with a selector
+that starts with an ident or function token,
+do nothing and return.
 
-	(<a href="https://github.com/w3c/csswg-drafts/issues/7850">Issue 7850</a>)
-</div>
+Issue: The above paragraph will be inlined into the CSSOM algo,
+rather than monkey-patched.

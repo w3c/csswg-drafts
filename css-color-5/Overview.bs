@@ -31,6 +31,8 @@ spec:css-color-4; type:dfn; text:rectangular orthogonal color
 spec:css-color-4; type:dfn; text:cylindrical polar color
 spec:css-color-4; type:value; text:none
 spec:css-color-4; type:value; text:srgb
+spec:css-color-4; type:dfn; text:modern color syntax
+spec:css-color-4; type:value; text:alpha-value
 </pre>
 <link rel="stylesheet" href="style.css" />
 <style>
@@ -112,6 +114,20 @@ Introduction {#intro}
 	It also adds ''device-cmyk'',
 	a representation of
 	uncalibrated cmyk color.
+
+<h2 id="color-syntax">The <<color>> syntax</h2>
+
+	Colors in CSS are represented by the <dfn export><<color>></dfn> type:
+
+	<pre class='prod'>
+	&lt;color> = <<absolute-color-base>> | currentcolor | <<system-color>> | <<device-cmyk()>> 
+
+	<dfn>&lt;absolute-color-base></dfn> = <<hex-color>> | <<absolute-color-function>> | <<named-color>> | transparent
+	<dfn>&lt;absolute-color-function></dfn> = <<rgb()>> | <<rgba()>> |
+								<<hsl()>> | <<hsla()>> | <<hwb()>> |
+								<<lab()>> | <<lch()>> | <<oklab()>> | <<oklch()>> |
+								<<color()>>
+	</pre>
 
 
 <!--
@@ -232,6 +248,7 @@ After normalizing both percentages, the result is produced via the following alg
 	parsing/color-computed-color-mix-function.html
 	parsing/color-invalid-color-mix-function.html
 	parsing/color-valid-color-mix-function.html
+	parsing/gamut-mapping.html
 </wpt>
 
 The result of mixing is the color at the specified percentage along the progression
@@ -788,7 +805,8 @@ the color functions could only specify colors in an absolute manner,
 by directly specifying all of the color channels.
 
 The new <dfn export>relative color</dfn> syntax
-allows existing colors to be modified
+extends [=modern color syntax=]
+to allow existing colors to be modified
 using the color functions:
 if an <dfn>origin color</dfn> is specified,
 then each color channel can <em>either</em> be directly specified,
@@ -806,6 +824,7 @@ The precise details of each function's changes to accomodate [=relative colors=]
 but they all follow a common structure:
 
 * An [=origin color=] can be specified with a ''from <<color>>'' value at the start of the function.
+* The origin color and the relative color need not use the same color function.
 * If an [=origin color=] is specified,
 	the remaining arguments can either be specified directly, as normal,
 	be specified as a <dfn>channel keyword</dfn> 
@@ -816,10 +835,10 @@ but they all follow a common structure:
 	If the alpha value is omitted, however,
 	it defaults to taking from the [=origin color=]
 	(rather than defaulting to ''100%'', as it does in the absolute syntax).
-* Relative color syntax only applies to the modern
-	(space separated components, / separator for alpha) syntax.
+* Relative color syntax only applies to the [=modern color syntax=].
 	It <em>cannot</em> be used with <a>legacy color syntax</a>
 	and attempting to do so is an error.
+* However, the [=origin color=] can use either modern or legacy syntax.
 
 Except as specified for individual color functions,
 (for example, HWB Whiteness and Blackness return <<percentage>>),
@@ -868,9 +887,9 @@ in the range [0, 360].
 	
 </div>
 
-If the [=origin color=] was originally specified with a different color function,
+<p id="required-conversion">If the [=origin color=] was <dfn>originally specified</dfn> with a different color function,
 it's first converted into the chosen color function,
-so it has meaningful values for the channels.
+so it has meaningful values for the channels.</p>
 
 <div class=example>
 	By using the [=channel keywords=] in a [=math function=],
@@ -952,25 +971,75 @@ so it has meaningful values for the channels.
 	which determines how "colorful" the color is.)
 </div>
 
+Missing components are handled the same way as with 
+[[css-color-4#interpolation-missing]]:
+the origin colorspace and the relative function colorspace
+are checked for [=analogous components=]
+which are then carried forward as missing.
+
+<div class="example" id="ex-missing-analogous">
+	In this example the achromatic origin color has a missing hue;
+	the [=relative color=] also has a missing hue,
+	which affects a gradient using that color.
+
+	<pre highlight=css>
+	html { --bg: <span class="swatch" style="--color: rgb(51.5% 48.5% 48.5%)"></span> hsl(none 3% 50%); }
+	.foo {
+		--darker-bg: <span class="swatch" style="--color: rgb(37.86% 35.24% 35.91%)"></span> oklch(from var(--bg) calc(l * 0.8) c h);
+	}
+	.bar {
+		background: linear-gradient(in Oklab to right, <span class="swatch" style="--color: rgb(37.86% 35.24% 35.91%)"></span>  var(--darker-bg), <span class="swatch" style="--color: #4C3"></span>  #4C3);
+	}
+	</pre>
+
+	The value of --bg when converted to Oklch is
+	oklch(0.592 0.009 17.42) 
+	but the analogous hue component is carried forward
+	giving oklch(0.592 0.009 none).
+	These values are then used in the relative function, giving
+	the darker color oklch(0.474 0.009 none).
+
+	The light green in the gradient is 
+	<span class="swatch" style="--color: #4C3"></span>  oklch(0.743 0.222 141.6),
+	and so, when interpolated, the other color take that hue,
+	becoming 
+	<span class="swatch" style="--color: rgb(34.96% 36.56% 34.72%)"></span> oklch(0.474 0.009 141.6).
+
+	Thus, the gradient will have a constant greenish hue. 
+
+	If an implementation failed to do this carrying forward,
+	the grayish --darker-bg would have a hue of 0,
+	giving an undesirable reddish tint at the start of the  gradient.
+
+	<figure id="fig-gradient-missing">
+		<img src="./images/rectangular-missing.png" alt="">
+		<figcaption>Correct (above) and incorrect (below, reddish) gradients.</figcaption>
+	</figure>
+</div>
+
+However, if calculations are done on missing values, ''none'' is treated as 0.
+
 <h3 id="relative-RGB">Relative sRGB Colors</h3>
 
-The grammar of the ''rgb()'' function is extended as follows:
+The grammar of the [=modern color syntax=] ''rgb()'' and ''rgba()'' functions are extended as follows:
 
 <pre class='prod'>
-	<dfn>rgb()</dfn> = rgb( [<<percentage>> | none]{3} [ / [<<alpha-value>> | none] ]? ) |
-				  rgb( [<<number>> | none]{3} [ / [<<alpha-value>> | none] ]? ) |
-				  rgb( [ from <<color>> ]? [ <<number>> | <<percentage>> | none]{3} [ / [<<alpha-value>> | none] ]?  )
-	<dfn>&lt;alpha-value></dfn> = <<number>> | <<percentage>>
+	<dfn><<modern-rgb-syntax>></dfn> = rgb( [ from <<color>> ]? 
+					[ <<number>> | <<percentage>> | none]{3} 
+					[ / [<<alpha-value>> | none] ]?  )
+	<dfn><<modern-rgba-syntax>></dfn> = rgba( [ from <<color>> ]? 
+					[ <<number>> | <<percentage>> | none]{3} 
+					[ / [<<alpha-value>> | none] ]?  )
 	</pre>
 
 
-Within a [=relative color=] syntax ''rgb()'' function,
+Within a [=relative color=] syntax ''rgb()'' or ''rgba()'' function,
 the allowed [=channel keywords=] are:
 
 * <dfn value for="rgb()">r</dfn>, <dfn value for="rgb()">g</dfn>, and <dfn value for="rgb()">b</dfn>
 	are all  <<number>>s
 	that correspond to the [=origin color's=] red, green, and blue channels
-	after its conversion to sRGB. 
+	after <a href="#required-conversion">conversion, if required</a> to sRGB. 
 	255.0 is equivalent to 100%.
 * <dfn value for="rgb()">alpha</dfn> is a <<number>> that corresponds to the [=origin color's=] alpha transparency
 
@@ -1012,28 +1081,33 @@ Relative sRGB color syntax is <em>only</em> applicable to the non-legacy RGB syn
 
 <h3 id="relative-HSL">Relative HSL Colors</h3>
 
-The grammar of the ''hsl()'' function is extended as follows:
+The grammar of the [=modern color syntax=] ''hsl()'' and ''hsla()'' functions is extended as follows:
 
 <pre class='prod'>
-<dfn>hsl()</dfn> = hsl([from <<color>>]?
-			  [<<hue>> | none]
-			  [<<percentage>> | <<number>> | none]
-			  [<<percentage>> | <<number>> | none]
-			  [ / [<<alpha-value>> | none] ]? )
+<dfn><<modern-hsl-syntax>></dfn> = hsl([from <<color>>]?
+				  [<<hue>> | none]
+				  [<<percentage>> | <<number>> | none]
+				  [<<percentage>> | <<number>> | none]
+				  [ / [<<alpha-value>> | none] ]? )
+<dfn><<modern-hsla-syntax>></dfn> = hsla([from <<color>>]?
+				[<<hue>> | none]
+				[<<percentage>> | <<number>> | none]
+				[<<percentage>> | <<number>> | none]
+				[ / [<<alpha-value>> | none] ]? )
 </pre>
 
 
-Within a [=relative color=] syntax ''hsl()'' function,
+Within a [=relative color=] syntax ''hsl()'' or ''hsla()'' function,
 the allowed [=channel keywords=] are:
 
 * <dfn value for="hsl()">h</dfn> is an <<angle>>
 	that corresponds to the [=origin color's=] HSL hue
-	after its conversion to sRGB,
+	after <a href="#required-conversion">conversion, if required</a> to sRGB,
 	normalized to a [0, 360] range
 * <dfn value for="hsl()">s</dfn> and <dfn value for="hsl()">l</dfn>
 	are <<percentage>>s that correspond to the [=origin color's=] 
 	HSL saturation and lightness,
-	after its conversion to sRGB
+	after <a href="#required-conversion">conversion, if required</a> to sRGB
 * <dfn value for="hsl()">alpha</dfn> is a <<number>> that corresponds to the [=origin color's=] alpha transparency
 
 <div class="example">
@@ -1065,11 +1139,11 @@ the allowed [=channel keywords=] are:
 
 * <dfn value for="hwb()">h</dfn> is an <<angle>>
 	that corresponds to the [=origin color's=] HWB hue
-	after its conversion to sRGB,
+	after <a href="#required-conversion">conversion, if required</a> to sRGB,
 	normalized to a [0, 360] range
 * <dfn value for="hwb()">w</dfn> and <dfn value for="hwb()">b</dfn>
 	are <<percentage>>s that correspond to the [=origin color's=] HWB whiteness and blackness
-	after its conversion to sRGB
+	after <a href="#required-conversion">conversion, if required</a> to sRGB
 * <dfn value for="hwb()">alpha</dfn> is a <<number>> that corresponds to the [=origin color's=] alpha transparency
 
 <h3 id="relative-Lab">Relative Lab Colors</h3>
@@ -1090,8 +1164,10 @@ the allowed [=channel keywords=] are:
 
 * <dfn value for="lab()">l</dfn> is a <<number>>
 	that corresponds to the [=origin color's=] CIE Lightness
+	after <a href="#required-conversion">conversion, if required</a>, to CIE Lab
 * <dfn value for="lab()">a</dfn> and <dfn value for="lab()">b</dfn> are <<number>>s
 	that correspond to the [=origin color's=] CIELab a and b axes
+	after <a href="#required-conversion">conversion, if required</a>, to CIE Lab
 * <dfn value for="lab()">alpha</dfn> is a <<number>> that corresponds to the [=origin color's=] alpha transparency
 
 <div class="example">
@@ -1137,8 +1213,10 @@ the allowed [=channel keywords=] are:
 
 * <dfn value for="oklab()">l</dfn> is a  <<number>>
 	that corresponds to the [=origin color's=] Oklab Lightness
+	after <a href="#required-conversion">conversion, if required</a>, to Oklab
 * <dfn value for="oklab()">a</dfn> and <dfn value for="oklab()">b</dfn> are <<number>>s
 	that correspond to the [=origin color's=] Oklab a and b axes
+	after <a href="#required-conversion">conversion, if required</a>, to Oklab
 * <dfn value for="oklab()">alpha</dfn> is a <<number>> that corresponds to the [=origin color's=] alpha transparency
 
 <h3 id="relative-LCH">Relative LCH Colors</h3>
@@ -1159,10 +1237,13 @@ the allowed [=channel keywords=] are:
 
 * <dfn value for="lch()">l</dfn> is a <<number>>
 	that corresponds to the [=origin color's=] CIE Lightness
+	after <a href="#required-conversion">conversion, if required</a>, to CIE LCH
 * <dfn value for="lch()">c</dfn> is a  <<number>>
 	that corresponds to the [=origin color's=] LCH chroma
+	after <a href="#required-conversion">conversion, if required</a>, to CIE LCH
 * <dfn value for="lch()">h</dfn> is an <<angle>>
 	that corresponds to the [=origin color's=] LCH hue,
+	after <a href="#required-conversion">conversion, if required</a>, to CIE LCH,
 	normalized to a [0, 360] range.
 * <dfn value for="lch()">alpha</dfn> is a <<number>> that corresponds to the [=origin color's=] alpha transparency
 
@@ -1289,10 +1370,13 @@ the allowed [=channel keywords=] are:
 
 * <dfn value for="oklch()">l</dfn> is a  <<number>>
 	that corresponds to the [=origin color's=] Oklab Lightness
+	after <a href="#required-conversion">conversion, if required</a>, to Oklch
 * <dfn value for="oklch()">c</dfn> is a  <<number>>
 	that corresponds to the [=origin color's=] Oklch chroma
+	after <a href="#required-conversion">conversion, if required</a>, to Oklch
 * <dfn value for="oklch()">h</dfn> is an <<angle>>
 	that corresponds to the [=origin color's=] Oklch hue,
+	after <a href="#required-conversion">conversion, if required</a>, to Oklch,
 	normalized to a [0, 360] range.
 * <dfn value for="oklch()">alpha</dfn> is a <<number>> that corresponds to the [=origin color's=] alpha transparency
 
@@ -1388,8 +1472,8 @@ the number and name of the allowed [=channel keywords=] are:
 
 * defined by the '@color-profile/components' descriptor on the corresponding ''@color-profile'',
 	if present;
-	otherwise, no relative color manipulation is valid. They are <<number>>s or <<percentage>>s that correspond to the [=origin color's=] channels
-	after its conversion to the color space of the color profile. For <<number>>s, 1.0 corresponds to 100%.
+	otherwise, no relative color manipulation is valid. They are <<number>>s that correspond to the [=origin color's=] channels
+	after <a href="#required-conversion">conversion, if required</a> to the color space of the color profile. The value 1.0 corresponds to 100%.
 
 Within a [=relative color=] syntax ''color()'' function using <<predefined-rgb-params>>,
 the allowed [=channel keywords=] are:
@@ -1397,14 +1481,14 @@ the allowed [=channel keywords=] are:
 * <dfn value for="color()">r</dfn>, <dfn value for="color()">g</dfn>, and <dfn value for="color()">b</dfn>
 	are all <<number>>s
 	that correspond to the [=origin color's=] red, green, and blue channels
-	after its conversion to the predefined RGB color space.
+	after <a href="#required-conversion">conversion, if required</a> to the predefined RGB color space.
 
 Within a [=relative color=] syntax ''color()'' function using <<xyz-params>>,
 the allowed [=channel keywords=] are:
 
 * <dfn value for="color()">x</dfn>, <dfn value for="color()">y</dfn>, <dfn value for="color()">z</dfn> are all <<number>>s
 	that correspond to the [=origin color's=] X, Y and Z channels
-	after its conversion to relative CIE XYZ color space
+	after <a href="#required-conversion">conversion, if required</a> to relative CIE XYZ color space
 	adapted to the relevant white point.
 
 	The parameters have the following form:
@@ -1445,6 +1529,11 @@ the allowed [=channel keywords=] are:
 
 		For custom color spaces, if more <<number>>s or <<percentage>>s are provided than parameters that the color space takes,
 		the excess <<number>>s at the end are ignored.
+		The color is still a [=valid color=].
+
+		For custom color spaces, if more <<number>>s or <<percentage>>s are provided than components listed in the optional components descriptor,
+		the additional values at the end are still valid,
+		but cannot be used in Relative Color Syntax.
 		The color is still a [=valid color=].
 
 		For custom color spaces, if fewer <<number>>s or <<percentage>>s are provided than parameters that the color space takes,
@@ -2307,6 +2396,38 @@ or any other color or monochrome output device which has been characterized.
 		</ul>
 
 <!--
+████ ██    ██ ████████ ████████ ████████  ████████   ███████  ██          ███    ████████ ████████
+ ██  ███   ██    ██    ██       ██     ██ ██     ██ ██     ██ ██         ██ ██      ██    ██
+ ██  ████  ██    ██    ██       ██     ██ ██     ██ ██     ██ ██        ██   ██     ██    ██
+ ██  ██ ██ ██    ██    ██████   ████████  ████████  ██     ██ ██       ██     ██    ██    ██████
+ ██  ██  ████    ██    ██       ██   ██   ██        ██     ██ ██       █████████    ██    ██
+ ██  ██   ███    ██    ██       ██    ██  ██        ██     ██ ██       ██     ██    ██    ██
+████ ██    ██    ██    ████████ ██     ██ ██         ███████  ████████ ██     ██    ██    ████████
+-->
+
+<h2 id="interpolation">
+	Color Interpolation</h2>
+
+<h3 id="interpolation-space">
+	Color Space for Interpolation</h3>
+
+	The <<color-interpolation-method>> is extended to allow use of the 
+	<a href="#custom-color">custom color spaces</a>:
+
+	<pre class='prod'>
+		<dfn export>&lt;color-space></dfn> = <<rectangular-color-space>> | <<polar-color-space>> | <<custom-color-space>>
+		<dfn export>&lt;rectangular-color-space></dfn> = ''srgb'' | ''srgb-linear'' | ''lab'' | ''oklab'' | ''xyz'' | ''xyz-d50'' | ''xyz-d65''
+		<dfn export>&lt;polar-color-space></dfn> = ''hsl'' | ''hwb'' | ''lch'' | ''oklch''
+		<dfn export>&lt;custom-color-space></dfn> = <<dashed-ident>>
+		<dfn export>&lt;hue-interpolation-method></dfn> = [ shorter | longer | increasing | decreasing ] hue
+		<dfn export id="color-interpolation-method">&lt;color-interpolation-method></dfn> = in [ <<rectangular-color-space>> | <<polar-color-space>> <<hue-interpolation-method>>? | <<custom-color-space>> ]
+	</pre>
+
+	The <<dashed-ident>> must have been declared 
+	in a valid ''@color-profile'' rule, 
+	otherwise the <<color-interpolation-method>> is invalid.
+
+<!--
 ████████  ████████  ██████   ███████  ██       ██     ██ ████████
 ██     ██ ██       ██    ██ ██     ██ ██       ██     ██ ██
 ██     ██ ██       ██       ██     ██ ██       ██     ██ ██
@@ -2336,7 +2457,7 @@ or any other color or monochrome output device which has been characterized.
 
 		<wpt>
 			color-mix-currentcolor-001.html
-  			color-mix-currentcolor-002.html
+			color-mix-currentcolor-002.html
 		</wpt>
 
 <h3 id="resolving-rcs">
@@ -2786,7 +2907,7 @@ No new privacy considerations have been reported on this specification.
 	<li>Fixed a typo in definition of rgb()</li>
 	<li>Editorial improvements (capitalization, spelling, clarity)</li>
 	<li>Exported definitions for other specifications to use</li>
-	<li> Add missing 'none' to alpha in grammar of color()</li>
+	<li> Add missing ''none'' to alpha in grammar of color()</li>
 	<li>Moved the color-contrast() function to level 6</li>
 </ul>
 
@@ -2949,8 +3070,6 @@ No new privacy considerations have been reported on this specification.
 			t422-rgba-func-no-mixed-f.xht
 			t422-rgba-func-pct-a.xht
 			t422-rgba-func-whitespace-b.xht
-			t422-rgba-onscreen-b.xht
-			t422-rgba-onscreen-multiple-boxes-c.xht
 			t422-rgba-values-meaning-b.xht
 			t423-transparent-1-a.xht
 			t423-transparent-2-a.xht
@@ -2976,8 +3095,6 @@ No new privacy considerations have been reported on this specification.
 			t425-hsla-basic-a.xht
 			t425-hsla-clip-outside-device-gamut-b.xht
 			t425-hsla-h-rotating-b.xht
-			t425-hsla-onscreen-b.xht
-			t425-hsla-onscreen-multiple-boxes-c.xht
 			t425-hsla-parsing-f.xht
 			t425-hsla-values-b.xht
 			t43-svg-keywords-a.xht
@@ -2985,8 +3102,8 @@ No new privacy considerations have been reported on this specification.
 			t44-currentcolor-border-b.xht
 			t44-currentcolor-inherited-c.xht
 			background-color-rgb-001.html
- 			background-color-rgb-002.html
-  			background-color-rgb-003.html
+			background-color-rgb-002.html
+			background-color-rgb-003.html
 
 		</wpt>
 
@@ -3086,7 +3203,7 @@ No new privacy considerations have been reported on this specification.
 			lch-007.html
 			lch-008.html
 			lch-009.html
-  			lch-010.html
+			lch-010.html
 			named-001.html
 			oklab-001.html
 			oklab-002.html
@@ -3105,10 +3222,10 @@ No new privacy considerations have been reported on this specification.
 			oklch-007.html
 			oklch-008.html
 			oklch-009.html
-  			oklch-010.html
+			oklch-010.html
 			opacity-overlapping-letters.html
 			animation/opacity-animation-ending-correctly-001.html
-  			animation/opacity-animation-ending-correctly-002.html
+			animation/opacity-animation-ending-correctly-002.html
 			parsing/color-computed.html
 			parsing/color-computed-color-function.html
 			parsing/color-valid.html
