@@ -70,6 +70,10 @@
 		<input type="radio" name="algorithm" value="elika">
 		Elika’s Interpolation based on rounded/straight ratio
 	</label>
+	<label>
+		<input type="radio" name="algorithm" value="oriol">
+		Oriol's variant of current spec
+	</label>
 </form>
 <output id="output"></output>
 <script>
@@ -82,9 +86,15 @@ const testCases = [
   {width: 200, height: 40, spread: 50, borderRadius: "20px / 4px"},
   {width: 500, height: 50, spread: 30, borderRadius: "15px"},
   {width: 500, height: 50, spread: 30, borderRadius: "25px"},
+  {width: 500, height: 60, spread: 30, borderRadius: "20px 20px 40px 40px"},
   {width: 500, height: 50, spread: 30, borderRadius: "1px 1px 49px 49px"},
+  {width: 500, height: 60, spread: 30, borderRadius: "0px 0px 30px 30px"},
+  {width: 250, height: 35, spread: 50, borderRadius: "0px 0px 25px 25px"},
   {width: 500, height: 50, spread: 30, borderRadius: "50%"},
   {width: 500, height: 50, spread: 30, borderRadius: "50% 50% 1px 50%"},
+  {width: 200, height: 40, spread: 50, borderRadius: "0 100% 0 100%"},
+  {width: 0, height: 0, spread: 30, borderRadius: "50px 0px 0px 0px"},
+  {width: 500, height: 500, spread: 30, borderRadius: "50px"},
 ];
 
 function show({incremental = false} = {}) {
@@ -134,6 +144,9 @@ function show({incremental = false} = {}) {
 			outer.style.width = "max-content";
 			container.appendChild(outer);
 			outer.style.borderRadius = resolve(testCase, inner);
+			if (!outer.style.borderRadius) {
+				outer.style.outline = "solid red";
+			}
 		}
 	}
 }
@@ -169,12 +182,15 @@ function resolve(testCase, box) {
 	};
 
 	// Normalize radii that add up to > 100%
-	const f = Math.min(
+	let f = Math.min(
 		testCase.width / (radii.topLeft[0] + radii.topRight[0]),
 		testCase.width / (radii.bottomLeft[0] + radii.bottomRight[0]),
 		testCase.height / (radii.topLeft[1] + radii.bottomLeft[1]),
 		testCase.height / (radii.topRight[1] + radii.bottomRight[1])
 	);
+	if (Number.isNaN(f)) {
+		f = 0;
+	}
 	if (f < 1) {
 		for (let corner in radii) {
 			radii[corner] = radii[corner].map(v => v * f);
@@ -182,10 +198,10 @@ function resolve(testCase, box) {
 	}
 
 	let r = {
-		topLeft: radii.topLeft,
-		topRight: radii.topRight,
-		bottomLeft: radii.bottomLeft,
-		bottomRight: radii.bottomRight,
+		topLeft: [],
+		topRight: [],
+		bottomLeft: [],
+		bottomRight: [],
 	};
 	const algorithm = document.forms[0].elements.algorithm.value;
 
@@ -195,8 +211,8 @@ function resolve(testCase, box) {
 
 	let percentageSameAxis = {};
 
-	for (let corner in r) {
-		let c = r[corner];
+	for (let corner in radii) {
+		let c = radii[corner];
 		let [rx, ry] = c;
 
 		let px = rx / width;
@@ -207,8 +223,8 @@ function resolve(testCase, box) {
 
 	let currentSpec = {};
 
-	for (let corner in r) {
-		currentSpec[corner] = r[corner].map(value => {
+	for (let corner in radii) {
+		currentSpec[corner] = radii[corner].map(value => {
 			if (value >= testCase.spread) {
 				return value + testCase.spread;
 			}
@@ -218,13 +234,13 @@ function resolve(testCase, box) {
 	}
 
 	if (algorithm === "increase-by-spread") {
-		for (let corner in r) {
-			r[corner] = r[corner].map(v => v + testCase.spread);
+		for (let corner in radii) {
+			r[corner] = radii[corner].map(v => v + testCase.spread);
 		}
 	}
 	else if (algorithm === "old-spec") {
-		for (let corner in r) {
-			let c = r[corner];
+		for (let corner in radii) {
+			let c = radii[corner];
 			r[corner] = c[0] + c[1] === 0 ? [0, 0] : [c[0] + testCase.spread, c[1] + testCase.spread];
 		}
 	}
@@ -240,10 +256,10 @@ function resolve(testCase, box) {
 		let spreadHeight = height + testCase.spread * 2;
 
 		let straights = {
-			top: width - r.topLeft[0] - r.topRight[0],
-			bottom: width - r.bottomLeft[0] - r.bottomRight[0],
-			left: height - r.topLeft[1] - r.bottomLeft[1],
-			right: height - r.topRight[1] - r.bottomRight[1],
+			top: width - radii.topLeft[0] - radii.topRight[0],
+			bottom: width - radii.bottomLeft[0] - radii.bottomRight[0],
+			left: height - radii.topLeft[1] - radii.bottomLeft[1],
+			right: height - radii.topRight[1] - radii.bottomRight[1],
 		}
 
 		function getStraightSegment(corner, axis) {
@@ -259,8 +275,8 @@ function resolve(testCase, box) {
 			return straights[parts[axis]];
 		}
 
-		for (let corner in r) {
-			r[corner] = r[corner].map((value, axis) => {
+		for (let corner in radii) {
+			r[corner] = radii[corner].map((value, axis) => {
 				let straight = getStraightSegment(corner, axis);
 				let ratio = straight / value;
 				ratio = Math.min(ratio, 1);
@@ -269,6 +285,21 @@ function resolve(testCase, box) {
 				return Math.min(ret, straight + value + testCase.spread);
 			});
 
+		}
+	}
+	else if (algorithm === "oriol") {
+		for (let corner in radii) {
+			let coverage = Math.max(
+				2 * radii[corner][0] / testCase.width,
+				2 * radii[corner][1] / testCase.height,
+			) || 0;
+			r[corner] = radii[corner].map(value => {
+				if (value >= testCase.spread || coverage >= 1) {
+					return value + testCase.spread;
+				}
+				let r = (1 - value / testCase.spread) * (1 - coverage);
+				return value + testCase.spread * (1 - r**3);
+			});
 		}
 	}
 
