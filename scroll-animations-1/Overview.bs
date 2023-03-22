@@ -202,7 +202,7 @@ spec: cssom-view-1; type: dfn;
 		<dt><dfn>self</dfn>
 		<dd>
 			Specifies to use the element’s own [=principal box=] as the [=scroll container=].
-			If the [=principal box=] is not a [=scroll container=], 
+			If the [=principal box=] is not a [=scroll container=],
 			then the [=scroll progress timeline=] is [=inactive timeline|inactive=].
 	</dl>
 
@@ -788,7 +788,7 @@ spec: cssom-view-1; type: dfn;
 
 # Frame Calculation Details # {#frames}
 
-## Avoiding cycles with layout ## {#avoiding-cycles}
+## HTML Processing Model: Event loop
 
 	The ability for scrolling to drive the progress of an animation,
 	gives rise to the possibility of <dfn>layout cycles</dfn>,
@@ -796,32 +796,36 @@ spec: cssom-view-1; type: dfn;
 	which in turn causes a new change to the scroll offset.
 
 	To avoid such [=layout cycles=],
-	animations with a [=scroll progress timeline=] are sampled once per frame,
-	after scrolling in response to input events has taken place,
-	but before {{requestAnimationFrame()}} callbacks are run.
-	If the sampling of such an animation causes a change to a scroll offset,
-	the animation will not be re-sampled to reflect the new offset
-	until the next frame.
+	animations with a [=scroll progress timeline=] update their current time once
+	during step 7.10 of the [HTML Processing Model](https://html.spec.whatwg.org/multipage/webappapis.html#processing-model-8) event loop,
+	as step 1 of [=update animations and send events=].
 
-	The implication of this is that in some situations, in a given frame,
-	the rendered scroll offset of a scroll container might not be consistent
-	with the state of an animation driven by scrolling that scroll container.
-	However, this will only occur in situations where the animation's effect
-	changes the scroll offset of that same scroll container
-	(in other words, in situations where the animation's author is asking for trouble).
-	In normal situations, including&mdash;importantly--
-	when scrolling happens in response to input events,
-	the rendered scroll offset and the state of scroll-driven animations
-	will be consistent in each frame.
+	During step 7.14.1 of the [HTML Processing Model](https://html.spec.whatwg.org/multipage/webappapis.html#processing-model-8),
+	any created [=scroll progress timelines=] or [=view progress timelines=] are collected into an <dfn export>initially stale</dfn> set.
+	After step 7.14.1 if there are any [=initially stale=] timelines, they update their current time,
+	the set of [=initially stale=] timelines is cleared and
+	we run and we run an additional step to recalculate styles and update layout.
+	As we only gather stale timelines during the first style and layout calculation,
+	this can only directly cause one additional style recalculation.
 
-	User agents that composite frames asynchronously
-	with respect to layout and/or script
-	may, at their discretion, sample scroll-driven animations
-	once per <em>composited</em> frame,
-	rather than (or in addition to) once per full layout cycle.
-	Again, if sampling such an animation causes a change to a scroll offset,
-	the animation will not be re-sampled to reflect the new offset
-	until the next frame.
+	Note: Without this additional round of style and layout,
+	[=initially stale=] timelines would remain stale
+	(i.e. they would not have a current time)
+	for the remainder of the frame where the timeline was created.
+	This means that animations linked to such a timeline
+	would not produce any [=effect value=] for that frame,
+	which could lead to an undesirable initial "flash"
+	in the rendered output.
+
+	Note: This section has no effect on forced style and layout
+	calculations triggered by {{Window/getComputedStyle()|getComputedStyle()}} or similar.
+	In other words, [=initially stale=] timelines are visible as such
+	through those APIs.
+
+	If the step 7.14 of the [HTML Processing Model](https://html.spec.whatwg.org/multipage/webappapis.html#processing-model-8)
+	would result in a change of time for any [=scroll progress timelines=] or
+	[=view progress timelines=], they will not be re-sampled to reflect the
+	new offset until the next update of the rendering.
 
 	Nothing in this section is intended to require
 	that scrolling block on layout or script.
@@ -1040,7 +1044,7 @@ spec: cssom-view-1; type: dfn;
 
 			2. Otherwise, return null.
 
-		2. Let |current time| 
+		2. Let |current time|
 			be the value of [=this's=] {{AnimationTimeline/currentTime}} internal slot.
 
 			If [=this=] is a {{ScrollTimeline}},
