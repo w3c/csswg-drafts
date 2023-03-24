@@ -515,6 +515,41 @@ Additional links
  - [WebKit-dev thread](https://lists.webkit.org/pipermail/webkit-dev/2020-June/031228.html)
 
 
+## Considerations for Security and Privacy
+There are no known security or privacy impacts of this feature.
+
+The W3C TAG [self-review questionnaire](https://www.w3.org/TR/security-privacy-questionnaire/) [questions](https://www.w3.org/TR/security-privacy-questionnaire/#questions) have been considered and answered below:
+
+2.1. What information might this feature expose to Web sites or other parties, and for what purposes is that exposure necessary?
+
+     1. What information does your spec expose to the first party that the first party cannot currently easily determine.
+
+        This spec does not expose any information to the first party that the first party cannot currently easily determine.
+
+     2. What information does your spec expose to third parties that third parties cannot currently easily determine.
+
+        This spec does not expose any information to third parties that they cannot easily determine.
+        We avoided [supporting observing the scroll position of the root frame](#access-top-level-window-scroll-in-iframes) for now to avoid any additional risk here.
+        Note that third parties can currently determine this through the intersection observer API so it again wouldn't be a new path.
+
+     3. What potentially identifying information does your spec expose to the first party that the first party can already access (i.e., what identifying information does your spec duplicate or mirror).
+
+        The spec indirectly exposes the size and position of scroll ports and elements within them.
+        The size and position of scroll ports are already trivially accessible through `scroller.scrollLeft`, `scroller.scrollTop`, `scroller.clientWidth`, `scroller.clientHeight`, `window.innerWidth` and `window.innerHeight`.
+        The position of elements relative to the viewport can already be determined using API's like `element.offsetLeft`, `element.offsetTop`, `element.clientWidth`, and `element.clientHeight` or through `element.getBoundingClientRect()`.
+
+     4. What potentially identifying information does your spec expose to third parties that third parties can already access.
+
+        The same information as above in 2.1.3 is exposed in third party frames.
+
+2.2. Do features in your specification expose the minimum amount of information necessary to enable their intended uses?
+
+     Yes, the feature does not expose anything which isn't necessary to use the API.
+
+2.3. How do the features in your specification deal with personal information, personally-identifiable information (PII), or information derived from them?
+
+     There is no information
+
 ## References & acknowledgements
 Many thanks for valuable contributions, feedback and advice from:
  * All current and former specification editors.
