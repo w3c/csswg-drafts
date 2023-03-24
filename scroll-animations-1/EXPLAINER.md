@@ -238,10 +238,10 @@ const animation = image.animate(
     fill: 'both',
     // The animation starts at the offset that corresponds with image starting
     // to enter scrollport (i.e., 0% intersect with scroller at its “end” edge).
-    rangeStart: 'enter 0%',
+    rangeStart: 'entry 0%',
     // The animation ends at the offset that corresponds with image becoming
     // fully visible (i.e., 100% intersect with scroller at its “end” edge).
-    rangeEnd: 'enter 100%'
+    rangeEnd: 'entry 100%'
   }
 );
 ```
@@ -294,8 +294,8 @@ the ViewTimeline API.
         {transform: 'translateX(-10px)', opacity: 0},
         {transform: 'none', opacity: 1}],
         {
-          rangeStart: 'enter 0%',
-          rangeEnd: 'enter 100%',
+          rangeStart: 'entry 0%',
+          rangeEnd: 'entry 100%',
           fill: 'both',
           timeline: new ViewTimeline({subject: headers[i]})
         }
