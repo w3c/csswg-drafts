@@ -515,6 +515,102 @@ Additional links
  - [WebKit-dev thread](https://lists.webkit.org/pipermail/webkit-dev/2020-June/031228.html)
 
 
+## Considerations for Security and Privacy
+There are no known security or privacy impacts of this feature.
+
+The W3C TAG [self-review questionnaire](https://www.w3.org/TR/security-privacy-questionnaire/) [questions](https://www.w3.org/TR/security-privacy-questionnaire/#questions) have been considered and answered below:
+
+2.1. What information might this feature expose to Web sites or other parties, and for what purposes is that exposure necessary?
+
+     1. What information does your spec expose to the first party that the first party cannot currently easily determine.
+
+        This spec does not expose any information to the first party that the first party cannot currently easily determine.
+
+     2. What information does your spec expose to third parties that third parties cannot currently easily determine.
+
+        This spec does not expose any information to third parties that they cannot easily determine.
+        We avoided [supporting observing the scroll position of the root frame](#access-top-level-window-scroll-in-iframes) for now to avoid any additional risk here.
+        Note that third parties can currently determine this through the intersection observer API so it again wouldn't be a new path.
+
+     3. What potentially identifying information does your spec expose to the first party that the first party can already access (i.e., what identifying information does your spec duplicate or mirror).
+
+        The spec indirectly exposes the size and position of scroll ports and elements within them.
+        The size and position of scroll ports are already trivially accessible through `scroller.scrollLeft`, `scroller.scrollTop`, `scroller.clientWidth`, `scroller.clientHeight`, `window.innerWidth` and `window.innerHeight`.
+        The position of elements relative to the viewport can already be determined using API's like `element.offsetLeft`, `element.offsetTop`, `element.clientWidth`, and `element.clientHeight` or through `element.getBoundingClientRect()`.
+
+     4. What potentially identifying information does your spec expose to third parties that third parties can already access.
+
+        The same information as above in 2.1.3 is exposed in third party frames.
+
+2.2. Do features in your specification expose the minimum amount of information necessary to enable their intended uses?
+
+     Yes, the feature does not expose anything which isn't necessary to use the API.
+
+2.3. How do the features in your specification deal with personal information, personally-identifiable information (PII), or information derived from them?
+
+     There is no PII processed by scroll driven animations.
+
+2.4. How do the features in your specification deal with sensitive information?
+
+     No sensitive information is used by this feature.
+
+2.5. Do the features in your specification introduce new state for an origin that persists across browsing sessions?
+
+     No.
+
+2.6. Do the features in your specification expose information about the underlying platform to origins?
+
+     No new information is exposed that wasn't already available from pre-existing APIs such as `window.innerHeight`.
+
+2.7. Does this specification allow an origin to send data to the underlying platform?
+
+     No.
+
+2.8. Do features in this specification enable access to device sensors?
+
+     No.
+
+2.9. Do features in this specification enable new script execution/loading mechanisms?
+
+     No.
+
+2.10. Do features in this specification allow an origin to access other devices?
+
+     No.
+
+2.11. Do features in this specification allow an origin some measure of control over a user agent’s native UI?
+
+     No.
+
+2.12. What temporary identifiers do the features in this specification create or expose to the web?
+
+     No temporary identifiers are created / exposed by this specification.
+
+2.13. How does this specification distinguish between behavior in first-party and third-party contexts?
+
+     The feature allows third-party contexts to animate content with respect to scrollers on that third-party context.
+     No information about the first-party context is used to do this.
+
+2.14. How do the features in this specification work in the context of a browser’s Private Browsing or Incognito mode?
+
+     There is no additional state from the user's browser state used by this specification.
+
+2.15. Does this specification have both "Security Considerations" and "Privacy Considerations" sections?
+
+     This is tracked by https://github.com/w3c/csswg-drafts/issues/8644
+
+2.16. Do features in your specification enable origins to downgrade default security protections?
+
+     No.
+
+2.17. How does your feature handle non-"fully active" documents?
+
+     There is no special handling for such documents. Scroll driven animations follow the same model as other CSS and web animations.
+
+2.18. What should this questionnaire have asked?
+
+     Nothing comes to mind.
+
 ## References & acknowledgements
 Many thanks for valuable contributions, feedback and advice from:
  * All current and former specification editors.
