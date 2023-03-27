@@ -548,7 +548,68 @@ The W3C TAG [self-review questionnaire](https://www.w3.org/TR/security-privacy-q
 
 2.3. How do the features in your specification deal with personal information, personally-identifiable information (PII), or information derived from them?
 
-     There is no information
+     There is no PII processed by scroll driven animations.
+
+2.4. How do the features in your specification deal with sensitive information?
+
+     No sensitive information is used by this feature.
+
+2.5. Do the features in your specification introduce new state for an origin that persists across browsing sessions?
+
+     No.
+
+2.6. Do the features in your specification expose information about the underlying platform to origins?
+
+     No new information is exposed that wasn't already available from pre-existing APIs such as `window.innerHeight`.
+
+2.7. Does this specification allow an origin to send data to the underlying platform?
+
+     No.
+
+2.8. Do features in this specification enable access to device sensors?
+
+     No.
+
+2.9. Do features in this specification enable new script execution/loading mechanisms?
+
+     No.
+
+2.10. Do features in this specification allow an origin to access other devices?
+
+     No.
+
+2.11. Do features in this specification allow an origin some measure of control over a user agent’s native UI?
+
+     No.
+
+2.12. What temporary identifiers do the features in this specification create or expose to the web?
+
+     No temporary identifiers are created / exposed by this specification.
+
+2.13. How does this specification distinguish between behavior in first-party and third-party contexts?
+
+     The feature allows third-party contexts to animate content with respect to scrollers on that third-party context.
+     No information about the first-party context is used to do this.
+
+2.14. How do the features in this specification work in the context of a browser’s Private Browsing or Incognito mode?
+
+     There is no additional state from the user's browser state used by this specification.
+
+2.15. Does this specification have both "Security Considerations" and "Privacy Considerations" sections?
+
+     This is tracked by https://github.com/w3c/csswg-drafts/issues/8644
+
+2.16. Do features in your specification enable origins to downgrade default security protections?
+
+     No.
+
+2.17. How does your feature handle non-"fully active" documents?
+
+     There is no special handling for such documents. Scroll driven animations follow the same model as other CSS and web animations.
+
+2.18. What should this questionnaire have asked?
+
+     Nothing comes to mind.
 
 ## References & acknowledgements
 Many thanks for valuable contributions, feedback and advice from:
