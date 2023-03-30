@@ -16,6 +16,8 @@ Abstract: This module contains defines coordinate-based positioning and offsetti
 <pre class=link-defaults>
 spec:css-break-4; type:dfn; text:fragment
 spec:dom; type:dfn; for:/; text:element
+spec:css-position-4; type:dfn; for:Document; text:top layer
+spec:infra; type:dfn; text:user agent
 </pre>
 
 <style>
@@ -41,8 +43,9 @@ Introduction {#intro}
 
 This is an early delta spec over [[css-position-3]].
 
-<h2 id="painting-order">
-Painting Order and Stacking Contexts</h2>
+
+Painting Order and Stacking Contexts {#painting-order}
+====================================
 
 This chapter describes the painting order of CSS's [=box tree=].
 
@@ -78,24 +81,29 @@ and contains the root element. Initially, the viewport is anchored
 with its top left corner at the canvas origin.
 
 <div algorithm>
-	To <dfn>paint a document</dfn>,
-	given a document |root|
+	To <dfn export>paint a document</dfn>,
+	given a document |doc|
 	and an infinite canvas |canvas|:
 
-	1. [=Paint a stacking context=] given |root|'s root element
-		 and |canvas|,
-		then return |canvas|.
+	1. [=Paint a stacking context=] given |doc|'s root element
+		 and |canvas|.
+
+	2. For each element |el| in |doc|'s [=Document/top layer=]:
+		1. [=Paint a stacking context=] given |el| and |canvas|,
+			treating |el| as a [=stacking context=],
+			with the [=initial containing block=]
+			as its [=containing block=].
 </div>
 
 <div algorithm>
-	To <dfn>paint a stacking context</dfn>
+	To <dfn export>paint a stacking context</dfn>
 	given an [=element=] or [=box=] |root|,
 	and an infinite canvas |canvas|:
 
 	1. If |root| is an [=element=],
 		[=paint a stacking context=] given |root|'s [=principal box=]
 		and |canvas|,
-		then return |canvas|.
+		then return.
 
 	1. Assert: |root| is a [=box=],
 		and generates a [=stacking context=].
@@ -183,7 +191,7 @@ with its top left corner at the canvas origin.
 </div>
 
 <div algorithm>
-	To <dfn>paint a block's decorations</dfn>
+	To <dfn export>paint a block's decorations</dfn>
 	given a block box |root|
 	and a canvas |canvas|:
 
@@ -213,7 +221,7 @@ with its top left corner at the canvas origin.
 </div>
 
 <div algorithm>
-	To <dfn>paint a box in a line box</dfn>,
+	To <dfn export>paint a box in a line box</dfn>,
 	given a box |root|,
 	a line box |line box|,
 	and a canvas |canvas|:
@@ -290,7 +298,7 @@ with its top left corner at the canvas origin.
 </div>
 
 <div algorithm>
-	To <dfn>paint a stacking container</dfn>,
+	To <dfn export>paint a stacking container</dfn>,
 	given a [=box=] |root|
 	and a canvas |canvas|:
 
@@ -302,12 +310,182 @@ with its top left corner at the canvas origin.
 </div>
 
 UAs can draw outlines (from the 'outline' property)
-either <dfn lt="in-band outline">in-band</dfn>
+either <dfn export lt="in-band outline">in-band</dfn>
 (painted along each element,
 and thus potentially obscured/overlapping by following content)
-or <dfn lt="out-of-band outline">out-of-band</dfn>
+or <dfn export lt="out-of-band outline">out-of-band</dfn>
 (all outlines painted at the end of the stacking context,
 so nothing in the stacking context can obscure them).
 It is recommended that UAs use [=out-of-band outlines=],
 as making outlines easily visible
 is an important accessibility feature.
+
+Top Layer {#top-layer}
+=========
+
+{{Document}}s have a <dfn export for=Document>top layer</dfn>,
+an [=ordered set=] containing [=elements=] from the document.
+Elements in the [=Document/top layer=]
+do not lay out normally based on their position in the document;
+instead they generate [=boxes=]
+as if they were siblings of the root element.
+[=Document/Top layer=] elements are rendered in the order they appear in the [=Document/top layer=];
+the last element in the [=Document/top layer=] is rendered on top of everything else.
+
+{{Document}}s also have a <dfn export>pending top layer removals</dfn> [=ordered set=],
+containing elements that are pending removal.
+(See the algorithms, below, for details on how this is used.)
+
+Note: This special rendering behavior ensures
+that elements in the [=Document/top layer=] cannot be clipped by anything in the document,
+or obscured by anything except elements later in the [=Document/top layer=].
+This ensures that things like [=popovers=]
+can be displayed reliably,
+regardless of what their ancestor elements might be doing.
+
+Note: The [=Document/top layer=] is managed entirely by the [=user agent=];
+it cannot be directly manipulated by authors.
+This ensures that "nested" invocations of top-layer-using APIs,
+like a popup within a popup,
+will display correctly.
+
+Note: The [=Document/top layer=] interacts with the 'overlay' property
+in a somewhat unusual way.
+See 'overlay' for details.
+
+The [=Document/top layer=]
+(and the [=pending top layer removals=])
+should not be interacted with directly
+by specification algorithms.
+Instead, specifications should use the following algorithms.
+
+<div algorithm>
+	To <dfn export lt="add an element to the top layer | add to the top layer">add an element to the top layer</dfn>,
+	given a {{Document}} |doc|
+	and an {{Element}} |el|:
+
+	1. If |doc|'s [=Document/top layer=] [=set/contains=] |el| already:
+		1. If |doc|'s [=pending top layer removals=] [=set/contains=] |el| as well,
+			[=set/remove=] |el| from both |doc|'s [=Document/top layer=]
+			and [=pending top layer removals=],
+			then [=set/append=] |el| to |doc|'s [=Document/top layer=].
+			Return.
+
+			<!-- In other words, eagerly process pending removals. -->
+
+		2. Otherwise, do nothing and return.
+
+	2. [=set/Append=] |el| to |doc|'s [=Document/top layer=].
+
+	3. At the UA !important [=cascade origin=],
+		add a rule targeting |el|
+		containing an ''overlay: auto'' declaration.
+</div>
+
+<div algorithm>
+	To <dfn export lt="request an element to be removed from the top layer | request removal from the top layer">request an element to be removed from the top layer</dfn>,
+	given a {{Document}} |doc|
+	and an {{Element}} |el|:
+
+	1. If |el| is not [=list/contained=] |doc|'s [=Document/top layer=],
+		or |el| <em>is</em> already [=list/contained=]
+		in |doc|'s [=pending top layer removals=],
+		return.
+
+	2. Remove the UA !important ''overlay: auto'' rule targeting |el|.
+
+	3. [=set/Append=] |el| to |doc|'s [=pending top layer removals=].
+</div>
+
+<div algorithm>
+	To <dfn export lt="remove an element from the top layer immediately | remove from the top layer immediately">remove an element from the top layer immediately</dfn>,
+	given a {{Document}} |doc|
+	and an {{Element}} |el|:
+
+	1. [=set/Remove=] |el| from |doc|'s [=Document/top layer=] and [=pending top layer removals=].
+
+	2. Remove the UA !important ''overlay: auto'' rule targeting |el|,
+		if it exists.
+
+	Note: This algorithm is only intended to be used in special cases
+	where removing something from the top layer immediately
+	(bypassing things like an 'overlay' transition)
+	is necessary.
+	Most of the time, [=requesting removal from the top layer=] is more appropriate.
+</div>
+
+<div algorithm>
+	To <dfn export>process top layer removals</dfn>,
+	given a {{Document}} |doc|:
+
+	1. For each element |el| in |doc|'s [=pending top layer removals=]:
+		if |el|&apos;s computed value of 'overlay' is ''none'',
+		or |el| is [=not rendered=],
+		[=set/remove=] |el| from |doc|'s [=Document/top layer=]
+		and [=pending top layer removals=].
+
+	Note: This is intended to be called during the "Update Rendering" step
+	of HTML's rendering algorithm.
+	It is not intended to be called by other algorithms.
+</div>
+
+Controlling the Top Layer: the 'overlay' property {#overlay}
+-------------------------------------------------
+
+<pre class=propdef>
+Name: overlay
+Value: none | auto
+Initial: none
+Inherited: no
+Animation Type: (see prose)
+</pre>
+
+The 'overlay' property determines and reflects
+whether an element is in the [=Document/top layer=] or not.
+Its values are:
+
+<dl dfn-type=value dfn-for=overlay>
+	: <dfn>none</dfn>
+	:: The element is not in the [=Document/top layer=].
+
+	: <dfn>auto</dfn>
+	:: The element is rendered as part of the [=Document/top layer=].
+		Rather than generating boxes as part of its normal position in the document,
+		it generates boxes as a sibling of the root element.
+</dl>
+
+For animation,
+''overlay/auto'' is [=interpolated=] as a discrete step
+where values of p such that <code>0 < p < 1</code>
+map to ''overlay/auto''
+and other values of p map to the closer endpoint;
+if neither value is ''overlay/auto'' then discrete animation is used.
+
+User agents must have the following rule in their UA stylesheet:
+
+<pre highlight=css>
+* { overlay: none !important; }
+</pre>
+
+This means that the 'overlay' property <em>cannot be set by authors or users</em>--
+it is entirely controlled by the user agent
+(which sets elements to ''overlay: auto'',
+via another UA-!important rule,
+when they're in the [=Document/top layer=]).
+
+However, authors <em>can</em> set a [=transition=] on 'overlay',
+forcing it to stay ''overlay/auto'' for a period of time
+(keeping the element in the [=Document/top layer=])
+so an "exit animation" can be used on the element
+(such as fading it out,
+moving it offscreen,
+scaling it down,
+etc)
+before it goes back to its normal, non-top-layer rendering.
+
+User agents <em>may</em>, at their discretion,
+remove a running [=transition=] on 'overlay'.
+The conditions for this are intentionally undefined.
+<span class=note>(This is to prevent potential abuse scenarios
+where a ''transition: overlay 1e9s;'' or similar
+attempts to keep an element in the [=Document/top layer=] permanently.)</span>
