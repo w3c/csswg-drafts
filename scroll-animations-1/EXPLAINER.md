@@ -411,14 +411,20 @@ For example, given the following CSS:
 The animation's start time will be implicitly set to the start of the enter timeline range,
 and the animation's "auto" duration will intrinsically resolve to the length of the enter timeline range.
 
-#### Exclusive end ranges
+#### Exclusive end range exception
 
-In Web Animations, ranges have exclusive ends to
-help make it easier to use overlapping ranges such as putting multiple
-animations in a sequence. ScrollTimeline scroll range also has exclusive ends
-to match this. However this is problematic for a common case where scroll
-range is full size. Our solution was to [special
-case](https://github.com/w3c/csswg-drafts/issues/5223) this one.
+In Web Animations,
+ranges have exclusive ends
+to help make it easier to use overlapping ranges
+such as putting multiple animations in a sequence.
+
+An exception is made when a scroll or view timeline
+is at its [progress timeline boundary](https://www.w3.org/TR/web-animations-2/#at-progress-timeline-boundary)
+(i.e. with an active range that fills the scroll range)
+to avoid the effect from becoming inactive at the scroll boundary.
+Since the user is unable to scroll past the boundary
+no special accommodation is needed
+to facilitate animations following the boundary.
 
 #### Dynamic Scrollability
 
