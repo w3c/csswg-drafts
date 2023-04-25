@@ -355,23 +355,83 @@ controlled, and inspected with existing methods.
 
 Some of the complexities that come from this decision are:
 
-* **Time vs Scroll Offset**: The concept of **time value** (exposed in
-  Milliseconds units) were central to the Web Animation model.  Adding
-  ScrollTimeline requires updating the animation timing model to allow
-  for other unit types. We decided to go with percentages as they had a
-  clean direct mapping to animation progress (which is already a proportion).
+#### Time vs Scroll Offset
 
-* **Exclusive end ranges**: In Web Animations, ranges have exclusive ends to
-  help make it easier to use overlapping ranges such as putting multiple
-  animations in a sequence. ScrollTimeline scroll range also has exclusive ends
-  to match this. However this is problematic for a common case where scroll
-  range is full size. Our solution was to [special
-  case](https://github.com/w3c/csswg-drafts/issues/5223) this one.
+The concept of **time value** (exposed in
+Milliseconds units) were central to the Web Animation model.  Adding
+ScrollTimeline requires updating the animation timing model to allow
+for other unit types. We decided to go with percentages as they had a
+clean direct mapping to animation progress (which is already a proportion).
 
-* **Dynamic Scrollability**: It is possible for a scroller to no longer
-  overflow (`overflow: auto`). We mapped this to the web animations model
-  by having the timeline become idle in these situations where a time cannot
-  be worked out.
+#### Duration
+
+Typically the duration of a scroll driven animation fills the range available for it.
+As such, web-animations-2
+adds an [intrinsic iteration duration](https://drafts.csswg.org/web-animations-2/#intrinsic-iteration-duration)
+for the default "auto" [duration](https://drafts.csswg.org/web-animations-1/#dom-effecttiming-duration) of web animations
+which fills the timeline range.
+
+For CSS animations,
+["auto"](https://drafts.csswg.org/css-animations-2/#valdef-animation-duration-auto) is added as the initial value to match web animations.
+This does not change the implicit duration of 0s when run on a document timeline,
+but makes CSS animations implicitly fill their scroll or view timeline range,
+and allows future [group effects](https://drafts.csswg.org/web-animations-2/#group-effect) to intrinsically compute their duration.
+
+This makes it so that either the following web animations:
+```js
+element.animate({transform: ['none', 'translateY(-100px)']}, timeline: new ScrollTimeline());
+```
+
+Or the following CSS animation:
+```css
+.animate {
+  animation: keyframes;
+  animation-timeline: scroll();
+}
+```
+
+Fit the animation to the full scroll range without the developer needing to specify a duration.
+
+#### Animation range
+
+Often authors will write effects which aren't meant to fill the timeline range.
+This spec adds the concept of a [timeline attachment range](https://drafts.csswg.org/scroll-animations-1/#named-range-animation-declaration) to animations.
+This defines when the animation starts,
+and the range which the above "auto" intrinsic iteration duration fills.
+
+For example, given the following CSS:
+```css
+.animate {
+  animation: keyframes;
+  animation-range: enter;
+  animation-timeline: view();
+}
+```
+
+The animation's start time will be implicitly set to the start of the enter timeline range,
+and the animation's "auto" duration will intrinsically resolve to the length of the enter timeline range.
+
+#### Exclusive end range exception
+
+In Web Animations,
+ranges have exclusive ends
+to help make it easier to use overlapping ranges
+such as putting multiple animations in a sequence.
+
+An exception is made when a scroll or view timeline
+is at its [progress timeline boundary](https://www.w3.org/TR/web-animations-2/#at-progress-timeline-boundary)
+(i.e. with an active range that fills the scroll range)
+to avoid the effect from becoming inactive at the scroll boundary.
+Since the user is unable to scroll past the boundary
+no special accommodation is needed
+to facilitate animations following the boundary.
+
+#### Dynamic Scrollability
+
+It is possible for a scroller to no longer
+overflow (`overflow: auto`). We mapped this to the web animations model
+by having the timeline become idle in these situations where a time cannot
+be worked out.
 
 ### Avoiding Layout Cycle
 
