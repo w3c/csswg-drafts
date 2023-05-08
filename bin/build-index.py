@@ -1,14 +1,10 @@
 """
-Builds the GitHub Pages root page,
-which now is just a redirect to the drafts server listing.
-"""
+All the drafts are built by the build-specs workflow itself.
+This handles the rest of the work:
 
-
-
-"""Builds the CSSWG directory index.
-
-It also sets up redirects from shortnames to the current work spec, by building
-an index.html with a <meta refresh>.
+* creates a root page that just redirects to the draft server root listing.
+* creates symlinks for unlevelled urls, linking to the appropriate levelled folder
+* builds timestamps.json, which provides a bunch of metadata about the specs which is consumed by some W3C tooling.
 """
 
 import json
