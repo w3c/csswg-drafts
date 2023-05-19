@@ -491,7 +491,10 @@ Tokenization</h2>
 			<<delim-token>> has a value composed of a single <a>code point</a>.
 
 		<li>
-			<<number-token>>, <<percentage-token>>, and <<dimension-token>> have a numeric value.
+			<<number-token>>, <<percentage-token>>, and <<dimension-token>> have a numeric value,
+			and an optional sign character
+			set to either "+" or "-" (or nothing).
+
 			<<number-token>> and <<dimension-token>> additionally have a type flag set to either "integer" or "number".  The type flag defaults to "integer" if not otherwise set.
 			<<dimension-token>> additionally have a unit composed of one or more <a>code points</a>.
 
@@ -927,34 +930,6 @@ Definitions</h3>
 			the part of a <<function-token>> before the "(",
 			and the unit of a <<dimension-token>>
 			are all [=ident sequences=].
-
-		<dt><dfn>representation</dfn>
-		<dd>
-			The <a>representation</a> of a token
-			is the subsequence of the <a>input stream</a>
-			consumed by the invocation of the [=tokenizer/consume a token=] algorithm
-			that produced it.
-			This is preserved for a few algorithms that rely on subtle details of the input text,
-			which a simple "re-serialization" of the tokens might disturb.
-
-			The <a>representation</a> is only consumed by internal algorithms,
-			and never directly exposed,
-			so it's not actually required to preserve the exact text;
-			equivalent methods,
-			such as associating each token with offsets into the source text,
-			also suffice.
-
-			Note: In particular, the <a>representation</a> preserves details
-			such as whether .009 was written as ''.009'' or ''9e-3'',
-			and whether a character was written literally
-			or as a CSS escape.
-			The former is necessary to properly parse <<urange>> productions;
-			the latter is basically an accidental leak of the tokenizing abstraction,
-			but allowed because it makes the impl easier to define.
-
-			If a token is ever produced by an algorithm directly,
-			rather than thru the tokenization algorithm in this specification,
-			its representation is the empty string.
 	</dl>
 
 <!--
@@ -1217,7 +1192,7 @@ Consume a numeric token</h4>
 	then:
 
 	<ol>
-		<li>Create a <<dimension-token>> with the same value and type flag as |number|,
+		<li>Create a <<dimension-token>> with the same value, type flag, and sign character as |number|,
 			and a unit set initially to the empty string.
 
 		<li><a>Consume an ident sequence</a>.
@@ -1229,11 +1204,11 @@ Consume a numeric token</h4>
 	Otherwise,
 	if the <a>next input code point</a> is U+0025 PERCENTAGE SIGN (%),
 	consume it.
-	Create a <<percentage-token>> with the same value as |number|,
+	Create a <<percentage-token>> with the same value and sign character as |number|,
 	and return it.
 
 	Otherwise,
-	create a <<number-token>> with the same value and type flag as |number|,
+	create a <<number-token>> with the same value, type flag, and sign character as |number|,
 	and return it.
 
 
@@ -1612,7 +1587,8 @@ Consume a number</h4>
 
 	This section describes how to <dfn>consume a number</dfn> from a stream of <a>code points</a>.
 	It returns a numeric |value|,
-	and a |type| which is either "integer" or "number".
+	a string |type| which is either "integer" or "number",
+	and an optional |sign character| which is either "+", "-", or missing.
 
 	Note: This algorithm does not do the verification of the first few <a>code points</a>
 	that are necessary to ensure a number can be obtained from the stream.
@@ -1623,16 +1599,19 @@ Consume a number</h4>
 
 	<ol>
 		<li>
-			Initially set <var>type</var> to "integer".
-			Let |repr| be the empty string.
+			Let |type| be the string "integer".
+			Let |number part|
+			and |exponent part| be the empty string.
 
 		<li>
 			If the <a>next input code point</a> is U+002B PLUS SIGN (+) or U+002D HYPHEN-MINUS (-),
-			consume it and append it to <var>repr</var>.
+			consume it.
+			Append it to |number part|
+			and set |sign character| to it.
 
 		<li>
 			While the <a>next input code point</a> is a <a>digit</a>,
-			consume it and append it to <var>repr</var>.
+			consume it and append it to |number part|.
 
 		<li>
 			If the <a lt="next input code point">next 2 input code points</a> are
@@ -1640,10 +1619,9 @@ Consume a number</h4>
 			then:
 
 			<ol>
-				<li>Consume them.
-				<li>Append them to <var>repr</var>.
-				<li>Set <var>type</var> to "number".
-				<li>While the <a>next input code point</a> is a <a>digit</a>, consume it and append it to <var>repr</var>.
+				<li>Consume the [=next input code point=] and append it to |number part|.
+				<li>While the <a>next input code point</a> is a <a>digit</a>, consume it and append it to |number part|.
+				<li>Set |type| to "number".
 			</ol>
 
 		<li>
@@ -1654,76 +1632,26 @@ Consume a number</h4>
 			then:
 
 			<ol>
-				<li>Consume them.
-				<li>Append them to <var>repr</var>.
-				<li>Set <var>type</var> to "number".
-				<li>While the <a>next input code point</a> is a <a>digit</a>, consume it and append it to <var>repr</var>.
+				<li>Consume the [=next input code point=].
+				<li>If the [=next input code point=] is "+" or "-",
+					consume it and append it to |exponent part|.
+				<li>While the <a>next input code point</a> is a <a>digit</a>, consume it and append it to |exponent part|.
+				<li>Set |type| to "number".
 			</ol>
 
 		<li>
-			<a lt="convert a string to a number">Convert <var>repr</var> to a number</a>,
-			and set the <var>value</var> to the returned value.
+			Let |value| be the result of interpreting |number part|
+			as a base-10 number.
+
+			If |exponent part| is non-empty,
+			interpret it as a base-10 integer,
+			then raise 10 to the power of the result,
+			multiply it by |value|,
+			and set |value| to that result.
 
 		<li>
-			Return <var>value</var> and <var>type</var>.
+			Return |value|, |type|, and |sign character|.
 	</ol>
-
-
-<h4 id="convert-string-to-number">
-Convert a string to a number</h4>
-
-	This section describes how to <dfn>convert a string to a number</dfn>.
-	It returns a number.
-
-	Note: This algorithm does not do any verification to ensure that the string contains only a number.
-	Ensure that the string contains only a valid CSS number
-	before calling this algorithm.
-
-	Divide the string into seven components,
-	in order from left to right:
-
-	<ol>
-		<li>A <b>sign</b>:
-			a single U+002B PLUS SIGN (+) or U+002D HYPHEN-MINUS (-),
-			or the empty string.
-			Let <var>s</var> be the number -1 if the sign is U+002D HYPHEN-MINUS (-);
-			otherwise, let <var>s</var> be the number 1.
-
-		<li>An <b>integer part</b>:
-			zero or more <a>digits</a>.
-			If there is at least one digit,
-			let <var>i</var> be the number formed by interpreting the digits as a base-10 integer;
-			otherwise, let <var>i</var> be the number 0.
-
-		<li>A <b>decimal point</b>:
-			a single U+002E FULL STOP (.),
-			or the empty string.
-
-		<li>A <b>fractional part</b>:
-			zero or more <a>digits</a>.
-			If there is at least one digit,
-			let <var>f</var> be the number formed by interpreting the digits as a base-10 integer
-			and <var>d</var> be the number of digits;
-			otherwise, let <var>f</var> and <var>d</var> be the number 0.
-
-		<li>An <b>exponent indicator</b>:
-			a single U+0045 LATIN CAPITAL LETTER E (E) or U+0065 LATIN SMALL LETTER E (e),
-			or the empty string.
-
-		<li>An <b>exponent sign</b>:
-			a single U+002B PLUS SIGN (+) or U+002D HYPHEN-MINUS (-),
-			or the empty string.
-			Let <var>t</var> be the number -1 if the sign is U+002D HYPHEN-MINUS (-);
-			otherwise, let <var>t</var> be the number 1.
-
-		<li>An <b>exponent</b>:
-			zero or more <a>digits</a>.
-			If there is at least one digit,
-			let <var>e</var> be the number formed by interpreting the digits as a base-10 integer;
-			otherwise, let <var>e</var> be the number 0.
-	</ol>
-
-	Return the number <code>s·(i + f·10<sup>-d</sup>)·10<sup>te</sup></code>.
 
 
 <h4 id="consume-unicode-range-token">
@@ -3278,8 +3206,8 @@ The <code>&lt;an+b></code> type</h3>
 		<li><dfn><code>&lt;ndashdigit-ident></code></dfn> is an <<ident-token>> whose value is an <a>ASCII case-insensitive</a> match for "n-*", where "*" is a series of one or more <a>digits</a>
 		<li><dfn><code>&lt;dashndashdigit-ident></code></dfn> is an <<ident-token>> whose value is an <a>ASCII case-insensitive</a> match for "-n-*", where "*" is a series of one or more <a>digits</a>
 		<li><dfn><code>&lt;integer></code></dfn> is a <<number-token>> with its type flag set to "integer"
-		<li><dfn><code>&lt;signed-integer></code></dfn> is a <<number-token>> with its type flag set to "integer", and whose <a>representation</a> starts with "+" or "-"
-		<li><dfn><code>&lt;signless-integer></code></dfn> is a <<number-token>> with its type flag set to "integer", and whose <a>representation</a> starts with a <a>digit</a>
+		<li><dfn><code>&lt;signed-integer></code></dfn> is a <<number-token>> with its type flag set to "integer", and a sign character
+		<li><dfn><code>&lt;signless-integer></code></dfn> is a <<number-token>> with its type flag set to "integer", and no sign character
 	</ul>
 
 	<p id="anb-plus">
@@ -3912,7 +3840,7 @@ Changes from the 20 February 2014 Candidate Recommendation</h3>
 
 	* Don't serialize the digit in an <<an+b>> when A is 1 or -1.
 
-	* Define all tokens to have a <a>representation</a>.
+	* Define all tokens to have a representation.
 
 	* Fixed minor bug in <a>check if two code points are a valid escape</a>--
 		a <code>\</code> followed by an EOF is now correctly reported as <em>not</em> a valid escape.
