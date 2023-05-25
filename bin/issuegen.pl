@@ -247,6 +247,8 @@ sub header {
 <title>$title Disposition of Comments for $date $status</title>
 <style type="text/css">
   pre, .legend { border: solid thin silver; padding: 0.2em; white-space: normal; }
+  .legend summary { font-weight: bold; }
+  summary { cursor: pointer; }
   pre > span { display: block; white-space: pre; }
   .a  { background: #52E052    }
   .d  { background: #8CCBF2    }
@@ -279,7 +281,7 @@ sub header {
 $intro
 
 <details class="legend">
-  <summary>Legend</summary>
+  <summary>Disposition Status Legend and Filters</summary>
   <p>The following color coding convention is used for comments:</p>
 
   <ul>
