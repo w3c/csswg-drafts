@@ -226,7 +226,7 @@ sub header {
     if    (/^Title:\s+(.+)$/)     { $title     = $1; }
     elsif (/^Draft:\s+(\S+)/)     { $url       = $1; }
     elsif (/^Shortname:\s+(\S+)/) { $shortname = $1; }
-    else                          { $intro    .= $_; }
+    else                          { $intro    .= $_ . "\n"; }
   }
   die "Error: missing document URL or title.\n" unless ($url && $title);
 
