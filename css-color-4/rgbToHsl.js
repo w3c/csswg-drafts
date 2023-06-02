@@ -2,7 +2,7 @@
  * @param {number} red - Red component 0..1
  * @param {number} green - Green component 0..1
  * @param {number} blue - Blue component 0..1
- * @return {number[]} Array of HSL values: Hue as degrees 0..360, Saturation and Lightness as percentages 0..100
+ * @return {number[]} Array of HSL values: Hue as degrees 0..360, Saturation and Lightness in reference range [0,100]
  */
 function rgbToHsl (red, green, blue) {
     let max = Math.max(red, green, blue);
