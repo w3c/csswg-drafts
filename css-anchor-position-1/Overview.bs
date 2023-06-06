@@ -540,101 +540,86 @@ This has two effects:
 	for ''auto-same'',
 	or the opposite side,
 	for ''auto'').
+
+	That is, ''top: anchor(auto);'' is equivalent to ''top: anchor(bottom);'',
+	while ''left: anchor(auto-same);'' is equivalent to ''left: anchor(left);'',
+	etc.
 * If the element has ''position-fallback: none'',
+	and the opposite [=inset property=] is ''top/auto'',
 	it automatically gains a [=position fallback list=]
 	that will flip it to the opposite side of the [=anchor element=]
 	if necessary.
-
-[=Automatic anchor positioning=] is only active
-if the opposite [=inset property=] is ''top/auto''.
-(For example, if an element had ''top: anchor(auto);'',
-it would have to also have ''bottom: auto;''.)
-If this is not the case,
-the ''anchor()'' function represents an [=invalid anchor function=],
-and the element does not use [=automatic anchor positioning=] in that axis.
-
-When using [=automatic anchor positioning=],
-the ''anchor()/auto'' <<anchor-side>>
-behaves as the opposite side of the property it's used in.
-That is, when used in ''top: anchor(auto);'',
-it's equivalent to ''top: anchor(bottom);'';
-when used in ''bottom: anchor(auto);'',
-it's equivalent to ''bottom: anchor(top);'';
-etc.
-The ''anchor()/auto-same'' <<anchor-side>>
-behaves as the property it's used in:
-''top: anchor(auto-same);''
-is equivalent to ''top: anchor(top);'',
-etc.
-
-Additionally,
-if the element has ''position-fallback: none'',
-[=automatic anchor positioning=] causes the element
-to gain a [=position fallback list=]
-consisting of two entries:
-
-* one containing all the base-style properties on the element
-	that are valid to use in ''@try'' rules,
-	with ''anchor()/auto''/''auto-same'' keywords
-	resolved to their appropriate side.
-* one containing the same,
-	but with the [=inset properties=] in each axis swapped,
-	and the ''anchor()/auto''/''auto-same'' keywords
-	resolved to the opposite sides as well.
-
-Note: If the element has a non-none 'position-fallback',
-these extra entries aren't added.
-Since the [=position fallback list=] styles
-override the "base" styles immediately,
-this will <em>usually</em> mean you wouldn't see a "base" ''anchor(auto)''
-show up in the final styles at all,
-but if that does happen
-(it's specified in a property
-that isn't overriden by anything in the [=position fallback list=]),
-the only effect of the ''anchor()/auto''/''auto-same''
-is to resolve to the appropriate side keyword.
+	See [[#fallback-automatic]] for details.
 
 <div class=example>
-	For example, the following code using [=automatic anchor positioning=]:
+	For example, to position and size an element
+	to exactly cover the target element:
 
-	<pre highlight=css>
-	.foo {
-		position: absolute;
-		top: calc(.5em + anchor(--foo auto));
+	<pre class=lang-css>
+	.cover {
+		inset: anchor(auto-same);
 	}
 	</pre>
 
-	is equivalent to the following more verbose and explicit code:
+	is equivalent to
 
-	<pre highlight=css>
-	.foo {
-		position: absolute;
-		position-fallback: --flip;
-	}
-	@position-fallback --flip {
-		@try {
-			top: calc(.5em + anchor(--foo bottom));
-			bottom: auto;
-		}
-		@try {
-			top: auto;
-			bottom: calc(.5em + anchor(--foo top));
-		}
+	<pre class=lang-css>
+	.cover {
+		top: anchor(top);
+		right: anchor(right);
+		bottom: anchor(bottom);
+		left: anchor(left);
 	}
 	</pre>
 </div>
 
-If the element uses [=automatic anchor positioning=] in both axises,
-it instead adds three entries to the [=position fallback list=]:
-one reversing just the block axis,
-one reversing just the inline axis,
-and finally one reversing both axises at once.
+<div class=example>
+	When the opposite axis is ''top/auto'',
+	the element automatically gains fallback behavior.
+	For example:
 
-''anchor()/auto'' and ''anchor()/auto-same'' used <em>in</em> a ''@try'' rule
-cause the rule to insert multiple (2 or 4) sets of entries
-into the [=position fallback list=],
-as specified above,
-if they would validly trigger [=automatic anchor positioning=].
+	<pre class=lang-css>
+	.tooltip {
+		position: fixed;
+		anchor-default: --target;
+		top: auto; /* initial value */
+		bottom: calc(anchor(auto) + .3em);
+	}
+	</pre>
+
+	With the above code,
+	the tooltip will default to positioning its bottom edge
+	slightly away from the top edge of its anchor element,
+	hovering just above it;
+	but if that would make it overflow the top edge of the screen
+	(aka the top of its [=inset-modified containing block=],
+	which is the viewport in this case),
+	it will automatically flip to the opposite side,
+	as if you'd instead specified:
+
+	<pre class=lang-css>
+	.tooltip {
+		position: fixed;
+		position-fallback: --top-then-bottom;
+		anchor-default: --target;
+	}
+	@position-fallback --top-then-bottom {
+		@try {
+			top: auto;
+			bottom: calc(anchor(top) + .3em);
+		}
+		@try {
+			top: calc(anchor(bottom) + .3em);
+			bottom: auto;
+		}
+	}
+	</pre>
+
+	If both axises trigger this behavior,
+	it effectively gains four fallbacks,
+	trying each combination of specified and opposing anchors
+	to find one that won't trigger overflow.
+</div>
 
 
 
@@ -734,8 +719,6 @@ only if all the following conditions are true:
 	it's being used in an [=inset property=] in that axis.
 	(For example, ''left'' can only be used in 'left', 'right',
 	or a logical [=inset property=] in the horizontal axis.)
-* If its <<anchor-side>> keyword is ''auto'' or ''auto-same'',
-	the opposite [=inset property=] is ''top/auto''.
 * There is a [=target anchor element=]
 	for the element it's used on,
 	and the <<anchor-element>> value specified in the function.
@@ -1106,6 +1089,93 @@ This limit must be <em>at least</em> five.
 	}
 	</pre>
 </div>
+
+Fallback and Automatic Positioning {#fallback-automatic}
+----------------------------------
+
+When an element uses an ''anchor()'' function
+with an ''auto'' or ''auto-same'' <<anchor-side>> argument
+in an [=inset property=],
+and the opposite [=inset property=] is ''top/auto'',
+the element is said to be trying to use <dfn>automatic anchor fallbacks</dfn>
+in that axis.
+
+If the element has ''position-fallback: none'',
+and is trying to use [=automatic anchor fallbacks=] in one axis,
+it automatically generates a [=position fallback list=]
+consisting of two entries:
+
+* the first entry contains all the base-style properties on the element
+	that are valid to use in ''@try'' rules,
+	with ''anchor()/auto''/''auto-same'' keywords
+	resolved to their appropriate side.
+* one containing the same,
+	but with the [=inset properties=] in the affected axis swapped
+	(resolving the ''auto''/''auto-same'' keywords accordingly).
+
+If the element uses [=automatic anchor positioning=] in both axises,
+it instead adds four entries to the [=position fallback list=]:
+one specifying the base styles, as above,
+then one reversing just the block axis,
+followed by one reversing just the inline axis,
+followed by one reversing both axises at once.
+
+Note: If the element has a non-none 'position-fallback',
+these automatic fallbacks aren't generated.
+Since the [=position fallback list=] styles
+override the "base" styles immediately,
+this will <em>usually</em> mean you wouldn't see a "base" ''anchor(auto)''
+show up in the final styles at all,
+but if that does happen
+(it's specified in a property
+that isn't overriden by anything in the [=position fallback list=]),
+the only effect of the ''anchor()/auto''/''auto-same''
+is to resolve to the appropriate side keyword.
+
+[=Automatic anchor fallback=] can also be used as a shorthand
+in ''@try'' blocks.
+
+If applying an entry in the element's [=position fallback list=]
+would cause the resulting styles
+to satisfy the conditions of [=automatic anchor fallbacks=],
+and the relevant ''anchor()'' function comes from a ''@try'' block
+(rather than from the base styles),
+then that entry of the [=position fallback list=]
+must instead be treated as 2 or 4 consecutive entries,
+generated as above.
+
+(Otherwise, the ''auto'' or ''auto-same'' keywords
+just resolve to the appropriate side,
+with no additional effects.)
+
+<div class=example>
+	For example, the following ''@position-fallback'' rule:
+
+	<pre class=lang-css>
+	@position-fallback --compact {
+		@try {
+			top: anchor(auto);
+			bottom: auto;
+		}
+	}
+	</pre>
+
+	is equivalent to the following longer, more explicit rule:
+
+	<pre class=lang-css>
+	@position-fallback --expanded {
+		@try {
+			top: anchor(bottom);
+			bottom: auto;
+		}
+		@try {
+			top: auto;
+			bottom: anchor(top);
+		}
+	}
+	</pre>
+</div>
+
 
 Security Considerations {#sec}
 =======================
