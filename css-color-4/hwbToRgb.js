@@ -1,7 +1,7 @@
 /**
  * @param {number} hue -  Hue as degrees 0..360
- * @param {number} white -  Whiteness as percentage 0..100
- * @param {number} black -  Blackness as percentage 0..100
+ * @param {number} white -  Whiteness in reference range [0,100]
+ * @param {number} black -  Blackness in reference range [0,100]
  * @return {number[]} Array of RGB components 0..1
  */
 function hwbToRgb(hue, white, black) {

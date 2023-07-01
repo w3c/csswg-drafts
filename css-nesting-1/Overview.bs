@@ -34,7 +34,8 @@ Introduction</h2>
 Module Interactions</h3>
 
 	This module introduces new parser rules that extend the [[!CSS21]] parser model.
-	This module introduces selectors that extend the [[SELECTORS4]] module.
+	It introduces selectors that extend the [[SELECTORS-4]] module.
+	It extends and modifies some IDL and algorithms defined in the [[CSSOM-1]] module.
 
 <h3 id="values">
 Values</h3>
@@ -268,11 +269,18 @@ Syntax {#syntax}
 		are relative to the elements represented by the [=nesting selector=].
 	* If a selector in the <<relative-selector-list>>
 		does not start with a [=combinator=]
-		but does contain the [=nesting selector=],
+		but does [=contain the nesting selector=],
 		it is interpreted as a non-[=relative selector=].
 
 	The precise details of how nested style rules are parsed
 	are defined in [[!CSS-SYNTAX-3]].
+
+	ISSUE(7961): The CSSWG is currently exploring the consequences of parsing lookahead,
+	and may adjust the allowed syntax as a result.
+
+	An invalid [=nested style rule=] is ignored,
+	along with its contents,
+	but does not invalidate its parent rule.
 
 	<div class="example">
 		For example, the following nestings are valid:
@@ -450,7 +458,7 @@ Syntax {#syntax}
 		  html {
 				block-size: 100%;
 
-				@layer base.support {
+				@layer support {
 					& body {
 						min-block-size: 100%;
 					}
@@ -467,7 +475,7 @@ Syntax {#syntax}
 		*/
 		
 		<b>/* Example usage with Scoping */</b>
-		@scope (.card) to (> header) { {
+		@scope (.card) to (> header) {
 		  :scope {
 				inline-size: 40ch;
 				aspect-ratio: 3/4;
@@ -518,51 +526,79 @@ Syntax {#syntax}
 	</div>
 
 	<div class=note>
-		Some CSS-generating tools will concatenate selectors like strings,
-		allowing authors to build up a single simple selector
+		Some CSS-generating tools that preprocess nesting
+		will concatenate selectors as strings,
+		allowing authors to build up a <em>single</em> [=simple selector=]
 		across nesting levels.
-		This is sometimes used by selector-organization methods
+		This is sometimes used with hierarchical name patterns
 		like <a href="https://en.wikipedia.org/wiki/CSS#:~:text=bem%20(block%2C%20element%2C%20modifier)">BEM</a>
 		to reduce repetition across a file,
 		when the selectors themselves have significant repetition internally.
 
 		For example, if one component uses the class ''.foo'',
-		and a nested component uses ''.foo__bar'',
+		and a nested component uses ''.fooBar'',
 		you could write this in <a href="https://sass-lang.com/">Sass</a> as:
 
 		<pre class="lang-css">
 		.foo {
-			color: blue;
-			&__bar { color: red; }
+		        color: blue;
+		        &Bar { color: red; }
 		}
 		/* In Sass, this is equivalent to
 		   .foo { color: blue; }
-		   .foo__bar { color: red; }
+		   .fooBar { color: red; }
 		*/
 		</pre>
 
-		Unfortunately, this method is inconsistent with selector syntax in general,
-		and at best requires heuristics tuned to particularly selector-writing practices
-		to recognize when the author wants it,
-		versus the author attempting to add a type selector in the nested rule.
-		''__bar'', for example,
+		Unfortunately, this string-based interpretation is ambiguous with
+		the author attempting to add a type selector in the nested rule.
+		''Bar'', for example,
 		<em>is</em> a valid <a href="https://html.spec.whatwg.org/multipage/custom-elements.html">custom element name</a> in HTML.
 
-		As such, CSS can't do this;
-		the nested selector components are interpreted on their own,
-		and not "concatenated":
+		CSS doesn't do this:
+		the nested selector components are interpreted atomically,
+		and not string-concatenated:
 
 		<pre class="lang-css">
 		.foo {
-			color: blue;
-			&__bar { color: red; }
+		        color: blue;
+		        &Bar { color: red; }
 		}
 		/* In CSS, this is instead equivalent to
 		   .foo { color: blue; }
-		   __bar.foo { color: red; }
+		   Bar.foo { color: red; }
 		*/
 		</pre>
 	</div>
+
+	<div algorithm>
+		A selector is said to <dfn export>contain the nesting selector</dfn>
+		if, when it was [=CSS/parsed=] as any type of selector,
+		a <<delim-token>> with the value "&" (U+0026 AMPERSAND) was encountered.
+
+		Note: This is phrased in this explicit manner
+		so as to catch cases like '':is(:unknown(&), .bar)'',
+		where an unknown selector
+		(which, being unknown, we have no way of knowing
+		whether the argument is <em>meant</em> to be parsed as a selector or not)
+		is the only part of the selector that contains an ''&''.
+		As that <em>might</em> be a perfectly valid selector
+		that's only supported by newer browsers,
+		and we don't want parsing to be dependent on unrelated versioning issues,
+		we treat it as still [=containing the nesting selector=].
+	</div>
+
+	If a <<forgiving-selector-list>> has an item that [=contains the nesting selector=]
+	but is invalid,
+	that item is preserved exactly as-is
+	rather than being discarded.
+	(This does not change the matching behavior of the selector--
+	an invalid selector still fails to match anything--
+	just the serialization of the selector.)
+
+	Issue: The preceding paragraph needs to move to Selectors
+	when we move ''&'' itself to Selectors;
+	I'm monkey-patching for convenience here.
 
 
 
@@ -576,33 +612,38 @@ Syntax {#syntax}
  ██████   ███████  ██    ██ ████████
 -->
 
-Nesting Conditional Rules {#conditionals}
------------------------------------------
+Nesting Other At-Rules {#conditionals}
+--------------------------------------
 
 	In addition to [=nested style rules=],
-	this specification allows <dfn export>nested conditional group rules</dfn>
-	inside of [=style rules=].
+	this specification allows <dfn export>nested group rules</dfn>
+	inside of [=style rules=]:
+	any at-rule whose body contains [=style rules=]
+	can be nested inside of a [=style rule=] as well.
 
 	When nested in this way,
-	the contents of a [=conditional group rule=] are parsed as <<style-block>>
-	rather than <<stylesheet>>:
+	the contents of a [=nested group rule=]'s block
+	are parsed as <<block-contents>>
+	rather than <<rule-list>>:
 
-	* Properties can be directly used,
-		applying to the same elements as the parent rule
-		(when the [=conditional group rule=] matches)
 	* [=Style rules=] are [=nested style rules=],
 		with their [=nesting selector=] taking its definition
 		from the nearest ancestor [=style rule=].
+	* Properties can be directly used,
+		acting as if they were nested in a <code>& {...}</code> block.
 
-	Issue: Want more than just conditional rules--
-	@scope and @layer make sense, at minimum.
-	(<a href="https://github.com/w3c/csswg-drafts/issues/7965">Issue 7965</a>)
+	<div class=note>
+		Specifically, these rules are capable of being [=nested group rules=]:
 
-	Issue: Do @media/etc gain a <code>.style</code> attribute
-	to expose their properties,
-	or do we pretend properties are wrapped in a ''& {...}'' rule,
-	so we can just reflect them in the <code>.cssRules</code> attribute?
-	(<a href="https://github.com/w3c/csswg-drafts/issues/7850">Issue 7850</a>)
+		* all the [=conditional group rules=] (''@media'', ''@supports'')
+		* ''@layer''
+		* ''@scope''
+		* ''@container''
+	</div>
+
+	The meanings and behavior of such [=nested group rules=]
+	is otherwise unchanged,
+	unless otherwise specified.
 
 	<div class="example">
 		For example, the following conditional nestings are valid:
@@ -666,9 +707,137 @@ Nesting Conditional Rules {#conditionals}
 				}
 			}
 		*/
+
+		<b>/* Example nesting Cascade Layers */</b>
+		html {
+			@layer base {
+				block-size: 100%;
+
+				@layer support {
+					& body {
+						min-block-size: 100%;
+					}
+				}
+			}
+		}
+		/* equivalent to
+			@layer base {
+				html { block-size: 100%; }
+			}
+			@layer base.support {
+				html body { min-block-size: 100%; }
+			}
+		*/
+
+		<b>/* Example nesting Scoping */</b>
+		.card {
+			inline-size: 40ch;
+			aspect-ratio: 3/4;
+
+			@scope (&) {
+				:scope {
+					border: 1px solid white;
+				}
+			}
+		}
+
+		/* equivalent to
+			.card { inline-size: 40ch; aspect-ratio: 3/4; }
+			@scope (.card) {
+				:scope { border-block-end: 1px solid white; }
+			}
+		*/
 		</pre>
 	</div>
 
+	All directly-nested properties are treated
+	as if they were collected together, in order,
+	and nested in a [=nested style rule=]
+	with the selector ''&'',
+	and placed before all other child rules.
+	This includes in the OM.
+	(That is,
+	the {{CSSContainerRule/childRules}} attribute
+	actually starts with this [=nested style rule=],
+	containing all the directly-nested properties.)
+
+	<div class=example>
+
+		For example, the earlier example:
+
+		<pre highlight=css>
+		.foo {
+			display: grid;
+
+			@media (orientation: landscape) {
+				grid-auto-flow: column;
+			}
+		}
+		/* equivalent to
+			.foo {
+				display: grid;
+
+				@media (orientation: landscape) {
+					& {
+						grid-auto-flow: column;
+					}
+				}
+			}
+		*/
+		</pre>
+
+		is in fact <em>exactly</em> equivalent,
+		producing the exact same CSSOM structure.
+		The {{CSSMediaRule}} object
+		will have a single {{CSSStyleRule}} object
+		in its <code highlight=js>.childRules</code> attribute,
+		containing the 'grid-auto-flow' property.
+	</div>
+
+	Note: This does mean that the serialization of such rules will differ
+	from how they were originally written,
+	with <em>no</em> directly-nested properties in the serialization.
+
+
+<h4 id=nesting-at-scope>
+Nested ''@scope'' Rules</h4>
+
+	When the ''@scope'' rule is a [=nested group rule=],
+	an ''&'' in the <<scope-start>> selector
+	refers to the elements matched
+	by the nearest ancestor style rule.
+
+	For the purposes of the style rules in its body
+	and its own <<scope-end>> selector,
+	the ''@scope'' rule is treated as an ancestor style rule,
+	matching the elements matched by its <<scope-start>> selector.
+
+	<div class=example>
+		That is, the following code:
+
+		<pre highlight=css>
+		.parent {
+			color: blue;
+
+			@scope (& > .scope) to (& .limit) {
+				& .content {
+					color: red;
+				}
+			}
+		}
+		</pre>
+
+		is equivalent to:
+
+		<pre highlight=css>
+		.parent { color: blue; }
+		@scope (.parent > .scope) to (.parent > .scope .limit) {
+			.parent > .scope .content {
+				color: red;
+			}
+		}
+		</pre>
+	</div>
 
 <!--
 ██     ██ ████ ██     ██ ████ ██    ██  ██████
@@ -743,6 +912,23 @@ Mixing Nesting Rules and Declarations {#mixing}
 		before "Order Of Appearance" comes into consideration.
 	</div>
 
+	Note: While one <em>can</em> freely intermix declarations and nested rules,
+	it's harder to read and somewhat confusing to do so,
+	since all the properties <em>act as if</em> they came before all the rules.
+	For readability's sake,
+	it's recommended that authors put all their properties first in a style rule,
+	before any nested rules.
+	(This also happens to act slightly better in older user agents;
+	due to specifics of how parsing and error-recovery work,
+	properties appearing after nested rules can get skipped.)
+
+	Note: Like with other types of rules,
+	the serialization of style rules in the presence of nesting
+	can vary from how they were originally written.
+	Notably, all directly-nested properties
+	will be serialized before any nested rules,
+	which is <em>another</em> reason to write properties before rules.
+
 
 <!--
   ████
@@ -768,8 +954,8 @@ Nesting Selector: the ''&'' selector {#nest-selector}
 	When used in the selector of a <a>nested style rule</a>,
 	the <a>nesting selector</a> represents the elements matched by the parent rule.
 	When used in any other context,
-	it represents nothing.
-	(That is, it's valid, but matches no elements.)
+	it represents the same elements as '':scope'' in that context
+	(unless otherwise defined).
 
 	<div class="note">
 		The <a>nesting selector</a> can be desugared
@@ -993,6 +1179,7 @@ must return the result of
 invoking [=insert a CSS rule=] <var>rule</var>
 into the [=CSSRule/child CSS rules=] at <var>index</var>.
 
+
 The <dfn method for=CSSStyleRule>deleteRule(<var>index</var>)</dfn> method
 must [=remove a CSS rule=] from the [=CSSRule/child CSS rules=] at <var>index</var>.
 
@@ -1000,17 +1187,19 @@ Note: Serialization of {{CSSStyleRule}} with nested rules
 are already well-defined by [[CSSOM]],
 via [=serialize a CSS rule=].
 
-<div class=issue>
-	Whether we attach .cssRules to CSSStyleRule,
-	as described here,
-	or to CSSStyleDeclaration
-	(to be consistent with future work
-	allowing `style` attributes to have nested rules)
-	is still an open question.
+Note: The restriction on what a [=nested style rule's=]
+selector can start with
+counts as a "constraint imposed by CSS"
+in step 5 of [=insert a CSS rule=]
+(when invoked by anything that takes [=nested style rules=],
+not just {{CSSStyleRule}} itself).
 
-	Also, attaching it to .style
-	means existing code setting <code>rule.style=""</code>
-	and expecting
+When setting {{CSSStyleRule/selectorText}},
+if the {{CSSStyleRule}} is a [=nested style rule=],
+and the returned group of selectors
+starts with a selector
+that starts with an ident or function token,
+do nothing and return.
 
-	(<a href="https://github.com/w3c/csswg-drafts/issues/7850">Issue 7850</a>)
-</div>
+Issue: The above paragraph will be inlined into the CSSOM algo,
+rather than monkey-patched.

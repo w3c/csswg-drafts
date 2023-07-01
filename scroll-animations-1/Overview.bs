@@ -1,17 +1,15 @@
 <pre class='metadata'>
-Title: Scroll-linked Animations
+Title: Scroll-driven Animations
 Group: CSSWG
-Status: FPWD
-Date: 2022-10-25
-Prepare for TR: yes
-Work Status: exploring
+Status: ED
+Work Status: revising
+Shortname: scroll-animations
 Level: 1
 Group: CSSWG
 TR: https://www.w3.org/TR/scroll-animations-1/
 ED: https://drafts.csswg.org/scroll-animations-1/
-Shortname: scroll-animations-1
 Abstract: Defines an API and markup for creating animations that are tied to
-		the scroll offset of a scroll container.
+          the scroll offset of a scroll container.
 Editor: Brian Birtles, Invited Expert, brian@birchill.co.jp, w3cid 43194
 Editor: Botond Ballo, Mozilla, botond@mozilla.com, w3cid 94018
 Editor: Antoine Quint, Apple, graouts@apple.com, w3cid 51377
@@ -29,6 +27,18 @@ urlPrefix: https://html.spec.whatwg.org/multipage/window-object.html; type: dfn;
 	text: document associated with a window; url: concept-document-window
 </pre>
 <pre class=link-defaults>
+spec:web-animations-1;
+	type:interface; text:AnimationTimeline
+	type:attribute; text:currentTime
+	type:dfn;
+		text:current time
+		text:active interval
+		text:start delay
+		text:end delay
+		text:active duration
+		text:iteration count
+		text:iteration duration
+		text:finished play state
 spec:html;
 	type:dfn; for:/; text:browsing context
 	type:method; text:requestAnimationFrame()
@@ -37,25 +47,30 @@ spec: cssom-view-1; type: dfn;
 	text: css layout box
 </pre>
 
-<link href='web-animations.css' rel='stylesheet' type='text/css'>
-
 # Introduction # {#intro}
 
 	This specification defines mechanisms for
 	driving the progress of an animation
 	based on the scroll progress of a scroll container.
-	These <dfn>scroll-driven animations</dfn>
+	These <dfn export>scroll-driven animations</dfn>
 	use a timeline based on scroll position,
 	rather than one based on clock time.
-	Animations are linked to such a timeline
-	using the CSS 'animation-timeline' property
-	or the Web Animations API.
+	This module provides both an imperative API building on the Web Animations API
+	as well as a declarative API building on CSS Animations.
 	<!-- [[!CSS-ANIMATIONS-2]] bikeshed chokes on this -->
 	[[!WEB-ANIMATIONS-1]]
 
-	There are two types of scroll-driven timelines:
-	* [=scroll progress timelines=]
-	* [=view progress timelines=]
+	There are two types of <dfn export>scroll-driven timelines</dfn>:
+	* [[#scroll-timelines|Scroll Progress Timelines]],
+		which are linked to the scroll progress of a particular [=scroll container=]
+	* [[#view-timelines|View Progress Timelines]],
+		which are linked to the view progress of a particular [=box=] through a [=scrollport=]
+
+	Note: Scroll-<em>driven</em> animations,
+	whose progress is linked to the scroll position,
+	are distinct from scroll-<em>triggered</em> animations,
+	which are triggered by a scroll position,
+	but whose progress is driven by time.
 
 ## Relationship to other specifications ## {#other-specs}
 
@@ -63,22 +78,25 @@ spec: cssom-view-1; type: dfn;
 	an abstract conceptual model for animations on the Web platform,
 	with elements of the model including [=animations=] and their [=timelines=],
 	and associated programming interfaces.
+	This specification extends the Web Animations model
+	by defining [=scroll-driven timelines=]
+	and allowing them to drive progress in [=animations=]
+	to create [=scroll-driven animations=].
 
-	This specification extends this model by defining
-	a new type of animation [=timeline=]:
-	a [=scroll progress timeline=].
-
-	This specification defines both
+	This specification introduces both
 	programming interfaces for interacting with these concepts,
-	as well as CSS properties which apply these concepts
+	as well as CSS properties that apply these concepts
 	to CSS Animations [[CSS-ANIMATIONS-1]].
-
-	The behavior of the CSS properties is described
-	in terms of the programming interfaces.
-	User agents that do not support scripting
+	To the extent the behavior of these CSS properties is described
+	in terms of the programming interfaces,
+	[=User Agents=] that do not support scripting
 	may still conform to this specification
 	by implementing the CSS features to behave
 	as if the underlying programming interfaces were in place.
+
+	Like most operations in CSS besides [=selector=] matching,
+	features in this specification operate over
+	the [=flattened element tree=].
 
 ## Relationship to asynchronous scrolling ## {#async-scrolling}
 
@@ -86,7 +104,7 @@ spec: cssom-view-1; type: dfn;
 	with respect to layout or script.
 	This specification is intended to be compatible with such an architecture.
 
-	Specifically, this specification allows expressing scroll-linked effects
+	Specifically, this specification allows expressing scroll-driven effects
 	in a way that does not require script to run each time the effect is sampled.
 	User agents that support asynchronous scrolling are allowed (but not required)
 	to sample such effects asynchronously as well.
@@ -115,30 +133,43 @@ spec: cssom-view-1; type: dfn;
 	along a particular axis.
 	The startmost scroll position represents 0% progress
 	and the endmost scroll position represents 100% progress.
-	If the 0% position and 100% position coincide
-	(i.e. the [=scroll container=] has no overflow to scroll),
-	the timeline is [=inactive timeline|inactive=].
 
 	[=Scroll progress timelines=] can be referenced in 'animation-timeline'
 	anonymously using the ''scroll()'' [=functional notation=]
-	or by name (see [[#timeline-scope]])
+	or by name (see [[#timeline-scoping]])
 	after declaring them using the 'scroll-timeline' properties.
 	In the Web Animations API,
 	they can be represented anonymously by a {{ScrollTimeline}} object.
+
+## Calculating Progress for a Scroll Progress Timeline ## {#scroll-timeline-progress}
+
+	Progress (the [=timeline/current time=]) for a [=scroll progress timeline=]
+	is calculated as:
+	<var>[=scroll offset=]</var> &div;
+	(<var>[=scrollable overflow=] size</var> &minus;
+		<var>[=scroll container=] size</var>)
+
+	If the 0% position and 100% position coincide
+	(i.e. the denominator in the [=timeline/current time=] formula is zero),
+	the timeline is [=inactive timeline|inactive=].
+
+	In [=paged media=],
+	[=scroll progress timelines=] that would otherwise reference the document viewport
+	are also [=inactive timeline|inactive=].
 
 ## Anonymous Scroll Progress Timelines ## {#scroll-timelines-anonymous}
 
 ### The ''scroll()'' notation ### {#scroll-notation}
 
 	The <dfn>scroll()</dfn> functional notation
-	can be used as a value of 'animation-timeline'
+	can be used as a <<single-animation-timeline>> value in 'animation-timeline'
 	and specifies a [=scroll progress timeline=].
 	Its syntax is
 
 	<pre class="prod">
 		<<scroll()>> = scroll( [ <<scroller>> || <<axis>> ]? )
-		<dfn noexport><<axis>></dfn> = block | inline | vertical | horizontal
-		<dfn noexport><<scroller>></dfn> = root | nearest
+		<dfn noexport><<axis>></dfn> = block | inline | x | y
+		<dfn noexport><<scroller>></dfn> = root | nearest | self
 	</pre>
 
 	By default,
@@ -157,15 +188,15 @@ spec: cssom-view-1; type: dfn;
 			Specifies to use the measure of progress along the
 			[=inline axis=] of the [=scroll container=].
 
-		<dt><dfn>vertical</dfn>
-		<dd>
-			Specifies to use the measure of progress along the
-			[=vertical axis=] of the [=scroll container=].
-
-		<dt><dfn>horizontal</dfn>
+		<dt><dfn>x</dfn>
 		<dd>
 			Specifies to use the measure of progress along the
 			[=horizontal axis=] of the [=scroll container=].
+
+		<dt><dfn>y</dfn>
+		<dd>
+			Specifies to use the measure of progress along the
+			[=vertical axis=] of the [=scroll container=].
 
 		<dt><dfn>nearest</dfn>
 		<dd>
@@ -175,7 +206,25 @@ spec: cssom-view-1; type: dfn;
 		<dt><dfn>root</dfn>
 		<dd>
 			Specifies to use the document viewport as the [=scroll container=].
+
+		<dt><dfn>self</dfn>
+		<dd>
+			Specifies to use the element’s own [=principal box=] as the [=scroll container=].
+			If the [=principal box=] is not a [=scroll container=],
+			then the [=scroll progress timeline=] is [=inactive timeline|inactive=].
 	</dl>
+
+	Note: Progress is in reference to the [=scroll origin=],
+	which can flip depending on [=writing mode=],
+	even when ''scroll-timeline-axis/x'' or ''scroll-timeline-axis/y'' is specified.
+
+	References to the [=root element=] propagate to the document viewport
+	(which functions as its [=scroll container=]).
+
+	Each use of ''scroll()'' corresponds to its own instance of {{ScrollTimeline}}
+	in the Web Animations API,
+	even if multiple elements use ''scroll()'' to refer
+	to the same [=scroll container=] with the same arguments.
 
 ### The {{ScrollTimeline}} Interface ### {#scrolltimeline-interface}
 
@@ -183,8 +232,8 @@ spec: cssom-view-1; type: dfn;
 		enum ScrollAxis {
 		  "block",
 		  "inline",
-		  "horizontal",
-		  "vertical"
+		  "x",
+		  "y"
 		};
 
 		dictionary ScrollTimelineOptions {
@@ -264,45 +313,57 @@ spec: cssom-view-1; type: dfn;
 	or if there is no [=scrollable overflow=],
 	then the {{ScrollTimeline}} is [=inactive timeline|inactive=].
 
-	A {{ScrollTimeline}}’s {{EffectTiming/duration}} is 100%.
+	A {{ScrollTimeline}}’s {{AnimationTimeline/duration}} is 100%.
+
+	The values of {{ScrollTimeline/source}} and {{AnimationTimeline/currentTime}}
+	are both computed when either is requested or updated.
 
 ## Named Scroll Progress Timelines ## {#scroll-timelines-named}
 
-	Scroll timelines can also be defined on the scroll container itself,
-	and then referenced by name.
-	See [[#timeline-scope]].
+	[=Scroll progress timelines=] can also be defined on the [=scroll container=] itself,
+	and then referenced by name
+	by elements within the name’s scope
+	(see [[#timeline-scoping]]).
+
+	Such <dfn>named scroll progress timelines</dfn>
+	are declared in the [=coordinated value list=]
+	constructed from the [=longhands=] of the 'scroll-timeline' [=shorthand property=],
+	which form a [=coordinating list property group=]
+	with 'scroll-timeline-name' as the [=coordinating list base property=].
+	See [[css-values-4#linked-properties]].
 
 ### Naming a Scroll Progress Timeline: the 'scroll-timeline-name' property ### {#scroll-timeline-name}
 
 	<pre class='propdef'>
 	Name: scroll-timeline-name
-	Value: none | <<custom-ident>>
+	Value: [ none | <<dashed-ident>> ]#
 	Initial: none
-	Applies to: [=scroll containers=]
+	Applies to: all elements
 	Inherited: no
-	Computed value: the specified keyword
+	Computed value: the keyword ''scroll-timeline-name/none'' or a list of [=CSS identifiers=]
 	Animation type: not animatable
 	</pre>
 
-	Specifies a name for the [=scroll progress timeline=]
-	associated with this [=scroll container=].
-	The axis for this timeline is given by 'scroll-timeline-axis'.
+	Specifies names for the [=named scroll progress timelines=]
+	associated with this element.
 
 ### Axis of a Scroll Progress Timeline: the 'scroll-timeline-axis' property ### {#scroll-timeline-axis}
 
 	<pre class='propdef'>
 	Name: scroll-timeline-axis
-	Value: block | inline | vertical | horizontal
+	Value: [ block | inline | x | y ]#
 	Initial: block
-	Applies to: [=scroll containers=]
+	Applies to: all elements
 	Inherited: no
-	Computed value: the specified keyword
+	Computed value: a list of the keywords specified
 	Animation type: not animatable
 	</pre>
 
-	Specifies an axis for the [=scroll progress timeline=]
-	associated with this [=scroll container=].
-	The name for this timeline is given by 'scroll-timeline-name'.
+	Specifies the axis of any [=named scroll progress timelines=]
+	sourced from this [=scroll container=].
+	If this box is not a [=scroll container=],
+	then the corresponding [=named scroll progress timeline=]
+	is [=inactive timeline|inactive=].
 
 	Values are as defined for ''scroll()''.
 
@@ -310,8 +371,8 @@ spec: cssom-view-1; type: dfn;
 
 	<pre class='propdef shorthand'>
 	Name: scroll-timeline
-	Value: <<'scroll-timeline-name'>> || <<'scroll-timeline-axis'>>
-	Applies to: [=scroll containers=]
+	Value: [ <<'scroll-timeline-name'>> <<'scroll-timeline-axis'>>? ]#
+	Applies to: all elements
 	Inherited: no
 	Animation type: not animatable
 	</pre>
@@ -324,28 +385,30 @@ spec: cssom-view-1; type: dfn;
 
 	Often animations are desired to start and end
 	during the portion of the [=scroll progress timeline=]
-	that a particular element
-	(the <dfn>view progress subject</dfn> element)
+	that a particular box
+	(the <dfn>view progress subject</dfn>)
 	is in view within the [=scrollport=].
 	<dfn export>View progress timelines</dfn>
 	are segments of a [=scroll progress timeline=]
 	that are scoped to the scroll positions
-	in which any part of the associated element’s [=principal box=]
+	in which any part of the subject element’s [=principal box=]
 	intersects its nearest ancestor [=scrollport=]
 	(or more precisely, the relevant [=view progress visibility range=]
 	of that [=scrollport=]).
-	The startmost such scroll position represents 0% progress
-	and the endmost such scroll position represents 100% progress.
+	The startmost such scroll position represents 0% progress,
+	and the endmost such scroll position represents 100% progress;
+	see [[#view-timeline-progress]].
 
 	Note: The 0% and 100% scroll positions are not always reachable,
 	e.g. if the box is positioned
 	at the start edge of the [=scrollable overflow rectangle=],
 	it might not be possible to scroll to < 32% progress.
 
-	[=View progress timelines=] can be referenced in 'animation-timeline' by name
-	(see [[#timeline-scope]])
+	[=View progress timelines=] can be referenced
+	anonymously using the ''view()'' [=functional notation=]
+	or by name (see [[#timeline-scoping]])
 	after declaring them using the 'view-timeline' properties
-	on the view progress subject.
+	on the [=view progress subject=].
 	In the Web Animations API,
 	they can be represented anonymously by a {{ViewTimeline}} object.
 
@@ -357,10 +420,10 @@ spec: cssom-view-1; type: dfn;
 		<dt><dfn>cover</dfn>
 		<dd>
 			Represents the full range of the [=view progress timeline=]:
-			* 0% progress represents the position at which
+			* 0% progress represents the latest position at which
 				the [=start=] [=border edge=] of the element’s [=principal box=]
 				coincides with the [=end=] edge of its [=view progress visibility range=].
-			* 100% progress represents the position at which
+			* 100% progress represents the earliest position at which
 				the [=end=] [=border edge=] of the element’s [=principal box=]
 				coincides with the [=start=] edge of its [=view progress visibility range=].
 
@@ -369,12 +432,12 @@ spec: cssom-view-1; type: dfn;
 			Represents the range during which the [=principal box=]
 			is either fully contained by, or fully covers,
 			its [=view progress visibility range=] within the [=scrollport=].
-			* 0% progress represents the earlier position at which:
+			* 0% progress represents the earliest position at which either:
 				* the [=start=] [=border edge=] of the element’s [=principal box=]
 					coincides with the [=start=] edge of its [=view progress visibility range=].
 				* the [=end=] [=border edge=] of the element’s [=principal box=]
 					coincides with the [=end=] edge of its [=view progress visibility range=].
-			* 100% progress represents the later position at which:
+			* 100% progress represents the latest position at which either:
 				* the [=start=] [=border edge=] of the element’s [=principal box=]
 					coincides with the [=start=] edge of its [=view progress visibility range=].
 				* the [=end=] [=border edge=] of the element’s [=principal box=]
@@ -387,22 +450,103 @@ spec: cssom-view-1; type: dfn;
 			* 0% is equivalent to 0% of the ''animation-timeline-range/cover'' range.
 			* 100% is equivalent to 0% of the ''animation-timeline-range/contain'' range.
 
-			ISSUE: Should this be ''entry'' or ''enter''?
-
 		<dt><dfn>exit</dfn>
 		<dd>
 			Represents the range during which the [=principal box=]
 			is exiting the [=view progress visibility range=].
 			* 0% is equivalent to 100% of the ''animation-timeline-range/contain'' range.
 			* 100% is equivalent to 100% of the ''animation-timeline-range/cover'' range.
+
+		<dt><dfn>entry-crossing</dfn>
+		<dd>
+			Represents the range during which the [=principal box=] crosses the [=end=]
+			[=border edge=]
+			* 0% progress represents the latest position at which
+				the [=start=] [=border edge=] of the element’s [=principal box=]
+				coincides with the [=end=] edge of its [=view progress visibility range=].
+			* 100% progress represents the earliest position at which
+				the [=end=] [=border edge=] of the element’s [=principal box=]
+				coincides with the [=end=] edge of its [=view progress visibility range=].
+
+		<dt><dfn>exit-crossing</dfn>
+		<dd>
+			Represents the range during which the [=principal box=] crosses the [=start=]
+			[=border edge=]
+			* 0% progress represents the latest position at which
+				the [=start=] [=border edge=] of the element’s [=principal box=]
+				coincides with the [=start=] edge of its [=view progress visibility range=].
+			* 100% progress represents the earliest position at which
+				the [=end=] [=border edge=] of the element’s [=principal box=]
+				coincides with the [=start=] edge of its [=view progress visibility range=].
 	</dl>
 
 	ISSUE: Insert diagrams.
 
 	In all cases, the [=writing mode=] used to resolve the [=start=] and [=end=] sides
 	is the [=writing mode=] of the relevant [=scroll container=].
+	<a href="http://www.w3.org/TR/css-transforms/">Transforms</a> are ignored,
+	but [=relative positioning|relative=] and [=absolute positioning|absolute=] positioning
+	are accounted for.
+
+	Note: For [=sticky-positioned boxes=]
+	the 0% and 100% progress conditions can sometimes be satisfied
+	by a range of scroll positions rather than just one.
+	Each range therefore indicates whether to use
+	the earliest or latest qualifying position.
+
+	[[CSS-POSITION-3]] [[CSS-TRANSFORMS-1]]
+
+## Calculating Progress for a View Progress Timeline ## {#view-timeline-progress}
+
+	Progress (the [=timeline/current time=]) in a [=view progress timeline=]
+	is calculated as:
+	|distance| &div; |range|
+	where:
+	* |distance| is the current [=scroll offset=]
+		minus the [=scroll offset=] corresponding to
+		the start of the ''animation-timeline-range/cover'' range
+	* |range| is
+		the [=scroll offset=] corresponding to
+		the start of the ''animation-timeline-range/cover'' range
+		minus
+		the [=scroll offset=] corresponding to
+		the end of the ''animation-timeline-range/cover'' range
+
+	If the 0% position and 100% position coincide
+	(i.e. the denominator in the [=timeline/current time=] formula is zero),
+	the timeline is [=inactive timeline|inactive=].
+
+	In [=paged media=],
+	[=view progress timelines=] that would otherwise reference the document viewport
+	are also [=inactive timeline|inactive=].
 
 ## Anonymous View Progress Timelines ## {#view-timelines-anonymous}
+
+### The ''view()'' notation ### {#view-notation}
+
+	The <dfn>view()</dfn> functional notation
+	can be used as a <<single-animation-timeline>> value in 'animation-timeline'
+	and specifies a [=view progress timeline=]
+	in reference to the nearest ancestor [=scroll container=].
+	Its syntax is
+
+	<pre class="prod">
+		<<view()>> = view( [ <<axis>> || <<'view-timeline-inset'>> ]? )
+	</pre>
+
+	By default,
+	''view()'' references the [=block axis=];
+	as for ''scroll()'',
+	this can be changed by providing an explicit <<axis>> value.
+
+	The optional <<'view-timeline-inset'>> value provides an adjustment
+	of the [=view progress visibility range=],
+	as defined for 'view-timeline-inset'.
+
+	Each use of ''view()'' corresponds to its own instance of {{ViewTimeline}}
+	in the Web Animations API,
+	even if multiple elements use ''view()'' to reference
+	the same element with the same arguments.
 
 ### The {{ViewTimeline}} Interface ### {#viewtimeline-interface}
 
@@ -410,6 +554,7 @@ spec: cssom-view-1; type: dfn;
 		dictionary ViewTimelineOptions {
 		  Element subject;
 		  ScrollAxis axis = "block";
+		  (DOMString or sequence&lt;(CSSNumericValue or CSSKeywordValue)>) inset = "auto";
 		};
 
 		[Exposed=Window]
@@ -435,22 +580,21 @@ spec: cssom-view-1; type: dfn;
 		:   <dfn>startOffset</dfn>
 		::  Represents the starting (0% progress) scroll position
 			of the [=view progress timeline=]
-			as a length offset (in ''px'') from the scroll origin.
+			as a length offset (in ''px'') from the [=scroll origin=].
 			Null when the timeline is [=inactive timeline|inactive=].
 
 		:   <dfn>endOffset</dfn>
 		::  Represents the ending (100% progress) scroll position
 			of the [=view progress timeline=]
-			as a length offset (in ''px'') from the scroll origin.
+			as a length offset (in ''px'') from the [=scroll origin=].
 			Null when the timeline is [=inactive timeline|inactive=].
 	</dl>
 
-	Note: The value of {{ViewTimeline/startOffset}} can be greater than {{ViewTimeline/endOffset}},
+	Note: The values of {{ViewTimeline/startOffset}} and {{ViewTimeline/endOffset}}
+	are relative to the [=scroll origin=], not the [=physical=] top left corner.
+	Depending on the [=writing mode=] of the [=scroll container=],
+	they therefore might not match {{Element/scrollLeft}} or {{Element/scrollTop}} values,
 	for example in the [=horizontal axis=] in a right-to-left (''rtl'') [=writing mode=].
-
-	ISSUE: This makes the offsets compatible with the way scrollLeft and scrollTop work,
-	which go negative from zero in RTL scroll containers,
-	is this how we want it to work here?
 
 	Inherited attributes:
 
@@ -485,45 +629,64 @@ spec: cssom-view-1; type: dfn;
 			1. Set the {{ScrollTimeline/source}} of |timeline|
 				to the {{ViewTimeline/subject}}’s
 				nearest ancestor [=scroll container=] element.
+
+			1.  If a {{DOMString}} value is provided as an |inset|,
+				parse it as a <<'view-timeline-inset'>> value;
+				if a sequence is provided,
+				the first value represents the start inset
+				and the second value represents the end inset.
+				If the sequence has only one value,
+				it is duplicated.
+				If it has zero values or more than two values,
+				or if it contains a {{CSSKeywordValue}} whose {{CSSKeywordValue/value}} is not "auto",
+				throw a <span class="exceptionname">TypeError</span>.
+
+				These insets define the {{ViewTimeline}}’s [=view progress visibility range=].
 	</dl>
 
 	If the {{ScrollTimeline/source}} or {{ViewTimeline/subject}} of a {{ViewTimeline}}
 	is an element whose [=principal box=] does not exist,
-	or if its nearest ancestor [=scroll container=] has no [=scrollable overflow=],
+	or if its nearest ancestor [=scroll container=] has no [=scrollable overflow=]
+	(or if there is no such ancestor, e.g. in print media),
 	then the {{ViewTimeline}} is [=inactive timeline|inactive=].
 
-	ISSUE: Figure out how to incorporate fit/inset abilities.
+	The values of {{ViewTimeline/subject}}, {{ScrollTimeline/source}}, and {{AnimationTimeline/currentTime}}
+	are all computed when any of them is requested or updated.
 
 ## Named View Progress Timelines ## {#view-timelines-named}
 
-	View timelines can also be defined declaratively
-	and then referenced by name.
-	See [[#timeline-scope]].
+	[=View progress timelines=] can also be defined declaratively
+	and then referenced by name
+	by elements within the name’s scope
+	(see [[#timeline-scoping]]).
+
+	Such <dfn>named view progress timelines</dfn>
+	are declared in the [=coordinated value list=]
+	constructed from the 'view-timeline-*' properties,
+	which form a [=coordinating list property group=]
+	with 'view-timeline-name' as the [=coordinating list base property=].
+	See [[css-values-4#linked-properties]].
 
 ### Naming a View Progress Timeline: the 'view-timeline-name' property ### {#view-timeline-name}
 
 	<pre class='propdef'>
 	Name: view-timeline-name
-	Value: none | <<custom-ident>>#
+	Value: [ none | <<dashed-ident>> ]#
 	Initial: none
 	Applies to: all elements
 	Inherited: no
-	Computed value: the keyword ''view-timeline-name/none'' or a list of <<custom-ident>>s
+	Computed value: the keyword ''view-timeline-name/none'' or a list of [=CSS identifiers=]
 	Animation type: not animatable
 	</pre>
 
-	Specifies names for any [=view progress timelines=]
-	associated with this element’s [=principal box=].
-
-	Note: The number of names listed here
-	determines the number of [=view progress timelines=]
+	Specifies names for the [=named view progress timelines=]
 	associated with this element.
 
 ### Axis of a View Progress Timeline: the 'view-timeline-axis' property ### {#view-timeline-axis}
 
 	<pre class='propdef'>
 	Name: view-timeline-axis
-	Value: [ block | inline | vertical | horizontal ]#
+	Value: [ block | inline | x | y ]#
 	Initial: block
 	Applies to: all elements
 	Inherited: no
@@ -531,20 +694,17 @@ spec: cssom-view-1; type: dfn;
 	Animation type: not animatable
 	</pre>
 
-	Specifies an axis for each named [=view progress timeline=]
-	associated with this [=scroll container=].
+	Specifies the axis of any [=named view progress timelines=]
+	derived from this element’s [=principal box=].
 
-	If 'view-timeline-name' has more names than 'view-timeline-axis' has specified axes,
-	the excess timelines use the last 'view-timeline-axis' value.
-	If 'view-timeline-name' has fewer names than 'view-timeline-axis' has specified axes,
-	the used 'view-timeline-axis' list is truncated.
+	Values are as defined for ''view()''.
 
 ### Inset of a View Progress Timeline: the 'view-timeline-inset' property ### {#view-timeline-inset}
 
 	<pre class='propdef'>
 	Name: view-timeline-inset
 	Value: [ [ auto | <<length-percentage>> ]{1,2} ]#
-	Initial: 0
+	Initial: auto
 	Applies to: all elements
 	Inherited: no
 	Percentages: relative to the corresponding dimension of the relevant scrollport
@@ -572,16 +732,11 @@ spec: cssom-view-1; type: dfn;
 			defines an inward offset from the corresponding edge of the scrollport.
 	</dl>
 
-	If 'view-timeline-name' has more names than 'view-timeline-inset' has specified inset pairs,
-	the excess timelines use the last 'view-timeline-inset' pair.
-	If 'view-timeline-name' has fewer names than 'view-timeline-inset' has specified inset pairs
-	the used 'view-timeline-inset' list is truncated.
-
 ### View Timeline Shorthand: the 'view-timeline' shorthand ### {#view-timeline-shorthand}
 
 	<pre class='propdef shorthand'>
 	Name: view-timeline
-	Value: [ <<'view-timeline-name'>> || <<'view-timeline-axis'>> ]#
+	Value: [ <<'view-timeline-name'>> <<'view-timeline-axis'>>? ]#
 	Applies to: all elements
 	</pre>
 
@@ -592,27 +747,139 @@ spec: cssom-view-1; type: dfn;
 
 	ISSUE: Should it reset 'view-timeline-inset' also?
 
-# Named Timeline Scoping # {#timeline-scope}
+# Attaching Animations to [=Scroll-driven Timelines=] # {#scroll-driven-attachment}
+
+	Animations can be attached to [=scroll-driven timelines=]
+	using the 'scroll-timeline' property (in CSS)
+	or the {{AnimationTimeline}} parameters (in the Web Animations API).
+	The timeline range to which their [=active interval=] is attached
+	can also be further restricted to a particular timeline range
+	(see [[#named-range-animation-declaration]]).
+
+	Time-based delays ('animation-delay')
+	do not apply to [=scroll-driven animations=],
+	which are distance-based.
+
+## Finite Timeline Calculations ## {#finite-attachment}
+
+	Unlike time-driven timelines,
+	[=scroll-driven timelines=] are finite,
+	thus [=scroll-driven animations=] are always attached
+	to a finite [=attachment range=]--
+	which may be further limited by 'animation-range'
+	(see [[#timeline-ranges]]).
+	The animation’s <!-- delays ('animation-delay')
+	and --> iterations ('animation-iteration-count')
+	are set within the limits of this finite range.
+	If the specified duration is ''animation-duration/auto'',
+	then <!-- once any delays are subtracted, -->
+	the remaining range is divided by its [=iteration count=] ('animation-iteration-count')
+	to find the [=used value|used=] duration.
+
+	Note: If the animation has an infinite [=iteration count=],
+	each [=iteration duration=]--
+	and the resulting [=active duration=]--
+	will be zero.
+
+	Animations that include absolutely-positioned keyframes
+	(those pinned to a specific point on the timeline,
+	e.g. using [[#named-range-keyframes|named timeline range keyframe selectors]] in ''@keyframes'')
+	are assumed to have an [=iteration count=] of 1
+	for the purpose of finding those keyframes’ positions
+	relative to 0% and 100%;
+	the entire animation is then scaled to fit the [=iteration duration=]
+	and repeated for each iteration.
+
+	Note: It's unclear what the use case might be
+	for combining absolutely-positioned keyframes
+	with iteration counts above 1;
+	this at least gives a defined behavior.
+	(An alternative, but perhaps weirder, behavior
+	would be to take such absolutely-positioned keyframes
+	“out of flow” while iterating the remaining keyframes.)
+	The editors would be interested in hearing about
+	any real use cases for multiple iterations here.
+
+## Named Timeline Scoping and Lookup ## {#timeline-scoping}
 
 	A named [=scroll progress timeline=] or [=view progress timeline=]
-	is referenceable in 'animation-timeline' by:
-	* the declaring element itself
+	is referenceable by:
+	* the name-declaring element itself
 	* that element’s descendants
-	* that element’s following siblings and their descendants
+
+	Note: The 'timeline-scope' property can be used
+	to declare the name of a timeline on an ancestor of its defining element,
+	effectively expanding its scope beyond that element’s subtree.
 
 	If multiple elements have declared the same timeline name,
 	the matching timeline is the one declared
-	on the nearest element in tree order,
-	which considers siblings closer than parents.
+	on the nearest element in tree order.
 	In case of a name conflict on the same element,
+	names declared later in the naming property
+	('scroll-timeline-name', 'view-timeline-name')
+	take precedence, and
 	[=scroll progress timelines=] take precedence over [=view progress timelines=].
 
-	Note: Like most operations in CSS besides [=selector=] matching,
-	timeline scoping occurs over the [=flattened element tree=].
+	<div class=example>
+		Using ''timeline-scope'',
+		an element can refer to timelines
+		bound to elements that are siblings, cousins, or even descendants.
+		For example, the following creates an animation on an element
+		that is linked to a [=scroll progress timeline=]
+		defined by the subsequent sibling.
 
-	ISSUE: Do we want to expand this scope to preceding siblings and/or distant cousins?
+		<xmp highlight=html>
+		<style>
+			@keyframes anim {
+			  from { color: red; }
+			  to { color: green; }
+			}
 
-# Avoiding cycles with layout # {#avoiding-cycles}
+			.root {
+			  /* declares the scope of a 'scroller' timeline to reach all descendants */
+			  timeline-scope: scroller;
+			}
+
+			.root .animation {
+			  animation: anim;
+			  /* references the 'scroller' timeline for driving the progress of 'anim' */
+			  animation-timeline: scroller;
+			}
+
+			.root .animation + .scroller {
+			  /* attaches a scroll progress timeline to the timeline name 'scroller' */
+			  scroll-timeline: scroller;
+			}
+		</style>
+		&hellip;
+		<section class="root">
+			<div class="animation">Animating Box</div>
+			<div class="scroller">Scrollable Box</div>
+		</section>
+		</xmp>
+	</div>
+
+## Animation Events ## {#events}
+
+	[=Scroll-driven animations=] dispatch all the same animation events
+	as the more typical time-driven animations
+	as described in
+	[[web-animations-1#animation-events-section]],
+	[[css-animations-1#events]],
+	and [[css-animations-2#event-dispatch]].
+
+	Note: When scrolling backwards,
+	the <code>animationstart</code> event will fire
+	at the <em>end</em> of the [=active interval=],
+	and the <code>animationend</code> event will fire
+	at the start of the [=active interval=].
+	However, since the <code>finish</code> event
+	is about entering the [=finished play state=],
+	it only fires when scrolling forwards.
+
+# Frame Calculation Details # {#frames}
+
+## HTML Processing Model: Event loop
 
 	The ability for scrolling to drive the progress of an animation,
 	gives rise to the possibility of <dfn>layout cycles</dfn>,
@@ -620,32 +887,45 @@ spec: cssom-view-1; type: dfn;
 	which in turn causes a new change to the scroll offset.
 
 	To avoid such [=layout cycles=],
-	animations with a [=scroll progress timeline=] are sampled once per frame,
-	after scrolling in response to input events has taken place,
-	but before {{requestAnimationFrame()}} callbacks are run.
-	If the sampling of such an animation causes a change to a scroll offset,
-	the animation will not be re-sampled to reflect the new offset
-	until the next frame.
+	animations with a [=scroll progress timeline=] update their current time once
+	during step 7.10 of the [HTML Processing Model](https://html.spec.whatwg.org/multipage/webappapis.html#processing-model-8) event loop,
+	as step 1 of [=update animations and send events=].
 
-	The implication of this is that in some situations, in a given frame,
-	the rendered scroll offset of a scroll container might not be consistent
-	with the state of an animation driven by scrolling that scroll container.
-	However, this will only occur in situations where the animation's effect
-	changes the scroll offset of that same scroll container
-	(in other words, in situations where the animation's author is asking for trouble).
-	In normal situations, including&mdash;importantly--
-	when scrolling happens in response to input events,
-	the rendered scroll offset and the state of scroll-driven animations
-	will be consistent in each frame.
+	During step 7.14.1 of the [HTML Processing Model](https://html.spec.whatwg.org/multipage/webappapis.html#processing-model-8),
+	any created [=scroll progress timelines=] or [=view progress timelines=] are collected into a <dfn export>stale timelines</dfn> set.
+	After step 7.14 if any timelines' [=named timeline ranges=] have changed,
+	these timelines are added to the [=stale timelines=] set.
+	If there are any [=stale timelines=], they now update their current time and associated ranges,
+	the set of [=stale timelines=] is cleared and
+	we run and we run an additional step to recalculate styles and update layout.
 
-	User agents that composite frames asynchronously
-	with respect to layout and/or script
-	may, at their discretion, sample scroll-driven animations
-	once per <em>composited</em> frame,
-	rather than (or in addition to) once per full layout cycle.
-	Again, if sampling such an animation causes a change to a scroll offset,
-	the animation will not be re-sampled to reflect the new offset
-	until the next frame.
+	Note: We check for layout changes after dispatching any {{ResizeObserver}}s intentionally
+	to take programmatically sized elements into account.
+
+	Note: As we only gather stale timelines during the first style and layout calculation,
+	this can only directly cause one additional style recalculation.
+	Other APIs which require another update should be checked in the same step
+	and be updated at the same time.
+
+	Note: Without this additional round of style and layout,
+	[=initially stale=] timelines would remain stale
+	(i.e. they would not have a current time)
+	for the remainder of the frame where the timeline was created.
+	This means that animations linked to such a timeline
+	would not produce any [=effect value=] for that frame,
+	which could lead to an undesirable initial "flash"
+	in the rendered output.
+
+	Note: This section has no effect on forced style and layout
+	calculations triggered by {{Window/getComputedStyle()|getComputedStyle()}} or similar.
+	In other words, [=initially stale=] timelines are visible as such
+	through those APIs.
+
+	If the final style and layout update
+	would result in a change in the time or scope (see 'timeline-scope')
+	of any [=scroll progress timelines=] or [=view progress timelines=],
+	they will not be re-sampled to reflect the new state
+	until the next update of the rendering.
 
 	Nothing in this section is intended to require
 	that scrolling block on layout or script.
@@ -658,19 +938,30 @@ spec: cssom-view-1; type: dfn;
 	and the state of a scroll-driven animation
 	may be inconsistent in the composited frame.
 
-# Appendix A: Named Timeline Ranges # {#timeline-ranges}
+# Privacy Considerations
+
+  There are no known privacy impacts of the features in this specification.
+
+# Security Considerations
+
+  There are no known security impacts of the features in this specification.
+
+# Appendix A: Timeline Ranges # {#timeline-ranges}
 
 	ISSUE: This section should move to CSS-ANIMATIONS-2 and WEB-ANIMATIONS-2.
 
-	This specification introduces the concept of [=named timeline ranges=]
+	This appendix introduces the concepts of [=named timeline ranges=]
+	and [=animation attachment ranges=]
 	to <a href="https://www.w3.org/TR/css-animations/">CSS Animations</a>
 	and <a href="https://www.w3.org/TR/web-animations/">Web Animations</a>.
+
+## Named Timeline Ranges ## {#named-ranges}
 
 	A <dfn export>named timeline range</dfn>
 	is a named segment of an animation [=timeline=].
 	The start of the segment is represented as 0% progress through the range;
 	the end of the segment is represented as 100% progress through the range.
-	Multiple [=named timeline ranges=] can be attached to a given [=timeline=],
+	Multiple [=named timeline ranges=] can be associated with a given [=timeline=],
 	and multiple such ranges can overlap.
 	For example, the ''animation-timeline/contain'' range of a [=view progress timeline=]
 	overlaps with its ''animation-timeline/cover'' range.
@@ -693,7 +984,7 @@ spec: cssom-view-1; type: dfn;
 	The CSS ''@keyframes'' rule is extended thus:
 
 	<pre class="prod">
-		<<keyframe-selector>> = from | to | <<percentage>> | <<timeline-range-name>> <<percentage>>
+		<<keyframe-selector>> = from | to | <<percentage [0,100]>> | <<timeline-range-name>> <<percentage>>
 	</pre>
 
 	where <<timeline-range-name>> is the [=CSS identifier=]
@@ -705,106 +996,263 @@ spec: cssom-view-1; type: dfn;
 	If the timeline does not have a corresponding [=named timeline range=],
 	then any keyframes attached to points on that [=named timeline range=]
 	are ignored.
+	It is possible that these attachment points
+	are outside the [=active interval=] of the animation;
+	in these cases the automatic ''from'' (0%) and ''to'' (100%) keyframes
+	are only generated for properties that don't have keyframes
+	at or earlier than 0% or at or after 100% (respectively).
 
 ## Attaching Animations to Timeline Ranges ## {#named-range-animation-declaration}
 
 	A set of animation keyframes can be attached
-	in reference to [=named timeline ranges=]
-	by adjusting the duration of the animation.
+	in reference to an <dfn export local-lt="attachment range">animation attachment range</dfn>,
+	restricting the animation’s [=active interval=] to that range of a timeline,
+	with the 'animation-range' properties.
+	Delays (see 'animation-delay')
+	are set within this restricted range,
+	further reducing the time available for ''animation-duration/auto'' durations
+	and ''animation-iteration-count/infinite'' iterations.
+
+	Note: 'animation-range' can expand the [=attachment range=]
+	as well as constrict it.
+
+	Any frames positioned outside the [=attachment range=]
+	are used for interpolation as needed,
+	but are outside the [=active interval=]
+	and therefore dropped from the animation itself,
+	effectively truncating the animation
+	at the end of its [=attachment range=].
+
+	<pre class="ascii-art">
+	range start┐             ╺┉┉active interval┉┉╸           ┌range end
+	┄┄┄┄┄┄┄┄┄┄┄├─────────────╊━━━━━━━━━━━━━━━━━━━╉───────────┤┄┄┄┄┄┄┄┄
+	           ╶┄start delay┄╴                   ╶┄end delay┄╴
+	                         ╶┄┄┄┄┄ duration┄┄┄┄┄╴
+	</pre>
+
+	The 'animation-range' properties
+	are [=reset-only sub-properties=] of the 'animation' [=shorthand=].
+
+	ISSUE: Define application to time-driven animations.
+
+### Specifying an Animation’s Timeline Range: the 'animation-range' shorthand ### {#animation-range}
 
 	<pre class="propdef shorthand">
-		Name: animation-delay, animation-range
-		Value: [ <<'animation-delay-start'>> <<'animation-delay-end'>>? | <<timeline-range-name>> ]#
+		Name: animation-range
+		Value: [ <<'animation-range-start'>> <<'animation-range-end'>>? ]#
 	</pre>
 
-	The 'animation-delay' and 'animation-range' properties
-	are both [=shorthand property|shorthands=]
-	that set 'animation-delay-start' and 'animation-delay-end'
-	together in a single declaration.
-	If the <<'animation-delay-end'>> value is omitted,
-	it is set to zero.
-	If a <<timeline-range-name>> alone is specified,
-	'animation-delay-start' is set to that name plus ''0%''
-	and 'animation-delay-end' is set to that name plus ''100%''.
+	The 'animation-range' property is a [=shorthand property|shorthand=]
+	that sets 'animation-range-start' and 'animation-range-end'
+	together in a single declaration,
+	associating the animation with the specified [=animation attachment range=].
+
+	If <<'animation-range-end'>> is omitted
+	and <<'animation-range-start'>> includes a <<timeline-range-name>> component,
+	then 'animation-range-end' is set to that same <<timeline-range-name>> and ''100%''.
+	Otherwise, any omitted [=longhand=] is set to its [=initial value=].
+
+	<div class="example">
+		The following sets of declarations show an 'animation-range' [=shorthand=] declaration
+		followed by its equivalent 'animation-range-start' and 'animation-range-end' declarations:
+		<pre style="columns: 40ch">
+			animation-range: entry 10% exit 90%;
+			animation-range-start: entry 10%;
+			animation-range-end: exit 90%;
+
+			animation-range: entry;
+			animation-range-start: entry 0%;
+			animation-range-end: entry 100%;
+
+			animation-range: entry exit;
+			animation-range-start: entry 0%;
+			animation-range-end: exit 100%;
+
+			animation-range: 10%;
+			animation-range-start: 10%;
+			animation-range-end: normal;
+
+			animation-range: 10% 90%;
+			animation-range-start: 10%;
+			animation-range-end: 90%;
+
+			animation-range: entry 10% exit;
+			animation-range-start: entry 10%;
+			animation-range-end: exit 100%;
+
+			animation-range: 10% exit 90%;
+			animation-range-start: 10%;
+			animation-range-end: exit 90%;
+
+			animation-range: entry 10% 90%;
+			animation-range-start: entry 10%;
+			animation-range-end: 90%;
+		</pre>
+	</div>
+
+	ISSUE(8438): What's the best way to handle defaulting of omitted values here?
+
+### Specifying an Animation’s Timeline Range Start: the 'animation-range-start' property ### {#animation-range-start}
 
 	<pre class="propdef">
-		Name: animation-delay-start
-		Value: [ <<time>> | <<timeline-range-name>> <<percentage>> ]#
-		Initial: 0s
+		Name: animation-range-start
+		Value: [ normal | <<length-percentage>> | <<timeline-range-name>> <<length-percentage>>? ]#
+		Initial: normal
 		Applies to: all elements
 		Inherited: no
-		Percentages: relative to the specified [=named timeline range=]
-		Computed value: list, each item either a duration or a timeline range and progress percentage
-		Animatable: no
+		Percentages: relative to the specified [=named timeline range=] if one was specified, else to the entire timeline
+		Computed value: list, each item either the keyword ''animation-range-start/normal'' or a timeline range and progress percentage
+		Animation type: not animatable
 	</pre>
 
-	Defines a delay between the start of the animation
-	and when it begins executing
-	(i.e. when keyframes attached to 0% progress are mapped).
+	Specifies the start of the animations’s [=attachment range=],
+	shifting the <a spec="web-animations-1">start time</a> of the animation
+	(i.e. where keyframes mapped to 0% progress are attached
+	when the iteration count is 1)
+	accordingly.
 
-	<dl dfn-for="animation-delay-start, animation-delay-end" dfn-type=value>
-		<dt><dfn><<time>></dfn>
+	Values have the following meanings:
+
+	<dl dfn-for="animation-range-start" dfn-type=value>
+		<dt><dfn>normal</dfn>
 		<dd>
-			Defines the delay as a duration. See [[CSS-ANIMATIONS-1]].
-		<dt><dfn><<timeline-range-name>> <<percentage>></dfn>
+			The start of the animation’s [=attachment range=]
+			is the start of its associated [=timeline=];
+			the start of the animation’s [=active interval=]
+			is determined as normal.
+
+		<dt><dfn><<length-percentage>></dfn>
 		<dd>
-			Calculates the delay as the difference between
-			the start of the animation
-			and the specified point on the [=timeline=].
+			The [=animation attachment range=] starts
+			at the specified point on the [=timeline=]
+			measuring from the start of the timeline.
+
+		<dt><dfn><<timeline-range-name>> <<length-percentage>>?</dfn>
+		<dd>
+			The [=animation attachment range=] starts
+			at the specified point on the [=timeline=]
+			measuring from the start of the specified [=named timeline range=].
+			If the <<length-percentage>> is omitted,
+			it defaults to 0%.
 	</dl>
 
+### Specifying an Animation’s Timeline Range End: the 'animation-range-end' property ### {#animation-range-end}
+
 	<pre class="propdef">
-		Name: animation-delay-end
-		Value: [ <<time>> | <<timeline-range-name>> <<percentage>> ]
-		Initial: 0s
+		Name: animation-range-end
+		Value: [ normal | <<length-percentage>> | <<timeline-range-name>> <<length-percentage>>? ]#
+		Initial: normal
 		Applies to: all elements
 		Inherited: no
-		Percentages: relative to the specified [=named timeline range=]
-		Computed value: list, each item either a duration or a timeline range and progress percentage
-		Animatable: no
+		Percentages: relative to the specified [=named timeline range=] if one was specified, else to the entire timeline
+		Computed value: list, each item either the keyword ''animation-range-end/normal'' or a timeline range and progress percentage
+		Animation type: not animatable
 	</pre>
 
-	Defines a delay between the end of the animation
-	and when it ends executing
-	(i.e. when keyframes attached to 100% progress are mapped).
-	Values are as for 'animation-delay-start',
-	but calculating backwards from the end,
-	i.e. a ''2s'' delay effectively shortens the animation duration,
-	whereas ''-2s'' lengthens it.
+	Specifies the end of the animations’s [=attachment range=],
+	potentially shifting the <a spec="web-animations-1">end time</a> of the animation
+	(i.e. where keyframes mapped to 100% progress are attached
+	when the iteration count is 1)
+	and/or truncating the animation’s [=active interval=].
 
-## Reporting Timeline Range Progress: the ''getTime()'' method ## {#named-range-getTime}
+	Values have the following meanings:
 
-	Progress through named ranges is exposed on the {{AnimationTimeline}} object
-	by the {{AnimationTimeline/getCurrentTime()}} method:
+	<dl dfn-for="animation-range-end" dfn-type=value>
+		<dt><dfn>normal</dfn>
+		<dd>
+			The end of the animation’s [=attachment range=]
+			is the end of its associated [=timeline=];
+			the end of the animation’s [=active interval=]
+			is determined as normal.
 
-	<pre class="idl">
-		[Exposed=Window]
-		interface AnimationTimeline {
-		  readonly attribute CSSNumberish? currentTime;
-		  CSSNumericValue? getCurrentTime(optional CSSOMString rangeName);
-		};
+		<dt><dfn><<length-percentage>></dfn>
+		<dd>
+			The [=animation attachment range=] ends
+			at the specified point on the [=timeline=]
+			measuring from the start of the timeline.
+
+		<dt><dfn><<timeline-range-name>> <<length-percentage>>?</dfn>
+		<dd>
+			The [=animation attachment range=] ends
+			at the specified point on the [=timeline=]
+			measuring from the start of the specified [=named timeline range=].
+			If the <<length-percentage>> is omitted,
+			it defaults to 100%.
+	</dl>
+
+# Appendix B: Timeline Name Scope # {#timeline-name-scope}
+
+	ISSUE: This section should move to CSS-ANIMATIONS-2.
+
+	This appendix introduces the 'timeline-scope' property,
+	which allows declaring a timeline name’s scope on an ancestor
+	of the timeline’s defining element.
+
+## Declaring a Named Timeline’s Scope: the 'timeline-scope' property ## {#timeline-scope}
+
+	<pre class="propdef">
+		Name: timeline-scope
+		Value: none | <<dashed-ident>>#
+		Initial: none
+		Applies to: all elements
+		Inherited: no
+		Computed value: the keyword ''timeline-scope/none'' or a list of [=CSS identifiers=]
+		Animation type: not animatable
 	</pre>
 
-	<div algorithm="AnimationTimeline.getCurrentTime()">
-		The <code><dfn method for=AnimationTimeline>getCurrentTime(optional |rangeName|)</dfn></code> [=method steps=] are:
+	This property declares the scope of the specified timeline names
+	to extend across this element’s subtree.
+	This allows a named timeline
+	(such as a [=named scroll progress timeline=] or [=named view progress timeline=])
+	to be referenced by elements outside the timeline-defining element’s subtree--
+	for example, by siblings, cousins, or ancestors.
+	It also blocks descendant timelines with the specified names
+	from being referenced from outside this subtree,
+	and ancestor timelines with the specified names from being referenced
+	within this subtree.
 
-		1. If [=this=] is an [=inactive timeline=],
-			return [=null=].
+	ISSUE(8915): There's some open discussion about these blocking effects.
 
-		1. If |rangeName| is provided:
+	Values have the following meanings:
 
-			1. If |rangeName| is a valid [=named timeline range=] on [=this=],
-				let |progress| be the current progress through that range,
-				expressed as a percentage value between 0 and 100.
+	<dl dfn-for="timeline-scope" dfn-type=value>
+		<dt><dfn>none</dfn>
+		<dd>
+			No changes in timeline name scope.
 
-				Create a [=new unit value=] from (|progress|, "percent")
-				and return it.
+		<dt><dfn><<dashed-ident>></dfn>
+		<dd>
+			Declares the name of a matching named timeline defined by a descendant--
+			whose scope is not already explicitly declared by a descendant using 'timeline-scope'--
+			to be in scope for this element and its descendants.
 
-			2. Otherwise, return [=null=].
+			If no such timeline exists,
+			or if more than one such timeline exists,
+			instead declares an [=inactive timeline=] with the specified name.
+	</dl>
 
-		2. Let |current time| 
-			be the value of [=this's=] {{AnimationTimeline/currentTime}} internal slot.
+	Note: This property cannot affect or invalidate any timeline name lookups
+	within the subtree of a descendant element that declares the same name.
+	See [[#timeline-scope]].
 
-			Create a [=new unit value=] from (|current time|, "ms")
-			and return it.
-	</div>
+# Changes # {#changes}
+
+	Changes since the
+	(<a href="https://www.w3.org/TR/2023/WD-scroll-animations-1-20230428/">28 April 2023</a>)
+	Working Draft include:
+
+	* Removed <css>scroll-timeline-attachment</css> and <css>view-timeline-attachment</css> in favor of 'timeline-scope'.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/7759">Issue 7759</a>)
+	* Switched named timelines to use <<dashed-ident>> instead of <<custom-ident>> in order to avoid name clashes with standard CSS keywords.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/8746">Issue 8746</a>)
+	* Removed {{getCurrentTime()}} API due to various issues in the design.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/8765">Issue 8765</a>)
+		Progress on an individual animation can now be retrieved using <code>Animation.progress</code>
+		(<a href="https://github.com/w3c/csswg-drafts/issues/8799">Issue 8799</a>)
+		and other use cases are deferred to Level 2.
+	* Allow ''scroll-timeline-name/none'' to be used as part of the value list
+		for 'scroll-timeline-name' and 'view-timeline-name',
+		not just as an alternative to it.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/8843">Issue 8843</a>)
+
+	See also <a href="https://www.w3.org/TR/2023/WD-scroll-animations-1-20230428/#changes">Earlier Changes</a>.
