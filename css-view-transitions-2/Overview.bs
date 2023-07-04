@@ -45,6 +45,49 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 	text: signal; for: NavigateEvent; url: #ref-for-dom-navigateevent-signal①
 </pre>
 
+<style>
+	spec-scaler {
+		display: block;
+	}
+	spec-scaler:not(:defined) > * {
+		display: none;
+	}
+	.spec-slides {
+		width: 100%;
+		height: 100%;
+		border: none;
+		display: block;
+	}
+	.spec-slide-controls {
+		text-align: center;
+	}
+	.main-example-video {
+		display: block;
+		width: 100%;
+		max-width: 702px;
+		height: auto;
+		margin: 0 auto;
+	}
+
+	/* Put nice boxes around each algorithm. */
+	[data-algorithm]:not(.heading) {
+		padding: .5em;
+		border: thin solid #ddd; border-radius: .5em;
+		margin: .5em calc(-0.5em - 1px);
+	}
+	[data-algorithm]:not(.heading) > :first-child {
+		margin-top: 0;
+	}
+	[data-algorithm]:not(.heading) > :last-child {
+		margin-bottom: 0;
+	}
+	[data-algorithm] [data-algorithm] {
+		margin: 1em 0;
+	}
+	pre {
+		tab-size: 2;
+	}
+</style>
 <script async type="module" src="diagrams/resources/scaler.js"></script>
 
 # Introduction # {#intro}
@@ -71,11 +114,91 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 	1. Right before the new {{Document}} has a new [=rendering opportunity=], its state is captured as
 		the "new" state.
 
-	1. An event named `reveal` is fired on the new {{Document}}, with a `viewTransition` property,
+	1. An event named [[#reveal-event|`reveal`]] is fired on the new {{Document}}, with a `viewTransition` property,
 		which is a {{ViewTransition}} object. This {{ViewTransition}}'s <code>{{ViewTransition/updateCallbackDone}}</code> is already resolved,
 		and its [=captured elements=] are populated from the old {{Document}}.
 
 	1. From this point forward, the transition continues as if it was a same-document transition, as per [=activate view transition=].
+
+## Examples ## {#examples}
+
+	<div class=example>
+		To generate the same cross-fade as in the first example [[css-view-transitions-1#examples]],
+		but across documents, we don't need JavaScript.
+
+		Instead, we opt in to auto-view-transitions in both page 1 and page 2:
+
+		```css
+		// in both documents:
+		@auto-view-transitions {
+			same-origin: enable;
+		}
+		```
+
+		A link from page 1 to or from page 2 would generate a crossfade transition for example 1.
+		To achieve the effect examples 2, 3 & 4, simply put the CSS for the pseudo-elements in both
+		documents.
+	</div>
+
+	<div class="example">
+		To achieve the effect in [[css-view-transitions-1#examples|example 5]], we have to do several
+		things:
+
+		- Opt-in to auto-view-transitions in both pages.
+		- Pass the click location to the new document, e.g. via {{WindowSessionStorage/sessionStorage}}.
+		- Intercept the {{ViewTransition}} object in the new document, using the [[#reveal-event|`reveal` event]].
+
+		In both pages:
+		```css
+		@auto-view-transitions {
+			same-origin: enable;
+		}
+
+		```
+
+		In the old page:
+		```js
+		addEventListener('click', event => {
+			sessionStorage.setItem("lastClickX", event.clientX);
+			sessionStorage.setItem("lastClickY", event.clientY);
+		});
+		```
+
+		In the new page:
+		```js
+		// This would run both on initial load and on reactivation from BFCache.
+		addEventListener("reveal", async event => {
+			if (!event.viewTransition)
+				return;
+
+			const x = sessionStorage.getItem("lastClickX") ?? innerWidth / 2;
+			const y = sessionStorage.getItem("lastClickY") ?? innerHeight / 2;
+
+			const endRadius = Math.hypot(
+				Math.max(x, innerWidth - x),
+				Math.max(y, innerHeight - y)
+			);
+
+			await event.viewTransition.ready;
+
+			// Animate the new document's view
+			document.documentElement.animate(
+				{
+					clipPath: [
+						`circle(0 at ${x}px ${y}px)`,
+						`circle(${endRadius}px at ${x}px ${y}px)`,
+					],
+				},
+				{
+					duration: 500,
+					easing: 'ease-in',
+					pseudoElement: '::view-transition-new(root)'
+				}
+			);
+		})
+		```
+	</div>
+
 
 
 # CSS rules # {#css-rules}
@@ -113,7 +236,7 @@ plus the additional rules noted below:
 
 # API # {#api}
 
-## The `reveal` event ## {#reveal-document-algorithm}
+## The <dfn interface>PageRevealEvent</dfn> ## {#reveal-event}
 
 Note: this should go in the HTML spec. See [Issue 9315](https://github.com/whatwg/html/issues/9315).
 
@@ -124,7 +247,7 @@ Note: this should go in the HTML spec. See [Issue 9315](https://github.com/whatw
 		};
 </xmp>
 
-The {{PageRevealEvent/viewTransition}} [=getter steps=] are to return the
+The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are to return the
 [=inbound cross-document view-transition=] for [=this's=] [=relevant global object's=] [=associated document=].
 
 
@@ -167,7 +290,8 @@ The {{PageRevealEvent/viewTransition}} [=getter steps=] are to return the
 
 		1. If |document| is [=render-blocked=] then return.
 
-		1. Fire a new {{PageRevealEvent}}.
+		1. Fire a new event named <code>reveal</code> on |document|'s [=relevant global object=],
+			using {{PageRevealEvent}}.
 
 		1. Let |transition| be the result of getting the [=inbound cross-document view-transition=] for |document|.
 
@@ -197,7 +321,8 @@ The {{PageRevealEvent/viewTransition}} [=getter steps=] are to return the
 
 		1. If |oldDocument| does not [=opt in to cross-document view transitions=], then return.
 
-			Note: we don't know yet if |newDocument| has opted in.
+			Note: we don't know yet if |newDocument| has opted in, as it might not be parsed yet.
+			We check the opt-in for |newDocument| when it is [=reveal document|revealed=].
 
 		1. Let |transition| be a new {{ViewTransition}} object in |oldDocument|'s [=relevant Realm=].
 
@@ -207,12 +332,13 @@ The {{PageRevealEvent/viewTransition}} [=getter steps=] are to return the
 			However, this should not have web-observable side-effects.
 
 		1. [=Queue a global task=] on the [=DOM manipulation task source=],
-			given |newDocument|'s [=relevant global object=], to set |newDocument|'s
-			[=active view transition=] to a new {{ViewTransition}} in |newDocument|'s [=relevant Realm=],
-			whose [=ViewTransition/named elements=] is |transition|'s [=ViewTransition/named elements=],
-			[=ViewTransition/update callback done promise=] is [=a promise resolved with=] undefined,
-			[=ViewTransition/initial snapshot containing block size=] is |transition|'s [=ViewTransition/initial snapshot containing block size=],
-			and whose [=ViewTransition/is cross-document=] is true.
+			given |newDocument|'s [=relevant global object=], to perform the following step:
+
+			1. Set |newDocument|'s [=active view transition=] to a new {{ViewTransition}} in |newDocument|'s [=relevant Realm=],
+				whose [=ViewTransition/named elements=] is |transition|'s [=ViewTransition/named elements=],
+				[=ViewTransition/update callback done promise=] is [=a promise resolved with=] undefined,
+				[=ViewTransition/initial snapshot containing block size=] is |transition|'s [=ViewTransition/initial snapshot containing block size=],
+				and whose [=ViewTransition/is cross-document=] is true.
 
 			Note: this task would run before any script on the new {{Document}}.
 	</div>
