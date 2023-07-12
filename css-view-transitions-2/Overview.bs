@@ -2,7 +2,7 @@
 Title: CSS View Transitions Module Level 2
 Shortname: css-view-transitions
 Level: 2
-Status: WD
+Status: ED
 Group: csswg
 Date: 2023-05-30
 Prepare for TR: yes
@@ -11,6 +11,7 @@ TR: https://www.w3.org/TR/css-view-transitions-2/
 Work Status: exploring
 Editor: Noam Rosenthal, Google, w3cid 121539
 Editor: Khushal Sagar, Google, w3cid 122787
+Editor: Vladimir Levin, Google, w3cid 75295
 Editor: Tab Atkins-Bittner, Google, http://xanthir.com/contact/, w3cid 42199
 Abstract: This module defines how the View Transition API works with cross-document navigations.
 Markup Shorthands: css yes, markdown yes
@@ -28,6 +29,7 @@ spec:css-view-transitions-1;
 	text: activate view transition; type: dfn;
 	text: captured elements; type: dfn;
 	text: updateCallbackDone; type: property; for: ViewTransition;
+	text: call the update callback; type: dfn;
 spec:dom; type:dfn; text:document
 spec:css22; type:dfn; text:element
 spec:html
@@ -102,6 +104,8 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 
 
 ## Lifecycle ## {#lifecycle}
+
+	*This section is non-normative.*
 
 	A successful cross-document view transition goes through the following phases:
 
@@ -247,6 +251,8 @@ Note: this should go in the HTML spec. See [Issue 9315](https://github.com/whatw
 		};
 </xmp>
 
+Note: this event is fired when [=reveal document|revealing a document=].
+
 The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are to return the
 [=inbound cross-document view-transition=] for [=this's=] [=relevant global object's=] [=associated document=].
 
@@ -281,14 +287,12 @@ The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are
 	<div algorithm="monkey patch to reactivation">
 		Run the following step in [=Document/reactivate=], before step 4 (querying for [=page showing=]):
 
-		1. [=reveal document|reveal=] |document|.
+		1. If |document| is not [=render-blocked=], then [=reveal document|reveal=] |document|.
 	</div>
 
 	<div algorithm="page reveal">
 	To <dfn>reveal {{Document}}</dfn> |document|:
 		1. Assert: |document|'s [=page showing=] is false.
-
-		1. If |document| is [=render-blocked=] then return.
 
 		1. Fire a new event named <code>reveal</code> on |document|'s [=relevant global object=],
 			using {{PageRevealEvent}}.
@@ -306,10 +310,6 @@ The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are
 
 		1. Assert: this is called when |oldDocument| is [=unloading=].
 
-		1. If |oldDocument|'s [=active view transition=] is not null,
-			then [=skip the view transition|skip=] |oldDocument|'s [=active view transition=]
-			with an "{{AbortError}}" {{DOMException}} in |oldDocument|'s [=relevant Realm=].
-
 		1. If |oldDocument|'s [=environment settings object/origin=] is not [=same origin=] as
 			|newDocument|'s [=environment settings object/origin=] then return.
 
@@ -324,9 +324,19 @@ The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are
 			Note: We don't know yet if |newDocument| has opted in, as it might not be parsed yet.
 			We check the opt-in for |newDocument| when it is [=reveal document|revealed=].
 
-		1. Let |transition| be a new {{ViewTransition}} object in |oldDocument|'s [=relevant Realm=].
+		1. If |oldDocument|'s [=active view transition=] is not null,
+			then [=skip the view transition|skip=] |oldDocument|'s [=active view transition=]
+			with an "{{AbortError}}" {{DOMException}} in |oldDocument|'s [=relevant Realm=].
 
-		1. [=Capture the old state=] for |transition|. If this fails, return.
+			Note: this means that any running transition would be skipped when the document is ready
+			to unload.
+
+		1. Let |outboundTransition| be a new {{ViewTransition}} object in |oldDocument|'s [=relevant Realm=].
+
+			Note: |outboundTransition| is not exposed to JavaScript, it is used only for capturing
+			the state of the old document.
+
+		1. [=Capture the old state=] for |outboundTransition|. If this fails, return.
 
 			Note: implementations might need to [=queue a task=] in order to [=capture the old state=].
 			However, this should not have web-observable side-effects.
@@ -334,13 +344,14 @@ The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are
 		1. [=Queue a global task=] on the [=DOM manipulation task source=],
 			given |newDocument|'s [=relevant global object=], to perform the following step:
 
-			1. Set |newDocument|'s [=active view transition=] to a new {{ViewTransition}} in |newDocument|'s [=relevant Realm=],
-				whose [=ViewTransition/named elements=] is |transition|'s [=ViewTransition/named elements=],
-				[=ViewTransition/update callback done promise=] is [=a promise resolved with=] undefined,
-				[=ViewTransition/initial snapshot containing block size=] is |transition|'s [=ViewTransition/initial snapshot containing block size=],
+			1. Let |inboundTransition| be a new {{ViewTransition}} in |newDocument|'s [=relevant Realm=],
+				whose [=ViewTransition/named elements=] is |outboundTransition|'s [=ViewTransition/named elements=],
+				[=ViewTransition/initial snapshot containing block size=] is |outboundTransition|'s [=ViewTransition/initial snapshot containing block size=],
 				and whose [=ViewTransition/is cross-document=] is true.
 
-			Note: this task would run before any script on the new {{Document}}.
+			1. [=Call the update callback=] for |inboundTransition|.
+
+			1. Set |newDocument|'s [=active view transition=] to |inboundTransition|.
 	</div>
 
 	<div algorithm>
