@@ -11,7 +11,7 @@ TR: https://www.w3.org/TR/css-view-transitions-2/
 Work Status: exploring
 Editor: Noam Rosenthal, Google, w3cid 121539
 Editor: Khushal Sagar, Google, w3cid 122787
-Editor: Vladimir Levin, Google
+Editor: Vladimir Levin, Google, w3cid 75295
 Editor: Tab Atkins-Bittner, Google, http://xanthir.com/contact/, w3cid 42199
 Abstract: This module defines how the View Transition API works with cross-document navigations.
 Markup Shorthands: css yes, markdown yes
@@ -20,15 +20,16 @@ Markup Shorthands: css yes, markdown yes
 <pre class=link-defaults>
 spec:css-view-transitions-1;
 	text: active view transition; type: dfn;
+	text: activate view transition; type: dfn;
 	text: skip the view transition; type: dfn;
 	text: ViewTransition; type: interface;
 	text: named elements; for: ViewTransition; type: dfn;
 	text: update callback done promise; for: ViewTransition; type: dfn;
 	text: initial snapshot containing block size; for: ViewTransition; type: dfn;
-	text: capture the old state; type: dfn;
 	text: activate view transition; type: dfn;
 	text: captured elements; type: dfn;
 	text: updateCallbackDone; type: property; for: ViewTransition;
+	text: phase; type: property; for: ViewTransition;
 	text: call the update callback; type: dfn;
 spec:dom; type:dfn; text:document
 spec:css22; type:dfn; text:element
@@ -118,7 +119,7 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 	1. Right before the new {{Document}} has the first [=rendering opportunity=], its state is captured as
 		the "new" state.
 
-	1. An event named [[#reveal-event|`reveal`]] is fired on the new {{Document}}, with a `viewTransition` property,
+	1. An event named {{PageRevealEvent|reveal}} is fired on the new {{Document}}, with a `viewTransition` property,
 		which is a {{ViewTransition}} object. This {{ViewTransition}}'s <code>{{ViewTransition/updateCallbackDone}}</code> is already resolved,
 		and its [=captured elements=] are populated from the old {{Document}}.
 
@@ -150,7 +151,7 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 
 		- Opt-in to auto-view-transitions in both pages.
 		- Pass the click location to the new document, e.g. via {{WindowSessionStorage/sessionStorage}}.
-		- Intercept the {{ViewTransition}} object in the new document, using the [[#reveal-event|`reveal` event]].
+		- Intercept the {{ViewTransition}} object in the new document, using the {{PageRevealEvent|reveal event}}.
 
 		In both pages:
 		```css
@@ -208,7 +209,13 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 # CSS rules # {#css-rules}
 
 ## The <dfn id="at-auto-view-transition-rule">''@auto-view-transition''</dfn> rule ## {#auto-view-transition-rule}
-<h3 id="syntax-page-selector">@auto-view-transition rule grammar</h3>
+
+The ''@auto-view-transition'' rule is used by a document to indicate that cross-document navigations
+should setup and activate a {{ViewTransition}}. To take effect, it must be present in the old document
+when unloading, and in the new document when it is being [=reveal document|revealed=].
+
+
+## @auto-view-transition rule grammar ## {#auto-view-transition-grammer}
 
 ''@auto-view-transition'' rules are [=CSS/parsed=] according to the following grammar,
 plus the additional rules noted below:
@@ -271,9 +278,9 @@ The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are
 ## Monkey patches to HTML ## {#monkey-patch-to-html}
 
 	<div algorithm="monkey patch to unload">
-		Run the following step before <a href="https://html.spec.whatwg.org/multipage/document-lifecycle.html#unloading-documents:update-the-visibility-state">updating the visibility state</a> in the [=unload=] steps:
+		Run the following step at the beginning of the [=unload=] steps:
 
-		1. If |newDocument| is given, then [=setup outbound cross-document view transition=] given |oldDocument| and |newDocument|.
+		1. If |newDocument| is given, then [=setup outbound cross-document view transition=] given |oldDocument|, |newDocument| and the remaining steps.
 	</div>
 
 	<div algorithm="monkey patch to render blocking">
@@ -282,6 +289,13 @@ The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are
 		1. [=reveal document|reveal=] |document|.
 
 		Reword the text in the [=render-blocked=] definition, to call [=reveal document=] |document| if the [=implementation-defined=] timeout value has been exceeded.
+	</div>
+
+	<div algorithm="monkey patch to script processing model">
+		In the <a href="https://html.spec.whatwg.org/#script-processing-model">Script processing model</a> section,
+		move <a href="https://html.spec.whatwg.org/#script-processing-model:unblock-rendering">unblock rendering</a> step to the end.
+
+		Note: this ensures that the [=reveal document=] steps are called after firing script `load` or `error` events.
 	</div>
 
 	<div algorithm="monkey patch to reactivation">
@@ -302,24 +316,22 @@ The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are
 		1. If |transition| is not null, then [=activate view transition|activate=] |transition|.
 	</div>
 
-## Setting up and activating the cross-document view transition
+## Setting up and activating the cross-document view transition ##
 
 	<div algorithm>
-		To <dfn>setup outbound cross-document view transition</dfn> given a {{Document}} |oldDocument|
-		and a {{Document}} |newDocument|:
-
-		1. Assert: this is called when |oldDocument| is [=unloading=].
+		To <dfn>setup outbound cross-document view transition</dfn> given a {{Document}} |oldDocument|,
+		a {{Document}} |newDocument|, and |onReady|, which is an algorithm accepting nothing:
 
 		1. If |oldDocument|'s [=environment settings object/origin=] is not [=same origin=] as
-			|newDocument|'s [=environment settings object/origin=] then return.
+			|newDocument|'s [=environment settings object/origin=] then call |onReady| and return.
 
 		1. If |newDocument| [=was created via cross-origin redirects=] is true
-			and |newDocument|'s [=latest entry=] is null, then return.
+			and |newDocument|'s [=latest entry=] is null, then call |onReady| and return.
 
 			Note: A document with a non-null [=latest entry=]
 			is being [=Document/reactivated=], in which case we don't need to check for cross-origin redirects.
 
-		1. If |oldDocument| does not [=opt in to cross-document view transitions=], then return.
+		1. If |oldDocument| does not [=opt in to cross-document view transitions=], then call |onReady| and return.
 
 			Note: We don't know yet if |newDocument| has opted in, as it might not be parsed yet.
 			We check the opt-in for |newDocument| when it is [=reveal document|revealed=].
@@ -331,27 +343,28 @@ The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are
 			Note: this means that any running transition would be skipped when the document is ready
 			to unload.
 
-		1. Let |outboundTransition| be a new {{ViewTransition}} object in |oldDocument|'s [=relevant Realm=].
+		1. Let |outboundTransition| be a new {{ViewTransition}} object in |oldDocument|'s [=relevant Realm=],
+			whose [=ViewTransition/process old state captured=] is set to the following steps:
+
+			1. |outboundTransition|'s [=ViewTransition/phase=] is not "`pending-capture`", then call |onReady| and return.
+
+			1. If |oldDocument| does not [=opt in to cross-document view transitions|opts in to cross-document view transitions=],
+				then [=queue a global task=] on the [=DOM manipulation task source=] given |newDocument|'s [=relevant global object=],
+				to perform the following step:
+
+				1. Let |newDocument|'s [=active view transition=] be a new {{ViewTransition}} in |newDocument|'s [=relevant Realm=],
+					whose [=ViewTransition/named elements=] is |outboundTransition|'s [=ViewTransition/named elements=],
+					[=ViewTransition/initial snapshot containing block size=] is |outboundTransition|'s [=ViewTransition/initial snapshot containing block size=],
+					and whose [=ViewTransition/is cross-document=] is true.
+
+				1. [=Call the update callback=] for |newDocument|'s [=active view transition=].
+
+				1. Call |onReady|.
 
 			Note: |outboundTransition| is not exposed to JavaScript, it is used only for capturing
 			the state of the old document.
 
-		1. [=Capture the old state=] for |outboundTransition|. If this fails, return.
-
-			Note: implementations might need to [=queue a task=] in order to [=capture the old state=].
-			However, this should not have web-observable side-effects.
-
-		1. [=Queue a global task=] on the [=DOM manipulation task source=],
-			given |newDocument|'s [=relevant global object=], to perform the following step:
-
-			1. Let |inboundTransition| be a new {{ViewTransition}} in |newDocument|'s [=relevant Realm=],
-				whose [=ViewTransition/named elements=] is |outboundTransition|'s [=ViewTransition/named elements=],
-				[=ViewTransition/initial snapshot containing block size=] is |outboundTransition|'s [=ViewTransition/initial snapshot containing block size=],
-				and whose [=ViewTransition/is cross-document=] is true.
-
-			1. [=Call the update callback=] for |inboundTransition|.
-
-			1. Set |newDocument|'s [=active view transition=] to |inboundTransition|.
+		1. Set |oldDocument|'s [=active view transition=] to |outboundTransition|.
 	</div>
 
 	<div algorithm>
