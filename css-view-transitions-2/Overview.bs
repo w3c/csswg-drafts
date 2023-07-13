@@ -29,8 +29,10 @@ spec:css-view-transitions-1;
 	text: activate view transition; type: dfn;
 	text: captured elements; type: dfn;
 	text: updateCallbackDone; type: property; for: ViewTransition;
-	text: phase; type: property; for: ViewTransition;
+	text: phase; type: dfn; for: ViewTransition;
 	text: call the update callback; type: dfn;
+	text: perform pending transition operations; type: dfn;
+	text: setup view transition; type: dfn;
 spec:dom; type:dfn; text:document
 spec:css22; type:dfn; text:element
 spec:html
@@ -243,6 +245,8 @@ plus the additional rules noted below:
 		: <dfn>enabled</dfn>
 		:: The transition will be enabled if the navigation is same-origin, without cross-origin
 			redirects.
+
+			See <a href="https://github.com/w3c/csswg-drafts/issues/8684">Issue #8684</a>.
 	</dl>
 
 # API # {#api}
@@ -271,7 +275,7 @@ The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are
 
 	A {{ViewTransition}} additionally has:
 	<dl dfn-for=ViewTransition>
-		: <dfn>is cross-document</dfn>
+		: <dfn>is inbound cross-document transition</dfn>
 		:: a boolean, initially false.
 	</dl>
 
@@ -291,7 +295,7 @@ The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are
 
 		1. [=reveal document|reveal=] |document|.
 
-		Reword the text in the [=render-blocked=] definition, to call [=reveal document=] |document| if the [=implementation-defined=] timeout value has been exceeded.
+		Issue: Reword the text in the [=render-blocked=] definition, to call [=reveal document=] |document| if the [=implementation-defined=] timeout value has been exceeded.
 	</div>
 
 	<div algorithm="monkey patch to script processing model">
@@ -311,12 +315,14 @@ The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are
 	To <dfn>reveal {{Document}}</dfn> |document|:
 		1. Assert: |document|'s [=page showing=] is false.
 
-		1. If |document| is [=render blocked=], return.
+		1. If |document| is [=render-blocked=], then return.
+
+		1. Let |transition| be the result of getting the [=inbound cross-document view-transition=] for |document|.
+
+		1. If |document| does not [=opt in to cross-document view transitions=], then [=skip the view transition|skip=] |transition| and set |transition| to null.
 
 		1. Fire a new event named <code>reveal</code> on |document|'s [=relevant global object=],
 			using {{PageRevealEvent}}.
-
-		1. Let |transition| be the result of getting the [=inbound cross-document view-transition=] for |document|.
 
 		1. If |transition| is not null, then [=activate view transition|activate=] |transition|.
 	</div>
@@ -351,16 +357,19 @@ The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are
 		1. Let |outboundTransition| be a new {{ViewTransition}} object in |oldDocument|'s [=relevant Realm=],
 			whose [=ViewTransition/process old state captured=] is set to the following steps:
 
-			1. |outboundTransition|'s [=ViewTransition/phase=] is not "`pending-capture`", then call |onReady| and return.
+			Issue: should we check for the opt-in again, in case there was a CSSOM change in a requestAnimationFrame callback?
 
-			1. If |oldDocument| does not [=opt in to cross-document view transitions|opts in to cross-document view transitions=],
-				then [=queue a global task=] on the [=DOM manipulation task source=] given |newDocument|'s [=relevant global object=],
+			1. If |outboundTransition|'s [=ViewTransition/phase=] is "`done`", then call |onReady| and return.
+
+			1. Assert: |outboundTransition|'s  [=ViewTransition/phase=] is "`pending-capture`".
+
+			1. [=Queue a global task=] on the [=DOM manipulation task source=] given |newDocument|'s [=relevant global object=],
 				to perform the following step:
 
 				1. Let |newDocument|'s [=active view transition=] be a new {{ViewTransition}} in |newDocument|'s [=relevant Realm=],
 					whose [=ViewTransition/named elements=] is |outboundTransition|'s [=ViewTransition/named elements=],
 					[=ViewTransition/initial snapshot containing block size=] is |outboundTransition|'s [=ViewTransition/initial snapshot containing block size=],
-					and whose [=ViewTransition/is cross-document=] is true.
+					and whose [=ViewTransition/is inbound cross-document transition=] is true.
 
 				1. [=Call the update callback=] for |newDocument|'s [=active view transition=].
 
@@ -370,19 +379,19 @@ The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are
 			the state of the old document.
 
 		1. Set |oldDocument|'s [=active view transition=] to |outboundTransition|.
+
+			Note: The process continues in [=setup view transition=], via [=perform pending transition operations=], which is called in [[css-view-transitions-1#monkey-patch-to-rendering-algorithm]].
 	</div>
 
 	<div algorithm>
 		To get the <dfn>inbound cross-document view-transition</dfn> for a {{Document}} |document|:
 
-		1. If |document| does not [=opt in to cross-document view transitions=], then return null.
-
 		1. Let |transition| be |document|'s [=active view transition=].
 
-		1. If |transition| is null or |transition|'s [=ViewTransition/is cross-document=] is false,
+		1. If |transition| is null or |transition|'s [=ViewTransition/is inbound cross-document transition=] is false,
 			then return null.
 
-			Note: |transition|'s [=ViewTransition/is cross-document=] would be false if a same-document
+			Note: |transition|'s [=ViewTransition/is inbound cross-document transition=] would be false if a same-document
 			transition was started before the page was revealed.
 
 		1. Return |transition|.
