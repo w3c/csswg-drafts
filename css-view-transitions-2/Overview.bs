@@ -20,6 +20,7 @@ Markup Shorthands: css yes, markdown yes
 <pre class=link-defaults>
 spec:css-view-transitions-1;
 	text: active view transition; type: dfn;
+	text: clear view transition; type: dfn;
 	text: activate view transition; type: dfn;
 	text: skip the view transition; type: dfn;
 	text: ViewTransition; type: interface;
@@ -37,10 +38,9 @@ spec:css22; type:dfn; text:element
 spec:html
 	text: latest entry; type: dfn;
 	text: was created via cross-origin redirects; type: dfn;
+	text: run the animation frame callbacks; type: dfn;
 	text: unload; type: dfn;
-	text: render-blocked; type: dfn;
-	text: unblock rendering; type: dfn;
-	text: page showing; type: dfn;
+	text: update the rendering; type: dfn;
 </pre>
 
 <pre class=anchors>
@@ -267,8 +267,17 @@ The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are
 
 
 # Algorithms # {#algorithms}
+## Data Structures ## {#concepts}
 
-## Additions to {{ViewTransition}} ## {#view-transitions-extension}
+### Additions to {{Document}} ### {#additions-to-document}
+
+	A {{Document}} additionally has:
+
+	<dl dfn-for=document>
+		: <dfn>is revealed</dfn>
+		:: a boolean, initially false.
+
+### Additions to {{ViewTransition}} ## {#view-transitions-extension}
 
 	A {{ViewTransition}} additionally has:
 	<dl dfn-for=ViewTransition>
@@ -287,32 +296,21 @@ The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are
 		Note: This would wait until a transition is captured or skipped before proceeding to unloading the old document and activating the new one.
 	</div>
 
-	<div algorithm="monkey patch to render blocking">
-		Run the following step at the end of [=unblock rendering=]:
+	<div algorithm="monkey patch to rendering">
+		Run the following step in [=update the rendering|updating the renedering=], before [=running the animation frame callbacks=]:
 
-		1. [=reveal document|reveal=] |document|.
-
-		Issue: Reword the text in the [=render-blocked=] definition, to call [=reveal document=] |document| if the [=implementation-defined=] timeout value has been exceeded.
-	</div>
-
-	<div algorithm="monkey patch to script processing model">
-		In the <a href="https://html.spec.whatwg.org/#script-processing-model">Script processing model</a> section,
-		move <a href="https://html.spec.whatwg.org/#script-processing-model:unblock-rendering">unblock rendering</a> step to the end.
-
-		Note: this ensures that the [=reveal document=] steps are called after firing script `load` or `error` events.
+		1. For each [=fully active=] {{Document}} |doc| in |docs|, [=reveal document|reveal=] |doc|.
 	</div>
 
 	<div algorithm="monkey patch to reactivation">
-		Run the following step in [=Document/reactivate=], before step 4 (querying for [=page showing=]):
+		Run the following step at the end of [=Document/reactivate=]:
 
-		1. [=Reveal document|reveal=] |document|.
+		1. Set |document|'s [=is revealed=] to false.
 	</div>
 
 	<div algorithm="page reveal">
 	To <dfn>reveal {{Document}}</dfn> |document|:
-		1. Assert: |document|'s [=page showing=] is false.
-
-		1. If |document| is [=render-blocked=], then return.
+		1. If |document|'s [=document/is revealed=] is true, then return.
 
 		1. Let |transition| be the result of getting the [=inbound cross-document view-transition=] for |document|.
 
@@ -322,6 +320,8 @@ The <dfn attribute for=PageRevealEvent>viewTransition</dfn> [=getter steps=] are
 			using {{PageRevealEvent}}.
 
 		1. If |transition| is not null, then [=activate view transition|activate=] |transition|.
+
+		1. Set |document|'s [=document/is revealed=] to true.
 	</div>
 
 ## Setting up and activating the cross-document view transition ## {#setting-up-and-activating-the-cross-document-view-transition}
@@ -416,7 +416,7 @@ To prevent cross-origin issues, at this point cross-document view transitions ca
 same-origin navigations. As discussed in <a href="https://github.com/WICG/view-transitions/issues/200">WICG/view-transitions#200</a>,
 this still presents two potential threats:
 
-1. The <a data-xref-type="http-header">Cross-Origin-Opener-Policy</a> of both documents might be different.
+1. The [=environment settings object/cross-origin isolated capability=] in both documents might be different.
 	This can cause a situation where a {{Document}} that is [=environment settings object/cross-origin isolated capability|cross-origin isolated=]
 	can read image data from a document that is not cross-origin isolated. This is already mitigated in [[css-view-transitions-1#sec],
 	as the same restriction applies for captured cross-origin iframes.
@@ -432,6 +432,11 @@ this still presents two potential threats:
 
 	Note: this only applies to server-side redirects. A client-side redirect, e.g. using
 	[^meta/http-equiv/refresh^], is equivalent to a new navigation.
+
+1. This feature exposes more information to CSS, as so far CSS was not aware of anything navigation-related.
+	This can raise concerns around safety 3rd-party CSS. However, as a general rule, 3rd-party stylesheets should come
+	from trusted sources to begin with, as CSS can learn about the document or change it in many ways.
+
 
 See <a href="https://github.com/w3c/csswg-drafts/issues/8684">Issue #8684</a> and
 <a href="https://github.com/WICG/view-transitions/issues/200">WICG/view-transitions#200</a> for
