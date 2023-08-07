@@ -51,7 +51,7 @@ Welcome to fantasai's Issues List Generator!
 This is a script that converts a plaintext (.txt or .bsi) issues list
 into a color-coded HTML file of the same name (but .html file extension).
 The input is itself a presentable, easily-editable file designed
-mostly for the editor’s convenenience.
+mostly for the editor’s convenience.
 
 The original purpose of this format is to create a Disposition of
 Comments for the W3C's LCWD->CR transition process. However, it is
@@ -230,7 +230,7 @@ sub header {
   }
   die "Error: missing document URL or title.\n" unless ($url && $title);
 
-  # Process URL to get status, date, shorname
+  # Process URL to get status, date, shortname
   my $status = 'Draft';
   my $date = $1 if ($inFile =~ /([\d-]+)/);
   if ($url =~ /([A-Z]{2})-([a-z0-9-]+)-(\d{8})/) {
