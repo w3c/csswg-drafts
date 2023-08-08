@@ -43,7 +43,7 @@ that have evolved over the years (
 [history](https://github.com/w3c/csswg-drafts/blob/main/css-fonts-4/src-explainer.md#history-of-font-technologies).
 So the file signature or mime type for font files is not sufficient to identify
 whether a UA's font stack would support it. Instead it is necessary to
-distinguish what text layout (OpenType, AAT, Graphite) or rasterisation
+distinguish what text layout (OpenType, AAT, Graphite) or rasterization
 technologies (TrueType contours, variations, bitmap color font formats, vector
 color font formats etc.) are used by the respective font file.
 
@@ -118,7 +118,7 @@ overrides is not needed.
 
 ```
 if (CSS.supports("font-tech(palettes)") {
-  // Load palette styleheet here.
+  // Load palette stylesheet here.
   if (CSS.supports("font-tech(color-COLRv1)")) {
     // Load COLRv1 font here.
   } else if (CSS.supports("font-tech(color-COLRv0)) {

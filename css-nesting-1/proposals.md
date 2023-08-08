@@ -9,12 +9,12 @@ To organize the discussion a bit, the options we're looking at are:
 	1. Just at-rules. This means any nested at-rule, like a nested @media, or the no-op `@nest;` rule we'd introduce.
 	2. [(link)](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1268979633) The above, plus any style rule starting with an `&`. (Rules following the switch can start with whatever.)
 	3. [(link)](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1270665794) The above, plus any style rule starting with a non-ident. (So `.foo`, `:hover`, etc will trigger the switch, but `div` won't.) (Rules following the switch can start with whatever.)
-3. [Non-letter start proposal](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1272373216) - No parsing switch, instead every nested rule has to be unambiguous on its own, by starting with anything but an ident. (You can write  `& div` or `:is(div)` if you need to start a selector with a type selector.) (This employs the same parsing strat as (2.iii) to avoid accidentally parsing invalid properties like `//color: red;` as rules.)
+3. [Non-letter start proposal](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1272373216) - No parsing switch, instead every nested rule has to be unambiguous on its own, by starting with anything but an ident. (You can write  `& div` or `:is(div)` if you need to start a selector with a type selector.) (This employs the same parsing strategy as (2.iii) to avoid accidentally parsing invalid properties like `//color: red;` as rules.)
 4. [Postfix proposal](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1276360012) - Block after main rule containing nested rules, no `&` needed in nested selectors except for disambiguation. Style rules effectively consist of a selector, a declaration block, and an optional style rule block.
    1. Could add the rule block with an `@nest` rule
    2. Could add the rule block with special ASCII selector (e.g. `&&`) to indicate association of nested rules with the previous selector
    3. Could [add the rule block with bare braces](https://github.com/w3c/csswg-drafts/issues/7834#issuecomment-1282630354), essentially giving the selector prelude associated two blocks (one declaration block, one optional rule block).
-5. [Top-level nesting container](https://github.com/w3c/csswg-drafts/issues/7970) - Top-level `@nest` rule having one or more selectors and a block of nested rules, no `&` needed in nested selectors except for attaching psuedos to the parent slector. No mixing of properties and rules.
+5. [Top-level nesting container](https://github.com/w3c/csswg-drafts/issues/7970) - Top-level `@nest` rule having one or more selectors and a block of nested rules, no `&` needed in nested selectors except for attaching psuedos to the parent selector. No mixing of properties and rules.
 
 ------
 
@@ -119,13 +119,13 @@ Arguments for each of the above options:
 - No changes to parsing or OM
 - No `&` for selectors that do not require it
 - Similar to `@scope` and `@layer`
-- `@nest` provides conext and something that's searchable for authors encountering it for the first time
+- `@nest` provides context and something that's searchable for authors encountering it for the first time
 - Existing rules can be pasted into a `@nest` block without modification
-- Can tranparently handle multiple levels of nesting
+- Can transparently handle multiple levels of nesting
 
 <td>
 
-- Requires an additional block of scope for properties on the primary sleector(s)
+- Requires an additional block of scope for properties on the primary selector(s)
 - Requires non-local edits when refactoring existing code
 
 </table>
