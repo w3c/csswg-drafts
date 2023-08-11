@@ -1,3 +1,9 @@
+<style>
+	/* crbug.com/1471465 */
+	dl.switch > dt {
+		counter-increment: list-item 0;
+	}
+</style>
 <pre class='metadata'>
 Title: Scroll-driven Animations
 Group: CSSWG
@@ -32,6 +38,7 @@ spec:web-animations-1;
 	type:attribute; text:currentTime
 	type:dfn;
 		text:current time
+		text:start time
 		text:active interval
 		text:start delay
 		text:end delay
@@ -39,12 +46,21 @@ spec:web-animations-1;
 		text:iteration count
 		text:iteration duration
 		text:finished play state
+		text:play state
+		text:effective playback rate
+		text:effect value
 spec:html;
 	type:dfn; for:/; text:browsing context
 	type:method; text:requestAnimationFrame()
 spec: cssom-view-1; type: dfn;
 	text: overflow direction;
 	text: css layout box
+spec:css-writing-modes-4; type: dfn;
+	text:start
+	text:end
+spec:infra; type:dfn; text:user agent
+spec:selectors-4; type:dfn; text:selector
+spec:web-animations-2: type:dfn; text:auto-aligned start time
 </pre>
 
 # Introduction # {#intro}
@@ -89,7 +105,7 @@ spec: cssom-view-1; type: dfn;
 	to CSS Animations [[CSS-ANIMATIONS-1]].
 	To the extent the behavior of these CSS properties is described
 	in terms of the programming interfaces,
-	[=User Agents=] that do not support scripting
+	[=user agent|User Agents=] that do not support scripting
 	may still conform to this specification
 	by implementing the CSS features to behave
 	as if the underlying programming interfaces were in place.
@@ -145,9 +161,9 @@ spec: cssom-view-1; type: dfn;
 
 	Progress (the [=timeline/current time=]) for a [=scroll progress timeline=]
 	is calculated as:
-	<var>[=scroll offset=]</var> &div;
-	(<var>[=scrollable overflow=] size</var> &minus;
-		<var>[=scroll container=] size</var>)
+	<var ignore=''>[=scroll offset=]</var> &div;
+	(<var ignore=''>[=scrollable overflow=] size</var> &minus;
+		<var ignore=''>[=scroll container=] size</var>)
 
 	If the 0% position and 100% position coincide
 	(i.e. the denominator in the [=timeline/current time=] formula is zero),
@@ -630,7 +646,7 @@ spec: cssom-view-1; type: dfn;
 				to the {{ViewTimeline/subject}}’s
 				nearest ancestor [=scroll container=] element.
 
-			1.  If a {{DOMString}} value is provided as an |inset|,
+			1.  If a {{DOMString}} value is provided as an inset,
 				parse it as a <<'view-timeline-inset'>> value;
 				if a sequence is provided,
 				the first value represents the start inset
@@ -768,8 +784,8 @@ spec: cssom-view-1; type: dfn;
 	to a finite [=attachment range=]--
 	which may be further limited by 'animation-range'
 	(see [[#timeline-ranges]]).
-	The animation’s <!-- delays ('animation-delay')
-	and --> iterations ('animation-iteration-count')
+	The animation’s <!-- delays ('animation-delay') and -->
+	iterations ('animation-iteration-count')
 	are set within the limits of this finite range.
 	If the specified duration is ''animation-duration/auto'',
 	then <!-- once any delays are subtracted, -->
@@ -874,12 +890,12 @@ spec: cssom-view-1; type: dfn;
 	and the <code>animationend</code> event will fire
 	at the start of the [=active interval=].
 	However, since the <code>finish</code> event
-	is about entering the [=finished play state=],
+	is about entering the [=play state/finished|finished play state=],
 	it only fires when scrolling forwards.
 
 # Frame Calculation Details # {#frames}
 
-## HTML Processing Model: Event loop
+## HTML Processing Model: Event loop ## {#html-processing-model-event-loop}
 
 	The ability for scrolling to drive the progress of an animation,
 	gives rise to the possibility of <dfn>layout cycles</dfn>,
@@ -895,9 +911,8 @@ spec: cssom-view-1; type: dfn;
 	any created [=scroll progress timelines=] or [=view progress timelines=] are collected into a <dfn export>stale timelines</dfn> set.
 	After step 7.14 if any timelines' [=named timeline ranges=] have changed,
 	these timelines are added to the [=stale timelines=] set.
-	If there are any [=stale timelines=], they now update their current time and associated ranges,
-	the set of [=stale timelines=] is cleared and
-	we run and we run an additional step to recalculate styles and update layout.
+	If there are any [=stale timelines=], they now update their current time and associated ranges, the set of [=stale timelines=] is cleared and
+	we run an additional step to recalculate styles and update layout.
 
 	Note: We check for layout changes after dispatching any {{ResizeObserver}}s intentionally
 	to take programmatically sized elements into account.
@@ -908,7 +923,7 @@ spec: cssom-view-1; type: dfn;
 	and be updated at the same time.
 
 	Note: Without this additional round of style and layout,
-	[=initially stale=] timelines would remain stale
+	[=stale timelines|initially stale=] timelines would remain stale
 	(i.e. they would not have a current time)
 	for the remainder of the frame where the timeline was created.
 	This means that animations linked to such a timeline
@@ -917,9 +932,9 @@ spec: cssom-view-1; type: dfn;
 	in the rendered output.
 
 	Note: This section has no effect on forced style and layout
-	calculations triggered by {{Window/getComputedStyle()|getComputedStyle()}} or similar.
-	In other words, [=initially stale=] timelines are visible as such
-	through those APIs.
+	calculations triggered by {{Window/getComputedStyle()|getComputedStyle()}} or
+	similar. In other words, [=stale timelines|initially stale=] timelines are
+	visible as such through those APIs.
 
 	If the final style and layout update
 	would result in a change in the time or scope (see 'timeline-scope')
@@ -938,13 +953,50 @@ spec: cssom-view-1; type: dfn;
 	and the state of a scroll-driven animation
 	may be inconsistent in the composited frame.
 
-# Privacy Considerations
+## Updating an auto-aligned start time ## {#updating-auto-aligned-start-time}
 
-  There are no known privacy impacts of the features in this specification.
+	When updating timeline current time, the [=start time=] of any attached
+	animation is conditionally updated. The procedure for
+	<dfn export for="scroll-animation">calculating auto-aligned start times</dfn>
+	is as follows:
 
-# Security Considerations
+	1.	For each attached animation:
 
-  There are no known security impacts of the features in this specification.
+		1. If the animation does not have an [=auto-aligned start time=], abort
+			this procedure.
+
+		1. If [=play state=] is idle or [=hold time=] is resolved and
+			[=play state=] is not finished, abort this procedure.
+
+		1. Let |start offset| be the resolved scroll offset as a percentage
+			corresponding to the start of the [=animation attachment range=], or
+			0% if unresolved.
+
+		1. Let |end offset| be the resolved scroll offset as a percentage
+			corresponding to the end of the [=animation attachment range=], or
+			100% if unresolved.
+
+		1.  Set [=start time=] to |start offset| if [=effective playback rate=]
+			&ge; 0, and |end offset| otherwise.
+
+		1.  Clear [=hold time=].
+
+	Note: The [=start time=] is auto-aligned unless [=animation/current time=] or
+	[=start time=] are explicitly set via the web-animations API, which makes the
+	[=start time=] sticky.  Playing an animation implicitly resets the stickiness
+	of the [=start time=].
+
+	Note: A [=start time=] is still required for a pause-pending animation to
+	properly align to the animation range. In this case, [=hold time=] will be
+	set when the pending pause microtask is run.
+
+# Privacy Considerations # {#privacy-considerations}
+
+	There are no known privacy impacts of the features in this specification.
+
+# Security Considerations # {#security-considerations}
+
+	There are no known security impacts of the features in this specification.
 
 # Appendix A: Timeline Ranges # {#timeline-ranges}
 
