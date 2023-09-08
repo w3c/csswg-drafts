@@ -36,7 +36,7 @@ Specified as [part of CSS Color 5](https://drafts.csswg.org/css-color-5/#relativ
 RCS modifies the grammar of the various color syntaxes in CSS Color 4
 to add an optional **origin color**
 and **channel keywords** which are manipulated, using CSS
-[mathematical functions]() such as `calc`
+[mathematical functions](https://drafts.csswg.org/css-values-4/#math) such as `calc`
 to create new colors.
 
 Typically, the origin color uses **CSS variables**.
