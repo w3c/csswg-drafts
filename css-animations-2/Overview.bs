@@ -20,13 +20,14 @@
 Title: CSS Animations Level 2
 Status: ED
 Work Status: Exploring
-Shortname: css-animations-2
+Shortname: css-animations
 Level: 2
 Group: csswg
 ED: https://drafts.csswg.org/css-animations-2/
-Editor: L. David Baron, Mozilla https://www.mozilla.org/, https://dbaron.org/, w3cid 15393
-Editor: Brian Birtles, Mozilla https://www.mozilla.org/, bbirtles@mozilla.com, w3cid 43194
-!Issues List: <a href="https://www.w3.org/Bugs/Public/buglist.cgi?component=Animations&list_id=36653&product=CSS&query_format=advanced&resolution=---">In Bugzilla</a>
+TR: https://www.w3.org/TR/css-animations-2/
+Editor: L. David Baron, Google https://www.google.com/, https://dbaron.org/, w3cid 15393
+Editor: Brian Birtles, Invited Expert, brian@birchill.co.jp, w3cid 43194
+<!-- !Issues List: <a href="https://www.w3.org/Bugs/Public/buglist.cgi?component=Animations&list_id=36653&product=CSS&query_format=advanced&resolution=---">In Bugzilla</a> -->
 
 Abstract: This CSS module describes a way for authors to animate the values of CSS properties over time, using keyframes. The behavior of these keyframe animations can be controlled by specifying their duration, number of repeats, and repeating behavior.
 Ignored Vars: auto-rewind
@@ -152,6 +153,17 @@ The <dfn>owning element</dfn> of an animation refers to the element or
 pseudo-element to which the 'animation-name' property was applied that generated
 the animation.
 
+If the 'display' property of an element is set to ''display/none''
+and its 'display' value would compute to ''display/none'' when ignoring the Transitions and Animations [=cascade origins=],
+then terminate running animations with this <a>owning element</a>.
+If an element has a 'display' of ''display/none'' and
+its 'display' value had computed to ''display/none'' when ignoring the Transitions and Animations [=cascade origins=],
+updating 'display' to a value other than ''display/none''
+will start all animations applied to the element by the 'animation-name' property.
+
+Note: In practice, this means that an animation to a 'display' value of ''display/none'' will not terminate running animations
+unless the style also computes to ''display/none'' without the effect of the animations.
+
 If an animation generated using the markup defined in this specification is
 later disassociated from that markup by an update to the computed value of the
 'animation-name' property on the <a>owning element</a>, the animation is
@@ -244,135 +256,217 @@ Note, this behavior relies on the fact that disassociating an animation
 from its <a>owning element</a> always causes it to enter (or remain) in the
 <a>idle play state</a>.
 
-# Keyframes # {#keyframes}
+<h2 id="keyframes">
+Assembling Keyframes</h2>
 
-For a given target (pseudo-)element, |element|, an animation name, |name|,
-and the position of the animation in |element|'s 'animation-name' list,
-|position|,
-[=keyframe=] objects are generated as follows:
+<h3 id="keyframe-rules">
+Declaring Keyframes: the ''@keyframes'' rule</h3>
 
-1.   Let |default timing function| be
-     the timing function at position |position|
-     of the [=resolved value=] of the 'animation-timing-function' for |element|,
-     repeating the list as necessary as described in
-     [[CSS-ANIMATIONS-1#animation-name]].
+See [[css-animations-1#keyframes]].
 
-1.   Let |default composite| be ''replace''.
+<h3 id="keyframe-processing">
+Processing Keyframes</h3>
 
-1.   Find the last ''@keyframes'' at-rule in document order
-     with <<keyframes-name>> matching |name|.
+For each animation effect defined by the <var>N</var>th item
+in the [=coordinated value list=] of the 'animation-*' properties
+on target (pseudo-)element |element|,
+its associated [=keyframes=] are generated as follows:
 
-     If there is no ''@keyframes'' at-rule
-     with <<keyframes-name>> matching |name|,
-     abort this procedure.
-     In this case no animation is generated,
-     and any existing animation matching |name| is canceled.
+1.  <strong>Set Defaults:</strong>
 
-1.   Let |keyframes| be an empty sequence of [=keyframe=] objects.
+    *   Let |default timing function| be the corresponding [=computed value=]
+        of 'animation-timing-function' on |element|.
 
-1.   Let |animated properties| be an empty set of longhand CSS property names.
+    *   Let |default composite| be the corresponding [=computed value=]
+        of 'animation-composition' on |element|.
 
-1.   Perform a stable sort of the keyframe blocks in the ''@keyframes'' rule
-     by the offset specified in the keyframe selector,
-     and iterate over the result in reverse
-     applying the following steps:
+    *   Let |keyframes| be an empty sequence of [=keyframe=] objects,
+        each possessing a
+        |keyframe offset|,
+        |keyframe timing function|,
+        |keyframe composite|,
+        and |keyframe values|.
 
-     1.   Let |keyframe offset| be the value of the keyframe selector
-          converted to a value in the range 0 &le; |keyframe offset| &le; 1.
+    *   Let |animated properties| be an empty set of CSS property names.
 
-     1.   Let |keyframe timing function| be the value of
-          the last valid declaration of 'animation-timing-function'
-          specified on the keyframe block, or,
-          if there is no such valid declaration, |default timing function|.
+1.  <strong>Collect Declared Keyframes:</strong>
+    1.  Find the last ''@keyframes'' at-rule in document order
+        with <<keyframes-name>> matching
+        the corresponding 'animation-name' value |name|.
 
-     1.   Let |keyframe composite| be the value of
-          the last valid declaration of 'animation-composition'
-          specified on the keyframe block, or,
-          if there is no such valid declaration, |default composite|.
+        If there is no ''@keyframes'' at-rule
+        with <<keyframes-name>> matching |name|
+        (or if |name| is ''animation-name/none''),
+        abort this procedure.
+        In this case no animation is generated,
+        and any existing animation matching |name| is canceled.
 
-     1.   After converting |keyframe timing function| to its canonical form
-          (e.g. such that ''step-end'' becomes ''steps(1, end)'')
-          let |keyframe| refer to the existing keyframe in |keyframes| with
-          matching keyframe offset, timing function and composite, if any.
+    1.  Group together all [=keyframe blocks=]
+        that share the same [=specified value|specified=] <<keyframe-selector>>
+        (treating ''@keyframe/from'' as ''0%'' and ''@keyframe/to'' as ''100%''),
+        last declared 'animation-timing-function' [=computed value=]
+        (defaulting to |default timing function| if there is no such declaration),
+        and last declared 'animation-composition' [=computed value=]
+        (defaulting to |default composite| if there is no such declaration).
 
-          If there is no such existing keyframe,
-          let |keyframe| be a new empty keyframe with
-          offset, |keyframe offset|,
-          timing function, |keyframe timing function|,
-          composite, |keyframe composite|,
-          and prepend it to |keyframes|.
+    1.  For each such group of matching [=keyframe blocks=],
+        ordered by their earliest [=keyframe block=] in the sorted order:
 
-     1.   Iterate over all declarations in the keyframe block and
-          add them to |keyframe| such that:
+            1.  [=Cascade=] together all of its [=declaration blocks=]
+                such that for each CSS property
+                (except those that are “not animatable”, which must be ignored)
+                the last declaration among all its [=keyframe blocks=]
+                takes precedence.
+                [[CSS-CASCADE-4]]
 
-          *     Each shorthand property is expanded to its longhand
-                subproperties.
+                Note: The [=cascade=] will
+                expand [=shorthand properties=] into their [=sub-properties=]
+                and map together corresponding property pairs in each [=logical property group=]
+                according to the |element|’s [=computed value|computed=] [=writing mode=].
 
-          *     All logical properties are converted to their
-                [[css-writing-modes-4#logical-to-physical|equivalent physical properties]].
+            1.  Append to |keyframes| a new empty [=keyframe=] |keyframe|
+                with the group’s |keyframe offset|,
+                |keyframe timing function|,
+                and |keyframe composite|.
+                Give its |keyframe values|
+                the set of [=declared values=] resulting from this cascade.
 
-          *     For any expanded physical longhand properties that appear more
-                than once,
-                only the last declaration in source order is added.
+            1.  Add each property name that was added to its |keyframe properties|
+                to |animated properties|.
 
-                Note, since multiple keyframe blocks may specify the same
-                |keyframe offset|,
-                and since this algorithm iterates over these blocks in reverse,
-                this implies that if any properties are encountered that
-                have already added at this same |keyframe offset|,
-                they should be skipped.
+1.  <strong>Generate Initial and Final Frames:</strong>
 
-     1.   Add each property name that was added to |keyframe|
-          to |animated properties|.
+    1.  Find or create the |initial keyframe|,
+        a [=keyframe=] with a |keyframe offset| of ''0%'',
+        |default timing function| as its |keyframe timing function|,
+        and |default composite| as its |keyframe composite|.
 
-1.   If there is no keyframe in |keyframes| with offset 0,
-     or if amongst the keyframes in |keyframes| with offset 0
-     not all of the properties in |animated properties| are present,
+    1.  For any property in |animated properties|
+        that is not otherwise present in a keyframe with an offset of ''0%''
+        or one that would be positioned earlier in the [=used keyframe order=],
+        add the [=computed value=] of that property on |element|
+        to |initial keyframe|’s |keyframe values|.
 
-     1.   Let |initial keyframe| be the [=keyframe=] in |keyframes|
-          with offset 0, timing function |default timing function|
-          and composite |default composite|.
+    1.  If |initial keyframe|’s |keyframe values| is not empty,
+        prepend |initial keyframe| to |keyframes|.
 
-          If there is no such keyframe,
-          let |initial keyframe| be a new empty keyframe with offset 0,
-          timing function |default timing function|,
-          composite |default composite,
-          and add it to |keyframes| after the last keyframe with offset 0.
+    1.  Repeat for |final keyframe|,
+        using an offset of ''100%'',
+        considering keyframes positioned <em>later</em> in the [=used keyframe order=],
+        and <em>appending</em> to |keyframes|.
 
-     1.   For each property in |animated properties| that is not present
-          in some other keyframe with offset 0,
-          add the [=computed value=] of that property for |element|
-          to the keyframe.
+1.  <strong>Sort Frames:</strong>
 
-1.   Similarly, if there is no keyframe in |keyframes| with offset 1,
-     or if amongst the keyframes in |keyframes| with offset 1
-     not all of the properties in |animated properties| are present,
+    *   The <dfn lt="specified keyframe order">specified order</dfn> of |keyframes|
+        is the order resulting from the steps above,
+        i.e. document order with duplicate keyframes collapsed
+        to the earliest position.
 
-     1.   Let |final keyframe| be the [=keyframe=] in |keyframes|
-          with offset 1, timing function |default timing function|
-          and composite |default composite|.
+    *   The <dfn lt="computed keyframe order">computed order</dfn> of |keyframes|--
+        which is the order returned by {{KeyframeEffect/getKeyframes()}}--
+        is found by shifting any keyframes whose offset was specified as
+        a <<percentage>>, ''@keyframes/from'' keyword, or ''@keyframes/to'' keyword
+        to the front of the list (after the generated |initial keyframe|, if any),
+        and performing a stable sort on these keyframes
+        by their |keyframe offset|s.
 
-          If there is no such keyframe,
-          let |final keyframe| be a new empty keyframe with offset 1,
-          timing function |default timing function|
-          and composite |default composite|,
-          and add it to |keyframes| after the last keyframe with offset 1.
+    *   The <dfn lt="used keyframe order">used order</dfn> of |keyframes|--
+        which is the order used to interpolate and compute the actual animation frames--
+        is found by attaching the |keyframes|
+        onto the animation effect’s timeline
+        assuming an [=iteration count=] of 1
+        and ordering them from earliest to latest,
+        breaking ties by using the [=computed keyframe order=].
 
-     1.   For each property in |animated properties| that is not present
-          in some other keyframe with offset 1,
-          add the [=computed value=] of that property for |element|
-          to the keyframe.
+    Issue: Any specific requirements on sorting computed keyframes introduced by
+    this spec should be integrated into
+    [[web-animations-1#calculating-computed-keyframes]].
+    Any specific requirements on used keyframes introduced by this spec
+    should be integrated into
+    [[web-animations-1#the-effect-value-of-a-keyframe-animation-effect]].
+    The above description of the distinction between these sets of keyframes
+    should be moved to an informative note.
 
-Issue: The above procedure requires iterating over keyframe blocks in reverse.
-It could be rewritten so this is not required but that will likely change
-the behavior for some edge cases.
-We should verify what current implementations do and possible remove the
-requirement to iterate in reverse.
+    Note: Although the [=computed keyframe order=]
+    sorts keyframes with <<percentage>> offsets,
+    it maintains keyframes specified with a <<timeline-range-name>>
+    in their [=specified keyframe order=]--
+    after any <<percentage>> keyframes
+    (other than a generated |final keyframe|),
+    even if these come later in the [=used keyframe order=].
+
+<h2 id="animation-definition">
+Declaring Animations</h2>
+
+    CSS Animations are defined by binding keyframes to an element
+    using the 'animation-*' properties.
+    These list-valued properties,
+    which are all [=longhands=] of the 'animation' [=shorthand=],
+    form a [=coordinating list property group=]
+    with 'animation-name' as the [=coordinating list base property=]
+    and each item in the [=coordinated value list=]
+    defining the properties of a single animation effect.
+
+    See [[css-values-4#linked-properties]]
+    for how the individual 'animation-*' property values coordinate.
 
 ## The 'animation-duration' property ## {#animation-duration}
 
-The 'animation-duration' property specifies the [=iteration duration=]
-of the animation's associated [=animation effect=].
+  <pre class='propdef'>
+  Name: animation-duration
+  Value: [ auto | <<time [0s,∞]>> ]#
+  Initial: auto
+  Applies to: all elements
+  Inherited: no
+  Percentages: N/A
+  Computed value: list, each item either a time or the keyword ''animation-duration/auto''
+  Animation type: not animatable
+  Canonical order: per grammar
+  </pre>
+
+  The 'animation-duration' property specifies the [=iteration duration=]
+  of the animation's associated [=animation effect=].
+
+  <dl dfn-for=animation-duration dfn-type=value>
+    <dt><dfn>auto</dfn>
+    <dd>
+      For time-driven animations,
+      equivalent to ''0s''.
+
+      For [=scroll-driven animations=],
+      equivalent to the duration necessary to fill the timeline
+      in consideration of 'animation-range', 'animation-delay', and 'animation-iteration-count'.
+      See [[scroll-animations-1#finite-attachment]].
+
+    <dt><dfn><<time [0s,∞]>></dfn>
+    <dd>
+      For time-driven animations,
+      specifies the length of time that an animation takes to complete one cycle.
+      A negative <<time>> is invalid.
+
+      For [=scroll-driven animations=],
+      treated as ''animation-duration/auto''.
+  </dl>
+
+  If the [=used value|used=] 'animation-duration' is ''0s'',
+  the animation itself still occurs (instantaneously).
+  The animation’s start and end events are still fired.
+  If 'animation-fill-mode' is set to ''backwards'' or ''both'',
+  the first frame of the animation
+  (as defined by 'animation-direction')
+  will be displayed during the 'animation-delay';
+  and if 'animation-fill-mode' is set to ''forwards'' or ''both'',
+  the last frame of the animation
+  (as defined by 'animation-direction')
+  will be displayed after the 'animation-delay'.
+  However, if 'animation-fill-mode' is set to ''animation-fill-mode/none''
+  the keyframes of the animation animation will have no noticeable effect.
+
+  For backwards-compatibility with Level 1,
+  when the [=computed value=] of 'animation-timeline' is ''animation-timeline/auto''
+  (i.e. only one list value, and that value being ''animation-timeline/auto''),
+  the [=resolved value=] of ''animation-duration/auto'' for 'animation-duration'
+  is ''0s'' whenever its [=used value=] would also be ''0s''.
 
 ## The 'animation-timing-function' property ## {#animation-timing-function}
 
@@ -528,15 +622,19 @@ Initial: auto
 Applies to: all elements
 Inherited: no
 Percentages: N/A
-Computed value: list, each item either a case-sensitive [=css identifier=] or 
-    the keywords ''single-animation-timeline/none'',
-    ''single-animation-timeline/auto''.
+Computed value: list, each item either
+    the keyword ''single-animation-timeline/none'',
+    the keyword ''single-animation-timeline/auto'',
+    a case-sensitive [=css identifier=],
+    a computed ''scroll()'' function,
+    or
+    a computed ''view()'' function
 Canonical order: per grammar
-Animatable: no
+Animation Type: not animatable
 </pre>
 
 <pre class=prod>
-<dfn>&lt;single-animation-timeline></dfn> = auto | none | <<timeline-name>>
+<dfn>&lt;single-animation-timeline></dfn> = auto | none | <<dashed-ident>> | <<scroll()>> | <<view()>>
 </pre>
 
 The 'animation-timeline' property is similar to properties like 'animation-name'
@@ -556,15 +654,22 @@ the following effects:
 :   <dfn>none</dfn>
 ::  The animation is not associated with a [=timeline=].
 
-:   <dfn><<timeline-name>></dfn>
-::  Find the last timeline at-rule in document order with its name matching
-    <<timeline-name>>. If such a timeline at-rule exists, then the animation's
-    [=timeline=] is a timeline as defined by that rule. Otherwise the animation
-    is not associated with a [=timeline=].
-    <pre class=prod>
-      <<timeline-name>> = <<custom-ident>> | <<string>>
-    </pre>
-</dl>
+:   <dfn><<custom-ident>></dfn>
+::  If a named [=scroll progress timeline=] or [=view progress timeline=]
+    is in scope on this element,
+    use the referenced timeline
+    as defined in [[scroll-animations-1#timeline-scope]].
+
+    Otherwise the animation is not associated with a [=timeline=].
+
+:   <dfn><<scroll()>></dfn>
+::  Use the [=scroll progress timeline=] indicated by the given ''scroll()'' function.
+    See [[scroll-animations-1#scroll-notation]].
+
+:   <dfn><<view()>></dfn>
+::  Use the [=view progress timeline=] indicated by the given ''view()'' function.
+    See [[scroll-animations-1#view-notation]].
+    </dl>
 
 
 Issue: Make it easier to use 'animation-name' to select the timeline when
@@ -574,12 +679,16 @@ for both their keyframes and timeline which is simple and ergonomics. The
 'animation-timeline' property gives authors additional control to independently
 select keyframes and timeline if necessary.
 
+When multiple 'animation-*' properties are set simultaneously,
+'animation-timeline' is updated first,
+so e.g. a change to 'animation-play-state' applies
+to the simultaneously-applied timeline specified in 'animation-timeline'.
 
 ## The 'animation' shorthand property ## {#animation-shorthand}
 
 The 'animation' shorthand property syntax is as follows:
 
-<span class=prod><dfn>&lt;single-animation></dfn> = <<time>> || <<easing-function>> || <<time>> || <<single-animation-iteration-count>> || <<single-animation-direction>> || <<single-animation-fill-mode>> || <<single-animation-play-state>> || [ none | <<keyframes-name>> ] || <<single-animation-timeline>></span>
+<span class=prod><dfn>&lt;single-animation></dfn> = <<'animation-duration'>> || <<easing-function>> || <<'animation-delay'>> || <<single-animation-iteration-count>> || <<single-animation-direction>> || <<single-animation-fill-mode>> || <<single-animation-play-state>> || [ none | <<keyframes-name>> ] || <<single-animation-timeline>></span>
 
 
 
@@ -795,9 +904,67 @@ console.log(anim.playState); // Should be 'running'.
 
 </div>
 
+<h2 id="priv">
+  Privacy Considerations</h2>
 
+  No privacy concerns have been reported on this specification.
 
-<h2 id="priv-sec">
-Privacy and Security Considerations</h2>
+  <h2 id="sec">
+  Security Considerations</h2>
 
-This specification introduces no new privacy or security considerations.
+  No security concerns have been reported on this specification.
+
+<h2 id="changes">Changes</h2>
+
+<h3 id="changes-recent">Recent Changes</h3>
+
+<p>Changes since the <a href="https://www.w3.org/TR/2023/WD-css-animations-2-20230302/">2 March 2023 Working Draft</a> include:
+
+<ul>
+    <li>Added ''animation-duration/auto'' as the [=initial value=] of 'animation-duration'.
+      (<a href="https://github.com/w3c/csswg-drafts/issues/6530">Issue 6530</a>)
+    <li>Rewrote [[#keyframe-processing]]
+      to re-use the [=cascade=],
+      to handle non-percentage keyframe offsets,
+      to handle keyframes with offsets outside the [0,1] range,
+      and to use the value of 'animation-composition' as the default composite.
+    <li>Reduced the cases where ''display: none'' cancel an animation.
+      (<a href="https://github.com/w3c/csswg-drafts/issues/6429">Issue 6429</a>)
+    <li>Cross-linked to [[css-values-4#linked-properties]] to define how the various 'animation-*' properties interact.
+    <li>Clarified that among the animation properties, 'animation-timeline' is applied first.
+</ul>
+
+<h3 id="changes-level-1">Changes since CSS Animations, Level 1</h3>
+
+<ul>
+  <li>
+    The interaction between CSS Animations and Web Animations is defined,
+    and the concepts of the owning element and animation composite order
+    are introduced.
+  </li>
+  <li>
+    Generation of keyframe objects is described in detail.
+  </li>
+  <li>
+    The 'animation-composition' property is introduced,
+    which defines the composite operation used
+    when multiple animations affect the same property simultaneously.
+  </li>
+  <li>
+    The 'animation-timeline' property is introduced,
+    which defines the timeline used with the animation.
+  </li>
+  <li>
+    The 'animation' shorthand property is updated
+    to account for these new properties.
+  </li>
+  <li>
+    Dispatch of animation events is described.
+  </li>
+  <li>
+    The {{CSSAnimation}} interface is added.
+  </li>
+  <li>
+    Requirements on pending style changes are described.
+  </li>
+</ul>

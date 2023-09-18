@@ -14,16 +14,19 @@ Previous Version: https://www.w3.org/TR/2013/WD-css-syntax-3-20130919/
 Editor: Tab Atkins Jr., Google, http://xanthir.com/contact/, w3cid 42199
 Editor: Simon Sapin, Mozilla, http://exyr.org/about/, w3cid 58001
 Abstract: This module describes, in general terms, the basic structure and syntax of CSS stylesheets. It defines, in detail, the syntax and parsing of CSS - how to turn a stream of bytes into a meaningful stylesheet.
-Ignored Terms: <keyframes-name>, <keyframe-rule>, <keyframe-selector>, <translation-value>, <media-query-list>, <unicode-range-token>
+Ignored Terms: <keyframes-name>, <keyframe-rule>, <keyframe-selector>, <translation-value>, <media-query-list>
 Ignored Vars: +b, -b, foo
 </pre>
 
 <pre class=link-defaults>
-spec:css-text-decor-3; type:property; text:text-decoration
+spec:css-cascade-5; type:dfn; text:property
 spec:css-color-4; type:property; text:color
+spec:css-text-decor-3; type:property; text:text-decoration
 spec:css-transforms-1; type:function; text:translatex()
-spec:encoding-1; type:dfn; text:get an encoding
-spec:html; type:element; text:a
+spec:html; type:element;
+	text:a
+	text:style
+	text:script
 spec:infra; type:dfn;
 	text:string
 	text:list
@@ -433,6 +436,8 @@ Preprocessing the input stream</h3>
 			<li>
 				Replace any U+0000 NULL or <a>surrogate</a> <a>code points</a> in |input|
 				with U+FFFD REPLACEMENT CHARACTER (�).
+
+				Note: The only way to produce a <a>surrogate</a> <a>code point</a> in CSS content is by directly assigning a <code>DOMString</code> with one in it via an OM operation.
 		</ul>
 	</div>
 
@@ -442,11 +447,11 @@ Tokenization</h2>
 
 	To <dfn for=CSS lt="tokenize|tokenization">tokenize</dfn> a stream of <a>code points</a>
 	into a stream of CSS tokens |input|,
-	repeatedly <a>consume a token</a> from |input|
+	repeatedly [=tokenizer/consume a token=] from |input|
 	until an <<EOF-token>> is reached,
 	pushing each of the returned tokens into a stream.
 
-	Note: Each call to the <a>consume a token</a> algorithm
+	Note: Each call to the [=tokenizer/consume a token=] algorithm
 	returns a single token,
 	so it can also be used "on-demand" to tokenize a stream of <a>code points</a> <em>during</em> parsing,
 	if so desired.
@@ -464,6 +469,7 @@ Tokenization</h2>
 	<dfn>&lt;number-token></dfn>,
 	<dfn>&lt;percentage-token></dfn>,
 	<dfn>&lt;dimension-token></dfn>,
+	<dfn>&lt;unicode-range-token></dfn>,
 	<dfn>&lt;whitespace-token></dfn>,
 	<dfn>&lt;CDO-token></dfn>,
 	<dfn>&lt;CDC-token></dfn>,
@@ -486,9 +492,19 @@ Tokenization</h2>
 			<<delim-token>> has a value composed of a single <a>code point</a>.
 
 		<li>
-			<<number-token>>, <<percentage-token>>, and <<dimension-token>> have a numeric value.
+			<<number-token>>, <<percentage-token>>, and <<dimension-token>> have a numeric value,
+			and an optional sign character
+			set to either "+" or "-" (or nothing).
+
 			<<number-token>> and <<dimension-token>> additionally have a type flag set to either "integer" or "number".  The type flag defaults to "integer" if not otherwise set.
 			<<dimension-token>> additionally have a unit composed of one or more <a>code points</a>.
+
+		<li>
+			<<unicode-range-token>> has a starting and ending code point.
+			It represents an inclusive range of codepoints
+			(including both the start and end).
+			If the ending code point is before the starting code point,
+			it represents an empty range.
 	</ul>
 
 	Note: The type flag of hash tokens is used in the Selectors syntax [[SELECT]].
@@ -725,6 +741,34 @@ Token Railroad Diagrams</h3>
 			<pre class='railroad'>
 			T: -->
 			</pre>
+
+		<dt id="unicode-range-token-diagram"><<unicode-range-token>>
+		<dd>
+			<pre class=railroad>
+			Choice:
+				T: U
+				T: u
+			T: +
+			Choice:
+				OneOrMore:
+					N: hex digit
+					C: 1-6 times
+				Seq:
+					ZeroOrMore:
+						N: hex digit
+						C: 1-5 times
+					OneOrMore:
+						T: ?
+						C: 1 to (6-digits) times
+				Seq:
+					OneOrMore:
+						N: hex digit
+						C: 1-6 times
+					T: -
+					OneOrMore:
+						N: hex digit
+						C: 1-6 times
+			</pre>
 	</dl>
 
 <!--
@@ -805,6 +849,8 @@ Definitions</h3>
 			* between U+F900 and U+FDCF
 			* between U+FDF0 and U+FFFD
 			* greater than or equal to U+10000
+
+			All of these ranges are inclusive.
 
 			<details class=note>
 				<summary>Why these character, specifically?</summary>
@@ -887,34 +933,6 @@ Definitions</h3>
 			the part of a <<function-token>> before the "(",
 			and the unit of a <<dimension-token>>
 			are all [=ident sequences=].
-
-		<dt><dfn>representation</dfn>
-		<dd>
-			The <a>representation</a> of a token
-			is the subsequence of the <a>input stream</a>
-			consumed by the invocation of the <a>consume a token</a> algorithm
-			that produced it.
-			This is preserved for a few algorithms that rely on subtle details of the input text,
-			which a simple "re-serialization" of the tokens might disturb.
-
-			The <a>representation</a> is only consumed by internal algorithms,
-			and never directly exposed,
-			so it's not actually required to preserve the exact text;
-			equivalent methods,
-			such as associating each token with offsets into the source text,
-			also suffice.
-
-			Note: In particular, the <a>representation</a> preserves details
-			such as whether .009 was written as ''.009'' or ''9e-3'',
-			and whether a character was written literally
-			or as a CSS escape.
-			The former is necessary to properly parse <<urange>> productions;
-			the latter is basically an accidental leak of the tokenizing abstraction,
-			but allowed because it makes the impl easier to define.
-
-			If a token is ever produced by an algorithm directly,
-			rather than thru the tokenization algorithm in this specification,
-			its representation is the empty string.
 	</dl>
 
 <!--
@@ -935,7 +953,9 @@ Tokenizer Algorithms</h3>
 <h4 id="consume-token">
 Consume a token</h4>
 
-	This section describes how to <dfn>consume a token</dfn> from a stream of <a>code points</a>.
+	This section describes how to <dfn for=tokenizer>consume a token</dfn> from a stream of <a>code points</a>.
+	It additionally takes an optional boolean |unicode ranges allowed|,
+	defaulting to false.
 	It will return a single token of any type.
 
 	<a>Consume comments</a>.
@@ -1112,6 +1132,20 @@ Consume a token</h4>
 			<a>consume a numeric token</a>,
 			and return it.
 
+		<dt>U+0055 LATIN CAPITAL LETTER U (U)
+		<dt>u+0075 LATIN LOWERCASE LETTER U (u)
+		<dd>
+			If |unicode ranges allowed| is true
+			and the input stream [=would start a unicode-range=],
+			[=reconsume the current input code point=],
+			[=consume a unicode-range token=],
+			and return it.
+
+			Otherwise,
+			[=reconsume the current input code point=],
+			[=consume an ident-like token=],
+			and return it.
+
 		<dt><a>ident-start code point</a>
 		<dd>
 			<a>Reconsume the current input code point</a>,
@@ -1161,7 +1195,7 @@ Consume a numeric token</h4>
 	then:
 
 	<ol>
-		<li>Create a <<dimension-token>> with the same value and type flag as |number|,
+		<li>Create a <<dimension-token>> with the same value, type flag, and sign character as |number|,
 			and a unit set initially to the empty string.
 
 		<li><a>Consume an ident sequence</a>.
@@ -1173,11 +1207,15 @@ Consume a numeric token</h4>
 	Otherwise,
 	if the <a>next input code point</a> is U+0025 PERCENTAGE SIGN (%),
 	consume it.
-	Create a <<percentage-token>> with the same value as |number|,
+	Create a <<percentage-token>> with the same value and sign character as |number|,
 	and return it.
 
+	<!-- Note that percentage tokens, intentionally,
+	don't preserve the integer/number distinction.
+	(Dimensions do, just for an+b parsing.) -->
+
 	Otherwise,
-	create a <<number-token>> with the same value and type flag as |number|,
+	create a <<number-token>> with the same value, type flag, and sign character as |number|,
 	and return it.
 
 
@@ -1492,6 +1530,31 @@ Check if three code points would start a number</h4>
 	</dl>
 
 
+<h4 id="starts-a-unicode-range">
+Check if three code points would start a unicode-range</h4>
+
+	This section describes how to
+	<dfn lt="check if three code points would start a unicode-range|would start a unicode-range">check if three code points would start a unicode-range</dfn>.
+	The algorithm described here can be called explicitly with three <a>code points</a>,
+	or can be called with the input stream itself.
+	In the latter case, the three <a>code points</a> in question are
+	the <a>current input code point</a>
+	and the <a lt="next input code point">next two input code points</a>,
+	in that order.
+
+	Note: This algorithm will not consume any additional [=code points=].
+
+	If all of the following are true:
+
+	* The first code point is either U+0055 LATIN CAPITAL LETTER U (U) or U+0075 LATIN SMALL LETTER U (u)
+	* The second code point is U+002B PLUS SIGN (+).
+	* The third code point is either U+003F QUESTION MARK (?) or a [=hex digit=]
+
+	then return true.
+
+	Otherwise return false.
+
+
 <h4 id="consume-name">
 Consume an ident sequence</h4>
 
@@ -1531,7 +1594,8 @@ Consume a number</h4>
 
 	This section describes how to <dfn>consume a number</dfn> from a stream of <a>code points</a>.
 	It returns a numeric |value|,
-	and a |type| which is either "integer" or "number".
+	a string |type| which is either "integer" or "number",
+	and an optional |sign character| which is either "+", "-", or missing.
 
 	Note: This algorithm does not do the verification of the first few <a>code points</a>
 	that are necessary to ensure a number can be obtained from the stream.
@@ -1542,16 +1606,19 @@ Consume a number</h4>
 
 	<ol>
 		<li>
-			Initially set <var>type</var> to "integer".
-			Let |repr| be the empty string.
+			Let |type| be the string "integer".
+			Let |number part|
+			and |exponent part| be the empty string.
 
 		<li>
 			If the <a>next input code point</a> is U+002B PLUS SIGN (+) or U+002D HYPHEN-MINUS (-),
-			consume it and append it to <var>repr</var>.
+			consume it.
+			Append it to |number part|
+			and set |sign character| to it.
 
 		<li>
 			While the <a>next input code point</a> is a <a>digit</a>,
-			consume it and append it to <var>repr</var>.
+			consume it and append it to |number part|.
 
 		<li>
 			If the <a lt="next input code point">next 2 input code points</a> are
@@ -1559,10 +1626,9 @@ Consume a number</h4>
 			then:
 
 			<ol>
-				<li>Consume them.
-				<li>Append them to <var>repr</var>.
-				<li>Set <var>type</var> to "number".
-				<li>While the <a>next input code point</a> is a <a>digit</a>, consume it and append it to <var>repr</var>.
+				<li>Consume the [=next input code point=] and append it to |number part|.
+				<li>While the <a>next input code point</a> is a <a>digit</a>, consume it and append it to |number part|.
+				<li>Set |type| to "number".
 			</ol>
 
 		<li>
@@ -1573,76 +1639,90 @@ Consume a number</h4>
 			then:
 
 			<ol>
-				<li>Consume them.
-				<li>Append them to <var>repr</var>.
-				<li>Set <var>type</var> to "number".
-				<li>While the <a>next input code point</a> is a <a>digit</a>, consume it and append it to <var>repr</var>.
+				<li>Consume the [=next input code point=].
+				<li>If the [=next input code point=] is "+" or "-",
+					consume it and append it to |exponent part|.
+				<li>While the <a>next input code point</a> is a <a>digit</a>, consume it and append it to |exponent part|.
+				<li>Set |type| to "number".
 			</ol>
 
 		<li>
-			<a lt="convert a string to a number">Convert <var>repr</var> to a number</a>,
-			and set the <var>value</var> to the returned value.
+			Let |value| be the result of interpreting |number part|
+			as a base-10 number.
+
+			If |exponent part| is non-empty,
+			interpret it as a base-10 integer,
+			then raise 10 to the power of the result,
+			multiply it by |value|,
+			and set |value| to that result.
 
 		<li>
-			Return <var>value</var> and <var>type</var>.
+			Return |value|, |type|, and |sign character|.
 	</ol>
 
 
-<h4 id="convert-string-to-number">
-Convert a string to a number</h4>
+<h4 id="consume-unicode-range-token">
+Consume a unicode-range token</h4>
 
-	This section describes how to <dfn>convert a string to a number</dfn>.
-	It returns a number.
+	This section describes how to <dfn export>consume a unicode-range token</dfn>
+	from a stream of [=code points=].
+	It returns a <<unicode-range-token>>.
 
-	Note: This algorithm does not do any verification to ensure that the string contains only a number.
-	Ensure that the string contains only a valid CSS number
+	Note: This algorithm does not do the verification of the first few code points
+	that are necessary to ensure the returned code points
+	would constitute an <<unicode-range-token>>.
+	Ensure that the stream [=would start a unicode-range=]
 	before calling this algorithm.
 
-	Divide the string into seven components,
-	in order from left to right:
+	Note: This token is not produced by the tokenizer under normal circumstances.
+	This algorithm is only called
+	during [=consume the value of a unicode-range descriptor=],
+	which itself is only called as a special case
+	for parsing the '@font-face/unicode-range' descriptor;
+	this single invocation in the entire language
+	is due to a bad syntax design in early CSS.
 
-	<ol>
-		<li>A <b>sign</b>:
-			a single U+002B PLUS SIGN (+) or U+002D HYPHEN-MINUS (-),
-			or the empty string.
-			Let <var>s</var> be the number -1 if the sign is U+002D HYPHEN-MINUS (-);
-			otherwise, let <var>s</var> be the number 1.
+	1. Consume the [=next input code point|next two input code points=] and discard them.
 
-		<li>An <b>integer part</b>:
-			zero or more <a>digits</a>.
-			If there is at least one digit,
-			let <var>i</var> be the number formed by interpreting the digits as a base-10 integer;
-			otherwise, let <var>i</var> be the number 0.
+	2. Consume as many [=hex digits=] as possible,
+		but no more than 6.
+		If less than 6 hex digits were consumed,
+		consume as many U+003F QUESTION MARK (?) code points as possible,
+		but no more than enough to make the total
+		of hex digits and U+003F QUESTION MARK (?) code points
+		equal to 6.
 
-		<li>A <b>decimal point</b>:
-			a single U+002E FULL STOP (.),
-			or the empty string.
+		Let |first segment| be the consumed code points.
 
-		<li>A <b>fractional part</b>:
-			zero or more <a>digits</a>.
-			If there is at least one digit,
-			let <var>f</var> be the number formed by interpreting the digits as a base-10 integer
-			and <var>d</var> be the number of digits;
-			otherwise, let <var>f</var> and <var>d</var> be the number 0.
+	3. If |first segment| contains any question mark code points, then:
 
-		<li>An <b>exponent indicator</b>:
-			a single U+0045 LATIN CAPITAL LETTER E (E) or U+0065 LATIN SMALL LETTER E (e),
-			or the empty string.
+		1. Replace the question marks in |first segment| with U+0030 DIGIT ZERO (0) [=code points=],
+			and interpret the result as a hexadecimal number.
+			Let this be |start of range|.
 
-		<li>An <b>exponent sign</b>:
-			a single U+002B PLUS SIGN (+) or U+002D HYPHEN-MINUS (-),
-			or the empty string.
-			Let <var>t</var> be the number -1 if the sign is U+002D HYPHEN-MINUS (-);
-			otherwise, let <var>t</var> be the number 1.
+		2. Replace the question marks in |first segment| with U+0046 LATIN CAPITAL LETTER F (F) [=code points=],
+			and interpret the result as a hexadecimal number.
+			Let this be |end of range|.
 
-		<li>An <b>exponent</b>:
-			zero or more <a>digits</a>.
-			If there is at least one digit,
-			let <var>e</var> be the number formed by interpreting the digits as a base-10 integer;
-			otherwise, let <var>e</var> be the number 0.
-	</ol>
+		3. Return a new <<unicode-range-token>> starting at |start of range| and ending at |end of range|.
 
-	Return the number <code>s·(i + f·10<sup>-d</sup>)·10<sup>te</sup></code>.
+	4. Otherwise, interpret |first segment| as a hexadecimal number,
+		and let the result be |start of range|.
+
+	5. If the [=next input code point|next 2 input code points=] are
+		U+002D HYPHEN-MINUS (-)
+		followed by a [=hex digit=],
+		then:
+
+		1. Consume the [=next input code point=].
+
+		2. Consume as many [=hex digits=] as possible, but no more than 6.
+			Interpret the consumed code points as a hexadecimal number.
+			Let this be |end of range|.
+
+		3. Return a new <<unicode-range-token>> starting at |start of range| and ending at |end of range|.
+
+	6. Otherwise, return a new <<unicode-range-token>> both starting and ending at |start of range|.
 
 
 <h4 id="consume-remnants-of-bad-url">
@@ -1687,52 +1767,203 @@ Consume the remnants of a bad url</h4>
 <h2 id="parsing">
 Parsing</h2>
 
-	The input to the parsing stage is a stream or list of tokens from the tokenization stage.
-	The output depends on how the parser is invoked,
-	as defined by the entry points listed later in this section.
-	The parser output can consist of at-rules,
-	qualified rules,
-	and/or declarations.
+	The CSS parser converts a [=token stream=]
+	(produced by the tokenization process,
+	defined earlier in this spec)
+	into one or more of several CSS constructs
+	(depending on which parsing algorithm is invoked).
 
-	The parser's output is constructed according to the fundamental syntax of CSS,
-	without regards for the validity of any specific item.
-	Implementations may check the validity of items as they are returned by the various parser algorithms
-	and treat the algorithm as returning nothing if the item was invalid according to the implementation's own grammar knowledge,
-	or may construct a full tree as specified
-	and "clean up" afterwards by removing any invalid items.
 
-	The items that can appear in the tree are:
+
+<!--
+████████     ███    ████ ██       ████████   ███████     ███    ████████
+██     ██   ██ ██    ██  ██       ██     ██ ██     ██   ██ ██   ██     ██
+██     ██  ██   ██   ██  ██       ██     ██ ██     ██  ██   ██  ██     ██
+████████  ██     ██  ██  ██       ████████  ██     ██ ██     ██ ██     ██
+██   ██   █████████  ██  ██       ██   ██   ██     ██ █████████ ██     ██
+██    ██  ██     ██  ██  ██       ██    ██  ██     ██ ██     ██ ██     ██
+██     ██ ██     ██ ████ ████████ ██     ██  ███████  ██     ██ ████████
+-->
+
+<h3 id='parser-diagrams'>
+Parser Railroad Diagrams</h3>
+
+	<em>This section is non-normative.</em>
+
+	This section presents an informative view of the parser,
+	in the form of railroad diagrams.
+
+	These diagrams are <em>informative</em> and <em>incomplete</em>;
+	they describe the grammar of "correct" stylesheets,
+	but do not describe error-handling at all.
+	They are provided solely to make it easier to get an intuitive grasp of the syntax.
+
+	<dl>
+		<dt id="stylesheet-diagram">Stylesheet
+		<dd>
+			<pre class='railroad'>
+			Star:
+				Choice: 3
+					N: <CDO-token>
+					N: <CDC-token>
+					N: <whitespace-token>
+					N: Qualified rule
+					N: At-rule
+			</pre>
+
+		<dt id="at-rule-diagram">At-rule
+		<dd>
+			<pre class='railroad'>
+			N: <at-keyword-token>
+			Star:
+				N: Component value
+			Choice:
+				N: {} block
+				T: ;
+			</pre>
+
+		<dt id="qualified-rule-diagram">Qualified rule
+		<dd>
+			<pre class='railroad'>
+			Star:
+				N: Component value
+			N: {} block
+			</pre>
+
+		<dt id="declaration-list-diagram">{} block
+		<dd>
+			<pre class='railroad'>
+			T: {
+			N: ws*
+			Star:
+				Choice:
+					Seq:
+						N: Declaration
+						T: ;
+					N: At-rule
+					N: Qualified rule
+				N: ws*
+			N: ws*
+			T: }
+			</pre>
+
+		<dt id="declaration-diagram">Declaration
+		<dd>
+			<pre class='railroad'>
+			N: <ident-token>
+			N: ws*
+			T: :
+			Star:
+				N: Component value
+			Opt: skip
+				N: !important
+			</pre>
+
+		<dt id="!important-diagram">!important
+		<dd>
+			<pre class='railroad'>
+			T: !
+			N: ws*
+			N: <ident-token "important">
+			N: ws*
+			</pre>
+
+		<dt id="component-value-diagram">Component value
+		<dd>
+			<pre class='railroad'>
+			Choice:
+				N: Preserved token
+				N: Simple block
+				N: Function block
+			</pre>
+
+
+		<dt id="simple-block-diagram">Simple block
+		<dd>
+			<pre class='railroad'>
+			Choice:
+				Seq:
+					T: {
+					Star:
+						N: Component value
+					T: }
+				Seq:
+					T: (
+					Star:
+						N: Component value
+					T: )
+				Seq:
+					T: [
+					Star:
+						N: Component value
+					T: ]
+			</pre>
+
+		<dt id="function-block-diagram">Function block
+		<dd>
+			<pre class='railroad'>
+			N: <function-token>
+			Star:
+				N: Component value
+			T: )
+			</pre>
+	</dl>
+
+<!--
+████████  ████████ ██    ██  ██████
+██     ██ ██       ███   ██ ██    ██
+██     ██ ██       ████  ██ ██
+██     ██ ██████   ██ ██ ██  ██████
+██     ██ ██       ██  ████       ██
+██     ██ ██       ██   ███ ██    ██
+████████  ██       ██    ██  ██████
+-->
+
+<h3 id="css-tree">
+CSS Parsing Results</h3>
+
+	The result of parsing can be any of the following
+	(or lists of these):
 
 	<dl export dfn-for=CSS>
+		: <dfn>stylesheet</dfn>
+		:: A stylesheet has a list of [=rules=].
+
+		: <dfn>rule</dfn>
+		:: A [=rule=] is either an [=at-rule=]
+			or a [=qualified rule=].
+
 		<dt>[=at-rule=]
 		<dd>
-			An [=at-rule=] has a name,
-			a prelude consisting of a list of component values,
-			and an optional block consisting of a simple {} block.
-
-			Note: This specification places no limits on what an at-rule's block may contain.
-			Individual at-rules must define whether they accept a block,
-			and if so,
-			how to parse it
-			(preferably using one of the parser algorithms or entry points defined in this specification).
+			An [=at-rule=] has a name which is a [=string=],
+			a prelude consisting of a list of [=component values=].
+			[=Block at-rules=]
+			(ending in a {}-block)
+			will additionally have
+			a list of [=declarations=]
+			and a list of child [=rules=].
+			([=Statement at-rules=],
+			ending in a semicolon,
+			will not.)
 
 		<dt><dfn id="qualified-rule">qualified rule</dfn>
 		<dd>
 			A qualified rule has
 			a prelude consisting of a list of component values,
-			and a block consisting of a simple {} block.
+			a list of declarations,
+			and a list of child rules.
 
 			Note: Most qualified rules will be style rules,
-			where the prelude is a selector [[SELECT]]
-			and the block a <a lt="parse a list of declarations">list of declarations</a>.
+			where the prelude is a selector [[selectors-4]]
+			and its declarations are [=properties=].
 
 		<dt><dfn id="declaration">declaration</dfn>
 		<dd>
-			Conceptually, declarations are a particular instance of
-			associating a property or descriptor name with a value.
-			Syntactically, a declaration has a name,
-			a value consisting of a list of component values,
+			A declaration has a name which is a [=string=],
+			a value consisting of a list of [=component values=],
 			and an <var>important</var> flag which is initially unset.
+			It also has an optional |original text| which is a [=string=]
+			(captured for only a few declarations).
 
 			Declarations are further categorized
 			as <dfn>property declarations</dfn> or <dfn>descriptor declarations</dfn>,
@@ -1771,7 +2002,7 @@ Parsing</h2>
 		<dt><dfn id="function">function</dfn>
 		<dd>
 			A function has a name
-			and a value consisting of a list of component values.
+			and a value consisting of a list of [=component values=].
 
 		<dt><dfn id="simple-block">simple block</dfn>
 		<dt><dfn id="curly-block">{}-block</dfn>
@@ -1785,208 +2016,107 @@ Parsing</h2>
 			to a [=simple block=] with that corresponding associated token.
 	</dl>
 
-<!--
-████████     ███    ████ ██       ████████   ███████     ███    ████████
-██     ██   ██ ██    ██  ██       ██     ██ ██     ██   ██ ██   ██     ██
-██     ██  ██   ██   ██  ██       ██     ██ ██     ██  ██   ██  ██     ██
-████████  ██     ██  ██  ██       ████████  ██     ██ ██     ██ ██     ██
-██   ██   █████████  ██  ██       ██   ██   ██     ██ █████████ ██     ██
-██    ██  ██     ██  ██  ██       ██    ██  ██     ██ ██     ██ ██     ██
-██     ██ ██     ██ ████ ████████ ██     ██  ███████  ██     ██ ████████
--->
-
-<h3 id='parser-diagrams'>
-Parser Railroad Diagrams</h3>
-
-	<em>This section is non-normative.</em>
-
-	This section presents an informative view of the parser,
-	in the form of railroad diagrams.
-
-	These diagrams are <em>informative</em> and <em>incomplete</em>;
-	they describe the grammar of "correct" stylesheets,
-	but do not describe error-handling at all.
-	They are provided solely to make it easier to get an intuitive grasp of the syntax.
-
-	<dl>
-		<dt id="stylesheet-diagram">Stylesheet
-		<dd>
-			<pre class='railroad'>
-			Star:
-				Choice: 3
-					N: <CDO-token>
-					N: <CDC-token>
-					N: <whitespace-token>
-					N: Qualified rule
-					N: At-rule
-			</pre>
-
-		<dt id="rule-list-diagram">Rule list
-		<dd>
-			<pre class='railroad'>
-			Star:
-				Choice: 1
-					N: <whitespace-token>
-					N: Qualified rule
-					N: At-rule
-			</pre>
-
-		<dt id="at-rule-diagram">At-rule
-		<dd>
-			<pre class='railroad'>
-			N: <at-keyword-token>
-			Star:
-				N: Component value
-			Choice:
-				N: {} block
-				T: ;
-			</pre>
-
-		<dt id="qualified-rule-diagram">Qualified rule
-		<dd>
-			<pre class='railroad'>
-			Star:
-				N: Component value
-			N: {} block
-			</pre>
-
-		<dt id="declaration-list-diagram">Declaration list
-		<dd>
-			<pre class='railroad'>
-			N: ws*
-			Choice:
-				Seq:
-					Opt:
-						N: Declaration
-					Opt:
-						Seq:
-							T: ;
-							N: Declaration list
-				Seq:
-					N: At-rule
-					N: Declaration list
-			</pre>
-
-		<dt id="declaration-diagram">Declaration
-		<dd>
-			<pre class='railroad'>
-			N: <ident-token>
-			N: ws*
-			T: :
-			Star:
-				N: Component value
-			Opt: skip
-				N: !important
-			</pre>
-
-		<dt id="!important-diagram">!important
-		<dd>
-			<pre class='railroad'>
-			T: !
-			N: ws*
-			N: <ident-token "important">
-			N: ws*
-			</pre>
-
-		<dt id="component-value-diagram">Component value
-		<dd>
-			<pre class='railroad'>
-			Choice:
-				N: Preserved token
-				N: {} block
-				N: () block
-				N: [] block
-				N: Function block
-			</pre>
-
-
-		<dt id="{}-block-diagram">{} block
-		<dd>
-			<pre class='railroad'>
-			T: {
-			Star:
-				N: Component value
-			T: }
-			</pre>
-
-		<dt id="()-block-diagram">() block
-		<dd>
-			<pre class='railroad'>
-			T: (
-			Star:
-				N: Component value
-			T: )
-			</pre>
-
-		<dt id="[]-block-diagram">[] block
-		<dd>
-			<pre class='railroad'>
-			T: [
-			Star:
-				N: Component value
-			T: ]
-			</pre>
-
-		<dt id="function-block-diagram">Function block
-		<dd>
-			<pre class='railroad'>
-			N: <function-token>
-			Star:
-				N: Component value
-			T: )
-			</pre>
-	</dl>
-
-<!--
-████████  ████████ ██    ██  ██████
-██     ██ ██       ███   ██ ██    ██
-██     ██ ██       ████  ██ ██
-██     ██ ██████   ██ ██ ██  ██████
-██     ██ ██       ██  ████       ██
-██     ██ ██       ██   ███ ██    ██
-████████  ██       ██    ██  ██████
--->
-
 <h3 id="parser-definitions">
-Definitions</h3>
+Token Streams</h3>
 
-	<dl>
-		<dt><dfn>current input token</dfn>
-		<dd>
-			The token or <a>component value</a> currently being operated on, from the list of tokens produced by the tokenizer.
+	A <dfn for=CSS>token stream</dfn> is a [=struct=]
+	representing a stream of [=tokens=] and/or [=component values=].
+	It has the following [=struct/items=]:
 
-		<dt><dfn>next input token</dfn>
-		<dd>
-			The token or <a>component value</a> following the <a>current input token</a> in the list of tokens produced by the tokenizer.
-			If there isn't a token following the <a>current input token</a>,
-			the <a>next input token</a> is an <<EOF-token>>.
+	<dl dfn-for="token stream">
+		: <dfn>tokens</dfn>
+		:: A [=list=] of [=tokens=] and/or [=component values=].
 
-		<dt><dfn><<EOF-token>></dfn>
-		<dd>
-			A conceptual token representing the end of the list of tokens.
-			Whenever the list of tokens is empty,
-			the <a>next input token</a> is always an <<EOF-token>>.
+			Note: This specification assumes, for simplicity,
+			that the input stream has been fully tokenized
+			before parsing begins.
+			However, the parsing algorithms only use one token of "lookahead",
+			so in practice tokenization and parsing
+			can be done in lockstep.
 
-		<dt><dfn>consume the next input token</dfn>
-		<dd>
-			Let the <a>current input token</a> be the current <a>next input token</a>,
-			adjusting the <a>next input token</a> accordingly.
+		: <dfn>index</dfn>
+		:: An index into the [=token stream/tokens=],
+			representing the progress of parsing.
+			It starts at 0 initially.
 
-		<dt><dfn>reconsume the current input token</dfn>
-		<dd>
-			The next time an algorithm instructs you to <a>consume the next input token</a>,
-			instead do nothing
-			(retain the <a>current input token</a> unchanged).
+			Note: Aside from [=token stream/marking=],
+			the [=token stream/index=] never goes backwards.
+			Thus the already-processed prefix of [=token stream/tokens=]
+			can be eagerly discarded as it's processed.
+
+		: <dfn>marked indexes</dfn>
+		:: A [=stack=] of index values,
+			representing points that the parser might return to.
+			It starts empty initially.
 	</dl>
 
+	CSS has a small number of places
+	that require referencing the precise text
+	that was parsed for a declaration's value
+	(not just what tokens were produced from that text).
+	This is not explicitly described in the algorithmic structure here,
+	but the [=token stream=] must, thus,
+	have the ability to reproduce the original text of declarations on demand.
+	See [=consume a declaration=] for details
+	on when this is required.
+
+	Several operations can be performed on a [=token stream=]:
+
+	<dl dfn-for="token stream">
+		: <dfn>next token</dfn>
+		:: The item of [=token stream/tokens=] at [=token stream/index=].
+
+			If that index would be out-of-bounds past the end of the list,
+			it's instead an <<eof-token>>.
+
+		: <dfn>empty</dfn>
+		:: A token stream is [=token stream/empty=]
+			if the [=next token=] is an <<eof-token>>.
+
+		: <dfn>consume a token</dfn>
+		:: Let |token| be the [=token stream/next token=].
+			Increment [=token stream/index=],
+			then return |token|.
+
+		: <dfn>discard a token</dfn>
+		:: If the [=token stream=] is not [=empty=],
+			increment [=token stream/index=].
+
+		: <dfn>mark</dfn>
+		:: Append [=token stream/index=] to [=token stream/marked indexes=].
+
+		: <dfn>restore a mark</dfn>
+		:: [=stack/Pop=] from [=token stream/marked indexes=],
+			and set [=token stream/index=] to the popped value.
+
+		: <dfn>discard a mark</dfn>
+		:: [=stack/Pop=] from [=token stream/marked indexes=],
+			and do nothing with the popped value.
+
+		: <dfn>discard whitespace</dfn>
+		:: While the [=next token=] is a <<whitespace-token>>,
+			[=discard a token=].
+
+		: <dfn>process</dfn>
+		:: To [=token stream/process=],
+			given a following list of token types and associated actions,
+			perform the action associated with the [=next token=].
+			Repeat until one of the actions returns something,
+			then return that.
+	</dl>
+
+	An <dfn><<eof-token>></dfn> is a conceptual token,
+	not actually produced by the tokenizer,
+	used to indicate that the [=token stream=] has been exhausted.
+
 <!--
-████████ ██    ██ ████████ ████████  ██    ██       ████████   ███████  ████ ██    ██ ████████  ██████
-██       ███   ██    ██    ██     ██  ██  ██        ██     ██ ██     ██  ██  ███   ██    ██    ██    ██
-██       ████  ██    ██    ██     ██   ████         ██     ██ ██     ██  ██  ████  ██    ██    ██
-██████   ██ ██ ██    ██    ████████     ██          ████████  ██     ██  ██  ██ ██ ██    ██     ██████
-██       ██  ████    ██    ██   ██      ██          ██        ██     ██  ██  ██  ████    ██          ██
-██       ██   ███    ██    ██    ██     ██          ██        ██     ██  ██  ██   ███    ██    ██    ██
-████████ ██    ██    ██    ██     ██    ██          ██         ███████  ████ ██    ██    ██     ██████
+████████     ███    ████████   ██████  ████████
+██     ██   ██ ██   ██     ██ ██    ██ ██
+██     ██  ██   ██  ██     ██ ██       ██
+████████  ██     ██ ████████   ██████  ██████
+██        █████████ ██   ██         ██ ██
+██        ██     ██ ██    ██  ██    ██ ██
+██        ██     ██ ██     ██  ██████  ████████
 -->
 
 <h3 id="parser-entry-points">
@@ -1996,30 +2126,26 @@ Parser Entry Points</h3>
 	from lists of CSS tokens.
 
 	<div algorithm="normalize into a list of tokens">
-		The algorithms here are operate on a token stream as input,
+		The algorithms here operate on a token stream as input,
 		but for convenience
 		can also be invoked with a number of other value types.
 
 		To <dfn export local-lt="normalize">normalize into a token stream</dfn> a given |input|:
 
-		1. If |input| is a list of CSS tokens,
-			return |input|.
+		1. If |input| is already a [=token stream=],
+			return it.
 
-		2. If |input| is a list of CSS component values,
-			return |input|.
-
-			Note: The only difference between a list of tokens
-			and a list of component values
-			is that some objects that "contain" things,
-			like functions or blocks,
-			are a single entity in the component-value list,
-			but are multiple entities in a token list.
-			This makes no difference to any of the algorithms in this specification.
+		2. If |input| is a list of CSS [=tokens=] and/or [=component values=],
+			create a new [=token stream=]
+			with |input| as its [=token stream/tokens=],
+			and return it.
 
 		3. If |input| is a [=string=],
 			then [=filter code points=] from |input|,
 			[=tokenize=] the result,
-			and return the final result.
+			then create a new [=token stream=]
+			with those tokens as its [=token stream/tokens=],
+			and return it.
 
 		4. Assert: Only the preceding types should be passed as |input|.
 	</div>
@@ -2036,11 +2162,18 @@ Parser Entry Points</h3>
 				for parsing stylesheets.
 
 			<li>
-				"<a>Parse a list of rules</a>" is intended for the content of at-rules such as ''@media''.
-				It differs from "<a>Parse a stylesheet</a>" in the handling of <<CDO-token>> and <<CDC-token>>.
+				"<a>Parse a stylesheet's contents</a>" is intended for use by the
+				{{CSSStyleSheet/replace()|CSSStyleSheet replace()}} method,
+				and similar,
+				which parse text into the contents
+				of an existing stylesheet.
 
 			<li>
-				"<a>Parse a rule</a>" is intended for use by the <code>CSSStyleSheet#insertRule</code> method,
+				"<a>Parse a rule</a>" is intended for use by the
+				{{CSSStyleSheet/insertRule()|CSSStyleSheet insertRule()}} method,
+				and similar,
+				which parse text into a single rule.
+				<code>CSSStyleSheet#insertRule</code> method,
 				and similar functions which might exist,
 				which parse text into a single rule.
 
@@ -2048,8 +2181,9 @@ Parser Entry Points</h3>
 				"<a>Parse a declaration</a>" is used in ''@supports'' conditions. [[CSS3-CONDITIONAL]]
 
 			<li>
-				"<a>Parse a list of declarations</a>" is for the contents of a <code>style</code> attribute,
-				which parses text into the contents of a single style rule.
+				"<a>Parse a block's contents</a>" is intended for parsing the contents of any block in CSS
+				(including things like the style attribute),
+				and APIs such as {{CSSStyleDeclaration/cssText|the CSSStyleDeclaration cssText attribute}}.
 
 			<li>
 				"<a>Parse a component value</a>" is for things that need to consume a single value,
@@ -2144,7 +2278,7 @@ Parse A Comma-Separated List According To A CSS Grammar</h4>
 	as described in the [=CSS/parse=] algorithm).
 
 	<div algorithm>
-		To <dfn export lt="parse a comma-separated list according to a CSS grammar|parse a list|parsing a list" for=CSS>parse a comma-separated list according to a CSS grammar</dfn>
+		To <dfn export lt="parse a comma-separated list according to a CSS grammar|parse a list" for=CSS>parse a comma-separated list according to a CSS grammar</dfn>
 		(aka [=CSS/parse a list=])
 		given an |input|
 		and a CSS |grammar| production:
@@ -2182,7 +2316,7 @@ Parse a stylesheet</h4>
 
 		<ol>
 			<li>
-				If |input| is a byte stream for stylesheet,
+				If |input| is a byte stream for a stylesheet,
 				[=decode bytes=] from |input|,
 				and set |input| to the result.
 
@@ -2191,23 +2325,24 @@ Parse a stylesheet</h4>
 				and set |input| to the result.
 
 			<li>
-				Create a new stylesheet, with its <a spec=cssom>location</a> set to |location| (or null, if |location| was not passed).
+				Create a new stylesheet,
+				with its <a spec=cssom>location</a> set to |location|
+				(or null, if |location| was not passed).
 
 			<li>
-				<a>Consume a list of rules</a> from |input|,
-				with the <var ignore>top-level flag</var> set,
-				and set the stylesheet's value to the result.
+				<a>Consume a stylesheet's contents</a> from |input|,
+				and set the stylesheet's rules to the result.
 
 			<li>
 				Return the stylesheet.
 		</ol>
 	</div>
 
-<h4 id="parse-list-of-rules">
-Parse a list of rules</h4>
+<h4 id="parse-stylesheet-contents" oldids="parse-list-of-rules">
+Parse a stylesheet's contents</h4>
 
 	<div algorithm>
-		To <dfn export>parse a list of rules</dfn> from |input|:
+		To <dfn export>parse a stylesheet's contents</dfn> from |input|:
 
 		<ol>
 			<li>
@@ -2215,11 +2350,25 @@ Parse a list of rules</h4>
 				and set |input| to the result.
 
 			<li>
-				<a>Consume a list of rules</a> from the |input|,
-				with the <var ignore>top-level flag</var> unset.
+				<a>Consume a stylesheet's contents</a> from |input|,
+				and return the result.
+		</ol>
+	</div>
+
+<h4 id="parse-block-contents" oldids="parse-list-of-declarations">
+Parse a block's contents</h4>
+
+	<div algorithm>
+		To <dfn export>parse a block's contents</dfn> from |input|:
+
+		<ol>
+			<li>
+				[=Normalize=] |input|,
+				and set |input| to the result.
 
 			<li>
-				Return the returned list.
+				<a>Consume a block's contents</a> from |input|,
+				and return the result.
 		</ol>
 	</div>
 
@@ -2235,15 +2384,14 @@ Parse a rule</h4>
 				and set |input| to the result.
 
 			<li>
-				While the <a>next input token</a> from |input| is a <<whitespace-token>>,
-				<a>consume the next input token</a> from |input|.
+				[=token stream/Discard whitespace=] from |input|.
 
 			<li>
-				If the <a>next input token</a> from |input| is an <<EOF-token>>,
+				If the <a>next token</a> from |input| is an <<EOF-token>>,
 				return a syntax error.
 
 				Otherwise,
-				if the <a>next input token</a> from |input| is an <<at-keyword-token>>,
+				if the <a>next token</a> from |input| is an <<at-keyword-token>>,
 				<a>consume an at-rule</a> from |input|,
 				and let <var>rule</var> be the return value.
 
@@ -2254,11 +2402,10 @@ Parse a rule</h4>
 				return a syntax error.
 
 			<li>
-				While the <a>next input token</a> from |input| is a <<whitespace-token>>,
-				<a>consume the next input token</a> from |input|.
+				[=token stream/Discard whitespace=] from |input|.
 
 			<li>
-				If the <a>next input token</a> from |input| is an <<EOF-token>>,
+				If the <a>next token</a> from |input| is an <<EOF-token>>,
 				return <var>rule</var>.
 				Otherwise, return a syntax error.
 		</ol>
@@ -2279,69 +2426,12 @@ Parse a declaration</h4>
 				and set |input| to the result.
 
 			<li>
-				While the <a>next input token</a> from |input| is a <<whitespace-token>>,
-				<a>consume the next input token</a>.
-
-			<li>
-				If the <a>next input token</a> from |input| is not an <<ident-token>>,
-				return a syntax error.
+				[=token stream/Discard whitespace=] from |input|.
 
 			<li>
 				<a>Consume a declaration</a> from |input|.
 				If anything was returned, return it.
 				Otherwise, return a syntax error.
-		</ol>
-	</div>
-
-<h4 id="parse-style-blocks-contents">
-Parse a style block's contents</h4>
-
-	Note: This algorithm parses the contents of [=style rules=],
-	which need to allow <em>nested</em> style rules
-	and other [=at-rules=].
-	If you don't need nested [=style rules=],
-	such as in ''@page''
-	or in ''@keyframes'' child rules,
-	use [=parse a list of declarations=].
-
-	<div algorithm>
-		To <dfn export>parse a style block's contents</dfn> from |input|:
-
-		<ol>
-			<li>
-				[=Normalize=] |input|,
-				and set |input| to the result.
-
-			<li>
-				<a>Consume a style block's contents</a> from |input|,
-				and return the result.
-		</ol>
-	</div>
-
-<h4 id="parse-list-of-declarations">
-Parse a list of declarations</h4>
-
-	Note: Despite the name,
-	this actually parses a mixed list of declarations and at-rules,
-	as CSS 2.1 does for ''@page''.
-	Unexpected at-rules (which could be all of them, in a given context)
-	are invalid and will be ignored by the consumer.
-
-	Note: This algorithm does not handle nested [=style rules=].
-	If your use requires that,
-	use [=parse a style block's contents=].
-
-	<div algorithm>
-		To <dfn export>parse a list of declarations</dfn> from |input|:
-
-		<ol>
-			<li>
-				[=Normalize=] |input|,
-				and set |input| to the result.
-
-			<li>
-				<a>Consume a list of declarations</a> from |input|,
-				and return the result.
 		</ol>
 	</div>
 
@@ -2357,11 +2447,10 @@ Parse a component value</h4>
 				and set |input| to the result.
 
 			<li>
-				While the <a>next input token</a> from |input| is a <<whitespace-token>>,
-				<a>consume the next input token</a> from |input|.
+				[=token stream/Discard whitespace=] from |input|.
 
 			<li>
-				If the <a>next input token</a> from |input| is an <<EOF-token>>,
+				If |input| is [=token stream/empty=],
 				return a syntax error.
 
 			<li>
@@ -2369,11 +2458,10 @@ Parse a component value</h4>
 				and let <var>value</var> be the return value.
 
 			<li>
-				While the <a>next input token</a> from |input| is a <<whitespace-token>>,
-				<a>consume the next input token</a>.
+				[=token stream/Discard whitespace=] from |input|.
 
 			<li>
-				If the <a>next input token</a> from |input| is an <<EOF-token>>,
+				If |input| is [=token stream/empty=],
 				return <var>value</var>.
 				Otherwise,
 				return a syntax error.
@@ -2386,16 +2474,11 @@ Parse a list of component values</h4>
 	<div algorithm>
 		To <dfn export>parse a list of component values</dfn> from |input|:
 
-		<ol>
-			<li>
-				[=Normalize=] |input|,
-				and set |input| to the result.
+		1. [=Normalize=] |input|,
+			and set |input| to the result.
 
-			<li>
-				Repeatedly <a>consume a component value</a> from |input| until an <<EOF-token>> is returned,
-				appending the returned values (except the final <<EOF-token>>) into a list.
-				Return the list.
-		</ol>
+		2. [=Consume a list of component values=] from |input|,
+			and return the result.
 	</div>
 
 <h4 id="parse-comma-separated-list-of-component-values">
@@ -2404,25 +2487,19 @@ Parse a comma-separated list of component values</h4>
 	<div algorithm>
 		To <dfn export>parse a comma-separated list of component values</dfn> from |input|:
 
-		<ol>
-			<li>
-				[=Normalize=] |input|,
-				and set |input| to the result.
+		1. [=Normalize=] |input|,
+			and set |input| to the result.
 
-			<li>
-				Let <var>list of cvls</var> be an initially empty list of component value lists.
+		2. Let |groups| be an empty [=list=].
 
-			<li>
-				Repeatedly <a>consume a component value</a> from |input| until an <<EOF-token>> or <<comma-token>> is returned,
-				appending the returned values (except the final <<EOF-token>> or <<comma-token>>) into a list.
-				Append the list to <var>list of cvls</var>.
+		3. While |input| is not [=token stream/empty=]:
 
-				If it was a <<comma-token>> that was returned,
-				repeat this step.
+			1. [=Consume a list of component values=] from |input|,
+				with <<comma-token>> as the stop token,
+				and append the result to |groups|.
+			2. [=Discard a token=] from |input|.
 
-			<li>
-				Return <var>list of cvls</var>.
-		</ol>
+		4. Return |groups|.
 	</div>
 
 <!--
@@ -2439,106 +2516,125 @@ Parse a comma-separated list of component values</h4>
 Parser Algorithms</h3>
 
 	The following algorithms comprise the parser.
-	They are called by the parser entry points above.
+	They are called by the parser entry points above,
+	and generally should not be called directly by other specifications.
 
-	These algorithms may be called with a list of either tokens or of component values.
-	(The difference being that some tokens are replaced by <a>functions</a> and <a>simple blocks</a> in a list of component values.)
-	Similar to how the input stream returned EOF code points to represent when it was empty during the tokenization stage,
-	the lists in this stage must return an <<EOF-token>> when the next token is requested but they are empty.
-
-	An algorithm may be invoked with a specific list,
-	in which case it consumes only that list
-	(and when that list is exhausted,
-	it begins returning <<EOF-token>>s).
-	Otherwise,
-	it is implicitly invoked with the same list as the invoking algorithm.
+	Note that CSS parsing is case-sensitive,
+	and checking the validity of constructs in a given context
+	must be done <em>during</em> parsing in at least some circumstances.
+	This specification intentionally does not specify
+	<em>how</em> sufficient context should be passed around
+	to enable validity-checking.
 
 
-<h4 id="consume-list-of-rules">
-Consume a list of rules</h4>
+<h4 id="consume-stylesheet-contents" oldids="consume-list-of-rules">
+Consume a stylesheet's contents</h4>
 
-	To <dfn>consume a list of rules</dfn>,
-	given a |top-level flag|:
+	To <dfn>consume a stylesheet's contents</dfn>
+	from a [=token stream=] |input|:
 
-	Create an initially empty list of rules.
+	Let |rules| be an initially empty [=list=] of rules.
 
-	Repeatedly consume the <a>next input token</a>:
+	[=token stream/Process=] |input|:
 
 	<dl>
 		<dt><<whitespace-token>>
 		<dd>
-			Do nothing.
+			[=Discard a token=] from |input|.
 
 		<dt><<EOF-token>>
 		<dd>
-			Return the list of rules.
+			Return |rules|.
 
 		<dt><<CDO-token>>
 		<dt><<CDC-token>>
 		<dd>
-			If the <var>top-level flag</var> is set,
-			do nothing.
+			[=Discard a token=] from |input|.
 
-			Otherwise,
-			<a>reconsume the current input token</a>.
-			<a>Consume a qualified rule</a>.
-			If anything is returned,
-			append it to the list of rules.
+			<details class=note>
+				<summary>What's this for?</summary>
+
+				Back when CSS was first being introduced,
+				the <{style}> element was treated as an unknown element
+				by older browsers.
+				To avoid having its contents displayed in the page
+				for these legacy browsers,
+				it became common practice to wrap the stylesheet
+				in an HTML comment,
+				and newer browsers would simply ignore the HTML comment syntax.
+				This requirement carries over to today,
+				decades later.
+
+				The same practice was done for <{script}> elements,
+				where HTML comment syntax is treated as a line comment in JS
+				(similar to <code>//</code>)
+				for the same reason.
+			</details>
 
 		<dt><<at-keyword-token>>
 		<dd>
-			<a>Reconsume the current input token</a>.
-			<a>Consume an at-rule</a>,
-			and append the returned value to the list of rules.
+			<a>Consume an at-rule</a> from |input|.
+			If anything is returned,
+			append it to |rules|.
 
 		<dt>anything else
 		<dd>
-			<a>Reconsume the current input token</a>.
-			<a>Consume a qualified rule</a>.
+			<a>Consume a qualified rule</a> from |input|.
 			If anything is returned,
-			append it to the list of rules.
+			append it to |rules|.
 	</dl>
 
 
 <h4 id="consume-at-rule">
 Consume an at-rule</h4>
 
-	To <dfn>consume an at-rule</dfn>:
+	To <dfn>consume an at-rule</dfn>
+	from a [=token stream=] |input|,
+	given an optional bool |nested| (default false):
 
-	<a>Consume the next input token</a>.
-	Create a new at-rule
-	with its name set to the value of the <a>current input token</a>,
+	Assert: The [=next token=] is an <<at-keyword-token>>.
+
+	[=token stream/Consume a token=] from |input|,
+	and let |rule| be a new [=at-rule=]
+	with its name set to the returned token's value,
 	its prelude initially set to an empty [=list=],
-	and its value initially set to nothing.
+	and no declarations or child rules.
 
-	Repeatedly consume the <a>next input token</a>:
+	[=token stream/Process=] |input|:
 
 	<dl>
 		<dt><<semicolon-token>>
-		<dd>
-			Return the at-rule.
-
 		<dt><<EOF-token>>
 		<dd>
-			This is a <a>parse error</a>.
-			Return the at-rule.
+			[=Discard a token=] from |input|.
+			If |rule| is valid in the current context,
+			return it;
+			otherwise return nothing.
+
+		<dt><a href="#tokendef-close-curly">&lt;}-token></a>
+		<dd>
+			If |nested| is true:
+			* If |rule| is valid in the current context,
+				return it.
+			* Otherwise, return nothing.
+
+			Otherwise, [=token stream/consume a token=]
+			and append the result to |rule|'s prelude.
 
 		<dt><a href="#tokendef-open-curly">&lt;{-token></a>
 		<dd>
-			<a>Consume a simple block</a>
-			and assign it to the at-rule's block.
-			Return the at-rule.
+			[=Consume a block=] from |input|,
+			and assign the results to |rule|'s
+			lists of [=declarations=] and child [=rules=].
 
-		<dt><a>simple block</a> with an associated token of <a href="#tokendef-open-curly">&lt;{-token></a>
-		<dd>
-			Assign the block to the at-rule's block.
-			Return the at-rule.
+			If |rule| is valid in the current context,
+			return it.
+			Otherwise, return nothing.
 
 		<dt>anything else
 		<dd>
-			<a>Reconsume the current input token</a>.
-			<a>Consume a component value</a>.
-			Append the returned value to the at-rule's prelude.
+			<a>Consume a component value</a> from |input|
+			and append the returned value to |rule|'s prelude.
 	</dl>
 
 
@@ -2546,302 +2642,400 @@ Consume an at-rule</h4>
 Consume a qualified rule</h4>
 
 	To <dfn>consume a qualified rule</dfn>,
-	given an optional |mixed with declarations| boolean
-	(defaulting to false):
+	from a [=token stream=] |input|,
+	given an optional [=token=] |stop token|
+	and an optional bool |nested| (default false):
 
-	Create a new qualified rule
-	with its prelude initially set to an empty [=list=],
-	and its block initially set to nothing.
+	Let |rule| be a new [=qualified rule=]
+	with its prelude, declarations, and child rules
+	all initially set to empty [=lists=].
 
-	Repeatedly consume the <a>next input token</a>:
+	[=token stream/Process=] |input|:
 
 	<dl>
 		<dt><<EOF-token>>
+		<dt>|stop token| (if passed)
 		<dd>
 			This is a <a>parse error</a>.
 			Return nothing.
 
-		<dt><<semicolon-token>>
+		<dt><a href="#tokendef-close-curly">&lt;}-token></a>
 		<dd>
-			If |mixed with declarations| is true,
-			this is a [=parse error=];
+			This is a <a>parse error</a>.
+			If |nested| is true,
 			return nothing.
-
 			Otherwise,
-			append a <<semicolon-token>>
-			to the qualified rule's prelude.
+			[=token stream/consume a token=]
+			and append the result to |rule|'s prelude.
 
 		<dt><a href="#tokendef-open-curly">&lt;{-token></a>
 		<dd>
-			<a>Consume a simple block</a>
-			and assign it to the qualified rule's block.
-			Return the qualified rule.
+			If the first two non-<<whitespace-token>> values
+			of |rule|'s prelude are
+			an <<ident-token>> whose value starts with "--"
+			followed by a <<colon-token>>,
+			[=consume the remnants of a bad declaration=] from |input|,
+			with |nested|,
+			and return nothing.
 
-		<dt><a>simple block</a> with an associated token of <a href="#tokendef-open-curly">&lt;{-token></a>
-		<dd>
-			Assign the block to the qualified rule's block.
-			Return the qualified rule.
+			<details class=note>
+				<summary>What's this check for?</summary>
+
+				[=Declarations=] and [=qualified rules=]
+				overlap in their generic syntax;
+				<code>foo:bar {};</code>
+				could be a <css>foo</css> property
+				with a value of <css>bar {}</css>,
+				or a qualified rule
+				with a <css>foo:bar</css> prelude
+				and an empty block.
+
+				Validity checking ensures that they're parsed correctly,
+				but this still allows an <em>invalid</em> declaration
+				to get parsed as a rule.
+				This isn't generally a problem--
+				the CSSWG has not yet defined any declarations
+				with {}-blocks in their values,
+				so [=consume a qualified rule=] will hit the semicolon and stop,
+				consuming the same amount of tokens as the declaration would have.
+				(And if we do define such a declaration,
+				we'll take care to preserve this aspect.)
+
+				[=Custom properties=], however, don't have the CSSWG
+				carefully vetting their syntax.
+				Authors <em>can</em> write a custom property
+				that takes a {}-block in its value;
+				if that custom property is then invalid
+				(due to an invalidly-written ''var()'' function, for example),
+				when it's parsed by [=consume a qualified rule=]
+				it will stop early, at the {}-block.
+				The remaining tokens of the custom property's value
+				will then get parsed as a fresh construct,
+				potentially causing unexpected declarations or rules
+				to be created.
+
+				To avoid this (admittedly very niche) corner-case,
+				we subtract the syntax of a [=custom property=]
+				from that of a [=qualified rule=];
+				if you somehow end up parsing a rule
+				that looks like a [=custom property=],
+				you've messed up and need to treat it like an (invalid) property.
+			</details>
+
+			Otherwise, [=consume a block=] from |input|,
+			and assign the results to |rule|'s
+			lists of [=declarations=] and child [=rules=].
+
+			If |rule| is valid in the current context,
+			return it;
+			otherwise return nothing.
 
 		<dt>anything else
 		<dd>
-			<a>Reconsume the current input token</a>.
-			<a>Consume a component value</a>.
-			Append the returned value to the qualified rule's prelude.
+			<a>Consume a component value</a> from |input|
+			and append the result to |rule|'s prelude.
 	</dl>
 
 
-<h4 id="consume-style-block">
-Consume a style block's contents</h4>
+<h4 id="consume-block">
+Consume a block</h4>
 
-	To <dfn>consume a style block's contents</dfn>:
+	To <dfn>consume a block</dfn>,
+	from a [=token stream=] |input|:
 
-	Create an initially empty [=list=] of declarations |decls|,
-	and an initially empty [=list=] of rules |rules|.
+	Assert: The [=next token=]
+	is a <a href="#tokendef-open-curly">&lt;{-token></a>.
 
-	Repeatedly consume the <a>next input token</a>:
+	Let |decls| be an empty [=list=] of [=declarations=],
+	and |rules| be an empty [=list=] of [=rules=].
+
+	[=Discard a token=] from |input|.
+	[=Consume a block's contents=] from |input|
+	and assign the results to |decls| and |rules|.
+	[=Discard a token=] from |input|.
+
+	Return |decls| and |rules|.
+
+
+<h4 id="consume-block-contents" oldids="consume-list-of-declarations">
+Consume a block's contents</h4>
+
+	To <dfn>consume a block's contents</dfn>
+	from a [=token stream=] |input|:
+
+	Let |decls| be an empty [=list=] of [=declarations=],
+	and |rules| be an empty [=list=] of [=rules=].
+
+	[=token stream/Process=] |input|:
 
 	<dl>
 		<dt><<whitespace-token>>
 		<dt><<semicolon-token>>
 		<dd>
-			Do nothing.
+			[=Discard a token=] from |input|.
 
 		<dt><<EOF-token>>
+		<dt><a href="#tokendef-close-curly">&lt;}-token></a>
 		<dd>
-			[=list/Extend=] |decls| with |rules|, then return |decls|.
+			Return |decls| and |rules|.
 
 		<dt><<at-keyword-token>>
 		<dd>
-			<a>Reconsume the current input token</a>.
-			<a>Consume an at-rule</a>,
-			and append the result to |rules|.
-
-		<dt><<ident-token>>
-		<dt><<function-token>>
-		<dt><<function>>
-		<dd>
-			<a>Reconsume the current input token</a>.
-			Initialize a temporary list, initially empty.
-			As long as the <a>next input token</a> is anything other than a <<semicolon-token>> or <<EOF-token>>,
-			<a>consume a component value</a> and append it to the temporary list.
-			<a>Consume a declaration</a> from the temporary list.
-			If anything was returned,
-			append it to |decls|.
-
-		<dt>anything else</dd>
-		<dd>
-			[=Reconsume the current input token=].
-			[=Consume a qualified rule=],
-			with |mixed with declarations| set to true.
-			If anything was returned,
+			[=Consume an at-rule=] from |input|,
+			with |nested| set to true.
+			If a [=rule=] was returned,
 			append it to |rules|.
-	</dl>
-
-
-<h4 id="consume-list-of-declarations">
-Consume a list of declarations</h4>
-
-	To <dfn>consume a list of declarations</dfn>:
-
-	Create an initially empty list of declarations.
-
-	Repeatedly consume the <a>next input token</a>:
-
-	<dl>
-		<dt><<whitespace-token>>
-		<dt><<semicolon-token>>
-		<dd>
-			Do nothing.
-
-		<dt><<EOF-token>>
-		<dd>
-			Return the list of declarations.
-
-		<dt><<at-keyword-token>>
-		<dd>
-			<a>Reconsume the current input token</a>.
-			<a>Consume an at-rule</a>.
-			Append the returned rule to the list of declarations.
-
-		<dt><<ident-token>>
-		<dd>
-			Initialize a temporary list initially filled with the <a>current input token</a>.
-			As long as the <a>next input token</a> is anything other than a <<semicolon-token>> or <<EOF-token>>,
-			<a>consume a component value</a> and append it to the temporary list.
-			<a>Consume a declaration</a> from the temporary list.
-			If anything was returned,
-			append it to the list of declarations.
 
 		<dt>anything else</dd>
 		<dd>
-			This is a <a>parse error</a>.
-			<a>Reconsume the current input token</a>.
-			As long as the <a>next input token</a> is anything other than a <<semicolon-token>> or <<EOF-token>>,
-			<a>consume a component value</a>
-			and throw away the returned value.
+			[=Mark=] |input|.
+
+			[=Consume a declaration=] from |input|,
+			with |nested| set to true.
+			If a [=declaration=] was returned,
+			append it to |decls|,
+			and [=discard a mark=] from |input|.
+
+			Otherwise, [=restore a mark=] from |input|,
+			then [=consume a qualified rule=] from |input|,
+			with |nested| set to true,
+			and <<semicolon-token>> as the |stop token|.
+			If a [=rule=] was returned,
+			append it to |rules|.
 	</dl>
 
 
 <h4 id="consume-declaration">
 Consume a declaration</h4>
 
-	To <dfn>consume a declaration</dfn>:
+	To <dfn>consume a declaration</dfn>
+	from a [=token stream=] |input|,
+	given an optional bool |nested| (default false):
 
-	Let |decl| be a new declaration,
+	Let |decl| be a new [=declaration=],
 	with an initially empty name
 	and a value set to an empty [=list=].
+
 	<ol>
 		<li>
-			<a>Consume a component value</a>.
+			If the [=next token=] is an <<ident-token>>,
+			[=token stream/consume a token=] from |input|
+			and set |decl|&apos;s name
+			to the token's value.
 
-			<dl class=switch>
-				: <<ident-token>>
-				::
-					Set |decl|'s name to the value of the <<ident-token>>.
-
-				: anything else
-				::
-					This is a [=parse error=].
-
-					While the [=next input token=]
-					is anything but a <<semicolon-token>>
-					or <<eof-token>>,
-					[=consume a component value=]
-					and throw it away.
-
-					Return nothing.
-			</dl>
+			Otherwise,
+			[=consume the remnants of a bad declaration=] from |input|,
+			with |nested|,
+			and return nothing.
 
 		<li>
-			While the <a>next input token</a> is a <<whitespace-token>>,
-			<a>consume the next input token</a>.
+			[=Discard whitespace=] from |input|.
 
 		<li>
-			If the <a>next input token</a> is anything other than a <<colon-token>>,
-			this is a <a>parse error</a>.
-			Return nothing.
+			If the [=next token=] is a <<colon-token>>,
+			[=discard a token=] from |input|.
 
-			Otherwise, <a>consume the next input token</a>.
-
-		<li>
-			While the <a>next input token</a> is a <<whitespace-token>>,
-			<a>consume the next input token</a>.
+			Otherwise,
+			[=consume the remnants of a bad declaration=] from |input|,
+			with |nested|,
+			and return nothing.
 
 		<li>
-			As long as the <a>next input token</a> is anything other than an <<EOF-token>>,
-			<a>consume a component value</a>
-			and append it to |decl|'s value.
+			[=Discard whitespace=] from |input|.
 
 		<li>
-			If the last two non-<<whitespace-token>>s in the declaration's value are
+			[=Consume a list of component values=] from |input|,
+			with |nested|,
+			and with <<semicolon-token>> as the stop token,
+			and set |decl|'s value to the result.
+
+			If |decl|'s name is a [=custom property name string=],
+			then set |decl|'s |original text|
+			to the segment of the original source text string
+			corresponding to the tokens
+			returned by the [=consume a list of component values=] call.
+
+			If |decl|'s name is an [=ASCII case-insensitive=] match for "unicode-range",
+			[=consume the value of a unicode-range descriptor=]
+			from the segment of the original source text string
+			corresponding to the tokens
+			returned by the [=consume a list of component values=] call,
+			and replace |decl|'s value with the result.
+
+		<li>
+			If the last two non-<<whitespace-token>>s in |decl|'s value are
 			a <<delim-token>> with the value "!"
 			followed by an <<ident-token>> with a value that is an <a>ASCII case-insensitive</a> match for "important",
 			remove them from |decl|'s value
-			and set |decl|'s <var>important</var> flag to true.
+			and set |decl|'s <var>important</var> flag.
 
 		<li>
-			While the last token in |decl|'s value is a <<whitespace-token>>,
+			While the last item in |decl|'s value is a <<whitespace-token>>,
 			[=list/remove=] that token.
 
 		<li>
-			Return |decl|.
+			If |decl| is valid in the current context,
+			return it;
+			otherwise return nothing.
 	</ol>
+
+	<div algorithm>
+		To <dfn>consume the remnants of a bad declaration</dfn>
+		from a [=token stream=] |input|,
+		given a bool |nested|:
+
+		[=token stream/Process=] |input|:
+
+		: <<eof-token>>
+		: <<semicolon-token>>
+		:: [=Discard a token=] from |input|,
+			and return nothing.
+
+		: <a href="#tokendef-close-curly">&lt;}-token></a>
+		::
+			If |nested| is true,
+			return nothing.
+			Otherwise,
+			[=discard a token=].
+
+		: anything else
+		:: [=Consume a component value=] from |input|,
+			and do nothing.
+	</div>
+
+
+<h4 id="consume-list-of-components">
+Consume a list of component values</h4>
+
+	To <dfn>consume a list of component values</dfn>
+	from a [=token stream=] |input|,
+	given an optional [=token=] |stop token|
+	and an optional boolean |nested| (default false):
+
+	Let |values| be an empty [=list=] of [=component values=].
+
+	[=token stream/Process=] |input|:
+
+	: <<eof-token>>
+	: |stop token| (if passed)
+	:: Return |values|.
+
+	: <a href="#tokendef-close-curly">&lt;}-token></a>
+	::
+		If |nested| is true,
+		return |values|.
+
+		Otherwise,
+		this is a <a>parse error</a>.
+		[=token stream/Consume a token=] from |input|
+		and append the result to |values|.
+
+	: anything else
+	:: [=Consume a component value=] from |input|,
+		and append the result to |values|.
+
 
 
 <h4 id="consume-component-value">
 Consume a component value</h4>
 
-	To <dfn>consume a component value</dfn>:
+	To <dfn>consume a component value</dfn>
+	from a [=token stream=] |input|:
 
-	<a>Consume the next input token</a>.
+	[=token stream/Process=] |input|:
 
-	If the <a>current input token</a>
-	is a <a href="#tokendef-open-curly">&lt;{-token></a>, <a href="#tokendef-open-square">&lt;[-token></a>, or <a href="#tokendef-open-paren">&lt;(-token></a>,
-	<a>consume a simple block</a>
-	and return it.
+	: <a href="#tokendef-open-curly">&lt;{-token></a>
+	: <a href="#tokendef-open-square">&lt;[-token></a>
+	: <a href="#tokendef-open-paren">&lt;(-token></a>
+	:: <a>Consume a simple block</a> from |input|
+		and return the result.
 
-	Otherwise, if the <a>current input token</a>
-	is a <<function-token>>,
-	<a>consume a function</a>
-	and return it.
+	: <<function-token>>
+	:: [=Consume a function=] from |input|
+		and return the result.
 
-	Otherwise, return the <a>current input token</a>.
+	: anything else
+	:: [=token stream/Consume a token=] from |input|
+		and return the result.
 
 
 <h4 id="consume-simple-block">
 Consume a simple block</h4>
 
-	Note: This algorithm assumes that the <a>current input token</a> has already been checked to be an <a href="#tokendef-open-curly">&lt;{-token></a>, <a href="#tokendef-open-square">&lt;[-token></a>, or <a href="#tokendef-open-paren">&lt;(-token></a>.
+	To <dfn>consume a simple block</dfn>
+	from a [=token stream=] |input|:
 
-	To <dfn>consume a simple block</dfn>:
+	Assert: the [=next token=] of |input| is
+	<a href="#tokendef-open-curly">&lt;{-token></a>,
+	<a href="#tokendef-open-square">&lt;[-token></a>,
+	or <a href="#tokendef-open-paren">&lt;(-token></a>.
 
-	The <dfn>ending token</dfn> is the mirror variant of the <a>current input token</a>.
-	(E.g. if it was called with <a href="#tokendef-open-square">&lt;[-token></a>, the <a>ending token</a> is <a href="#tokendef-close-square">&lt;]-token></a>.)
+	Let |ending token| be the mirror variant of the <a>next token</a>.
+	(E.g. if it was called with <a href="#tokendef-open-square">&lt;[-token></a>,
+	the |ending token| is <a href="#tokendef-close-square">&lt;]-token></a>.)
 
-	Create a <a>simple block</a> with its associated token set to the <a>current input token</a>
+	Let |block| be a new <a>simple block</a>
+	with its associated token set to the <a>next token</a>
 	and with its value initially set to an empty [=list=].
 
-	Repeatedly consume the <a>next input token</a> and process it as follows:
+	[=Discard a token=] from |input|.
 
-	<dl>
-		<dt><a>ending token</a>
-		<dd>
-			Return the block.
+	[=token stream/Process=] |input|:
 
-		<dt><<EOF-token>>
-		<dd>
-			This is a <a>parse error</a>.
-			Return the block.
+	: <<eof-token>>
+	: |ending token|
+	:: [=Discard a token=] from |input|.
+		Return |block|.
 
-		<dt>anything else
-		<dd>
-			<a>Reconsume the current input token</a>.
-			<a>Consume a component value</a>
-			and append it to the value of the block.
-	</dl>
-
-	Note: CSS has an unfortunate syntactic ambiguity
-	between blocks that can contain declarations
-	and blocks that can contain qualified rules,
-	so any "consume" algorithms that handle rules
-	will initially use this more generic algorithm
-	rather than the more specific
-	[=consume a list of declarations=]
-	or [=consume a list of rules=] algorithms.
-	These more specific algorithms are instead invoked when grammars are applied,
-	depending on whether it contains a <<declaration-list>>
-	or a <<rule-list>>/<<stylesheet>>.
+	: anything else
+	:: [=Consume a component value=] from |input|
+		and append the result to |block|'s value.
 
 
 <h4 id="consume-function">
 Consume a function</h4>
 
-	Note: This algorithm assumes that the <a>current input token</a> has already been checked to be a <<function-token>>.
+	To <dfn>consume a function</dfn>
+	from a [=token stream=] |input|:
 
-	To <dfn>consume a function</dfn>:
+	Assert: The [=next token=] is a <<function-token>>.
 
-	Create a function with its name equal to the value of the <a>current input token</a>
-	and with its value initially set to an empty [=list=].
+	[=token stream/Consume a token=] from |input|,
+	and let |function| be a new function
+	with its name equal the returned token's value,
+	and a value set to an empty [=list=].
 
-	Repeatedly consume the <a>next input token</a> and process it as follows:
+	[=token stream/Process=] |input|:
 
-	<dl>
-		<dt><a href="#tokendef-close-paren">&lt;)-token></a>
-		<dd>
-			Return the function.
+	: <<eof-token>>
+	: <a href="#tokendef-close-paren">&lt;)-token></a>
+	:: [=Discard a token=] from |input|.
+		Return |function|.
 
-		<dt><<EOF-token>>
-		<dd>
-			This is a <a>parse error</a>.
-			Return the function.
+	: anything else
+	:: [=Consume a component value=] from |input|
+		and append the result to |function|'s value.
 
-		<dt>anything else
-		<dd>
-			<a>Reconsume the current input token</a>.
-			<a>Consume a component value</a>
-			and append the returned value
-			to the function's value.
-	</dl>
+
+<h4 id="consume-unicode-range-value">
+Consume a '@font-face/unicode-range' value</h4>
+
+	To <dfn>consume the value of a unicode-range descriptor</dfn>
+	from a string |input string|:
+
+	1. Let |tokens| be the result of [=CSS/tokenizing=] |input string|
+		with |unicode ranges allowed| set to true.
+		Let |input| be a new [=token stream=] from |tokens|.
+
+	2. [=Consume a list of component values=] from |input|,
+		and return the result.
+
+	Note: The existence of this algorithm
+	is due to a design mistake in early CSS.
+	It should never be reproduced.
+
+
+
 
 <!--
    ███    ██    ██        ████████
@@ -3019,8 +3213,8 @@ The <code>&lt;an+b></code> type</h3>
 		<li><dfn><code>&lt;ndashdigit-ident></code></dfn> is an <<ident-token>> whose value is an <a>ASCII case-insensitive</a> match for "n-*", where "*" is a series of one or more <a>digits</a>
 		<li><dfn><code>&lt;dashndashdigit-ident></code></dfn> is an <<ident-token>> whose value is an <a>ASCII case-insensitive</a> match for "-n-*", where "*" is a series of one or more <a>digits</a>
 		<li><dfn><code>&lt;integer></code></dfn> is a <<number-token>> with its type flag set to "integer"
-		<li><dfn><code>&lt;signed-integer></code></dfn> is a <<number-token>> with its type flag set to "integer", and whose <a>representation</a> starts with "+" or "-"
-		<li><dfn><code>&lt;signless-integer></code></dfn> is a <<number-token>> with its type flag set to "integer", and whose <a>representation</a> starts with a <a>digit</a>
+		<li><dfn><code>&lt;signed-integer></code></dfn> is a <<number-token>> with its type flag set to "integer", and a sign character
+		<li><dfn><code>&lt;signless-integer></code></dfn> is a <<number-token>> with its type flag set to "integer", and no sign character
 	</ul>
 
 	<p id="anb-plus">
@@ -3088,191 +3282,7 @@ The <code>&lt;an+b></code> type</h3>
 			If a <code>'-'</code> was provided between the two, <var>B</var> is instead the negation of the integer’s value.
 	</dl>
 
-<!--
-██     ██ ████████     ███    ██    ██  ██████   ████████
-██     ██ ██     ██   ██ ██   ███   ██ ██    ██  ██
-██     ██ ██     ██  ██   ██  ████  ██ ██        ██
-██     ██ ████████  ██     ██ ██ ██ ██ ██   ████ ██████
-██     ██ ██   ██   █████████ ██  ████ ██    ██  ██
-██     ██ ██    ██  ██     ██ ██   ███ ██    ██  ██
- ███████  ██     ██ ██     ██ ██    ██  ██████   ████████
--->
 
-<h2 id="urange">
-The Unicode-Range microsyntax</h2>
-
-	Some constructs,
-	<span class=informative>such as the 'unicode-range' descriptor for the ''@font-face'' rule,</span>
-	need a way to describe one or more unicode code points.
-	The <dfn>&lt;urange></dfn> production represents a range of one or more unicode code points.
-
-	Informally, the <<urange>> production has three forms:
-
-	<dl>
-		<dt>U+0001
-		<dd>
-			Defines a range consisting of a single code point,
-			in this case the code point "1".
-
-		<dt>U+0001-00ff
-		<dd>
-			Defines a range of codepoints between the first and the second value inclusive,
-			in this case the range between "1" and "ff" (255 in decimal) inclusive.
-
-		<dt>U+00??
-		<dd>
-			Defines a range of codepoints where the "?" characters range over all <a>hex digits</a>,
-			in this case defining the same as the value ''U+0000-00ff''.
-	</dl>
-
-	In each form, a maximum of 6 digits is allowed for each hexadecimal number
-	(if you treat "?" as a hexadecimal digit).
-
-<h3 id="urange-syntax">
-The <<urange>> type</h3>
-
-	The <<urange>> notation was originally defined as a primitive token in CSS,
-	but it is used very rarely,
-	and collides with legitimate <<ident-token>>s in confusing ways.
-	This section describes how to recognize the <<urange>> notation
-	in terms of existing CSS tokens,
-	and how to interpret it as a range of unicode codepoints.
-
-	<details class=note>
-		<summary>What are the confusing collisions?</summary>
-
-		For example, in the CSS <nobr>''u + a { color: green; }''</nobr>,
-		the intended meaning is that an <code>a</code> element
-		following a <code>u</code> element
-		should be colored green.
-		Whitespace is not normally required between combinators
-		and the surrounding selectors,
-		so it <em>should</em> be equivalent to minify it to
-		<nobr>''u+a{color:green;}''</nobr>.
-
-		With any other combinator, the two pieces of CSS would be equivalent,
-		but due to the previous existence of a specialized unicode-range token,
-		the selector portion of the minified code now contains a unicode-range,
-		not two idents and a combinator.
-		It thus fails to match the Selectors grammar,
-		and the rule is thrown out as invalid.
-
-		(This example is taken from a real-world bug reported to Firefox.)
-	</details>
-
-	Note: The syntax described here is intentionally very low-level,
-	and geared toward implementors.
-	Authors should instead read the informal syntax description in the previous section,
-	as it contains all information necessary to use <<urange>>,
-	and is actually readable.
-
-	The <<urange>> type is defined
-	(using the <a href="https://www.w3.org/TR/css3-values/#value-defs">Value Definition Syntax in the Values & Units spec</a>) as:
-
-	<pre class="prod">
-		<<urange>> =
-			u '+' <<ident-token>> '?'* |
-			u <<dimension-token>> '?'* |
-			u <<number-token>> '?'* |
-			u <<number-token>> <<dimension-token>> |
-			u <<number-token>> <<number-token>> |
-			u '+' '?'+
-	</pre>
-
-	In this production,
-	no whitespace can occur between any of the tokens.
-
-	The <<urange>> production represents a range of one or more contiguous unicode code points
-	as a <var>start value</var> and an <var>end value</var>,
-	which are non-negative integers.
-	To interpret the production above into a range,
-	execute the following steps in order:
-
-	1. Skipping the first ''u'' token,
-		concatenate the <a>representations</a> of all the tokens in the production together.
-		Let this be <var>text</var>.
-
-	2. If the first character of <var>text</var> is U+002B PLUS SIGN,
-		consume it.
-		Otherwise,
-		this is an invalid <<urange>>,
-		and this algorithm must exit.
-
-	3. Consume as many <a>hex digits</a> from <var>text</var> as possible,
-		then consume as many U+003F QUESTION MARK (?) <a>code points</a> as possible.
-		If zero <a>code points</a> were consumed,
-		or more than six <a>code points</a> were consumed,
-		this is an invalid <<urange>>,
-		and this algorithm must exit.
-
-		If any U+003F QUESTION MARK (?) <a>code points</a> were consumed, then:
-
-		1. If there are any <a>code points</a> left in <var>text</var>,
-			this is an invalid <<urange>>,
-			and this algorithm must exit.
-
-		2. Interpret the consumed <a>code points</a> as a hexadecimal number,
-			with the U+003F QUESTION MARK (?) <a>code points</a>
-			replaced by U+0030 DIGIT ZERO (0) <a>code points</a>.
-			This is the <var>start value</var>.
-
-		3. Interpret the consumed <a>code points</a> as a hexadecimal number again,
-			with the U+003F QUESTION MARK (?) <a>code points</a>
-			replaced by U+0046 LATIN CAPITAL LETTER F (F) <a>code points</a>.
-			This is the <var>end value</var>.
-
-		4. Exit this algorithm.
-
-		Otherwise, interpret the consumed <a>code points</a> as a hexadecimal number.
-		This is the <var>start value</var>.
-
-	4. If there are no <a>code points</a> left in <var>text</var>,
-		the <var>end value</var> is the same as the <var>start value</var>.
-		Exit this algorithm.
-
-	5. If the next <a>code point</a> in <var>text</var> is U+002D HYPHEN-MINUS (-),
-		consume it.
-		Otherwise,
-		this is an invalid <<urange>>,
-		and this algorithm must exit.
-
-	6. Consume as many <a>hex digits</a> as possible from <var>text</var>.
-
-		If zero <a>hex digits</a> were consumed,
-		or more than 6 <a>hex digits</a> were consumed,
-		this is an invalid <<urange>>,
-		and this algorithm must exit.
-		If there are any <a>code points</a> left in <var>text</var>,
-		this is an invalid <<urange>>,
-		and this algorithm must exit.
-
-	7. Interpret the consumed <a>code points</a> as a hexadecimal number.
-		This is the <var>end value</var>.
-
-	To determine what codepoints the <<urange>> represents:
-
-	1. If <var>end value</var> is greater than the <a>maximum allowed code point</a>,
-		the <<urange>> is invalid and a syntax error.
-
-	2. If <var>start value</var> is greater than <var>end value</var>,
-		the <<urange>> is invalid and a syntax error.
-
-	3. Otherwise, the <<urange>> represents a contiguous range of codepoints from <var>start value</var> to <var>end value</var>, inclusive.
-
-	Note: The syntax of <<urange>> is intentionally fairly wide;
-	its patterns capture every possible token sequence
-	that the informal syntax can generate.
-	However, it requires no whitespace between its constituent tokens,
-	which renders it fairly safe to use in practice.
-	Even grammars which have a <<urange>> followed by a <<number>> or <<dimension>>
-	(which might appear to be ambiguous
-	if an author specifies the <<urange>> with the ''u <<number>>'' clause)
-	are actually quite safe,
-	as an author would have to intentionally separate the <<urange>> and the <<number>>/<<dimension>>
-	with a comment rather than whitespace
-	for it to be ambiguous.
-	Thus, while it's <em>possible</em> for authors to write things that are parsed in confusing ways,
-	the actual code they'd have to write to cause the confusion is, itself, confusing and rare.
 
 
 <!--
@@ -3350,145 +3360,84 @@ Defining Grammars for Rules and Other Values</h2>
 		all you have is the fact that there's a block and a function.
 	</div>
 
-<h3 id='declaration-rule-list'>
-Defining Block Contents: the <<declaration-list>>, <<rule-list>>, and <<stylesheet>> productions</h3>
+<h3 id='block-contents'>
+Defining Block Contents: the <<block-contents>>, <<declaration-list>>, <<qualified-rule-list>>, <<declaration-rule-list>>, and <<rule-list>> productions</h3>
 
-	The CSS parser is agnostic as to the contents of blocks,
-	such as those that come at the end of some at-rules.
-	Defining the generic grammar of the blocks in terms of tokens is non-trivial,
-	but there are dedicated and unambiguous algorithms defined for parsing this.
+	The CSS parser is agnostic as to the contents of blocks--
+	they're all [=consume a block's contents|parsed with the same algorithm=],
+	and differentiate themselves solely by what constructs are valid.
 
-	The <dfn>&lt;style-block></dfn> production represents the contents of a [=style rule's=] block.
-	It may only be used in grammars as the sole value in a block,
-	and represents that the contents of the block must be parsed using the <a>consume a style block's contents</a> algorithm.
+	When writing a rule grammar,
+	<dfn>&lt;block-contents></dfn> represents this agnostic parsing.
+	It must only be used as the sole value in a block,
+	and represents that no restrictions are implicitly placed
+	on what the block can contain.
 
-	The <dfn>&lt;declaration-list></dfn> production represents a list of declarations.
-	It may only be used in grammars as the sole value in a block,
-	and represents that the contents of the block must be parsed using the <a>consume a list of declarations</a> algorithm.
+	Accompanying prose must define what is valid and invalid in this context.
+	If any [=declarations=] are valid,
+	and are [=property declarations=],
+	it must define whether they interact with the cascade;
+	if they do, it must define their specificity
+	and how they use <code>!important</code>.
 
-	Similarly, the <dfn>&lt;rule-list></dfn> production represents a list of rules,
-	and may only be used in grammars as the sole value in a block.
-	It represents that the contents of the block must be parsed using the <a>consume a list of rules</a> algorithm.
+	In many cases, however,
+	a block can't validly contain <em>any</em> constructs of a given type.
+	To represent these cases more explicitly,
+	the following productions may be used
 
-	Finally, the <dfn>&lt;stylesheet></dfn> production represents a list of rules.
-	It is identical to <<rule-list>>,
-	except that blocks using it default to accepting all rules
-	that aren't otherwise limited to a particular context.
+	* <dfn>&lt;declaration-list></dfn>:
+		only [=declarations=] are allowed;
+		[=at-rules=] and [=qualified rules=] are automatically invalid.
+	* <dfn>&lt;qualified-rule-list></dfn>:
+		only [=qualified rules=] are allowed;
+		[=declarations=] and [=at-rules=] are automatically invalid.
+	* <dfn>&lt;at-rule-list></dfn>:
+		only [=at-rules=] are allowed;
+		[=declarations=] and [=qualified rules=] are automatically invalid.
+	* <dfn>&lt;declaration-rule-list></dfn>:
+		[=declarations=] and [=at-rules=] are allowed;
+		[=qualified rules=] are automatically invalid.
+	* <dfn>&lt;rule-list></dfn>:
+		[=qualified rules=] and [=at-rules=] are allowed;
+		[=declarations=] are automatically invalid.
 
-	<div class=note>
-		All four of these productions are pretty similar to each other,
-		so this table summarizes what they accept
-		and lists some example instances of each:
+	All of these are exactly equivalent to <<block-contents>> in terms of parsing,
+	but the accompanying prose only has to define validity
+	for the categories that aren't automatically invalid.
 
-		<table class=data>
-			<thead>
-				<tr>
-					<td>
-					<th>Allows [=declarations=]
-					<th>Allows [=nested style rules=]
-					<th>Allow arbitrary [=qualified rules=]
-					<th>Allows [=at-rules=]
-					<th>Examples
-			</thead>
-			<tr>
-				<th><<style-block>>
-				<td>✓<td>✓<td>✗<td>✓
-				<td>[=style rules=], ''@nest'', [=nested conditional group rules=]
-			<tr>
-				<th><<declaration-list>>
-				<td>✓<td>✗<td>✗<td>✓
-				<td>''@font'', ''@counter-style'', ''@page'', ''@keyframes'' child rules
-			<tr>
-				<th><<rule-list>>
-				<td>✗<td>✗<td>✓<td>✓
-				<td>''@keyframes'', ''@font-feature-values''
-			<tr>
-				<th><<stylesheet>>
-				<td>✗<td>✗<td>✓<td>✓
-				<td>stylesheets, non-nested [=conditional group rules=]
-		</table>
+	<div class=example>
+		Some examples of the various productions:
 
-		If a given context is <em>only</em> intended to accept [=at-rules=],
-		such as in ''@font-features-values'',
-		it doesn't actually matter which production is used,
-		but <<rule-list>> is preferred for its more straightforward name.
+		* A top-level ''@media'' uses <<rule-list>> for its block,
+			while a nested one [[CSS-NESTING-1]] uses <<block-contents>>.
+		* [=Style rules=] use <<block-contents>>.
+		* ''@font-face'' uses <<declaration-list>>.
+		* ''@page'' uses <<declaration-rule-list>>.
+		* ''@keyframes'' uses <<qualified-rule-list>>
 	</div>
 
-	<div class='example'>
-		For example, the ''@font-face'' rule is defined to have an empty prelude,
-		and to contain a list of declarations.
-		This is expressed with the following grammar:
+	<div class=example>
+		For example, the grammar for ''@font-face'' can be written as:
 
-		<pre>@font-face { <<declaration-list>> }</pre>
+		<pre><<@font-face>> = @font-face { <<declaration-list>> }</pre>
 
-		This is a complete and sufficient definition of the rule's grammar.
+		and then accompanying prose defines the valid [=descriptors=]
+		allowed in the block.
 
-		For another example,
-		''@keyframes'' rules are more complex,
-		interpreting their prelude as a name and containing keyframes rules in their block
-		Their grammar is:
+		The grammar for ''@keyframes'' can be written as:
 
-		<pre>@keyframes <<keyframes-name>> { <<rule-list>> }</pre>
-	</div>
+		<pre>
+			<<@keyframes>> = @keyframes { <<qualified-rule-list>> }
+			<<keyframe-rule>> = <<keyframe-selector>> { <<declaration-list>> }
+		</pre>
 
-	For rules that use <<style-block>> or <<declaration-list>>,
-	the spec for the rule must define which properties, descriptors, and/or at-rules are valid inside the rule;
-	this may be as simple as saying "The @foo rule accepts the properties/descriptors defined in this specification/section.",
-	and extension specs may simply say "The @foo rule additionally accepts the following properties/descriptors.".
-	Any declarations or at-rules found inside the block that are not defined as valid
-	must be removed from the rule's value.
-
-	Within a <<style-block>> or <<declaration-list>>,
-	<code>!important</code> is automatically invalid on any descriptors.
-	If the rule accepts properties,
-	the spec for the rule must define whether the properties interact with the cascade,
-	and with what specificity.
-	If they don't interact with the cascade,
-	properties containing <code>!important</code> are automatically invalid;
-	otherwise using <code>!important</code> is valid
-	and causes the declaration to be [=important=]
-	for the purposes of the [=cascade=].
-	See [[!CSS-CASCADE-3]].
-
-	<div class='example'>
-		For example, the grammar for ''@font-face'' in the previous example must,
-		in addition to what is written there,
-		define that the allowed declarations are the descriptors defined in the Fonts spec.
-	</div>
-
-	For rules that use <<rule-list>>,
-	the spec for the rule must define what types of rules are valid inside the rule,
-	same as <<declaration-list>>,
-	and unrecognized rules must similarly be removed from the rule's value.
-
-	<div class='example'>
-		For example, the grammar for ''@keyframes'' in the previous example must,
-		in addition to what is written there,
-		define that the only allowed rules are <<keyframe-rule>>s,
-		which are defined as:
-
-		<pre><<keyframe-rule>> = <<keyframe-selector>> { <<declaration-list>> }</pre>
-
-		Keyframe rules, then,
-		must further define that they accept as declarations all animatable CSS properties,
+		and then accompanying prose defines that only <<keyframe-rule>>s
+		are allowed in ''@keyframes'',
+		and that <<keyframe-rule>>s accept all animatable CSS properties,
 		plus the 'animation-timing-function' property,
-		but that they do not interact with the cascade.
+		but they do not interact with the cascade.
 	</div>
 
-	For rules that use <<stylesheet>>,
-	all rules are allowed by default,
-	but the spec for the rule may define what types of rules are <em>invalid</em> inside the rule.
-
-	<div class='example'>
-		For example, the ''@media'' rule accepts anything that can be placed in a stylesheet,
-		except more ''@media'' rules.
-		As such, its grammar is:
-
-		<pre>@media <<media-query-list>> { <<stylesheet>> }</pre>
-
-		It additionally defines a restriction that the <<stylesheet>> can not contain ''@media'' rules,
-		which causes them to be dropped from the outer rule's value if they appear.
-	</div>
 
 <h3 id="any-value">
 Defining Arbitrary Contents: the <<declaration-value>> and <<any-value>> productions</h3>
@@ -3559,13 +3508,14 @@ Style rules</h3>
 	If this returns failure,
 	the entire style rule is <a>invalid</a>.
 
-	The content of the qualified rule’s block is parsed as a
-	<a lt="parse a style block's contents">style block's contents</a>.
+	The content of the qualified rule’s block is parsed as a <<declaration-list>>.
+	Qualified rules in this block are also [=style rules=].
 	Unless defined otherwise by another specification or a future level of this specification,
 	at-rules in that list are <a>invalid</a>
 	and must be ignored.
 
-	Note: [[CSS-NESTING-1]] defines that ''@nest'' and [=conditional group rules=]
+	Note: [[CSS-NESTING-1]] defines that [=conditional group rules=]
+	and some other [=at-rules=]
 	are allowed inside of [=style rules=].
 
 	Declarations for an unknown CSS property
@@ -3801,10 +3751,13 @@ Serializing <var>&lt;an+b></var></h3>
 	</div>
 
 
-<h2 id="priv-sec">
-Privacy and Security Considerations</h2>
+<h2 id="privacy">
+Privacy Considerations</h2>
 
 	This specification introduces no new privacy concerns.
+
+<h2 id=security>
+Security Considerations</h2>
 
 	This specification improves security, in that CSS parsing is now unambiguously defined for all inputs.
 
@@ -3829,6 +3782,50 @@ Changes</h2>
 
 	<em>This section is non-normative.</em>
 
+<h3 id="changes-CR-20211224">
+Changes from the 24 December 2021 Candidate Recommendation Draft</h3>
+
+	The following substantive changes were made:
+
+	* The definition of [=non-ASCII code point=]
+		was restricted to omit some potentially troublesome codepoints.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/7129">7129</a>)
+
+	* Defined the <code>&lt;foo()></code> and <code>&lt;@foo></code> productions.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/5728">5728</a>)
+
+	* Allow nested style rules.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/7961#issuecomment-1514955984">7961</a>).
+
+	* As part of allowing Nesting,
+		significantly rewrote the entire parsing section.
+		Notably, removed "parse a list of rules" and "parse a list of declarations"
+		in favor of "parse a stylesheet's contents" and "parse a block's contents".
+		Only additional normative change is that
+		semicolons trigger slightly different error-recovery now
+		in some contexts,
+		so that parsing of things like ''@media'' blocks
+		is identical whether they're nested or not.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/8834">8834</a>).
+
+	* Removed the attempt at a <code>&lt;urange></code> production
+		in terms of existing tokens,
+		instead relying on a special re-parse from source
+		specifically when you're parsing the '@font-face/unicode-range' descriptor.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/8835">8835</a>)
+
+	* Since the above removed the main need to preserve a token's "representation"
+		(the original string it was parsed from),
+		removed the rest of the references to "representation"
+		in the An+B section
+		and instead just recorded the few bits of information necessary for that
+		(whether or not the number had an explicit sign).
+
+	* Explicitly noted that some uses
+		([=custom properties=], the ''@font-face/unicode-range'' descriptor)
+		require access to the original string of a declaration's entire value,
+		and marked where that occurs in the parser.
+
 <h3 id="changes-CR-20190716">
 Changes from the 16 August 2019 Candidate Recommendation</h3>
 
@@ -3836,7 +3833,7 @@ Changes from the 16 August 2019 Candidate Recommendation</h3>
 
 	* Added a new [[#parse-comma-list]] algorithm.
 
-	* Added a new [[#parse-style-blocks-contents]] algorithm
+	* Added a new "Parse a style block's content" algorithm
 		and a corresponding <<style-block>> production,
 		and defined that [=style rules=] use it.
 
@@ -3887,17 +3884,17 @@ Changes from the 20 February 2014 Candidate Recommendation</h3>
 		where it didn't consume the quote character starting a string before attempting to consume the string.
 
 	* Fixed a bug in several of the parser algorithms
-		related to the current/next input token and things getting consumed early/late.
+		related to the current/next token and things getting consumed early/late.
 
 	* Fix several bugs in the tokenization and parsing algorithms.
 
 	* Change the definition of ident-like tokens to allow "--" to start an ident.
-		As part of this, rearrange the ordering of the clauses in the "-" step of <a>consume a token</a>
+		As part of this, rearrange the ordering of the clauses in the "-" step of [=tokenizer/consume a token=]
 		so that <<CDC-token>>s are recognized as such instead of becoming a ''--'' <<ident-token>>.
 
 	* Don't serialize the digit in an <<an+b>> when A is 1 or -1.
 
-	* Define all tokens to have a <a>representation</a>.
+	* Define all tokens to have a representation.
 
 	* Fixed minor bug in <a>check if two code points are a valid escape</a>--
 		a <code>\</code> followed by an EOF is now correctly reported as <em>not</em> a valid escape.
@@ -3915,7 +3912,7 @@ Changes from the 20 February 2014 Candidate Recommendation</h3>
 	The following editorial changes were made:
 
 	* The "Consume a string token" algorithm was changed to allow calling it without specifying an explicit ending token,
-		so that it uses the current input token instead.
+		so that it uses the current token instead.
 		The three call-sites of the algorithm were changed to use that form.
 
 	* Minor editorial restructuring of algorithms.
@@ -4009,7 +4006,7 @@ Changes from CSS 2.1 and Selectors Level 3</h3>
 
 		<li>
 			The definition of <a>non-ASCII ident code point</a> was changed
-			to be consistent with HTML's [=valid custom elements names=].
+			to be consistent with HTML's [=valid custom element names=].
 
 		<li>
 			Tokenization does not emit COMMENT or BAD_COMMENT tokens anymore.
