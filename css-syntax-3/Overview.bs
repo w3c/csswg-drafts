@@ -2673,41 +2673,54 @@ Consume a qualified rule</h4>
 			If the first two non-<<whitespace-token>> values
 			of |rule|'s prelude are
 			an <<ident-token>> whose value starts with "--"
-			followed by a <<colon-token>>,
-			[=consume the remnants of a bad declaration=] from |input|,
-			with |nested|,
-			and return nothing.
+			followed by a <<colon-token>>, then:
+
+			* If |nested| is true,
+				[=consume the remnants of a bad declaration=] from |input|,
+				with |nested| set to true,
+				and return nothing.
+			* If |nested| is false,
+				[=consume a block=] from |input|,
+				and return nothing.
 
 			<details class=note>
 				<summary>What's this check for?</summary>
 
 				[=Declarations=] and [=qualified rules=]
-				overlap in their generic syntax;
-				<code>foo:bar {};</code>
-				could be a <css>foo</css> property
-				with a value of <css>bar {}</css>,
-				or a qualified rule
-				with a <css>foo:bar</css> prelude
-				and an empty block.
+				don't <em>generally</em> overlap in their allowed syntax.
+				No currently-defined CSS property allows {}-blocks in its value,
+				so <code>foo:bar {};</code> is definitely a rule,
+				and <code>foo: bar;</code> is definitely a property.
+				Even if a future CSS property allows {}-blocks in its value,
+				the allowed syntax is restricted to the {}-block being the whole value,
+				such as <code>foo: {...};</code>,
+				which is guaranteed to not be a valid rule,
+				since the '':'' doesn't have an ident or function following it
+				to mark it as a pseudo-class.
 
-				Validity checking ensures that they're parsed correctly,
-				but this still allows an <em>invalid</em> declaration
-				to get parsed as a rule.
-				This isn't generally a problem--
-				the CSSWG has not yet defined any declarations
-				with {}-blocks in their values,
-				so [=consume a qualified rule=] will hit the semicolon and stop,
-				consuming the same amount of tokens as the declaration would have.
-				(And if we do define such a declaration,
-				we'll take care to preserve this aspect.)
+				This allows us to mix declarations and rules in the same context:
+				we first try to parse something as a declaration,
+				and if that doesn't result in a valid declaration,
+				we reparse it as a rule instead.
+				An accidentally-invalid declaration will parse as a rule instead,
+				but that's fine:
+				the parser will stop at the declaration's ending semicolon
+				and consider it an invalid rule.
+				(Or in the case of a property containing a {}-block,
+				will stop just *before* the semicolon,
+				still considering it an invalid rule,
+				and then the next attempt to parse something
+				will throw out the lone semicolon as invalid.)
+				So the total amount of tokens consumed is the same regardless.
 
 				[=Custom properties=], however, don't have the CSSWG
 				carefully vetting their syntax.
 				Authors <em>can</em> write a custom property
-				that takes a {}-block in its value;
+				that takes a {}-block in its value,
+				even combined with other thing;
 				if that custom property is then invalid
 				(due to an invalidly-written ''var()'' function, for example),
-				when it's parsed by [=consume a qualified rule=]
+				when it's reparsed as a rule
 				it will stop early, at the {}-block.
 				The remaining tokens of the custom property's value
 				will then get parsed as a fresh construct,
@@ -2717,9 +2730,20 @@ Consume a qualified rule</h4>
 				To avoid this (admittedly very niche) corner-case,
 				we subtract the syntax of a [=custom property=]
 				from that of a [=qualified rule=];
-				if you somehow end up parsing a rule
+				if you're in a context that allows properties and rules to be mixed,
+				and you somehow end up parsing a rule
 				that looks like a [=custom property=],
-				you've messed up and need to treat it like an (invalid) property.
+				you've messed up,
+				and need to instead consume an entire custom property
+				(all the way to the ending semicolon).
+
+				(If we're in a context that doesn't allow properties,
+				we just throw away the rule
+				if it looks like a custom property.
+				This ensures that <code>--foo:hover { color: blue; }</code>
+				is consistently invalid everywhere,
+				without potentially consuming a ton of a stylesheet
+				looking for the non-existent ending semicolon.)
 			</details>
 
 			Otherwise, [=consume a block=] from |input|,
