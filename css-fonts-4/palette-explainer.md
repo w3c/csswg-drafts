@@ -104,7 +104,7 @@ See
   src: url(MyColorFont.woff2) tech(color-COLRv0);
 }
 
-@font-palette-values --OverridenColors {
+@font-palette-values --OverriddenColors {
   font-family: MyVectorColorFont;
   base-palette: 0;
   override-colors: 0 rgb(127, 63, 49),
@@ -113,6 +113,6 @@ See
 }
 
 .palette-selection {
-  font-palette: --OverridenColors;
+  font-palette: --OverriddenColors;
 }
 ```

@@ -436,6 +436,8 @@ Preprocessing the input stream</h3>
 			<li>
 				Replace any U+0000 NULL or <a>surrogate</a> <a>code points</a> in |input|
 				with U+FFFD REPLACEMENT CHARACTER (�).
+
+				Note: The only way to produce a <a>surrogate</a> <a>code point</a> in CSS content is by directly assigning a <code>DOMString</code> with one in it via an OM operation.
 		</ul>
 	</div>
 
@@ -2124,7 +2126,7 @@ Parser Entry Points</h3>
 	from lists of CSS tokens.
 
 	<div algorithm="normalize into a list of tokens">
-		The algorithms here are operate on a token stream as input,
+		The algorithms here operate on a token stream as input,
 		but for convenience
 		can also be invoked with a number of other value types.
 
@@ -2180,7 +2182,7 @@ Parser Entry Points</h3>
 
 			<li>
 				"<a>Parse a block's contents</a>" is intended for parsing the contents of any block in CSS
-				(including things like the style attribute},
+				(including things like the style attribute),
 				and APIs such as {{CSSStyleDeclaration/cssText|the CSSStyleDeclaration cssText attribute}}.
 
 			<li>
@@ -2250,7 +2252,7 @@ Parse something according to a CSS grammar</h4>
 	</div>
 
 <h4 id="parse-comma-list">
-Parse A Comma-Separated List According To A CSS Grammar</h4>
+Parse a comma-separated list according to a CSS grammar</h4>
 
 	While one can definitely [=CSS/parse=] a value
 	according to a grammar with commas in it,
@@ -2671,41 +2673,54 @@ Consume a qualified rule</h4>
 			If the first two non-<<whitespace-token>> values
 			of |rule|'s prelude are
 			an <<ident-token>> whose value starts with "--"
-			followed by a <<colon-token>>,
-			[=consume the remnants of a bad declaration=] from |input|,
-			with |nested|,
-			and return nothing.
+			followed by a <<colon-token>>, then:
+
+			* If |nested| is true,
+				[=consume the remnants of a bad declaration=] from |input|,
+				with |nested| set to true,
+				and return nothing.
+			* If |nested| is false,
+				[=consume a block=] from |input|,
+				and return nothing.
 
 			<details class=note>
 				<summary>What's this check for?</summary>
 
 				[=Declarations=] and [=qualified rules=]
-				overlap in their generic syntax;
-				<code>foo:bar {};</code>
-				could be a <css>foo</css> property
-				with a value of <css>bar {}</css>,
-				or a qualified rule
-				with a <css>foo:bar</css> prelude
-				and an empty block.
+				don't <em>generally</em> overlap in their allowed syntax.
+				No currently-defined CSS property allows {}-blocks in its value,
+				so <code>foo:bar {};</code> is definitely a rule,
+				and <code>foo: bar;</code> is definitely a property.
+				Even if a future CSS property allows {}-blocks in its value,
+				the allowed syntax is restricted to the {}-block being the whole value,
+				such as <code>foo: {...};</code>,
+				which is guaranteed to not be a valid rule,
+				since the '':'' doesn't have an ident or function following it
+				to mark it as a pseudo-class.
 
-				Validity checking ensures that they're parsed correctly,
-				but this still allows an <em>invalid</em> declaration
-				to get parsed as a rule.
-				This isn't generally a problem--
-				the CSSWG has not yet defined any declarations
-				with {}-blocks in their values,
-				so [=consume a qualified rule=] will hit the semicolon and stop,
-				consuming the same amount of tokens as the declaration would have.
-				(And if we do define such a declaration,
-				we'll take care to preserve this aspect.)
+				This allows us to mix declarations and rules in the same context:
+				we first try to parse something as a declaration,
+				and if that doesn't result in a valid declaration,
+				we reparse it as a rule instead.
+				An accidentally-invalid declaration will parse as a rule instead,
+				but that's fine:
+				the parser will stop at the declaration's ending semicolon
+				and consider it an invalid rule.
+				(Or in the case of a property containing a {}-block,
+				will stop just *before* the semicolon,
+				still considering it an invalid rule,
+				and then the next attempt to parse something
+				will throw out the lone semicolon as invalid.)
+				So the total amount of tokens consumed is the same regardless.
 
 				[=Custom properties=], however, don't have the CSSWG
 				carefully vetting their syntax.
 				Authors <em>can</em> write a custom property
-				that takes a {}-block in its value;
+				that takes a {}-block in its value,
+				even combined with other thing;
 				if that custom property is then invalid
 				(due to an invalidly-written ''var()'' function, for example),
-				when it's parsed by [=consume a qualified rule=]
+				when it's reparsed as a rule
 				it will stop early, at the {}-block.
 				The remaining tokens of the custom property's value
 				will then get parsed as a fresh construct,
@@ -2715,9 +2730,20 @@ Consume a qualified rule</h4>
 				To avoid this (admittedly very niche) corner-case,
 				we subtract the syntax of a [=custom property=]
 				from that of a [=qualified rule=];
-				if you somehow end up parsing a rule
+				if you're in a context that allows properties and rules to be mixed,
+				and you somehow end up parsing a rule
 				that looks like a [=custom property=],
-				you've messed up and need to treat it like an (invalid) property.
+				you've messed up,
+				and need to instead consume an entire custom property
+				(all the way to the ending semicolon).
+
+				(If we're in a context that doesn't allow properties,
+				we just throw away the rule
+				if it looks like a custom property.
+				This ensures that <code>--foo:hover { color: blue; }</code>
+				is consistently invalid everywhere,
+				without potentially consuming a ton of a stylesheet
+				looking for the non-existent ending semicolon.)
 			</details>
 
 			Otherwise, [=consume a block=] from |input|,
@@ -2802,6 +2828,79 @@ Consume a block's contents</h4>
 			append it to |rules|.
 	</dl>
 
+	<details class=note>
+		<summary>Implementation note</summary>
+
+		This spec, as with many CSS specs,
+		has been written to prioritize understandability
+		over efficiency.
+		A number of algorithms,
+		notably the above "parse as a declaration, then parse as a rule" behavior
+		can be fairly inefficient
+		if implemented naively as described.
+
+		However, the behavior has been carefully written
+		to allow "early exits" as much as possible.
+		In particular,
+		and roughly in order of when the exit can occur:
+
+		* If the first non-whitespace token
+			isn't an <<ident-token>>
+			for a recognized property name (or a custom property name),
+			you can immediately stop parsing as a declaration
+			and reparse as a rule instead.
+			If the <em>next</em> non-whitespace token isn't a <<colon-token>>,
+			you can similarly immediately stop parsing as a declaration.
+
+			(That is, ''font+ ...'' is guaranteed to not be a property,
+			nor is <css>not-a-prop-name: ...</css>.)
+
+		* If the first two non-whitespace tokens
+			are a custom property name and a colon,
+			it's definitely a custom property
+			and won't ever produce a valid rule,
+			so even if the custom property ends up invalid
+			there's no need to try and reparse as a rule.
+
+			(That is, ''--foo:hover {...}'' is guaranteed to be a custom property,
+			not a rule.)
+
+		* If the first three non-whitespace tokens
+			are a valid property name, a colon, and anything other than a <<{-token>>,
+			and then while parsing the declaration's value you encounter a <<{-token>>,
+			you can immediately stop parsing as a declaration
+			and reparse as a rule instead.
+
+			(That is, ''font:bar {...'' is guaranteed to be an invalid property.)
+
+		* If you see a recognized property name, a colon, and a {}-block,
+			but the first non-whitespace tokens following that block
+			isn't either immediately the final semicolon,
+			or the !important followed by the semicolon,
+			you can immediately stop parsing as a declaration
+			and reparse as a rule instead.
+
+			(That is, ''font: {} bar ...'' is guaranteed to be an invalid property;
+			you don't need to keep parsing until you hit a semicolon.)
+
+		Similarly,
+		even tho the parsing requirements are specified
+		to rely on checking the grammar of the declarations
+		as you parse,
+		a <em>generic</em> processor
+		trying to implement a non-CSS language
+		on top of the generic CSS <em>syntax</em>
+		can still get away with just verifying that declarations
+		start with an ident, a colon,
+		and then either contain solely a {}-block
+		or no {}-block at all.
+		They'll just spent a little more time on parsing
+		than an implementation with grammar knowledge
+		in cases like ''foo:hover ... {}'',
+		since they can't early-exit on the first token.
+	</details>
+
+
 
 <h4 id="consume-declaration">
 Consume a declaration</h4>
@@ -2847,19 +2946,6 @@ Consume a declaration</h4>
 			and with <<semicolon-token>> as the stop token,
 			and set |decl|'s value to the result.
 
-			If |decl|'s name is a [=custom property name string=],
-			then set |decl|'s |original text|
-			to the segment of the original source text string
-			corresponding to the tokens
-			returned by the [=consume a list of component values=] call.
-
-			If |decl|'s name is an [=ASCII case-insensitive=] match for "unicode-range",
-			[=consume the value of a unicode-range descriptor=]
-			from the segment of the original source text string
-			corresponding to the tokens
-			returned by the [=consume a list of component values=] call,
-			and replace |decl|'s value with the result.
-
 		<li>
 			If the last two non-<<whitespace-token>>s in |decl|'s value are
 			a <<delim-token>> with the value "!"
@@ -2870,6 +2956,27 @@ Consume a declaration</h4>
 		<li>
 			While the last item in |decl|'s value is a <<whitespace-token>>,
 			[=list/remove=] that token.
+
+		<li>
+			If |decl|'s name is a [=custom property name string=],
+			then set |decl|'s |original text|
+			to the segment of the original source text string
+			corresponding to the tokens
+			of |decl|'s value.
+
+			Otherwise, if |decl|'s value contains a top-level [=simple block=]
+			with an associated token of <<{-token>>,
+			and also contains <em>any other</em> non-<<whitespace-token>> value,
+			return nothing.
+			(That is, a top-level {}-block is only allowed
+			as the entire value of a non-custom property.)
+
+			Otherwise, if |decl|'s name is an [=ASCII case-insensitive=] match for "unicode-range",
+			[=consume the value of a unicode-range descriptor=]
+			from the segment of the original source text string
+			corresponding to the tokens
+			returned by the [=consume a list of component values=] call,
+			and replace |decl|'s value with the result.
 
 		<li>
 			If |decl| is valid in the current context,

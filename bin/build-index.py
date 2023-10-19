@@ -135,7 +135,7 @@ CURRENT_WORK_EXCEPTIONS = {
 # ------------------------------------------------------------------------------
 
 
-bikeshed.constants.setErrorLevel("nothing")
+bikeshed.messages.state.dieOn = "nothing"
 
 specgroups = defaultdict(list)
 timestamps = defaultdict(list)

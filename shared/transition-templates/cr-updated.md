@@ -67,7 +67,7 @@ None
 
 ## Implementation
 
-[Test reults](https://test.csswg.org/suites/TEST_DIR/nightly-unstable/)
+[Test results](https://test.csswg.org/suites/TEST_DIR/nightly-unstable/)
 
 The [testsuite](https://test.csswg.org/harness/results/TEST_DIR/grouped/) shows that
 NUMBER of TOTAL required tests meet CR exit criteria.

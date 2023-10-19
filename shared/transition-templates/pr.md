@@ -27,7 +27,7 @@ First Tuesday or Thursday after a successful transition decision.
 ## Changes
 
 [Changes since the DATE Candidate Recommendation](https://drafts.csswg.org/DIRECTORY/#changes)
-<!-- no substantive chnges -->
+<!-- no substantive changes -->
 
 ## Requirements satisfied
 

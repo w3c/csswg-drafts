@@ -1077,28 +1077,83 @@ Style Containment</h3>
 		</wpt>
 
 	<div class=example>
-	As 'counter-increment' is scoped to an element's subtree,
-	the first use of it within the subtree acts as if the named counter were set to 0 at the scoping element,
-	regardless of whether the counter had been used outside the scoping element.
-	Any increments made within the subtree have no effect on counters of the same name outside the scoping element.
-	However, the ''content/counter()'' and ''content/counters()'' value of the 'content' property is not itself scoped,
-	and can refer to counters established outside of the subtree.
-	Therefore, the following code results in <q><samp>1 1.2</samp></q> being displayed:
-	<pre><code highlight=markup>
-	&lt;div>&lt;/div>
-	</code></pre>
-	<pre><code highlight=css>
-	div {
-		contain: style;
-		counter-increment: n;
-	}
-	div::before, div::after {
-		content: counters(n, '.') " ";
-	}
-	div::after {
-		counter-increment: n 2;
-	}
-	</code></pre>
+		As 'counter-increment' is scoped to an element's subtree,
+		the first use of it within the subtree
+		creates a fresh counter,
+		regardless of whether the counter had been used outside the scoping element.
+		Any increments made within the subtree have no effect on counters of the same name outside the scoping element.
+		However, the ''content/counter()'' and ''content/counters()'' value of the 'content' property is not itself scoped,
+		and can refer to counters established outside of the subtree.
+
+		For example, the following markup and style:
+
+		<xmp highlight=markup>
+			<div>
+				<div style="contain: style;">
+					<div></div>
+					<div></div>
+				</div>
+				<div>
+					<div></div>
+					<div></div>
+				</div>
+			</div>
+		</xmp>
+
+		<pre highlight=css>
+			body {
+				counter-reset: foo;
+			}
+			div {
+				counter-increment: foo;
+
+				/* and to help observe nesting properly */
+				margin: .2em;
+				padding: .2em;
+				background: #0001;
+			}
+			div::before {
+				content: counters(foo, ".");
+			}
+		</pre>
+
+		Will render like:
+
+		<div id="scoped-counter-example">
+			<div>1
+				<div style="contain: style;">2
+					<div>2.1</div>
+					<div>2.2</div>
+				</div>
+				<div>3
+					<div>4</div>
+					<div>5</div>
+				</div>
+			</div>
+		</div>
+
+		<style>
+			#scoped-counter-example div {
+				margin: .2em;
+				padding: .2em;
+				background: #0001;
+			}
+		</style>
+
+		Here, the style-contained element still interacts with the ''foo'' counter normally,
+		incrementing it to 2.
+		Its ''::before'' pseudo-element,
+		which is effectively a child and thus within the containment boundary,
+		can still see that counter normally,
+		and thus will render the string "<code>2</code>".
+
+		Later siblings of the style-contained element don't see anything that goes on within the boundary,
+		so they increment the ''foo'' counter to 3 and beyond.
+
+		Within the containment, however,
+		the descendant divs aren't allowed to modify the value of the outside counter,
+		so instead they'll create a fresh (nested) ''foo'' counter
+		when they attempt to increment it.
 	</div>
 
 
@@ -1628,21 +1683,14 @@ Suppressing An Element's Contents Entirely: the 'content-visibility' property {#
 		</div>
 	</div>
 
-	<div algorithm>
-		An element is <dfn export>relevant to the user</dfn>
-		if <strong>any</strong> of the following conditions are true:
+	<div>
+		An element that has ''content-visibility: auto'' is in one of three states
+		when it comes to its <dfn export>proximity to the viewport</dfn>:
 
-		* The element is "on-screen":
-			its [=paint containment box=]'s [=overflow clip edge=]
-			intersects with the viewport,
-			or a user-agent defined margin around the viewport.
-
-			<wpt>
-			content-visibility/content-visibility-046.html
-			content-visibility/content-visibility-079.html
-			content-visibility/content-visibility-auto-in-iframe.html
-			content-visibility/content-visibility-auto-intrinsic-width.html
-			</wpt>
+		* The element is <dfn>close to the viewport</dfn>:
+				In this state, the element is considered "on-screen":
+				its [=paint containment box=]'s [=overflow clip edge=] intersects with the viewport,
+				or a user-agent defined margin around the viewport.
 
 			Note: This margin is meant to allow the user agent
 			to begin preparing for an element to be in the viewport soon.
@@ -1653,6 +1701,32 @@ Suppressing An Element's Contents Entirely: the 'content-visibility' property {#
 			when the filter's output can affect the rendering within the viewport
 			(or within the user-agent defined margin around the viewport),
 			even if the element itself is still off-screen.
+
+
+		* The element is <dfn>far away from the viewport</dfn>:
+			In this state, the element's proximity to the viewport has been computed and is not [=close to the viewport=].
+		
+		* The element's [=proximity to the viewport=] is <dfn>not determined</dfn>:
+			In this state, the computation to determine the element's [=proximity to the viewport=] has not been done
+			since the last time the element was connected.
+		
+		Initially, the element's [=proximity to the viewport=] is [=not determined=].
+		Only connected elements with ''content-visibility: auto'' determine their [=proximity to the viewport=].
+		When the element becomes disconnected, the element's [=proximity to the viewport=] becomes [=not determined=].
+	</div>
+
+	<div algorithm>
+		An element is <dfn export>relevant to the user</dfn>
+		if <strong>any</strong> of the following conditions are true:
+
+		* The element is [=close to the viewport=].
+
+			<wpt>
+			content-visibility/content-visibility-046.html
+			content-visibility/content-visibility-079.html
+			content-visibility/content-visibility-auto-in-iframe.html
+			content-visibility/content-visibility-auto-intrinsic-width.html
+			</wpt>
 
 		* Either the element or its [=contents=]
 			are focused,
@@ -1666,7 +1740,7 @@ Suppressing An Element's Contents Entirely: the 'content-visibility' property {#
 
 		* Either the element or its [=contents=]
 			are selected,
-			as described in [[css-pseudo-4#highlight-pseudos]].
+			where selection is described in the <a href="https://www.w3.org/TR/selection-api/#dfn-selection">selection API</a>
 
 			<wpt>
 			content-visibility/content-visibility-070.html
@@ -1879,11 +1953,11 @@ This event is dispatched by posting a task at the time when the state change occ
 <pre class='idl'>
 [Exposed=Window]
 interface ContentVisibilityAutoStateChangeEvent : Event {
-  constructor(DOMString type, optional ContentVisibilityAutoStateChangeEventInit eventInitDict = {});
-  readonly attribute boolean skipped;
+	constructor(DOMString type, optional ContentVisibilityAutoStateChangeEventInit eventInitDict = {});
+	readonly attribute boolean skipped;
 };
 dictionary ContentVisibilityAutoStateChangeEventInit : EventInit {
-  boolean skipped = false;
+	boolean skipped = false;
 };
 </pre>
 
@@ -1924,8 +1998,8 @@ Restrictions and Clarifications {#cv-notes}
 1. From the perspective of an {{IntersectionObserver}},
 	the [=skipped contents=] of an element
 	are never intersecting the [=intersection root=].
-    This is true even if both the root and the target elements
-    are in the [=skipped contents=].
+	This is true even if both the root and the target elements
+	are in the [=skipped contents=].
 
 	<wpt>
 	content-visibility/content-visibility-030.html
@@ -1948,15 +2022,15 @@ Restrictions and Clarifications {#cv-notes}
 	of the frame that renders the effects of the change
 	have run.
 	Specifically, such changes will take effect between steps 13 and 14
-	of <a href="https://html.spec.whatwg.org/multipage/webappapis.html#update-the-rendering">Update the Rendering</a> step of the Processing Model
+	of [=update the rendering=] step of the Processing Model
 	(between “run the animation frame callbacks”
-	 and “run the update intersection observations steps”).
+	and “run the update intersection observations steps”).
 
 	<div class=note>
 		Determining the viewport intersection of the element
 		can be done with an internal version of an IntersectionObserver.
 		However, since the observations from this are dispatched at
-		step 14 of Update the Rendering,
+		step 14 of [=update the rendering=],
 		any changes to the [=skipped contents|skipped=] (and thus painted) state
 		will not be visible to the user until the next frame's processing.
 		For this reason, updating the [=skipped contents|skipped=] state,
@@ -1970,10 +2044,13 @@ Restrictions and Clarifications {#cv-notes}
 		and not cause any forced layouts.
 	</div>
 
-4. The initial determination of visibility for ''content-visibility: auto'' must
-    happen in the same frame that determined an existence of a new
-    ''content-visibility: auto'' element.
-
+4. Elements with ''content-visibility: auto''
+	that have not determined [=proximity to the viewport=]
+	must determine their proximity to the viewport
+	in the next [=update the rendering=] cycle.
+	The effect of this determination must be reflected in the visual update which results from this [=update the rendering=] cycle.
+	See <a href="https://html.spec.whatwg.org/multipage/webappapis.html#event-loop-processing-model:content-visibility-auto">the event loop process model</a> for the concrete algorithm description.
+	
 	<div class=note>
 		When an element first gains ''content-visibility: auto'', it may or may not
 		be positioned on screen. The determination of this state and thus
@@ -2280,6 +2357,9 @@ This appendix is <em>informative</em>.
 Changes from <a href="https://www.w3.org/TR/2022/WD-css-contain-2-20220917/">2022-09-17 Working Draft</a>
 </h3>
 
+* Updated relevant to the user selection to point to the selection API instead of highlight pseudos.
+* Referenced the HTML event loop process model in the [[#cv-notes]], clarification 4.
+* defined [=proximity to the viewport=] and used it in the [[#cv-notes]], clarification 4.
 * 'content-visibility' applies to the same properties as [=size containment=] rather than [=layout containment=]
 * clarified that 'content-visibility' affects the used value, not computed value, of the 'contain' property
 * Updated the ContentVisibilityAutoStateChanged event name to ContentVisibilityAutoStateChange to follow the convention for event names.
