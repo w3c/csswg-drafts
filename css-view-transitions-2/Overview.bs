@@ -174,7 +174,7 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 		In the new page:
 		```js
 		// This would run both on initial load and on reactivation from BFCache.
-		addEventListener("reveal", async event => {
+		addEventListener("pagereveal", async event => {
 			if (!event.viewTransition)
 				return;
 
@@ -305,13 +305,12 @@ Note: as per default behavior, the ''@view-transition'' rule can be nested insid
 	<pre class='descdef'>
 	Name: type
 	For: @view-transition
-	Value: <<custom-ident>>+
-	Initial: n/a
+	Value: <<custom-ident>>*
+	Initial: an empty list
 	</pre>
 
 	The '<dfn for="@view-transition">type</dfn>' descriptor sets the [=ViewTransition/active types=] for the transition
 	when capturing and performing the transition, equivalent to calling {{Document/startViewTransition(callbackOptions)}} with that {{StartViewTransitionOptions/type}}.
-	Omitting the ''@view-transition/type'' descriptor is equivalent to calling {{Document/startViewTransition(callbackOptions)}} without a {{StartViewTransition/type}}.
 
 # API # {#api}
 
@@ -381,7 +380,7 @@ The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 		[Exposed=Window]
 		interface CSSViewTransitionRule : CSSRule {
 			attribute ViewTransitionNavigation navigation;
-			attribute DOMTokenList? type;
+			attribute DOMTokenList type;
 		};
 </xmp>
 
@@ -435,13 +434,16 @@ The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 
 	<div algorithm="page reveal">
 		To <dfn>reveal</dfn> {{Document}} |document|:
-			1. If |document|'s [=document/page pagereveal fired=] is false, then:
-				1. Let |transition| be the result of [=activating cross-document view-transition=] for |document|.
+			1. If |document|'s [=document/page pagereveal fired=] is true, then return.
 
-				1. [=Fire an event=] named <code>pagereveal</code> at |document|'s [=relevant global object=],
-					using {{PageRevealEvent}}, with [=PageRevealEvent/view transition=] initialized to .
+			1. Let |transition| be the result of [=resolving cross-document view-transition=] for |document|.
 
-				1. Set |document|'s [=document/page pagereveal fired=] to true.
+			1. [=Fire an event=] named <code>pagereveal</code> at |document|'s [=relevant global object=],
+				using {{PageRevealEvent}}, with [=PageRevealEvent/view transition=] initialized to |transition|.
+
+			1. If |transition| is not null, then [=activate view transition/activate=] |transition|.
+
+			1. Set |document|'s [=document/page pagereveal fired=] to true.
 	</div>
 
 ## Setting up and activating the cross-document view transition ## {#setting-up-and-activating-the-cross-document-view-transition}
@@ -455,9 +457,7 @@ The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 
 		1. If |matchingRule| is not found, then return "<code>not found</code>".
 
-		1. If |matchingRule| contains a ''@view-transition/type'' descriptor, then return a [=list=] of strings corresponding to that descriptor's [=computed value=].
-
-		1. Return null.
+		1. Return a [=list=] of strings corresponding to that descriptor's [=computed value=].
 	</div>
 
 ### Setting up the view-transition in the old {{Document}}
@@ -523,12 +523,18 @@ The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 		1. Set |oldDocument|'s [=active view transition=] to |outboundTransition|.
 
 			Note: The process continues in [=setup view transition=], via [=perform pending transition operations=].
+
+		1. The user agent should display the currently displayed frame until either:
+			* |newDocument| is [=revealed=]
+			* its [=active view transition=]'s [=ViewTransition/phase=] is "`done`".
+
+			Note: this is to ensure that there are no unintended flashes between displaying the old and new state, to keep the transition smooth.
 	</div>
 
-### Activating the view-transition in the new {{Document}}
+### Accessing the view-transition in the new {{Document}}
 
 	<div algorithm>
-		To <dfn export>activate cross-document view-transition</dfn> for {{Document}} |document|:
+		To <dfn export>resolve cross-document view-transition</dfn> for {{Document}} |document|:
 
 		1. Let |transition| be |document|'s [=active view transition=].
 
@@ -543,8 +549,6 @@ The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 		1. If |resolvedRule| is "<code>not found</code>", then [=skip the view transition|skip=] |transition| and return null.
 
 		1. Set |transition|'s [=ViewTransition/active types=] to |resolvedRule|.
-
-		1. [=activate view transition|Activate=] |transition|.
 
 		1. Return |transition|.
 	</div>
