@@ -410,6 +410,9 @@ function XYZ_to_OKLab(XYZ) {
 	];
 
 	var LMS = multiplyMatrices(XYZtoLMS, XYZ);
+	// JavaScript Math.cbrt returns a sign-matched cube root
+	// beware if porting to other languages
+	// especially if tempted to use a general power function
 	return multiplyMatrices(LMStoOKLab, LMS.map(c => Math.cbrt(c)));
 	// L in range [0,1]. For use in CSS, multiply by 100 and add a percent
 }
