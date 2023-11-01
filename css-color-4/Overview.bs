@@ -719,6 +719,12 @@ Transparency: the 'opacity' property</h3>
 	to explicitly tag an image as being in the sRGB color space,
 	without including the sRGB ICC profile.
 
+	Similarly, PNG specifies a compact means
+	(the <a href="https://www.w3.org/TR/png-3/#cICP-chunk">cICP chunk</a>)
+	to explicitly tag an image as being one of various SDR or HDR color spaces,
+	such as Display P3 or BT.2100 HLG,
+	without including an ICC profile.
+
 	Tagged RGB images,
 	and tagged images using a transformation of RGB such as YCbCr,
 	if the color profile or other identifying information is valid,
@@ -729,6 +735,7 @@ Transparency: the 'opacity' property</h3>
 		tagged-images-002.html
 		tagged-images-003.html
 		tagged-images-004.html
+		/png/cicp-chunk.html
 	</wpt>
 
 	If the color profile or other identifying information is invalid, the image is treated as [=untagged images=]
@@ -1190,6 +1197,7 @@ The RGB functions: ''rgb()'' and ''rgba()''</h3>
 		rgb-006.html
 		rgb-007.html
 		rgb-008.html
+		out-of-gamut-legacy-rgb.html
 		parsing/color-valid.html
 		parsing/color-computed-rgb.html
 		parsing/color-invalid-rgb.html
@@ -1747,6 +1755,7 @@ System Colors</h3>
 
 	<wpt>
 	system-color-consistency.html
+	system-color-support.html
 	parsing/color-valid-system-color.html
 	</wpt>
 
@@ -2080,9 +2089,6 @@ HSL Colors: ''hsl()'' and ''hsla()'' functions</h2>
 
 	If the saturation of an HSL color is ''0%'',
 	then the hue component is [=powerless=].
-	If the lightness of an HSL color is ''0%'' or ''100%'',
-	the hue component is [=powerless=]
-	and the saturation is ''0%''.
 
 	<div class='example' id="ex-hsl-primary-red">
 		For example, an ordinary red,
@@ -3741,7 +3747,7 @@ The Predefined sRGB Color Space: the ''sRGB'' keyword</h3>
 			let sign = c < 0? -1 : 1;
 			let abs = Math.abs(c);
 
-			if (abs < 0.04045) {
+			if (abs <= 0.04045) {
 				cl = c / 12.92;
 			}
 			else {
@@ -4411,15 +4417,20 @@ Color Interpolation</h2>
 	animations, and
 	color mixing and color modification functions.
 
-	Interpolation between <<color>> values
-	occurs by first
-	checking the two colors for [=analogous components=] 
-	which will be carried forward;
-	then (if required) converting them to a given color space
-	which will be referred to as the <dfn export>interpolation color space</dfn> below,
-	and then
-	linearly interpolating each component of the computed value of the color
-	separately.
+	Interpolation between two <<color>> values
+	takes place by executing the following steps:
+	
+	<ol>
+		<li>checking the two colors for [=analogous components=] which will be carried forward</li>
+		<li>(if required) converting them to a given color space
+			which will be referred to as the <dfn export>interpolation color space</dfn> below</li>
+		<li>(if required) re-inserting carried-forward values in the converted colors</li>
+		<li>(if required) fixing up the hues, depending on the selected <<hue-interpolation-method>></li>
+		<li>changing the color components to premultiplied form</li>
+		<li>linearly interpolating each component of the computed value of the color separately</li>
+		<li>undoing premultiplication</li>
+	</ol>
+
 
 <!--
 
@@ -4447,13 +4458,6 @@ Color Interpolation</h2>
 	Interpolating to or from ''<color>/currentcolor'' is possible.
 	The numerical value used for this purpose is the used value.
 
-	ISSUE: Computed value needs to be able to represent
-	combinations of ''currentColor'' and an actual color.
-	Consider the value of 'text-emphasis-color' in
-	<code>div { text-emphasis: circle; transition: all 2s; }<br>
-	div:hover { text-emphasis-color: lime; }<br>
-	em { color: red; }</code>
-	See <a href="https://github.com/w3c/csswg-drafts/issues/445">Issue 445</a>.
 
 <h3 id="interpolation-space">
 Color Space for Interpolation</h3>
@@ -4572,7 +4576,7 @@ Interpolating with Missing Components</h3>
 	In the course of converting the two colors
 	to the [=interpolation color space=],
 	any [=missing components=]
-	will be replaced with the value 0.
+	would be replaced with the value 0.
 
 	Thus, the first stage in interpolating two colors
 	is to classify any [=missing components=]
@@ -4942,7 +4946,7 @@ Hue Interpolation</h3>
 		For example, the midpoint when interpolating in Oklch from a red
 		<span class="swatch" style="--color: rgb(93.22% 7.98% 0.485%)"></span>&nbsp;oklch(0.6 0.24 30) to a yellow 
 		<span class="swatch" style="--color: rgb(89.07% 72.28% 19.23%)"></span>&nbsp;oklch(0.8 0.15 90)
-		would be at a hue angle of (30 + 360 + 90) / 2 = 240 degrees, 
+		would be at a hue angle of (30 + 360 + 90) * 0.5 = 240 degrees, 
 		along the longer arc between the two colors,
 		giving a sky blue
 		<span class="swatch" style="--color: rgb(0% 66.25% 100%)"></span>&nbsp;oklch(0.7 0.195 240)
@@ -4964,6 +4968,8 @@ Hue Interpolation</h3>
 	Hue angles are interpolated so that, 
 	as they progress from the first color to the second, 
 	the angle is always <em>increasing</em>.
+	If the angle increases to 360 it is reset to zero,
+	and then continues increasing.
 
 	Depending on the difference between the two angles, 
 	this will either look the same as <em>shorter</em> or as <em>longer.</em>
@@ -4975,13 +4981,13 @@ Hue Interpolation</h3>
 		For example, the midpoint when interpolating in Oklch from a deep brown
 		<span class="swatch" style="--color: rgb(57.92% 29.44% 25.11%)"></span>&nbsp;oklch(0.5 0.1 30) to a turquoise 
 		<span class="swatch" style="--color: rgb(26.29% 69.89% 67.49%)"></span>&nbsp;oklch(0.7 0.1 190)
-		would be at a hue angle of (30 + 190) / 2 = 110 degrees, 
+		would be at a hue angle of (30 + 190) * 0.5 = 110 degrees, 
 		giving a khaki
 		<span class="swatch" style="--color: rgb(51.73% 52.26% 22.03%)"></span>&nbsp;oklch(0.6 0.1 110).
 
-		However, if the hue of second color is animated to 
+		However, if the hue of the second color is animated to 
 		<span class="swatch" style="--color: rgb(33.09% 66.63% 81.81%)"></span>&nbsp;oklch(0.7 0.1 230),
-		the midpoint of the interpolation will be (30 + 230) / 2 = 130 degrees,
+		the midpoint of the interpolation will be (30 + 230) * 0.5 = 130 degrees,
 		continuing in the same increasing direction, 
 		giving another green
 		<span class="swatch" style="--color: rgb(42.44% 54.95% 28.93%)"></span>&nbsp;oklch(0.6 0.1 130)
@@ -5001,6 +5007,8 @@ Hue Interpolation</h3>
 	Hue angles are interpolated so that, 
 	as they progress from the first color to the second, 
 	the angle is always <em>decreasing</em>.
+	If the angle decreases to 0 it is reset to 360,
+	and then continues decreasing.
 
 	Depending on the difference between the two angles, 
 	this will either look the same as <em>shorter</em> or as <em>longer.</em>
@@ -5012,13 +5020,13 @@ Hue Interpolation</h3>
 	For example, the midpoint when interpolating in Oklch from a deep brown
 	<span class="swatch" style="--color: rgb(57.92% 29.44% 25.11%)"></span>&nbsp;oklch(0.5 0.1 30) to a turquoise 
 	<span class="swatch" style="--color: rgb(26.29% 69.89% 67.49%)"></span>&nbsp;oklch(0.7 0.1 190)
-	would be at a hue angle of (30 + 360 + 190) / 2 = 290 degrees, 
+	would be at a hue angle of (30 + 360 + 190) * 0.5 = 290 degrees, 
 	giving a purple
 	<span class="swatch" style="--color: rgb(49.98% 46.03% 72.08%)"></span>&nbsp;oklch(0.6 0.1 290).
 
-	However, if the hue of second color is animated to 
+	However, if the hue of the second color is animated to 
 	<span class="swatch" style="--color: rgb(33.09% 66.63% 81.81%)"></span>&nbsp;oklch(0.7 0.1 230),
-	the midpoint of the interpolation will be (30 +360 + 230) / 2 = 310 degrees,
+	the midpoint of the interpolation will be (30 +360 + 230) * 0.5 = 310 degrees,
 	continuing in the same decreasing direction, 
 	giving another purple
 	<span class="swatch" style="--color: rgb(57.47% 43.44% 67.8%)"></span>&nbsp;oklch(0.6 0.1 310)
@@ -5551,10 +5559,42 @@ Resolving sRGB values</h3>
 	(after clamping to [0.0, 1.0])
 	and defaulting to opaque if unspecified).
 
-	<wpt>
-		parsing/color-computed-rgb.html
-	</wpt>
+	For historical reasons, when ''calc()'' in sRGB colors 
+	resolves to a single value, 
+	the specified value serialises without the "calc(" ")" wrapper.
 
+	<div class="example" id="ex-srgb-calc-specified">
+		For example, if a color is given as
+		<span class="swatch" style="--color: rgb(128 127 255)"></span>  rgb(calc(64 * 2) 127 255)
+		the specified value will be
+		rgb(128 127 255)
+		and not
+		rgb(calc(128) 127 255).
+	</div>
+
+	<div class="example" id="ex-srgb-hsl-calc-specified">
+		For example, if a color is given as
+		<span class="swatch" style="--color: rgb(255 165.2 0)"></span>  hsl(38.82 calc(2 * 50%) 50%)
+		the specified value will be
+		rgb(255 165.2 0)
+		because the ''calc()'' is lost
+		during HSL to RGB conversion.
+	</div>
+
+	Also for historical reasons, 
+	when calc() is simplified down to a single value,
+	the color values are clamped to [0.0, 255.0].
+
+	<div class="example" id="ex-srgb-clamped-calc-specified">
+		For example, if a color is given as
+		<span class="swatch" style="--color: rgb(255 127 0)"></span>  rgb(calc(100 * 4) 127 calc(20 - 35))
+		the specified value will be
+		rgb(255 127 0)
+		and not
+		rgb(calc(400) 127 calc(-15)).
+	</div>
+
+	This clamping also takes care of values such as ''Infinity'', ''-Infiinity'', and ''NaN'' which will clamp at 255, 0 and 0 respectively.
 
 	<div class="example" id="ex-hsl-computed">
 		<p>For example, the computed value of</p>
@@ -5562,6 +5602,12 @@ Resolving sRGB values</h3>
 		<p>is</p>
 		<pre class="lang-css"><span class="swatch" style="--color: rgb(255, 165, 0)"></span> rgb(255, 165, 0)</pre>
 	</div>
+
+	<wpt>
+		parsing/color-computed-hsl.html
+		parsing/color-computed-hwb.html
+		parsing/color-computed-rgb.html
+	</wpt>
 
 
 <h3 id="resolving-lab-lch-values">
@@ -5638,9 +5684,22 @@ Resolving values of the ''color()'' function</h3>
 	and ''color>/currentcolor''.
 
 	The specified value for each <<system-color>> keyword
+	and <<deprecated-color>> keyword
+	is itself.
+	The computed value
 	is the corresponding color in its color space.
 	However, such colors must not be altered by
 	'forced colors mode'.
+
+	<div class="example" id="ex-system-resolve">
+		For example, in this html:
+
+		<pre class="lang-html">&lt;button style="color: <span class="swatch" style="--color: ButtonText"></span> ButtonText; background: <span class="swatch" style="--color: ButtonFace"></span> ButtonFace">&lt;/button></pre>
+
+		The specified value of the color property is "ButtonText" 
+		while the computed value could be, for example, 
+		<span class="swatch" style="--color: #FFF"></span> rgb(0, 0, 0).
+	</div>
 
 	The specified value of ''transparent'' is "transparent" 
 	while the computed and used value  is [=transparent black=].
@@ -5691,6 +5750,7 @@ Resolving values of the ''color()'' function</h3>
 		currentcolor-001.html
 		currentcolor-002.html
 		currentcolor-003.html
+		system-color-compute.html
 	</wpt>
 
 <!--
@@ -5854,6 +5914,10 @@ Serializing sRGB values</h3>
 	keyword value is retained.
 	For the computed and used value,
 	the corresponding sRGB value is used.
+
+	<wpt>
+		system-color-compute.html
+	</wpt>
 
 	Thus, the serialized specified value of ''transparent'' is the string "transparent",
 	while the serialized computed value of ''transparent'' is the string "rgba(0, 0, 0, 0)".
@@ -6626,6 +6690,9 @@ color-mix-non-srgb-001.html
 color-mix-percents-01.html
 color-mix-percents-02.html
 composited-filters-under-opacity.html
+light-dark-basic.html
+light-dark-currentcolor.html
+light-dark-inheritance.html
 t31-color-currentColor-b.xht
 t31-color-text-a.xht
 t32-opacity-basic-0.0-a.xht
@@ -6697,6 +6764,22 @@ color-mix-basic-001.html
 color-mix-currentcolor-visited.html
 color-mix-currentcolor-visited-getcomputedstyle.html
 nested-color-mix-with-currentcolor.html
+relative-currentcolor-a98rgb-01.html
+relative-currentcolor-displayp3-01.html
+relative-currentcolor-hsl-01.html
+relative-currentcolor-hsl-02.html
+relative-currentcolor-hwb-01.html
+relative-currentcolor-lab-01.html
+relative-currentcolor-lch-01.html
+relative-currentcolor-oklab-01.html
+relative-currentcolor-oklch-01.html
+relative-currentcolor-prophoto-01.html
+relative-currentcolor-rec2020-01.html
+relative-currentcolor-rec2020-02.html
+relative-currentcolor-rgb-01.html
+relative-currentcolor-rgb-02.html
+relative-currentcolor-xyzd50-01.html
+relative-currentcolor-xyzd65-01.html
 
 parsing/color-mix-out-of-gamut.html
 parsing/color-invalid.html
@@ -6730,6 +6813,16 @@ Changes</h2>
 </h3>
 
 <ul>
+	<!-- to 26 Oct 2023 -->
+	<li>Clarified that the specified values of system colors are still themselves</li>
+	<li>Added mention of PNG cICP chunk for tagging images</li>
+	<li>Described behaviour of hue increasing and decreasing when 0/360 is passed </li>
+	<li>Aligned description of powerlessnes in HSL with the other polar color models</li>
+	<li>Explicitly defined order of operations for color interpolation</li>
+	<li>Added mention of degenerate numeric constants in calc()</li>
+	<li>Clarified that calc() in sRGB has early resolution, and clamps the result</li>
+	<li>Clarified that HWB hue has the same disadvantages as HSL hue</li>
+	<li>Added luminance to lightness comparison and figure</li>
 	<!-- to 6 Sept 2023 -->
 	<li>Added descriptions and examples for hue interpolation keywords</li>
 	<li>Use normative prose for achromatic HWB colors</li>
