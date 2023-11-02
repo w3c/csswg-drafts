@@ -20,7 +20,7 @@ function lin_sRGB(RGB) {
 		let sign = val < 0? -1 : 1;
 		let abs = Math.abs(val);
 
-		if (abs < 0.04045) {
+		if (abs <= 0.04045) {
 			return val / 12.92;
 		}
 
