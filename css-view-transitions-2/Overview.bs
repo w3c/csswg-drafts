@@ -218,6 +218,8 @@ It has the following syntax definition:
 	<dfn>&lt;vt-type-selector></dfn> = '*' | <<custom-ident>>#
 </pre>
 
+The [=specificity=] of an '':active-view-transition()'' is one pseudo-class selector if it has value is ''*'', and two if it has any other value.
+
 An ''::active-view-transition()'' pseudo-class matches the [=document element=] when it has an non-null [=active view transition=] |viewTransition|, for which any of the following are true:
 
 * The <<vt-type-selector>> is ''*''
@@ -305,8 +307,8 @@ Note: as per default behavior, the ''@view-transition'' rule can be nested insid
 	<pre class='descdef'>
 	Name: type
 	For: @view-transition
-	Value: <<custom-ident>>*
-	Initial: an empty list
+	Value: none | <<custom-ident>>*
+	Initial: none
 	</pre>
 
 	The '<dfn for="@view-transition">type</dfn>' descriptor sets the [=ViewTransition/active types=] for the transition
@@ -453,11 +455,19 @@ The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 	<div algorithm>
 		To get the <dfn>resolve @view-transition rule</dfn> for a {{Document}} |document|:
 
-		1. Let |matchingRule| be the last ''@view-transition'' rule in |document| which has a ''@view-transition/navigation'' descriptor whose [=computed value=] is ''@view-transition/navigation/auto''.
+		1. Let |matchingRule| be the last ''@view-transition'' rule in |document|.
 
-		1. If |matchingRule| is not found, then return "<code>not found</code>".
+		1. If |matchingRule| is not found, then return "<code>skip transition</code>".
 
-		1. Return a [=list=] of strings corresponding to that descriptor's [=computed value=].
+		1. If |matchingRule|'s [=@view-transition/navigation=] descriptor's [=computed value=] is ''@view-transition/navigation/none'', then return "<code>skip transition</code>".
+
+		1. Assert: |matchingRule|'s [=@view-transition/navigation=] descriptor's [=computed value=] is ''@view-transition/navigation/auto''.
+
+		1. Let |typesDescriptor| be |matchingRule|'s [=@view-transition/type=] descriptor.
+
+		1. If |typesDescriptor|'s [=computed value=] is ''@view-transition/type/none'', then return an [=empty list=].
+
+		1. Return a [=list=] of strings corresponding to |typesDescriptor|'s [=computed value=].
 	</div>
 
 ### Setting up the view-transition in the old {{Document}}
@@ -482,7 +492,7 @@ The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 
 		1. [=Resolve @view-transition rule=] for |oldDocument| and let |resolvedRule| be the result.
 
-		1. If |resolvedRule| is "<code>not found</code>", then call |onReady| and return.
+		1. If |resolvedRule| is "<code>skip transition</code>", then call |onReady| and return.
 
 			Note: We don't know yet if |newDocument| has opted in, as it might not be parsed yet.
 			We check the opt-in for |newDocument| when it is [=reveal=].
@@ -493,6 +503,10 @@ The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 
 			Note: this means that any running transition would be skipped when the document is ready
 			to unload.
+
+		1. Set |document|'s [=auto-skip view transitions=] to true.
+
+			Note: this means that calling {{Document/startViewTransition()}} while capturing the old document for a cross-document view-transition would run the callback but skip the animation.
 
 		1. Let |outboundTransition| be a new {{ViewTransition}} object in |oldDocument|'s [=relevant Realm=],
 			whose [=ViewTransition/active types=] is |resolvedRule|, and whose [=ViewTransition/process old state captured=] is set to the following steps:
@@ -508,17 +522,25 @@ The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 				Note: The ViewTransition object on the old Document should be destroyed after its state has been copied to the new Document below.
 					We explicitly clear it here since the old Document may be cached by the UA.
 
-			1. [=Queue a global task=] on the [=DOM manipulation task source=] given |newDocument|'s [=relevant global object=],
-				to perform the following step:
+			1. Set |document|'s [=auto-skip view transitions=] to false.
 
-				1. Let |newDocument|'s [=active view transition=] be a new {{ViewTransition}} in |newDocument|'s [=relevant Realm=],
+			1. [=Queue a global task=] on the [=DOM manipulation task source=] given |newDocument|'s [=relevant global object=],
+				to perform the following steps:
+
+				1. Let |inboundTransition| be a new {{ViewTransition}} in |newDocument|'s [=relevant Realm=],
 					whose [=ViewTransition/named elements=] is |outboundTransition|'s [=ViewTransition/named elements=],
 					[=ViewTransition/initial snapshot containing block size=] is |outboundTransition|'s [=ViewTransition/initial snapshot containing block size=],
 					and whose [=ViewTransition/is inbound cross-document transition=] is true.
 
-				1. [=Call the update callback=] for |newDocument|'s [=active view transition=].
+				1. Let |newDocument|'s [=active view transition=] be |inboundTransition|.
+
+				1. [=Call the update callback=] for |inboundTransition|.
 
 				1. Call |onReady|.
+
+				1. At any given time, the UA may decide to skip |inboundTransition|, e.g. after an [=implementation-defined=] timeout.
+					To do so, the UA should [=queue a global task=] on the [=DOM manipulation task source=] given |document|'s [=relevant global object=] to perform the following step:
+						If |transition|'s [=ViewTransition/phase=] is not "`done`", then [=skip the view transition=] |transition| with a "{{TimeoutError}}" {{DOMException}}.
 
 			Note: |outboundTransition| is not exposed to JavaScript, it is used only for capturing
 			the state of the old document.
@@ -549,7 +571,7 @@ The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 
 		1. [=Resolve @view-transition rule=] for |document| and let |resolvedRule| be the result.
 
-		1. If |resolvedRule| is "<code>not found</code>", then [=skip the view transition|skip=] |transition| and return null.
+		1. If |resolvedRule| is "<code>skip transition</code>", then [=skip the view transition|skip=] |transition| and return null.
 
 		1. Set |transition|'s [=ViewTransition/active types=] to |resolvedRule|.
 
