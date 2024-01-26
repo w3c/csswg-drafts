@@ -1,4 +1,4 @@
-# CSS State Container Queries Explainer
+# CSS Scroll State Container Queries Explainer
 
 ## Introduction
 
@@ -98,7 +98,7 @@ applied to fulfill the constraint for a given inset property. For instance:
   height: 100%;
 }
 
-@container my-menu state(stuck: top) {
+@container my-menu scroll-state(stuck: top) {
   #sticky-child { width: 50%; }
 }
 </style>
@@ -134,7 +134,7 @@ be queried for whether they are currently
 direction. For instance:
 
 ```css
-@container state(snapped: block) {
+@container scroll-state(snapped: block) {
   #snap-child {
     outline: 5px solid yellow;
   }
@@ -166,7 +166,7 @@ This needs further exploration.
 
 ## Proposed Syntax
 
-Add a new state() function to `@container` similar to `style()` where
+Add a new scroll-state() function to `@container` similar to `style()` where
 `state:value` pairs, and logical combinations of them, can be queried.
 `<state-feature>` will be similar to
 [`<style-feature>`](https://drafts.csswg.org/css-contain-3/#typedef-style-feature)
