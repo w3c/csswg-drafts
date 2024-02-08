@@ -1096,6 +1096,7 @@ Values have the following meanings:
 		Otherwise, does nothing.
 </dl>
 
+<!-- Big Text: -order -->
 
 Determining Fallback Order: the 'position-try-order' property {#position-try-order-property}
 ----------------------------------
@@ -1128,7 +1129,7 @@ the [=position options list=] will be tried.
 	: <dfn>most-inline-size</dfn>
 	::
 		For each entry in the [=position options list=],
-		[=determine the position fallback styles=],
+		[=apply a position option=] using that option to the element,
 		and find the specified [=inset-modified containing block=] size
 		that results from those styles.
 		Stably sort the [=position options list=]
@@ -1321,6 +1322,9 @@ can be done automatically
 with keywords in 'position-try-options',
 without using ''@position-try'' at all.
 
+
+<!-- Big Text: -bounds -->
+
 Applying Stronger Fallback Bounds: the 'position-fallback-bounds' property {#fallback-bounds}
 --------------------------------------------------------------------------
 
@@ -1385,77 +1389,78 @@ and applying the same constraints as described here,
 to ensure proper ordering of layout
 
 
+<!-- Big Text: apply -->
+
 Applying Position Fallback {#fallback-apply}
 --------------------------
 
 When a positioned element overflows its [=inset-modified containing block=],
 and has a non-empty [=position options list=],
-it selects one entry from the list
-as defined below,
-and applies those properties to itself as [=used values=].
+it iterates the [=position options list=],
+applying each [=position option's=] styles over the element's base styles,
+and attempts to find an option that avoids overflow.
 
-Note: These have to be applied as used values
-because we're in the middle of layout right now;
-defining how they'd interact with the cascade
-would be extremely confusing *at a minimum*,
-and perhaps actually circular.
-In any case, not worth the cost in spec or impl.
+These modified styles are applied to the element via [=style interleaving=],
+so they affect [=computed values=]
+(and can trigger transitions/etc)
+even tho they depend on layout and [=used values=].
+They are applied as part of the [=author origin=],
+as part of a theoretical UA-controlled final cascade layer.
 
-Issue: This implies that the values can't be transitioned in the usual fashion,
-since transitions key off of computed values
-and we're past that point.
-However, popovers sliding between positions is a common effect in UI libs.
-Probably should introduce a <css>smooth</css> keyword
-to 'position-fallback'
-to trigger automatic "animation" of the fallback'd properties.
+<div algorithm>
+	To <dfn>apply a position option</dfn> to an element |el|,
+	given a [=position option=] |new styles|:
+
+	1. With |new styles| inserted into the cascade at the very end of the [=author origin=],
+		resolve the cascade,
+		and perform enough layout to determine |el|'s [=used value|used styles=].
+
+	2. Return |el|'s [=used value|used styles=].
+</div>
 
 <div algorithm>
 	To <dfn>determine the position fallback styles</dfn> of an element |el|:
 
 	1. Let |base styles| be the current used styles of |el|.
 
-	2. [=list/For each=] |fallback styles| in the [=position options list=]:
+	2. [=list/For each=] |option| in the [=position options list=]:
 
-		1. Apply the values of the [=accepted @position-try properties=]
-			in |fallback styles| to |el|,
-			overriding the corresponding properties in |base styles|.
+		1. Let |adjusted styles| be the result of [=applying a position option=] |option| to |el|.
 
-			Perform any specified/computed/used-value time normalizations
-			that are required to make the overridden styles into [=used values=]
-			(such as resolving [=math functions=], etc).
+		2. Let |el rect| be the size and position of |el|'s margin box,
+			when laid out with |adjusted styles|.
+			Let |cb rect| be the size and position of |el|'s [=inset-modified containing block=].
 
-			Let |adjusted styles|
-			be |el|'s styles after these adjustments.
+		3. If |el| has a [=snapshotted scroll offset=],
+			subtract it from the position of both |el rect| and |cb rect|.
 
-		2. Subtract |el|'s [=snapshotted scroll offset=]
-			from |el|'s margin box's position.
-
-			Also, if any of |el|'s [=inset properties=] are non-auto,
-			subtract the [=snapshotted scroll offset=] for the appropriate axis
-			from their values.
-			Recalculate |el|'s [=inset-modified containing block=]
-			using these shifted values
-			to obtain the |scroll-adjusted IMCB|.
-
-		3. If |el|'s [=margin box=] is not fully contained
-			within the |scroll-adjusted IMCB|,
+		4. If |el rect| is not fully contained within |cb rect|,
 			[=iteration/continue=].
 
 		4. If |el| has an [=additional fallback-bounds rect=],
-			and |el|'s [=margin box=] is not fully contained within it,
+			and |el rect| is not fully contained within it,
 			[=iteration/continue=].
 
-		5. Use |adjusted styles| for |el|
-			and exit this algorithm.
+		5. Set |option| as |el|'s [=last successful position option=].
+			Return |adjusted styles|.
 
-	3. If the previous step finished without selecting a set of styles,
-		use the |adjusted styles|
-		corresponding to the final entry in the [=position options list=].
+	3. Assert: The previous step finished without finding a [=position option=]
+		that avoids overflow.
+
+	4. If |el| has a [=last successful position option=],
+		return the result of [=applying a position option=],
+		using that option,
+		to |el|.
+
+	5. Return |base styles|.
 
 	Note: Descendants overflowing |el|
 	don't affect this calculation,
 	only |el|'s own [=margin box=].
 </div>
+
+Issue: Make sure the snapshotted scroll offset stuff is correct now,
+given interleaving.
 
 The styles returned by [=determining the position fallback styles=]
 are taken as the final values for the specified properties.
