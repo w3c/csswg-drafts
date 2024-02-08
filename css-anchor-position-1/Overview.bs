@@ -15,6 +15,7 @@ Abstract: This specification defines 'anchor positioning', where a positioned el
 </pre>
 
 <pre class=link-defaults>
+spec:css-backgrounds-3; type:property; text:border-color
 spec:css-break-4; type:dfn; text:fragment
 spec:css-display-3; type:dfn; text:element
 spec:css-position-3;
@@ -1427,7 +1428,7 @@ it iterates the [=position options list=],
 applying each [=position option's=] styles over the element's base styles,
 and attempts to find an option that avoids overflow.
 
-These modified styles are applied to the element via [=style interleaving=],
+These modified styles are applied to the element via [=interleaving=],
 so they affect [=computed values=]
 (and can trigger transitions/etc)
 even tho they depend on layout and [=used values=].
@@ -1445,7 +1446,7 @@ as part of a theoretical UA-controlled final cascade layer.
 	2. Return |el|'s [=used value|used styles=].
 </div>
 
-<div algorithm>
+<div algorithm="determine the position fallback styles">
 	To <dfn>determine the position fallback styles</dfn> of an element |el|:
 
 	1. Let |base styles| be the current used styles of |el|.
@@ -1468,7 +1469,7 @@ as part of a theoretical UA-controlled final cascade layer.
 			and |el rect| is not fully contained within it,
 			[=iteration/continue=].
 
-		5. Set |option| as |el|'s [=last successful position option=].
+		5. Set |option| as |el|'s <dfn>last successful position option</dfn>.
 			Return |adjusted styles|.
 
 	3. Assert: The previous step finished without finding a [=position option=]
@@ -1488,6 +1489,9 @@ as part of a theoretical UA-controlled final cascade layer.
 
 Issue: Make sure the snapshotted scroll offset stuff is correct now,
 given interleaving.
+
+Issue: Add conditions for forgetting the [=last successful position option=],
+similar to the [=last remembered size=]
 
 The styles returned by [=determining the position fallback styles=]
 are taken as the final values for the specified properties.
@@ -1583,6 +1587,159 @@ This limit must be <em>at least</em> five.
 </div>
 
 
+<!-- Big Text: anim
+
+ ███▌  █    █▌ ████ █     █
+▐█ ▐█  █▌   █▌  ▐▌  ██   ██
+█▌  █▌ ██▌  █▌  ▐▌  █▌█ █▐█
+█▌  █▌ █▌▐█ █▌  ▐▌  █▌ █ ▐█
+█████▌ █▌  ██▌  ▐▌  █▌   ▐█
+█▌  █▌ █▌   █▌  ▐▌  █▌   ▐█
+█▌  █▌ █▌   ▐▌ ████ █▌   ▐█
+-->
+
+Animating Position {#animating}
+==================
+
+<pre class=propdef>
+Name: position-animation
+Value: normal | magic
+Initial: normal
+Percentages: n/a
+Inherited: no
+Computed Value: ''position-animation/normal'', or an [=overriding position rectangle=] (see prose)
+Animation type: (see prose)
+Applies to: [=absolutely positioned elements=]
+</pre>
+
+An [=absolutely positioned box=]'s position and size
+are the result of multiple properties interacting,
+and this interaction is non-linear,
+so smoothly animating from one position to another
+can't be accomplished by animating the individual properties independently.
+
+The 'position-animation' property resolves this conundrum,
+by representing the final result of applying these properties
+as a <dfn>overriding position rectangle</dfn>:
+a width, height, [=x-axis=] offset, and [=y-axis=] offset.
+The width and height represent the size of its [=margin box=],
+and the x and y offsets represent its position
+relative to its [=containing block=],
+after <a href="https://www.w3.org/TR/css-position/">positioning</a>/<a href="https://www.w3.org/TR/css-align/">alignment</a>/etc.
+have been performed.
+
+If the element is not [=absolutely positioned=],
+this property has no effect.
+
+Values are:
+
+<dl dfn-type=value dfn-for=position-animation>
+	: <dfn>normal</dfn>
+	::
+		This value has no effect.
+
+	: <dfn>magic</dfn> (name to be bikeshedded)
+	::
+		At [=computed value=] time,
+		resolves to a [=overriding position rectangle=],
+		using [=interleaving=].
+
+		At [=used value=] time,
+		overrides the position and size of the element's [=margin box=],
+		setting it to match the computed [=overriding position rectangle=].
+</dl>
+
+The ''position-animation/magic'' value always serializes as <css>magic</css>;
+the [=overriding position rectangle=] is not observable in any way.
+
+Interpolating to or from ''position-animation/normal''
+is done as a discrete step,
+where values of <var ignore>p</var> between 0 and 1 map to ''position-animation/normal'',
+and other values of <var ignore>p</var> map to the closer endpoint.
+<span class=note>(Similar to 'visibility'.)</span>
+
+Two [=overriding position rectangles=] are interpolated
+by interpolating the width, height, x offset, and y offset independently
+as [=computed lengths=].
+
+Issue: Should the x/y offset be relative to the top/left corner or (CB) center to (AbsPos) center or something else?
+
+Note: The [=overriding position rectangle=] is not directly exposed,
+because it functionally allows overriding the entire cascade;
+the [=overriding position rectangle=] causes the element
+to ignore all the other positioning properties,
+regardless of where they come from.
+The rectangle can nevertheless be <em>read</em> by authors
+using existing JS APIs (such as {{Element/getBoundingClientRect()}}).
+
+<div class=example>
+	Given a 	change in positioning properties like:
+
+	<pre highlight=css>
+	p.start {
+		top: 0px;
+		bottom: 100px;
+		align-self: start;
+	}
+	p.end {
+		top: 100px;
+		bottom: 50px;
+		align-self: end;
+	}
+	</pre>
+
+	The following causes a smooth animation between the two endpoints:
+
+	<pre highlight=css>
+	p {
+	    transition: position-animation 2s; /* magic transition yay */
+	    position-animation: magic;
+	}
+	</pre>
+
+	This doesn't smoothly animate
+	(you get the "constantly recomputed,
+	triggering fresh transitions every frame" effect
+	that occurs if you transition 'color' and 'border-color',
+	using ''border-color:currentcolor''):
+
+	<pre highlight=css>
+	p {
+	      transition: position-animation 2s, inset 2s; /* sadface */
+	}
+	</pre>
+</div>
+
+<div class=issue>
+	Need a way to force <em>animations</em> to work correctly as well,
+	like:
+
+	<pre highlight=css>
+	p {
+	    position-animation: magic;
+	    animation: foo 2s;
+	}
+
+	@keyframes foo {
+		to {
+			top: 0px;
+			bottom: 100px;
+			align-self: start;
+		}
+		from {
+			top: 100px;
+			bottom: 50px;
+			align-self: end;
+		}
+	}
+	</pre>
+
+	Without some sort of magic intercept of animations
+	(forcing them to turn into a 'position-animation' animation)
+	this will not smoothly animate.
+</div>
+
+
 
 <!-- Big Text: cssom
 
@@ -1618,11 +1775,42 @@ represents the name declared in the rule's prelude.
 Its <dfn attribute for=CSSPositionTryRule>style</dfn> attribute
 represents the styles declared in the rule's body,
 in the specified order.
-Only the [=allowed @position-try properties=] are valid in this rule.
+Only the [=accepted @position-try properties=] are valid in this rule.
 
 Issue: match the concept of validity to whatever we do in similar situations.
 
 
+<h2 id=interleaving>
+Appendix: Style & Layout Interleaving</h2>
+
+<dfn export lt="style & layout interleave" local-lt="interleave">Style & layout interleaving</dfn> is a technique
+where a style update can occur on a subtree
+during the layout process,
+resulting in retroactive updates
+to elements’ [=computed value|computed styles=].
+
+Issue: This is not the correct spec for this concept,
+it should probably go in <a href="https://www.w3.org/TR/css-cascade/">Cascade</a>,
+but I need a sketch of it to refer to.
+
+Note: [=Style & layout interleaving=] is already used with [=container queries=]
+and [=container query lengths=].
+A length like ''10cqw'' is resolved into a [=computed length=]
+using layout information about the query container's size,
+which can thus trigger <a href="https://www.w3.org/TR/css-transitions-1/">transitions</a>
+when the container changes size between layouts.
+
+An [=absolutely positioned box=]'s [=overriding position rectangle=]
+(see 'position-animation')
+is determined by [=style & layout interleaving=].
+The [=accepted @position-try properties=] are also [=interleaved=]
+when resolving fallback
+(see 'position-try').
+
+Issue: Obviously this needs way more details filled in,
+but for now "act like you already do for container queries" suffices.
+That behavior is also undefined,
+but at least it's interoperable (to some extent?).
 
 
 Security Considerations {#sec}
