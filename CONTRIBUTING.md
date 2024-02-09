@@ -39,11 +39,29 @@ issues on a regular basis; however note that sometimes this can take awhile
 issue and the work schedules of people involved--this does not mean we are
 ignoring the issue.
 
-For an issue that requires WG discussion or approval, WG members can tag/label
-it 'Agenda+' to bring it to the Working Group's attention. Unfortunately,
+When issues need WG discussion or approval, WG members should label the issue
+'Agenda+' to bring it to the Working Group's attention. Unfortunately,
 GitHub doesn't allow labelling permissions without repository write permissions,
 so if you believe an issue is urgent or discussion has stalled for awhile and
-the WG's attention is needed to move forward, ask one of the editors to flag it.
+the WG's attention is needed to move forward, ask one of the Editors to flag it.
+
+In general, you should not directly commit changes to a draft unless you are an
+Editor of that draft, or have their explicit permission.  If you are not an 
+Editor of a draft, but wish to contribute changes, the best practice is to either 
+work directly with an Editor to review proposed text, or file your proposal as a 
+pull request (PR). Substantive changes need WG consensus, not merely Editor 
+agreement; typographic error and markup fixes are generally okay to commit, but 
+any substantive changes, or even substantial changes/additions to non-normative
+text, should have clear WG consensus.
+
+In any case, WG consensus is expected prior to merging changes, and consensus is 
+determined by the Chairs (not self-assessed) via synchronous decisions during 
+meetings, and occasionally via async CFCs. Some degree of discretion is afforded 
+to Editors to make changes prior to WG consensus, particularly early in a spec or 
+feature's lifecycle, although Editors should confirm those changes with the WG 
+prior to republishing on TR.  References to the discussion and the WG consensus 
+should be placed in the issue or commit.  Agreement from an Editor in an issue 
+is not a replacement for WG consensus.
 
 The Working Group, aside from managing issues on GitHub, mainly discusses
 specifications and requests on [the www-style public mailing list](https://lists.w3.org/Archives/Public/www-style/),
