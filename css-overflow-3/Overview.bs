@@ -9,12 +9,11 @@ Level: 3
 TR: https://www.w3.org/TR/css-overflow-3/
 Previous version: https://www.w3.org/TR/2021/WD-css-overflow-3-20211223/
 Former Editor: L. David Baron, Mozilla https://www.mozilla.org/, https://dbaron.org/, w3cid 15393
-Editor: Elika J. Etemad / fantasai, Invited Expert, http://fantasai.inkedblade.net/contact, w3cid 35400
+Editor: Elika J. Etemad / fantasai, Apple, http://fantasai.inkedblade.net/contact, w3cid 35400
 Editor: Florian Rivoal, On behalf of Bloomberg, http://florian.rivoal.net/, w3cid 43241
 Abstract: This module contains the features of CSS relating to scrollable overflow handling in visual media.
 	This level is focused on completing a precise specification for the existing overflow features,
 	including the 'overflow' property and its longhands;
-	'line-clamp', its longhands, and its legacy pre-standard syntax;
 	and the 'text-overflow' property.
 	A few additional features introduced in support of [[CSS-CONTAIN-1]] and [[CSS-CONTAIN-2]] are also defined:
 	''overflow: clip'' and the 'overflow-clip-margin' property.
@@ -53,6 +52,7 @@ spec:css-display-3; type:property; text:display
 spec:css-sizing-3; type:property; text:max-height
 spec:css-box-4; type:dfn; text:content area
 spec:mediaqueries-3; type:value; text:print
+spec:html; type:method; text:focus()
 </pre>
 <!-- FIXME: the break-* link doesn't actually work! -->
 <pre class="anchors">
@@ -131,7 +131,7 @@ Module Interactions</h3>
 -->
 
 <h2 id="overflow-concepts">
-Types of Overflow</h2>
+Overflow Concepts and Terminology</h2>
 
 	CSS uses the term <dfn export>overflow</dfn> to describe
 	the contents of a box
@@ -224,8 +224,8 @@ Scrollable Overflow</h3>
 		<li>
 			The border boxes
 			of all boxes for which it is the containing block
-			and whose border boxes are positioned not wholly outside
-			its <a>block-start</a> or <a>inline-start</a> padding edges,
+			and whose border boxes are positioned not wholly
+			in the [=negative scrollable overflow region=],
 			accounting for transforms by projecting each box onto
 			the plane of the element that establishes its <a>3D rendering context</a>.
 			[[!CSS3-TRANSFORMS]]
@@ -258,14 +258,10 @@ Scrollable Overflow</h3>
 			and that <a>scrollable overflow</a> is not already clipped
 			(e.g. by the 'clip' property or the 'contain' property).
 
-			Issue: should ''overflow: clip'' also clip the <a>scrollable overflow</a>
-			or should it remain a pure paint-time operation,
-			which would mean that scrollable overflow, while invisible, would still be scrollable.
-
 			Note: The 'mask-*' properties [[!CSS-MASKING-1]]
 			do not affect the <a>scrollable overflow area</a>.
 
-			Issue: Need to evaluate compat of honoring or ignoring 'clip' and 'clip-path'.
+			ISSUE(8607): Need to evaluate what should/should not clip [=scrollable overflow=].
 
 		<li>
 			Additional padding added
@@ -295,6 +291,12 @@ Scrollable Overflow</h3>
 
 	</ul>
 
+	Additionally, due to Web-compatibility constraints
+	(caused by authors exploiting legacy bugs to surreptitiously hide content from visual readers but not search engines and/or speech output),
+	UAs must clip any content in the [=negative scrollable overflow region=]
+	(thereby behaving as if they had no <a>scrollable overflow</a>
+	on the wrong side of the [=scroll origin=]).
+
 	<!--
 	Considerations:
 		* floats
@@ -315,6 +317,90 @@ Scrollable Overflow</h3>
 	in other coordinate systems due to transforms [[CSS3-TRANSFORMS]].
 	This means scrollbars can sometimes appear when not actually necessary.
 
+<h3 id="scrolling">
+Scrolling Overflow</h3>
+
+	A box’s [=overflow=] can be visible or clipped.
+	CSS also allows a box to be <dfn export>scroll container</dfn>
+	that allows the user to scroll clipped parts of its <a>scrollable overflow area</a>
+	into view.
+	The visual viewport of a <a>scroll container</a>
+	(through which the <a>scrollable overflow area</a> can be viewed)
+	coincides with its padding box,
+	and is called the <dfn export>scrollport</dfn>.
+	A box’s <dfn export>nearest scrollport</dfn>
+	is the [=scrollport=] of its nearest [=scroll container=] ancestor.
+
+	Scrolling operations can be initiated by the user
+	(for example, by manipulating a scrollbar, swiping a touchscreen, or using keyboard controls)
+	or by script
+	(<span class=non-normative>for example, by the {{scrollIntoView()}} or {{focus()}} APIs</span>).
+	The initial position of the [=scrollable overflow rectangle=] within the [=scrollport=]
+	before any scrolling operations take effect is the <dfn export>initial scroll position</dfn>.
+	The [=initial scroll position=]
+	is typically dependent on the [=scroll container=]’s [=writing mode=],
+	and, unless otherwise specified,
+	coincides with its [=scroll origin position=].
+	However, the 'align-content' and 'justify-content' properties [[!CSS-ALIGN-3]]
+	can be used to change the [=initial scroll position=],
+	see [[css-align-3#overflow-scroll-position]].
+
+	A <dfn export>scroll position</dfn> is a particular alignment
+	of the [=scrollable overflow rectangle=]
+	within its [=scrollport=].
+	It is associated with a <dfn export>scroll offset</dfn>
+	which is its distance from the [=scroll origin=].
+
+	The <dfn export>scroll origin</dfn> is the anchor coordinate of the [=scrollable overflow rectangle=],
+	from which the [=scrollable overflow rectangle=] expands.
+	Unless otherwise specified,
+	it is the [=block-start=] [=inline-start=] corner of the [=scrollable overflow rectangle=].
+	(For example, in a [=flex container=] it is the [=main-start=] [=cross-start=] corner.)
+	The area beyond the [=scroll origin=] in either axis
+	is considered the <dfn export>negative scrollable overflow region</dfn>:
+	content rendered here is not accessible to the reader,
+	see [[#scrollable]].
+	A [=scroll container=] is said to be scrolled to its [=scroll origin=]
+	when its [=scroll origin=] coincides with the corresponding corner of its [=scrollport=].
+	This [=scroll position=], the <dfn export>scroll origin position</dfn>,
+	usually, but not always,
+	coincides with the [=initial scroll position=].
+
+	<div class="example">
+		For example,
+		the 'align-content' and 'justify-content' properties [[CSS-ALIGN-3]]
+		and [=scroll snapping=] [[CSS-SCROLL-SNAP-1]]
+		can change the [=initial scroll position=]
+		away from the [=scroll origin position=].
+	</div>
+
+	ISSUE: Check whether things like [=baseline alignment=]
+	depend on the [=initial scroll position=] or the [=scroll origin position=].
+
+	ISSUE: This doesn't define a coordinate system for [=scroll offsets=].
+	Whether they increase downward/rightward,
+	block/inline-axis endward,
+	or away from the [=scroll origin=] is not defined.
+	Should each API define its coordinate model?
+
+	The root viewport, which scrolls the page [=canvas=],
+	uses the <a>principal writing mode</a> for determining
+	its [=scroll origin=] and [=initial scroll position=].
+
+	Note: In the case where a [=scroll container=] (or one of its ancestors)
+	is the target of a graphical transform,
+	the UA might need to take this transform into account
+	when mapping user inputs to scrolling operations.
+	For instance, on a touch screen where the user scrolls
+	by directly dragging the content,
+	the transform would be expected to be taken into account
+	to match the direction of scrolling to the gesture.
+	On the other hand, other user inputs
+	(such as the Page Down key, or a 1D scroll wheel)
+	might be more naturally interpreted ignoring the transform.
+	Choosing the appropriate behavior for each scrolling mechanism
+	is the responsibility of the UA.
+
 <!--
  ███████  ██     ██ ████████ ████████  ████████ ██        ███████  ██      ██
 ██     ██ ██     ██ ██       ██     ██ ██       ██       ██     ██ ██  ██  ██          ██   ██
@@ -326,28 +412,22 @@ Scrollable Overflow</h3>
 -->
 
 <h2 id="overflow-properties">
-Scrolling and Clipping Overflow: the 'overflow-x', 'overflow-y', and 'overflow' properties</h2>
+Scrolling and Clipping Overflow</h2>
 
-	These properties specify whether a box’s content
-	(including any <a>ink overflow</a>)
-	is clipped to its padding edge,
+<h3 id="overflow-control">
+Managing Overflow: the 'overflow-x', 'overflow-y', and 'overflow' properties</h3>
+
+	These properties specify whether a box’s [=overflow=] is clipped,
 	and if so,
-	whether it is a <dfn export>scroll container</dfn>
-	that allows the user to scroll clipped parts of its <a>scrollable overflow area</a>
-	into view.
-	The visual viewport of the <a>scroll container</a>
-	(through which the <a>scrollable overflow area</a> can be viewed)
-	coincides with its padding box,
-	and is called the <dfn export>scrollport</dfn>.
-	For convenience, a box’s <dfn export>nearest scrollport</dfn>
-	is the [=scrollport=] of its nearest [=scroll container=] ancestor.
+	whether it is a [=scroll container=].
 
 	<pre class=propdef>
 		Name: overflow-x, overflow-y, overflow-block, overflow-inline
 		Value: visible | hidden | clip | scroll | auto
 		Initial: ''visible''
-		Applies to: block containers [[!CSS2]], flex containers [[!CSS3-FLEXBOX]], grid containers [[!CSS3-GRID-LAYOUT]], and [=replaced=] elements
+		Applies to: block containers [[!CSS2]], flex containers [[!CSS3-FLEXBOX]], grid containers [[!CSS3-GRID-LAYOUT]]
 		Inherited: no
+		Logical property group: overflow
 		Percentages: N/A
 		Computed value: usually specified value, but see text
 		Animation type: discrete
@@ -370,7 +450,7 @@ Scrolling and Clipping Overflow: the 'overflow-x', 'overflow-y', and 'overflow' 
 
 	<pre class="propdef shorthand">
 		Name: overflow
-		Value: [ visible | hidden | clip | scroll | auto ]{1,2}
+		Value: <<'overflow-block'>>{1,2}
 		Initial: visible
 		Applies to: block containers [[!CSS2]], flex containers [[!CSS3-FLEXBOX]], and grid containers [[!CSS3-GRID-LAYOUT]]
 		Inherited: no
@@ -457,6 +537,13 @@ Scrolling and Clipping Overflow: the 'overflow-x', 'overflow-y', and 'overflow' 
 	is neither ''overflow/visible'' nor ''overflow/clip'' nor a combination thereof,
 	it [=establishes an independent formatting context=] for its contents.
 
+	User agents must also support
+	the <dfn value for="overflow, overflow-x, overflow-y, overflow-block, overflow-inline">overlay</dfn> keyword
+	as a [=legacy value alias=] of ''overflow/auto''.
+
+<h4 id="scroll-visibility">
+Interaction of 'visibility' and 'overflow'</h4>
+
 	If the computed value of the 'visibility' property is ''visibility/hidden''
 	(or ''visibility/collapse'' when it has the same effect as ''visibility/hidden''),
 	and 'overflow' is either ''overflow/scroll'' or ''overflow/auto'',
@@ -474,22 +561,26 @@ Scrolling and Clipping Overflow: the 'overflow-x', 'overflow-y', and 'overflow' 
 		with a descendent of the ''visibility: hidden'' [=scroll container=]
 		that is itself set to ''visibility: visible''.
 
-	Note: In the case where the [=scroll container=] (or one of its ancestors)
-	is the target of a graphical transform,
-	the UA might need to take this transform into account
-	when mapping user inputs to scrolling operations.
-	For instance, on a touch screen where the user scrolls
-	by directly dragging the content,
-	the transform would be expected to be taken into account
-	to match the direction of scrolling to the gesture.
-	On the other hand, other user inputs
-	(such as the Page Down key, or a 1D scroll wheel)
-	might be more naturally interpreted ignoring the transform.
-	Choosing the appropriate behavior for each scrolling mechanism
-	is the responsibility of the UA.
+<h4 id="corner-clipping">
+Interaction of 'border-radius' and 'overflow'</h4>
 
-<h3 id="static-media">
-Overflow in Print and Other Static Media</h3>
+	As mentioned in [[css-backgrounds-3#corner-clipping]],
+	the clipping region established by 'overflow' can be rounded:
+
+	* When 'overflow-x' and 'overflow-y' compute to
+		''overflow/hidden'', ''overflow/scroll'', or ''overflow/auto'',
+		the clipping region is rounded
+		based on the border radius,
+		adjusted to the [=padding edge=],
+		as described in [[css-backgrounds-3#corner-shaping]].
+	* When both 'overflow-x' and 'overflow-y' compute to ''overflow/clip'',
+		the clipping region is rounded as described in [[#overflow-clip-margin]].
+	* However, when one of 'overflow-x' or 'overflow-y' computes to ''overflow/clip''
+		and the other computes to ''overflow/visible'',
+		the clipping region is not rounded.
+
+<h4 id="static-media">
+Overflow in Print and Other Static Media</h4>
 
 	<p class="advisement">
 		Since scrolling is not possible in static media
@@ -509,31 +600,6 @@ Overflow in Print and Other Static Media</h3>
 	Note: Not all [=paged media=] is non-interactive:
 	for example, e-book readers paginate content,
 	but are interactive.
-
-<h3 id="scrolling-direction">
-Scrolling Origin, Direction, and Restriction</h3>
-
-	The <dfn export>initial scroll position</dfn> is
-	the initial position of
-	the box’s <a>scrollable overflow area</a>
-	with respect to its border box,
-	prior to any user or programmatic scrolling that changes it.
-	The <a>initial scroll position</a>
-	is dependent on the box’s <a>writing mode</a>,
-	and is by default the <a>block-start</a>/<a>inline-start</a> edge
-	of the box’s <a>padding edge</a>.
-	However, the 'align-content' and 'justify-content' properties [[!CSS-ALIGN-3]]
-	can be used to change this,
-	see [[css-align-3#overflow-scroll-position]].
-
-	Due to Web-compatibility constraints
-	(caused by authors exploiting legacy bugs to surreptitiously hide content from visual readers but not search engines and/or speech output),
-	UAs must clip the <a>scrollable overflow area</a>
-	of <a>scroll containers</a>
-	on the <a>block-start</a> and </a>inline-start</a> sides of the box
-	(thereby behaving as if they had no <a>scrollable overflow</a> on that side).
-
-	The viewport uses the <a>principal writing mode</a> for these calculations.
 
 <h3 id="overflow-clip-margin">
 Expanding Clipping Bounds: the 'overflow-clip-margin' property</h3>
@@ -629,7 +695,7 @@ Smooth Scrolling: the 'scroll-behavior' Property</h3>
 	Applies to: [=scroll containers=]
 	Inherited: no
 	Computed value:    specified value
-	Animatable: no
+	Animation Type: not animatable
 	Canonical Order: per grammar
 	</pre>
 
@@ -662,7 +728,7 @@ Scrollbars and Layout</h2>
 <h3 id="scrollbar-sizing">
 Scrollbar Contributions to Sizing</h3>
 
-	When reserving space for a scrollar placed at the edge of an element's box,
+	When reserving space for a scrollbar placed at the edge of an element's box,
 	the reserved space is inserted between the inner border edge
 	and the outer padding edge.
 	For the purpose of the <a spec=css-backgrounds>background positioning area</a> and <a spec=css-backgrounds>background painting area</a> however,
@@ -698,7 +764,7 @@ Scrollbar Contributions to Sizing</h3>
 
 	When the box is intrinsically sized,
 	this reserved space is added to the size of its contents.
-	It is otherwise subtracted from space alotted to the [=content area=].
+	It is otherwise subtracted from space allotted to the [=content area=].
 	To the extent that the presence of scrollbars can affect sizing,
 	UAs must start with the assumption that no scrollbars are needed,
 	and recalculate sizes if it turns out they are.
@@ -1196,483 +1262,15 @@ ellipsis interaction with scrolling interfaces</h4>
 
 	While the content is being scrolled, implementations may adjust their rendering of ellipses (e.g. align to the box edge rather than line edge).
 
-<h3 id="block-ellipsis">
-Indicating Block-Axis Overflow: the 'block-ellipsis' property</h3>
+<h2 class="no-num non-normative" id="priv">Appendix A. Privacy Considerations</h2>
 
-	<pre class=propdef>
-		Name: block-ellipsis
-		Value: none | auto | <<string>>
-		Initial: none
-		Applies to: [=block containers=]
-		Inherited: yes
-		Percentages: N/A
-		Computed value: specified value
-		Animation type: discrete
-	</pre>
+	This specification introduces no new privacy concerns.
 
-	This property allows inserting content into the last line box
-	before a (forced <em>or</em> unforced) <a>region break</a>
-	to indicate the continuity of truncated/interrupted content.
-	It only affects line boxes contained directly by the <a>block container</a> itself,
-	but as it inherits, will have an effect on descendants’ line boxes unless overridden.
-	If the box contains no line box immediately preceding a <a>region break</a>,
-	then this property has no effect.
+<h2 class="no-num non-normative" id="sec">Appendix B. Security Considerations</h2>
 
-	Note: See [[#fragmentation]] for a way to generate boxes with such a [=region break=].
+	This specification introduces no new security concerns.
 
-	ISSUE: Should this apply to other types of fragmentation breaks (e.g. pages, columns)?
-
-	The inserted content is called the <dfn>block overflow ellipsis</dfn>.
-	Values have the following meanings:
-
-	<dl dfn-for="block-ellipsis" dfn-type=value>
-		<dt><dfn>none</dfn>
-		<dd>
-			The rendering is unaffected.
-
-		<dt><dfn>auto</dfn>
-		<dd>
-			Render an ellipsis character (U+2026)--
-			or a more typographically-appropriate equivalent--
-			as the <a>block overflow ellipsis</a>
-			at the end of the affected line box.
-			UAs should use the conventions of the
-			<a>content language</a>,
-			writing system, and
-			<a>writing mode</a>
-			to determine the most appropriate ellipsis string.
-
-		<dt><dfn><<string>></dfn>
-		<dd>
-			Render the specified string
-			as the <a>block overflow ellipsis</a>
-			at the end of the affected line box.
-			The UA may truncate this string if it is absurdly long.
-	</dl>
-
-	When 'block-ellipsis' is not ''block-ellipsis/none'',
-	the <a>block overflow ellipsis</a> string
-	is wrapped in an anonymous inline
-	and placed at the end of the line box
-	as a direct child of the <a>block container</a>’s <a>root inline box</a>,
-	reducing the space in the line box
-	available to the other contents of the line.
-	This inline is assigned ''unicode-bidi: plaintext''
-	and ''line-height: 0''
-	and is placed in the line box after the last
-	<a>soft wrap opportunity</a> (see [[!CSS-TEXT-3]])
-	that would still allow the entire <a>block overflow ellipsis</a> to fit on the line.
-	For this purpose, <a>soft wrap opportunities</a> added by 'overflow-wrap' are ignored.
-	If this results in the entire contents of the line box being displaced,
-	the line box is considered to contain a [=strut=], as defined in [[CSS2/visudet#leading]].
-	Text <a href="https://www.w3.org/TR/css-text-3/#justification">alignment and justification</a>
-	occurs after placement,
-	and measures the inserted <a>block overflow ellipsis</a>
-	together with the rest of the line’s content.
-
-	Note: Setting the [=block overflow ellipsis=]'s 'line-height' to ''0''
-	makes sure that inserting it cannot cause the line's height to grow,
-	which could cause further relayouts and potentially cycles.
-	This is almost equivalent to inserting the [=block overflow ellipsis=]
-	as a paint-time operation, except that it still participates in alignment and justification.
-	The downside is that unusually tall / deep glyphs in the [=block overflow ellipsis=]
-	may overflow.
-
-	The [=block overflow ellipsis=] must not be included
-	in either the ''::first-letter'' nor the ''::first-line'' pseudo-elements.
-
-	If there is a subsequent <a>fragmentation container</a> in the [=fragmentation context=]
-	that would receive subsequent content,
-	then the content displaced by the <a>block overflow ellipsis</a>
-	must be pushed to that <a>fragmentation container</a>.
-
-	The UA must treat the <a>block overflow ellipsis</a> as an unbreakable string,
-	If any part of the [=block overflow ellipsis=] overflows,
-	it is treated as [=scrollable overflow=],
-	and its rendering is affected by the 'text-overflow' property.
-
-	The <a>block overflow ellipsis</a> does not capture events:
-	pointer events are dispatched to whatever is underneath it.
-
-	It also has no effect on the intrinsic size of the box:
-	its <a lt="min-content size">min-content</a> and <a lt="max-content size">max-content</a> sizes
-	are calculated exactly as if 'block-ellipsis' were ''block-ellipsis/none''.
-
-	Note: Future specifications may extend this feature,
-	for example by providing an ''::ellipsis'' pseudo-element
-	to style the text,
-	or by allowing the selection of a child element of the block
-	to use as either an inline-level or block-level indicator
-	(in which case, it can capture events).
-
-
-<h2 id=fragmentation>
-Fragmenting Overflow</h2>
-
-<h3 id=line-clamp>
-Limiting Visible Lines: the 'line-clamp' shorthand property</h3>
-
-	<pre class="propdef shorthand">
-		Name: line-clamp
-		Value: none | <<integer>> <<'block-ellipsis'>>?
-		Initial: none
-		Percentages: N/A
-	</pre>
-
-	The 'line-clamp' property is a <a>shorthand</a>
-	for the 'max-lines', 'block-ellipsis', and 'continue' properties.
-
-	Issue: For the time being,
-	experimental implementations are encouraged
-	to follow the full behavior defined by this shorthand and its longhands,
-	but to only expose the shorthand to authors.
-	This is in order to facilitate further tweaking,
-	and in particular potential renaming,
-	of the longhand properties and their values.
-
-	It allows limiting the contents of a block container
-	to the specified number of lines;
-	remaining content is fragmented away
-	and neither rendered nor measured.
-	Optionally, it also allows inserting content into the last line box
-	to indicate the continuity of truncated/interrupted content.
-
-	The values have the following meaning:
-
-	<dl dfn-for=line-clamp dfn-type=value>
-		<dt><dfn>none</dfn>
-		<dd>Sets 'max-lines' to ''max-lines/none'',
-			'continue' to ''continue/auto'',
-			and 'block-ellipsis' to ''block-ellipsis/none''.
-
-		<dt><dfn><<integer>></dfn>
-		<dd>Sets 'max-lines' to the specified <<integer>>,
-			'continue' to ''discard'',
-			and the 'block-ellipsis' property to second component of the value
-			or to ''block-ellipsis/auto'' if omitted.
-
-	</dl>
-
-	See the corresponding longhand properties for details
-	about how this mechanism operates.
-
-	<div class="example">
-		In this example, the lead paragraph of each article
-		is listed in a shortened menu,
-		truncated to fit within 5 lines
-		that end with “… (continued on next page)”:
-
-		<xmp highlight=css>
-			li {
-				line-clamp: 5 "… (continued on next page)";
-			}
-			strong {
-				display: block;
-				text-transform: uppercase;
-			}
-		</xmp>
-
-		<xmp highlight=markup>
-			<li><a href="cheese-is-milk">
-				<strong>Cheese is Actually Made of Milk!</strong>
-				Investigative reporters at the World Wide Web Press Corps
-				have discovered the secret of cheese.
-				Tracing through byzantine layers of bureaucracy and shadow corporations,
-				our crack team of journalists have traced the source of camembert.
-			</a></li>
-		</xmp>
-
-		Sample rendering:
-
-		<pre class="figure">
-			+---------------------------------------+
-			| CHEESE IS ACTUALLY MADE OF MILK!      |
-			| Investigative reporters at the World  |
-			| Wide Web Press Corps have discovered  |
-			| the secret of cheese. Tracing through |
-			| byzantine…  (continued on next page)  |
-			+---------------------------------------+
-		</pre>
-	</div>
-
-<h4 id=webkit-line-clamp>
-Legacy compatibility</h4>
-
-	For compatibility with legacy content,
-	UAs that support 'line-clamp' must also support the '-webkit-line-clamp' property
-	and the additional ''-webkit-discard'' value for the 'continue' property.
-
-	<pre class="propdef shorthand">
-		Name: -webkit-line-clamp
-		Value: none | <<integer>>
-		Initial: none
-		Percentages: N/A
-	</pre>
-
-	<pre class="propdef partial">
-		Name: continue
-		New Values: -webkit-discard
-	</pre>
-
-	Like 'line-clamp', '-webkit-line-clamp' is a shorthand of 'max-lines', 'continue', and 'block-ellipsis',
-	except that:
-
-	* its syntax is ''line-clamp/none'' | <<integer>>
-	* it sets 'continue' to ''-webkit-discard'' instead of ''discard''
-	* it unconditionally sets 'block-ellipsis' to ''block-ellipsis/auto''
-
-	Additionally, for children (including anonymous children)
-	of boxes whose 'display' property computes to ''-webkit-box'' or ''-webkit-inline-box'',
-	the used values of the 'max-lines', 'continue', and 'block-ellipsis' properties
-	are taken from the computed values of the parent box;
-	the computed values of these properties on the box itself are ignored.
-
-	The <dfn value for=continue>-webkit-discard</dfn> value behaves identically to ''discard'',
-	except that it only takes effect
-	if the computed value of the 'display' property on the parent
-	is ''-webkit-box'' or ''-webkit-inline-box''
-	and the computed value of the '-webkit-box-orient' property on the parent
-	is ''-webkit-box-orient/vertical''.
-
-	Note: Implementations of the legacy '-webkit-line-clamp' property
-	have not behaved identically to what is specified here.
-	The historical behavior is quirky and less robust,
-	as documented for example in <a href="https://medium.com/mofed/css-line-clamp-the-good-the-bad-and-the-straight-up-broken-865413f16e5">this blog post</a>.
-	The current design learns from the mistakes of that early experiment,
-	and is intended to be sufficiently compatible with existing content
-	that implementations can eventually be changed to follow to the specified behavior.
-	If further adjustments are found to be necessary,
-	they will be incorporated to this specification.
-	In the meanwhile, authors should be aware that there may be discrepancies.
-
-<h3 id="max-lines">
-Forcing a Break After a Set Number of Lines: the 'max-lines' property</h3>
-
-	<pre class=propdef>
-		Name: max-lines
-		Value: ''none'' | <<integer [1,∞]>>
-		Initial: ''none''
-		Applies to: <a>block containers</a> which are also [=fragmentation containers=] that capture [=region breaks=]
-		Inherited: no
-		Percentages: N/A
-		Computed value: the keyword ''max-lines/none'' or an integer
-		Animation type: by computed value type
-	</pre>
-
-	This property has no effect on boxes that are not [=fragmentation containers=] that capture [=region breaks=].
-
-	Otherwise, if the value of 'max-lines' is not <dfn for=max-lines dfn-type=value>none</dfn>,
-	a <a>region break</a>
-	is forced after its <var>N</var>th
-	descendant <a>in-flow</a> <a>line box</a>,
-	where <var>N</var> is the specified value of 'max-lines'.
-	Only lines boxes in the same <a>Block Formatting Context</a>
-	are counted:
-	the contents of descendants that establish <a>independent formatting contexts</a>
-	are skipped over while counting line boxes.
-
-	If fewer than <var>N</var> line boxes exist,
-	then 'max-lines' introduces no <a>region break</a>.
-
-	<div class=example>
-		As ''continue: discard'' does not cause the element to [=establish an independent formatting context=],
-		lines in a nested element with 'line-clamp' are counted,
-		as can be seen in the examples below.
-		<xmp highlight=markup>
-			<div id=a>
-				a: line 1<br>
-				a: line 2<br>
-				<div id=b>
-					b: line 1<br>
-					b: line 2<br>
-					b: line 3<br>
-					b: line 4<br>
-				</div>
-				a: line 3<br>
-				a: line 4<br>
-			</div>
-		</xmp>
-		Sample rendering given <code highlight=css>#a { line-clamp: 5; } #b { line-clamp: 2; }</code>:
-		<pre>
-			a: line 1
-			a: line 2
-			b: line 1
-			b: line 2…
-			a: line 3…
-		</pre>
-
-		Sample rendering given <code highlight=css>#a { line-clamp: 3; } #b { line-clamp: 2; }</code>:
-		<pre>
-			a: line 1
-			a: line 2
-			b: line 1…
-		</pre>
-		Note that in the second case,
-		the maximum of 2 lines set on element ''#b'' does not take effect,
-		since a forced break is introduced
-		before the second line of this element.
-	</div>
-
-	Note: This implies that 'max-lines' has no effect when applied to [=multi-column containers=],
-	since any line box they contain are nested into [=independent formatting contexts=].
-
-	Only positive integers are accepted.
-	Zero or negative integers are invalid
-	and must cause the declaration to be <a>ignored</a>.
-
-	Note: The 'widows', 'orphans', and 'break-inside' properties
-	do not affect the position of the forced <a>region break</a>
-	introduced by the 'max-lines' property.
-
-	<div class=note>
-		Note: Despite the “region break” name, this is not a dependency on [[CSS-REGIONS-1]].
-		The word “region” is only used as a classifier for forced breaks:
-		they can be “page breaks” (breaks across pages [[css-page-3]]),
-		“column breaks” (breaks across multi-column layout columns [[css-multicol-1]]),
-		or “region breaks” (breaks across any other kind of CSS-induced <a>fragmentation containers</a>).
-
-		If an implementation supports neither [[CSS-REGIONS-1]] nor [[CSS-OVERFLOW-4#fragmentation]],
-		then it will have had no occasion yet to run into that kind of breaks,
-		and this will be an addition.
-		However the addition does not involve bringing over any of the [[CSS-REGIONS-1]] functionality.
-		All that is needed is:
-
-		* be able to fragment
-		* classify these fragmentation containers as “Category 3”
-			(i.e. not pages nor columns)
-			for the purpose of forced breaks.
-	</div>
-
-<h3 id="continue">
-Fragmentation of Overflow: the 'continue' property</h3>
-
-	<pre class=propdef>
-		Name: continue
-		Value: auto | discard
-		Initial: ''continue/auto''
-		Applies to: [=block containers=] and [=multicol containers=]
-		Inherited: no
-		Percentages: N/A
-		Computed value: specified keyword
-		Animation type: discrete
-	</pre>
-
-	The 'continue' property gives authors the ability
-	to turn a box into a [=fragmentation container=] (see [[!CSS-BREAK-3]])
-	and to specify that content after the [=fragmentation break=] must be discarded.
-
-	Issue: This property is meant to generalize and replace the <code>region-fragment</code> property from [[CSS-REGIONS-1]].
-	Once it is sufficiently stable in this specification,
-	<code>region-fragment</code> should be removed from the regions specification in favor of this.
-
-	<dl dfn-for="continue" dfn-type="value">
-		<dt><dfn>auto</dfn>
-		<dd>
-
-			If the box has more content than can fit,
-			the excess content is handled according to the usual rules.
-
-		<dt><dfn>discard</dfn>
-		<dd>
-			The box becomes a [=fragmentation container=]
-			that captures <a>region breaks</a>,
-			if it is not already.
-			[[!CSS-BREAK-3]]
-			Content after the first [=region break=] is not rendered (see below).
-			(If the box is a [=multi-column container=],
-			any [=overflow columns=] are also not rendered.)
-
-
-			Note: This [=region break=] might be <a lt="forced break">forced</a>
-			(e.g. imposed by 'max-lines' or by another mechanism,
-			such as the 'break-before'/'break-after' properties)
-			or [=unforced break|unforced=]
-			(e.g. if the content would otherwise overflow this [=fragmentation container=]
-			due to its size constraints).
-			Breaks applying to other [=fragmentation contexts=]
-			(such as pagination of this box itself)
-			do not cause any content to be discarded.
-	</dl>
-
-	Note: This property does <em>not</em> cause the box to [=establish an independent formatting context=].
-
-	<div class=example>
-		Given an article with one excessively long overflowing line,
-		and four more lines than can fit in the [=fragmentation direction=] as in the illustration bellow,
-		different renderings are possible based on the combination of the 'overflow' and 'continue' property.
-
-		<figure>
-		<img src="images/continue-flow.png" alt="article with one excessively long line and four more that can fit in the block direction">
-		</figure>
-
-
-		<table class=data>
-			<tr>
-				<th>
-				<th>''continue: discard''
-				<th>''continue: auto''
-
-			<tr>
-				<th>''overflow: visible''
-
-				<td style=vertical-align:top><img src="images/continue-discard-visible.png" alt=
-				"rendering with continue:discard and overflow:visible"></td>
-
-				<td><img src="images/continue-auto-visible.png"
-				alt="rendering with continue:auto and overflow:visible"></td>
-			</tr>
-
-			<tr>
-				<th>''overflow: hidden''
-
-				<td><img src="images/continue-discard-hidden.png" alt=
-				"rendering with continue:discard and overflow:hidden"></td>
-
-				<td><img src="images/continue-auto-hidden.png"
-				alt="rendering with continue:auto and overflow:hidden"></td>
-			</tr>
-		</table>
-
-	</figure>
-	</div>
-
-	Content that is “not rendered” due to ''continue: discard''
-	is discarded, similar to ''display: none'':
-		* It is not rendered.
-		* It is also not made available for speech rendering.
-		* It does not allow user interaction.
-		* Issue(2970): Make sure effects on OM are well defined
-		* Issue(2971): What about [=positioned=] elements whose static position is in the discarded content are not rendered?
-			See also discussions in the <a href="https://lists.w3.org/Archives/Public/www-style/2018Jul/0030.html">Sydney F2F meeting</a>.
-
-	However, since intrinsic sizes are calculated across <a>fragmentation containers</a>,
-	this content <em>is</em> taken into account
-	for the purpose of finding the box’s
-	<a lt="min-content inline size">min-content</a> and <a>max-content</a> <a>inline sizes</a>
-	(see [[css-break-3#varying-size-boxes]]).
-	<a lt="min-content inline size">Min-content</a> and <a>max-content</a> <a>block sizes</a>
-	are calculated based on the content
-	from the start of the [=fragmented flow=]
-	to the first [=forced break=] if any,
-	or to the end of the [=fragmented flow=] if there is no forced break.
-
-<!--
-	Calculating intrinsic block sizes to the first forced <em>or unforced</em> break
-	would cause intrinsic sizes to depend on layout, which would cause circularities.
--->
-
-	Note: In the case of <a href="https://www.w3.org/TR/css-break-3/#parallel-flows">parallel fragmentation flows</a>,
-	content occurring after the <a>fragmentation break</a> in the box tree
-	could still be rendered,
-	if it is laid out above the position
-	representing the end of this <a>fragmentation container</a>.
-
-<h2 class="no-num non-normative" id="priv-sec">Appendix A. Privacy and Security Considerations</h2>
-===============================================
-
-	This specification introduces no new privacy or security concerns.
-
-<h2 class="no-num non-normative" id="changes">Appendix B. Changes</h2>
+<h2 class="no-num non-normative" id="changes">Appendix C. Changes</h2>
 
 	This appendix is <em>informative</em>.
 
@@ -1686,7 +1284,7 @@ Changes from the <a href="https://www.w3.org/TR/2021/WD-css-overflow-3-20211202/
 		pending Web-compatibility investigations.
 		(<a href="https://github.com/w3c/csswg-drafts/issues/129#issuecomment-1113489051">Issue 129</a>)
 	* More precisely define the interaction of '-webkit-line-clamp'
-		and the various 'line-clamp' longhands. See [[#webkit-line-clamp]].
+		and the various 'line-clamp' longhands. See [[css-overflow-4#webkit-line-clamp]].
 		(<a href="https://github.com/w3c/csswg-drafts/issues/6842">Issue 6842</a>)
 	* Clarified that [=region breaks=] are what trigger discarding of subsequent content
 		for ''continue: discard'' (and that other types of breaks do not);

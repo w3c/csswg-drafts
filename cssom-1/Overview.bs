@@ -71,6 +71,9 @@ urlPrefix: https://html.spec.whatwg.org/multipage/
     urlPrefix: semantics.html
         type: dfn
             text: a style sheet that is blocking scripts
+            text: contributes a script-blocking style sheet
+            for: Document
+                text: script-blocking style sheet set
 urlPrefix: https://dom.spec.whatwg.org/#concept-
     type: dfn
         text: dispatch; url: event-dispatch
@@ -134,6 +137,7 @@ spec:css-fonts-4; type:descriptor; text:font-feature-settings
 spec:css-fonts-4; type:descriptor; text:font-stretch
 spec:css-fonts-4; type:descriptor; text:font-weight
 spec:css-fonts-4; type:descriptor; text:font-style
+spec:css-values-4; type:dfn; text:keyword
 </pre>
 
 <style>
@@ -1032,7 +1036,7 @@ The <dfn method for=CSSStyleSheet>insertRule(<var>rule</var>, <var>index</var>)<
  <a>throw</a> a {{SecurityError}} exception.
  <li>If the <a>disallow modification flag</a> is set, throw a {{NotAllowedError}} {{DOMException}}.
  <li>Let <var>parsed rule</var> be the return value of invoking <a>parse a rule</a> with <var>rule</var>.
- <li>If <var>parsed rule</var> is a syntax error, return <var>parsed rule</var>.
+ <li>If <var>parsed rule</var> is a syntax error, throw a {{SyntaxError}} {{DOMException}}.
  <li>If <var>parsed rule</var> is an <a>@import</a> rule, and the <a>constructed flag</a> is set, throw
  a {{SyntaxError}} {{DOMException}}.
  <li>Return the result of invoking <a>insert a CSS rule</a> <var>rule</var> in the <a for=CSSStyleSheet>CSS rules</a>
@@ -1056,8 +1060,7 @@ The <dfn method for=CSSStyleSheet>replace(<a for=CSSRule>text</a>)</dfn> method 
  <li>Set the <a>disallow modification flag</a>.
  <li><a>In parallel</a>, do these steps:
  <ol>
-   <li>Let <var>rules</var> be the result of running <a>parse a list of rules</a> from <var>text</var>. If <var>rules</var> is
-   not a list of rules (i.e. an error occurred during parsing), set <var>rules</var> to an empty list.
+   <li>Let <var>rules</var> be the result of running <a>parse a stylesheet's contents</a> from <var>text</var>.
    <li>If <var>rules</var> contains one or more <a>@import</a> rules, <a lt="remove a CSS rule">remove those rules</a> from <var>rules</var>.
    <li>Set <var>sheet</var>'s <a>CSS rules</a> to <var>rules</var>.
    <li>Unset <var>sheet</var>'s <a>disallow modification flag</a>.
@@ -1073,8 +1076,7 @@ To <dfn export>synchronously replace the rules of a CSSStyleSheet</dfn> on <var>
 <ol>
  <li>If the <a>constructed flag</a> is not set, or the <a>disallow modification flag</a> is set, throw a {{NotAllowedError}}
  {{DOMException}}.
- <li>Let <var>rules</var> be the result of running <a>parse a list of rules</a> from <var>text</var>. If <var>rules</var> is
- not a list of rules (i.e. an error occurred during parsing), set <var>rules</var> to an empty list.
+ <li>Let <var>rules</var> be the result of running <a>parse a stylesheet's contents</a> from <var>text</var>.
  <li>If <var>rules</var> contains one or more <a>@import</a> rules, <a lt="remove a CSS rule">remove those rules</a> from <var>rules</var>.
  <li>Set <var>sheet</var>'s <a>CSS rules</a> to <var>rules</var>.
 </ol>
@@ -1155,9 +1157,14 @@ steps:
 
 <ol>
  <li>Add the <a>CSS style sheet</a> to the list of
- <a>document or shadow root CSS style sheets</a> at the appropriate location. The
- remainder of these steps deal with the
- <a>disabled flag</a>.
+ <a>document or shadow root CSS style sheets</a> at the appropriate location.
+
+ <li>
+  <p>If the <a>CSS style sheet</a>'s <a for=CSSStyleSheet>owner node</a> <a>contributes a
+ script-blocking style sheet</a>, then user agents must <a for=list>append</a> the <a
+ for=CSSStyleSheet>owner node</a> to its <a>node document</a>'s <a for=Document>script-blocking
+ style sheet set</a>.</p>
+ <p class="note">The remainder of these steps deal with the <a>disabled flag</a>.</p>
 
  <li>If the <a>disabled flag</a> is set, then return.
 
@@ -1543,15 +1550,6 @@ must be run:
  </ol>
 </div>
 
-A style sheet referenced by an <a>xml-stylesheet processing instruction</a> using the rules in this section, in the context of
-the {{Document}} of an <a>XML parser</a> is said to be
-<a>a style sheet that is blocking scripts</a> if the <code>ProcessingInstruction</code>
-<a>node</a> was created by that {{Document}}'s parser, and the style sheet was
-enabled when the node was created by the parser, the last time the
-<a>event loop</a> reached step 1, the node was in that Document,
-and the user agent hasn't given up on loading that particular style sheet
-yet. A user agent may give up on such a style sheet at any time.
-
 ### Requirements on user agents Implementing the HTTP Link Header ### {#requirements-on-user-agents-implementing-the-http-link-header}
 
 <!-- XXX ref, one day -->
@@ -1681,7 +1679,7 @@ To <dfn export>parse a CSS rule</dfn> from a string <var>string</var>, run the f
  <li>Let <var>rule</var> be the return value of invoking <a>parse a rule</a> with <var>string</var>.
  <li>If <var>rule</var> is a syntax error, return <var>rule</var>.
  <li>Let <var>parsed rule</var> be the result of parsing <var>rule</var> according to the appropriate CSS specifications, dropping parts that are said to be
- ignored. If the whole style rule is dropped, return a syntax error.
+ ignored. If the whole <var>rule</var> is dropped, return a syntax error.
  <li>Return <var>parsed rule</var>.
 </ol>
 
@@ -1979,8 +1977,6 @@ It must return an integer, as follows:
  <dd>Return 12.
  <dt>If the object is a {{CSSFontFeatureValuesRule}}
  <dd>Return 14.
- <dt>If the object is a {{CSSViewportRule}}
- <dd>Return 15.
  <dt>Otherwise
  <dd>Return 0.
 </dl>
@@ -2002,7 +1998,7 @@ The <code>CSSStyleRule</code> interface represents a style rule.
 
 <pre class=idl>
 [Exposed=Window]
-interface CSSStyleRule : CSSRule {
+interface CSSStyleRule : CSSGroupingRule {
   attribute CSSOMString selectorText;
   [SameObject, PutForwards=cssText] readonly attribute CSSStyleDeclaration style;
 };
@@ -2044,7 +2040,9 @@ The <code>CSSImportRule</code> interface represents an <code>@import</code> at-r
 interface CSSImportRule : CSSRule {
   readonly attribute USVString href;
   [SameObject, PutForwards=mediaText] readonly attribute MediaList media;
-  [SameObject] readonly attribute CSSStyleSheet styleSheet;
+  [SameObject] readonly attribute CSSStyleSheet? styleSheet;
+  readonly attribute CSSOMString? layerName;
+  readonly attribute CSSOMString? supportsText;
 };
 </pre>
 
@@ -2057,9 +2055,16 @@ attribute of the associated <a>CSS style sheet</a>.
 The <dfn attribute for=CSSImportRule>media</dfn> attribute must return the value of the {{StyleSheet/media}}
 attribute of the associated <a>CSS style sheet</a>.
 
-The <dfn attribute for=CSSImportRule>styleSheet</dfn> attribute must return the associated <a>CSS style sheet</a>.
+The <dfn attribute for=CSSImportRule>styleSheet</dfn> attribute must return the associated <a>CSS style sheet</a>, if any, or null otherwise.
 
-Note: An <code>@import</code> at-rule always has an associated <a>CSS style sheet</a>.
+The <dfn attribute for=CSSImportRule>layerName</dfn> attribute must return the [=layer name=] declared in the at-rule itself,
+or an empty string if the layer is anonymous,
+or null if the at-rule does not declare a layer.
+
+The <dfn attribute for=CSSImportRule>supportsText</dfn> attribute must return the <<supports-condition>> declared in the at-rule itself,
+or null if the at-rule does not declare a supports condition.
+
+Note: An <code>@import</code> at-rule might not have an associated <a>CSS style sheet</a> (e.g., if it has a non-matching <code>supports()</code> condition).
 
 
 ### The {{CSSGroupingRule}} Interface ### {#the-cssgroupingrule-interface}
@@ -2230,7 +2235,7 @@ the DOM a <a>CSS declaration block</a> is a
 To <dfn export>parse a CSS declaration block</dfn> from a string <var>string</var>, follow these steps:
 
 <ol>
- <li>Let <var>declarations</var> be the return value of invoking <a>parse a list of declarations</a> with <var>string</var>.
+ <li>Let <var>declarations</var> be the returned declarations from invoking <a>parse a block's contents</a> with <var>string</var>.
  <li>Let <var>parsed declarations</var> be a new empty list.
  <li>For each item <var>declaration</var> in <var>declarations</var>, follow these substeps:
   <ol>
@@ -2789,7 +2794,7 @@ To
 depends on the component, as follows:
 
 <dl class="switch">
- <dt>keyword
+ <dt>[=keyword=]
  <dd>The keyword
  <a lt="ASCII lowercase">converted to ASCII lowercase</a>.
 
@@ -2807,30 +2812,14 @@ depends on the component, as follows:
 
 
  If <<color>> is a component of a specified value, then
- return the color as follows:
- <ol>
- <li>If the color was explicitly specified by the author, then return the original, author specified color value.
- <li>Otherwise, return the value that would be returned if the color were a component of a computed value.
- </ol>
+for sRGB values, see
+[[css-color-4#resolving-sRGB-values]].
+For other color functions, see 
+[[css-color-4#resolving-color-values]].
 
- Issue: Should author specified values be normalized for case, the same as computed values? Or should original case be preserved?
-
- <dt><<alphavalue>>
+ <dt><<alpha-value>>
  <dd>
-  If the value is internally represented as an integer between 0 and 255 inclusive (i.e. 8-bit unsigned integer),
-  follow these steps:
-
-  <ol>
-   <li>Let <var>alpha</var> be the given integer.
-   <li>If there exists an integer between 0 and 100 inclusive that,
-   when multiplied with 2.55 and rounded to the closest integer (rounding up if two values are equally close), equals <var>alpha</var>,
-   let <var>rounded</var> be that integer divided by 100.
-   <li>Otherwise, let <var>rounded</var> be <var>alpha</var> divided by 0.255 and rounded to the closest integer (rounding up if two values are equally close),
-   divided by 1000.
-   <li>Return the result of serializing <var>rounded</var> as a &lt;number>.
-  </ol>
-
-  Otherwise, return the result of serializing the given value as a &lt;number>.
+ See [[css-color-4#serializing-alpha-values]].
 
  <dt><<counter>>
  <dd>

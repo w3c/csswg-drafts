@@ -26,7 +26,8 @@ if (!$inFile) {
 
 Draft:    http://www.w3.org/TR/2013/WD-css-text-decor-3-20130103/
 Title:    CSS Text Decoration Level 3
-... any notes you want here, except 4 dashes ...
+
+... any HTML intro content you want here, except 4 consecutive dashes ...
 
 ----
 Issue 1.
@@ -50,7 +51,7 @@ Welcome to fantasai's Issues List Generator!
 This is a script that converts a plaintext (.txt or .bsi) issues list
 into a color-coded HTML file of the same name (but .html file extension).
 The input is itself a presentable, easily-editable file designed
-mostly for the editor’s convenenience.
+mostly for the editor’s convenience.
 
 The original purpose of this format is to create a Disposition of
 Comments for the W3C's LCWD->CR transition process. However, it is
@@ -220,15 +221,16 @@ sub header {
   chomp;
 
   # Extract title and URL
-  my ($title, $url, $shortname);
+  my ($title, $url, $shortname, $intro);
   for (split /\n+/) {
-    $title = $1 if (/^Title:\s+(.+)$/);
-    $url   = $1 if (/^Draft:\s+(\S+)/);
-    $shortname = $1 if (/^Shortname:\s+(\S+)/);
+    if    (/^Title:\s+(.+)$/)     { $title     = $1; }
+    elsif (/^Draft:\s+(\S+)/)     { $url       = $1; }
+    elsif (/^Shortname:\s+(\S+)/) { $shortname = $1; }
+    else                          { $intro    .= $_ . "\n"; }
   }
   die "Error: missing document URL or title.\n" unless ($url && $title);
 
-  # Process URL to get status, date, shorname
+  # Process URL to get status, date, shortname
   my $status = 'Draft';
   my $date = $1 if ($inFile =~ /([\d-]+)/);
   if ($url =~ /([A-Z]{2})-([a-z0-9-]+)-(\d{8})/) {
@@ -244,7 +246,9 @@ sub header {
 <meta charset="utf-8">
 <title>$title Disposition of Comments for $date $status</title>
 <style type="text/css">
-  pre { border: solid thin silver; padding: 0.2em; white-space: normal; }
+  pre, .legend { border: solid thin silver; padding: 0.2em; white-space: normal; }
+  .legend summary { font-weight: bold; }
+  summary { cursor: pointer; }
   pre > span { display: block; white-space: pre; }
   .a  { background: #52E052    }
   .d  { background: #8CCBF2    }
@@ -259,30 +263,41 @@ sub header {
   .open   { border: solid red; }
   :target { box-shadow: 0.25em 0.25em 0.25em;  }
   a[href^=mid], a[href~=flatten] { text-decoration: none; }
-  abbr { font-weight: bold; }
+  abbr, dt { font-weight: bold; }
+  dl.compact { display: grid; grid-template-columns: auto 1fr; }
+  dt { grid-column: 1 }
+  dd { grid-column: 2 }
+  ins { color: green; }
+  del { color: #A00; }
 </style>
 
 <h1>$title Disposition of Comments for $date $status</h1>
 
-<p>Dated Draft: <a href="$url">$url</a>
+<dl class="compact">
+  <dt>Dated Draft: <dd><a href="$url">$url</a>
+  <dt>Editor's Draft: <dd><a href="http://drafts.csswg.org/$shortname/">http://drafts.csswg.org/$shortname/</a>
+</dl>
 
-<p>Editor's Draft: <a href="http://drafts.csswg.org/$shortname/">http://drafts.csswg.org/$shortname/</a>
+$intro
 
-<p>The following color coding convention is used for comments:</p>
+<details class="legend">
+  <summary>Disposition Status Legend and Filters</summary>
+  <p>The following color coding convention is used for comments:</p>
 
-<ul>
- <li class="a">Accepted or Rejected and positive response
- <li class="r">Rejected and no response
- <li class="fo">Rejected and negative response
- <li class="d">Deferred
- <li class="oi">Out-of-Scope or Invalid and not verified
-</ul>
+  <ul>
+   <li class="a">Accepted or Rejected and positive response
+   <li class="r">Rejected and no response
+   <li class="fo">Rejected and negative response
+   <li class="d">Deferred
+   <li class="oi">Out-of-Scope or Invalid and not verified
+  </ul>
 
-<p class=open>Open issues are marked like this</p>
+  <p class=open>Open issues are marked like this</p>
 
-<p>An issue can be closed as <code>Accepted</code>, <code>OutOfScope</code>,
-<code>Invalid</code>, <code>Rejected</code>, or <code>Retracted</code>.
-<code>Verified</code> indicates commentor's acceptance of the response.</p>
+  <p>An issue can be closed as <code>Accepted</code>, <code>OutOfScope</code>,
+  <code>Invalid</code>, <code>Rejected</code>, or <code>Retracted</code>.
+  <code>Verified</code> indicates commentor's acceptance of the response.</p>
+</details>
 XXX
 }
 
