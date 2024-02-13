@@ -19,11 +19,15 @@ Markup Shorthands: css yes, markdown yes
 <pre class=link-defaults>
 spec:css-view-transitions-1;
 	text: active view transition; type: dfn;
+	text: capture the old state; type: dfn;
 	text: clear view transition; type: dfn;
 	text: activate view transition; type: dfn;
 	text: skip the view transition; type: dfn;
 	text: ViewTransition; type: interface;
 	text: named elements; for: ViewTransition; type: dfn;
+	text: finished promise; for: ViewTransition; type: dfn;
+	text: ready promise; for: ViewTransition; type: dfn;
+	text: update callback; for: ViewTransition; type: dfn;
 	text: update callback done promise; for: ViewTransition; type: dfn;
 	text: initial snapshot containing block size; for: ViewTransition; type: dfn;
 	text: captured elements; type: dfn;
@@ -33,6 +37,7 @@ spec:css-view-transitions-1;
 	text: perform pending transition operations; type: dfn;
 	text: setup view transition; type: dfn;
 	text: named view transition pseudo-element; type: dfn;
+	text: rendering suppression for view transitions; type: dfn;
 spec:dom; type:dfn; text:document
 spec:css22; type:dfn; text:element
 spec:selectors-4; type:dfn;
@@ -446,13 +451,24 @@ Note: as per default behavior, the ''@view-transition'' rule can be nested insid
 	<div algorithm="start-vt-with-options">
 		The [=method steps=] for <dfn method for=Document>startViewTransition(|callbackOptions|)</dfn> are as follows:
 
-		1. If |callbackOptions| is not provided, then run the [=method steps=] for {{Document/startViewTransition()}} and return the result.
+		1. Let |updateCallback| be null.
 
-		1. If |callbackOptions| is an {{UpdateCallback}}, then run the [=method steps=] for {{Document/startViewTransition(updateCallback)}} given |callbackOptions| and return the result.
+		1. If |callbackOptions| is an an {{UpdateCallback}}, set |updateCallback| to |callbackOptions|.
 
-		1. Let |viewTransition| be the result of running [=method steps=] for {{Document/startViewTransition(updateCallback)}} given |callbackOptions|'s {{StartViewTransitionOptions/update}}.
+		1. Otherwise, if |callbackOptions| is a {{StartViewTransitionOptions}}, then set |updateCallback| to |callbackOptions|'s {{StartViewTransitionOptions/update}}.
 
-		1. Set |viewTransition|'s [=ViewTransition/active types=] to |callbackOptions|'s {{StartViewTransitionOptions/type}}.
+		1. If |this|'s [=active view transition=] is not null and its [=outbound post-capture steps=] is not null,
+			then:
+
+			1. Let |preSkippedTransition| be a new {{ViewTransition}} in |this|'s [=relevant realm=] whose [=ViewTransition/update callback=] is |updateCallback|.
+
+			1. [=Skip the view transition|Skip=] |preSkippedTransition| with an "{{InvalidStateError}}" {{DOMException}}.
+
+			1. Return |preSkippedTransition|.
+
+		1. Let |viewTransition| be the result of running the [=method steps=] for {{Document/startViewTransition(updateCallback)}} given |updateCallback|.
+
+		1. If |callbackOptions| is a {{StartViewTransitionOptions}}, then set |viewTransition|'s [=ViewTransition/active types=] to |callbackOptions|'s {{StartViewTransitionOptions/type}}.
 
 		1. Return |viewTransition|.
 	</div>
@@ -484,14 +500,34 @@ The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 # Algorithms # {#algorithms}
 ## Data Structures ## {#concepts}
 
+### Additions to {{Document}} ### {#additions-to-document}
+	A {{Document}} additionaly has:
+
+	<dl dfn-for=document>
+		: <dfn>inbound view transition params</dfn>
+		:: a [=view transition params=], or null.
+			Initially null.
+	</dl>
+
+### The View transition params struct ### {#view-transition-params-struct}
+
+	A <dfn>view transition params</dfn> is a [=struct=] whose purpose is to serialize view transition information across documents.
+	It has the following [=struct/items=]:
+
+	<dl dfn-for="view transition params">
+		: <dfn>named elements</dfn>
+		:: a [=/map=], whose keys are strings and whose values are [=captured elements=].
+
+		: <dfn>initial snapshot containing block size</dfn>
+		:: a [=tuple=] of two numbers (width and height).
+	</dl>
+
 ### Additions to {{ViewTransition}} ### {#view-transitions-extension}
 
 	A {{ViewTransition}} additionally has:
 	<dl dfn-for=ViewTransition>
-		: <dfn>is inbound cross-document transition</dfn>
-		:: a boolean, initially false.
-
-		Issue: should a cross-document transition take precedent? See [#9512](https://github.com/w3c/csswg-drafts/issues/9512)
+		: <dfn>outbound post-capture steps</dfn>
+		:: Null or a set of steps, initially null.
 
 		: <dfn>active types</dfn>
 		:: Null or a [=list=] of strings, initially null.
@@ -506,7 +542,7 @@ The [=captured element=] struct should contain these fields, in addition to the 
 		:: a [=/list=] of strings, initially empty.
 	</dl>
 
-## Algorithms to capture 'view-transition-class': ## {#vt-class-algorithms}
+## Algorithm to capture 'view-transition-class': ## {#vt-class-algorithms}
 <div algorithm="additional capture steps">
 When capturing the old or new state for an element, perform the following steps given a [=captured element=] |capture| and an [=element=] |element|:
 
@@ -514,6 +550,44 @@ When capturing the old or new state for an element, perform the following steps 
 
 	Note: This is written in a monkey-patch manner, and will be merged into the algorithm once the L1 spec graduates.
 </div>
+
+## Additions to skip steps: ## {#additional-skip-steps}
+<div algorithm="additional skip steps">
+Append the following steps to [=skip the view transition=] given a {{ViewTransition}} |transition|:
+	1. If |transition|'s [=outbound post-capture steps=] is not null, then run |transition|'s [=outbound post-capture steps=] with null.
+
+	Note: This is written in a monkey-patch manner, and will be merged into the algorithm once the L1 spec graduates.
+</div>
+
+## Addition to pending transition operations ## {#additions-to-pending-transition-operation}
+
+Prepend this to the [=Perform pending transition operations=] algorithm given a {{Document}} |document|:
+	1. If |document|'s [=active view transition=] is not null and its [=outbound post-capture steps=] is not null, then:
+
+		1. Assert: |document|'s [=active view transition=]'s  [=ViewTransition/phase=] is "`pending-capture`".
+
+		1. Let |viewTransitionParams| be null;
+
+		1. Set |document|'s [=document/rendering suppression for view transitions=] to true.
+
+			Issue: though [=capture the old state=] appears here as a synchronous step, it is in fact an asynchronous step
+			as rendering an element into an image cannot be done synchronously. This should be more explicit in the L1 spec.
+
+		1. [=Capture the old state=] for |transition|.
+
+		1. Set |document|'s [=document/rendering suppression for view transitions=] to false.
+
+		1. If this succeeded, then set |viewTransitionParams| to a new [=view transition params=] whose
+			[=view transition params/named elements=] is a [=map/clone=] of |transition|'s [=ViewTransition/named elements=],
+			and whose [=view transition params/initial snapshot containing block size=] is |transition|'s [=ViewTransition/initial snapshot containing block size=].
+
+		1. [=Clear view transition=] |transition|.
+
+			Note: The ViewTransition object on the old Document should be destroyed after its state has been copied to the new Document below.
+				We explicitly clear it here since the old Document may be cached by the UA.
+
+		1. Call |transition|'s [=outbound post-capture steps=] given |viewTransitionParams|.
+
 
 ## Monkey patches to HTML ## {#monkey-patch-to-html}
 
@@ -558,7 +632,7 @@ When capturing the old or new state for an element, perform the following steps 
 
 	<div algorithm>
 		To check if a <dfn export>navigation can trigger a cross-document view-transition?</dfn> given
-		an [=origin=] |oldOrigin|, an [=origin=] |newOrigin|, a boolean |navigationHasCrossOriginRedirects|, a {{NavigationType}} |navigationType|, and a boolean |isBrowserUINavigation|:
+		an [=/origin=] |oldOrigin|, an [=/origin=] |newOrigin|, a boolean |navigationHasCrossOriginRedirects|, a {{NavigationType}} |navigationType|, and a boolean |isBrowserUINavigation|:
 
 			Note: this is called during navigation, potentially [=in parallel=], for documents that have opted-in to view-transitions using the ''@view-transition'' rule.
 
@@ -577,7 +651,9 @@ When capturing the old or new state for an element, perform the following steps 
 	</div>
 	<div algorithm>
 		To <dfn export>setup cross-document view-transition</dfn> given a {{Document}} |oldDocument|,
-		a {{Document}} |newDocument|, and |onReady|, which is an algorithm accepting nothing:
+		a {{Document}} |newDocument|, and |proceedWithNavigation|, which is an algorithm accepting nothing:
+
+		1. [=Assert=]: These steps are running as part of a [=task=] queued on |oldDocument|.
 
 		1. Let |resolvedRule| be the result of [=Resolve @view-transition rule|resolving the @view-transition rule=] for |oldDocument|.
 
@@ -593,54 +669,19 @@ When capturing the old or new state for an element, perform the following steps 
 			Note: this means that any running transition would be skipped when the document is ready
 			to unload.
 
-		1. Set |oldDocument|'s [=auto-skip view transitions=] to true.
-
-			Note: this means that calling {{Document/startViewTransition()}} while capturing the old document for a cross-document view-transition would run the callback but skip the animation.
-
 		1. Let |outboundTransition| be a new {{ViewTransition}} object in |oldDocument|'s [=relevant Realm=],
-			whose [=ViewTransition/active types=] is |resolvedRule|, and whose [=ViewTransition/process old state captured=] is set to the following steps:
+			whose [=ViewTransition/active types=] is |resolvedRule|.
 
-			Issue: should we check for the opt-in again, in case there was a CSSOM change in a requestAnimationFrame callback?
+		1. Set |outboundTransition|'s [=outbound post-capture steps=] to the following steps given a [=view transition params=]-or-null |params|:
+			1. Set |newDocument|'s [=inbound view transition params=] to |params|.
 
-			1. If |outboundTransition|'s [=ViewTransition/phase=] is "`done`", then call |onReady| and return.
+				Note: The inbound transition is activated after the dispatch of {{Window/pagereveal}} to ensure mutations made in this event apply to the captured new state.
 
-			1. Assert: |outboundTransition|'s  [=ViewTransition/phase=] is "`pending-capture`".
-
-			1. [=Clear view transition=] |outboundTransition|.
-
-				Note: The ViewTransition object on the old Document should be destroyed after its state has been copied to the new Document below.
-					We explicitly clear it here since the old Document may be cached by the UA.
-
-			1. Set |oldDocument|'s [=auto-skip view transitions=] to false.
-
-			1. [=Queue a global task=] on the [=DOM manipulation task source=] given |newDocument|'s [=relevant global object=],
-				to perform the following steps:
-
-				1. Let |inboundTransition| be a new {{ViewTransition}} in |newDocument|'s [=relevant Realm=],
-					whose [=ViewTransition/named elements=] is |outboundTransition|'s [=ViewTransition/named elements=],
-					[=ViewTransition/initial snapshot containing block size=] is |outboundTransition|'s [=ViewTransition/initial snapshot containing block size=],
-					and whose [=ViewTransition/is inbound cross-document transition=] is true.
-
-				1. Set |newDocument|'s [=active view transition=] to |inboundTransition|.
-
-				1. [=Resolve=] |inboundTransition|’s [=ViewTransition/update callback done promise=] with undefined.
-
-				1. Set |inboundTransition|’s [=ViewTransition/phase=] to "`update-callback-called`".
-
-				1. Call |onReady|.
-					
-					Note: The |inboundTransition| is activated after the dispatch of {{Window/pagereveal}} to ensure mutations made in this event apply to the captured new state.
-
-				1. At any given time, the UA may decide to skip |inboundTransition|, e.g. after an [=implementation-defined=] timeout.
-					To do so, the UA should [=queue a global task=] on the [=DOM manipulation task source=] given |newDocument|'s [=relevant global object=] to perform the following step:
-						If |transition|'s [=ViewTransition/phase=] is not "`done`", then [=skip the view transition=] |transition| with a "{{TimeoutError}}" {{DOMException}}.
-
-			Note: |outboundTransition| is not exposed to JavaScript, it is used only for capturing
-			the state of the old document.
+			1. Call |proceedWithNavigation|.
 
 		1. Set |oldDocument|'s [=active view transition=] to |outboundTransition|.
 
-			Note: The process continues in [=setup view transition=], via [=perform pending transition operations=].
+			Note: The process continues in [=perform pending transition operations=].
 
 		1. The user agent should display the currently displayed frame until either:
 			* The {{Window/pagereveal}} event is fired.
@@ -656,19 +697,37 @@ When capturing the old or new state for an element, perform the following steps 
 	<div algorithm>
 		To <dfn export>resolve cross-document view-transition</dfn> for {{Document}} |document|:
 
-		1. Let |transition| be |document|'s [=active view transition=].
+		1. [=Assert=]: |document| is [=fully active=].
 
-		1. If |transition| is null or |transition|'s [=ViewTransition/is inbound cross-document transition=] is false,
-			then return null.
+		1. Let |inboundViewTransitionParams| be |document|'s [=inbound view transition params=].
 
-			Note: |transition|'s [=ViewTransition/is inbound cross-document transition=] would be false if a same-document
-			transition was started before the {{Window/pagereveal}} event was fired.
+		1. If |inboundViewTransitionParams| is null, then return null.
+
+		1. Set |document|'s [=inbound view transition params=] to null.
+
+		1. If |document|'s [=active view transition=] is not null, then return null.
+
+			Note: this means that starting a same-document transition before revealing the document would cancel a pending cross-document transition.
 
 		1. [=Resolve @view-transition rule=] for |document| and let |resolvedRule| be the result.
 
-		1. If |resolvedRule| is "<code>skip transition</code>", then [=skip the view transition|skip=] |transition| and return null.
+		1. If |resolvedRule| is "<code>skip transition</code>", then return null.
+
+		1. Let |transition| be a new {{ViewTransition}} in |document|'s [=relevant Realm=],
+			whose [=ViewTransition/named elements=] is |inboundViewTransitionParams|'s [=view transition params/named elements=],
+			and [=ViewTransition/initial snapshot containing block size=] is |inboundViewTransitionParams|'s [=view transition params/initial snapshot containing block size=].
+
+		1. Set |document|'s [=active view transition=] to |transition|.
+
+		1. [=Resolve=] |transition|’s [=ViewTransition/update callback done promise=] with undefined.
+
+		1. Set |transition|’s [=ViewTransition/phase=] to "`update-callback-called`".
 
 		1. Set |transition|'s [=ViewTransition/active types=] to |resolvedRule|.
+
+		1. At any given time, the UA may decide to skip the inbound transition, e.g. after an [=implementation-defined=] timeout.
+			To do so, the UA should [=queue a global task=] on the [=DOM manipulation task source=] given |document|'s [=relevant global object=] to perform the following step:
+				If |transition|'s [=ViewTransition/phase=] is not "`done`", then [=skip the view transition=] |transition| with a "{{TimeoutError}}" {{DOMException}}.
 
 		1. Return |transition|.
 	</div>
