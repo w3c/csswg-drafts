@@ -49,10 +49,11 @@ In general, you should not directly commit changes to a draft unless you are an
 Editor of that draft, or have their explicit permission. If you are not an 
 Editor of a draft, but wish to contribute changes, the best practice is to either 
 work directly with an Editor to review proposed text, or file your proposal as a 
-pull request (PR). Substantive changes need WG consensus, not merely Editor 
-agreement; typographic error and markup fixes are generally okay to commit, but 
-any substantive changes should have clear WG consensus. Substantial changes or
-additions to non-normative text should still have clear Editor approval.
+pull request (PR) originating from your own fork. Substantive changes
+need WG consensus, not merely Editor agreement; typographic error and markup fixes
+are generally okay to commit, but any substantive changes should have
+clear WG consensus. Substantial changes or additions to non-normative text
+should still have clear Editor approval.
 
 In any case, WG consensus is expected prior to merging changes, and consensus is 
 determined by the Chairs (not self-assessed) via synchronous decisions during 
