@@ -2,7 +2,7 @@
  * @param {number} hue - Hue as degrees 0..360
  * @param {number} sat - Saturation in reference range [0,100]
  * @param {number} light - Lightness in reference range [0,100]
- * @return {number[]} Array of RGB components 0..1
+ * @return {number[]} Array of sRGB components; in-gamut colors in range [0..1]
  */
 function hslToRgb(hue, sat, light) {
     hue = hue % 360;
