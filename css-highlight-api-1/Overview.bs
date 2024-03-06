@@ -1,0 +1,690 @@
+<!--
+	This document is formatted using Bikeshed.
+	Roughly speaking, it is a Markdown preprocessor,
+	with additional functionality for cross-spec autolinking,
+	automatic generation of indexes/ToC/etc,
+	and many other features.
+	See https://tabatkins.github.io/bikeshed/ for detailed documentation.
+
+	When making edits, please respect the following coding style:
+	- Tabs for indentation, spaces for alignment.
+	- Semantic line breaks: at phrases boundaries, each line < ~80ch
+	    -> see https://rhodesmill.org/brandon/2012/one-sentence-per-line/
+	- Indent the entire spec one level except for headings.
+	- Line break after opening heading tag, so heading text
+	  is easy to pick out when scanning the source.
+	- Empty lines between blocks.
+	- Indent contents of block-level HTML elements
+	  (except <p>, which we usually imply via Markdown formatting
+	  and otherwise leave inlined at the start of the paragraph).
+	  Definitely leave a break and indent
+	  after any block start tag with attributes, though.
+	- No optional end tags.
+	- Use manual IDs so that IDs remain stable as you adjust the heading text;
+	  add old IDs (via empty elements with IDs, or e.g. Bikeshed's oldids attribute)
+	  when removing or changing IDs so that links to your spec don't break.
+-->
+<pre class=metadata>
+Title: CSS Custom Highlight API Module Level 1
+Level: 1
+Shortname: css-highlight-api
+Status: ED
+Work Status: exploring
+Group: csswg
+ED: https://drafts.csswg.org/css-highlight-api-1/
+TR: https://www.w3.org/TR/css-highlight-api-1/
+Previous Version: https://www.w3.org/TR/2020/WD-css-highlight-api-1-20201022/
+Previous Version: https://www.w3.org/TR/2020/WD-css-highlight-api-1-20201208/
+Editor: Florian Rivoal, On behalf of Bloomberg, https://florian.rivoal.net/, w3cid 43241
+Editor: Sanket Joshi, Microsoft Corporation https://www.microsoft.com, https://github.com/sanketj, w3cid 115721
+Editor: Megan Gardner, Apple Inc. https://apple.com/, w3cid 110930
+Abstract:
+	This CSS module describes a mechanism
+	for styling arbitrary ranges of a document identified by script.
+Complain About: accidental-2119 yes
+</pre>
+
+<pre class=link-defaults>
+spec:css-color-4; type:property; text:color
+spec:css-pseudo-4; type:dfn; text:highlight overlay
+spec:dom; type:dfn; text:range
+spec:css-values-4; type:dfn; text:identifier
+</pre>
+
+<style>
+.sample-out {
+	background: white;
+	padding: 0.5ch;
+	border: solid 1px;
+	font-size: 2em;
+}
+</style>
+
+<div class=non-normative>
+<h2 id='intro'>
+Introduction</h2>
+
+	<em>This section is non-normative</em>.
+
+	The Custom Highlight API extends the concept of [=highlight pseudo-elements=] (see [[css-pseudo-4#highlight-pseudos]])
+	by providing a way for web developers to style the text
+	of arbitrary Range objects,
+	rather than being limited to the user agent defined
+	''::selection'',
+	''::inactive-selection'',
+	''::spelling-error'',
+	and '''::grammar-error'''.
+	This is useful in a variety of scenarios,
+	including editing frameworks that wish to implement their own selection,
+	find-on-page over virtualized documents,
+	multiple selection to represent online collaboration,
+	or spellchecking frameworks.
+
+	The Custom Highlight API provides a programmatic way of adding and removing highlights
+	that do not affect the underlying DOM structure,
+	but instead applies styles to text based on [=range=] objects,
+	accessed via the ''::highlight()'' pseudo element.
+
+	<div id=intro-ex class=example>
+		The following code uses the ''::highlight()'' pseudo-element
+		to apply a yellow background and blue foreground color to the text <q>One two</q>.
+		It does so by adding a {{Highlight}} to the {{HighlightRegistry}}
+		(both of these are new concepts introduced by this specification).
+		The {{Highlight}} will contain a {{Range}} whose boundary points surround the text <q>One two</q>.
+
+		<xmp highlight=html>
+			<style>
+				:root::highlight(example-highlight) {
+					background-color: yellow;
+					color: blue;
+				}
+			</style>
+			<body><span>One </span><span>two </span><span>three…</span>
+			<script>
+				let r = new Range();
+				r.setStart(document.body, 0);
+				r.setEnd(document.body, 2);
+
+				CSS.highlights.set("example-highlight", new Highlight(r));
+			</script>
+		</xmp>
+
+		The result would look like:
+		<div class=sample-out>
+			<span style="background-color:yellow;color:blue;">One Two </span>three…
+		</div>
+	</div>
+</div>
+
+<h2 id="interaction">
+Module Interactions</h2>
+
+	This module depends on the Infra Standard [[!INFRA]]
+	and on WebIDL [[!WebIDL]].
+
+	It assumes general familiarity with CSS
+	and with the DOM Standard [[DOM]],
+	and specifically extends the mechanisms defined in CSS Pseudo-Elements Module Level 4 [[!css-pseudo-4]]
+	to handle [=highlight pseudo-elements=].
+	The Selectors Level 4 [[!selectors-4]] specification defines how [=pseudo-elements=] work in general.
+
+	See [[#references]] for a full list of dependencies.
+
+	Note: This draft is an early version.
+	As it matures, the CSS-WG could decide to keep it as an independent module,
+	or might prefer to fold it into [[css-pseudo-4]],
+	or a later version of that module.
+
+<h2 id=highlights-set-up>
+Setting up Custom Highlights</h2>
+
+<h3 id=creation>
+Creating Custom Highlights</h3>
+
+	A <dfn>custom highlight</dfn> is a collection of [=ranges=]
+	representing portions of a document.
+	They do not necessarily fit into the element tree,
+	and can arbitrarily cross element boundaries without honoring its nesting structure.
+	They can be used to affect the appearance of these portions of the document
+	(see [[#styling-highlights]]),
+	or to handle to events associated with them
+	(see [[#events]]).
+
+	[=Custom highlights=] are represented by
+	<dfn interface>Highlight</dfn> objects,
+	[=setlike=] objects whose [=set entries=] are {{AbstractRange}} objects.
+	[=Ranges=] can be added to a [=custom highlight=]
+	either by passing them to its constructor,
+	or by using the usual API of [=setlike=] objects
+	to manipulate its [=set entries=].
+
+	Note: As the [=ranges=] in a [=custom highlight=] are {{AbstractRange}} objects,
+	authors can chose between using {{Range}} objects and {{StaticRange}} objects.
+	See [[#range-invalidation]] for more details about this choice and its implications.
+
+	Note: When creating {{Range}} objects for use in [=custom highlights=], it is
+	suggested that authors avoid placing [=range=] endpoints in the middle of a [=grapheme=],
+	such as when a visible unit of text is comprised of multiple [=Unicode code points=].
+	Doing so can create undesirable highlighting effects, such as highlighting only part of
+	an Indic syllable. In addition, care needs to be taken to avoid placing an endpoint
+	in the middle of a [=supplementary character=].
+
+	<xmp class="idl">
+	enum HighlightType {
+		"highlight",
+		"spelling-error",
+		"grammar-error"
+	};
+
+	[Exposed=Window]
+	interface Highlight {
+		constructor(AbstractRange... initialRanges);
+		setlike<AbstractRange>;
+		attribute long priority;
+		attribute HighlightType type;
+	};
+	</xmp>
+
+	See [[#priorities]] for more information on the {{Highlight/priority}} attribute.
+
+	See [[#highlight-types]] for more information on the {{Highlight/type}} attribute.
+
+	<div algorithm="to create a custom highlight">
+		When the <dfn for=Highlight constructor>Highlight(AbstractRange... initialRanges)</dfn> constructor is invoked,
+		run the following steps:
+
+		<ol>
+			<li>
+				Let |highlight| be the new {{Highlight}} object.
+			<li>
+				Set |highlight|'s {{Highlight/priority}} to <code>0</code>.
+			<li>
+				Set |highlight|'s {{Highlight/type}} to {{HighlightType/highlight}}.
+			<li>
+				For each |range| of {{initialRanges}},
+				let |rangeArg| be the result of [=converted to an ECMAScript value|converting=] |range| to an ECMAScript value,
+				then run [[webidl#es-set-add|the steps for a built-in setlike add function]],
+				with |highlight| as the <code>this</code> value,
+				and |rangeArg| as the argument.
+			<li>
+				Return |highlight|.
+		</ol>
+	</div>
+
+<h3 id=registration>
+Registering Custom Highlights</h3>
+
+	In order to have any effect,
+	[=custom highlights=] need to be
+	[=registered=] into the [=highlight registry=].
+
+	The <dfn>highlight registry</dfn> is accessed via the {{CSS/highlights}} attribute of the {{CSS}} namespace,
+	and represents all the [=custom highlights=] [=registered=] for the [=current global object=]’s [=associated Document=].
+	It is a [=maplike=], and can be updated using the usual methods.
+	It's [=map entries=] is initially empty.
+
+	A [=custom highlight=] is said to be <dfn>registered</dfn>
+	if it is in the [=highlight registry=].
+	It stops being [=registered=] if it is later removed.
+
+	<xmp class="idl">
+	partial namespace CSS {
+		readonly attribute HighlightRegistry highlights;
+	};
+
+	[Exposed=Window]
+	interface HighlightRegistry {
+		maplike<DOMString, Highlight>;
+	};
+	</xmp>
+
+	<div algorithm="to register a custom highlight">
+		To [=register=] a [=custom highlight=],
+		invoke the <code>set</code> method of the [=highlight registry=]
+		which will run [[webidl#es-map-set|the steps for a built-in maplike set function]],
+		with the [=highlight registry=] as the <code>this</code> value,
+		the passed-in [=custom highlight name=] as <var ignore>keyArg</var>,
+		and the passed-in highlight as <var ignore>valueArg</var>.
+
+		The <dfn>custom highlight name</dfn> assigned to a [=custom highlight=] when it is [=registered=]
+		is used to identify the highlight during styling (see [[#styling-highlights]]).
+
+	Note: When registering a [=custom highlight=],
+	authors are advised to use a [=custom highlight name=] that is a valid CSS [=identifier=].
+	Using a name that is not a valid identifier can make the highlight hard,
+	and in some cases impossible, to style via CSS.
+
+	Note: It is possible to [=register=] a [=custom highlight=] with more than one [=custom highlight name=].
+	However, using more than one name to style a highlight
+	will assign the highlight multiple different sets of styles,
+	without a way to control the stacking order of conflicting styles
+	within these sets during [[#painting|painting]].
+	This could be limiting for authors and could cause confusing painting behavior
+	(see the <a href="#styling-problems-with-multiple-names-per-highlight">example</a> below for more context).
+	Therefore, <b>authors are advised to only use one name per highlight during styling</b>.
+
+	<div class=example id=styling-problems-with-multiple-names-per-highlight>
+		<xmp highlight=html>
+			<style>
+				div::highlight(bar) {
+					color: red;
+				}
+				div::highlight(foo) {
+					color: green;
+				}
+			</style>
+			<body><div>abc</div>
+			<script>
+				let div = document.body.firstChild;
+				let r = new Range();
+				r.setStart(div, 0);
+				r.setEnd(div, 1);
+				let h = new Highlight(r);
+				CSS.highlights.set('foo', h);
+				CSS.highlights.set('bar', h);
+			</script>
+		</xmp>
+
+		In the example above,
+		the same [=custom highlight=] object is [=registered=] under the names <code>foo</code> and <code>bar</code>.
+		Since each of the [=style rules=] target the same highlight and have the same [=specificity=],
+		authors might expect the last rule to win in cascading order
+		and the highlighted content to be green.
+		However, each highlight name gets an independent set of highlight styles,
+		and the highlight will be painted once per name.
+		In this case, because <code>foo</code> was registered before <code>bar</code>,
+		the highlight will be first painted with <code>foo</code>'s color (green)
+		and then with <code>bar</code>'s color (red).
+		As a result, the highlighted content will appear red.
+	</div>
+
+<h2 id=styling-highlights>
+Styling Custom Highlights</h2>
+
+<h3 id=custom-highlight-pseudo>
+The Custom Highlight Pseudo-element: ''::highlight()''</h3>
+
+	The <dfn>::highlight(<<custom-highlight-name>>)</dfn> pseudo-element
+	(also known as the <dfn>custom highlight pseudo-element</dfn>)
+	represents the portion of a document that
+	is being [=contained=] or [=partially contained=]
+	in all the [=ranges=] of the [=registered=] [=custom highlight=]
+	with the [=custom highlight name=] <<custom-highlight-name>>,
+	if any.
+	<dfn type><<custom-highlight-name>></dfn> must be a valid CSS <<ident-token>>.
+
+
+<h3 id=processing-model>
+Processing Model</h3>
+
+<h4 id=applicable-properties>
+Applicable Properties</h4>
+
+	[=Custom highlight pseudo-elements=],
+	like the built-in [=highlight pseudo-elements=],
+	can only be styled with a limited set of properties.
+	See [[css-pseudo-4#highlight-styling]] for the full list.
+
+<h4 id=default-styles>
+Default Styles</h4>
+
+	UAs must not define any default UA stylesheet rules
+	or <a spec=css-pseudo>paired default highlight colors</a>
+	for any [=custom highlight pseudo-elements=].
+	In other words,
+	when some content is highlighted by an unstyled custom highlight,
+	its presentation must not change.
+
+<h4 id=c-and-h>
+Cascading and Inheritance</h4>
+
+	The [=cascading=] and [=inheritance=] of [=custom highlight pseudo-elements=] is handled
+	identically to that of the built-in [=highlight pseudo-elements=],
+	as defined in [[css-pseudo-4#highlight-cascade]].
+
+<h4 id=painting>
+Painting</h4>
+
+	The painting of [=custom highlights=] is also handled
+	identically to that of the built-in [=highlight pseudo-elements=],
+	as specified in
+	[[css-pseudo-4#highlight-bounds]] and [[css-pseudo-4#highlight-painting]],
+	with the following clarifications:
+
+	<ul>
+		<li>
+			[=Collapsed=] [=ranges=] are not rendered.
+
+		<li>
+			Overlapping [=ranges=] within a single [=custom highlight=] are rendered
+			as if a single range representing the union of the overlapping ones
+			had been specified.
+
+			<div class=example id=overlap-ranges-ex>
+				The following example renders in a single highlight with semi-transparent blue background,
+				not two overlapping ones which can be seen through each other.
+				<xmp highlight=html>
+					<style>
+						::highlight(sample) { background-color: rgba(0, 0, 255, 0.3); }
+					</style>
+					<body>Lorem Ipsum.
+					<script>
+						let textNode = document.body.firstChild;
+
+						let r1 = new Range();
+						r1.setStart(textNode, 1);
+						r1.setEnd(textNode, 5);
+
+						let r2 = new Range();
+						r2.setStart(textNode, 3);
+						r2.setEnd(textNode, 7);
+
+						CSS.highlights.set("sample", new Highlight(r1, r2));
+					</script>
+				</xmp>
+
+				In other words, this rendering would be correct:
+				<div class=sample-out>
+					L<span style="background-color: rgba(0, 0, 255, 0.3)">orem I</span>psum.
+				</div>
+
+				However, this one would be incorrect:
+				<div class=sample-out>
+					L<span style="background-color: rgba(0, 0, 255, 0.3)">or<span style="background-color: rgba(0, 0, 255, 0.3)">em</span> I</span>psum.
+				</div>
+			</div>
+
+		<li>
+			The [=highlight overlays=] of the [=custom highlights=]
+			are below those of the built-in [=highlight pseudo-elements=]
+			in the stacking order described in [[css-pseudo-4#highlight-painting]].
+
+		<li>
+			The relative stacking order of the [=highlight overlays=]
+			of multiple [=custom highlights=]
+			is defined by their [=priority=]
+			(see [[#priorities]]).
+	</ul>
+
+<h4 id=priorities>
+Priority of Overlapping Highlights</h4>
+
+	A [=custom highlight=]'s {{Highlight/priority}} attribute
+	defines its <dfn>priority</dfn>.
+	This is used to determine the stacking order of the corresponding [=highlight overlay=]
+	during painting operations (see [[#painting]]).
+	A higher [=priority=] results in being above in the stacking order.
+	A custom highlight will have a default numerical priority of 0
+	if its {{Highlight/priority}} attribute has not been explicitly set.
+
+	When two or more [=custom highlights=] have the same numerical priority,
+	the one most recently [=registered=] has the higher effective [=priority=].
+
+	<div class=example id=overlap-highlight-ex>
+		<xmp highlight=html>
+			<style>
+				:root::highlight(foo) {
+					color:blue;
+					background-color:yellow;
+				}
+				:root::highlight(bar) {
+					background-color:orange;
+				}
+			</style>
+			<body>Some text
+			<script>
+				let textNode = document.body.firstChild;
+
+				let r1 = new Range();
+				r1.setStart(textNode, 0);
+				r1.setEnd(textNode, 6);
+
+				let r2 = new Range();
+				r2.setStart(textNode, 3);
+				r2.setEnd(textNode, 9);
+
+				let h1 = new Highlight(r1);
+				let h2 = new Highlight(r2);
+
+				CSS.highlights.set("foo", h1);
+				CSS.highlights.set("bar", h2);
+			</script>
+		</xmp>
+
+		As there are no priorities set
+		(i.e. there is a tie between <code>h1</code> and <code>h2</code>),
+		the custom highlights' styles are stacked
+		in order of insertion into the [=highlight registry=].
+		The rendered results will have "Som" with blue text on yellow background,
+		"e t" with blue text on orange background,
+		and "ext" with the default color on orange background.
+
+		<div class=sample-out>
+			<span style="background:yellow;color:blue;">Som</span><span style="background:orange;color:blue;">e t</span><span style="background:orange;">ext</span>
+		</div>
+
+		Setting <code highlight=javascript>h1.priority = 1;</code>
+		would cause <code>h1</code> to stack higher than <code>h2</code>,
+		which would result in "Some t" being blue on yellow,
+		and "ext" being default color on orange.
+
+		<div class=sample-out>
+			<span style="background:yellow;color:blue;">Some t</span><span style="background:orange;">ext</span>
+		</div>
+	</div>
+
+<h4 id=highlight-types>
+Highlight types</h4>
+
+	A [=custom highlight=]'s {{Highlight/type}} attribute is used by authors
+	to specify the semantic meaning of the highlight.
+	This allows assistive technologies to include this meaning
+	when exposing the highlight to users.
+
+	A custom highlight will have a default type of {{HighlightType/highlight}}
+	if its {{Highlight/type}} attribute has not been explicitly set.
+
+	Note: Authors are advised to set a [=custom highlight=]'s {{Highlight/type}} to {{HighlightType/spelling-error}}
+	when that [=custom highlight=] is being used to emphasize misspelled content.
+	Authors are advised to set a [=custom highlight=]'s {{Highlight/type}} to {{HighlightType/grammar-error}}
+	when that [=custom highlight=] is being used to emphasize content that is grammatically incorrect.
+	For all other use cases {{Highlight/type}} is best left as {{HighlightType/highlight}}.
+
+	UAs should make [=custom highlight=]s available to assistive technologies.
+	When exposing a highlight using a given platform accessibility API,
+	UAs should expose the semantic meaning of the highlight
+	as specified by its {{Highlight/type}} attribute
+	with as much specificity as possible for that accessibility API.
+
+	Note: For example,
+	if a platform accessibility API has the capability to express spelling errors and grammar errors specifically,
+	then UAs is expected to use these capabilities to convey the semantics for highlights
+	with {{HighlightType/spelling-error}} and {{HighlightType/spelling-error}}.
+	If an accessibility API only has the capability to express spelling errors,
+	then UAs would be expected to convey both highlights with {{HighlightType/spelling-error}}
+	and with {{HighlightType/grammar-error}} using spelling error semantics.
+	If an accessibility API has support for expressing neither spelling errors nor grammar errors,
+	then UAs would expose all highlights as generic {{HighlightType/highlight}} regardless of their actual {{Highlight/type}}.
+
+	Note: This initial set of types was chosen
+	because they are expected to be popular use cases for Highlight API
+	and there is some existing support for expressing their semantics in platform accessibility APIs today.
+	Accessibility APIs currently don't have any way to express the specific semantics
+	of other expected Highlight API use cases.
+	More types could later be added to {{HighlightType}}
+	as accessibility APIs gain support for expressing additional popular use cases of Highlight API.
+
+<h2 id=responding-to-changes>
+Responding to Changes</h2>
+
+<h3 id=repaint>
+Repaints</h3>
+
+	The addition or removal
+	of a [=custom highlight=] in the [=highlight registry=],
+	or of a [=range=] in a [=registered=] [=custom highlight=],
+	must cause the user agent to reevaluate the rendering,
+	and to repaint if appropriate.
+
+	The user agent must also repaint highlights as needed
+	in response to changes by the author
+	to the {{Highlight/priority}},
+	or to the [=boundary points=] of {{Range}}s
+	of a [=registered=] [=custom highlight=].
+
+	This repaint is asynchronous, and the APIs mentioned above must not block while waiting for the
+	repaint to happen.
+
+<h3 id=range-invalidation>
+Range Updating and Invalidation</h3>
+
+	Authors can build [=custom highlights=] using either {{Range}}s or {{StaticRange}}s.
+
+	The resulting [=custom highlight=] represents the same parts of the document,
+	and can be styled identically.
+	However, the behavior is different
+	in case the underlying document is modified.
+
+	{{Range}}s are [=live ranges=].
+	The user agent will adjust the [=boundary points=] of {{Range}}s
+	in response to DOM changes overlapping the range or at its boundary,
+	and [[#repaint|repaint]] accordingly.
+	[=Boundary points=] of [=live ranges=] can also be changed
+	by the author.
+
+	On the other hand,
+	the user agent must not adjust the [=boundary points=] of {{StaticRange}}s
+	in response to DOM changes,
+	nor can they be modified by the author after creation.
+	The user agent is expected to store the actual {{StaticRange}}s, rather than backing
+	them up with live {{Range}}s.
+
+	<div class=advisement>
+		Updating all {{Range}} objects as the DOM is modified
+		has a significant performance cost.
+		Authors who intend to observe DOM changes and react to them
+		by adjusting or recreating the ranges in their [=custom highlights=]
+		are strongly encouraged to user {{StaticRange}}s
+		in order to avoid this costly but unnecessary step.
+
+		Conversely, authors who use {{StaticRange}}s
+		should observe and react to DOM changes,
+		by discarding stale [=ranges=] or [=custom highlights=]
+		and recreating new ones.
+	</div>
+
+	When computing how to render a document,
+	if [=start node=] or [=end node=] of any [=range=]
+	in the [=highlight registry=] associated with that document's window
+	refer to a {{Node}} whose [=shadow-including root=] is not that document,
+	the user agent must ignore that [=range=].
+	If any {{StaticRange}} in the [=highlight registry=] associated with that document's window
+	is not <a spec=dom for="StaticRange">valid</a>,
+	the user agent must ignore that [=range=].
+
+<h2 id=events>
+Event Handling</h2>
+
+	Issue: Section on Events TBD, based on https://github.com/MicrosoftEdge/MSEdgeExplainers/blob/master/highlight/events-explainer.md
+
+	Issue: should custom highlights have a dedicated event handling mechanism,
+	or should that be added to pseudo-elements in general?
+
+<div class=non-normative>
+<h2 class="no-num" id=priv>
+Appendix A. Privacy Considerations</h2>
+
+	<em>This section is non-normative</em>.
+
+	This specification is not thought to introduce any new privacy concern.
+	Anyone suspecting that this is not accurate is encouraged
+	to get in touch with the CSS Working Group or the co-editors.
+
+<h2 class="no-num" id=sec>
+Appendix B. Security Considerations</h2>
+
+	<em>This section is non-normative</em>.
+
+	This specification is not thought to introduce any new security concern.
+	Anyone suspecting that this is not accurate is encouraged
+	to get in touch with the CSS Working Group or the co-editors.
+
+</div>
+
+<div class=non-normative>
+<h2 class="no-num" id="credits">
+Appendix C. Acknowledgements</h2>
+
+	<em>This section is non-normative</em>.
+
+	Issue: Acknowledge people (other than editors) who deserve credit for this.
+</div>
+
+<div class=non-normative>
+<h2 class="no-num" id="changes">
+Appendix D. Changes</h2>
+
+	<em>This section is non-normative</em>.
+
+<h3 class=no-num" id="changes-since-20211215">
+Changes since the <a href="https://www.w3.org/TR/2020/WD-css-highlight-api-1-20211215/">15 December 2021 Working Draft</a></h3>
+
+	In addition to various editorial improvements and minor tweaks,
+	the main changes are:
+
+	* Specified that highlight repainting has to be done asynchronously.
+		(See <a href="https://github.com/w3c/csswg-drafts/pull/6987">Issue 6987</a>)
+	* Clarify that UAs cannot specify paired default highlight colors for custom highlights.
+		(See <a href="https://github.com/w3c/csswg-drafts/pull/6665">Issue 6665</a>)
+	* Clarify that there is no restriction on custom highlights crossing containment boundaries.
+		(See <a href="https://github.com/w3c/csswg-drafts/issues/4598">Issue 4598</a>)
+	* Added an I18N warning about placement of [=range=] endpoints in the middle of a
+		[=grapheme=] or [=supplementary character=].
+
+<h3 class=no-num" id="changes-since-20201208">
+Changes since the <a href="https://www.w3.org/TR/2020/WD-css-highlight-api-1-20201208/">8 December 2020 Working Draft</a></h3>
+
+	In addition to various editorial improvements and minor tweaks,
+	the main changes are:
+
+	* Renamed <code>HighlightsRegister</code> to {{HighlightRegistry}}
+	* Removed the redundant <code>add()</code> method from {{HighlightRegistry}}.
+		(See <a href="https://github.com/w3c/csswg-drafts/pull/6092">Issue 6092</a>)
+	* Make custom highlight overlays stack below native highlight overlays.
+		(See <a href="https://github.com/w3c/csswg-drafts/pull/4595">Issue 4595</a>)
+	* Handle highlight priority with integers rather than floats.
+		(See <a href="https://github.com/w3c/csswg-drafts/pull/4592">Issue 4592</a>)
+	* Define the default value for highlight priority to be 0.
+		(See <a href="https://github.com/w3c/csswg-drafts/pull/6136">Issue 6136</a>)
+	* Made HighlightRegistry maplike (rather than setlike)
+		and remove <code>name</code> property from Highlight.
+		(See <a href="https://github.com/w3c/csswg-drafts/pull/5910">Issue 5910</a>)
+	* Clarified that ranges from the wrong window are not painted.
+		(See <a href="https://github.com/w3c/csswg-drafts/pull/6417">Issue 6417</a>)
+	* Specify that custom highlights have no UA styles.
+		(See <a href="https://github.com/w3c/csswg-drafts/pull/6375">Issue 6375</a>)
+	* Deferred to the [[DOM]] specification for range invalidation
+		(See <a href="https://github.com/w3c/csswg-drafts/pull/4597">Issue 4597</a>)
+	* Added a {{Highlight/type}} attribute to {{Highlight}}
+		to give clearer semantics to different highlights,
+		in support of exposing highlights to accessibility tools.
+		(See <a href="https://github.com/w3c/csswg-drafts/pull/6498">Issue 6498</a>)
+
+<h3 class=no-num" id="changes-since-20201022">
+Changes since the <a href="https://www.w3.org/TR/2020/WD-css-highlight-api-1-20201022/">22 October 2020 Working Draft</a></h3>
+
+	There have been only editorial changes since the <a href="https://www.w3.org/TR/2020/WD-css-highlight-api-1-20201022/">22 October 2020 Working Draft</a>;
+	see <a href="https://services.w3.org/htmldiff?doc1=https%3A%2F%2Fwww.w3.org%2FTR%2F2020%2FWD-css-highlight-api-1-20201022%2F&doc2=https%3A%2F%2Fwww.w3.org%2FTR%2Fcss-highlight-api-1%2F">diffs</a>.
+</div>
+
+	<!-- This text from the explainer seems useful, and should go somewhere. But where?
+	----
+	If there are DOM/CSS changes that result in a different cascaded highlight map for a given element,
+	and there exists one or more Range objects in the highlight registry for the cascaded identifiers,
+	the layout representation of that element should be notified that the painting of the element might have changed.
+
+	Ranges that are positioned inside of documents that are not in the view are ignored.
+
+	The HighlightRegistry is per-document — therefore, Ranges that are positioned inside of a different document than the HighlightRegistry it is a part of are ignored for rendering.
+	-->
+

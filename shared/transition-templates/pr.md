@@ -9,7 +9,7 @@ FULL TITLE
 
 https://drafts.csswg.org/DIRECTORY/
 
-First Tuesday or Thursday after a sucessful transition decision.
+First Tuesday or Thursday after a successful transition decision.
 
 ## The document Abstract and Status sections
 
@@ -27,7 +27,7 @@ First Tuesday or Thursday after a sucessful transition decision.
 ## Changes
 
 [Changes since the DATE Candidate Recommendation](https://drafts.csswg.org/DIRECTORY/#changes)
-<!-- no substantive chnges -->
+<!-- no substantive changes -->
 
 ## Requirements satisfied
 

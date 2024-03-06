@@ -5,7 +5,9 @@ Level: 1
 Group: csswg
 Status: ED
 Work Status: Revising
-ED: https://drafts.csswg.org/css-scroll-anchoring
+ED: https://drafts.csswg.org/css-scroll-anchoring/
+TR: https://www.w3.org/TR/css-scroll-anchoring-1/
+Previous Version: https://www.w3.org/TR/2020/WD-css-scroll-anchoring-1-20200211/
 Editor: Steve Kobes, Google
 Editor: Tab Atkins-Bittner, Google, http://xanthir.com/contact/, w3cid 42199
 Abstract: Changes in DOM elements above the visible region of a <a>scrolling box</a> can result in the page moving
@@ -19,7 +21,9 @@ Abstract: This spec also proposes an API for web developers to opt-out of this b
 
 <pre class=link-defaults>
 spec:css-box; type:dfn; text:content area
-spec:css22;
+spec:css2;
+	type:dfn; text:line box
+spec:css-sizing-3;
 	type:property;
 		text:max-height
 		text:min-height
@@ -27,7 +31,21 @@ spec:css22;
 		text:max-width
 		text:min-width
 		text:width
-	type:dfn; text:line box
+</pre>
+<pre class="anchors">
+spec: html; urlPrefix: https://html.spec.whatwg.org/multipage/;
+    urlPrefix: interaction.html
+        type: dfn;
+            text:DOM anchor
+            text:focused area of the document
+            text:active match; url: fip-active-match
+    urlPrefix: form-control-infrastructure.html
+        type: dfn;
+            text:mutable; url: concept-fe-mutable
+spec: html; urlPrefix: https://w3c.github.io/editing/docs/execCommand/;
+    urlPrefix: index.html
+        type: dfn;
+            text:editable
 </pre>
 
 <h2 id=intro>
@@ -52,25 +70,67 @@ to compensate for the changes outside the viewport.
 The <a href="https://github.com/WICG/ScrollAnchoring/blob/master/explainer.md">explainer document</a>
 gives an informal overview of scroll anchoring.
 
+<h3 id="values">
+Value Definitions</h3>
+
+This specification follows the <a href="https://www.w3.org/TR/CSS2/about.html#property-defs">CSS property definition conventions</a> from [[!CSS2]]
+using the <a href="https://www.w3.org/TR/css-values-3/#value-defs">value definition syntax</a> from [[!CSS-VALUES-3]].
+Value types not defined in this specification are defined in CSS Values &amp; Units [[!CSS-VALUES-3]].
+Combination with other CSS modules may expand the definitions of these value types.
+
+In addition to the property-specific values listed in their definitions,
+all properties defined in this specification
+also accept the <a>CSS-wide keywords</a> as their property value.
+For readability they have not been repeated explicitly.
+
 <h2 id='description'>
 Description</h2>
 
-Scroll anchoring works by selecting a DOM node (the <dfn export for=scroll-anchoring>anchor node</dfn>)
+Scroll anchoring attempts to keep the user's view of the document stable across layout changes.
+It works by selecting a DOM node (the <dfn export for=scroll-anchoring>anchor node</dfn>)
 whose movement is used to determine adjustments to the scroll position.
+
+However, if the scroll container is currently [=scroll snap|snapped=] to an element,
+(see [[!CSS-SCROLL-SNAP-1]])
+scroll anchoring is limited to adjustments that would be allowed by [=re-snapping=].
+
 
 <h3 id='anchor-node-selection'>
 Anchor Node Selection</h3>
 
 Each <a>scrolling box</a> aims to select an <a>anchor node</a>
 that is deep in the DOM
-and close to the block start edge of its <a>optimal viewing region</a>.
+and either should be prioritized as an important DOM node or is close to the
+block start edge of its <a>optimal viewing region</a>.
 
 Note: If the user agent does not support the 'scroll-padding' property,
 the optimal viewing region of the scrolling box is equivalent to its <a>content area</a>.
 
-The anchor node is either a non-anonymous <a>block box</a> or a <a>text node</a>.
+An anchor node can be any <a>box</a> except one for a non-<a>atomic inline</a>.
 The anchor node is always a <a>descendant</a> of the <a>scrolling box</a>.
 In some cases, a scrolling box may not select any anchor node.
+
+An element |C| is a <dfn id="anchor-viable-candidate">viable candidate</dfn>
+for becoming a scroll anchor for a scrolling box |S| if it meets all of the
+following criteria:
+  * |C| is an element that is not a non-<a>atomic inline</a>.
+  * |C| is <a>partially visible</a> or <a>fully visible</a> in |S|
+  * |C| is a descendant of |S|
+  * |C| is not in an <a>excluded subtree</a>
+  * None of the ancestors of |C| up to |S| are in an <a>excluded subtree</a>
+
+Some elements are considered to be <dfn
+id="anchor-priority-candidates">priority candidates</dfn> for anchor selection:
+  1. The [=DOM anchor=] of the [=focused area of the document=], if such an anchor
+      is text editable ([=editable=], [=editing host=], [=mutable=] <{textarea}>, or
+      [=mutable=] <{input}> with a type that allows text entry).
+  2. An element containing the current [=active match=] of the
+      find-in-page user-agent algorithm. If the match spans multiple elements, then
+      consider only the first such element.
+
+Note that if the <a>priority candidate</a> is a non-<a>atomic inline</a>
+element, then instead consider its nearest ancestor element that is not a
+non-atomic inline element as the priority candidate.
 
 <div algorithm>
 	The <dfn id="anchoring-algorithm">anchor node selection algorithm</dfn>
@@ -79,9 +139,13 @@ In some cases, a scrolling box may not select any anchor node.
 	1. If |S| is associated with an element
 		whose computed value of the 'overflow-anchor' property is ''overflow-anchor/none'',
 		then do not select an anchor node for |S|.
-	2. Otherwise, for each DOM child |N| of the element or document associated with |S|,
+	2. Otherwise, for each <a>priority candidate</a> |PC| in order specified,
+		check if |PC| is a <a>viable candidate</a> in |S|. If so, select it as an
+		anchor node and terminate.
+	3. Otherwise, for each DOM child |N| of the element or document associated with |S|,
 		perform the <a>candidate examination algorithm</a> for |N| in |S|,
 		and terminate if it selects an anchor node.
+
 </div>
 
 <div algorithm>
@@ -144,8 +208,7 @@ the implementation may wait until the anchor node is needed before computing it.
 
 <div algorithm>
 	The <dfn>scroll anchoring bounding rect</dfn> of a DOM node |N|
-	is |N|’s <a>scrollable overflow rectangle</a> if |N| is a <a>block box</a>,
-	or the bounding rect of its <a>line boxes</a> if |N| is a text node.
+	is |N|’s <a>scrollable overflow rectangle</a>.
 </div>
 
 <h3 id="scroll-adjustment">
@@ -216,6 +279,8 @@ These triggers are:
 	Note that this trigger applies regardless of whether the modified element is
 	on the path from the anchor node to the scrollable element.
 
+* The scroll offset of the scrollable element being zero.
+
 Note: Suppression triggers exist for compatibility with existing web content that has negative
 interactions with scroll anchoring due to shifting content in scroll event handlers.
 
@@ -269,3 +334,12 @@ Privacy and Security Considerations</h2>
 This specification,
 as it only adjusts how we compute scroll positions,
 introduces no new privacy or security considerations.
+
+<h2 id='changes' class="no-num">
+Changes</h2>
+
+<h3 id='changes-20200211'>
+Changes Since the Feb 11 2020 Working Draft</h3>
+
+	* Added definitions of [=viable candidate=] and [=priority candidate=].
+	* Clarified interaction between scroll anchoring and [=scroll snapping=].

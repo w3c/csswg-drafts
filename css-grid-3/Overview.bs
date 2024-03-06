@@ -1,0 +1,745 @@
+<pre class='metadata'>
+Title: CSS Grid Layout Module Level 3
+Shortname: css-grid
+Level: 3
+Status: ED
+Work Status: Exploring
+Group: csswg
+ED: https://drafts.csswg.org/css-grid-3/
+Editor: Tab Atkins Jr., Google, http://www.xanthir.com/contact/, w3cid 42199
+Editor: Elika J. Etemad / fantasai, Apple, http://fantasai.inkedblade.net/contact, w3cid 35400
+Editor: Mats Palmgren, Mozilla, mailto:mats@mozilla.com
+Editor: Jen Simmons, Apple, http://jensimmons.com/
+Editor: Brandon Stewart, Apple, https://brandonstewart.net
+Abstract: This module introduces masonry layout as an additional layout mode for <a href="https://www.w3.org/TR/css-grid-2/">CSS Grid</a> containers.
+WPT Path Prefix: css/css-grid/masonry/tentative/
+Markup Shorthands: css yes
+</pre>
+
+
+<h2 id='intro'>
+Introduction</h2>
+
+	<em>This section is not normative.</em>
+
+	Grid Layout is a layout model for CSS
+	that has powerful abilities to control the sizing and positioning
+	of boxes and their contents.
+	Grid Layout is optimized for 2-dimensional layouts:
+	those in which alignment of content is desired in both dimensions.
+
+	<figure>
+		<img src="images/grid-layout.png"
+		     alt="An example of grid layout:
+		     two rows of items,
+		     the first being four items &mdash; the last of which spans both rows,
+		     and the second being two items &mdash;
+		     the first of which spans the first two columns &mdash;
+		     plus the spanned item from the first row.">
+		<figcaption>Representative Grid layout example</figcaption>
+	</figure>
+
+	Although many layouts can be expressed with regular Grid Layout,
+	restricting items into a grid in both axes also makes it impossible
+	to express some common layouts on the Web.
+
+	This module defines a layout system that removes that restriction
+	so that items can be placed into Grid-like tracks in just one of the axes,
+	while stacking them one after another in the other axis.
+	Items are placed into the column (or row) with the most remaining space
+	based on the layout size of the items placed so far.
+	This module also extends <a href="https://www.w3.org/TR/css-grid-2/">CSS Grid</a>
+	with this new grid item placement strategy
+	and <a href="https://drafts.csswg.org/css-align">CSS Box Alignment</a> with new alignment features.
+
+<h3 id='background'>
+Background and Motivation</h3>
+
+	<dfn>Masonry layout</dfn> is a common Web design pattern where a number of items--
+	commonly images or short article summaries--
+	are placed one by one into columns
+	in a way that loosely resembles stone masonry.
+	Unlike [[CSS-MULTICOL-1|multi-column layout]],
+	where content is placed vertically in the first column
+	until it must spills over to the second column,
+	[=masonry layout=] selects a column for each new item
+	such that it is generally closer to the top of the layout than items placed later.
+
+	<div class="example">
+		The Pinterest search results page exemplifies this layout:
+
+		<figure>
+			<img src="images/pinterest.png"
+			     alt="An example of masonry layout:
+			          four columns of items,
+			          each item is placed into the column with the smallest height so far.">
+			<figcaption>Representative masonry layout example</figcaption>
+		</figure>
+
+		Here, each item has a different height
+		(depending on the content and the width of the column),
+		and inspecting the DOM reveals
+		(as the visual content itself gives no indication of ordering)
+		that each item has been placed into the column with the smallest height so far.
+	</div>
+
+	This layout superficially looks similar to multi-column layout;
+	but it has the advantage that scrolling down
+	will naturally lead to "later" items in the layout
+	(that is, those less relevant in the search results).
+
+	It's not possible to achieve this layout using earlier CSS layout models,
+	unless you know up-front how tall each item will be,
+	or use JavaScript for content measurement or placement.
+
+<h3 id="values">
+Value Definitions</h3>
+
+	This specification follows the <a href="https://www.w3.org/TR/CSS2/about.html#property-defs">CSS property definition conventions</a> from [[!CSS2]]
+	using the <a href="https://www.w3.org/TR/css-values-3/#value-defs">value definition syntax</a> from [[!CSS-VALUES-3]].
+	Value types not defined in this specification are defined in CSS Values &amp; Units [[!CSS-VALUES-3]].
+	Combination with other CSS modules may expand the definitions of these value types.
+
+	In addition to the property-specific values listed in their definitions,
+	all properties defined in this specification
+	also accept the <a>CSS-wide keywords</a> as their property value.
+	For readability they have not been repeated explicitly.
+
+<h2 id='grid-template-masonry'>
+Masonry Layout</h2>
+
+	<pre class='propdef partial'>
+		Name: grid-template-columns, grid-template-rows
+		New values: masonry
+		Initial: none
+		Applies to: [=grid containers=]
+		Inherited: no
+		Percentages: refer to corresponding dimension of the content area
+		Computed value: the keyword ''grid-template-columns/none'' or the keyword ''grid-template-columns/masonry'' or a [[computed track list]]
+		Animation type: see [[css-grid-2#track-sizing|CSS Grid Level 2]]
+	</pre>
+
+	[=Masonry layout=] can be applied to [=grid containers=]
+	by specifying the value ''grid-template-columns/masonry'' for one of its axes.
+	This axis is called the <dfn local-lt="masonry-axis">masonry axis</dfn>,
+	and the other axis is called the <dfn local-lt="grid-axis">grid axis</dfn>.
+
+	The full power of [=grid layout=] is available in the [=grid axis=].
+	Line names and track sizes can be specified on the [=grid container=],
+	and [=grid items=] can be placed into the tracks and span them
+	using 'grid-column' / 'grid-row' as usual.
+	The [=box alignment properties=] work the same as in a regular [=grid container=]
+	in the [=grid axis=].
+
+	In the [=masonry axis=] however,
+	items are laid out one after another using the [[#masonry-layout-algorithm]].
+
+	<div class="example">
+		Here's a masonry layout <a href="examples/pinterest-with-span.html">example</a>
+		demonstrating placed and spanning items:
+
+		<figure>
+			<img src="images/example-pinterest-with-span.png">
+			<figcaption>Rendering of the example above.</figcaption>
+		</figure>
+	</div>
+
+	Subgrid [=grid items=] are supported,
+	but subgridding only occurs in the [=grid container's=] [=grid axis=];
+	see [[#subgrids]] for details.
+
+	If ''grid-template-columns/masonry'' is specified
+	for both ''grid-template-columns'' and ''grid-template-rows'',
+	then the [=used value=] for ''grid-template-columns'' is ''grid-template-columns/none'',
+	and thus the [=inline axis=] will be the [=grid axis=].
+
+	[=Grid items=] are formed and [=blockified=]
+	exactly the same as in a regular [=grid container=].
+
+	All CSS properties work the same as in a regular [=grid container=]
+	unless otherwise specified by this specification.
+	For example, ''order'' can be used to specify a different layout order for the items.
+
+<h3 id="line-name-resolution">
+Line Name Resolution</h3>
+
+	[=Grid item=] line name resolution works the same as if
+	''grid-template-columns/masonry'' were replaced with ''grid-template-columns/none'',
+	i.e. line names are resolved <em>in both axes</em>.
+	The [[css-grid-2#line-placement|line name resolution]]
+	works exactly is in <a href="https://www.w3.org/TR/css-grid/">CSS Grid</a>.
+
+<h3 id="track-sizing">
+Grid Axis Track Sizing</h3>
+
+	Track sizing works the same as in [[css-grid-2#algo-track-sizing|CSS Grid]],
+	except that when considering which items contribute to intrinsic sizes:
+	* All items explicitly placed in that track contribute, and
+	* All items without an explicit placement contribute
+		(regardless of whether they are ultimately placed in that track).
+
+	<div class="example">
+		For example, suppose there are two columns in the [=grid axis=]
+		and that
+		* Items A, B, and C have no explicit placement.
+		* Item D is explicitly placed into the first column.
+
+		In this case, items A, B, C, and D all contribute to sizing the first column,
+		while only A, B, and C (and not D) contribute to the second column.
+	</div>
+
+	In the case of spanning items with no explicit placement,
+	they are assumed to be placed at every possible start position,
+	and contribute accordingly.
+
+	<div class="example">
+		For example, suppose there are 5 columns in the [=grid axis=],
+		with the middle having a fixed size of ''100px''
+		and the other two being ''auto''-sized.
+		For the purpose of track sizing,
+		an item that spans 2 tracks
+		and has an intrinsic contribution of 220px
+		is essentially copied and assumed to exist:
+
+		* At grid line 1,
+			contributing 110px to each of the first two tracks.
+		* At grid line 2,
+			contributing 120px to the second track.
+		* At grid line 3,
+			contributing 120px to the fourth track.
+		* At grid line 4,
+			contributing 110px to the fourth and fifth tracks.
+	</div>
+
+	Note: This algorithm ensures that each track is at least big enough
+	to accommodate every item that is ultimately placed in it,
+	and does not create dependency cycles between placement and track sizing.
+	However, depending on the variation in sizes,
+	tracks could be larger than necessary:
+	an exact fit is only guaranteed if
+	all items are explicitly placed in the [=grid axis=]
+	or all items are the same size
+	(or matching multiples of that size, in the case of spanning items).
+
+<h4 id="repeat-auto-fit">
+repeat(auto-fit)</h3>
+
+	''grid-template-rows/repeat(auto-fit)'' behaves as ''grid-template-rows/repeat(auto-fill)''
+	when the other axis is a [=masonry axis=].
+	The reason for this is that ''grid-row/auto''-placed items depend
+	on the layout size of their siblings.
+	Removing empty tracks after layout wouldn't be possible in most cases
+	since it might affect any intrinsic track sizes.
+	Even if all track sizes are definite,
+	the containing block size could change for grid-aligned absolutely-positioned descendants.
+	This makes ''grid-template-rows/repeat(auto-fit)''
+	impossible to support in a [=grid container=] with [=masonry layout=].
+
+<h3 id="masonry-layout-algorithm">
+Masonry Layout Algorithm</h3>
+
+	Items are placed in [=order-modified document order=],
+	but items with a definite placement are placed
+	before items with an indefinite position (as in regular grid layout).
+
+	For each of the tracks in the [=grid axis=],
+	keep a <dfn>running position</dfn> initialized to zero.
+	First for each item with a definite placement in the [=grid axis=],
+	then for each item with an indefinite placement:
+	<ol>
+		<li>
+			If the item has an definite placement in the [=grid axis=],
+			use that placement.
+			Otherwise, resolve its [=grid axis=] placement using these substeps:
+
+			<ol>
+				<li>Starting at the first [=grid axis=] line in the [=implicit grid=].
+				<li>Find the largest [=running position=] of the [=grid axis=] tracks
+					that the item would span if it were placed at this line,
+					and call this position <var>max_pos</var>.
+				<li>Increment the line number and repeat step 2
+					until the item would no longer fit inside the grid.
+				<li>Pick the line that resulted in the smallest <var>max_pos</var>
+					as the item's definite placement in the [=grid axis=].
+			</ol>
+
+		<li>
+			Place the item in its [=grid axis=] tracks
+			at the maximum of the [=running position=]s
+			of the tracks it spans.
+
+		<li>
+			Calculate the size of the item's <a href="#containing-block">containing block</a>
+			and then layout the item.
+			Then calculate its resulting [=margin box=] in the [=masonry axis=].
+			Set the [=running position=] of the spanned  [=grid axis=] tracks
+			to <code><var>max_pos</var> + <var>margin-box-end</var> + <var>grid-gap</var></code>.
+	</ol>
+
+<h3 id="masonry-auto-flow">
+The ''masonry-auto-flow'' Property</h3>
+
+	The [[#masonry-layout-algorithm]] above can be modified in two ways, using the new 'masonry-auto-flow' property:
+
+	<pre class='propdef'>
+		Name: masonry-auto-flow
+		Value: [ pack | next ] || [definite-first | ordered ]
+		Initial: pack
+		Applies to: [=grid containers=] with [=masonry layout=]
+		Inherited: no
+		Percentages: n/a
+		Computed value: specified keyword(s)
+		Animation type: discrete
+	</pre>
+
+
+	First, picking definite items first for placement can be inhibited
+	by specifying the ''masonry-auto-flow/ordered'' keyword
+	so that a plain [=order-modified document order=] is used instead.
+	Second, instead of placing the items in the track(s) with the most remaining space as described above
+	we can place them one after another in the [=grid axis=]
+	by specifying the ''masonry-auto-flow/next'' keyword,
+	for <a href="examples/masonry-auto-flow-next.html">example</a>:
+
+	<div class="example">
+		```css
+			<style>
+			.grid {
+			  display: inline-grid;
+			  grid: masonry / repeat(3, 2ch);
+			  border: 1px solid;
+			  masonry-auto-flow: next;
+			}
+
+			item { background: silver }
+			item:nth-child(2n+1) {
+			  background: pink;
+			  height: 4em;
+			}
+			</style>
+		```
+		```html
+			<div class="grid">
+			  <item>1</item>
+			  <item>2</item>
+			  <item>3</item>
+			  <item>4</item>
+			</div>
+		```
+
+		<figure>
+			<img src="images/grid-auto-flow-example-1.png">
+			<figcaption>Rendering of the ''masonry-auto-flow: next'' example above.</figcaption>
+		</figure>
+
+		(Without ''masonry-auto-flow: next'', item 4 would be placed below item 2.)
+
+	</div>
+
+<h2 id="containing-block">
+Containing Block</h2>
+
+	The [=containing block=] for a [=grid item=] participating in [=masonry layout=]
+	is formed by its [=grid area=] in the [=grid axis=]
+	and the [=grid container=]'s [=content box=] in the [=masonry axis=].
+
+<h2 id="implicit-grid">
+The Implicit Grid</h2>
+
+	The [=implicit grid=] is formed in the same way as for a regular [=grid container=].
+	However, it's only used in the [=grid axis=].
+	The flow axis specified by ''grid-auto-flow'' is ignored:
+	items are always placed by filling the [=grid axis=].
+	''direction:rtl'' reverses the grid if the [=inline axis=] is the [=grid axis=]
+	(as usual for a regular [=grid container=])
+	and it makes items flow from right to left if the [=inline axis=] is the [=masonry axis=].
+
+	<div class="example">
+		Here's a simple <a href="examples/rtl-grid-axis.html">example</a> using ''direction: rtl'' in the [=grid axis=]:
+
+		```css
+		<style>
+			.grid {
+			  display: inline-grid;
+			  direction: rtl;
+			  grid: masonry / repeat(4, 2ch);
+			  border: 1px solid;
+			}
+
+			item { background: silver }
+			item:nth-child(2n+1) {
+			  background: pink;
+			  height: 4em;
+			}
+			</style>
+		```
+		```html
+			<div class="grid">
+			  <item>1</item>
+			  <item style="grid-column:span 2">2</item>
+			  <item>3</item>
+			  <item>4</item>
+			</div>
+		```
+
+		<figure>
+			<img src="images/rtl-grid-axis.png">
+			<figcaption>Rendering of the ''direction: rtl'' example above.</figcaption>
+		</figure>
+	</div>
+
+	<div class="example">
+		Here's a simple <a href="examples/rtl-masonry-axis.html">example</a>
+		using ''direction: rtl'' in the [=masonry axis=]:
+
+		```css
+			<style>
+			.grid {
+			  display: inline-grid;
+			  direction: rtl;
+			  width: 10ch;
+			  column-gap: 1ch;
+			  grid: repeat(4, 2em) / masonry;
+			  border: 1px solid;
+			}
+
+			item { background: silver }
+			item:nth-child(2n+1) {
+			  background: pink;
+			  width: 4ch;
+			}
+			</style>
+		```
+		```html
+			<div class="grid">
+			  <item>1</item>
+			  <item style="grid-row:span 2">2</item>
+			  <item>3</item>
+			  <item>4</item>
+			</div>
+		```
+
+		<figure>
+			<img src="images/rtl-masonry-axis.png">
+			<figcaption>Rendering of the ''direction: rtl'' example above.</figcaption>
+		</figure>
+	</div>
+
+<h2 id="intrinsic-sizes">
+Sizing Grid Containers</h2>
+
+	[[css-grid-2#intrinsic-sizes|Sizing Grid Containers]] works the same as for regular [=grid containers=]
+	but with the following addendum for the [=masonry axis=]:
+	The <a>max-content size</a> (<a>min-content size</a>) of a [=grid container=] in the [=masonry axis=]
+	is the largest distance between the [=grid container's=] [=content-box=] [=start=] edge
+	and the maximum [=margin-box=] end of all the items,
+	when sized under a <a>max-content constraint</a> (<a>min-content constraint</a>).
+
+	<div class="example">
+		Here's a simple <a href="examples/grid-intrinsic-sizing-example-1.html">example</a>:
+
+		```css
+			<style>
+			.grid {
+			  display: inline-grid;
+			  grid: masonry / 50px 100px auto;
+			  grid-gap: 10px;
+			  border: 1px solid;
+			}
+			item { background: silver; margin: 5px; }
+			</style>
+		```
+
+		```html
+			<div class="grid">
+			  <item style="border:10px solid">1</item>
+			  <item>2</item>
+			  <item>3</item>
+			  <item style="height:50px">4</item>
+			  <item>5</item>
+			  <item>6</item>
+			</div>
+		```
+
+		<figure>
+			<img src="images/grid-intrinsic-sizing-example-1.png">
+			<figcaption>Rendering of the [=grid container=] intrinsic sizing example above.</figcaption>
+		</figure>
+
+	</div>
+
+
+<h2 id="alignment">
+Alignment and Spacing</h2>
+
+	[[css-grid-2#gutters|Gutters]] are supported in both axes.
+	In the [=masonry axis=],
+	the gap is applied between the margin boxes of each pair of adjacent items.
+	Margins do not collapse in either axis.
+
+	In the [=grid axis=],
+	[[css-grid-2#alignment|alignment]]
+	works the same as in a regular [=grid container=].
+
+	In the [=masonry axis=],
+	[[css-align-3#content-distribution|content-distribution]] is applied
+	to the content as a whole, similarly to how it behaves in block containers.
+	More specifically, the <a>alignment subject</a> is the <dfn>masonry box</dfn>,
+	which is the area between the [=content edge=] of the [=grid container=]
+	and the [=end=] [=margin edge=] of the item that is the furthest away in the [=masonry axis=],
+	as indicated by the dashed border here:
+
+	<figure>
+		<img src="images/masonry-box.png">
+		<figcaption>
+			The extent of the [=masonry box=] is indicated by the dashed border.
+			(Note that item 1 has a 5px bottom margin here.)
+		</figcaption>
+	</figure>
+
+	Note that there is only ever one <a>alignment subject</a>
+	for these properties in the [=masonry axis=],
+	so the unique 'align-content' / 'justify-content' values boil down to
+	''align-content/start'',
+	''align-content/center'',
+	''align-content/end'',
+	''align-content/stretch''
+	and [=baseline alignment=].
+	(''align-content/normal'' behaves as ''align-content/stretch'' as usual for [=grid containers=].)
+	In the figure above, the [=grid container=] has ''align-content: start'';
+	but if ''align-content'' were at its default ''align-content/normal'' value,
+	then the [=masonry box=] would fill the [=grid container=]'s content box,
+	due to being stretched.
+	Moreover: if the grid items overflowed
+	the [=grid container=]'s [=content box=] in the [=masonry axis=],
+	then the [=masonry box=] would be larger than the [=grid container=]'s [=content box=].
+
+<h3 id="masonry-axis-baseline-alignment">
+Baseline Alignment in the Masonry Axis</h3>
+
+	Item [=baseline alignment=] inside the [=grid axis=] tracks
+	works as usual for a regular [=grid container=],
+	and the [=grid container=]'s baseline is determined
+	the same as for a regular [=grid container=] in that axis.
+
+	[=Baseline alignment=] is not supported in the [=masonry axis=].
+	The first baseline set of the [=grid container=] in this axis
+	is generated from the [=alignment baseline=] of
+	the first [=grid item=] in the first occupied track,
+	and the last baseline set from the last [=grid item=] placed.
+
+	ISSUE: We could support baseline alignment in the first row. Do we want to?
+
+	ISSUE: Should the last baseline come from the last lowest item placed instead?
+
+<h2 id="pagination">
+Fragmentation</h2>
+
+<h3 id="masonry-axis-pagination">
+Fragmentation in the Masonry Axis</h3>
+
+	Each [=grid axis=] track is fragmented independently in the [=masonry axis=].
+	If a [=grid item=] is fragmented,
+	or has a [=forced break=] before/after it,
+	then the [=running position=] for the tracks that it spans in the [=grid axis=]
+	are set to the size of the [=fragmentainer=]
+	so that no further items will be placed in those tracks.
+	An item that is split into multiple fragments
+	retains its placement in the [=grid axis=] for all its fragments.
+	A grid item that is pushed, however,
+	is placed again by the next [=grid container=] fragment.
+	Placement continues until all items are placed or pushed to a new fragment.
+
+	<div class="example">
+		Here's an <a href="examples/fragmentation-block-axis-example.html">example</a>
+		illustrating fragmentation of a grid with masonry layout in its [=block axis=].
+		It renders like this:
+		<figure style="max-width:100%">
+			<video style="max-width:100%" src="images/fragmentation-block-axis-example.mp4" controls></video>
+			<figcaption>
+				Visualization of fragmentation in a [=block-axis=] [=masonry layout=].
+			</figcaption>
+		</figure>
+	</div>
+
+<h3 id="grid-axis-pagination">
+Fragmentation in the Grid Axis</h3>
+
+	Fragmentation in the [=grid axis=] with [=masonry layout=] in the other axis
+	is also supported.
+	In this case the fragmentation behaves more like in a regular [=grid container=];
+	however, there's a separate step to determine which [=grid-axis=] track
+	each item is placed into,
+	before fragmentation occurs.
+
+	<div class="example">
+		Here's an <a href="examples/fragmentation-inline-axis-example.html">example</a>
+		illustrating fragmentation of a grid with [=masonry layout=] in its [=inline axis=].
+		In this case the breaks occurs between the [=grid-axis=] rows.
+		It renders like this:
+		<figure style="max-width:100%">
+			<video style="max-width:100%" src="images/fragmentation-inline-axis-example.mp4" controls></video>
+			<figcaption>
+				Visualization of fragmentation in the [=block axis=] with [=inline-axis=] [=masonry layout=].
+			</figcaption>
+		</figure>
+	</div>
+
+<h2 id="subgrids">
+Subgrids</h2>
+
+	[=Masonry layout=] is supported in [=subgrids=] (e.g. ''grid: subgrid / masonry''),
+	and grids that use [=masonry layout|masonry=] can have subgrids as children.
+	However, only a parent grid axis can be subgridded in the normal sense.
+	A [=subgrid axis=] with a parent [=masonry axis=] will behave as ''grid/masonry'',
+	unless the subgrid's other axis is also ''grid/masonry''
+	in which case it behaves as ''grid/none''
+	(because a [=grid container=] can only have one [=masonry axis=]).
+	''grid-column/auto''-placed subgrids don't inherit
+	any line names from their parent grid,
+	because that would make the placement of the [=subgrid=]'s [=grid items=]
+	dependent on layout results;
+	but the subgrid's tracks are still aligned to the parent's tracks as usual.
+	Here's a subgrid <a href="examples/subgrid-example-1.html">example</a>:
+
+	<div class="example">
+		```css
+		<style>
+		.grid {
+		  display: inline-grid;
+		  grid: auto auto 100px / masonry;
+		  align-content: center;
+		  height: 300px;
+		  border: 1px solid;
+		}
+
+		.grid > * {
+		  margin: 5px;
+		  background: silver;
+		}
+		.grid > :nth-child(2n) {
+		  background: pink;
+		}
+
+		.grid subgrid {
+		  display: grid;
+		  grid: subgrid / subgrid;
+		  grid-row: 2 / span 2;
+		  grid-gap: 30px;
+		}
+		.grid subgrid > * { background: cyan; }
+		</style>
+		```
+		```html
+		<div class="grid">
+		  <item>1</item>
+		  <item>2</item>
+		  <item>3</item>
+		  <subgrid>
+		    <item style="height:100px">subgrid.1</item>
+		    <item>sub.2</item>
+		    <item>s.3</item>
+		  </subgrid>
+		  <item>4</item>
+		  <item>5</item>
+		  <item style="width: 80px">6</item>
+		  <item>7</item>
+		</div>
+		```
+
+		<figure>
+			<img src="images/subgrid-example-1.png">
+			<figcaption>
+				The rendering of the subgrid example above.
+			</figcaption>
+		</figure>
+
+		Note how the subgrid's first item ("subgrid.1") contributes
+		to the intrinsic size of the 2nd row in the parent grid.
+		This is possible since the subgrid specified a definite placement
+		so we know which tracks it will occupy.
+		Note also that trying to subgrid the parent's [=masonry axis=]
+		results in the subgrid getting [=masonry layout=] in its [=inline axis=].
+	</div>
+
+<h2 id="abspos">
+Absolute Positioning</h2>
+
+	[[css-grid-1#abspos-items|Grid-aligned absolute-positioned descendants]] are supported.
+	In the [=masonry axis=], all [=grid positions=] except line 1
+	are treated as ''grid-area/auto''.
+	Line 1 in the [=masonry axis=] corresponds to the start of the [=masonry box=]
+	(which is usually also the [=start=] [=content edge=])
+	and ''grid-area/auto'' uses the [=grid container=] [=padding edge=] as usual.
+	The [=containing block=] is the extent of
+	the tracks the item spans in the [=grid axis=]
+	and the position of line 1 and the [=padding edge=] in the [=masonry axis=].
+
+	ISSUE: It might be useful to define a static position in the [=masonry axis=].
+	Maybe it could defined as the max (or min?) current [=running position=]
+	of the [=grid-axis=] tracks at that point?  Or the end of the item before it?
+
+	ISSUE: It would also be useful to be able to align the [=masonry box=] [=end=] edge somehow,
+	but for that we need a way to address the <a href="https://github.com/w3c/csswg-drafts/issues/2402">end line in an implicit grid</a>,
+	or could we just use any non-auto line number other than 1 to indicate the end line
+	given that we don't really have any lines in this axis other than line 1?
+
+<h2 id="performance-notes">
+Performance Notes</h2>
+
+	In general, masonry layout should have significantly better performance
+	than the equivalent regular (2-axis) grid layout,
+	particularly when the [=masonry axis=] is the [=block axis=]
+	since the intrinsic sizing of grid rows is typically quite expensive.
+	Any intrinsic track sizing in the [=grid axis=] should be cheaper too,
+	because, typically, only a subset of items contribute to the intrinsic sizing in a masonry layout,
+	contrary to a 2-axis grid where all items spanning an intrinsically-sized track contribute.
+	Stretched items do a second layout with the new size (when it actually changed)
+	so this can be costly if there are a huge amount of stretched items
+	that each contains a lot of content.
+	Especially nested stretched masonry layouts should be avoided
+	unless they are small/trivial.
+
+	Advisement: This can be ameliorated by the author
+	by opting out from the stretching on most items though,
+	e.g. specifying ''justify/align-items:start''
+	and then opting in for just a few items with ''justify/align-self:stretch''
+	to let those items fill the [=masonry axis=].
+	(This performance analysis is from a Gecko perspective,
+	but I suspect there's some truth to it for other layout engines as well.)
+
+
+<h2 id="graceful-degradation">
+Graceful Degradation</h2>
+
+	Typically, a masonry design can be expected to degrade quite nicely
+	in a UA that supports Grid layout but not masonry layout
+	if the 'grid'/'grid-template' shorthands are avoided
+	and the longhands are used instead. e.g.
+	```css
+	  grid-template-rows: masonry; /* ignored by UAs that don't support it */
+	  grid-template-columns: 150px 100px 50px;
+	```
+
+	<div class="example">
+		Here's an <a href="examples/graceful-degradation-example.html">example</a>
+		to illustrate this.
+		It's a layout with three columns,
+		but will have "more gaps" in the [=block axis=] if the UA doesn't support masonry layout.
+		Here's what it looks like with Masonry support for comparison:
+
+		<figure>
+			<video src="images/graceful-degradation-example.mp4" controls></video>
+			<figcaption>
+				Rendering of the example in a UA with Masonry support.
+			</figcaption>
+		</figure>
+	</div>
+
+
+<h2 id="acknowledgements">
+Acknowledgements</h2>
+
+	Thanks goes to Cameron McCormack who wrote a masonry layout explainer document
+	(from which I lifted the Background chapter) and presented it to the CSSWG.
+	Thanks also to everyone who provided feedback on the <a href="https://github.com/w3c/csswg-drafts/issues/4650">initial proposal</a> for this feature.

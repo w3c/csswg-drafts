@@ -21,7 +21,7 @@ An [experimental Polyfill](https://wicg.github.io/spatial-navigation/polyfill/) 
   Devices like TV, InVehicleInfotainment, game console mainly use the D-pad for navigating focus directionally.
   More rare today, but possibly increasingly going forward, input mechanisms such as voice command, hand gesture, eye tracking can be used for navigation.
 
-- **Making life better for users of desktop browsers who use the keyboard to navigate**
+- **Making life better for users who use the keyboard to navigate**
 
    For non-sighted users, navigating in document order tends to be appropriate,
    and spatial navigation may not be in high demand.
@@ -195,29 +195,8 @@ element of the author's choosing.
 * navbeforefocus
   - Occurs before spatial or sequential navigation changes the focus.
 
-* navbeforescroll
-  - Occurs before spatial navigation triggers scrolling.
-
 * navnotarget
   - Occurs before going up the tree to search candidates in the nearest ancestor spatial navigation focus container when spatial navigation has failed to find any candidate within the current spatial navigation focus container.
-
-#### Example
-The following code changes the behavior of spatial navigation from scrolling when there is no focusable element visible, to jumping to focusable elements even when they are not visible.
-```js
-document.addEventListener("navbeforescroll", function(e) {
-    var container = e.relatedTarget;
-    var areas = container.focusableAreas({ mode: "all" });
-
-    if (areas.length == 0)) { return; }
-
-    e.preventDefault();
-    var t = e.target.spatialNavigationSearch({
-        dir: e.dir,
-        candidates: areas
-    });
-    t.focus();
-});
-```
 
 ## FAQ
 

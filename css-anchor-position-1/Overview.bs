@@ -1,0 +1,1761 @@
+<pre class='metadata'>
+Title: CSS Anchor Positioning
+Shortname: css-anchor-position
+Level: 1
+Status: ED
+Prepare for TR: no
+Group: csswg
+Work Status: exploring
+ED: https://drafts.csswg.org/css-anchor-position-1/
+TR: https://www.w3.org/TR/css-anchor-position-1/
+Editor: Tab Atkins-Bittner, Google, http://xanthir.com/contact/, w3cid 42199
+Former Editor: Jhey Tompkins, Google, https://twitter.com/jh3yy, w3cid 137616
+Editor: Ian Kilpatrick, Google, w3cid 73001
+Abstract: This specification defines 'anchor positioning', where a positioned element can size and position itself relative to one or more "anchor elements" elsewhere on the page.
+</pre>
+
+<pre class=link-defaults>
+spec:css-backgrounds-3; type:property; text:border-color
+spec:css-break-4; type:dfn; text:fragment
+spec:css-display-3; type:dfn; text:element
+spec:css-position-3;
+	type:dfn; text:inset-modified containing block
+	type:property; text:inset-inline-start
+spec:css-cascade-5; type:dfn; text:property
+spec:dom; type:dfn; text:shadow tree
+</pre>
+
+<style>
+/* Put nice boxes around each algorithm. */
+[data-algorithm]:not(.heading) {
+	padding: .5em;
+	border: thin solid #ddd; border-radius: .5em;
+	margin: .5em calc(-0.5em - 1px);
+}
+[data-algorithm]:not(.heading) > :first-child {
+	margin-top: 0;
+}
+[data-algorithm]:not(.heading) > :last-child {
+	margin-bottom: 0;
+}
+[data-algorithm] [data-algorithm] {
+	margin: 1em 0;
+}
+</style>
+
+Introduction {#intro}
+=====================
+
+CSS [=absolute positioning=] allows authors
+to place elements anywhere on the page,
+without regard to the layout of other elements
+besides their containing block.
+This flexibility can be very useful,
+but also very limiting--
+often you want to position relative to <em>some</em> other element.
+<dfn export>Anchor positioning</dfn>
+(via the <dfn export>anchor functions</dfn> ''anchor()'' and ''anchor-size()'')
+allows authors to achieve this,
+"anchoring" an [=absolutely-positioned=] element
+to one or more other elements on the page,
+while also allowing them to try several possible positions
+to find the "best" one that avoids overlap/overflow.
+
+For example, an author might want to position a tooltip
+centered and above the targeted element,
+unless that would place the tooltip offscreen,
+in which case it should be below the targeted element.
+This can be done with the following CSS:
+
+<div class=example>
+	<pre class=lang-css>
+	.anchor {
+		anchor-name: --tooltip;
+	}
+	.tooltip {
+		/* Fixpos means we don't need to worry about
+		   containing block relationships;
+		   the tooltip can live anywhere in the DOM. */
+		position: fixed;
+
+		/* All the anchoring behavior will default to
+		   referring to the --tooltip anchor. */
+		anchor-default: --tooltip;
+
+		/* Align the tooltip's bottom to the top of the anchor,
+		   but automatically swap if this overflows the window
+		   to the tooltip's top aligns to the anchor's bottom
+		   instead. */
+		bottom: anchor(outside);
+
+		/* Set up a 300px-wide area, centered on the anchor.
+		   If centering would put part of it off-screen,
+		   instead clamp it to remain on-screen. */
+		left: clamp(0px, anchor(center) - 150px, 100% - 300px);
+		right: clamp(0px, anchor(center) - 150px, 100% - 300px);
+		max-width: 300px;
+
+		/* Center the tooltip in that area. */
+		justify-self: center;
+	}
+	</pre>
+</div>
+
+Determining the Anchor {#determining}
+======================
+
+<!-- Big Text: a-name
+
+ ███▌        █    █▌  ███▌  █     █ █████▌
+▐█ ▐█        █▌   █▌ ▐█ ▐█  ██   ██ █▌
+█▌  █▌       ██▌  █▌ █▌  █▌ █▌█ █▐█ █▌
+█▌  █▌ ████▌ █▌▐█ █▌ █▌  █▌ █▌ █ ▐█ ████
+█████▌       █▌  ██▌ █████▌ █▌   ▐█ █▌
+█▌  █▌       █▌   █▌ █▌  █▌ █▌   ▐█ █▌
+█▌  █▌       █▌   ▐▌ █▌  █▌ █▌   ▐█ █████▌
+-->
+
+Creating an Anchor: the 'anchor-name' property {#name}
+----------------------------------------------
+
+<pre class=propdef>
+Name: anchor-name
+Value: none | <<dashed-ident>>#
+Initial: none
+Inherited: no
+Applies to: all elements that generate a [=principal box=]
+Animation Type: discrete
+</pre>
+
+The 'anchor-name' property declares
+that an element is an <dfn local-lt=anchor>anchor element</dfn>,
+and gives it a list of <dfn lt="anchor name">anchor names</dfn> to be targeted by.
+Values are defined as follows:
+
+<dl dfn-type=value dfn-for=anchor-name>
+	: <dfn>none</dfn>
+	:: The property has no effect.
+
+	: <dfn><<dashed-ident>>#</dfn>
+	:: If the element generates a [=principal box=],
+		the element is an [=anchor element=],
+		with a list of [=anchor names=] as specified.
+		Each [=anchor name=] is a [=tree-scoped name=].
+
+		Otherwise, the property has no effect.
+</dl>
+
+[=Anchor names=] do not need to be unique.
+Not all elements are capable of being [=anchor elements=]
+for a given positioned element,
+so a name can be reused in multiple places
+if the usages are scoped appropriately.
+[=Anchor names=] are style-contained, [=scoped to a sub-tree=].
+If there are still multiple valid [=anchor elements=]
+with the given [=anchor name=],
+the last one is chosen.
+
+### Implicit Anchor Elements ### {#implicit}
+
+Some specifications can define that,
+in certain circumstances,
+a particular element is an <dfn>implicit anchor element</dfn>
+for a given positioned element.
+
+<p class=example>
+	TODO fill in new popover-related details.
+	This makes the declared element the [=implicit anchor element=]
+	for the element with the attribute.
+
+[=Implicit anchor elements=] can be referenced
+with the ''implicit'' keyword,
+rather than referring to some 'anchor-name' value.
+
+[=Pseudo-element=]
+have the same [=implicit anchor element=]
+as its [=originating element=],
+unless otherwise specified.
+
+Note: Without this, these [=pseudo-elements=], which are often inaccessible
+by other specifications, cannot be positioned with [=implicit anchor elements=].
+
+Finding an Anchor {#target}
+-----------------
+
+Several things in this specification
+find a [=target anchor element=],
+given an <dfn>anchor specifier</dfn>,
+which is either a <<dashed-ident>>
+(and a [=tree-scoped reference=])
+that should match an 'anchor-name' value elsewhere on the page,
+or the keyword ''implicit'',
+or nothing (a missing specifier).
+
+<div algorithm>
+	To determine the <dfn>target [=anchor element=]</dfn>
+	given a querying element |query el|
+	and an optional [=anchor specifier=] |anchor spec|:
+
+	1. If |anchor spec| was not passed,
+		return the [=target anchor element=]
+		for |query el|
+		given the |query el|'s [=default anchor specifier=].
+
+	2. If |anchor spec| is ''implicit'':
+		1. If the Popover API defines an [=implicit anchor element=] for |query el|
+			which is an [=acceptable anchor element=] for |query el|,
+			return that element.
+
+		2. Otherwise, return nothing.
+
+		Note: Future APIs might also define implicit anchor elements.
+		When they do, they'll be explicitly handled in this algorithm,
+		to ensure coordination.
+
+	3. Otherwise, |anchor spec| is a <<dashed-ident>>.
+		Return the last element |el| in tree order
+		that satisfies the following conditions:
+
+		* |el| is an [=anchor element=] with an [=anchor name=] of |anchor spec|.
+
+		* |el|'s [=anchor name=] and |anchor spec| are both associated with the same [=tree=] [=tree/root=].
+
+			Note: The [=anchor name=] is a [=tree-scoped name=],
+			while |anchor spec| is a [=tree-scoped reference=].
+
+		* |el| is an [=acceptable anchor element=] for |query el|.
+
+		If no element satisfies these conditions,
+		return nothing.
+
+	Note: The general rule captured by these conditions
+	is that |el| must be fully laid out
+	before |query el| is laid out.
+	CSS's rules about the layout order of stacking contexts
+	give us assurances about this,
+	and the list of conditions above
+	exactly rephrases the stacking context rules
+	into just what's relevant for this purpose,
+	ensuring there is no possibly circularity
+	in anchor positioning.
+
+	Note: An 'anchor-name' defined by styles in one [=shadow tree=]
+	won't be seen by [=anchor functions=] in styles in a different [=shadow tree=],
+	preserving encapsulation.
+	However, <em>elements</em> in different [=shadow trees=]
+	can still anchor to each other,
+	so long as both the 'anchor-name' and [=anchor function=]
+	come from styles in the same tree,
+	such as by using ''::part()'' to style an element inside a shadow.
+	([=Implicit anchor elements=] also aren't intrinsically limited to a single tree,
+	but the details of that will depend on the API assigning them.)
+</div>
+
+<div algorithm="acceptable anchor element">
+	An element |el| is a <dfn export>acceptable anchor element</dfn>
+	for an [=absolutely positioned=] element |query el|
+	if all of the following are true:
+
+	* Either |el| is a descendant of |query el|'s [=containing block=],
+		or |query el|'s [=containing block=] is the [=initial containing block=].
+
+	* If |el| has the same [=containing block=] as |query el|,
+		then either |el| is not [=absolutely positioned=],
+		or |el| precedes |query el| in the tree order.
+
+	* If |el| has a different [=containing block=] from |query el|,
+		then the last [=containing block=] in |el|'s [=containing block chain=]
+		before reaching |query el|'s [=containing block=]
+		is either not [=absolutely positioned=]
+		or precedes |query el| in the tree order.
+
+	* |el| is either an [=element=],
+		or a [=pseudo-element=] that acts like one.
+
+		Issue: define the term that actually means this,
+		matching ::before/after/backdrop/etc
+		(but not ::marker/placeholder/etc whose box is not detectable).
+</div>
+
+<!-- Big Text: default
+
+████▌  █████▌ █████▌  ███▌  █▌  █▌ █▌    █████▌
+█▌  █▌ █▌     █▌     ▐█ ▐█  █▌  █▌ █▌      █▌
+█▌  █▌ █▌     █▌     █▌  █▌ █▌  █▌ █▌      █▌
+█▌  █▌ ████   ████   █▌  █▌ █▌  █▌ █▌      █▌
+█▌  █▌ █▌     █▌     █████▌ █▌  █▌ █▌      █▌
+█▌  █▌ █▌     █▌     █▌  █▌ █▌  █▌ █▌      █▌
+████▌  █████▌ █▌     █▌  █▌  ███▌  █████   █▌
+-->
+
+<h3 id=anchor-default>
+Default Anchors: the 'anchor-default' property</h3>
+
+<pre class=propdef>
+Name: anchor-default
+Value: <<anchor-element>>
+Initial: implicit
+Applies to: [=absolutely positioned=] elements
+Inherited: no
+Animation type: discrete
+</pre>
+
+The 'anchor-default' property defines the <dfn>default anchor specifier</dfn>
+for all [=anchor functions=] on the element,
+allowing multiple elements to use the same set of [=anchor functions=]
+(and [=position options lists=]!)
+while changing which [=anchor element=] each is referring to.
+
+The [=target anchor element=] selected by the [=default anchor specifier=]
+(if one exists)
+is the element's <dfn>default anchor element</dfn>.
+
+Its values are identical to the <<anchor-element>> term
+in ''anchor()'' and ''anchor-size()''.
+
+<div class=example>
+	For example, in the following code
+	both ''.foo'' and ''.bar'' elements
+	can use the same positioning properties,
+	just changing the anchor element they're referring to:
+
+	<pre highlight=css>
+	.anchored {
+		position: absolute;
+		top: calc(.5em + anchor(outside));
+		/* Since no anchor name was specified,
+		   this automatically refers to the
+		   default anchor element. */
+	}
+
+	.foo.anchored {
+		anchor-default: --foo;
+	}
+	.bar.anchored {
+		anchor-default: --bar;
+	}
+	</pre>
+</div>
+
+
+Anchor-Based Positioning {#positioning}
+========================
+
+An [=absolutely-positioned=] element
+can position itself relative to one or more [=anchor elements=] on the page.
+
+The 'inset-area' function offers a convenient grid-based concept
+for positioning relative to the [=default anchor element=];
+for more complex positioning or positioning relative to multiple elements,
+the ''anchor()'' function can be used in the [=inset properties=]
+to explicitly refer to edges of an [=anchor element=].
+
+<!-- Big Text: inset-area
+
+████ █    █▌  ███▌  █████▌ █████▌        ███▌  ████▌  █████▌  ███▌
+ ▐▌  █▌   █▌ █▌  █▌ █▌       █▌         ▐█ ▐█  █▌  █▌ █▌     ▐█ ▐█
+ ▐▌  ██▌  █▌ █▌     █▌       █▌         █▌  █▌ █▌  █▌ █▌     █▌  █▌
+ ▐▌  █▌▐█ █▌  ███▌  ████     █▌   ████▌ █▌  █▌ ████▌  ████   █▌  █▌
+ ▐▌  █▌  ██▌     █▌ █▌       █▌         █████▌ █▌▐█   █▌     █████▌
+ ▐▌  █▌   █▌ █▌  █▌ █▌       █▌         █▌  █▌ █▌ ▐█  █▌     █▌  █▌
+████ █▌   ▐▌  ███▌  █████▌   █▌         █▌  █▌ █▌  █▌ █████▌ █▌  █▌
+-->
+
+The 'inset-area' Property {#inset-area}
+---------------------------------------
+
+<pre class=propdef>
+Name: inset-area
+Value: none | <<inset-area>>
+Initial: none
+Inherited: no
+Applies to: positioned elements with a [=default anchor element=]
+Animation type: TBD
+</pre>
+
+Most common use-cases of anchor positioning
+only need to worry about
+the edges of the positioned element's [=containing block=],
+and the edges of the [=default anchor element=].
+These lines can be thought of as defining a 3x3 grid;
+'inset-area' lets you easily set up the positioned element's [=inset properties=]
+by specifying what area of this [=inset-area grid=] you want the positioned element to be in.
+Its syntax is:
+
+<pre class=prod>
+<dfn>&lt;inset-area></dfn> = [
+	[ left | center | right | span-left | span-right
+	| x-start | x-end | span-x-start | span-x-end
+	| x-self-start | x-self-end | span-x-self-start | span-x-self-end
+	| span-all ]
+	||
+	[ top | center | bottom | span-top | span-bottom
+	| y-start | y-end | span-y-start | span-y-end
+	| y-self-start | y-self-end | span-y-self-start | span-y-self-end
+	| span-all ]
+|
+	[ block-start | center | block-end | span-block-start | span-block-end
+	| self-block-start | self-block-end | span-self-block-start | span-self-block-end
+	| span-all ]
+	||
+	[ inline-start | center | inline-end | span-inline-start | span-inline-end
+	| self-inline-start | self-inline-end | span-self-inline-start | span-self-inline-end
+	| span-all ]
+|
+	[ start | center | end | span-start | span-end | span-all ]{1,2}
+|
+	[ self-start | center | self-end | span-self-start | span-self-end | span-all ]{1,2}
+]
+</pre>
+
+<dl dfn-for=inset-area dfn-type=value>
+	: <dfn>none</dfn>
+	:: The property has no effect.
+
+	: <dfn><<inset-area>></dfn>
+	::
+		If the element does not have a [=default anchor element=],
+		or is not an [=absolutely-positioned=] element,
+		this value has no effect.
+
+		Otherwise, the property selects a region of the [=inset-area grid=],
+		and makes that the element's [=containing block=].
+
+		Note: This means that the [=inset properties=] specify offsets from the inset-area,
+		and some property values,
+		like ''max-height: 100%'',
+		will be relative to the inset-area as well.
+
+		Additionally, the ''align-self/normal'' value for the [=self-alignment properties=]
+		behaves as either ''align-self/start'', ''align-self/end'',
+		or ''align-self/anchor-center'',
+		depending on the positioning of the region,
+		to give a good default alignment for the positioned element.
+
+		See [[#resolving-spans]] for details on both of these effects.
+		If the two <<inset-area-span>>s do not define a valid region,
+		this property is invalid.
+
+		Also, any ''top/auto'' [=inset properties=] resolve to ''0''.
+</dl>
+
+
+<h4 id=resolving-spans>
+Resolving <<inset-area>>s</h4>
+
+The <dfn export>inset-area grid</dfn> is a 3x3 grid,
+composed of four grid lines in each axis.
+In order:
+
+* the start edge of the element's pre-modification [=containing block=],
+	or the ''anchor-start()'' edge of the [=default anchor element=]
+	if that is more [=start=]-ward
+* the ''anchor(start)'' edge of the [=default anchor element=]
+* the ''anchor(end)'' edge of the [=default anchor element=]
+* the end edge of the element's pre-modification [=containing block=],
+	or the ''anchor-start()'' edge fo the [=default anchor element=]
+	if that is more [=end=]-ward.
+
+An <<inset-area>> selects a region of this grid
+by specifying the rows and columns the region occupies,
+with each of the two keywords specifying one of them:
+
+<dl dfn-type=value dfn-for="inset-area, <inset-area>">
+	: <dfn>start</dfn>, <dfn>end</dfn>, <dfn>self-start</dfn>, <dfn>self-end</dfn>
+	: <dfn>top</dfn>, <dfn>bottom</dfn>, <dfn>left</dfn>, <dfn>right</dfn>
+	: <dfn>y-start</dfn>, <dfn>y-end</dfn>, <dfn>y-self-start</dfn>, <dfn>y-self-end</dfn>
+	: <dfn>x-start</dfn>, <dfn>x-end</dfn>, <dfn>x-self-start</dfn>, <dfn>x-self-end</dfn>
+	: <dfn>block-start</dfn>, <dfn>block-end</dfn>, <dfn>block-self-start</dfn>, <dfn>block-self-end</dfn>
+	: <dfn>inline-start</dfn>, <dfn>inline-end</dfn>, <dfn>inline-self-start</dfn>, <dfn>inline-self-end</dfn>
+	: <dfn>center</dfn>
+	:: The single corresponding row or column,
+		depending on which axis this keyword is specifying.
+
+		Like in ''anchor()'',
+		the plain logical keywords
+		(''inset-area/start'', ''inset-area/end'', etc)
+		refer to the writing mode of the element's [=containing block=].
+		The ''inset-area/x-start''/etc determine their direction in the same way,
+		but in the specified physical axis.
+
+		The "self" logical keywords
+		(''inset-area/self-start'', ''inset-area/x-self-end'', etc)
+		are identical,
+		but refer to the element's own writing mode.
+
+	: <dfn>span-start</dfn>, <dfn>span-end</dfn>
+	: <dfn>span-top</dfn>, <dfn>span-bottom</dfn>
+	: <dfn>span-y-start</dfn>, <dfn>span-y-end</dfn>
+	: <dfn>span-x-start</dfn>, <dfn>span-x-end</dfn>
+	: <dfn>span-block-start</dfn>, <dfn>span-block-end</dfn>
+	: <dfn>span-inline-start</dfn>, <dfn>span-inline-end</dfn>
+	:: Two rows or columns,
+		depending on which axis this keyword is specifying:
+		the center row/column,
+		and the row/column corresponding to the other half of the keyword
+		as per the single-track keywords.
+
+		(For example, ''span-top'' spans the first two rows--
+		the center row and the top row.)
+
+	: <dfn>span-all</dfn>
+	:: All three rows or columns,
+		depending on which axis this keyword is specifying.
+</dl>
+
+Some keywords are ambiguous about what axis they refer to:
+''inset-area/center'', ''inset-area/span-all'',
+and the ''inset-area/start''/etc keywords that don't specify the block or inline axis explicitly.
+If the other keyword is unambiguous about its axis,
+then the ambiguous keyword is referring to the opposite axis.
+(For example, in ''block-start center'',
+the ''inset-area/center'' keyword is referring to the inline axis.)
+If both keywords are ambiguous, however,
+then the first refers to the block axis of the element's [=containing block=],
+and the second to the inline axis.
+(For example, ''span-all start'' is equivalent to ''span-all inline-start''.)
+
+If only a single keyword is given,
+it behaves as if the second keyword is ''inset-area/span-all''
+if the given keyword is unambigous about its axis;
+otherwise, it behaves as if the given keyword was repeated.
+(For example, ''inset-area/top'' is equivalent to ''top span-all'',
+but ''inset-area/center'' is equivalent to ''center center''.)
+
+<hr>
+
+The <<inset-area>> also implies a default [=self-alignment=],
+which will be used if the [=self-alignment property=] on the element
+is ''align-self/normal'':
+
+* If the inset area includes the center region in an axis
+	the default alignment in that axis is ''align-self/anchor-center''.
+* Otherwise, it's the opposite of the region it specifies:
+	if it's specifying the "start" region of its axis,
+	the default alignment in that axis is ''align-self/end''; etc.
+
+<div class=example>
+	For example, assuming an English-equivalent writing mode (horizontal-tb, ltr),
+	then the value ''span-x-start top'' resolves to
+	the "start" region of the vertical axis,
+	and the "start" and "center" regions of the horizontal axis,
+	so the default alignments will be ''align-self: end;'' and ''justify-self: anchor-center;''
+
+	<figure>
+		<img src="images/inset-area-example.png" width=400>
+		<figcaption>
+			An example of ''inset-area: span-x-start top'' positioning.
+		</figcaption>
+</div>
+
+Note: When the [=default anchor element=]
+is partially or completely outside of the pre-modified [=containing block=],
+some of the [=inset-area grid's=] rows or columns can be zero-sized.
+
+
+<!-- Big Text: anchor()
+
+ ███▌  █    █▌  ███▌  █▌  █▌  ███▌  ████▌    ██ ██
+▐█ ▐█  █▌   █▌ █▌  █▌ █▌  █▌ █▌  █▌ █▌  █▌  █▌   ▐█
+█▌  █▌ ██▌  █▌ █▌     █▌  █▌ █▌  █▌ █▌  █▌ █▌     ▐█
+█▌  █▌ █▌▐█ █▌ █▌     █████▌ █▌  █▌ ████▌  █▌     ▐█
+█████▌ █▌  ██▌ █▌     █▌  █▌ █▌  █▌ █▌▐█   █▌     ▐█
+█▌  █▌ █▌   █▌ █▌  █▌ █▌  █▌ █▌  █▌ █▌ ▐█   █▌   ▐█
+█▌  █▌ █▌   ▐▌  ███▌  █▌  █▌  ███▌  █▌  █▌   ██ ██
+-->
+
+The ''anchor()'' Function {#anchor-pos}
+---------------------------------------------------
+
+An [=absolutely-positioned=] element
+can use the <dfn>anchor()</dfn> function
+as a value in its [=inset properties=]
+to refer to the position of one or more [=anchor elements=].
+The ''anchor()'' function resolves to a <<length>>.
+
+<pre class=prod>
+	&lt;anchor()> = anchor( <<anchor-element>>? <<anchor-side>>, <<length-percentage>>? )
+	<dfn><<anchor-element>></dfn> = <<dashed-ident>> | implicit
+	<dfn><<anchor-side>></dfn> = inside | outside
+	           | top | left | right | bottom
+	           | start | end | self-start | self-end
+	           | <<percentage>> | center
+</pre>
+
+The ''anchor()'' function has three arguments:
+
+* the <<anchor-element>> value
+	specifies how to find the [=anchor element=]
+	it will be drawing positioning information from.
+	If omitted, it behaves as the element's [=default anchor specifier=].
+	Its possible values are:
+
+	<dl dfn-type=value dfn-for="anchor()">
+		: <dfn><<dashed-ident>></dfn>
+		:: Specifies the [=anchor name=] it will look for.
+			This name is a [=tree-scoped reference=].
+
+		: <dfn>implicit</dfn>
+		:: Selects the [=implicit anchor element=]
+			defined for the element,
+			if possible.
+	</dl>
+
+	See [=target anchor element=] for details.
+
+* the <<anchor-side>> value
+	refers to the position of the corresponding side
+	of the [=target anchor element=].
+	Its possible values are:
+
+	<dl dfn-type=value dfn-for="anchor()">
+		: <dfn>inside</dfn>
+		: <dfn>outside</dfn>
+		:: Resolves to one of the [=anchor element's=] sides,
+			depending on which [=inset property=] it's used in.
+			''anchor()/inside'' refers to the same side as the [=inset property=]
+			(attaching the element to the "inside" of the anchor),
+			while ''anchor()/outside'' refers to the opposite.
+
+		: <dfn>top</dfn>
+		: <dfn>right</dfn>
+		: <dfn>bottom</dfn>
+		: <dfn>left</dfn>
+		:: Refers to the specified side of the [=anchor element=].
+
+			Note: These are only usable in the [=inset properties=]
+			in the matching axis.
+			For example, ''anchor()/left'' is usable in 'left', 'right',
+			or the logical [=inset properties=] that refer to the horizontal axis.
+
+		: <dfn>start</dfn>
+		: <dfn>end</dfn>
+		: <dfn>self-start</dfn>
+		: <dfn>self-end</dfn>
+		:: Refers to one of the sides of the [=anchor element=]
+			in the same axis as the [=inset property=] it's used in,
+			by resolving the keyword against the [=writing mode=]
+			of either the positioned element
+			(for ''anchor()/self-start'' and ''anchor()/self-end'')
+			or the positioned element's containing block
+			(for ''anchor()/start'' and ''anchor()/end'').
+
+		: <dfn><<percentage>></dfn>
+		: <dfn>center</dfn>
+		:: Refers to a position
+			a corresponding percentage between the ''anchor()/start'' and ''anchor()/end'' sides,
+			with ''0%'' being equivalent to ''anchor()/start''
+			and ''100%'' being equivalent to ''anchor()/end''.
+
+			''anchor()/center'' is equivalent to ''50%''.
+
+* the optional <<length-percentage>> final argument is a fallback value,
+	specifying what the function should resolve to
+	if it's an [=invalid anchor function=].
+
+Issue: Computed value for anchor()
+probably needs to be the anchor() function,
+but with the target anchor element resolved.
+This allows for transitions to work properly
+with tree-scoped names,
+and with changing anchor elements.
+See <a href="https://github.com/w3c/csswg-drafts/issues/8180">Issue 8180</a>.
+
+An ''anchor()'' function representing a [=valid anchor function=]
+resolves at [=used value=] time
+to the <<length>> that would align the edge
+of the positioned elements' [=inset-modified containing block=]
+corresponding to the property the function appears in
+with the specified border edge of the [=target anchor element=],
+assuming that all [=scroll containers=]
+between the [=target anchor element=]
+and the positioned element's [=containing block=]
+are scrolled to their initial scroll position
+(but see [[#scroll]]).
+
+If the [=target anchor element=] is [=fragmented=],
+the axis-aligned bounding rectangle
+of the fragments' border boxes is used instead.
+
+Issue: Do we need to control which box we're referring to,
+so you can align to padding or content edge?
+
+The positioned element
+is additionally visually shifted
+by its [=snapshotted scroll offset=],
+as if by an additional ''translate()'' transform.
+
+<div class=example>
+	For example,
+	in ''.bar { top: anchor(--foo top); }'',
+	the ''anchor()'' will resolve to the length
+	that'll line up the <code>.bar</code> element's top edge
+	with the ''--foo'' anchor's top edge.
+
+	On the other hand,
+	in ''.bar { bottom: anchor(--foo top); }'',
+	it will instead resolve to the length
+	that'll line up the <code>.bar</code> element's <em>bottom</em> edge
+	with the ''--foo'' anchor's top edge.
+
+	Since 'top' and 'bottom' values specify insets from different edges
+	(the top and bottom of the element's [=containing block=],
+	respectively),
+	the same ''anchor()'' will usually resolve to different lengths in each.
+</div>
+
+<div class=example>
+	Because the ''anchor()'' function resolves to a <<length>>,
+	it can be used in [=math functions=] like any other length.
+
+	For example, the following will set up the element
+	so that its [=inset-modified containing block=]
+	is centered on the [=anchor element=]
+	and as wide as possible without overflowing the [=containing block=]:
+
+	<pre highlight=css>
+	.centered-message {
+		position: fixed;
+		max-width: max-content;
+		justify-self: center;
+
+		--center: anchor(--x 50%);
+		--half-distance: min(
+			abs(0% - var(--center)),
+			abs(100% - var(--center))
+		);
+		left: calc(var(--center) - var(--half-distance));
+		right: calc(var(--center) - var(--half-distance));
+		bottom: anchor(--x top);
+	}
+	</pre>
+
+	This might be appropriate for an error message
+	on an <{input}> element,
+	for example,
+	as the centering will make it easier to discover
+	which input is being referred to.
+</div>
+
+
+<!-- Big Text: a-center
+
+ ███▌         ███▌  █████▌ █    █▌ █████▌ █████▌ ████▌
+▐█ ▐█        █▌  █▌ █▌     █▌   █▌   █▌   █▌     █▌  █▌
+█▌  █▌       █▌     █▌     ██▌  █▌   █▌   █▌     █▌  █▌
+█▌  █▌ ████▌ █▌     ████   █▌▐█ █▌   █▌   ████   ████▌
+█████▌       █▌     █▌     █▌  ██▌   █▌   █▌     █▌▐█
+█▌  █▌       █▌  █▌ █▌     █▌   █▌   █▌   █▌     █▌ ▐█
+█▌  █▌        ███▌  █████▌ █▌   ▐▌   █▌   █████▌ █▌  █▌
+-->
+
+Centering on the Anchor: the ''anchor-center'' value {#anchor-center}
+------------------------------------------------------------------------
+
+<pre class=propdef>
+Name: justify-self, align-self, justify-items, align-items
+New Values: anchor-center
+</pre>
+
+The [=self-alignment properties=] allow an [=absolutely-positioned=] element
+to align itself within the [=inset-modified containing block=].
+The existing values,
+plus carefully chosen [=inset properties=],
+are usually enough for useful alignment,
+but a common case for anchored positioning--
+centering over the anchor element--
+requires careful and somewhat complex set-up to achieve.
+
+The new <dfn value for="justify-self, align-self, justify-items, align-items">anchor-center</dfn> value
+makes this case extremely simple:
+if the positioned element has a [=default anchor element=],
+then it is aligned so as to center itself
+over the [=default anchor element=]
+in the relevant axis.
+
+Additionally,
+any ''top/auto'' [=inset properties=] resolve to ''0''.
+However, the [=available space=] for the positioned element in the relevant axis
+is reduced to the size of the largest rectangle
+that is centered on the [=default anchor element=]
+and doesn't overflow the [=inset-modified containing block=].
+(Possibly being zero-sized,
+if the anchor's center is not within the [=inset-modified containing block=].)
+
+If the element is not [=absolutely positioned=],
+or does not have a [=default anchor element=],
+this value behaves as ''<self-position>/center''
+and has no additional effect on how [=inset properties=] resolve.
+
+
+<!-- Big Text: scroll
+
+ ███▌   ███▌  ████▌   ███▌  █▌    █▌
+█▌  █▌ █▌  █▌ █▌  █▌ █▌  █▌ █▌    █▌
+█▌     █▌     █▌  █▌ █▌  █▌ █▌    █▌
+ ███▌  █▌     ████▌  █▌  █▌ █▌    █▌
+    █▌ █▌     █▌▐█   █▌  █▌ █▌    █▌
+█▌  █▌ █▌  █▌ █▌ ▐█  █▌  █▌ █▌    █▌
+ ███▌   ███▌  █▌  █▌  ███▌  █████ █████
+-->
+
+Taking Scroll Into Account {#scroll}
+------------------------------------------------------------------
+
+Because scrolling is often done in a separate thread from layout in implementations for performance reasons,
+but ''anchor()'' can result in both positioning changes
+(which can be handled in the scrolling thread)
+and layout changes
+(which cannot),
+''anchor()'' is defined to assume
+all the [=scroll containers=] between the anchor element
+and the positioned element's containing block
+are at their initial scroll position.
+This means a positioned element
+will <em>not</em> be aligned with its anchor
+if any of the scrollers are <em>not</em> at their initial positions.
+
+To compensate for this without losing
+the performance benefits of the separate scrolling thread,
+we define:
+
+<div algorithm="compensate for scroll">
+	An [=absolutely-positioned=] element |query el|
+	<dfn>needs scroll adjustment</dfn>
+	in the horizontal or vertical axis
+	if both of the following conditions are true:
+
+	* |query el| has a [=default anchor element=].
+
+	* At least one ''anchor()'' function on |query el|'s
+		used [=inset properties=] in the axis
+		refers to a [=target anchor element=]
+		with the same nearest [=scroll container=] ancestor
+		as |query el|'s [=default anchor element=],
+		or |query el|'s used [=self-alignment property=] value
+		in the axis is ''anchor-center''.
+
+	Note: If |query el| has a [=position options list=],
+	then whether it [=needs scroll adjustment=] in an axis
+	is also affected by the applied fallback style.
+
+	|query el|'s <dfn>snapshotted scroll offset</dfn> is a pair of lengths
+	for the horizontal and vertical axises, respectively.
+	Each length is calculated as:
+
+	* If |query el| [=needs scroll adjustment=] in the axis,
+		then the length is the sum of the [=scroll offsets=]
+		of all [=scroll container=] ancestors
+		of the [=default anchor element=]
+		in the same axis,
+		up to but not including |query el|'s [=containing block=];
+
+	* Otherwise, the length is 0.
+
+	Issue: Define the precise timing of the snapshot:
+	updated each frame,
+	before style recalc.
+
+	If |query el| has an [=additional fallback-bounds rect=],
+	similarly calculate the sum of [=scroll offsets=]
+	of all [=scroll container=] ancestors
+	of the element generating the [=additional fallback-bounds rect=],
+	up to but not including |query el|'s [=containing block=],
+	and subtract that summed offset
+	from the [=additional fallback-bounds rect's=] position.
+</div>
+
+
+Validity {#anchor-valid}
+--------
+
+An ''anchor()'' function is a
+<dfn lt="valid anchor function|invalid anchor function">valid anchor function</dfn>
+only if all the following conditions are true:
+
+* It's being used in an [=inset property=]
+	on an [=absolutely-positioned=] element.
+* If its <<anchor-side>> specifies a physical keyword,
+	it's being used in an [=inset property=] in that axis.
+	(For example, ''anchor()/left'' can only be used in 'left', 'right',
+	or a logical [=inset property=] in the horizontal axis.)
+* The result of determining the [=target anchor element=] is not nothing when
+	given the querying element as the element it's used on,
+	and the anchor specifier as
+	the <<anchor-element>> value specified in the function.
+
+If any of these conditions are false,
+the ''anchor()'' function resolves to its specified fallback value.
+If no fallback value is specified,
+it resolves to ''0px''.
+
+
+<!-- Big Text: a-size()
+
+ ███▌         ███▌  ████ █████▌ █████▌   ██ ██
+▐█ ▐█        █▌  █▌  ▐▌      ▐▌ █▌      █▌   ▐█
+█▌  █▌       █▌      ▐▌     ▐▌  █▌     █▌     ▐█
+█▌  █▌ ████▌  ███▌   ▐▌    █▌   ████   █▌     ▐█
+█████▌           █▌  ▐▌   █     █▌     █▌     ▐█
+█▌  █▌       █▌  █▌  ▐▌  █      █▌      █▌   ▐█
+█▌  █▌        ███▌  ████ █████▌ █████▌   ██ ██
+-->
+
+Anchor-Based Sizing {#sizing}
+===================
+
+An [=absolutely-positioned=] element
+can use the <dfn>anchor-size()</dfn> function
+in its [=sizing properties=]
+to refer to the size of one or more [=anchor elements=].
+The ''anchor-size()'' function resolves to a <<length>>.
+
+The ''anchor-size()'' Function {#anchor-size-fn}
+------------------------------
+
+<pre class=prod>
+anchor-size() = anchor-size( <<anchor-element>>? <<anchor-size>>, <<length-percentage>>? )
+<dfn><<anchor-size>></dfn> = width | height | block | inline | self-block | self-inline
+</pre>
+
+The ''anchor-size()'' function is similar to ''anchor()'',
+and takes the same arguments,
+save that the <<anchor-side>> keywords are replaced with <<anchor-size>>,
+referring to the distance between two opposing sides.
+
+The physical <<anchor-size>> keywords
+(<dfn value for=anchor-size()>width</dfn>
+and <dfn value for=anchor-size()>height</dfn>)
+refer to the width and height,
+respectively,
+of the [=target anchor element=].
+Unlike ''anchor()'', there is no restriction on having to match axises;
+for example, ''width: anchor-size(--foo height);'' is valid.
+
+The logical <<anchor-size>> keywords
+(<dfn value for=anchor-size()>block</dfn>,
+<dfn value for=anchor-size()>inline</dfn>,
+<dfn value for=anchor-size()>self-block</dfn>,
+and <dfn value for=anchor-size()>self-inline</dfn>)
+map to one of the physical keywords
+according to either the [=writing mode=] of the element
+(for ''self-block'' and ''self-inline'')
+or the [=writing mode=] of the element's [=containing block=]
+(for ''anchor-size()/block'' and ''anchor-size()/inline'').
+
+An ''anchor-size()'' function representing a [=valid anchor-size function=]
+resolves to the <<length>> separating the relevant border edges
+(either left and right, or top and bottom,
+whichever is in the specified axis)
+of the [=target anchor element=].
+
+Validity {#anchor-size-valid}
+--------
+
+An ''anchor-size()'' function is a
+<dfn lt="valid anchor-size function|invalid anchor-size function">valid anchor-size function</dfn>
+only if all the following conditions are true:
+
+* It's being used in a [=sizing property=]
+	on an [=absolutely-positioned=] element.
+* There is a [=target anchor element=]
+	for the element it's used on,
+	and the <<anchor-element>> value specified in the function.
+
+If any of these conditions are false,
+the ''anchor-size()'' function resolves to its specified fallback value.
+If no fallback value is specified,
+it resolves to ''0px''.
+
+
+<!-- Big Text: fallback
+
+█████▌  ███▌  █▌    █▌    ████▌   ███▌   ███▌  █▌  █▌
+█▌     ▐█ ▐█  █▌    █▌    █▌  █▌ ▐█ ▐█  █▌  █▌ █▌ █▌
+█▌     █▌  █▌ █▌    █▌    █▌  █▌ █▌  █▌ █▌     █▌█▌
+████   █▌  █▌ █▌    █▌    █████  █▌  █▌ █▌     ██
+█▌     █████▌ █▌    █▌    █▌  █▌ █████▌ █▌     █▌█▌
+█▌     █▌  █▌ █▌    █▌    █▌  █▌ █▌  █▌ █▌  █▌ █▌ █▌
+█▌     █▌  █▌ █████ █████ ████▌  █▌  █▌  ███▌  █▌  █▌
+-->
+
+Overflow Management {#fallback}
+===========================
+
+Anchor positioning,
+while powerful,
+can also be unpredictable.
+The [=anchor element=] might be anywhere on the page,
+so positioning an element in any particular fashion
+(such as above the anchor, or the right of the anchor)
+might result in the positioned element overflowing its [=containing block=]
+or being positioned partially off screen.
+
+<s>To ameliorate this, an [=absolutely positioned=] element
+can use the 'position-fallback' property
+to refer to a ''@position-fallback'' block,
+giving a list of possible style rules to try out.
+Each is applied to the element, one by one,
+and the first that doesn't cause the element
+to overflow its [=containing block=]
+is taken as the winner.</s>
+
+Giving Fallback Options: the 'position-try-options' property {#position-try-options}
+--------------------------------
+
+<pre class=propdef>
+Name: position-try-options
+Value: none | [ [<<dashed-ident>> || <<try-tactic>>] | inset-area( <<'inset-area'>> ) ]#
+Initial: none
+Inherited: no
+Applies to: [=absolutely-positioned=] elements
+Animation type: discrete
+</pre>
+
+This property provides a list of alternate positioning styles
+to try when the [=absolutely positioned box=]
+overflows its [=inset-modified containing block=].
+This <dfn export>position options list</dfn>
+is initially empty.
+
+Each comma-separated entry in the list is a separate option:
+either the name of a ''@position-try'' block,
+or a <<try-tactic>> representing an automatic transformation of the element's existing computed style.
+
+Values have the following meanings:
+
+<dl dfn-type=value dfn-for=position-try-options>
+	: <dfn>none</dfn>
+	::
+		The property has no effect;
+		the element's [=position options list=] is empty.
+
+	: <dfn><<dashed-ident>></dfn>
+	::
+		If there is a ''@position-try'' rule
+		with the given name,
+		its associated [=position option=]
+		is added to the [=position options list=].
+
+		Otherwise,
+		this value has no effect.
+
+	: <dfn><<try-tactic>></dfn>
+	::
+		Automatically creates a [=position option=]
+		from the element's computed style,
+		by swapping the
+		[=margin property|margin=],
+		[=sizing property|sizing=],
+		[=inset property|inset=],
+		and [=self-alignment property|self-alignment=] property values
+		among the element's sides,
+		and adds it to the [=position options list=].
+
+		<pre class=prod>
+		<dfn type><<try-tactic>></dfn> = flip-block || flip-inline || flip-start
+		</pre>
+
+		: <dfn>flip-block</dfn>
+		::
+			swaps the values in the [=block axis=]
+			(between, for example, 'margin-block-start' and 'margin-block-end'),
+			essentially mirroring across an [=inline-axis=] line.
+
+		: <dfn>flip-inline</dfn>
+		::
+			swaps the values in the [=inline axis=],
+			essentially mirroring across a [=block-axis=] line.
+
+		: <dfn>flip-start</dfn>
+		::
+			swaps the values of the [=start=] properties with each other,
+			and the [=end=] properties with each other
+			(between, for example,
+			'margin-block-start' and 'margin-inline-start'),
+			essentially mirroring across a diagonal drawn
+			from the [=block-start|start=]-[=inline-start|start=] corner
+			to the [=block-end|end=]-[=inline-end|end=] corner.
+
+		If multiple keywords are given,
+		the transformations are composed in order
+		to produce a single [=position option=].
+
+		Issue: Define how the values themselves are changed upon flipping:
+		anchor(top) becomes anchor(bottom);
+		start becomes end;
+		etc.
+
+	: <dfn><<dashed-ident>> || <<try-tactic>></dfn>
+	::
+		Combines the effects of the previous two options:
+		if there is a ''@position-try'' rule
+		with the given name,
+		then applies its [=position option=] to the element's base style,
+		transforms it according to the specified <<try-tactic>>,
+		and then adds the result
+		to the element's [=position options list=].
+
+		Otherwise, does nothing.
+
+	: <dfn>inset-area( <<'inset-area'>> )</dfn>
+	::
+		Automatically creates a [=position option=]
+		composed solely of an 'inset-area' property
+		with the given value.
+</dl>
+
+<!-- Big Text: -order
+
+       ███▌  ████▌  ████▌  █████▌ ████▌
+      █▌  █▌ █▌  █▌ █▌  █▌ █▌     █▌  █▌
+      █▌  █▌ █▌  █▌ █▌  █▌ █▌     █▌  █▌
+████▌ █▌  █▌ ████▌  █▌  █▌ ████   ████▌
+      █▌  █▌ █▌▐█   █▌  █▌ █▌     █▌▐█
+      █▌  █▌ █▌ ▐█  █▌  █▌ █▌     █▌ ▐█
+       ███▌  █▌  █▌ ████▌  █████▌ █▌  █▌
+-->
+
+Determining Fallback Order: the 'position-try-order' property {#position-try-order-property}
+----------------------------------
+
+<pre class=propdef>
+Name: position-try-order
+Value: normal | <<try-size>>
+Initial: normal
+Applies to: [=absolutely positioned elements=]
+Inherited: no
+Animation Type: discrete
+</pre>
+
+This property specifies the order in which
+the [=position options list=] will be tried.
+
+<pre class=prod>
+<dfn type><<try-size>></dfn> = most-width | most-height | most-block-size | most-inline-size
+</pre>
+
+<dl dfn-type=value dfn-for=position-try-order>
+	: <dfn>normal</dfn>
+	::
+		Try the [=position options=]
+		in the order specified by 'position-try-options'.
+
+	: <dfn>most-width</dfn>
+	: <dfn>most-height</dfn>
+	: <dfn>most-block-size</dfn>
+	: <dfn>most-inline-size</dfn>
+	::
+		For each entry in the [=position options list=],
+		[=apply a position option=] using that option to the element,
+		and find the specified [=inset-modified containing block=] size
+		that results from those styles.
+		Stably sort the [=position options list=]
+		according to this size,
+		with the largest coming first.
+</dl>
+
+<div class=example>
+	For example, the following styles
+	will initially position the popup list below its anchoring button,
+	but if that overflows,
+	will decide whether to keep the popup list below the anchor
+	or move it above,
+	depending on which option gives it the most space.
+
+	<pre highlight=css>
+	.anchor { anchor-name: --foo; }
+	.list {
+		position: fixed;
+		anchor-default: --foo;
+		top: anchor(bottom);
+		left: anchor(left);
+		align-self: start;
+		position-try-options: --bottom-scrollable, flip-block, --top-scrollable;
+		position-try-order: most-height;
+	}
+	@position-try --bottom-scrollable {
+		align-self: stretch;
+	}
+	@position-try --top-scrollable {
+		top: 0;
+		bottom: anchor(top);
+		align-self: stretch;
+	}
+	</pre>
+
+	The ''flip-block'' auto-generated option and the ''--top-scrollable'' option
+	will always find the same available height,
+	since both of them stretch vertically from ''top: 0''
+	(the top edge of the viewport)
+	to ''bottom: anchor(top)''
+	(the top of the anchor),
+	so they'll retain their specified order.
+	This causes the element to first try to align against the anchor
+	at its natural height
+	(using ''align-self: end'', auto-reversed from the base styles),
+	but if that also causes overflow,
+	it'll fall back to just filling the space
+	and being scrollable instead.
+</div>
+
+<!--
+Final Fallback Strategy: the 'position-try-final' property {#position-try-final-property}
+----------------------
+
+<pre class=propdef>
+Name: position-try-final
+Value: [ always? && [ first | <<try-size>> ] ] | hide
+Initial: first
+Applies to: [=absolutely positioned elements=]
+Inherited: no
+Animation Type: discrete
+</pre>
+
+When all options in the [=position options list=]
+would result in the element overflowing its [=inset-modified containing block=],
+this property determines which [=position option=] to use.
+
+<dl dfn-type=value dfn-for=position-try-final>
+	: <dfn>first</dfn>
+	::
+		Use the first option in the [=position options list=]
+		(after sorting by 'position-try-order').
+
+	: <dfn lt="<try-size> | most-width | most-height | most-block-size | most-inline-size"><<try-size>></dfn>
+	::
+		Stable sort the [=position options list=] as if this was the specified 'position-try-order',
+		then use the first option.
+
+	: <dfn>always</dfn>
+	::
+		If this keyword is <em>not</em> specified,
+		and this box has previously been laid out
+		with a [=position option=]
+		that didn't result in overflow,
+		use that option.
+
+		Note: In other words, if all of the options cause the element to overflow,
+		then by default
+		the element will stay with the last successful [=position option=] it found
+		that <em>didn't</em> cause overflow,
+		keeping its position reasonably stable.
+		With ''always'' specified, however,
+		it will instead use the specified strategy
+		to select the "fallback" [=position option=],
+		regardless of what was previously successful.
+
+	: <dfn>hide</dfn>
+	::
+		Use the first [=position option=] (as for ''first''),
+		but also hide the box such that it (and all of its contents)
+		are invisible (like ''visibility: hidden'')
+		and do not contribute to [=scrollable overflow=].
+</dl>
+-->
+
+The 'position-try' Shorthand {#position-try-prop}
+-------------------------------------------------
+
+<pre class="propdef shorthand">
+Name: position-try
+Value: <<'position-try-order'>>? <<'position-try-options'>>
+</pre>
+
+This shorthand sets both 'position-try-options' and 'position-try-order'.
+If <<'position-try-order'>> is omitted,
+it's set to the property's initial value.
+
+
+<!-- Big Text: @pos-try
+
+ ████▌  ████▌   ███▌   ███▌        █████▌ ████▌  █   ▐▌
+█▌   █▌ █▌  █▌ █▌  █▌ █▌  █▌         █▌   █▌  █▌ ▐▌  █
+█▌▐█ █▌ █▌  █▌ █▌  █▌ █▌             █▌   █▌  █▌  █ ▐▌
+█▌▐█ █▌ ████▌  █▌  █▌  ███▌  ████▌   █▌   ████▌   ▐▌█
+█▌ ██▌  █▌     █▌  █▌     █▌         █▌   █▌▐█     █▌
+█▌      █▌     █▌  █▌ █▌  █▌         █▌   █▌ ▐█    █▌
+ ████▌  █▌      ███▌   ███▌          █▌   █▌  █▌   █▌
+-->
+
+The ''@position-try'' Rule {#fallback-rule}
+-------------------------------
+
+The <dfn>@position-try</dfn> rule
+defines a <dfn>position option</dfn>
+with a given name,
+specifying one or more sets of positioning properties
+that will be applied to an element
+via 'position-try-options',
+
+The syntax of the ''@position-try'' rule is:
+
+<pre class=prod>
+@position-try <<dashed-ident>> {
+	<<declaration-list>>
+}
+</pre>
+
+The <<dashed-ident>> specified in the prelude
+is the rule's name.
+If multiple ''@position-try'' rules are declared with the same name,
+the last one in document order "wins".
+
+Issue: Or should they cascade together?
+
+The ''@position-try'' rule only <dfn export lt="accepted @position-try properties">accepts</dfn>
+the following [=properties=]:
+
+* [=inset properties=]
+* [=margin properties=]
+* [=sizing properties=]
+* [=self-alignment properties=]
+* 'anchor-default'
+* 'inset-area'
+
+Issue(#9195): What exactly are the constraints that determine what's allowed here?
+Current list is based off of what's reasonable
+from Chrome's experimental impl.
+We can make a CQ that keys off of which fallback was used
+to allow more general styling,
+at least for descendants.
+
+Issue(#7758): Would be useful to be able to detect
+when your anchor(s) are fully off-screen
+and suppress your display entirely.
+For example, tooltips living outside the scroller
+holding the text they're anchored to
+don't want to just hover over arbitrary parts of the page
+because their anchor happens to have that position
+relative to the scrollport.
+
+Note: If multiple elements using different anchors
+want to use the same fallback positioning,
+just relative to their own anchor elements,
+omit the <<anchor-element>> in ''anchor()''
+and specify each element's anchor in 'anchor-default' instead.
+
+Note: The most common types of fallback positioning
+(putting the positioned element on one side of the anchor normally,
+but flipping to the opposite side if needed)
+can be done automatically
+with keywords in 'position-try-options',
+without using ''@position-try'' at all.
+
+
+
+<!-- Big Text: apply
+
+ ███▌  ████▌  ████▌  █▌    █   ▐▌
+▐█ ▐█  █▌  █▌ █▌  █▌ █▌    ▐▌  █
+█▌  █▌ █▌  █▌ █▌  █▌ █▌     █ ▐▌
+█▌  █▌ ████▌  ████▌  █▌     ▐▌█
+█████▌ █▌     █▌     █▌      █▌
+█▌  █▌ █▌     █▌     █▌      █▌
+█▌  █▌ █▌     █▌     █████   █▌
+-->
+
+Applying Position Fallback {#fallback-apply}
+--------------------------
+
+When a positioned element overflows its [=inset-modified containing block=],
+and has a non-empty [=position options list=],
+it iterates the [=position options list=],
+applying each [=position option's=] styles over the element's base styles,
+and attempts to find an option that avoids overflow.
+
+These modified styles are applied to the element via [=interleaving=],
+so they affect [=computed values=]
+(and can trigger transitions/etc)
+even tho they depend on layout and [=used values=].
+They are applied as part of the [=author origin=],
+as part of a theoretical UA-controlled final cascade layer.
+
+<div algorithm>
+	To <dfn>apply a position option</dfn> to an element |el|,
+	given a [=position option=] |new styles|:
+
+	1. With |new styles| inserted into the cascade at the very end of the [=author origin=],
+		resolve the cascade,
+		and perform enough layout to determine |el|'s [=used value|used styles=].
+
+	2. Return |el|'s [=used value|used styles=].
+</div>
+
+<div algorithm="determine the position fallback styles">
+	To <dfn>determine the position fallback styles</dfn> of an element |el|:
+
+	1. Let |base styles| be the current used styles of |el|.
+
+	2. [=list/For each=] |option| in the [=position options list=]:
+
+		1. Let |adjusted styles| be the result of [=applying a position option=] |option| to |el|.
+
+		2. Let |el rect| be the size and position of |el|'s margin box,
+			when laid out with |adjusted styles|.
+			Let |cb rect| be the size and position of |el|'s [=inset-modified containing block=].
+
+		3. If |el| has a [=snapshotted scroll offset=],
+			subtract it from the position of both |el rect| and |cb rect|.
+
+		4. If |el rect| is not fully contained within |cb rect|,
+			[=iteration/continue=].
+
+		4. If |el| has an [=additional fallback-bounds rect=],
+			and |el rect| is not fully contained within it,
+			[=iteration/continue=].
+
+		5. Set |option| as |el|'s <dfn>last successful position option</dfn>.
+			Return |adjusted styles|.
+
+	3. Assert: The previous step finished without finding a [=position option=]
+		that avoids overflow.
+
+	4. If |el| has a [=last successful position option=],
+		return the result of [=applying a position option=],
+		using that option,
+		to |el|.
+
+	5. Return |base styles|.
+
+	Note: Descendants overflowing |el|
+	don't affect this calculation,
+	only |el|'s own [=margin box=].
+</div>
+
+Issue: Make sure the snapshotted scroll offset stuff is correct now,
+given interleaving.
+
+Issue: Add conditions for forgetting the [=last successful position option=],
+similar to the [=last remembered size=]
+
+The styles returned by [=determining the position fallback styles=]
+are taken as the final values for the specified properties.
+
+Implementations may choose to impose an implementation-defined limit
+on the length of [=position options lists=],
+to limit the amount of excess layout work that may be required.
+This limit must be <em>at least</em> five.
+
+<div class=issue>
+	Nested anchors
+	(an anchored element inside of another anchored element)
+	present the potential for exponential blow-up of layouts
+	when doing fallback,
+	since the grandchild anchored element can cause scrollbars on an ancestor,
+	changing the IMCB for the child anchored element,
+	thus possibly causing the fallback choice to change for it.
+
+	There are strategies to avoid this,
+	but they're not without costs of their own.
+	We should <em>probably</em> impose a <strong>maximum</strong> limit as well,
+	to avoid this.
+
+	However, since *most* usages won't be problematic in the first place,
+	we don't want to restrict them unduly
+	just to prevent weird situations from exploding.
+	Perhaps a complexity budget based on the branching factor at each level?
+	Like, accumulate the product of the fallback list lengths from ancestors,
+	and your fallback list gets limited to not exceed a total product
+	of, say, 1k.
+	Get too deep and you're stuck with your first choice only!
+	But this would allow large, complex fallback lists for top-level stuff,
+	and even some reasonable nesting.
+	(Length-five lists could be nested to depth of 4, for example,
+	if we did go with 1k.)
+
+	More thought is needed.
+</div>
+
+<div class=example>
+	For example,
+	the following CSS will first attempt to position a "popover"
+	below the [=element=],
+	but if it doesn't fit on-screen will switch to being above;
+	it defaults to left-aligning,
+	but will switch to right-aligning if that doesn't fit.
+
+	<pre highlight=css>
+	#myPopover {
+		position: fixed;
+		position-fallback: --button-popover;
+		overflow: auto;
+
+		/* The popover is at least as wide as the button */
+		min-width: anchor-size(--button width);
+
+		/* The popover is at least as tall as 2 menu items */
+		min-height: 6em;
+	}
+
+	@position-fallback --button-popover {
+		/* First try to align the top, left edge of the popover
+		with the bottom, left edge of the button. */
+		@try {
+			top: anchor(--button bottom);
+			left: anchor(--button left);
+		}
+
+		/* Next try to align the bottom, left edge of the popover
+		with the top, left edge of the button. */
+		@try {
+			bottom: anchor(--button top);
+			left: anchor(--button left);
+		}
+
+		/* Next try to align the top, right edge of the popover
+		with the bottom, right edge of the button. */
+		@try {
+			top: anchor(--button bottom);
+			right: anchor(--button right);
+		}
+
+		/* Finally, try to align the bottom, right edge of the popover
+		with the top, right edge of the button. Other positions are possible,
+		but this is the final option the author would like the rendering
+		engine to try. */
+		@try {
+			bottom: anchor(--button top);
+			right: anchor(--button right);
+		}
+	}
+	</pre>
+</div>
+
+
+<!-- Big Text: anim
+
+ ███▌  █    █▌ ████ █     █
+▐█ ▐█  █▌   █▌  ▐▌  ██   ██
+█▌  █▌ ██▌  █▌  ▐▌  █▌█ █▐█
+█▌  █▌ █▌▐█ █▌  ▐▌  █▌ █ ▐█
+█████▌ █▌  ██▌  ▐▌  █▌   ▐█
+█▌  █▌ █▌   █▌  ▐▌  █▌   ▐█
+█▌  █▌ █▌   ▐▌ ████ █▌   ▐█
+-->
+
+Animating Position {#animating}
+==================
+
+<pre class=propdef>
+Name: position-animation
+Value: normal | magic
+Initial: normal
+Percentages: n/a
+Inherited: no
+Computed Value: ''position-animation/normal'', or an [=overriding position rectangle=] (see prose)
+Animation type: (see prose)
+Applies to: [=absolutely positioned elements=]
+</pre>
+
+An [=absolutely positioned box=]'s position and size
+are the result of multiple properties interacting,
+and this interaction is non-linear,
+so smoothly animating from one position to another
+can't be accomplished by animating the individual properties independently.
+
+The 'position-animation' property resolves this conundrum,
+by representing the final result of applying these properties
+as a <dfn>overriding position rectangle</dfn>:
+a width, height, [=x-axis=] offset, and [=y-axis=] offset.
+The width and height represent the size of its [=margin box=],
+and the x and y offsets represent its position
+relative to its [=containing block=],
+after <a href="https://www.w3.org/TR/css-position/">positioning</a>/<a href="https://www.w3.org/TR/css-align/">alignment</a>/etc.
+have been performed.
+
+If the element is not [=absolutely positioned=],
+this property has no effect.
+
+Values are:
+
+<dl dfn-type=value dfn-for=position-animation>
+	: <dfn>normal</dfn>
+	::
+		This value has no effect.
+
+	: <dfn>magic</dfn> (name to be bikeshedded)
+	::
+		At [=computed value=] time,
+		resolves to a [=overriding position rectangle=],
+		using [=interleaving=].
+
+		At [=used value=] time,
+		overrides the position and size of the element's [=margin box=],
+		setting it to match the computed [=overriding position rectangle=].
+</dl>
+
+The ''position-animation/magic'' value always serializes as <css>magic</css>;
+the [=overriding position rectangle=] is not observable in any way.
+
+Interpolating to or from ''position-animation/normal''
+is done as a discrete step,
+where values of <var ignore>p</var> between 0 and 1 map to ''position-animation/normal'',
+and other values of <var ignore>p</var> map to the closer endpoint.
+<span class=note>(Similar to 'visibility'.)</span>
+
+Two [=overriding position rectangles=] are interpolated
+by interpolating the width, height, x offset, and y offset independently
+as [=computed lengths=].
+
+Issue: Should the x/y offset be relative to the top/left corner or (CB) center to (AbsPos) center or something else?
+
+Note: The [=overriding position rectangle=] is not directly exposed,
+because it functionally allows overriding the entire cascade;
+the [=overriding position rectangle=] causes the element
+to ignore all the other positioning properties,
+regardless of where they come from.
+The rectangle can nevertheless be <em>read</em> by authors
+using existing JS APIs (such as {{Element/getBoundingClientRect()}}).
+
+<div class=example>
+	Given a 	change in positioning properties like:
+
+	<pre highlight=css>
+	p.start {
+		top: 0px;
+		bottom: 100px;
+		align-self: start;
+	}
+	p.end {
+		top: 100px;
+		bottom: 50px;
+		align-self: end;
+	}
+	</pre>
+
+	The following causes a smooth animation between the two endpoints:
+
+	<pre highlight=css>
+	p {
+	    transition: position-animation 2s; /* magic transition yay */
+	    position-animation: magic;
+	}
+	</pre>
+
+	This doesn't smoothly animate
+	(you get the "constantly recomputed,
+	triggering fresh transitions every frame" effect
+	that occurs if you transition 'color' and 'border-color',
+	using ''border-color:currentcolor''):
+
+	<pre highlight=css>
+	p {
+	      transition: position-animation 2s, inset 2s; /* sadface */
+	}
+	</pre>
+</div>
+
+<div class=issue>
+	Need a way to force <em>animations</em> to work correctly as well,
+	like:
+
+	<pre highlight=css>
+	p {
+	    position-animation: magic;
+	    animation: foo 2s;
+	}
+
+	@keyframes foo {
+		to {
+			top: 0px;
+			bottom: 100px;
+			align-self: start;
+		}
+		from {
+			top: 100px;
+			bottom: 50px;
+			align-self: end;
+		}
+	}
+	</pre>
+
+	Without some sort of magic intercept of animations
+	(forcing them to turn into a 'position-animation' animation)
+	this will not smoothly animate.
+</div>
+
+
+
+<!-- Big Text: cssom
+
+ ███▌   ███▌   ███▌   ███▌  █     █
+█▌  █▌ █▌  █▌ █▌  █▌ █▌  █▌ ██   ██
+█▌     █▌     █▌     █▌  █▌ █▌█ █▐█
+█▌      ███▌   ███▌  █▌  █▌ █▌ █ ▐█
+█▌         █▌     █▌ █▌  █▌ █▌   ▐█
+█▌  █▌ █▌  █▌ █▌  █▌ █▌  █▌ █▌   ▐█
+ ███▌   ███▌   ███▌   ███▌  █▌   ▐█
+-->
+
+DOM Interfaces {#interfaces}
+==========
+
+The CSSPositionTryRule interface {#om-position-try}
+-------------------------------------
+
+The {{CSSPositionTryRule}} interface represents
+the ''@position-try'' rule:
+
+<pre class='idl' export>
+[Exposed=Window]
+interface CSSPositionTryRule : CSSRule {
+	readonly attribute CSSOMString name;
+	[SameObject, PutForwards=cssText] readonly attribute CSSStyleDeclaration style;
+};
+</pre>
+
+Its <dfn attribute for=CSSPositionTryRule>name</dfn> attribute
+represents the name declared in the rule's prelude.
+
+Its <dfn attribute for=CSSPositionTryRule>style</dfn> attribute
+represents the styles declared in the rule's body,
+in the specified order.
+Only the [=accepted @position-try properties=] are valid in this rule.
+
+Issue: match the concept of validity to whatever we do in similar situations.
+
+
+<h2 id=interleaving>
+Appendix: Style & Layout Interleaving</h2>
+
+<dfn export lt="style & layout interleave" local-lt="interleave">Style & layout interleaving</dfn> is a technique
+where a style update can occur on a subtree
+during the layout process,
+resulting in retroactive updates
+to elements’ [=computed value|computed styles=].
+
+Issue: This is not the correct spec for this concept,
+it should probably go in <a href="https://www.w3.org/TR/css-cascade/">Cascade</a>,
+but I need a sketch of it to refer to.
+
+Note: [=Style & layout interleaving=] is already used with [=container queries=]
+and [=container query lengths=].
+A length like ''10cqw'' is resolved into a [=computed length=]
+using layout information about the query container's size,
+which can thus trigger <a href="https://www.w3.org/TR/css-transitions-1/">transitions</a>
+when the container changes size between layouts.
+
+An [=absolutely positioned box=]'s [=overriding position rectangle=]
+(see 'position-animation')
+is determined by [=style & layout interleaving=].
+The [=accepted @position-try properties=] are also [=interleaved=]
+when resolving fallback
+(see 'position-try').
+
+Issue: Obviously this needs way more details filled in,
+but for now "act like you already do for container queries" suffices.
+That behavior is also undefined,
+but at least it's interoperable (to some extent?).
+
+
+Security Considerations {#sec}
+=======================
+
+No Security issues have been raised against this document.
+
+Privacy Considerations {#priv}
+======================
+
+No Privacy issues have been raised against this document.
+

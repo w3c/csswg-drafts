@@ -1,0 +1,2594 @@
+<pre class=metadata>
+Title: CSS Containment Module Level 2
+Level: 2
+Shortname: css-contain
+Status: ED
+Work Status: stable
+Group: csswg
+ED: https://drafts.csswg.org/css-contain-2/
+Previous Version: https://www.w3.org/TR/2022/WD-css-contain-2-20220917/
+Previous Version: https://www.w3.org/TR/2020/WD-css-contain-2-20201216/
+Previous Version: https://www.w3.org/TR/2020/WD-css-contain-2-20200603/
+Previous Version: https://www.w3.org/TR/2019/WD-css-contain-2-20191111/
+Previous Version: https://www.w3.org/TR/2019/WD-css-contain-2-20191015/
+TR: https://www.w3.org/TR/css-contain-2/
+Editor: Tab Atkins, Google, http://xanthir.com/contact/, w3cid 42199
+Editor: Florian Rivoal, On behalf of Bloomberg, https://florian.rivoal.net/, w3cid 43241
+Editor: Vladimir Levin, Google, vmpstr@google.com, w3cid 75295
+Abstract: This CSS module describes the 'contain' property, which indicates that the element's subtree is independent of the rest of the page. This enables heavy optimizations by user agents when used well.
+Test Suite: https://test.csswg.org/harness/results/css-contain-1_dev/
+WPT Path Prefix: css/css-contain/
+</pre>
+
+<pre class=link-defaults>
+spec:css21;
+	type:dfn; text:stacking context
+	type:property;
+		text:content
+		text:counter-increment
+spec:css-display-3; type:property; text:display
+spec:css-ui-3; type:property; text:text-overflow
+spec:css-ui-4; type:property; text:pointer-events
+spec:css-grid-1; type:property; text:grid
+spec:css-break-3; type:dfn;
+	text:forced break
+	text:fragmentation
+	text:fragmentation container
+	text:fragmentation context
+	text:fragmented flow
+spec:css-sizing-4; type:property;
+	text:contain-intrinsic-size
+	text:aspect-ratio
+spec:intersection-observer; type:dfn; text:intersection root
+spec:css-sizing-3;
+	type:value;
+		for:height; text:auto
+		for:width; text:min-content
+		for:width; text:max-content
+	type:property;
+		text:width
+		text:height
+</pre>
+
+<h2 id='intro'>
+Introduction</h2>
+
+	Efficiently rendering a website relies on the user agent being able to detect what parts of the page are being displayed,
+	which parts might affect the currently-displayed section,
+	and what can be ignored.
+
+	There are various heuristics that can be used to guess when a given sub-tree is independent of the rest of the page in some manner,
+	but they're fragile,
+	so innocuous changes to a page may inadvertently make it fail such heuristic tests,
+	causing rendering to fall into a slow code path.
+	There are also many things that would be good to isolate which are difficult or impossible to detect in a heuristic manner.
+
+	To alleviate these problems
+	and allow strong, predictable isolation of a subtree from the rest of the page,
+	this specification defines a 'contain' property.
+
+	To allow even further optimization of off-screen contents,
+	this spec also defines a 'content-visibility' property,
+	enabling the user agent to skip an element's layout and painting <em>entirely</em> when not needed.
+
+<h3 id="interaction">
+Module Interactions</h3>
+
+	This document defines new features not present in earlier specifications.
+	In addition, it aims to replace and supersede [[!CSS-CONTAIN-1]]
+	once stable.
+
+<h3 id="values">
+Value Definitions</h3>
+
+	This specification follows the <a href="https://www.w3.org/TR/CSS2/about.html#property-defs">CSS property definition conventions</a> from [[!CSS2]]
+	using the <a href="https://www.w3.org/TR/css-values-3/#value-defs">value definition syntax</a> from [[!CSS-VALUES-3]].
+	Value types not defined in this specification are defined in CSS Values &amp; Units [[!CSS-VALUES-3]].
+	Combination with other CSS modules may expand the definitions of these value types.
+
+	In addition to the property-specific values listed in their definitions,
+	all properties defined in this specification
+	also accept the <a>CSS-wide keywords</a> as their property value.
+	For readability they have not been repeated explicitly.
+
+<h2 id='contain-property'>
+Strong Containment: the 'contain' property</h2>
+
+	<wpt title="The following tests are crash tests
+	            that relate to general usage
+	            of this feature
+	            but are not particularly tied to any particular normative statement.">
+	contain-chrome-thcrash-001.html
+	contain-crash.html
+	contain-flexbox-outline.html
+	crashtests/contain-nested-crash-001.html
+	crashtests/contain-nested-crash-002.html
+	crashtests/contain-nested-crash-003.html
+	</wpt>
+
+	<pre class='propdef'>
+		Name: contain
+		Value: none | strict | content | [ size || layout || style || paint ]
+		Initial: none
+		Inherited: no
+		Applies to: See <a href="#contain-applies">below</a>
+		Computed value: the keyword ''contain/none'' or one or more of ''size'', ''layout'', ''paint''
+		Animation type: not animatable
+	</pre>
+
+	<wpt>
+	contain-animation-001.html
+	inheritance.html
+	parsing/contain-computed.html
+	parsing/contain-invalid.html
+	parsing/contain-valid.html
+	parsing/contain-computed-children.html
+
+	contain-layout-size-003.html
+	contain-paint-size-001.html
+	contain-paint-size-002.html
+	contain-paint-size-003.html
+
+	</wpt>
+
+	<p class=all-media>User agents are expected to support this property on all media, including non-visual ones.</p>
+
+	The 'contain' property allows an author to indicate that an element and its contents are,
+	as much as possible,
+	<em>independent</em> of the rest of the document tree.
+	This allows user agents to utilize much stronger optimizations when rendering a page using 'contain' properly,
+	and allows authors to be confident that their page won't accidentally fall into a slow code path
+	due to an innocuous change.
+
+	<dl dfn-type=value dfn-for=contain>
+		<dt><dfn>none</dfn>
+		<dd>
+			This value indicates that the property has no effect.
+			The element renders as normal,
+			with no containment effects applied.
+
+		<dt><dfn>strict</dfn>
+		<dd>
+			This value computes to ''size layout paint style'',
+			and thus turns on all forms of <a>containment</a> for the element.
+
+			<wpt>
+				contain-strict-001.html
+				contain-strict-002.html
+				contain-strict-003.html
+				contain-strict-011.html
+				contain-flexbox-outline.html
+			</wpt>
+
+		<dt><dfn>content</dfn>
+		<dd>
+			This value computes to ''layout paint style'',
+			and thus turns on all forms of <a>containment</a> <em>except</em> <a>size containment</a> for the element.
+
+			<wpt>
+				contain-content-001.html
+				contain-content-002.html
+				contain-content-003.html
+				contain-content-004.html
+				contain-content-011.html
+
+			</wpt>
+
+			Note: ''contain: content'' is reasonably "safe" to apply widely;
+			its effects are fairly minor in practice,
+			and most content won't run afoul of its restrictions.
+			However, because it doesn't apply <a>size containment</a>,
+			the element can still respond to the size of its contents,
+			which can cause layout-invalidation to percolate further up the tree than desired.
+			Use ''contain: strict'' when possible,
+			to gain as much containment as you can.
+
+		<dt><dfn>size</dfn>
+		<dd>
+			The value turns on <a>size containment</a> for the element.
+			This ensures that the [=size containment box|containment box=] can be laid out
+			without needing to examine its descendants.
+
+			<wpt>
+				contain-size-001.html
+				contain-size-002.html
+				contain-size-003.html
+				contain-size-004.html
+				contain-size-005.html
+				contain-size-006.html
+				contain-size-007.html
+				contain-size-008.html
+				contain-size-009.html
+				contain-size-010.html
+				contain-size-011.html
+				contain-size-012.html
+				contain-size-012b.html
+				contain-size-013.html
+				contain-size-021.html
+				contain-size-023.html
+				contain-size-025.html
+				contain-size-027.html
+				contain-size-041.html
+				contain-size-042.html
+				contain-size-051.html
+				contain-size-052.html
+				contain-size-056.html
+				contain-size-061.html
+				contain-size-062.html
+				contain-size-063.html
+				contain-size-baseline-001.html
+				contain-size-borders.html
+				contain-size-breaks-001.html
+				contain-size-button-001.html
+				contain-size-fieldset-001.html
+				contain-size-fieldset-002.html
+				contain-size-flexbox-001.html
+				contain-size-flexbox-002.html
+				contain-size-grid-001.html
+				contain-size-grid-002.html
+				contain-size-grid-003.html
+				contain-size-grid-004.html
+				contain-size-grid-005.html
+				contain-size-grid-006.html
+				contain-size-monolithic-001.html
+				contain-size-monolithic-002.html
+				contain-size-multicol-001.html
+				contain-size-multicol-as-flex-item.html
+				contain-size-replaced-001.html
+				contain-size-replaced-002.html
+				contain-size-replaced-003a.html
+				contain-size-replaced-003b.html
+				contain-size-replaced-003c.html
+				contain-size-replaced-004.html
+				contain-size-replaced-005.html
+				contain-size-replaced-006.html
+				contain-size-replaced-007.html
+				contain-size-select-001.html
+				contain-size-select-002.html
+				contain-size-scrollbars-001.html
+				contain-size-scrollbars-002.html
+				contain-size-scrollbars-003.html
+				contain-size-scrollbars-004.html
+
+				contain-layout-size-003.html
+				contain-paint-size-001.html
+				contain-paint-size-002.html
+				contain-paint-size-003.html
+				contain-size-removed.html
+			</wpt>
+
+		<dt><dfn>layout</dfn>
+		<dd>
+			This value turns on <a>layout containment</a> for the element.
+			This ensures that the [=layout containment box|containment box=] is <em>totally opaque</em> for layout purposes;
+			nothing outside can affect its internal layout,
+			and vice versa.
+
+			<wpt>
+				contain-layout-001.html
+				contain-layout-002.html
+				contain-layout-003.html
+				contain-layout-004.html
+				contain-layout-005.html
+				contain-layout-006.html
+				contain-layout-007.html
+				contain-layout-009.html
+				contain-layout-010.html
+				contain-layout-011.html
+				contain-layout-012.html
+				contain-layout-013.html
+				contain-layout-014.html
+				contain-layout-016.html
+				contain-layout-017.html
+				contain-layout-018.html
+				contain-layout-019.html
+				contain-layout-020.html
+				contain-layout-021.html
+				contain-layout-baseline-001.html
+				contain-layout-baseline-002.html
+				contain-layout-baseline-003.html
+				contain-layout-baseline-004.html
+				contain-layout-baseline-005.html
+				contain-layout-breaks-001.html
+				contain-layout-breaks-002.html
+				contain-layout-button-001.html
+				contain-layout-cell-001.html
+				contain-layout-cell-002.html
+				contain-layout-flexbox-001.html
+				contain-layout-grid-001.html
+				contain-layout-ifc-022.html
+				contain-layout-independent-formatting-context-001.html
+				contain-layout-independent-formatting-context-002.html
+				contain-layout-independent-formatting-context-003.html
+				contain-layout-ink-overflow-013.html
+				contain-layout-ink-overflow-014.html
+				contain-layout-ink-overflow-015.html
+				contain-layout-ink-overflow-016.html
+				contain-layout-ink-overflow-017.html
+				contain-layout-ink-overflow-018.html
+				contain-layout-ink-overflow-019.html
+				contain-layout-ink-overflow-020.html
+				contain-layout-size-003.html
+				contain-subgrid-001.html
+			</wpt>
+
+		<dt><dfn>style</dfn>
+		<dd>
+			This value turns on <a>style containment</a> for the element.
+			This ensures that,
+			for properties which can have effects on more than just an element and its descendants,
+			those effects don't escape the element.
+
+			<wpt>
+				contain-style-baseline-001.html
+				contain-style-breaks-001.html
+				contain-style-breaks-002.html
+				contain-style-breaks-003.html
+				contain-style-breaks-004.html
+				contain-style-breaks-005.html
+				contain-style-counters-001.html
+				contain-style-counters-002.html
+				contain-style-counters-003.html
+				contain-style-counters-004.html
+				contain-style-counters-005.html
+				contain-style-ol-ordinal-li-container.html
+				contain-style-ol-ordinal-pseudo-reversed.html
+				contain-style-ol-ordinal-pseudo.html
+				contain-style-ol-ordinal-reversed.html
+				contain-style-ol-ordinal-start-reversed.html
+				contain-style-ol-ordinal-start.html
+				contain-style-ol-ordinal.html
+				counter-scoping-001.html
+				counter-scoping-002.html
+				counter-scoping-003.html
+				quote-scoping-001.html
+				quote-scoping-002.html
+				quote-scoping-003.html
+				quote-scoping-004.html
+			</wpt>
+
+		<dt><dfn>paint</dfn>
+		<dd>
+			This value turns on <a>paint containment</a> for the element.
+			This ensures that the descendants of the [=paint containment box|containment box=] don't display outside its bounds,
+			so if an element is off-screen or otherwise not visible,
+			its descendants are also guaranteed to be not visible.
+
+			<wpt>
+				contain-paint-001.html
+				contain-paint-002.html
+				contain-paint-004.html
+				contain-paint-005.html
+				contain-paint-006.html
+				contain-paint-007.html
+				contain-paint-008.html
+				contain-paint-009.html
+				contain-paint-010.html
+				contain-paint-011.html
+				contain-paint-012.html
+				contain-paint-014.html
+				contain-paint-015.html
+				contain-paint-016.html
+				contain-paint-017.html
+				contain-paint-018.html
+				contain-paint-019.html
+				contain-paint-020.html
+				contain-paint-021.html
+				contain-paint-022.html
+				contain-paint-023.html
+				contain-paint-024.html
+				contain-paint-025.html
+				contain-paint-047.html
+				contain-paint-048.html
+				contain-paint-baseline-001.html
+				contain-paint-cell-001.html
+				contain-paint-cell-002.html
+				contain-paint-clip-011.html
+				contain-paint-clip-012.html
+				contain-paint-clip-013.html
+				contain-paint-clip-014.html
+				contain-paint-clip-015.html
+				contain-paint-clip-016.html
+				contain-paint-clip-017.html
+				contain-paint-clip-018.html
+				contain-paint-clip-019.html
+				contain-paint-ifc-011.html
+				contain-paint-independent-formatting-context-001.html
+				contain-paint-independent-formatting-context-002.html
+				contain-paint-independent-formatting-context-003.html
+				contain-paint-size-001.html
+				contain-paint-size-002.html
+				contain-paint-size-003.html
+				contain-paint-table-001.html
+				contain-paint-table-002.html
+				contain-subgrid-001.html
+				contain-paint-change-opacity.html
+			</wpt>
+	</dl>
+
+	<span id="contain-applies">This property generally applies to all elements (including [[css-pseudo-4#generated-content]])</span>,
+	although some types of containment have no effect on some elements,
+	as detailed in [[#containment-types]].
+	In addition, in the case of [[SVG2]],
+	the 'contain' property only applies to <{svg}> elements that have an associated CSS layout box.
+
+	<div class='example'>
+		'contain' is useful when used widely on a page,
+		particularly when a page contains a lot of "widgets" which are all independent.
+
+		For example, assume a micropost social network had markup something like this:
+
+		<pre><code highlight=markup>
+			&lt;body>
+				&lt;aside>...&lt;/aside>
+				&lt;section>
+					&lt;h2>Messages&lt;/h2>
+					&lt;article>
+						Lol, check out this dog: images.example.com/jsK3jkl
+					&lt;/article>
+					&lt;article>
+						I had a ham sandwich today. #goodtimes
+					&lt;/article>
+					&lt;article>
+						I have political opinions that you need to hear!
+					&lt;/article>
+					…
+				&lt;/section>
+			&lt;/body>
+		</code></pre>
+
+		There are probably a <em>lot</em> of messages displayed on the site,
+		but each is independent and won't affect anything else on the site.
+		As such, each can be marked with ''contain: content'' to communicate this to the user agent,
+		so it can optimize the page and skip a lot of computation for messages that are off-screen.
+		If the size of each message is known ahead of time,
+		''contain: strict'' can be applied to communicate further restrictions.
+	</div>
+
+	Additionally, when any [=containments=] are active
+	on either the HTML <{html}> or <{body}> elements,
+	propagation of properties
+	from the <{body}> element
+	to the [=initial containing block=], the viewport, or the [=canvas background=],
+	is disabled.
+	Notably, this affects:
+	* 'writing-mode', 'direction', and 'text-orientation' (see [[CSS-WRITING-MODES-3#principal-flow]])
+	* 'overflow' and its longhands (see [[CSS-OVERFLOW-3#overflow-propagation]])
+	* 'background' and its longhands (see [[CSS-BACKGROUNDS-3#body-background]])
+
+	<wpt>
+		contain-body-bg-001.html
+		contain-body-bg-002.html
+		contain-body-bg-003.html
+		contain-body-bg-004.html
+		contain-body-dir-001.html
+		contain-body-dir-002.html
+		contain-body-dir-003.html
+		contain-body-dir-004.html
+		contain-body-overflow-001.html
+		contain-body-overflow-002.html
+		contain-body-overflow-003.html
+		contain-body-overflow-004.html
+		contain-body-t-o-001.html
+		contain-body-t-o-002.html
+		contain-body-t-o-003.html
+		contain-body-t-o-004.html
+		contain-body-w-m-001.html
+		contain-body-w-m-002.html
+		contain-body-w-m-003.html
+		contain-body-w-m-004.html
+		contain-html-bg-001.html
+		contain-html-bg-002.html
+		contain-html-bg-003.html
+		contain-html-bg-004.html
+		contain-html-dir-001.html
+		contain-html-dir-002.html
+		contain-html-dir-003.html
+		contain-html-dir-004.html
+		contain-html-overflow-001.html
+		contain-html-overflow-002.html
+		contain-html-overflow-003.html
+		contain-html-overflow-004.html
+		contain-html-t-o-001.html
+		contain-html-t-o-002.html
+		contain-html-t-o-003.html
+		contain-html-t-o-004.html
+		contain-html-w-m-001.html
+		contain-html-w-m-002.html
+		contain-html-w-m-003.html
+		contain-html-w-m-004.html
+	</wpt>
+
+	Note: Propagation
+	to the [=initial containing block=], the viewport, or the [=canvas background=],
+	of properties set on the <{html}> element itself
+	is unaffected.
+
+	Note: Several properties beyond 'contain' can turn on various [=containments=] for an element.
+	These do not affect the value of 'contain';
+	an element can have ''contain: none''
+	but still have [=layout containment=] turned on by 'content-visibility',
+	for example.
+
+<h2 id='containment-types'>
+Types of Containment</h2>
+
+	There are several varieties of <dfn export>containment</dfn> that an element can be subject to,
+	restricting the effects that its descendants can have on the rest of the page in various ways.
+	<a>Containment</a> enables much more powerful optimizations by user agents,
+	and helps authors compose their page out of functional units,
+	as it limits how widely a given change can affect a document.
+
+	Advisement: Specification authors introducing new properties or mechanisms
+	need to consider whether and how the various types of containment
+	affect what they are introducing,
+	and include in their specification any effect not described here.
+
+
+<h3 id='containment-size'>
+Size Containment</h3>
+
+	Giving an element <dfn export>size containment</dfn>
+	makes its [=principal box=] a <dfn>size containment box</dfn>
+	and has the following effects:
+
+	1.
+		The [=intrinsic sizes=] of the [=size containment box=]
+		are determined as if the element had no content,
+		following the same logic as when [=sizing as if empty=].
+
+		Note: This affects explicit invocations of the ''min-content'' or ''max-content'' keywords,
+		as well as any calculation that depends on these measurement,
+		such as sizing <span class=informative>[=grid tracks=]</span> into which a size contained item is placed,
+		or if [=fit-content sizing=] the containment box's parent.
+
+		<wpt>
+		contain-size-013.html
+		contain-size-041.html
+		contain-size-042.html
+		contain-size-replaced-001.html
+		contain-size-replaced-002.html
+		contain-size-replaced-003a.html
+		contain-size-replaced-003b.html
+		contain-size-replaced-003c.html
+		contain-size-replaced-004.html
+		contain-size-replaced-005.html
+		contain-size-replaced-006.html
+		contain-size-block-001.html
+		contain-size-block-002.html
+		contain-size-block-003.html
+		contain-size-block-004.html
+		contain-size-button-002.html
+		contain-size-fieldset-003.html
+		contain-size-flex-001.html
+		contain-size-grid-005.html
+		contain-size-grid-006.html
+		contain-size-inline-block-001.html
+		contain-size-inline-block-002.html
+		contain-size-inline-block-003.html
+		contain-size-inline-block-004.html
+		contain-size-inline-flex-001.html
+		contain-size-multicol-002.html
+		contain-size-multicol-003.html
+		contain-size-select-elem-001.html
+		contain-size-select-elem-002.html
+		contain-size-select-elem-003.html
+		contain-size-select-elem-004.html
+		contain-size-select-elem-005.html
+		</wpt>
+
+	2. Laying out a [=size containment box=] and its content is conceptually done in two phases:
+		<dl>
+			<dt><dfn>Sizing as if empty</dfn>
+			<dd>
+				The [=used value|used=] 'width' and 'height' of the [=size containment box|containment box=]
+				are determined as if performing a normal layout of the box,
+				except that it is treated as having no content--
+				not even through pseudo elements such as ''::before'', ''::after'', or ''::marker''.
+
+				<wpt>
+				contain-size-021.html
+				contain-size-023.html
+				contain-size-025.html
+				contain-size-027.html
+				contain-size-061.html
+				contain-size-062.html
+				contain-size-063.html
+				contain-size-borders.html
+				contain-size-fieldset-001.html
+				contain-size-fieldset-002.html
+				contain-size-select-001.html
+				contain-size-select-002.html
+				contain-size-scrollbars-001.html
+				contain-size-scrollbars-002.html
+				contain-size-scrollbars-003.html
+				contain-size-scrollbars-004.html
+
+				contain-size-button-001.html
+				contain-size-flexbox-001.html
+				contain-size-flexbox-002.html
+				contain-size-grid-001.html
+				</wpt>
+
+				<a>Replaced elements</a> must be treated as having a [=natural dimensions|natural=] width and height of 0
+				and no [=natural aspect ratio=].
+
+				Note: Size containment only suppresses the [=natural aspect ratio=],
+				so properties like 'aspect-ratio' which affect that [=preferred aspect ratio=] directly
+				are honored.
+
+				<wpt>
+				contain-size-013.html
+				contain-size-041.html
+				contain-size-042.html
+				contain-size-replaced-001.html
+				contain-size-replaced-002.html
+				contain-size-replaced-003a.html
+				contain-size-replaced-003b.html
+				contain-size-replaced-003c.html
+				contain-size-replaced-004.html
+				contain-size-replaced-005.html
+				</wpt>
+				<wpt pathprefix=css/css-sizing/aspect-ratio/>
+				replaced-element-023.html
+				replaced-element-025.html
+				replaced-element-027.html
+				</wpt>
+
+				All CSS properties of the [=size containment box=] are taken into account
+				as they would be when performing layout normally.
+				Other specifications may make specific exemptions.
+
+				<wpt>
+				contain-size-replaced-006.html
+				</wpt>
+
+				Note: Even when the element's [=sizing properties=] specify an intrinsic size,
+				this does not necessarily make the element zero-sized:
+				properties set on the element itself
+				continue to be taken into account,
+				which can cause it to be larger.
+
+				<wpt>
+				contain-size-grid-002.html
+				contain-size-grid-003.html
+				contain-size-multicol-001.html
+				contain-size-multicol-as-flex-item.html
+				</wpt>
+
+			<dt><dfn>Laying out in-place</dfn>
+			<dd>
+				The [=size containment box|containment box=]'s content
+				(including any pseudo-elements)
+				must then be laid out into the now fixed-size [=size containment box|containment box=] normally.
+
+				<wpt>
+				contain-size-064.html
+				<wpt>
+		</dl>
+
+		Note: [=Size containment=] does not suppress baseline alignment.
+		See [=layout containment=] for that.
+
+		<wpt>
+		contain-size-baseline-001.html
+		contain-size-fieldset-004.html
+		contain-size-inline-block-001.html
+		contain-size-inline-block-002.html
+		contain-size-inline-block-003.html
+		contain-size-inline-block-004.html
+		contain-size-inline-flex-001.html
+		</wpt>
+
+	3. [=Size containment boxes=] are <a spec=css-break-3>monolithic</a> (See [[CSS-BREAK-3#possible-breaks]]).
+
+		<wpt>
+		contain-size-breaks-001.html
+		contain-size-monolithic-001.html
+		contain-size-monolithic-002.html
+		contain-size-multicol-004.html
+		</wpt>
+
+	<div class=example>
+		Given the following markup and style, the image would be sized to 100px by 100px,
+		as the aspect ratio set by the 'aspect-ratio' property takes effect.
+		<pre><code class=lang-css>
+		img {
+			width: 100px;
+			aspect-ratio: 1/1;
+			contain: size;
+		}
+		</code><code class=lang-html>
+		&lt;img src="https://www.example.com/300x100.jpg">
+		</code></pre>
+
+		If the 'aspect-ratio' property had not been declared,
+		the image would have been 100px by 0px,
+		as its [=natural aspect ratio=] is suppressed,
+		and its [=natural height=] is treated as 0.
+	</div>
+
+	However, giving an element [=size containment=]
+	has no effect if any of the following are true:
+
+	* if the element does not generate a <a>principal box</a>
+		(as is the case with ''display: contents'' or ''display: none'')
+	* if its [=inner display type=] is ''display/table''
+		<wpt>
+		contain-size-012.html
+		contain-size-012b.html
+		</wpt>
+	* if its [=principal box=] is 
+		an <a spec="css-display-3">internal table box</a>
+		<wpt>
+		contain-size-006.html
+		contain-size-007.html
+		contain-size-008.html
+		contain-size-009.html
+		contain-size-010.html
+		contain-size-051.html
+		contain-size-052.html
+		</wpt>
+	* if its [=principal box=] is 
+		an <a spec="css-display-3">internal ruby box</a>
+		or a <a spec="css-display-3" lt="atomic inline">non-atomic</a> <a spec="css-display-3">inline-level</a> box
+		<wpt>
+		contain-size-002.html
+		contain-size-003.html
+		contain-size-004.html
+		contain-size-005.html
+
+		contain-size-001.html
+		</wpt>
+
+	Note: Internal table boxes,
+	which do not include table captions,
+	are excluded,
+	because the table layout algorithm
+	does not allow boxes to become smaller than their inflow content.
+	Sizing a table cell as if it was empty and then laying out its content inside without changing the size
+	is effectively an undefined operation.
+	Manually setting the 'width' or 'height' properties to ''0''
+	cannot make it smaller than its content.
+	This concern does not apply to table captions,
+	which are perfectly capable of having a fixed size
+	that is independent of their content.
+
+	<wpt>
+	contain-size-011.html
+	contain-size-056.html
+	contain-size-table-caption-001.html
+	</wpt>
+
+<h4 id='containment-size-opt' class="no-toc">
+Possible Size-Containment Optimizations</h4>
+
+	<em>This section is non-normative.</em>
+
+	By itself, <a>size containment</a> does not offer much optimization opportunity.
+	Its primary benefit on its own is that tools which want to lay out the [=size containment box|containment box=]'s contents
+	based on the [=size containment box|containment box=]'s size
+	(such as a JS library implementing the "container query" concept)
+	can do so without fear of "infinite loops",
+	where having a child's size respond to the size of the [=size containment box|containment box=]
+	causes the [=size containment box|containment box=]'s size to change as well,
+	possibly triggering <em>further</em> changes in how the child sizes itself
+	and possibly thus more changes to the [=size containment box|containment box=]'s size,
+	ad infinitum.
+
+	When paired with <a>layout containment</a>, though,
+	possible optimizations that can be enabled include (but are not limited to):
+
+	1. When the style or contents of a descendant of the [=size containment box|containment box=] is changed,
+		calculating what part of the DOM tree is "dirtied" and might need to be re-laid out
+		can stop at the [=size containment box|containment box=].
+
+	2. When laying out the page,
+		if the [=size containment box|containment box=] is off-screen or obscured,
+		the layout of its contents (i.e. "[=laying out in-place=]") can be delayed or done at a lower priority.
+
+<h3 id='containment-layout'>
+Layout Containment</h3>
+
+	Giving an element <dfn export>layout containment</dfn>
+	makes its [=principal box=] a <dfn>layout containment box</dfn>
+	and has the following effects:
+
+	1. The [=layout containment box=] [=establishes an independent formatting context=].
+
+		<wpt>
+		contain-layout-ifc-022.html
+		contain-layout-independent-formatting-context-001.html
+		contain-layout-independent-formatting-context-002.html
+		contain-subgrid-001.html
+		contain-layout-formatting-context-float-001.html
+		contain-layout-formatting-context-margin-001.html
+		</wpt>
+
+	2. If at least one [=fragmentation container=] of a [=fragmentation context=] has [=layout containment=],
+		or if at least one [=fragmentation container=] of a [=fragmentation context=] is a descendant of [=layout containment box=]
+		<strong>and</strong> at least one subsequent [=fragmentation container=] of the same [=fragmentation context=]
+		is not a descendant of that same element with layout containment,
+		then the first [=layout containment box=]
+		which is either a [=fragmentation container=] itself
+		or is an ancestor of a [=fragmentation container=]
+		must “trap” the remainder of the [=fragmented flow=]:
+		[=fragmentation=] must not continue past the [=layout containment=] boundary,
+		and the last [=fragmentation container=]
+		within the first [=layout containment=] boundary
+		is treated as if it is the last [=fragmentation container=]
+		in its [=fragmentation context=].
+
+		If subsequent [=fragmentation containers=] in the [=fragmentation context=]
+		are only generated when more content remains in the [=fragmented flow=],
+		then they are not generated.
+		If they would exist regardless,
+		they remain part of the [=fragmentation context=],
+		but do not receive any content from the [=fragmented flow=].
+
+		Note: At the time of writing, no stable specification is affected by this point.
+		Only specifications that would enable some (but not all) fragmentation containers of a fragmentation context
+		to be layout-contained (or descendants of a layout contained element)
+		are concerned.
+		This is not the case of [[CSS-PAGE-3]] nor of [[CSS-MULTICOL-1]].
+		This requirement is nonetheless included because
+		several mechanisms that would make this a possibility have been considered
+		(e.g.: [[CSS-REGIONS-1]], ''::nth-fragment()'', a hypothetical selector for individual columns of a multicol…),
+		and the guarantees that layout containment is intended to offer would not be realized
+		if such mechanisms did not abide by this rule.
+		[[CSS-REGIONS-1]] has details over how <a>layout containment</a> affects
+		regions.
+
+		<div class=example>
+			<pre><code highlight=markup>
+				&lt;article>Lorem ipsum…&lt;/article>
+				&lt;div id=a>&lt;/div>
+				&lt;aside>
+				  &lt;div id=b>&lt;/div>
+				  &lt;div id=c>&lt;/div>
+				&lt;/aside>
+				&lt;aside>
+				  &lt;div id=d>&lt;/div>
+				  &lt;div id=e>&lt;/div>
+				&lt;/aside>
+				&lt;div id=f>&lt;/div>
+			</code></pre>
+			<pre><code highlight=css>
+				article {flow-into: foo;}
+				#a, #b, #c, #d, #e, #f {flow-from: foo;}
+				aside {contain: layout}
+			</code></pre>
+
+			In this [[CSS-REGIONS-1]] example,
+			content can flow from <code>#a</code> to <code>#b</code>,
+			from <code>#b</code> to <code>#c</code>.
+			However as <code>#c</code> is the last fragment container in the first [=layout containment box=]
+			it traps all the remaining content,
+			and nothing gets flowed into <code>#d</code>, <code>#e</code>, or <code>#f</code>.
+		</div>
+
+	3. If the computed value of the 'overflow' property is
+		either ''overflow/visible'' or ''overflow/clip'' or a combination thereof,
+		any overflow must be treated as [=ink overflow=].
+
+		<wpt>
+		contain-layout-ink-overflow-013.html
+		contain-layout-ink-overflow-014.html
+		contain-layout-ink-overflow-015.html
+		contain-layout-ink-overflow-016.html
+		contain-layout-ink-overflow-017.html
+		contain-layout-ink-overflow-018.html
+		contain-layout-ink-overflow-019.html
+		contain-layout-ink-overflow-020.html
+		contain-layout-overflow-001.html
+		contain-layout-overflow-002.html
+		</wpt>
+
+	4. The [=layout containment box=] establishes an [=absolute positioning containing block=] and a [=fixed positioning containing block=].
+
+		<wpt>
+		contain-layout-006.html
+		contain-layout-007.html
+		contain-layout-cell-001.html
+		contain-layout-cell-002.html
+		contain-layout-021.html
+		contain-layout-containing-block-absolute-001.html
+		contain-layout-containing-block-fixed-001.html
+		</wpt>
+
+	5. The [=layout containment box=] creates a <a>stacking context</a>.
+
+		<wpt>
+		contain-layout-016.html
+		contain-layout-017.html
+		contain-layout-018.html
+		contain-layout-stacking-context-001.html
+		</wpt>
+
+	6. [=Forced breaks=] are allowed within [=layout containment boxes=]
+		but do not propagate to the parent as otherwise described in [[CSS-BREAK-3#break-between]].
+
+		<wpt>
+		contain-layout-breaks-001.html
+		contain-layout-breaks-002.html
+		</wpt>
+
+		Note: This introduces the previously non-existent possibility that [=forced breaks=]
+		may occur between a box and its container (See [[CSS-BREAK-3#possible-breaks]]).
+
+	7. For the purpose of the 'vertical-align' property,
+		or any other property whose effects
+		need to relate the position of the [=layout containment box=]'s baseline
+		to something other than its descendants,
+		the [=layout containment box|containment box=] is treated as having no baseline.
+
+		<wpt>
+		contain-layout-baseline-001.html
+		contain-layout-button-001.html
+		contain-layout-flexbox-001.html
+		contain-layout-grid-001.html
+		contain-layout-baseline-002.html
+		contain-layout-baseline-003.html
+		contain-layout-baseline-004.html
+		contain-layout-baseline-005.html
+		contain-layout-suppress-baseline-001.html
+		contain-layout-suppress-baseline-002.html
+		</wpt>
+
+	However, giving an element [=layout containment=]
+	has no effect if any of the following are true:
+
+	* if the element does not generate a <a>principal box</a>
+		(as is the case with ''display: contents'' or ''display: none'')
+		<wpt>
+		contain-layout-ignored-cases-no-principal-box-001.html
+		contain-layout-ignored-cases-no-principal-box-002.html
+		contain-layout-ignored-cases-no-principal-box-003.html
+		</wpt>
+	* if its [=principal box=] is 
+		an <a spec="css-display-3">internal table box</a>
+		other than ''display/table-cell''
+		<wpt>
+		contain-layout-009.html
+		contain-layout-010.html
+		contain-layout-011.html
+		contain-layout-012.html
+		contain-layout-013.html
+
+		contain-layout-014.html
+		</wpt>
+	* if its [=principal box=] is 
+		an <a spec="css-display-3">internal ruby box</a>
+		or a <a spec="css-display-3" lt="atomic inline">non-atomic</a> <a spec="css-display-3">inline-level</a> box
+		<wpt>
+		contain-layout-002.html
+		contain-layout-003.html
+		contain-layout-004.html
+		contain-layout-005.html
+
+		contain-layout-001.html
+		contain-layout-independent-formatting-context-003.html
+		contain-layout-ignored-cases-ib-split-001.html
+		</wpt>
+
+<h4 id='containment-layout-opt' class="no-toc">
+Possible Layout-Containment Optimizations</h4>
+
+	<em>This section is non-normative.</em>
+
+	Possible optimizations that can be enabled by <a>layout containment</a> include (but are not limited to):
+
+	1. When laying out the page,
+		the contents of separate [=layout containment boxes|containment boxes=]
+		can be laid out in parallel,
+		as they're guaranteed not to affect each other.
+
+	2. When laying out the page,
+		if the [=layout containment box|containment box=] is off-screen or obscured
+		and the layout of the visible parts of the screen do not depend on the size of the [=layout containment box|containment box=]
+		(for example, if the [=layout containment box|containment box=] is near the end of a block container,
+		and you're viewing the beginning of the block container),
+		the layout of the [=layout containment box|containment box=]' contents can be delayed or done at a lower priority.
+
+		(When paired with <a>size containment</a>,
+		this optimization can be applied more liberally.)
+
+<h3 id='containment-style'>
+Style Containment</h3>
+
+	Giving an element <dfn export>style containment</dfn>
+	has the following effects:
+
+	1. The 'counter-increment' and 'counter-set' properties
+		must be <a for=property>scoped to the element's sub-tree</a>
+		and create a new counter.
+
+		<wpt>
+		contain-style-counters-001.html
+		contain-style-counters-002.html
+		contain-style-counters-003.html
+		contain-style-counters-004.html
+		contain-style-ol-ordinal-li-container.html
+		contain-style-ol-ordinal-pseudo-reversed.html
+		contain-style-ol-ordinal-pseudo.html
+		contain-style-ol-ordinal-reversed.html
+		contain-style-ol-ordinal-start-reversed.html
+		contain-style-ol-ordinal-start.html
+		contain-style-ol-ordinal.html
+		</wpt>
+
+	2. The effects of the 'content' property's
+		''content/open-quote'', ''content/close-quote'', ''content/no-open-quote'' and ''content/no-close-quote''
+		must be <a for=property>scoped to the element's sub-tree</a>.
+
+		Note: This implies that the depth of quote nesting in the subtree
+		is unchanged and starts at the value that its context normally implies,
+		but that changes to the depth of quote nesting by these values inside the subtree
+		do not affect the depth of quote nesting outside the subtree.
+
+		<wpt>
+		quote-scoping-001.html
+		quote-scoping-002.html
+		quote-scoping-003.html
+		quote-scoping-004.html
+		quote-scoping-empty-style-boundaries.html
+		</wpt>
+
+	<wpt>
+	contain-style-baseline-001.html
+	contain-style-breaks-001.html
+	contain-style-breaks-002.html
+	contain-style-breaks-003.html
+	contain-style-breaks-004.html
+	contain-style-breaks-005.html
+	</wpt>
+
+	Note: [[CSS-REGIONS-1]] has normative requirements on how <a>style containment</a> affects regions.
+
+	A <dfn export for=property lt="scoped | scoped property | scoped properties">scoped property</dfn> has its effects scoped to a particular element or subtree.
+
+	* If <dfn export for=property lt="scoped to an element | scoped to the element">scoped to an element</dfn>,
+		it must act as if the scoping element was the root of the document
+		for the purpose of evaluating the property's effects:
+		any uses of the property outside the scoping element must have no effect on the uses of the property on or in the scoping element,
+		and vice versa.
+
+		Note: “Scoping to an element” is currently unused.
+		It is defined as an extension point for future specifications to use.
+
+	* If <dfn export for=property lt="scoped to a sub-tree | scoped to the sub-tree | scoped to the element's sub-tree | scoped to an element's sub-tree">scoped to a sub-tree</dfn>, it's the same,
+		except the scoping element itself is counted as "outside" the tree,
+		like the rest of the document,
+		and the effects of the property on that element are unaffected by scoping.
+		When considering the effects of the scoped property on elements <em>inside</em> the subtree,
+		the element at the base of the subtree is treated as if it was the root of the document.
+
+		<wpt>
+		counter-scoping-001.html
+		counter-scoping-002.html
+		counter-scoping-003.html
+		contain-style-ol-ordinal-li-container.html
+		contain-style-ol-ordinal-pseudo-reversed.html
+		contain-style-ol-ordinal-pseudo.html
+		contain-style-ol-ordinal-reversed.html
+		contain-style-ol-ordinal-start-reversed.html
+		contain-style-ol-ordinal-start.html
+		contain-style-ol-ordinal.html
+		</wpt>
+
+	<div class=example>
+		As 'counter-increment' is scoped to an element's subtree,
+		the first use of it within the subtree
+		creates a fresh counter,
+		regardless of whether the counter had been used outside the scoping element.
+		Any increments made within the subtree have no effect on counters of the same name outside the scoping element.
+		However, the ''content/counter()'' and ''content/counters()'' value of the 'content' property is not itself scoped,
+		and can refer to counters established outside of the subtree.
+
+		For example, the following markup and style:
+
+		<xmp highlight=markup>
+			<div>
+				<div style="contain: style;">
+					<div></div>
+					<div></div>
+				</div>
+				<div>
+					<div></div>
+					<div></div>
+				</div>
+			</div>
+		</xmp>
+
+		<pre highlight=css>
+			body {
+				counter-reset: foo;
+			}
+			div {
+				counter-increment: foo;
+
+				/* and to help observe nesting properly */
+				margin: .2em;
+				padding: .2em;
+				background: #0001;
+			}
+			div::before {
+				content: counters(foo, ".");
+			}
+		</pre>
+
+		Will render like:
+
+		<div id="scoped-counter-example">
+			<div>1
+				<div style="contain: style;">2
+					<div>2.1</div>
+					<div>2.2</div>
+				</div>
+				<div>3
+					<div>4</div>
+					<div>5</div>
+				</div>
+			</div>
+		</div>
+
+		<style>
+			#scoped-counter-example div {
+				margin: .2em;
+				padding: .2em;
+				background: #0001;
+			}
+		</style>
+
+		Here, the style-contained element still interacts with the ''foo'' counter normally,
+		incrementing it to 2.
+		Its ''::before'' pseudo-element,
+		which is effectively a child and thus within the containment boundary,
+		can still see that counter normally,
+		and thus will render the string "<code>2</code>".
+
+		Later siblings of the style-contained element don't see anything that goes on within the boundary,
+		so they increment the ''foo'' counter to 3 and beyond.
+
+		Within the containment, however,
+		the descendant divs aren't allowed to modify the value of the outside counter,
+		so instead they'll create a fresh (nested) ''foo'' counter
+		when they attempt to increment it.
+	</div>
+
+
+
+<h4 id='containment-style-opt' class="no-toc">
+Possible Style-Containment Optimizations</h4>
+
+	<em>This section is non-normative.</em>
+
+	Possible optimizations that can be enabled by <a>style containment</a> include (but are not limited to):
+
+	1. Whenever a property is changed on a descendant of an element with [=style containment=],
+		calculating what part of the DOM tree is "dirtied" and might need to have its style recalculated
+		can stop at the element with [=style containment=].
+
+<h3 id='containment-paint'>
+Paint Containment</h3>
+
+	Giving an element <dfn export>paint containment</dfn>
+	makes its [=principal box=] a <dfn>paint containment box</dfn>
+	and has the following effects:
+
+	1. The contents of the element
+		including any [=ink overflow|ink=] or [=scrollable overflow=]
+		must be clipped to the <a>overflow clip edge</a> of the [=paint containment box=],
+		taking [[css-backgrounds-3#corner clipping|corner clipping]] into account.
+		This does not include the creation of any mechanism
+		to access or indicate the presence of the clipped content;
+		nor does it inhibit the creation of any such mechanism through other properties,
+		<span class=informative>such as 'overflow', 'resize', or 'text-overflow'</span>.
+
+		<wpt>
+		contain-paint-050.html
+		</wpt>
+
+		Note: This clipping shape respects 'overflow-clip-margin',
+		allowing an element with [=paint containment=]
+		to still slightly overflow its normal bounds.
+
+		Note: The behavior is described in this paragraph is equivalent to changing
+		''overflow-x: visible'' into ''overflow-x: clip''
+		and
+		''overflow-y: visible'' into ''overflow-y: clip''
+		at used value time,
+		while leaving other values of 'overflow-x' and 'overflow-y' unchanged.
+
+		<wpt>
+		contain-paint-001.html
+		contain-paint-004.html
+		contain-paint-047.html
+		contain-paint-048.html
+		contain-paint-cell-001.html
+		contain-paint-cell-002.html
+		contain-paint-clip-011.html
+		contain-paint-clip-012.html
+		contain-paint-clip-013.html
+		contain-paint-clip-014.html
+		contain-paint-clip-015.html
+		contain-paint-clip-016.html
+		contain-paint-clip-017.html
+		contain-paint-clip-018.html
+		contain-paint-clip-019.html
+		contain-paint-table-001.html
+		contain-paint-table-002.html
+		contain-paint-026.html
+		contain-paint-049.html
+		contain-paint-clip-001.html
+		contain-paint-clip-002.html
+		contain-paint-clip-003.html
+		contain-paint-clip-004.html
+		contain-paint-clip-005.html
+		contain-paint-clip-006.html
+
+		</wpt>
+
+	2. The [=paint containment box=] establishes an [=absolute positioning containing block=] and a [=fixed positioning containing block=].
+
+		<wpt>
+		contain-paint-009.html
+		contain-paint-010.html
+		contain-paint-022.html
+		contain-paint-023.html
+		contain-paint-024.html
+		contain-paint-containing-block-absolute-001.html
+		contain-paint-containing-block-fixed-001.html
+		</wpt>
+
+	3. The [=paint containment box=] creates a <a>stacking context</a>.
+
+		<wpt>
+		contain-paint-020.html
+		contain-paint-021.html
+		contain-paint-025.html
+		contain-subgrid-001.html
+		contain-paint-stacking-context-001a.html
+		contain-paint-stacking-context-001b.html
+
+		</wpt>
+
+	4. The [=paint containment box=] [=establishes an independent formatting context=].
+
+		<wpt>
+		contain-paint-ifc-011.html
+		contain-paint-independent-formatting-context-001.html
+		contain-paint-independent-formatting-context-002.html
+		contain-paint-formatting-context-float-001.html
+		contain-paint-formatting-context-margin-001.html
+		contain-paint-baseline-001.html
+		</wpt>
+
+	However, giving an element [=paint containment=]
+	has no effect if any of the following are true:
+
+	* if the element does not generate a <a>principal box</a>
+		(as is the case with ''display: contents'' or ''display: none'')
+		<wpt>
+		contain-paint-ignored-cases-no-principal-box-001.html
+		</wpt>
+	* if its [=principal box=] is 
+		an <a spec="css-display-3">internal table box</a>
+		other than ''display/table-cell''
+		<wpt>
+		contain-paint-014.html
+		contain-paint-015.html
+		contain-paint-016.html
+		contain-paint-017.html
+		contain-paint-018.html
+		contain-paint-019.html
+		contain-paint-ignored-cases-internal-table-001a.html
+		contain-paint-ignored-cases-internal-table-001b.html
+		</wpt>
+	* if its [=principal box=] is 
+		an <a spec="css-display-3">internal ruby box</a>
+		or a <a spec="css-display-3" lt="atomic inline">non-atomic</a> <a spec="css-display-3">inline-level</a> box
+		<wpt>
+		contain-paint-005.html
+		contain-paint-006.html
+		contain-paint-007.html
+		contain-paint-008.html
+		contain-paint-ignored-cases-ruby-containing-block-001.html
+		contain-paint-ignored-cases-ruby-stacking-and-clipping-001.html
+
+		contain-paint-011.html
+		contain-paint-012.html
+		contain-paint-002.html
+		contain-paint-independent-formatting-context-003.html
+		contain-paint-ignored-cases-ib-split-001.html
+		</wpt>
+
+<h4 id='containment-paint-opt' class="no-toc">
+Possible Paint-Containment Optimizations</h4>
+
+	<em>This section is non-normative.</em>
+
+	Possible optimizations that can be enabled by <a>paint containment</a> include (but are not limited to):
+
+	1. If the [=paint containment box|containment box=] is off-screen or obscured,
+		the UA can usually skip trying to paint its contents,
+		as they're guaranteed to be off-screen/obscured as well.
+
+		Note: Some paint effects such as the ''blur()'' filter from [[FILTER-EFFECTS-1]]
+		have non local effects.
+		The user agent needs to keep track of these,
+		as it may need to repaint parts of an element with such a filter
+		when its descendents change,
+		even if they have [=paint containment=]
+		and could otherwise be skipped.
+
+	2. Unless the clipped content is made accessible via a separate mechanism
+		such as the 'overflow', 'resize', or 'text-overflow' properties,
+		the UA can reserve "canvas" space for the box exactly the box's size.
+		(In similar, scrollable, situations, like ''overflow: hidden'',
+		it's possible to scroll to the currently-clipped content,
+		so UAs often predictively overpaint somewhat
+		so there's something to see as soon as the scroll happens,
+		rather than a frame later.)
+
+	3. Because they are guaranteed to be stacking contexts,
+		scrolling elements can be painted into a single GPU layer.
+
+Suppressing An Element's Contents Entirely: the 'content-visibility' property {#content-visibility}
+=================
+
+	<pre class=propdef>
+	Name: content-visibility
+	Value: visible | auto | hidden
+	Initial: visible
+	Inherited: no
+	Applies to: elements for which [=size containment=] can apply
+	Animation type: not animatable
+	</pre>
+
+	<wpt>
+	content-visibility/content-visibility-051.html
+	content-visibility/content-visibility-073.html
+	content-visibility/inheritance.html
+	content-visibility/parsing/content-visibility-computed.html
+	content-visibility/parsing/content-visibility-invalid.html
+	content-visibility/parsing/content-visibility-valid.html
+	content-visibility/content-visibility-077.html
+	content-visibility/content-visibility-resize-observer-no-error.html
+	</wpt>
+
+	<wpt title="The following tests are crash tests
+	            that relate to general usage
+	            of this feature
+	            but are not particularly tied to any particular normative statement.">
+	content-visibility/content-visibility-069.html
+	content-visibility/content-visibility-auto-selection-crash.html
+	content-visibility/content-visibility-continuations-crash.html
+	content-visibility/content-visibility-form-controls-crash.html
+	content-visibility/content-visibility-hit-test-contents-crash.html
+	content-visibility/content-visibility-in-svg-000-crash.html
+	content-visibility/content-visibility-output-crash.html
+	content-visibility/contentvisibility-nestedslot-crash.html
+	content-visibility/crashtests/first-line-and-inline-block.html
+	content-visibility/detach-locked-slot-children-crash.html
+	content-visibility/hidden-execcommand-crash.html
+	content-visibility/hidden-pseudo-element-removed-crash.html
+	content-visibility/meter-selection-crash.html
+	content-visibility/slot-content-visibility-1-crash.html
+	content-visibility/slot-content-visibility-10-crash.html
+	content-visibility/slot-content-visibility-11-crash.html
+	content-visibility/slot-content-visibility-12-crash.html
+	content-visibility/slot-content-visibility-13-crash.html
+	content-visibility/slot-content-visibility-14-crash.html
+	content-visibility/slot-content-visibility-15-crash.html
+	content-visibility/slot-content-visibility-16-crash.html
+	content-visibility/slot-content-visibility-17-crash.html
+	content-visibility/slot-content-visibility-18-crash.html
+	content-visibility/slot-content-visibility-19-crash.html
+	content-visibility/slot-content-visibility-2-crash.html
+	content-visibility/slot-content-visibility-20-crash.html
+	content-visibility/slot-content-visibility-21-crash.html
+	content-visibility/slot-content-visibility-22-crash.html
+	content-visibility/slot-content-visibility-3-crash.html
+	content-visibility/slot-content-visibility-4-crash.html
+	content-visibility/slot-content-visibility-5-crash.html
+	content-visibility/slot-content-visibility-6-crash.html
+	content-visibility/slot-content-visibility-7-crash.html
+	content-visibility/slot-content-visibility-8-crash.html
+	content-visibility/slot-content-visibility-9-crash.html
+	</wpt>
+
+	<wpt title="these should be more accurately dispatched paragraph per paragraph to the relevant points in the specification">
+
+	</wpt>
+
+	The 'content-visibility' property
+	controls whether or not an element renders its contents at all,
+	along with forcing a strong set of [=containments=],
+	allowing user agents to potentially omit large swathes of layout and rendering work
+	until it becomes needed.
+	It has the following values:
+
+	<dl dfn-type=value dfn-for=content-visibility>
+		: <dfn>visible</dfn>
+		::
+			No effect.
+			The element's contents are laid out and rendered as normal.
+
+			<wpt>
+			content-visibility/content-visibility-002.html
+			content-visibility/content-visibility-012.html
+			content-visibility/content-visibility-013.html
+			content-visibility/content-visibility-014.html
+			content-visibility/content-visibility-023.html
+			content-visibility/content-visibility-024.html
+			content-visibility/content-visibility-025.html
+			content-visibility/content-visibility-042.html
+			content-visibility/content-visibility-052.html
+			content-visibility/content-visibility-057.html
+			content-visibility/content-visibility-with-top-layer-003.html
+			</wpt>
+
+		: <dfn>hidden</dfn>
+		::
+			The element [=skips its contents=].
+
+			<wpt>
+			content-visibility/content-visibility-001.html
+			content-visibility/content-visibility-003.html
+			content-visibility/content-visibility-004.html
+			content-visibility/content-visibility-005.html
+			content-visibility/content-visibility-006.html
+			content-visibility/content-visibility-007.html
+			content-visibility/content-visibility-008.html
+			content-visibility/content-visibility-009.html
+			content-visibility/content-visibility-010.html
+			content-visibility/content-visibility-011.html
+			content-visibility/content-visibility-015.html
+			content-visibility/content-visibility-016.html
+			content-visibility/content-visibility-017.html
+			content-visibility/content-visibility-018.html
+			content-visibility/content-visibility-019.sub.https.html
+			content-visibility/content-visibility-020.html
+			content-visibility/content-visibility-021.html
+			content-visibility/content-visibility-022.html
+			content-visibility/content-visibility-026.html
+			content-visibility/content-visibility-028.html
+			content-visibility/content-visibility-029.html
+			content-visibility/content-visibility-030.html
+			content-visibility/content-visibility-031.html
+			content-visibility/content-visibility-032.html
+			content-visibility/content-visibility-033.sub.https.html
+			content-visibility/content-visibility-034.html
+			content-visibility/content-visibility-036.html
+			content-visibility/content-visibility-037.html
+			content-visibility/content-visibility-038.html
+			content-visibility/content-visibility-039.html
+			content-visibility/content-visibility-040.html
+			content-visibility/content-visibility-041.html
+			content-visibility/content-visibility-043.html
+			content-visibility/content-visibility-044.html
+			content-visibility/content-visibility-045.html
+			content-visibility/content-visibility-072.html
+			content-visibility/content-visibility-078.html
+			content-visibility/content-visibility-082.html
+			content-visibility/content-visibility-canvas.html
+			content-visibility/content-visibility-forced-layout-client-rects.html
+			content-visibility/content-visibility-img.html
+			content-visibility/content-visibility-input-image.html
+			content-visibility/content-visibility-svg.html
+			content-visibility/content-visibility-video.html
+			content-visibility/content-visibility-fieldset-size.html
+			content-visibility/content-visibility-with-top-layer-000.html
+			content-visibility/content-visibility-with-top-layer-001.html
+			content-visibility/content-visibility-with-top-layer-002.html
+			content-visibility/document-element-computed-style.html
+			content-visibility/element-reassigned-to-skipped-slot.html
+			content-visibility/element-reassigned-to-slot-in-skipped-subtree.html
+			content-visibility/scrollIntoView-target-with-contents-hidden.html
+			content-visibility/scrollIntoView-with-focus-target-with-contents-hidden.html
+			content-visibility/content-visibility-with-top-layer-hide-after-addition.html
+			content-visibility/dynamic-change-paint-fully-obscuring-child-001.html
+			</wpt>
+
+			The [=skipped contents=] <em>must not</em> be accessible to user-agent features,
+			such as find-in-page, tab-order navigation, etc.,
+			nor be selectable or focusable.
+
+			<wpt>
+			content-visibility/content-visibility-035.html
+			content-visibility/content-visibility-047.html
+			content-visibility/content-visibility-056.html
+			content-visibility/content-visibility-060.html
+			content-visibility/content-visibility-061.html
+			content-visibility/content-visibility-067.html
+			content-visibility/content-visibility-083.html
+			content-visibility/content-visibility-084.html
+			</wpt>
+
+			Note: This is similar to giving the contents ''display: none''.
+
+			<wpt>
+			content-visibility/content-visibility-041.html
+			</wpt>
+
+		: <dfn>auto</dfn>
+		::
+			Changes the [=used value=] of the 'contain' property
+			so as to turn on [=layout containment=],
+			[=style containment=],
+			and [=paint containment=] for the element.
+
+			<wpt>
+			content-visibility/content-visibility-026.html
+			content-visibility/content-visibility-027.html
+			content-visibility/content-visibility-074.html
+			content-visibility/content-visibility-auto-in-iframe.html
+			content-visibility/content-visibility-auto-intrinsic-width.html
+			content-visibility/content-visibility-auto-state-changed-first-observation.html
+			content-visibility/content-visibility-auto-state-changed-removed.html
+			content-visibility/content-visibility-auto-state-changed.html
+			content-visibility/content-visibility-with-top-layer-005.html
+			content-visibility/content-visibility-with-top-layer-006.html
+			</wpt>
+
+			If the element is not [=relevant to the user=],
+			it also [=skips its contents=].
+
+			<wpt>
+			content-visibility/content-visibility-046.html
+			content-visibility/content-visibility-050.html
+			content-visibility/content-visibility-058.html
+			content-visibility/content-visibility-064.html
+			content-visibility/content-visibility-068.html
+			content-visibility/content-visibility-072.html
+			content-visibility/content-visibility-079.html
+			content-visibility/content-visibility-with-top-layer-003.html
+			content-visibility/content-visibility-auto-state-changed-first-observation.html
+			content-visibility/content-visibility-auto-state-changed.html
+			</wpt>
+
+			Unlike ''content-visibility/hidden'',
+			the [=skipped contents=] <em>must</em> still be available as normal
+			to user-agent features such as find-in-page, tab order navigation, etc.,
+			and must be focusable and selectable as normal.
+
+			<wpt>
+			content-visibility/content-visibility-048.html
+			content-visibility/content-visibility-049.html
+			content-visibility/content-visibility-050.html
+			content-visibility/content-visibility-053.html
+			content-visibility/content-visibility-054.html
+			content-visibility/content-visibility-055.html
+			content-visibility/content-visibility-058.html
+			content-visibility/content-visibility-062.html
+			content-visibility/content-visibility-063.html
+			content-visibility/content-visibility-064.html
+			content-visibility/content-visibility-065.html
+			content-visibility/content-visibility-066.html
+			content-visibility/content-visibility-068.html
+			content-visibility/content-visibility-070.html
+			content-visibility/content-visibility-071.html
+			content-visibility/content-visibility-075.html
+			content-visibility/content-visibility-076.html
+			</wpt>
+	</dl>
+
+	<div algorithm="skips its contents">
+		When an element <dfn export lt="skips its contents|skipping its contents|skip its contents|skipped contents" local-lt="skip">skips its contents</dfn>,
+		the user agent must change the [=used value=] of the 'contain' property
+		so as to turn on [=layout containment=],
+		[=style containment=],
+		[=paint containment=],
+		and [=size containment=].
+		Further, its <dfn export lt="element contents" id="element-contents">contents</dfn>
+		(the [=flat tree=] descendants of the element,
+		including both text and elements,
+		or the replaced content of a [=replaced element=])
+		are not painted
+		(as if they had ''visibility: hidden'')
+		and do not respond to hit-testing
+		(as if they had ''pointer-events: none''),
+		and to a large extent do not update their styles at all
+		unless explicitly requested by script
+		(see [[#cv-notes]] for details).
+
+		<wpt>
+		content-visibility/content-visibility-001.html
+		content-visibility/content-visibility-003.html
+		content-visibility/content-visibility-004.html
+		content-visibility/content-visibility-005.html
+		content-visibility/content-visibility-006.html
+		content-visibility/content-visibility-007.html
+		content-visibility/content-visibility-008.html
+		content-visibility/content-visibility-009.html
+		content-visibility/content-visibility-010.html
+		content-visibility/content-visibility-011.html
+		content-visibility/content-visibility-015.html
+		content-visibility/content-visibility-016.html
+		content-visibility/content-visibility-017.html
+		content-visibility/content-visibility-018.html
+		content-visibility/content-visibility-020.html
+		content-visibility/content-visibility-021.html
+		content-visibility/content-visibility-022.html
+		content-visibility/content-visibility-026.html
+		content-visibility/content-visibility-028.html
+		content-visibility/content-visibility-034.html
+		content-visibility/content-visibility-035.html
+		content-visibility/content-visibility-036.html
+		content-visibility/content-visibility-037.html
+		content-visibility/content-visibility-038.html
+		content-visibility/content-visibility-039.html
+		content-visibility/content-visibility-040.html
+		content-visibility/content-visibility-041.html
+		content-visibility/content-visibility-045.html
+		content-visibility/content-visibility-051.html
+		content-visibility/content-visibility-072.html
+		content-visibility/content-visibility-078.html
+		content-visibility/content-visibility-080.html
+		content-visibility/content-visibility-canvas.html
+		content-visibility/content-visibility-fieldset-size.html
+		content-visibility/content-visibility-forced-layout-client-rects.html
+		content-visibility/content-visibility-img.html
+		content-visibility/content-visibility-input-image.html
+		content-visibility/content-visibility-svg.html
+		content-visibility/content-visibility-video.html
+		content-visibility/content-visibility-with-top-layer-hide-after-addition.html
+		content-visibility/document-element-computed-style.html
+		content-visibility/element-reassigned-to-skipped-slot.html
+		content-visibility/element-reassigned-to-slot-in-skipped-subtree.html
+		content-visibility/content-visibility-auto-state-changed-first-observation.html
+		</wpt>
+
+		The user agent <em>should</em> additionally avoid as much layout/rendering work as possible
+		for [=skipped contents=];
+		the combination of heavy [=containment=]
+		and making the contents invisible and untouchable
+		enables heavy optimizations.
+		If rendering work is done at some point,
+		the user-agent should retain the previously computed layout state if possible,
+		to allow the [=skipped contents=] to be displayed quickly at a later moment.
+
+		<wpt>
+		content-visibility/content-visibility-081.html
+		</wpt>
+
+		<div class=note>
+			If an element has a value other than ''content-visibility: visible'',
+			then the following properties hold:
+
+			* [=layout containment=] ensures that
+				the user-agent is able to omit layout work in skipped subtrees,
+				since the results of such layouts will not affect elements outside of the container element.
+
+			* [=style containment=] ensures that
+				counters do not have to be processed in skipped subtrees,
+				since they do not affect counters outside of the container element.
+
+			* [=paint containment=] ensures that
+				ink overflow of painted contents is clipped;
+				this, in turn, means that user-agent can reliably determine
+				when the visible portion of the element approaches the viewport
+				(and, for ''content-visibility: auto'', start painting it).
+
+			* [=size containment=] ensures that
+				the user-agent is able to omit layout in skipped subtrees,
+				since the results of such layouts
+				will not affect the container element’s size.
+
+			Note that in the ''content-visibility: auto'' case,
+			[=layout containment=], [=style containment=], and [=paint containment=] persist even if the element is not [=skipped=].
+			This is done to prevent layout changes that would be incurred by [=containment=] changes
+			as a result of an element entering and exiting the [=skipped=] state.
+		</div>
+	</div>
+
+	<div>
+		An element that has ''content-visibility: auto'' is in one of three states
+		when it comes to its <dfn export>proximity to the viewport</dfn>:
+
+		* The element is <dfn>close to the viewport</dfn>:
+				In this state, the element is considered "on-screen":
+				its [=paint containment box=]'s [=overflow clip edge=] intersects with the viewport,
+				or a user-agent defined margin around the viewport.
+
+			Note: This margin is meant to allow the user agent
+			to begin preparing for an element to be in the viewport soon.
+			A margin of 50% is suggested as a reasonable default.
+
+			If a filter (see [[FILTER-EFFECTS-1]]) with non local effects includes the element as part of its input,
+			the user agent should also treat the element as relevant to the user
+			when the filter's output can affect the rendering within the viewport
+			(or within the user-agent defined margin around the viewport),
+			even if the element itself is still off-screen.
+
+
+		* The element is <dfn>far away from the viewport</dfn>:
+			In this state, the element's proximity to the viewport has been computed and is not [=close to the viewport=].
+		
+		* The element's [=proximity to the viewport=] is <dfn>not determined</dfn>:
+			In this state, the computation to determine the element's [=proximity to the viewport=] has not been done
+			since the last time the element was connected.
+		
+		Initially, the element's [=proximity to the viewport=] is [=not determined=].
+		Only connected elements with ''content-visibility: auto'' determine their [=proximity to the viewport=].
+		When the element becomes disconnected, the element's [=proximity to the viewport=] becomes [=not determined=].
+	</div>
+
+	<div algorithm>
+		An element is <dfn export>relevant to the user</dfn>
+		if <strong>any</strong> of the following conditions are true:
+
+		* The element is [=close to the viewport=].
+
+			<wpt>
+			content-visibility/content-visibility-046.html
+			content-visibility/content-visibility-079.html
+			content-visibility/content-visibility-auto-in-iframe.html
+			content-visibility/content-visibility-auto-intrinsic-width.html
+			</wpt>
+
+		* Either the element or its [=contents=]
+			are focused,
+			as described in the <a href="https://html.spec.whatwg.org/multipage/interaction.html#focus">focus</a> section of the HTML spec.
+
+			<wpt>
+			content-visibility/content-visibility-050.html
+			content-visibility/content-visibility-064.html
+			content-visibility/content-visibility-068.html
+			</wpt>
+
+		* Either the element or its [=contents=]
+			are selected,
+			where selection is described in the <a href="https://www.w3.org/TR/selection-api/#dfn-selection">selection API</a>
+
+			<wpt>
+			content-visibility/content-visibility-070.html
+			content-visibility/content-visibility-071.html
+			</wpt>
+
+		* Either the element or its [=contents=]
+			are placed in the [=top layer=].
+
+			<wpt>
+			content-visibility/content-visibility-with-top-layer-004.html
+			content-visibility/content-visibility-with-top-layer-005.html
+			content-visibility/content-visibility-with-top-layer-006.html
+			</wpt>
+
+		* The element has a [=flat tree=] descendant that is [=involved in a view transition=].
+
+	</div>
+
+
+<h3 id='using-cv-hidden'>
+Using ''content-visibility: hidden''</h3>
+
+	<em>This section is non-normative.</em>
+
+	''content-visibility: hidden'' lays powerful restrictions onto an element,
+	and so should be used with caution.
+	It also enables some very useful scenarios,
+	often improving on existing techniques,
+	a few of which are outlined here.
+
+	1. If a page needs to take some measurements of elements or text
+		which aren't themselves going to be rendered,
+		commonly this is done by positioning the stuff-to-be-measured off-screen,
+		using something like ''position: absolute; left: -100000px;'',
+		then calling an API like {{Element/getBoundingClientRect()}}.
+
+		Unfortunately, even though the page never intends to display this content,
+		the user agent will still have to do full styling, layout, and rendering for the content,
+		<em>just in case</em> it affects what's shown on screen.
+		The author also can't,
+		without further work,
+		guarantee that the content <em>won't</em> accidentally show up on-screen;
+		even a very negative 'left' value (like above) might not be enough,
+		depending on the content.
+
+		Wrapping this content in a ''content-visibility: hidden'' container
+		solves all of these problems.
+		If the wrapper has no border, background, etc,
+		then it and its [=skipped contents=] are guaranteed to never render anything to the screen,
+		no matter how big they get.
+		Because the contents are [=skipped contents|skipped=],
+		the user agent can also avoid styling or laying them out
+		until absolutely necessary,
+		when script finally asks for it.
+
+	2. A "single-page app" often consists of several independent panes or "views",
+		of which only one is displayed at a time.
+
+		If the author wants to avoid paying styling/layout/rendering/etc cost
+		for the inactive views,
+		they can remove them from the document entirely,
+		or at minimum apply ''display:none'' to them.
+		Unfortunately,
+		this means that when the view <em>does</em> need to be displayed,
+		all of the styling/layout/rendering/etc work needs to be done all at once,
+		potentially causing a noticeable delay before the view actually shows up.
+
+		Alternately, the view can just be positioned off-screen.
+		This means it'll be immediately ready when it's time to be used,
+		but it incurs the cost of styling/layout/rendering all the time,
+		which might be significant,
+		especially if there are a number of inactive views.
+		The inactive views also might still show up to accessibility tooling,
+		confusing users of screen-readers,
+		people using Ctrl-F to find-in-page, etc.
+
+		''content-visibility: hidden'' improves on both of these options.
+		Because the contents are [=skipped=],
+		the user agent isn't spending time on them when they're not active.
+		They're also not visible to screen readers,
+		find-in-page,
+		and other tools.
+		And because user agents <em>should</em> preserve previous styling/layout work if possible,
+		if the view was displayed before,
+		re-rendering it might be very fast.
+
+	3. If an author wants to make an element "invisible",
+		but still show up in the page for layout purposes,
+		one option is ''visibility: hidden''.
+		However, descendants of a ''visibility: hidden'' element
+		can set ''visibility: visible''
+		and start showing up again,
+		which isn't always intuitive or expected.
+
+		''content-visibility: hidden'' performs a very similar purpose,
+		but descendants can't turn it "off" and start displaying;
+		they stay "hidden" until the ancestor turns it off.
+
+		Because ''content-visibility: hidden'' also applies many [=containment=] values to the container,
+		it's not always quite as usable as ''visibility: hidden'' would be,
+		but when its restrictions are acceptable,
+		it can be a more reliable,
+		more consistent way to hide an element's contents.
+
+
+
+<h3 id='using-cv-auto'>
+Using ''content-visibility: auto''</h3>
+
+	<em>This section is non-normative.</em>
+
+	''content-visibility: auto'' is a more complex value than ''content-visibility/hidden'';
+	rather than being similar to ''display: none'',
+	it adaptively hides/displays an element's contents
+	as they become [=relevant to the user=].
+	It also doesn't hide its [=skipped contents=] from the user agent,
+	so screen readers,
+	find-in-page,
+	and other tools can still interact with it.
+
+	It is best to think of it as
+	<em>an upgrade to [=containment=]</em>:
+	if an author has a large amount of content to display
+	that will often be off-screen
+	(such as a long scrollable list),
+	and that content is okay with heavy [=containment=],
+	they should consider using ''content-visibility: auto''
+	to apply all of the [=containments=] at once.
+	This also strongly hints to the user agent
+	that it's acceptable to skip work on the contents
+	(possibly causing a small delay when they do come on-screen)
+	because it's more important to have a large amount of content in the document
+	and most of it won't be seen anyway.
+
+	Note: ''content-visibility: auto'' can thus be used
+	<em>instead of</em> complicated "virtual list" techniques,
+	at least in many cases.
+
+	Because ''content-visibility: auto'' only causes the element to [=skip=] its contents
+	when none of it is [=relevant to the user=],
+	it's best to use at a reasonably fine granularity.
+
+	<div class=example>
+		For example, on Twitter,
+		applying ''content-visibility: auto'' to the entire timeline
+		wouldn't accomplish much--
+		it's always on-screen,
+		and so it will never [=skip its contents=].
+
+		Instead, 'content-visibility' should be applied to <em>individual tweets</em>,
+		allowing each of them to be [=skipped=]
+		as they go off-screen.
+	</div>
+
+	Because ''content-visibility: auto'' imposes [=size containment=]
+	when the element [=skips its contents=],
+	if the element depends on its contents to determine its size
+	the layout of the page
+	(or at least, the scrollbar position)
+	can "jump around" as elements go off-screen and start [=skipping=].
+
+	<div class=example>
+		This can be fixed in a number of ways:
+
+		* making the element fixed-size
+		* carefully arranging a layout such as Grid
+			to size the element without depending on its contents
+		* using 'contain-intrinsic-size' to set an <em>estimate</em> of the element's size
+		* using ''contain-intrinsic-size: auto'' to automatically "snapshot" the <em>exact</em> size of the element
+			from the last time it was rendered,
+			before it was [=skipped=]
+			(along with providing an estimate of the size
+			to be used before it's rendered and can have its size snapshotted)
+
+		For example,
+		on Twitter,
+		the average tweet is approximately 200px tall,
+		so ''contain-intrinsic-size: auto 500px 200px''
+		will ensure that the scrollbar thumb is in approximately the correct size and position
+		even when preceding or following tweets are [=skipped=],
+		while still allowing the tweets to size according to their contents
+		when they're on-screen.
+		As long as the tweets have all been viewed at least once
+		(and haven't changed size while they were [=skipped=]),
+		their sizes will be <em>exactly</em> correct while they're [=skipped=],
+		so the scrollbar thumb will be as well;
+		only freshly-loaded tweets
+		(such as those loaded at the top of the timeline
+		while you are scrolling further down)
+		will be forced to rely on the ''200px'' height estimate.
+	</div>
+
+Detecting ''content-visibility: auto'' state changes: the <a event>contentvisibilityautostatechange</a> event {#content-visibility-auto-state-change}
+--------------------------------------------------------------------------------------------------------------------------------------------
+
+The <dfn event dfn-for="Element">contentvisibilityautostatechange</dfn> event is fired on an element with ''content-visibility: auto'' style when
+the rendering state changes and the element either becomes or stops being
+[=relevant to the user=].
+
+<wpt>
+content-visibility/content-visibility-auto-state-changed.html
+content-visibility/content-visibility-auto-state-changed-first-observation.html
+content-visibility/content-visibility-auto-state-changed-removed.html
+content-visibility/content-visibility-auto-state-changed.html
+</wpt>
+
+This event is dispatched by posting a task at the time when the state change occurs.
+
+<pre class='idl'>
+[Exposed=Window]
+interface ContentVisibilityAutoStateChangeEvent : Event {
+	constructor(DOMString type, optional ContentVisibilityAutoStateChangeEventInit eventInitDict = {});
+	readonly attribute boolean skipped;
+};
+dictionary ContentVisibilityAutoStateChangeEventInit : EventInit {
+	boolean skipped = false;
+};
+</pre>
+
+<div class="attributes">
+
+Description of ContentVisibilityAutoStateChangeEvent attributes:
+
+: <dfn attribute for=ContentVisibilityAutoStateChangeEvent>skipped</dfn>
+:: Set to true if target changed state to [=skip its contents=], and false otherwise.
+
+	<wpt>
+	content-visibility/content-visibility-auto-state-changed-first-observation.html
+	content-visibility/content-visibility-auto-state-changed.html
+	</wpt>
+
+</div>
+
+<div class="members">
+
+Description of ContentVisibilityAutoStateChangeEventInit members:
+
+: <dfn dict-member for=ContentVisibilityAutoStateChangeEventInit>skipped</dfn>
+:: See the description of the {{ContentVisibilityAutoStateChangeEvent/skipped}} attribute.
+
+</div>
+
+Note that elements in ''content-visibility: auto'' subtrees remain semantically
+relevant even for elements that [=skip its contents=]. This means that it is
+inappropriate to use this signal to indefinitely skip DOM updates in the
+subtree that is skipped. Instead, it should be used to deprioritize updates,
+but ensure that the content remains semantically relevant and reasonably
+up-to-date. This is particularly important for assistive technologies which
+consume this content even when the ancestor is set to [=skip its contents=].
+
+Restrictions and Clarifications {#cv-notes}
+-------------------------------------------
+
+1. From the perspective of an {{IntersectionObserver}},
+	the [=skipped contents=] of an element
+	are never intersecting the [=intersection root=].
+	This is true even if both the root and the target elements
+	are in the [=skipped contents=].
+
+	<wpt>
+	content-visibility/content-visibility-030.html
+	</wpt>
+
+2. From the perspective of a {{ResizeObserver}},
+	the [=skipped contents=] of an element
+	never change their size.
+	If these elements become non-skipped later,
+	the resize observation will be delivered
+	if the new size differs from the last size used to notify the resize observer.
+
+	<wpt>
+	content-visibility/content-visibility-031.html
+	</wpt>
+
+3. If an element starts or stops [=skipped contents|skipping its contents=],
+	this change happens
+	after the requestAnimationFrame callbacks
+	of the frame that renders the effects of the change
+	have run.
+	Specifically, such changes will take effect between steps 13 and 14
+	of [=update the rendering=] step of the Processing Model
+	(between “run the animation frame callbacks”
+	and “run the update intersection observations steps”).
+
+	<div class=note>
+		Determining the viewport intersection of the element
+		can be done with an internal version of an IntersectionObserver.
+		However, since the observations from this are dispatched at
+		step 14 of [=update the rendering=],
+		any changes to the [=skipped contents|skipped=] (and thus painted) state
+		will not be visible to the user until the next frame's processing.
+		For this reason, updating the [=skipped contents|skipped=] state,
+		including containment adjustments,
+		is deferred to that frame as well.
+		This ensures that script accessing,
+		for example,
+		the containment value of the element between these two events
+		(internal intersection observation and [=skipped contents|skipped=] state update)
+		will retrieve values consistent with current painted state
+		and not cause any forced layouts.
+	</div>
+
+4. Elements with ''content-visibility: auto''
+	that have not determined [=proximity to the viewport=]
+	must determine their proximity to the viewport
+	in the next [=update the rendering=] cycle.
+	The effect of this determination must be reflected in the visual update which results from this [=update the rendering=] cycle.
+	See <a href="https://html.spec.whatwg.org/multipage/webappapis.html#event-loop-processing-model:content-visibility-auto">the event loop process model</a> for the concrete algorithm description.
+	
+	<div class=note>
+		When an element first gains ''content-visibility: auto'', it may or may not
+		be positioned on screen. The determination of this state and thus
+		determination of whether this element is [=skipped=] must happen in the
+		same frame. If it does not, then there is a possibility of producing blank
+		content in the element's place since visibility check and [=skipped=] state
+		update would be deferred to the next frame.
+	</div>
+
+5. For the purposes of scrolling operations,
+	such as {{Element/scrollIntoView()}},
+	an element with ''content-visibility: auto''
+	that is [=skipping its contents=]
+	has its size and location determined
+	<em>with</em> [=size containment=] still active.
+
+	<wpt>
+	content-visibility/content-visibility-058.html
+	</wpt>
+
+	Note: Once it's scrolled into view,
+	the element will no longer [=skip its contents=],
+	and so might not have [=size containment=];
+	if this changes the element's size,
+	it might not align in the viewport exactly as requested.
+
+	If an element is not available to user-agent features
+	(for example, if it is [=skipped=]
+	due to a ''content-visibility: hidden'' ancestor),
+	then scrolling operations
+	must not scroll to it at all,
+	as if it did not have a layout box.
+
+	<wpt>
+	content-visibility/content-visibility-043.html
+	content-visibility/content-visibility-056.html
+	</wpt>
+
+6. If an element with ''content-visibility: auto''
+	that is [=skipping its contents=]
+	is focused
+	(or its contents are),
+	it becomes [=relevant to the user=]
+	(and thus stops [=skipping its contents=])
+	<em>before</em> it is scrolled into view due to the focusing.
+
+	<wpt>
+	content-visibility/content-visibility-064.html
+	</wpt>
+
+	Note: Thus, unlike the previous point,
+	the element <em>will</em> be correctly sized and aligned in the viewport.
+	This is consistent with the order of the steps for the {{Window/focus()}} method.
+
+7. If an <{iframe}> [=skips its contents=]
+	or is part of an element's [=skipped contents=],
+	the user agent should entirely skip the [=Update The Rendering=]
+	step in the iframe's event loop,
+	if possible.
+
+	<wpt>
+	content-visibility/content-visibility-004.html
+	content-visibility/content-visibility-020.html
+	</wpt>
+
+	Note: At the moment the <{iframe}> starts being [=skipped=],
+	it needs to run that step at least once
+	to remove the painted output.
+
+8. [=Skipped contents=] do not contribute to the result of {{HTMLElement/innerText}}.
+
+	<wpt>
+	content-visibility/content-visibility-029.html
+	</wpt>
+
+9. While an element is [=skipped=],
+	CSS transitions and animations on the element do not update:
+
+	* New animations are not created even if newly-applied style would start one.
+	* Existing animations do not advance in their timeline.
+	* Running animations on the element do not end.
+
+	If script queries the style of a [=skipped=] element
+	(causing a [=style change event=])
+	such that knowing the state of animations or transitions is required
+	to return correct information,
+	animation and transitions are sampled
+	according to the styles at the time of that [=style change event=]:
+
+	<wpt>
+	content-visibility/animation-display-lock.html
+	</wpt>
+
+	[[css-animations-2#events]] and [[css-transitions-2#transition-events]]
+	defines what objects are created
+	and what events are fired,
+	with what data,
+	when an animation or transition is updated,.
+
+	When an element stops being [=skipped=],
+	animations and transitions are sampled
+	and then resume advancing on their timelines as normal from that point.
+
+	Note: Overall, this is similar to the behavior of transitions/animations
+	when a background tab is brought back to the foreground,
+	allowing user agents to skip as much unnecessary animation work as possible
+	without overly disrupting the animations when they become relevant again.
+
+10. While an element is [=skipped=],
+	it must not start any transitions,
+	even if a [=style change event=] affects its computed styles.
+
+	When an element stops being [=skipped=],
+	it must not start any transitions
+	as a result of the [=style change event=]
+	associated with it no longer being [=skipped=].
+
+	Note: This is similar to an element switching from ''display:none''
+	to a non-''display/none'' value--
+	even though the styles are <em>technically</em> changing in that case
+	(from their initial values
+	to their "proper" values from the cascade),
+	no transitions are started.
+
+11. If an element has an ancestor with ''content-visibility: hidden'',
+	and it is placed in the [=top layer=],
+	it does not generate any boxes,
+	as if it were ''display: none''.
+
+	<wpt>
+	content-visibility/content-visibility-with-top-layer-000.html
+	content-visibility/content-visibility-with-top-layer-001.html
+	content-visibility/content-visibility-with-top-layer-002.html
+	</wpt>
+
+	Note: An element [=skipped=] for other reasons,
+	such as having a ''content-visibility: auto'' ancestor,
+	will still generate boxes as normal,
+	and might thus become un-[=skipped=].
+
+
+
+Accessibility Implications {#cv-a11y}
+-------------------------------------
+
+If a user agent exposes some form of "accessibility tree",
+akin to the DOM tree but specialized for accessibility use-cases such as screen-readers
+(thus providing the positions/etc of elements relevant to accessibility APIs,
+such as focusable elements),
+then the [=skipped contents=] of ''content-visibility: hidden'' elements
+must similarly be "skipped" (omitted) in the accessibility tree
+(similar to how ''display: none'' elements
+are omitted in all views of the document).
+
+[=Skipped contents=] of ''content-visibility: auto'' elements
+must not expose the fact that a user is interacting with the page via the accessibility tree,
+rather than via rendering visually to the screen.
+In particular, if a user agent uses ''content-visibility: auto''
+to avoid doing layout and painting work on off-screen content
+for displaying to the screen,
+it must similarly avoid doing that work on off-screen content
+for representing in the accessibility tree.
+If this is not possible
+(for example, if the user agent's representation of a focusable element in the accessibility tree
+requires knowledge of its exact position,
+and thus requires a full layout to be done on it and surrounding contents),
+then the user agent <em>must</em> omit the [=skipped contents=] from the accessibility tree entirely.
+
+Note: This requirement is intended to protect users utilizing accessibility tooling
+from being identified and profiled as such
+via observation of timing channels;
+if a user agent can skip significant amounts of work
+when rendering visually,
+but has to do all of the work when rendering to an accessibility tree,
+then an author can tell how a user is interacting with the page
+by observing the timing of layout operations.
+
+Examples {#cv-examples}
+-----------------------
+
+<div class=example>
+	<xmp highlight=markup>
+		<style>
+		.sv {
+			content-visibility: auto;
+			min-height: 50px;
+		}
+		</style>
+
+		<div class=sv>
+			... some content goes here ...
+		</div>
+	</xmp>
+
+	The .sv element's ''content-visibility: auto'' value
+	lets the user-agent manage whether the element is [=skipped=].
+	Specifically when this element is near the viewport,
+	the user-agent will begin painting the element.
+	When the element moves away from the viewport,
+	it will stop being painted.
+	In addition, the user-agent should skip as much of the rendering work as possible
+	when the element is [=skipped=].
+</div>
+
+<div class=example>
+	<xmp highlight=markup>
+		<style>
+		.sv {
+			content-visibility: hidden;
+		}
+		</style>
+
+		<div class=sv>
+			... some content goes here ...
+		</div>
+	</xmp>
+
+	In this case, the element is [=skipped=] regardless of viewport intersection.
+	This means that the only way to have the [=contents=] painted
+	is via script updating the value to remove 'content-visibility' or change its value.
+	As before, the user-agent should skip as much of the rendering in the [=contents=] as possible.
+
+	An additional effect of skipping rendering
+	is that the layout state of the [=contents=] can be preserved by the user-agent,
+	so that removing the 'content-visibility' property in the future
+	will cause the [=contents=] to be rendered quicker
+	than if they were hidden with ''display: none'' or similar.
+</div>
+
+<div class=example>
+	<xmp highlight=markup>
+	<style>
+	body {
+		margin: 0;
+	}
+	.sv {
+		content-visibility: hidden;
+		position: relative;
+		left: 10px;
+		top: 20px;
+	}
+	#child {
+		position: relative;
+		left: 1px;
+		top: 2px;
+		width: 100px;
+		height: 200px;
+	}
+	</style>
+
+	<div id=target class=sv>
+		<div id=child></div>
+		... some other content goes here ...
+	</div>
+	<script>
+		...
+		// This will force rendering work, including layout,
+		// if the UA previously avoided it.
+		target.firstElementChild.getBoundingClientRect();
+		...
+	</script>
+	</xmp>
+
+	Similarly to the last example, the element is [=skipped=].
+	The user-agent should avoid as much rendering work as possible.
+	However, in this example, at some point script accesses a layout value in the element's [=contents=].
+	In this situation, the user-agent cannot avoid rendering work
+	and has to process any previously skipped rendering work
+	in order to return a correct value to the caller.
+	In this example, the result of {{Element/getBoundingClientRect()}}
+	is a rect positioned at (11, 22) with a size 100x200.
+
+	Note that repeated calls to the same layout value
+	should not cause any additional rendering work,
+	since the user-agent should retain the last updated rendering state.
+
+	Also note that this situation in which rendering work is required is not unique.
+	There may be other situations in which the user-agent cannot avoid rendering work.
+</div>
+
+
+<h2 id=privacy oldids="priv-sec">
+Privacy Considerations</h2>
+
+	There are no known privacy impacts of the features in this specification.
+
+
+<h2 id=security>
+Security Considerations</h2>
+
+	There are no known security impacts of the features in this specification.
+
+	Like any other CSS specification, it affects the rendering of the document,
+	but does not introduce any special ability to present content in a misleading way
+	that was not previously available through other CSS modules
+	and that isn't inherent to the act of formatting the document.
+
+
+<h2 class="no-num non-normative" id="changes">Appendix A. Changes</h2>
+
+This appendix is <em>informative</em>.
+
+<h3 id="changes-since-2022-09-17">
+Changes from <a href="https://www.w3.org/TR/2022/WD-css-contain-2-20220917/">2022-09-17 Working Draft</a>
+</h3>
+
+* Updated relevant to the user selection to point to the selection API instead of highlight pseudos.
+* Referenced the HTML event loop process model in the [[#cv-notes]], clarification 4.
+* defined [=proximity to the viewport=] and used it in the [[#cv-notes]], clarification 4.
+* 'content-visibility' applies to the same properties as [=size containment=] rather than [=layout containment=]
+* clarified that 'content-visibility' affects the used value, not computed value, of the 'contain' property
+* Updated the ContentVisibilityAutoStateChanged event name to ContentVisibilityAutoStateChange to follow the convention for event names.
+
+<h3 id="changes-since-2020-12-16">
+Changes from <a href="https://www.w3.org/TR/2020/WD-css-contain-2-20201216/">2020-12-16 Working Draft</a>
+</h3>
+
+* Included [=style containment=] in the ''strict'' and ''content'' keywords.
+* Use the [=overflow clip edge=] rather than the [=border edge=] when deciding if the element is “on screen”, as part of determining if it is [=relevant to the user=]
+* Define how animations and transitions act on skipped elements
+* Remove "at risk" marker from style containment
+* Disable propagation from the HTML body element when containment is on
+* Made style containment part of ''strict'' and ''content''
+* Clarify that scrollIntoView() doesn't scroll to children of a ''content-visibility:hidden'' element
+* Defined that elements having an ancestor with ''content-visibility: hidden'' don't generate boxes in the top layer
+* Defined that being in the top-layer makes an element relevant to the user
+* Noted that paint effects with non-local effects can limit certain optimization opportunities.
+* Add ContentVisibilityAutoStateChanged event
+
+<h3 id="changes-since-2020-06-03">
+Changes from <a href="https://www.w3.org/TR/2020/WD-css-contain-2-20200603/">2020-06-03 Working Draft</a>
+</h3>
+
+* Changed how the computed values of the contain property are determined
+* Fixed a syntax error in the note about ''contain: content''
+* Change terminology: replace "containing box" with "containment box" (in sync with the same improvements made to Level 1)
+* Editorial improvements and clarifications to size and paint containment (in sync with the same improvements made to Level 1)
+* Be explicit that size containment suppresses natural aspect ratio (in sync with the same improvements made to Level 1)
+* Change the animation type of content-visibility from discrete to not animatable
+* Add constraint on the timing of the initial determination of visibility for ''content-visibility: auto'' in [[#cv-notes]]
+
+<h3 id="changes-since-2019-11-11">
+Changes from <a href="https://www.w3.org/TR/2019/WD-css-contain-2-20191111/">2019-11-11 Working Draft</a>
+</h3>
+
+* Define the interaction between [=paint containment=] and 'overflow-clip-margin'
+* Add the 'content-visibility' property
+
+<h3 id="l1-changes">
+Changes from <a href="https://www.w3.org/TR/css-contain-1/">CSS Containment Level 1</a>
+</h3>
+
+* Restored [=style containment=], which had been dropped from Level 1
+
+<!-- catch all for tests only relevant to the css-contain-3, to stop bikeshed from complaining -->
+<wpt>
+contain-inline-size-bfc-floats-001.html
+contain-inline-size-bfc-floats-002.html
+contain-inline-size-fieldset.html
+contain-inline-size-flex.html
+contain-inline-size-flexitem.html
+contain-inline-size-grid.html
+contain-inline-size-intrinsic.html
+contain-inline-size-legend.html
+contain-inline-size-multicol.html
+contain-inline-size-regular-container.html
+contain-inline-size-removed.html
+contain-inline-size-replaced.html
+contain-inline-size-table.html
+contain-inline-size-vertical-rl-.html
+container-queries/animation-container-size.html
+container-queries/animation-container-type-dynamic.html
+container-queries/animation-nested-animation.html
+container-queries/animation-nested-transition.html
+container-queries/aspect-ratio-feature-evaluation.html
+container-queries/at-container-parsing.html
+container-queries/at-container-serialization.html
+container-queries/at-container-style-serialization.html
+container-queries/auto-scrollbars.html
+container-queries/backdrop-invalidation.html
+container-queries/calc-evaluation.html
+container-queries/canvas-as-container-001.html
+container-queries/canvas-as-container-002.html
+container-queries/canvas-as-container-003.html
+container-queries/canvas-as-container-004.html
+container-queries/canvas-as-container-005.html
+container-queries/canvas-as-container-006.html
+container-queries/change-display-in-container.html
+container-queries/chrome-legacy-skip-recalc.html
+container-queries/column-spanner-in-container.html
+container-queries/conditional-container-status.html
+container-queries/container-computed.html
+container-queries/container-for-cue.html
+container-queries/container-for-shadow-dom.html
+container-queries/container-inheritance.html
+container-queries/container-inner-at-rules.html
+container-queries/container-inside-multicol-with-table.html
+container-queries/container-longhand-animation-type.html
+container-queries/container-name-computed.html
+container-queries/container-name-invalidation.html
+container-queries/container-name-parsing.html
+container-queries/container-name-tree-scoped.html
+container-queries/container-nested.html
+container-queries/container-parsing.html
+container-queries/container-selection.html
+container-queries/container-size-invalidation-after-load.html
+container-queries/container-size-invalidation.html
+container-queries/container-size-nested-invalidation.html
+container-queries/container-size-shadow-invalidation.html
+container-queries/container-type-computed.html
+container-queries/container-type-containment.html
+container-queries/container-type-invalidation.html
+container-queries/container-type-layout-invalidation.html
+container-queries/container-type-parsing.html
+container-queries/container-units-animation.html
+container-queries/container-units-basic.html
+container-queries/container-units-computational-independence.html
+container-queries/container-units-gradient-invalidation.html
+container-queries/container-units-gradient.html
+container-queries/container-units-in-at-container-dynamic.html
+container-queries/container-units-in-at-container-fallback.html
+container-queries/container-units-in-at-container.html
+container-queries/container-units-ineligible-container.html
+container-queries/container-units-invalidation.html
+container-queries/container-units-media-queries.html
+container-queries/container-units-selection.html
+container-queries/container-units-shadow.html
+container-queries/container-units-small-viewport-fallback.html
+container-queries/container-units-svglength.html
+container-queries/container-units-typed-om.html
+container-queries/counters-flex-circular.html
+container-queries/counters-in-container-dynamic.html
+container-queries/counters-in-container.html
+container-queries/crashtests/br-crash.html
+container-queries/crashtests/canvas-as-container-crash.html
+container-queries/crashtests/chrome-bug-1289718-000-crash.html
+container-queries/crashtests/chrome-bug-1289718-001-crash.html
+container-queries/crashtests/chrome-bug-1346969-crash.html
+container-queries/crashtests/chrome-bug-1362391-crash.html
+container-queries/crashtests/chrome-layout-root-crash.html
+container-queries/crashtests/chrome-quotes-crash.html
+container-queries/crashtests/chrome-remove-insert-evaluator-crash.html
+container-queries/crashtests/columns-in-table-001-crash.html
+container-queries/crashtests/columns-in-table-002-crash.html
+container-queries/crashtests/container-in-canvas-crash.html
+container-queries/crashtests/container-type-change-chrome-legacy-crash.html
+container-queries/crashtests/dirty-rowgroup-crash.html
+container-queries/crashtests/flex-in-columns-000-crash.html
+container-queries/crashtests/flex-in-columns-001-crash.html
+container-queries/crashtests/flex-in-columns-002-crash.html
+container-queries/crashtests/flex-in-columns-003-crash.html
+container-queries/crashtests/focus-inside-content-visibility-crash.html
+container-queries/crashtests/force-sibling-style-crash.html
+container-queries/crashtests/grid-in-columns-000-crash.html
+container-queries/crashtests/grid-in-columns-001-crash.html
+container-queries/crashtests/grid-in-columns-002-crash.html
+container-queries/crashtests/grid-in-columns-003-crash.html
+container-queries/crashtests/iframe-init-crash.html
+container-queries/crashtests/inline-multicol-inside-container-crash.html
+container-queries/crashtests/inline-with-columns-000-crash.html
+container-queries/crashtests/inline-with-columns-001-crash.html
+container-queries/crashtests/input-column-group-container-crash.html
+container-queries/crashtests/input-placeholder-inline-size-crash.html
+container-queries/crashtests/marker-gcs-after-disconnect-crash.html
+container-queries/crashtests/math-block-container-child-crash.html
+container-queries/crashtests/orthogonal-replaced-crash.html
+container-queries/crashtests/pseudo-container-crash.html
+container-queries/crashtests/reversed-ol-crash.html
+container-queries/crashtests/svg-layout-root-crash.html
+container-queries/crashtests/svg-text-crash.html
+container-queries/crashtests/table-in-columns-000-crash.html
+container-queries/crashtests/table-in-columns-001-crash.html
+container-queries/crashtests/table-in-columns-002-crash.html
+container-queries/crashtests/table-in-columns-003-crash.html
+container-queries/crashtests/table-in-columns-004-crash.html
+container-queries/crashtests/table-in-columns-005-crash.html
+container-queries/custom-layout-container-001.https.html
+container-queries/custom-property-style-queries.html
+container-queries/custom-property-style-query-change.html
+container-queries/deep-nested-inline-size-containers.html
+container-queries/display-contents.html
+container-queries/display-in-container.html
+container-queries/display-none.html
+container-queries/fieldset-legend-change.html
+container-queries/font-relative-calc-dynamic.html
+container-queries/font-relative-units-dynamic.html
+container-queries/font-relative-units.html
+container-queries/fragmented-container-001.html
+container-queries/get-animations.html
+container-queries/grid-container.html
+container-queries/grid-item-container.html
+container-queries/idlharness.html
+container-queries/iframe-in-container-invalidation.html
+container-queries/iframe-invalidation.html
+container-queries/ineligible-containment.html
+container-queries/inline-size-and-min-width.html
+container-queries/inline-size-bfc-floats.html
+container-queries/inline-size-containment-vertical-rl.html
+container-queries/inline-size-containment.html
+container-queries/inner-first-line-non-matching.html
+container-queries/layout-dependent-focus.html
+container-queries/multicol-container-001.html
+container-queries/multicol-inside-container.html
+container-queries/nested-query-containers.html
+container-queries/never-match-container.html
+container-queries/orthogonal-wm-container-query.html
+container-queries/percentage-padding-orthogonal.html
+container-queries/pseudo-elements-001.html
+container-queries/pseudo-elements-002.html
+container-queries/pseudo-elements-003.html
+container-queries/pseudo-elements-004.html
+container-queries/pseudo-elements-005.html
+container-queries/pseudo-elements-006.html
+container-queries/pseudo-elements-007.html
+container-queries/pseudo-elements-008.html
+container-queries/query-content-box.html
+container-queries/query-evaluation.html
+container-queries/reattach-container-with-dirty-child.html
+container-queries/resize-while-content-visibility-hidden.html
+container-queries/sibling-layout-dependency.html
+container-queries/size-container-no-principal-box.html
+container-queries/size-feature-evaluation.html
+container-queries/style-change-in-container.html
+container-queries/style-not-sharing-float.html
+container-queries/svg-foreignobject-child-container.html
+container-queries/svg-foreignobject-no-size-container.html
+container-queries/svg-g-no-size-container.html
+container-queries/svg-root-size-container.html
+container-queries/table-inside-container-changing-display.html
+container-queries/top-layer-dialog-backdrop.html
+container-queries/top-layer-dialog-container.html
+container-queries/top-layer-dialog.html
+container-queries/top-layer-nested-dialog.html
+container-queries/transition-scrollbars.html
+container-queries/transition-style-change-event-002.html
+container-queries/transition-style-change-event.html
+container-queries/unsupported-axis.html
+container-queries/viewport-units-dynamic.html
+container-queries/viewport-units.html
+container-queries/whitespace-update-after-removal.html
+</wpt>

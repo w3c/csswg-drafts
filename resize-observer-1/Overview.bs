@@ -3,12 +3,15 @@ Title: Resize Observer
 Shortname: resize-observer
 Level: 1
 Status: ED
+Prepare for TR: no
 Work Status: Exploring
 ED: https://drafts.csswg.org/resize-observer/
+TR: https://www.w3.org/TR/resize-observer/
+Previous Version: https://www.w3.org/TR/2020/WD-resize-observer-1-20200211/
 Group: CSSWG
 URL: https://drafts.csswg.org/resize-observer/
-Editor: Aleks Totic, Google, atotic@google.com, w3cid 92454
-Editor: Greg Whitworth, Microsoft, gwhit@microsoft.com, w3cid 69511
+Editor: Oriol Brufau, Igalia, obrufau@igalia.com, w3cid 108473
+Editor: Emilio Cobos Álvarez, Mozilla, emilio@mozilla.com, w3cid 106537
 Abstract: This specification describes an API for observing changes to Element's size.
 Markup Shorthands: markdown yes
 </pre>
@@ -18,20 +21,17 @@ urlPrefix: https://www.w3.org/TR/CSS2/box.html
 urlPrefix: https://www.w3.org/TR/CSS2/box.html
     url: #content-height; type: dfn; text: content height
 urlPrefix: https://drafts.csswg.org/css-box-3/
-    url: #padding-top; type: dfn; text: padding top
+    url: #padding-physical; type: dfn; text: padding top
 urlPrefix: https://drafts.csswg.org/css-box-3/
-    url: #padding-left; type: dfn; text: padding left
-urlPrefix: https://www.w3.org/TR/css3-positioning/
-    url: #viewport; type: dfn; text: viewport
-urlPrefix: https://html.spec.whatwg.org/multipage/
-    urlPrefix: webappapis.html;
-        url: #processing-model-8; type: dfn; text: HTML Processing Model
+    url: #padding-physical; type: dfn; text: padding left
+urlPrefix: https://www.w3.org/TR/CSS2/visuren.html; spec: CSS2;
+    url: #x1; text: viewport; type: dfn;
 urlPrefix: https://www.w3.org/TR/intersection-observer/
     url: #intersection-observer-interface; type: interface; text: IntersectionObserver
 urlPrefix: https://www.w3.org/TR/SVG2/
     urlPrefix: coords.html
         url: #BoundingBoxes; type: dfn; text: bounding box
-urlPrefix: https://www.w3.org/TR/SVG2/#InterfaceSVGGraphicsElement
+urlPrefix: https://www.w3.org/TR/SVG2/
     urlPrefix: types.html
         url: #InterfaceSVGGraphicsElement; type: dfn; text: SVGGraphicsElement
 urlPrefix: https://www.w3.org/TR/css3-multicol/
@@ -42,6 +42,10 @@ urlPrefix: https://www.w3.org/TR/CSS21/box.html
     url: #box-border-area; type: dfn; text: box border area
 urlPrefix:  https://drafts.csswg.org/css-box-3/
     url: #content-area; type: dfn; text: content area
+urlPrefix:  https://www.w3.org/TR/cssom-view-1/
+    url: #dom-window-devicepixelratio; type: dfn; text: devicePixelRatio
+urlPrefix:  https://heycam.github.io/webidl/
+    url: #idl-frozen-array; type: dfn; text: FrozenArray
 
 </pre>
 <pre class=link-defaults>
@@ -60,11 +64,11 @@ size changes. An example is an {{Element}} that displays a map:
 * when resized, it must redo the tiling.
 
 Responsive Web Applications can already respond to <a>viewport</a> size changes.
-This is done with CSS media queries, or window.{{resize}} event.
+This is done with CSS media queries, or {{Window}}'s {{Window/resize}} event.
 
 The ResizeObserver API is an interface for observing changes
 to Element's size. It is an {{Element}}'s
-counterpart to window.{{resize}} event.
+counterpart to {{Window}}'s {{Window/resize}} event.
 
 ResizeObserver's notifications can be used to respond to changes in {{Element}}'s size. Some interesting facts about these observations:
 
@@ -80,17 +84,17 @@ ResizeObserver's notifications can be used to respond to changes in {{Element}}'
 
 <div class="example">
   <pre highlight="html">
-    &lt;canvas id="elipse" style="display:block">&lt;/canvas>
+    &lt;canvas id="ellipse" style="display:block">&lt;/canvas>
     &lt;div id="menu" style="display:block;width:100px">
         &lt;img src="hamburger.jpg" style="width:24px;height:24px">
         &lt;p class="title">menu title&lt;/p>
     &lt;/div>
   </pre>
   <pre highlight="js">
-    // In response to resize, elipse paints an elipse inside a canvas
-    document.querySelector('#elipse').handleResize = entry => {
-        entry.target.width = entry.borderBoxSize.inlineSize;
-        entry.target.height = entry.borderBoxSize.blockSize;
+    // In response to resize, paint an ellipse inside a canvas
+    document.querySelector('#ellipse').handleResize = entry => {
+        entry.target.width = entry.borderBoxSize[0].inlineSize;
+        entry.target.height = entry.borderBoxSize[0].blockSize;
         let rx = Math.floor(entry.target.width / 2);
         let ry = Math.floor(entry.target.height / 2);
         let ctx = entry.target.getContext('2d');
@@ -98,28 +102,30 @@ ResizeObserver's notifications can be used to respond to changes in {{Element}}'
         ctx.ellipse(rx, ry, rx, ry, 0, 0, 2 * Math.PI);
         ctx.stroke();
     }
+
     // In response to resize, change title visibility depending on width
     document.querySelector('#menu').handleResize = entry => {
-        let title = entry.target.querySelector(".title")
-        if (entry.borderBoxSize.inlineSize < 40)
-            title.style.display = "none";
+        let title = entry.target.querySelector('.title');
+        if (entry.borderBoxSize[0].inlineSize < 40)
+            title.style.display = 'none';
         else
-            title.style.display = "inline-block";
+            title.style.display = 'inline-block';
     }
 
-    var ro = new ResizeObserver( entries => {
+    let ro = new ResizeObserver(entries => {
       for (let entry of entries) {
         let cs = window.getComputedStyle(entry.target);
         console.log('watching element:', entry.target);
-        console.log(entry.contentRect.top,' is ', cs.paddingTop);
-        console.log(entry.contentRect.left,' is ', cs.paddingLeft);
-        console.log(entry.borderBoxSize.inlineSize,' is ', cs.width);
-        console.log(entry.borderBoxSize.blockSize,' is ', cs.height);
+        console.log(entry.contentRect.top, ' is ', cs.paddingTop);
+        console.log(entry.contentRect.left, ' is ', cs.paddingLeft);
+        console.log(entry.borderBoxSize[0].inlineSize, ' is ', cs.width);
+        console.log(entry.borderBoxSize[0].blockSize, ' is ', cs.height);
         if (entry.target.handleResize)
             entry.target.handleResize(entry);
       }
     });
-    ro.observe(document.querySelector('#elipse'));
+
+    ro.observe(document.querySelector('#ellipse'));
     ro.observe(document.querySelector('#menu'));
   </pre>
 </div>
@@ -135,7 +141,7 @@ It is modeled after {{MutationObserver}} and {{IntersectionObserver}}.
 
 <pre class="idl">
     enum ResizeObserverBoxOptions {
-        "border-box", "content-box"
+        "border-box", "content-box", "device-pixel-content-box"
     };
 </pre>
 
@@ -143,6 +149,22 @@ ResizeObserver can observe different kinds of CSS sizes:
 
 * {{border-box}}  : size of <a>box border area</a> as defined in CSS2.
 * {{content-box}} : size of <a>content area</a> as defined in CSS2.
+* {{device-pixel-content-box}} : size of <a>content area</a> as defined in CSS2, in device pixels,
+    before applying any CSS transforms on the element or its ancestors.
+    This size must contain integer values.
+
+<p class="note">
+The {{device-pixel-content-box}} can be approximated by multiplying <a>devicePixelRatio</a> by the {{content-box}} size.
+However, due to browser-specific subpixel snapping behavior,
+authors cannot determine the correct way to round this scaled {{content-box}} size.
+How a UA computes the device pixel box for an element is implementation-dependent.
+One possible implementation could be to multiply the box size and position by the device pixel ratio,
+then round both the resulting floating-point size and position of the box to integer values,
+in a way that maximizes the quality of the rendered output.
+
+Note that this size can be affected by position changes to the target,
+and thus is typically more expensive to observe than the other sizes.
+</p>
 
 <pre class="idl">
     dictionary ResizeObserverOptions {
@@ -165,72 +187,75 @@ In this case, author will need to use multiple ResizeObservers.
                 it solely defines which box the author wishes to observe layout changes on.</p>
 
 <pre class="idl">
-[Exposed=(Window),
- Constructor(ResizeObserverCallback callback)]
+[Exposed=(Window)]
 interface ResizeObserver {
-    void observe(Element target, optional ResizeObserverOptions options);
-    void unobserve(Element target);
-    void disconnect();
+    constructor(ResizeObserverCallback callback);
+    undefined observe(Element target, optional ResizeObserverOptions options = {});
+    undefined unobserve(Element target);
+    undefined disconnect();
 };
 </pre>
 
 <div dfn-type="method" dfn-for="ResizeObserver">
-    : <dfn constructor lt="ResizeObserver(callback)">new ResizeObserver(callback)</dfn>
+    : <dfn constructor lt="ResizeObserver(callback)">new ResizeObserver(|callback|)</dfn>
     ::
         1. Let |this| be a new {{ResizeObserver}} object.
 
-        2. Set |this|.<var>callback</var> internal slot to callback.
+        2. Set |this|.{{ResizeObserver/[[callback]]}} internal slot to |callback|.
 
-        3. Set |this|.<var>observationTargets</var> internal slot to an empty list.
+        3. Set |this|.{{ResizeObserver/[[observationTargets]]}} internal slot to an empty list.
 
-        3. Add |this| to {{Document}}.<var>resizeObservers</var> slot.
+        3. Add |this| to {{Document}}.{{Document/[[resizeObservers]]}} slot.
 
-    : <dfn method>observe(target, options)</dfn>
+    : <dfn method>observe(|target|, |options|)</dfn>
     ::
         Adds target to the list of observed elements.
 
-        1. If |target| is in {{ResizeObserver/observationTargets}} slot, call unobserve(<var>target</var>).
+        1. If |target| is in {{ResizeObserver/[[observationTargets]]}} slot, call {{ResizeObserver/unobserve()}} with argument <var>target</var>.
 
-        2. Let |resizeObservation| be new {{ResizeObservation}}(<var>target</var>, <var>options</var>).
+        2. Let |observedBox| be the value of the {{ResizeObserverOptions/box}} dictionary member of <var>options</var>.
 
-        3. Add the |resizeObservation| to the <var>observationTargets</var> slot.
+        3. Let |resizeObservation| be new {{ResizeObservation}}(<var>target</var>, <var>observedBox</var>).
 
-    :  <dfn method for="ResizeObserver">unobserve(target)</dfn>
+        4. Add the |resizeObservation| to the {{ResizeObserver/[[observationTargets]]}} slot.
+
+    :  <dfn method for="ResizeObserver">unobserve(|target|)</dfn>
     ::
         Removes |target| from the list of observed elements.
 
-        1. Let |observation| be {{ResizeObservation}} in {{ResizeObserver/observationTargets}} whose target slot is |target|.
+        1. Let |observation| be {{ResizeObservation}} in {{ResizeObserver/[[observationTargets]]}} whose target slot is |target|.
 
         2. If |observation| is not found, return.
 
-        3. Remove |observation| from {{ResizeObserver/observationTargets}}.
+        3. Remove |observation| from {{ResizeObserver/[[observationTargets]]}}.
 
     : <dfn method>disconnect()</dfn>
     ::
-        1. Clear the {{ResizeObserver/observationTargets}} list.
+        1. Clear the {{ResizeObserver/[[observationTargets]]}} list.
 
-        2. Clear the {{ResizeObserver/activeTargets}} list.
+        2. Clear the {{ResizeObserver/[[activeTargets]]}} list.
 
 </div>
 
 <h3 id="resize-observer-callback">ResizeObserverCallback</h3>
 
 <pre class="idl">
-callback ResizeObserverCallback = void (sequence&lt;ResizeObserverEntry> entries, ResizeObserver observer);
+callback ResizeObserverCallback = undefined (sequence&lt;ResizeObserverEntry> entries, ResizeObserver observer);
 </pre>
 
 This callback delivers {{ResizeObserver}}'s notifications. It is invoked by a
-<a>broadcast active observations</a> algorithm.
+<a>broadcast active resize observations</a> algorithm.
 
 <h3 id="resize-observer-entry-interface">ResizeObserverEntry</h3>
 
 <pre class="idl">
-[Exposed=Window, Constructor(Element target)]
+[Exposed=Window]
 interface ResizeObserverEntry {
     readonly attribute Element target;
     readonly attribute DOMRectReadOnly contentRect;
-    readonly attribute ResizeObserverSize borderBoxSize;
-    readonly attribute ResizeObserverSize contentBoxSize;
+    readonly attribute FrozenArray&lt;ResizeObserverSize> borderBoxSize;
+    readonly attribute FrozenArray&lt;ResizeObserverSize> contentBoxSize;
+    readonly attribute FrozenArray&lt;ResizeObserverSize> devicePixelContentBoxSize;
 };
 </pre>
 
@@ -245,40 +270,28 @@ interface ResizeObserverEntry {
         {{Element}}'s <a>content rect</a> when {{ResizeObserverCallback}} is invoked.
     : <dfn>borderBoxSize</dfn>
     ::
-        {{Element}}'s <a>border box</a> size when {{ResizeObserverCallback}} is invoked.
+        A {{FrozenArray}} containing the {{Element}}'s <a>border box</a> size when {{ResizeObserverCallback}} is invoked.
     : <dfn>contentBoxSize</dfn>
     ::
-        {{Element}}'s <a>content rect</a> size when {{ResizeObserverCallback}} is invoked.
-</div>
-
-<div dfn-type="method" dfn-for="ResizeObserverEntry">
-    : <dfn constructor lt="ResizeObserverEntry(target)">new ResizeObserverEntry(target)</dfn>
+        A {{FrozenArray}} containing the {{Element}}'s <a>content rect</a> size when {{ResizeObserverCallback}} is invoked.
+    : <dfn>devicePixelContentBoxSize</dfn>
     ::
-        1. Let |this| be a new {{ResizeObserverEntry}}.
-
-        2. Set |this|.{{ResizeObserverEntry/target}} slot to |target|.
-
-        3. Set |this|.{{ResizeObserverEntry/borderBoxSize}} slot to result of <a href="#calculate-box-size">
-            computing size given |target| and observedBox of "border-box"</a>.
-
-        4. Set |this|.{{ResizeObserverEntry/contentBoxSize}} slot to result of <a href="#calculate-box-size">
-            computing size given |target| and observedBox of "content-box"</a>.
-
-        5. Set |this|.{{ResizeObserverEntry/contentRect}} to logical |this|.{{ResizeObserverEntry/contentBoxSize}}.
-
-        6. If |target| is not an SVG element do these steps:
-
-            1. Set |this|.|contentRect|.top to |target|.<a>padding top</a>.
-
-            2. Set |this|.|contentRect|.left to |target|.<a>padding left</a>.
-
-        7. If |target| is an SVG element do these steps:
-
-            1. Set |this|.|contentRect|.top and |this|.contentRect.left to 0.
+        A {{FrozenArray}} containing the {{Element}}'s <a>content rect</a> size in integral device pixels when {{ResizeObserverCallback}} is invoked.
 
 </div>
+
+<p class="note">
+The box size properties are exposed as {{FrozenArray}} in order to support elements that have multiple fragments,
+which occur in <a>multi-column</a> scenarios.
+However the current definitions of <a>content rect</a> and <a>border box</a>
+do not mention how those boxes are affected by <a>multi-column</a> layout.
+In this spec, there will only be a single ResizeObserverSize returned in the {{FrozenArray}},
+which will correspond to the dimensions of the first column.
+A future version of this spec will extend the returned {{FrozenArray}} to contain the per-fragment size information.
+</p>
 
 <pre class="idl">
+    [Exposed=Window]
     interface ResizeObserverSize {
         readonly attribute unrestricted double inlineSize;
         readonly attribute unrestricted double blockSize;
@@ -288,17 +301,17 @@ interface ResizeObserverEntry {
 <h2 id="processing-model">Processing Model</h2>
 
 <h3 id="resize-observation-interface">ResizeObservation example struct</h3>
-<p class="note">This section is not normative. ResizeObservation is an example struct that can be used in implementation of Resize Observer. It is being
+
+<p class="note">This section is non-normative. ResizeObservation is an example struct that can be used in implementation of Resize Observer. It is being
 included here in order to help provide clarity during the processing model. It effectively holds observation information for a single {{Element}}. This
 interface is not visible to Javascript.</p>
 
-<pre class="idl">
-[Constructor(Element target)
-]
+<pre class="idl extract">
 interface ResizeObservation {
+    constructor(Element target, ResizeObserverBoxOptions observedBox);
     readonly attribute Element target;
     readonly attribute ResizeObserverBoxOptions observedBox;
-    readonly attribute ResizeObserverSize lastReportedSize;
+    readonly attribute FrozenArray&lt;ResizeObserverSize> lastReportedSizes;
 };
 </pre>
 <div dfn-type="attribute" dfn-for="ResizeObservation">
@@ -306,26 +319,26 @@ interface ResizeObservation {
     :: The observed {{Element}}.
     : <dfn>observedBox</dfn>
     :: Which box is being observed.
-    : <dfn>lastReportedSize</dfn>
-    :: Last reported size.
+    : <dfn>lastReportedSizes</dfn>
+    :: Ordered array of last reported sizes.
 </div>
 <div dfn-type="method" dfn-for="ResizeObservation">
     : <dfn constructor lt="ResizeObservation(target, options)">new ResizeObservation(target, observedBox)</dfn>
     ::
-        1. Let |this| be a new {{ResizeObservation}} object
+        1. Let |this| be a new {{ResizeObservation}} object.
 
-        2. Set |this| internal {{ResizeObservation/target}} slot to |target|
+        2. Set |this| internal {{ResizeObservation/target}} slot to |target|.
 
-        3. Set |this| internal {{ResizeObservation/observedBox}} slot to |observedBox|
+        3. Set |this| internal {{ResizeObservation/observedBox}} slot to |observedBox|.
 
-        4. Set |this| internal {{ResizeObservation/lastReportedSize}} slot to (0,0)
+        4. Set |this| internal {{ResizeObservation/lastReportedSizes}} slot to [(0,0)].
 
     : <dfn method lt="isActive()">isActive()</dfn>
     ::
 
         1. Set |currentSize| by <a>calculate box size</a> given |target| and |observedBox|.
 
-        2. Return true if |currentSize| is not equal to this.{{ResizeObservation/lastReportedSize}}.
+        2. Return true if |currentSize| is not equal to the first entry in this.{{ResizeObservation/lastReportedSizes}}.
 
         3. Return false.
 
@@ -335,18 +348,18 @@ interface ResizeObservation {
 
 <h4 id="document-slots">Document</h4>
 
-<a>Document</a> has a <dfn attribute for="Document">resizeObservers</dfn> slot that is a list of {{ResizeObserver}}s in this document. It is initialized to empty.
+<a>Document</a> has a <dfn attribute for="Document">\[[resizeObservers]]</dfn> slot that is a list of {{ResizeObserver}}s in this document. It is initialized to empty.
 
 <h4 id="resize-observer-slots">ResizeObserver</h4>
 
-{{ResizeObserver}} has a <dfn attribute for="ResizeObserver">callback</dfn> slot, initialized by constructor.
+{{ResizeObserver}} has a <dfn attribute for="ResizeObserver">\[[callback]]</dfn> slot, initialized by constructor.
 
-{{ResizeObserver}} has an <dfn attribute for="ResizeObserver">observationTargets</dfn> slot, which is a list of {{ResizeObservation}}s.
+{{ResizeObserver}} has an <dfn attribute for="ResizeObserver">\[[observationTargets]]</dfn> slot, which is a list of {{ResizeObservation}}s.
 It represents all Elements being observed.
 
-{{ResizeObserver}} has a <dfn attribute for="ResizeObserver">activeTargets</dfn> slot, which is a list of {{ResizeObservation}}s. It represents all Elements whose size has changed since last observation broadcast that are eligible for broadcast.
+{{ResizeObserver}} has a <dfn attribute for="ResizeObserver">\[[activeTargets]]</dfn> slot, which is a list of {{ResizeObservation}}s. It represents all Elements whose size has changed since last observation broadcast that are eligible for broadcast.
 
-{{ResizeObserver}} has a <dfn attribute for="ResizeObserver">skippedTargets</dfn> slot, which is a list of {{ResizeObservation}}s. It represents all Elements whose size has changed since last observation broadcast that are <strong>not</strong> eligible for broadcast
+{{ResizeObserver}} has a <dfn attribute for="ResizeObserver">\[[skippedTargets]]</dfn> slot, which is a list of {{ResizeObservation}}s. It represents all Elements whose size has changed since last observation broadcast that are <strong>not</strong> eligible for broadcast
 
 <h3 id="css-definitions">CSS Definitions</h3>
 <h4 id="content-rect-h">content rect</h4>
@@ -371,8 +384,8 @@ Watching content rect means that:
 
 * observations will not be triggered by CSS transforms.
 
-Web content can also contain SVG elements. SVG Elements define <a>bounding box</a> instead of a content box.
-Content rect for <a>SVGGraphicsElement</a>s is a rect whose:
+Web content can also contain SVG elements. SVG elements that do not have associated CSS layout boxes define <a>bounding box</a> instead of a content box.
+Content rect for the <a>SVGGraphicsElement</a>s without CSS layout boxes is a rect whose:
 
 * width is <a>bounding box</a> width
 * height is <a>bounding box</a> height
@@ -380,81 +393,113 @@ Content rect for <a>SVGGraphicsElement</a>s is a rect whose:
 
 <h3 id="algorithms">Algorithms</h3>
 
-<h4 id="gather-active-observations-h">Gather active observations at depth</h4>
+<h4 id="gather-active-observations-h">Gather active resize observations at depth</h4>
 
-It computes all active observations for a |document|. To <dfn>gather active observations at depth</dfn>, run these steps:
+It computes all active resize observations for a |document|. To <dfn>gather active resize observations at depth</dfn>, run these steps:
 
 1. Let |depth| be the depth passed in.
 
-1. For each |observer| in {{Document/resizeObservers}} run these steps:
+1. For each |observer| in {{Document/[[resizeObservers]]}} run these steps:
 
-    1. Clear |observer|'s {{ResizeObserver/activeTargets}}, and {{ResizeObserver/skippedTargets}}.
+    1. Clear |observer|'s {{ResizeObserver/[[activeTargets]]}}, and {{ResizeObserver/[[skippedTargets]]}}.
 
-    2. For each |observation| in |observer|.{{ResizeObserver/observationTargets}} run this step:
+    2. For each |observation| in |observer|.{{ResizeObserver/[[observationTargets]]}} run this step:
 
         1. If |observation|.{{ResizeObservation/isActive()}} is true
 
             1. Let |targetDepth| be result of <a>calculate depth for node</a> for |observation|.{{ResizeObservation/target}}.
 
-            2. If |targetDepth| is greater than |depth| then add |observation| to {{ResizeObserver/activeTargets}}.
+            2. If |targetDepth| is greater than |depth| then add |observation| to {{ResizeObserver/[[activeTargets]]}}.
 
-            3. Else add |observation| to {{ResizeObserver/skippedTargets}}.
+            3. Else add |observation| to {{ResizeObserver/[[skippedTargets]]}}.
 
-<h4 id="has-active-observations-h">Has active observations</h4>
+<h4 id="has-active-observations-h">Has active resize observations</h4>
 
-To determine if {{Document}} <dfn>has active observations</dfn> run these steps:
+To determine if {{Document}} <dfn>has active resize observations</dfn> run these steps:
 
-1. For each |observer| in {{Document/resizeObservers}} run this step:
+1. For each |observer| in {{Document/[[resizeObservers]]}} run this step:
 
-    1. If |observer|.{{ResizeObserver/activeTargets}} is not empty, return true.
-
-2. return false.
-
-<h4 id="has-skipped-observations-h">Has skipped observations</h4>
-
-To determine if {{Document}} <dfn>has skipped observations</dfn> run these steps:
-
-1. For each |observer| in {{Document/resizeObservers}} run this step:
-
-    1. If |observer|.{{ResizeObserver/skippedTargets}} is not empty, return true.
+    1. If |observer|.{{ResizeObserver/[[activeTargets]]}} is not empty, return true.
 
 2. return false.
 
-<h4 id="broadcast-resize-notifications-h">Broadcast active observations</h4>
+<h4 id="has-skipped-observations-h">Has skipped resize observations</h4>
 
-<dfn>broadcast active observations</dfn> delivers all active observations
-in a document, and returns the depth of the shallowest broadcast target depth.
+To determine if {{Document}} <dfn>has skipped resize observations</dfn> run these steps:
 
-To broadcast active observations for a |document|,
+1. For each |observer| in {{Document/[[resizeObservers]]}} run this step:
+
+    1. If |observer|.{{ResizeObserver/[[skippedTargets]]}} is not empty, return true.
+
+2. return false.
+
+<h4 id="create-and-populate-resizeobserverentry-h">
+Create and populate a ResizeObserverEntry
+</h4>
+To <dfn>create and populate a ResizeObserverEntry</dfn> for a given |target|,
 run these steps:
+1. Let |this| be a new {{ResizeObserverEntry}}.
+
+2. Set |this|.{{ResizeObserverEntry/target}} slot to |target|.
+
+3. Set |this|.{{ResizeObserverEntry/borderBoxSize}} slot to result of <a>calculating box size</a>
+            given |target| and observedBox of {{"border-box"}}.
+
+4. Set |this|.{{ResizeObserverEntry/contentBoxSize}} slot to result of <a>calculating box size</a>
+            given |target| and observedBox of {{"content-box"}}.
+
+5. Set |this|.{{ResizeObserverEntry/devicePixelContentBoxSize}} slot to result of <a>calculating box size</a>
+            given |target| and observedBox of {{"device-pixel-content-box"}}.
+
+6. Set |this|.{{ResizeObserverEntry/contentRect}} to logical |this|.{{ResizeObserverEntry/contentBoxSize}} given |target| and observedBox of "content-box".
+
+7. If |target| is not an SVG element or |target| is an SVG element with an associated CSS layout box do these steps:
+
+    1. Set |this|.|contentRect|.top to |target|.<a>padding top</a>.
+
+    2. Set |this|.|contentRect|.left to |target|.<a>padding left</a>.
+
+8. If |target| is an SVG element without an associated CSS layout box do these steps:
+
+    1. Set |this|.|contentRect|.top and |this|.contentRect.left to 0.
+
+<h4 id="broadcast-resize-notifications-h">Broadcast active resize observations</h4>
+
+<dfn>broadcast active resize observations</dfn> delivers all active resize
+observations in a document, and returns the depth of the shallowest broadcast
+target depth.
+
+To broadcast active resize observations for a |document|, run these steps:
 
 1. Let |shallowestTargetDepth| be ∞
 
-2. For each |observer| in |document|.{{Document/resizeObservers}} run these steps:
+2. For each |observer| in |document|.{{Document/[[resizeObservers]]}} run these steps:
 
-    1. If |observer|.{{ResizeObserver/activeTargets}} slot is empty, continue.
+    1. If |observer|.{{ResizeObserver/[[activeTargets]]}} slot is empty, continue.
 
     2. Let |entries| be an empty list of {{ResizeObserverEntry}}ies.
 
-    3. For each |observation| in {{ResizeObserver/activeTargets}} perform these steps:
+    3. For each |observation| in {{ResizeObserver/[[activeTargets]]}} perform these steps:
 
-        1. Let |entry| be new {{ResizeObserverEntry}}(|observation|.target)
+        1. Let |entry| be the result of running <a>create and populate a ResizeObserverEntry</a> given |observation|.{{ResizeObservation/target}}.
 
         2. Add |entry| to |entries|.
 
-        3. Set |observation|.{{lastReportedSize}} to matching |entry| size.
+        3. Set |observation|.{{lastReportedSizes}} to matching |entry| sizes.
 
-            1. Matching size is |entry|.{{ResizeObserverEntry/borderBoxSize}} if |observation|.{{ResizeObservation/observedBox}} is "border-box"
+            1. Matching sizes are |entry|.{{ResizeObserverEntry/borderBoxSize}} if |observation|.{{ResizeObservation/observedBox}} is "border-box"
 
-            2. Matching size is |entry|.{{ResizeObserverEntry/contentBoxSize}} if |observation|.{{ResizeObservation/observedBox}} is "content-box"
+            2. Matching sizes are |entry|.{{ResizeObserverEntry/contentBoxSize}} if |observation|.{{ResizeObservation/observedBox}} is "content-box"
+
+            3. Matching sizes are |entry|.{{ResizeObserverEntry/devicePixelContentBoxSize}} if |observation|.{{ResizeObservation/observedBox}} is "device-pixel-content-box"
 
         4. Set |targetDepth| to the result of <a>calculate depth for node</a> for |observation|.{{ResizeObservation/target}}.
 
         5. Set |shallowestTargetDepth| to |targetDepth| if |targetDepth| < |shallowestTargetDepth|
 
-    4. Invoke |observer|.{{ResizeObserver/callback}} with |entries|.
+    4. Invoke |observer|.{{ResizeObserver/[[callback]]}} with |entries|.
 
-    5. Clear |observer|.{{ResizeObserver/activeTargets}}.
+    5. Clear |observer|.{{ResizeObserver/[[activeTargets]]}}.
 
 3. Return |shallowestTargetDepth|.
 
@@ -472,40 +517,67 @@ To <dfn>deliver resize loop error notification</dfn> run these steps:
 
 To <dfn>calculate depth for node</dfn>, given a |node|, run these steps:
 
-    1. Let |p| be the parent-traversal path from |node| to a root Element of this element's DOM tree.
+    1. Let |p| be the parent-traversal path from |node| to a root Element of this element's flattened DOM tree.
 
     2. Return number of nodes in |p|.
 
-<h4 id="calculate-box-size">Calculate box size, given target and observed box</h4>
+<h4 id="calculate-box-size-h">Calculate box size, given target and observed box</h4>
 
 This algorithm computes |target| {{Element}}'s observed box size. Type of box is
 described by {{ResizeObserverBoxOptions}}.
-SVG Elements are an exception. SVG size is always its bounding box size, because SVG
-elements do not use standard CSS box model.
+The SVG elements which don't have associated CSS layout boxes are an exception. The sizes of these elements are always their bounding box sizes, because
+these elements do not use standard CSS box model.
 
 To <dfn>calculate box size</dfn>, given |target| and |observedBox|, run these steps:
 
-    1. If |target| is an {{SVGGraphicsElement}}
+    1. Let |computedSize| be a new {{ResizeObserverSize}} object.
 
-        1. Set |computedSize|.inlineSize to |target|'s <a>bounding box</a> inline length.
+    2. If |target| is an {{SVGGraphicsElement}} that does not have an associated CSS layout box:
 
-        2. Set |computedSize|.blockSize to |target|'s <a>bounding box</a> block length.
+        <dl class=switch>
+          <dt>If |observedBox| is {{"border-box"}}
 
-    2. If |target| is not an {{SVGGraphicsElement}}
+          <dt>If |observedBox| is {{"content-box"}}
 
-        1. If |observedBox| is "border-box"
+          <dd>
+            1. Set |computedSize|'s {{ResizeObserverSize/inlineSize}} attribute to |target|'s <a>bounding box</a> inline length.
 
-            1. Set |computedSize|.inlineSize to target's <a>border area</a> inline length.
+            2. Set |computedSize|'s {{ResizeObserverSize/blockSize}} attribute to |target|'s <a>bounding box</a> block length.
 
-            2. Set |computedSize|.blockSize to target's <a>border area</a> block length.
+          <dt>If |observedBox| is {{"device-pixel-content-box"}}
 
-        2. If |observedBox| is "content-box"
+          <dd>
+            1. Set |computedSize|'s {{ResizeObserverSize/inlineSize}} attribute to |target|'s <a>bounding box</a> inline length, in integral device pixels.
 
-            1. Set |computedSize|.inlineSize to target's <a>content area</a> inline length.
+            2. Set |computedSize|'s {{ResizeObserverSize/blockSize}} attribute to |target|'s <a>bounding box</a> block length, in integral device pixels.
+        </dl>
 
-            2. Set |computedSize|.blockSize to target's <a>content area</a> block length.
+    3. Otherwise:
 
-        3. return |computedSize|.
+        <dl class=switch>
+          <dt>If |observedBox| is {{"border-box"}}
+
+          <dd>
+            1. Set |computedSize|'s {{ResizeObserverSize/inlineSize}} attribute to |target|'s <a>border area</a> inline length.
+
+            2. Set |computedSize|'s {{ResizeObserverSize/blockSize}} attribute to |target|'s <a>border area</a> block length.
+
+          <dt>If |observedBox| is {{"content-box"}}
+
+          <dd>
+            1. Set |computedSize|'s {{ResizeObserverSize/inlineSize}} attribute to |target|'s <a>content area</a> inline length.
+
+            2. Set |computedSize|'s {{ResizeObserverSize/blockSize}} attribute to |target|'s <a>content area</a> block length.
+
+          <dt>If |observedBox| is {{"device-pixel-content-box"}}
+
+          <dd>
+            1. Set |computedSize|'s {{ResizeObserverSize/inlineSize}} attribute to |target|'s <a>content area</a> inline length, in integral device pixels.
+
+            2. Set |computedSize|'s {{ResizeObserverSize/blockSize}} attribute to |target|'s <a>content area</a> block length, in integral device pixels.
+        </dl>
+
+    4. Return |computedSize|.
 
 <h3 id="lifetime">ResizeObserver Lifetime</h3>
 
@@ -514,64 +586,3 @@ A {{ResizeObserver}} will remain alive until both of these conditions are met:
 * there are no scripting references to the observer.
 
 * the observer is not observing any targets.
-
-<h3 id="integrations">External Spec Integrations</h3>
-
-<h4 id="html-event-loop"> HTML Processing Model: Event Loop</h4>
-
-{{ResizeObserver}} processing happens inside the step 7.12 of the <a>HTML Processing Model</a> event loop.
-
-Step 12 is currently underspecified as:
-
-<q>For each fully active Document in docs, update the rendering or user interface of that Document and its browsing context to reflect the current state.</q>.
-
-Existing step 12 can be fully specified as:
-
-For each fully active Document in docs, run the following steps for that Document and its browsing contents:
-
-    1. Recalc styles
-
-    2. Update layout
-
-    3. Paint
-
-{{ResizeObserver}} extends step 12 with resize notifications.
-It tries to deliver all pending notifications by looping
-until no pending notifications are available. This can cause
-an infinite loop.
-
-Infinite loop is prevented by shrinking the set of
-nodes that can notify at every iteration. In each iteration,
-only nodes deeper than the shallowest node in previous iteration
-can notify.
-
-An error is generated if notification loop completes, and there
-are undelivered notifications. Elements with undelivered notifications
-will be considered for delivery in the next loop.
-
-
-Step 12 with {{ResizeObserver}} notifications is:
-
-For each fully active Document in docs, run the following steps for that Document and its browsing context:
-
-1. Recalc styles
-
-2. Update layout
-
-3. Set |depth| to 0
-
-4. <a>Gather active observations at depth</a> |depth| for {{Document}}
-
-5. Repeat while document <a>has active observations</a>
-
-    2. Set |depth| to <a>broadcast active observations</a>.
-
-    3. Recalc styles
-
-    4. Update layout
-
-    5. <a>Gather active observations at depth</a> |depth| for {{Document}}
-
-6. If {{Document}} <a>has skipped observations</a> then <a>deliver resize loop error notification</a>
-
-7. Update the rendering or user interface of {{Document}} and its browsing context to reflect the current state.

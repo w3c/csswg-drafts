@@ -1,0 +1,72 @@
+name: Spec Deployment
+on:
+  push:
+    branches: [ "main" ]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build-specs:
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: 'pip'
+
+      - run: pip install bikeshed
+      - run: bikeshed update
+
+      # The following chunk of code all stolen from andeubotella
+      # Thanks, dude!
+      - name: Build specs
+        run: |
+          set -e
+          # Handle non-bikeshed specs.
+          for file in ./**/Overview.html; do
+            cp "$file" "$(dirname "$file")/index.html"
+          done
+          # Handle bikeshed specs.
+          for file in ./**/Overview.bs; do
+            # We use `date` to build a YYYY-MM-DD date rather than using git's
+            # `--format=%as` because we want the date not to depend on the
+            # committer's timezone. We use UTC to avoid depending on the build
+            # runner's timezone as well.
+            TIMESTAMP="$(git log -1 --format=%at "$file")"
+            SHORT_DATE="$(date --date=@"$TIMESTAMP" --utc +%F)"
+            bikeshed -f spec "$file" "${file%Overview.bs}index.html" --md-date="$SHORT_DATE" --md-Text-Macro="BUILTBYGITHUBCI foo"
+          done
+      - name: Build index & symlinks
+        run: python ./bin/build-index.py
+      - run: rm -rf ./.git{,attributes,ignore}
+
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v2
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          # Upload entire repository
+          path: '.'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v1

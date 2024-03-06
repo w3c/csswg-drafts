@@ -1,0 +1,2174 @@
+<pre class='metadata'>
+Title: CSS Cascading and Inheritance Level 5
+Shortname: css-cascade
+Level: 5
+Status: ED
+Prepare for TR: no
+Work Status: Refining
+Group: csswg
+ED: https://drafts.csswg.org/css-cascade-5/
+TR: https://www.w3.org/TR/css-cascade-5/
+Previous Version: https://www.w3.org/TR/2022/CR-css-cascade-5-20220113/
+Previous Version: https://www.w3.org/TR/2021/WD-css-cascade-5-20211015/
+Previous Version: https://www.w3.org/TR/2021/WD-css-cascade-5-20210829/
+Previous Version: https://www.w3.org/TR/2021/WD-css-cascade-5-20210608/
+Previous Version: https://www.w3.org/TR/2021/WD-css-cascade-5-20210319/
+Previous Version: https://www.w3.org/TR/2021/WD-css-cascade-5-20210119/
+Implementation Report: https://wpt.fyi/results/css/css-cascade
+Editor: Elika J. Etemad / fantasai, Apple, http://fantasai.inkedblade.net/contact, w3cid 35400
+Editor: Miriam E. Suzanne, Invited Expert, http://miriamsuzanne.com/contact, w3cid 117151
+Editor: Tab Atkins Jr., Google, http://xanthir.com/contact/, w3cid 42199
+Abstract: This CSS module describes how to collate style rules and assign values to all properties on all elements. By way of cascading and inheritance, values are propagated for all properties on all elements.
+Abstract:
+Abstract: New in this level is <a>cascade layers</a>.
+At Risk: the ''revert-layer'' keyword
+Ignored Terms: auto, flex items, <supports-condition>
+Include Can I Use Panels: yes
+Informative Classes: ex
+</pre>
+
+<pre class=link-defaults>
+spec:dom; type:dfn; text:shadow tree
+spec:css-color-4; type:property; text:color
+spec:css-values-3; type: value; text:ex
+spec:css-conditional-3; type:at-rule; text:@media
+spec:mediaqueries-4; type:type; for:@media; text:all
+spec:mediaqueries-4; type:type; text:<media-query>
+spec:css-2021; type:dfn; text:vendor-prefixed
+spec:css-fonts-4; type:property; text:font-style
+spec:css-fonts-4; type:property; text:font-family
+</pre>
+
+<pre class=ignored-specs>
+spec:mediaqueries-5
+spec:css-values-5
+</pre>
+
+<h2 id="intro">
+Introduction</h2>
+
+	CSS defines a finite set of parameters,
+	called <dfn export for=CSS lt="property">properties</dfn>,
+	that direct the rendering of a document.
+	Each [=property=] has a name
+	(e.g., 'color', 'font-size', or 'border-style'),
+	a value space
+	(e.g., <<color>>, <<length-percentage>>, <css>[ solid | dashed | dotted | &hellip; ]</css>),
+	and a defined behavior on the rendering of the document.
+	Properties values are assigned to various parts of the document
+	via [=property declarations=],
+	which assign the property a value
+	(e.g. ''red'', ''12pt'', ''border-style/dotted'')
+	for the associated element or box.
+
+	One of the fundamental design principles of CSS is <a lt="cascade">cascading</a>,
+	which allows several style sheets to influence the presentation of a document.
+	When different [=declarations=] try to set a value for the same element/property combination,
+	the conflicts must somehow be resolved.
+
+	The opposite problem arises when no [=declarations=] try to set a value for an element/property combination.
+	In this case, a value is be found by way of <a>inheritance</a>
+	or by looking at the property's <a>initial value</a>.
+
+	The <a href="#cascade">cascading</a> and <a href="#defaulting">defaulting</a> process takes a set of [=declarations=] as input,
+	and outputs a <a>specified value</a> for each property on each element.
+
+	The rules for finding the specified value for all properties on all elements in the document are described in this specification.
+	The rules for finding the specified values in the page context and its margin boxes are described in [[css-page-3]].
+
+<h3 id="placement">
+Module Interactions</h3>
+
+	<em>This section is normative.</em>
+
+	This module replaces and extends
+	the rules for assigning property values, cascading, and inheritance defined in [[!CSS2]] chapter 6.
+
+	Other CSS modules may expand the definitions of some of the syntax and features defined here.
+	For example, the Media Queries Level 4 specification,
+	when combined with this module, expands the definition of
+	the <<media-query>> value type as used in this specification.
+
+	For the purpose of this specification,
+	<a>text nodes</a> are treated as <a spec=css-display-3>element</a> children of their associated element,
+	and possess the full set of properties;
+	since they cannot be targeted by selectors
+	all of their computed values are assigned by <a href="#defaulting">defaulting</a>.
+
+<!--
+ ███████  ████ ██     ██ ████████   ███████  ████████  ████████
+██     ██  ██  ███   ███ ██     ██ ██     ██ ██     ██    ██
+██ ███ ██  ██  ████ ████ ██     ██ ██     ██ ██     ██    ██
+██ ███ ██  ██  ██ ███ ██ ████████  ██     ██ ████████     ██
+██ █████   ██  ██     ██ ██        ██     ██ ██   ██      ██
+██         ██  ██     ██ ██        ██     ██ ██    ██     ██
+ ███████  ████ ██     ██ ██         ███████  ██     ██    ██
+-->
+
+<h2 id="at-import">
+Importing Style Sheets: the ''@import'' rule</h2>
+
+	The <dfn>@import</dfn> rule allows users to import style rules from other style sheets.
+	If an ''@import'' rule refers to a valid stylesheet,
+	user agents must treat the contents of the stylesheet as if they were written in place of the ''@import'' rule,
+	with two exceptions:
+
+	* If a feature
+		(such as the ''@namespace'' rule)
+		<em>explicitly</em> defines that it only applies to a particular stylesheet,
+		and not any imported ones,
+		then it doesn't apply to the imported stylesheet.
+
+	* If a feature relies on the relative ordering of two or more constructs in a stylesheet
+		(such as the requirement that ''@namespace'' rules must not have any other rules other than
+		''@import'' preceding it),
+		it only applies between constructs in the same stylesheet.
+
+	<p class='example'>
+		For example, [=declarations=] in style rules from imported stylesheets interact with the cascade
+		as if they were written literally into the stylesheet at the point of the ''@import''.
+
+	Any ''@import'' rules must precede all other valid at-rules and style rules in a style sheet
+	(ignoring ''@charset'' and <a href="#layer-empty"><css>@layer</css> statement</a> rules)
+	and must not have any other valid at-rules or style rules between it and previous ''@import'' rules,
+	or else the ''@import'' rule is invalid.
+	The syntax of ''@import'' is:
+
+<pre class='prod'>
+		@import [ <<url>> | <<string>> ]
+		        [ layer | layer(<<layer-name>>) ]?
+		        <<import-conditions>> ;
+
+		<dfn export>&lt;import-conditions></dfn> = [ supports( [ <<supports-condition>> | <<declaration>> ] ) ]?
+		                     <<media-query-list>>?</pre>
+
+	where:
+
+	* the <<url>> or <<string>>
+		gives the URL of the style sheet to be imported.
+
+	* the optional ''layer'' keyword or ''layer()'' function
+		assigns the contents of the style sheet
+		into its own anonymous [=cascade layer=]
+		or into the named [=cascade layer=].
+
+		The layer is added to the [[#layer-ordering|layer order]]
+		even if the import fails to load the stylesheet,
+		but is subject to any [=import conditions=]
+		(just as if declared by an ''@layer'' rule wrapped
+		in the appropriate [=conditional group rules=]).
+
+	* the optional <<import-conditions>>
+		states the [=import conditions=] under which it applies.
+
+	<div class="example">
+		The following <a href="#conditional-import">conditional <css>@import</css> rule</a>
+		only loads the style sheet when the UA
+		<a href="https://www.w3.org/TR/css-conditional-3/#support-definition">supports</a> ''display: flex'',
+		and only applies the style sheet on a <a href="https://www.w3.org/TR/CSS2/media.html#media-types">handheld</a> device
+		with a <a href="https://www.w3.org/TR/mediaqueries-4/#width">maximum viewport width</a> of 400px.
+
+		<pre>@import url("narrow.css") supports(display: flex) handheld and (max-width: 400px);</pre>
+	</div>
+
+	<div class="example">
+		The following layer imports load the style sheets into
+		the ''framework.component'' layer, and an un-named layer, respectively:
+
+		<pre>
+		@import url("tabs.css") layer(framework.component);
+		@import url("override.css") layer;
+		</pre>
+	</div>
+
+	If a <<string>> is provided,
+	it must be interpreted as a <<url>> with the same value.
+
+	<div class="example">
+		The following lines are equivalent in meaning
+		and illustrate both ''@import'' syntaxes
+		(one with ''url()'' and one with a bare string):
+
+		<pre class='lang-css'>
+		@import "mystyle.css";
+		@import url("mystyle.css");
+		</pre>
+	</div>
+
+<h3 id=conditional-import>
+Conditional ''@import'' Rules</h3>
+
+	<dfn export>Import conditions</dfn> allow the import to be media&ndash; or feature-support&ndash;dependent.
+	In the absence of any <a>import conditions</a>, the import is unconditional.
+	(Specifying ''@media/all'' for the <<media-query-list>> has the same effect.)
+	If the <a>import conditions</a> do not match,
+	the rules in the imported stylesheet do not apply,
+	exactly as if the imported stylesheet were wrapped in ''@media'' and/or ''@supports'' blocks with the given conditions.
+
+	<div class=example>
+		The following rules illustrate how ''@import'' rules can be made media-dependent:
+
+		<pre class='lang-css'>
+		@import url("fineprint.css") print;
+		@import url("bluish.css") projection, tv;
+		@import url("narrow.css") handheld and (max-width: 400px);
+		</pre>
+	</div>
+
+	User agents may therefore avoid fetching a conditional import
+	as long as the <a>import conditions</a> do not match.
+	Additionally, if a <<supports-condition>> blocks the application of the imported style sheet,
+	the UA <em>must not</em> fetch the style sheet (unless it is loaded through some other link)
+	and <em>must</em> return null for the import rule's CSSImportRule.styleSheet value
+	(even if it is loaded through some other link).
+
+	<div class="example">
+		The following rule illustrates how an author can provide fallback rules for legacy user agents
+		without impacting network performance on newer user agents:
+
+		<pre class='lang-css'>
+		@import url("fallback-layout.css") supports(not (display: flex));
+		@supports (display: flex) {
+		  ...
+		}
+		</pre>
+	</div>
+
+	The [=import conditions=] are given by
+	<<media-query-list>>, which is parsed and interpreted as a <a>media query list</a>,
+	and <<supports-condition>>, is parsed and interpreted as a [[supports query]].
+	If a <<declaration>> is given in place of a <<supports-condition>>,
+	it must be interpreted as a <<supports-decl>>
+	(i.e. the extra set of parentheses is implied)
+	and treated as a <<supports-condition>>.
+
+	<div class="example">
+		For example, the following two lines are equivalent:
+		<pre class='lang-css'>
+		@import "mystyle.css" supports(display: flex);
+		@import "mystyle.css" supports((display: flex));
+		</pre>
+	</div>
+
+	The evaluation and full syntax of the <a>import conditions</a>
+	are defined by the <a href="https://www.w3.org/TR/mediaqueries/">Media Queries</a> [[!MEDIAQ]]
+	and <a href="https://www.w3.org/TR/css-conditional/">CSS Conditional Rules</a> [[!CSS-CONDITIONAL-3]] specifications.
+
+<h3 id=import-processing>
+Processing Stylesheet Imports</h3>
+
+	When the same style sheet is imported or linked to a document in multiple places,
+	user agents must process (or act as though they do) each link
+	as though the link were to an independent style sheet.
+
+	Note: This does not place any requirements on resource fetching,
+	only how the style sheet is reflected in the CSSOM and used in specs such as this one.
+	Assuming appropriate caching,
+	it is perfectly appropriate for a UA to fetch a style sheet only once,
+	even though it's linked or imported multiple times.
+
+	The [=cascade origin=] of an imported style sheet is the [=cascade origin=] of the style sheet that imported it.
+
+	The <a>environment encoding</a> of an imported style sheet is the encoding of the style sheet that imported it. [[css-syntax-3]]
+
+<h3 id='content-type'>
+Content-Type of CSS Style Sheets</h3>
+
+	The processing of imported style sheets depends on the actual type of the linked resource:
+
+	* If the resource does not have <l spec=html>[=Content-Type metadata=]</l>,
+		the type is treated as <code>text/css</code>.
+	* If the host document is in [=quirks mode=],
+		and the host document's origin is [=same origin=]
+		with the linked resource [=/response's=] [=response/URL's=] origin,
+		the type is treated as <code>text/css</code>.
+	* Otherwise, the type is determined from its <l spec=html>[=Content-Type metadata=]</l>.
+
+	If the linked resource's type is <code>text/css</code>,
+	it must be interpreted as a CSS style sheet.
+	Otherwise, it must be interpreted as a network error.
+
+
+<!--
+ ██████  ██     ██  ███████  ████████  ████████ ██     ██    ███    ██    ██ ████████
+██    ██ ██     ██ ██     ██ ██     ██    ██    ██     ██   ██ ██   ███   ██ ██     ██
+██       ██     ██ ██     ██ ██     ██    ██    ██     ██  ██   ██  ████  ██ ██     ██
+ ██████  █████████ ██     ██ ████████     ██    █████████ ██     ██ ██ ██ ██ ██     ██
+      ██ ██     ██ ██     ██ ██   ██      ██    ██     ██ █████████ ██  ████ ██     ██
+██    ██ ██     ██ ██     ██ ██    ██     ██    ██     ██ ██     ██ ██   ███ ██     ██
+ ██████  ██     ██  ███████  ██     ██    ██    ██     ██ ██     ██ ██    ██ ████████
+-->
+
+<h2 id='shorthand'>
+Shorthand Properties</h2>
+
+	Some properties are <dfn export lt="shorthand property | shorthand">shorthand properties</dfn>,
+	meaning that they allow authors to specify the values of several properties with a single property.
+	A <a>shorthand property</a> sets all of its <dfn export lt="longhand | longhand property | sub-property">longhand sub-properties</dfn>,
+	exactly as if expanded in place.
+
+	When values are omitted from a <a>shorthand</a> form,
+	unless otherwise defined,
+	each “missing” <a>sub-property</a> is assigned its <a>initial value</a>.
+
+	<div class='note'>
+		This means that a <a>shorthand</a> [=property declaration=] always sets <em>all</em> of its <a>sub-properties</a>,
+		even those that are not explicitly set.
+		Carelessly used, this might result in inadvertently resetting some <a>sub-properties</a>.
+		Carefully used, a <a>shorthand</a> can guarantee a “blank slate”
+		by resetting <a>sub-properties</a> inadvertently cascaded from other sources.
+
+		For example, writing ''background: green'' rather than ''background-color: green''
+		ensures that the background color overrides any earlier [=declarations=]
+		that might have set the background to an image with 'background-image'.
+	</div>
+
+	<div class='example'>
+		For example, the CSS Level 1 'font' property
+		is a <a>shorthand</a> property for setting <a property>font-style</a>, <a property>font-variant</a>, <a property>font-weight</a>, 'font-size', 'line-height', and <a property>font-family</a> all at once.
+		The multiple declarations of this example:
+
+		<pre class='lang-css'>
+		h1 {
+			font-weight: bold;
+			font-size: 12pt;
+			line-height: 14pt;
+			font-family: Helvetica;
+			font-variant: normal;
+			font-style: normal;
+		}
+		</pre>
+
+		can therefore be rewritten as
+
+		<pre class='lang-css'>h1 { font: bold 12pt/14pt Helvetica }</pre>
+
+		As more 'font' <a>sub-properties</a> are introduced into CSS,
+		the shorthand declaration resets those to their initial values as well.
+	</div>
+
+	In some cases, a <a>shorthand</a> might have different syntax
+	or special keywords
+	that don't directly correspond to values of its <a>sub-properties</a>.
+	(In such cases, the <a>shorthand</a> will explicitly define the expansion of its values.)
+
+	In other cases, a property might be a <dfn export>reset-only sub-property</dfn> of the shorthand:
+	Like other <a>sub-properties</a>, it is reset to its initial value by the shorthand when unspecified,
+	but the shorthand might not include syntax to set the <a>sub-property</a>
+	to any of its other values.
+	<span class=ex>For example, the 'border' shorthand resets 'border-image'
+	to its initial value of ''border-image/none'',
+	but has no syntax to set it to anything else. [[css-backgrounds-3]]</span>
+
+	If a <a>shorthand</a> is specified as one of the <a href="https://www.w3.org/TR/css-values/#common-keywords">CSS-wide keywords</a> [[!css-values-3]],
+	it sets all of its <a>sub-properties</a> to that keyword,
+	including any that are <a>reset-only sub-properties</a>.
+	(Note that these keywords cannot be combined with other values in a single [=declaration=], not even in a shorthand.)
+
+	Declaring a <a>shorthand</a> property to be ''!important''
+	is equivalent to declaring all of its <a>sub-properties</a> to be ''!important''.
+
+<h3 id="aliasing">
+Property Aliasing</h3>
+
+	Properties sometimes change names after being supported for a while,
+	such as vendor-prefixed properties being standardized.
+	The original name still needs to be supported for compatibility reasons,
+	but the new name is preferred.
+	To accomplish this, CSS defines two different ways of “aliasing” old syntax to new syntax.
+
+	<dl export>
+		<dt><dfn lt="legacy name alias">legacy name aliases</dfn>
+		<dd>
+			When the old property’s value syntax is identical
+			to that of the new property,
+			the two names are aliased with an operation on par with case-mapping:
+			at parse time, the old property is converted into the new property.
+			This conversion also applies in the CSSOM,
+			both for string arguments and property accessors:
+			requests for the old property name
+			transparently transfer to the new property name instead.
+
+			<div class=example highlight=js>
+				For example, if
+				<css>old-name</css> is a <a>legacy name alias</a> for <css>new-name</css>,
+				<code>getComputedStyle(el).oldName</code>
+				will return the computed style of the <code>newName</code> property,
+				and <code>el.style.setProperty("old-name", "value")</code>
+				will set the <css>new-name</css> property to <code>"value"</code>.
+			</div>
+
+		<dt><dfn lt="legacy shorthand">legacy shorthands</dfn>
+		<dd>
+			When the old property has a distinct syntax from the new property,
+			the two names are aliased using the <a>shorthand</a> mechanism.
+			These shorthands are defined to be <a>legacy shorthands</a>,
+			and their use is <em>deprecated</em>.
+			They otherwise behave exactly as regular shorthands,
+			except that the CSSOM will not use them
+			when serializing declarations. [[CSSOM]]
+
+			<div class=example highlight=js>
+				For example, the 'page-break-*' properties
+				are <a>legacy shorthands</a> for the 'break-*' properties
+				(see [[css-break-3#page-break-properties]]).
+
+				Setting ''page-break-before: always'' expands to ''break-before: page'' at parse time,
+				like other shorthands do.
+				Similarly, if ''break-before: page'' is set,
+				calling <code>getComputedStyle(el).pageBreakBefore</code> will return <code>"always"</code>.
+				However, when serializing a style block
+				(see [[cssom-1#serializing-css-values]]),
+				the 'page-break-before' property will never be chosen as the shorthand to serialize to,
+				regardless of whether it or 'break-before' was specified;
+				instead, 'break-before' will always be chosen.
+			</div>
+	</dl>
+
+<h3 id="all-shorthand" caniuse="css-all">
+Resetting All Properties: the 'all' property</h3>
+
+	<pre class="propdef shorthand">
+	Name: all
+	Value: initial | inherit | unset | revert | revert-layer
+	</pre>
+
+	The 'all' property is a <a>shorthand</a>
+	that resets <em>all</em> CSS properties
+	except 'direction' and 'unicode-bidi'.
+	It only accepts the <a href="https://www.w3.org/TR/css-values/#common-keywords">CSS-wide keywords</a>.
+	It does not reset <a>custom properties</a> [[css-variables-1]].
+
+	Note: The excepted CSS properties 'direction' and 'unicode-bidi'
+	are actually markup-level features,
+	and <a href="https://www.w3.org/TR/css-writing-modes-3/#text-direction">should not be set in the author's style sheet</a>.
+	(They exist as CSS properties only to style document languages not supported by the UA.)
+	Authors should use the appropriate markup, such as HTML's <code>dir</code> attribute, instead.
+	[[css-writing-modes-3]]
+
+	<div class='example'>
+		For example, if an author specifies ''all: initial'' on an element,
+		it will block all inheritance and reset all properties,
+		as if no rules appeared in the author, user, or user-agent levels of the cascade.
+
+		This can be useful for the root element of a "widget" included in a page,
+		which does not wish to inherit the styles of the outer page.
+		Note, however, that any "default" style applied to that element
+		(such as, e.g. ''display: block'' from the UA style sheet on block elements such as <code>&lt;div></code>)
+		will also be blown away.
+	</div>
+
+
+<!--
+ ██████  ████████    ███     ██████   ████████  ██████
+██    ██    ██      ██ ██   ██    ██  ██       ██    ██
+██          ██     ██   ██  ██        ██       ██
+ ██████     ██    ██     ██ ██   ████ ██████    ██████
+      ██    ██    █████████ ██    ██  ██             ██
+██    ██    ██    ██     ██ ██    ██  ██       ██    ██
+ ██████     ██    ██     ██  ██████   ████████  ██████
+-->
+
+<h2 id="value-stages">
+Value Processing</h2>
+
+	Once a user agent has parsed a document and constructed a document tree,
+	it must assign,
+	to every element in the [=flat tree=],
+	and correspondingly to every box in the formatting structure,
+	a value to every property that applies to the target media type.
+
+	The final value of a CSS property for a given element or box
+	is the result of a multi-step calculation:
+
+	<ol>
+		<li>
+			First, all the <a>declared values</a> applied to an element are collected,
+			for each property on each element.
+			There may be zero or many <a>declared values</a> applied to the element.
+
+		<li>
+			Cascading yields the <a>cascaded value</a>.
+			There is at most one <a>cascaded value</a> per property per element.
+
+		<li>
+			Defaulting yields the <a>specified value</a>.
+			Every element has exactly one <a>specified value</a> per property.
+
+		<li>
+			Resolving value dependencies yields the <a>computed value</a>.
+			Every element has exactly one <a>computed value</a> per property.
+
+		<li>
+			Formatting the document yields the <a>used value</a>.
+			An element only has a <a>used value</a> for a given property
+			if that property applies to the element.
+
+		<li>
+			Finally, the used value is transformed to the <a>actual value</a>
+			based on constraints of the display environment.
+			As with the <a>used value</a>, there may or may not be an <a>actual value</a>
+			for a given property on an element.
+	</ol>
+
+	Elements that are not [=connected=]
+	or are not part of the document’s [=flattened element tree=]
+	do not participate in CSS value processing,
+	and do not have [=declared=], [=cascaded=], [=specified=], [=computed=], [=used=], or [=actual=] values,
+	even if they potentially have style [=declarations=] assigned to them
+	(for example, by a <code>style</code> attribute).
+
+<h3 id="declared">
+Declared Values</h3>
+
+	Each [=property declaration=] <a href="#filtering">applied to an element</a>
+	contributes a <dfn export local-lt="declared">declared value</dfn> for that property
+	associated with the element.
+	See <a href="#filtering">Filtering Declarations</a> for details.
+
+	These values are then processed by the <a>cascade</a>
+	to choose a single “winning value”.
+
+<h4 id="value-aliasing">
+Value Aliasing</h4>
+
+	Some property values have <dfn export for=CSS lt="legacy value alias">legacy value aliases</dfn>:
+	at parse time, the legacy syntax is converted into the new syntax,
+	resulting in a [=declared value=] different from the parsed input.
+	These aliases are typically used for handling legacy compatibility requirements,
+	such as converting [=vendor-prefixed=] values to their standard equivalents.
+
+<h3 id="cascaded">
+Cascaded Values</h3>
+
+	The <dfn export local-lt="cascaded">cascaded value</dfn>
+	represents the result of <a href="#cascade">the cascade</a>:
+	it is the <a>declared value</a> that wins the cascade
+	(is sorted first in the <a>output of the cascade</a>).
+	If the <a>output of the cascade</a> is an empty list,
+	there is no <a>cascaded value</a>.
+
+<h3 id="specified">
+Specified Values</h3>
+
+	The <dfn export local-lt="specified">specified value</dfn> is
+	the value of a given property that the style sheet authors intended for that element.
+	It is the result of putting the <a>cascaded value</a> through the <a href="#defaulting">defaulting</a> processes,
+	guaranteeing that a <a>specified value</a> exists for every property on every element.
+
+	In many cases, the <a>specified value</a> is the <a>cascaded value</a>.
+	However, if there is no <a>cascaded value</a> at all,
+	the <a>specified value</a> is <a href="#defaulting">defaulted</a>.
+	The [=CSS-wide keywords=] are handled specially
+	when they are the <a>cascaded value</a> of a property,
+	setting the <a>specified value</a> as required by that keyword,
+	see [[#defaulting-keywords]].
+
+<h3 id="computed">
+Computed Values</h3>
+
+	The <dfn export local-lt="computed">computed value</dfn> is
+	the result of resolving the <a>specified value</a>
+	as defined in the “Computed Value” line of the property definition table,
+	generally absolutizing it in preparation for <a>inheritance</a>.
+
+	Note: The <a>computed value</a> is the value that is transferred from parent to child during <a>inheritance</a>.
+	For historical reasons,
+	it is not necessarily the value returned by the {{getComputedStyle()}} function,
+	which sometimes returns <a>used values</a>. [[CSSOM]]
+	Furthermore, the <a>computed value</a> is an abstract data representation:
+	their definitions reflect that data representation,
+	not how that data is serialized.
+	For example, serialization rules often allow omitting certain values which are implied during parsing;
+	but those values are nonetheless part of the <a>computed value</a>.
+
+	<div class="example">
+		A <a>specified value</a> can be either absolute (i.e., not relative to another value, as in ''red'' or ''2mm'')
+		or relative (i.e., relative to another value, as in ''auto'', ''2em'').
+		Computing a relative value generally absolutizes it:
+
+		<ul>
+			<li>
+				values with relative units
+				(''em'', ''ex'', ''vh'', ''vw'')
+				must be made absolute by multiplying with the appropriate reference size
+
+			<li>
+				certain keywords
+				(e.g., ''smaller'', ''bolder'')
+				must be replaced according to their definitions
+
+			<li>
+				percentages on some properties must be multiplied by a reference value
+				(defined by the property)
+
+			<li>
+				valid relative URLs must be resolved to become absolute.
+		</ul>
+
+		See examples (f), (g) and (h) in the <a href="#stages-examples">table below</a>.
+	</div>
+
+	Note: In general, the <a>computed value</a> resolves the <a>specified value</a>
+	as far as possible without laying out the document
+	or performing other expensive or hard-to-parallelize operations,
+	such as resolving network requests
+	or retrieving values other than from the element and its parent.
+
+	The <a>computed value</a> exists even when the property does not apply.
+	However, some properties may change how they determine the <a>computed value</a>
+	based on whether the property [=applies to=] the element.
+
+<h3 id='used'>
+Used Values</h3>
+
+	The <dfn export local-lt="used">used value</dfn> is
+	the result of taking the <a>computed value</a>
+	and completing any remaining calculations to make it the absolute theoretical value
+	used in the formatting of the document.
+
+	<p class='example'>
+		For example, a declaration of ''width: auto'' can't be resolved into a length without knowing the layout of the element's ancestors,
+		so the <a>computed value</a> is ''auto'',
+		while the <a>used value</a> is an absolute length, such as ''100px''. [[CSS2]]
+
+	<p class='example'>
+		As another example, a <code>&lt;div></code> might have a computed 'break-before' value of ''auto'',
+		but acquire a used 'break-before' value of ''break-before/page'' by propagation from its first child. [[css-break-3]]
+
+	If a property does not [=apply to=]
+	this element or box type
+	then it has no <a>used value</a> for that property.
+
+	<p class='example'>
+		For example, the 'flex' property has no <a>used value</a>
+		on elements that aren't <a>flex items</a>.
+
+<h4 id="applies-to">
+Applicable Properties</h4>
+
+	If a property does not <dfn export for=CSS id="apply">apply to</dfn>
+	an element or box type--
+	as noted in its “Applies to” line--
+	this means it does not directly take effect on that type of box or element.
+
+	Note: A property that does not apply
+	can still have <em>indirect</em> formatting effects
+	if its computed value affects the computation of other properties
+	that do apply;
+	and of course its [=computed value=],
+	which always exists,
+	can still inherit to descendants
+	and take effect on them.
+
+	<div class=example>
+		Even though 'writing-mode' and 'text-orientation' do not apply to table rows
+		(they do not affect how the table row or its children are laid out),
+		setting them on such boxes
+		will still affect the calculation of font relative units such as ''ch'',
+		and thus possibly any property that takes a <<length>>.
+	</div>
+
+	<div class=example>
+		Setting 'text-transform' on an HTML <{p}> element
+		(which is ''display: block'' by default)
+		will have an effect,
+		even though 'text-transform' only applies to [=inline boxes=],
+		because the property inherits
+		into the paragraph's anonymous [=root inline box=]
+		and applies to the text it contains.
+	</div>
+
+	Note: A property defined to apply to “all elements”
+	applies to all elements and [=display types=],
+	but not necessarily to all [=pseudo-element=] types,
+	since pseudo-elements often have their own specific rendering models
+	or other restrictions.
+	The ''::before'' and ''::after'' pseudo-elements, however,
+	are defined to generate boxes almost exactly like normal elements
+	and are therefore defined accept all properties that apply to “all elements”.
+	See [[CSS-PSEUDO-4]]
+	for more information about [=pseudo-elements=].
+
+<h3 id="actual">
+Actual Values</h3>
+
+	A <a>used value</a> is in principle ready to be used,
+	but a user agent may not be able to make use of the value in a given environment.
+	<span class=ex>For example, a user agent may only be able to render borders with integer pixel widths
+	and may therefore have to approximate the <a lt="used value">used</a> width.
+	Also, the font size of an element may need adjustment based on the availability of fonts
+	or the value of the 'font-size-adjust' property.</span>
+	The <dfn export local-lt="actual">actual value</dfn> is
+	the used value after any such adjustments have been made.
+
+	Note: By probing the actual values of elements,
+	much can be learned about how the document is laid out.
+	However, not all information is recorded in the actual values.
+	For example, the actual value of the 'page-break-after' property
+	does not reflect whether there is a page break or not after the element.
+	Similarly, the actual value of 'orphans'
+	does not reflect how many orphan lines there is in a certain element.
+	See examples (j) and (k) in the <a href="#stages-examples">table below</a>.
+
+<h3 id="stages-examples">
+Examples</h3>
+
+	<table class="data non-normative">
+		<caption>Examples of CSS Value Computation</caption>
+		<thead>
+			<tr>
+				<th>
+				<th>Property
+				<th>Winning declaration
+				<th>Cascaded value
+				<th>Specified value
+				<th>Computed value
+				<th>Used value
+				<th>Actual value
+		<tbody>
+			<tr>
+				<td>(a)
+				<th>'text-align'
+				<td><code class="declaration">text-align: left</code>
+				<td><css>left</css>
+				<td><css>left</css>
+				<td><css>left</css>
+				<td><css>left</css>
+				<td><css>left</css>
+			<tr>
+				<td>(b)
+				<th>'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width'
+				<td><code class="declaration">border-width: inherit</code>
+				<td><css>inherit</css>
+				<td class="say"><css>4.2px</css>
+				<td><css>4.2px</css>
+				<td><css>4.2px</css>
+				<td><css>4px</css>
+			<tr>
+				<td>(c)
+				<th>'width'
+				<td><small>(none)</small>
+				<td><small>(none)</small>
+				<td><css>auto</css> <small>(initial&nbsp;value)</small>
+				<td><css>auto</css>
+				<td><css>120px</css>
+				<td><css>120px</css>
+			<tr>
+				<td>(d)
+				<th>'list-style-position'
+				<td><code class="declaration">list-style-position: inherit</code>
+				<td><css>inherit</css>
+				<td class="say"><css>inside</css>
+				<td><css>inside</css>
+				<td><css>inside</css>
+				<td><css>inside</css>
+			<tr>
+				<td>(e)
+				<th>'list-style-position'
+				<td><code class="declaration">list-style-position: initial</code>
+				<td><css>initial</css>
+				<td><css>outside</css> <small>(initial&nbsp;value)</small>
+				<td><css>outside</css>
+				<td><css>outside</css>
+				<td><css>outside</css>
+			<tr>
+				<td>(f)
+				<th>'font-size'
+				<td><code class="declaration">font-size: 1.2em</code>
+				<td><css>1.2em</css>
+				<td><css>1.2em</css>
+				<td class="say"><css>14.1px</css>
+				<td><css>14.1px</css>
+				<td><css>14px</css>
+			<tr>
+				<td>(g)
+				<th>'width'
+				<td><code class="declaration">width: 80%</code>
+				<td><css>80%</css>
+				<td><css>80%</css>
+				<td><css>80%</css>
+				<td class="say"><css>354.2px</css>
+				<td><css>354px</css>
+			<tr>
+				<td>(h)
+				<th>'width'
+				<td><code class="declaration">width: auto</code>
+				<td><css>auto</css>
+				<td><css>auto</css>
+				<td><css>auto</css>
+				<td class="say"><css>134px</css>
+				<td><css>134px</css>
+			<tr>
+				<td>(i)
+				<th>'height'
+				<td><code class="declaration">height: auto</code>
+				<td><css>auto</css>
+				<td><css>auto</css>
+				<td><css>auto</css>
+				<td class="say"><css>176px</css>
+				<td><css>176px</css>
+			<tr>
+				<td>(j)
+				<th>'page-break-after'
+				<td><small>(none)</small>
+				<td><small>(none)</small>
+				<td><css>auto</css> <small>(initial&nbsp;value)</small>
+				<td><css>auto</css>
+				<td><css>auto</css>
+				<td><css>auto</css>
+			<tr>
+				<td>(k)
+				<th>'orphans'
+				<td><code class="declaration">orphans: 3</code>
+				<td><css>3</css>
+				<td><css>3</css>
+				<td><css>3</css>
+				<td><css>3</css>
+				<td><css>3</css>
+	</table>
+
+<h3 id="fragments">
+Per-Fragment Value Processing</h3>
+
+	Certain CSS features
+	can interfere with value processing
+	on a per-fragment basis.
+	See for example [[css-pseudo-4#first-line-inheritance]]
+	which alters inheritance for fragments within the ''::first-line'' pseudo-element.
+	In such cases, where individual fragments are given different [=specified values=],
+	any values that resolve
+	based on the [=computed value=] of other properties
+	(such as ''currentcolor'' or ''em'' units)
+	are resolved per [=box fragment=].
+	Subsequent value processing proceeds as normal in each fragment.
+
+	APIs that assume a singular value per [=box=] (rather than per [=box fragment=])
+	must ignore the effects of non-[=tree-abiding=] [=pseudo-elements=].
+	(For example, ''::first-line'' styles have no effect on the value returned by {{getComputedStyle()}}.)
+
+	<div class=example>
+		For example, given the following markup:
+
+		<xmp highlight=html>
+			<div><span>First line<br />Second line</span></div>
+			<div><span>First line</span></div>
+			<div>First line<br><span>Second line</span></div>
+			<style>
+			div { color: blue; }
+			div::first-line { color: yellow; }
+			span { border: thin solid currentcolor; }
+			</style>
+		</xmp>
+
+		In each <{div}>, the “First line” text is yellow and the “Second line” text is blue;
+		the border for each fragment of the <{span}>s that wrap each line matches that color.
+
+		However, {{getComputedStyle()}} on all three of the spans
+		will return <code>"blue"</code> for 'border-color',
+		because the effects of a ''::first-line'' pseudo-element
+		are ignored for APIs that aren't fragment-aware.
+	</div>
+
+
+<!--
+████████ ████ ██       ████████ ████████ ████████  ████ ██    ██  ██████
+██        ██  ██          ██    ██       ██     ██  ██  ███   ██ ██    ██
+██        ██  ██          ██    ██       ██     ██  ██  ████  ██ ██
+██████    ██  ██          ██    ██████   ████████   ██  ██ ██ ██ ██   ████
+██        ██  ██          ██    ██       ██   ██    ██  ██  ████ ██    ██
+██        ██  ██          ██    ██       ██    ██   ██  ██   ███ ██    ██
+██       ████ ████████    ██    ████████ ██     ██ ████ ██    ██  ██████
+-->
+
+<h2 id='filtering'>
+Filtering</h2>
+
+	In order to find the <a>declared values</a>,
+	implementations must first identify all [=declarations=] that apply to each element.
+	A declaration applies to an element if:
+
+	<ul>
+		<li>
+			It belongs to a style sheet that currently applies to this document.
+
+		<li>
+			It is not qualified by a conditional rule [[!CSS-CONDITIONAL-3]] with a false condition.
+
+		<li>
+			It belongs to a style rule whose selector matches the element. [[!SELECT]]
+			(Taking <a href="https://www.w3.org/TR/selectors-4/#scoping">scoping</a> into account, if necessary.)
+
+		<li>
+			It is syntactically valid:
+			the declaration's property is a known property name,
+			and the declaration's value matches the syntax for that property.
+	</ul>
+
+	The values of the [=declarations=] that apply form,
+	for each property on each element,
+	a list of <a>declared values</a>.
+	The next section,
+	the <a>cascade</a>,
+	prioritizes these lists.
+
+
+<!--
+ ██████     ███     ██████   ██████     ███    ████████  ████████
+██    ██   ██ ██   ██    ██ ██    ██   ██ ██   ██     ██ ██
+██        ██   ██  ██       ██        ██   ██  ██     ██ ██
+██       ██     ██  ██████  ██       ██     ██ ██     ██ ██████
+██       █████████       ██ ██       █████████ ██     ██ ██
+██    ██ ██     ██ ██    ██ ██    ██ ██     ██ ██     ██ ██
+ ██████  ██     ██  ██████   ██████  ██     ██ ████████  ████████
+-->
+
+<h2 id='cascading'>
+Cascading</h2>
+
+	The <dfn export>cascade</dfn>
+	takes an unordered list of <a>declared values</a>
+	for a given property on a given element,
+	sorts them by their [=declaration’s=] precedence as determined below,
+	and outputs a single <a>cascaded value</a>.
+
+<h3 id="cascade-sort">
+Cascade Sorting Order</h3>
+
+	The cascade sorts [=declarations=] according to the following criteria,
+	in descending order of precedence:
+
+	<dl>
+		<dt id='cascade-origin'>Origin and Importance
+		<dd>
+			The <a>origin</a> of a [=declaration=] is based on where it comes from
+			and its <a lt="important">importance</a> is
+			whether or not it is declared with ''!important''
+			(see [[#importance|below]]).
+			The precedence of the various <a>origins</a> is, in descending order:
+
+			<ol>
+				<li>Transition declarations [[!css-transitions-1]]
+				<li>[=Important=] [=user-agent origin|user agent=] declarations
+				<li>[=Important=] [=user origin|user=] declarations
+				<li>[=Important=] [=author origin|author=] declarations
+				<li>Animation declarations [[!css-animations-1]]
+				<li>[=Normal=] [=author origin|author=] declarations
+				<li>[=Normal=] [=user origin|user=] declarations
+				<li>[=Normal=] [=user-agent origin|user agent=] declarations
+			</ol>
+
+			Declarations from <a>origins</a> earlier in this list win over declarations from later <a>origins</a>.
+
+		<dt id='cascade-context'>Context
+		<dd>
+			A document language can provide for blending [=declarations=] sourced
+			from different <dfn local-lt="context">encapsulation contexts</dfn>,
+			such as the nested [=tree contexts=] of [=shadow trees=] in the [[!DOM]].
+
+			When comparing two declarations
+			that are sourced from different [=encapsulation contexts=],
+			then for [=normal=] rules
+			the declaration from the outer context wins,
+			and for [=important=] rules
+			the declaration from the inner context wins.
+			For this purpose,
+			[[DOM]] [=tree contexts=] are considered to be nested
+			in [=shadow-including tree order=].
+
+			Note: This effectively means that
+			[=normal=] declarations belonging to an [=encapsulation context=]
+			can set defaults that are easily overridden by the outer context,
+			while [=important=] declarations belonging to an [=encapsulation context=]
+			can enforce requirements that cannot be overridden by the outer context.
+
+<!--
+		<dt id='cascade-scope'>Scope
+		<dd>
+			A [=declaration=] can be <dfn export>scoped</dfn> to a subtree of the document
+			so that it only affects its <dfn export>scoping element</dfn> and that element's descendants.
+			For example, [[HTML]] defines scoped <code>&lt;style&gt;</code> elements,
+			whose style sheets are scoped to the element's parent.
+
+			If the <a>scoping elements</a> of two declarations
+			have an ancestor/descendant relationship,
+			then for [=normal=] rules the declaration whose <a>scoping element</a> is the descendant wins,
+			and for [=important=] rules the declaration whose <a>scoping element</a> is the ancestor wins.
+
+			Note: In other words, for [=normal=] declarations the inner scope's declarations override,
+			but for ''!important'' rules <em>outer</em> scope's override.
+
+			For the purpose of this step,
+			all unscoped declarations are considered to be <a>scoped</a> to the root element.
+			[=Normal=] declarations from style attributes
+			are considered to be <a>scoped</a> to the element with the attribute,
+			whereas important declarations from style attributes
+			are considered to be <a>scoped</a> to the root element.
+			[[!CSSSTYLEATTR]]
+
+			Note: This odd handling of ''!important'' style attribute declarations
+			is to match the behavior defined in CSS Levels 1 and 2,
+			where style attributes simply have higher specificity than any other author rules. [[CSS2]]
+-->
+
+		<dt id='style-attr'>Element-Attached Styles
+		<dd>
+			Separately for [=normal=] and [=important=] [=declarations=],
+			declarations that are attached directly to an element
+			(such as the <a href="https://www.w3.org/TR/css-style-attr/#interpret">contents of a style attribute</a>)
+			rather than indirectly mapped by means of a style rule selector
+			take precedence over declarations the same [=importance=]
+			that are mapped via style rule.
+
+			See [[!CSSSTYLEATTR]].
+
+			Note: Non-CSS presentational hints (such as presentational markup)
+			are handled separately,
+			see [[#preshint]].
+
+
+		<dt id='cascade-layering'>Layers
+		<dd>
+			[=Declarations=] within each [=origin=] and [=context=]
+			can be explicitly assigned to a [=cascade layer=].
+			For the purpose of this step,
+			any declaration not assigned to an explicit layer
+			is added to an implicit final layer.
+
+			Cascade layers (like declarations) are sorted by order of appearance,
+			see [[#layer-ordering]].
+			When comparing declarations that belong to different layers,
+			then for [=normal=] rules the declaration whose [=cascade layer=] is latest in the layer order wins,
+			and for [=important=] rules the declaration whose [=cascade layer=] is earliest wins.
+
+			Note: This follows the same logic used for precedence of [=normal=] and [=important=] [=origins=],
+			thus the ''!important'' flag maintains the same “override” purpose in both settings.
+
+		<dt id='cascade-specificity'>Specificity
+		<dd>
+			The <a href="https://www.w3.org/TR/selectors/#specificity">Selectors module</a> [[!SELECT]] describes how to compute the specificity of a selector.
+			Each [=declaration=] has the same specificity as the style rule it appears in.
+			The declaration with the highest specificity wins.
+
+		<dt id='cascade-order'>Order of Appearance
+		<dd>
+			The last [=declaration=] in document order wins.
+			For this purpose:
+
+			<ul>
+				<li>Style sheets are ordered
+					in [[final CSS style sheets]] order.
+				<li>Declarations from <a at-rule lt="@import">imported style sheets</a>
+					are ordered as if their style sheets were substituted in place of the ''@import'' rule.
+				<li>Declarations from style sheets independently linked by the originating document
+					are treated as if they were concatenated in linking order,
+					as determined by the host document language.
+				<li>Declarations from style attributes
+					are ordered according to the document order of the element the style attribute appears on,
+					and are all placed after any style sheets.
+					[[!CSSSTYLEATTR]]
+			</ul>
+	</dl>
+
+	The <dfn export>output of the cascade</dfn>
+	is a (potentially empty) sorted list of <a>declared values</a> for each property on each element.
+
+
+<h3 id='cascading-origins'>
+Cascading Origins</h3>
+
+	Each style rule has a <dfn id=origin export local-lt="origin">cascade origin</dfn>,
+	which determines where it enters the cascade.
+	CSS defines three core <a>origins</a>:
+
+	<dl>
+		<dt><dfn export id='cascade-origin-author' lt="author origin|author style sheet|author-origin">Author Origin</dfn>
+		<dd>
+			The author specifies style sheets for a source document
+			according to the conventions of the document language.
+			For instance, in HTML,
+			style sheets may be included in the document or linked externally.
+
+		<dt><dfn export id='cascade-origin-user' lt="user origin|user style sheet|user-origin">User Origin</dfn>
+		<dd>
+			The user may be able to specify style information for a particular document.
+			For example, the user may specify a file that contains a style sheet
+			or the user agent may provide an interface that generates a user style sheet
+			(or behaves as if it did).
+
+		<dt><dfn export id='cascade-origin-ua' lt="user-agent origin|UA origin|user-agent style sheet|UA style sheet|UA-origin">User-Agent Origin</dfn>
+		<dd>
+			Conforming user agents must apply a default style sheet
+			(or behave as if they did).
+			A user agent's default style sheet should present the elements of the document language
+			in ways that satisfy general presentation expectations for the document language
+			(e.g., for visual browsers, the EM element in HTML is presented using an italic font).
+			See e.g. the <a href="https://html.spec.whatwg.org/multipage/rendering.html#the-css-user-agent-style-sheet-and-presentational-hints">HTML user agent style sheet</a>. [[HTML]]
+	</dl>
+
+	Extensions to CSS define the following additional <a>origins</a>:
+
+	<dl>
+		<dt><dfn export id='cascade-origin-animation'>Animation Origin</dfn>
+		<dd>
+			CSS Animations [[css-animations-1]] generate “virtual” rules representing their effects when running.
+
+		<dt><dfn export id='cascade-origin-transition'>Transition Origin</dfn>
+		<dd>
+			Like CSS Animations, CSS Transitions [[css-transitions-1]] generate “virtual” rules representing their effects when running.
+	</dl>
+
+<h3 id='importance'>
+Important Declarations: the ''!important'' annotation</h3>
+
+	CSS attempts to create a balance of power between author and user style sheets.
+	By default, rules in an author's style sheet override those in a user's style sheet,
+	which override those in the user-agent's default style sheet.
+	To balance this, a [=declaration=] can be marked [=important=],
+	which increases its weight in the cascade and inverts the order of precedence.
+
+	A [=declaration=] is <dfn export local-lt="importance">important</dfn>
+	if it has a ''!important'' annotation as defined by [[css-syntax-3]],
+	i.e. if the last two (non-whitespace, non-comment) tokens
+	in its value are the delimiter token ''!'' followed by the identifier token ''important''.
+	All other declarations are <dfn>normal</dfn> (non-[=important=]).
+
+	<div class='example'>
+		<pre class='lang-css'>[hidden] { display: none !important; }</pre>
+	</div>
+
+	An <a>important</a> declaration takes precedence over a [=normal=] declaration.
+	Author and user style sheets may contain [=important=] declarations,
+	with [=user-origin=] [=important=] declarations
+	overriding [=author-origin=] [=important=] declarations.
+	This CSS feature improves accessibility of documents
+	by giving users with special requirements
+	(large fonts, color combinations, etc.)
+	control over presentation.
+
+	[=Important=] declarations from all origins take precedence over animations.
+	This allows authors to override animated values in important cases.
+	(Animated values normally override all other rules.)
+	[[css-animations-1]]
+
+	[=User-agent style sheets=] may also contain [=important=] declarations.
+	These override all [=author origin|author=] and [=user origin|user=] declarations.
+
+	<div class='example'>
+		The first rule in the user's style sheet in the following example contains an ''!important'' declaration,
+		which overrides the corresponding declaration in the author's style sheet.
+		The declaration in the second rule will also win due to being marked ''!important''.
+		However, the third declaration in the user's style sheet is not ''!important''
+		and will therefore lose to the second rule in the author's style sheet
+		(which happens to set style on a <a>shorthand</a> property).
+		Also, the third author rule will lose to the second author rule since the second declaration is ''!important''.
+		This shows that ''!important'' declarations have a function also within author style sheets.
+
+		<pre class='lang-css'>
+		/* From the user's style sheet */
+		p { text-indent: 1em !important }
+		p { font-style: italic !important }
+		p { font-size: 18pt }
+
+		/* From the author's style sheet */
+		p { text-indent: 1.5em !important }
+		p { font: normal 12pt sans-serif !important }
+		p { font-size: 24pt }
+		</pre>
+
+		<table class="data">
+			<thead>
+				<tr>
+					<th>Property
+					<th>Winning value
+			<tbody>
+				<tr>
+					<th>'text-indent'
+					<td>''1em''
+				<tr>
+					<th>'font-style'
+					<td>''font-style/italic''
+				<tr>
+					<th>'font-size'
+					<td>''12pt''
+				<tr>
+					<th>'font-family'
+					<td>''sans-serif''
+		</table>
+	</div>
+
+<!--
+██          ███    ██    ██ ████████ ████████   ██████
+██         ██ ██    ██  ██  ██       ██     ██ ██    ██
+██        ██   ██    ████   ██       ██     ██ ██
+██       ██     ██    ██    ██████   ████████   ██████
+██       █████████    ██    ██       ██   ██         ██
+██       ██     ██    ██    ██       ██    ██  ██    ██
+████████ ██     ██    ██    ████████ ██     ██  ██████
+-->
+
+<h3 id='layering'>
+Cascade Layers</h3>
+
+	In the same way that [=cascade origins=] provide a balance of power
+	between user and author styles,
+	<dfn export local-lt="layer">cascade layers</dfn> provide a structured way
+	to organize and balance concerns within a single origin.
+	Rules within a single [=cascade layer=] cascade together,
+	without interleaving with style rules outside the layer.
+
+	Authors can create layers to represent element defaults,
+	third-party libraries, themes, components,
+	overrides, and other styling concerns--
+	and are able to re-order the cascade of layers in an explicit way,
+	without altering selectors or specificity within each layer,
+	or relying on order of appearance to resolve conflicts across layers.
+
+	<div class="example">
+		For example, the following generates an explicit ''reset'' layer,
+		with lower cascade precedence than any unlayered styles:
+
+		<pre class='lang-css'>
+		audio {
+		  /* specificity of 0,0,1 - implicit (final) layer */
+		  display: flex;
+		}
+
+		@layer reset {
+		  audio[controls] {
+		    /* specificity of 0,1,1 - explicit "reset" layer */
+		    display: block;
+		  }
+		}
+		</pre>
+
+		The unlayered declarations on the <{audio}> element take precedence
+		over the explicitly layered declarations on <code>audio[controls]</code>--
+		even though the unlayered styles have a lower specificity,
+		and come first in the order of appearance.
+	</div>
+
+	Name-defining [=at-rules=]
+	such as ''@keyframes'' or ''@font-face''
+	that are defined inside [=cascade layers=]
+	also use the layer order when resolving name collisions.
+
+	<div class="example">
+		For example,
+		authors could override the animation from a framework,
+		by providing keyframes with the same name in a higher-precedence layer:
+
+		<pre class='lang-css'>
+			/* establish the layer order, so the "override" layer takes precedence */
+			@layer framework, override;
+
+			@layer override {
+			  @keyframes slide-left {
+			    from { translate: 0; }
+			    to { translate: -100% 0; }
+			  }
+			}
+
+			@layer framework {
+			  @keyframes slide-left {
+			    from { margin-left: 0; }
+			    to { margin-left: -100%; }
+			  }
+			}
+
+			.sidebar { animation: slide-left 300ms; }
+		</pre>
+
+		In this case the ''override'' layer
+		has a higher cascade precedence than the ''framework'' layer,
+		so <code>slide-left</code> will animate
+		using the <code>translate</code> property rather than <code>margin-left</code>.
+	</div>
+
+<h4 id="layer-declaration">
+Declaring Cascade Layers</h4>
+
+	Cascade layers can be declared:
+
+	* using an ''@import'' rule with the ''layer'' keyword or ''layer()'' function,
+		assigning the contents of the imported file into that layer.
+	* using a [[#layer-block|@layer block at-rule]],
+		assigning its child style rules into that layer.
+	* using a [[#layer-empty|@layer statement at-rule]],
+		declaring a named layer without assigning any rules.
+
+	Issue(w3c/csswg-drafts#5853): Provide an attribute for assigning link or style elements to cascade layers?
+
+<h4 id=layer-names>
+Layer Naming and Nesting</h4>
+
+	A [=cascade layer=] has a <dfn>layer name</dfn>,
+	which is an ordered list representing each level of layer nesting,
+	each segment of which can be named (as a [=CSS identifier=])
+	or anonymous.
+	(Thus, when a layer is nested inside of another layer,
+	this concatenates their names.)
+	One layer is nested in another
+	when it is declared within the scope of another layer,
+	e.g. an ''@layer'' rule inside another ''@layer'',
+	a layered ''@import'' inside a layered import,
+	or an ''@layer'' rule inside a layered import.
+
+	[=Layer names=] represent the same [=cascade layer=]
+	if they contain the same segments in the same order;
+	however anonymous segments have unique identities for each occurrence.
+	Note that nesting can cause multiple layers to share the same anonymous segment.
+
+	<div class="example">
+		Explicit layer identifiers provide a way
+		to assign multiple style blocks to a single layer.
+		In the following example,
+		the contents of <code>headings.css</code> and <code>links.css</code>
+		are cascaded within the same layer as the <code>audio[controls]</code> rule:
+
+		<pre class='lang-css'>
+			@import url(headings.css) layer(default);
+			@import url(links.css) layer(default);
+
+			@layer default {
+			  audio[controls] {
+			    display: block;
+			  }
+			}
+		</pre>
+	</div>
+
+	<div class="example">
+		In this example,
+		the nested ''framework.base'' layer is distinct
+		from the top-level ''base'' layer:
+
+		<pre class='lang-css'>
+			@layer base {
+			  p { max-width: 70ch; }
+			}
+
+			@layer framework {
+			  @layer base {
+			    p { margin-block: 0.75em; }
+			  }
+
+			  @layer theme {
+			    p { color: #222; }
+			  }
+			}
+		</pre>
+
+		The resulting layers can be represented as a tree:
+
+		1. ''base''
+		2. ''framework''
+			1. ''base''
+			2. ''theme''
+
+		or as a flat list with nested identifiers:
+
+		1. ''base''
+		2. ''framework.base''
+		3. ''framework.theme''
+	</div>
+
+	Syntactically, an explicit [=layer name=] is represented
+	by the <<layer-name>> in ''@layer'' and ''@import'' rules,
+	which is a period-separated list of <<ident>> tokens
+	with no intervening white space:
+
+	<pre class='prod'>
+		<dfn><<layer-name>></dfn> = <<ident>> [ '.' <<ident>> ]*
+	</pre>
+
+	The <a spec=css-values>CSS-wide keywords</a> are reserved for future use,
+	and cause the rule to be invalid at parse time
+	if used as an <<ident>> in the <<layer-name>>.
+	When multiple identifiers are concatenated with a period,
+	this is a shorthand representing those layers nested in order.
+
+	<div class="example">
+		<pre class='lang-css'>
+			@layer framework {
+			  @layer default {
+			     p { margin-block: 0.75em; }
+			  }
+
+			  @layer theme {
+			    p { color: #222; }
+			  }
+			}
+
+			@layer framework.theme {
+			  /* These styles will be added to the theme layer inside the framework layer */
+			  blockquote { color: rebeccapurple; }
+			}
+		</pre>
+	</div>
+
+	Note: A nested layer cannot “escape” its parent layer
+	to reference layers outside itself.
+
+<h5 id="unnamed-layers">
+Anonymous Layers</h5>
+
+	When a ''@layer'' rule omits its <<layer-name>>,
+	or an ''@import'' rule uses the ''layer'' keyword (which does not provide a <<layer-name>>),
+	its [=layer name=] gains a unique anonymous segment;
+	it therefore cannot be referenced from the outside.
+
+	<div class="example">
+		Each occurrence of an anonymous layer declaration
+		represents a unique cascade layer,
+		thus:
+
+		* Multiple unnamed layer rules
+			place their styles into separate layers,
+			as each occurrence is referencing a distinct anonymous layer name.
+
+			<pre class=lang-css>
+			@layer { /* layer 1 */ }
+			@layer { /* layer 2 */ }
+			</pre>
+
+		* Within a single unnamed layer,
+			child layers with the same name refer to the same cascade layer,
+			because they share the same anonymous parent layer.
+
+			<pre class=lang-css>
+			@layer {
+			  @layer foo { /* layer 1 */ }
+			  @layer foo { /* also layer 1 */ }
+			}
+			</pre>
+
+		* Whereas in separate unnamed layers,
+			child layers with the same name refer to different cascade layers,
+			because they have distinct anonymous parent layers.
+
+			<pre class=lang-css>
+			@layer {
+			  @layer foo { /* layer 1 */ }
+			}
+			@layer {
+			  @layer foo { /* layer 2 */ }
+			}
+			</pre>
+	</div>
+
+	<div class=example>
+		A layer declared without a <<layer-name>>
+		does not provide any external hook for re-arranging or adding styles.
+
+		While this can be a mere convenience for brevity,
+		it can also be used by teams as a way to force an organizing convention
+		(all code in that layer must be defined in the same place),
+		or by libraries wanting to merge & hide a set of internal “private” layers
+		that they don't want exposed to author manipulation:
+
+		<pre class='lang-css'>
+			/* bootstrap-base.css */
+			/* unnamed wrapper layers around each sub-file */
+			@import url(base-forms.css) layer;
+			@import url(base-links.css) layer;
+			@import url(base-headings.css) layer;
+		</pre>
+		<pre class=lang-css>
+			/* bootstrap.css */
+			/* the internal names are hidden from access, subsumed in "base" */
+			@import url(bootstrap-base.css) layer(base);
+		</pre>
+		<pre class=lang-css>
+			/* author.css */
+			/* author has access to bootstrap.base layer, but not into unnamed layers */
+			@import url(bootstrap.css) layer(bootstrap);
+
+			/* Adds additional styles to the bootstrap layer: */
+			@layer bootstrap {...}
+		</pre>
+	</div>
+
+
+<h4 id="layer-ordering">
+Layer Ordering</h4>
+
+	Cascade layers are sorted
+	by the order in which they first are declared,
+	with nested layers grouped within their parent layer.
+	Unlayered rules are sorted later than
+	any layered rules within the same parent layer (if any).
+
+	<div class="example">
+		Given the following layer rules:
+
+		<pre class='lang-css'>
+		/* unlayered styles come last in the layer order */
+		h1 { color: darkslateblue; }
+
+		@layer reset.type {
+		  strong { font-weight: bold; }
+		}
+
+		@layer framework {
+		  .title { font-weight: 100; }
+
+		  @layer theme {
+		    h1, h2 { color: maroon; }
+		  }
+		}
+
+		@layer reset {
+		  [hidden] { display: none; }
+		}
+		</pre>
+
+		The outer layers are sorted first,
+		with any unlayered style rules
+		added to an implicit outer layer which
+		has higher precedence than (comes after) the explicit layers:
+
+		1. ''reset''
+		2. ''framework''
+		3. (implicit outer layer)
+
+		Within each layer,
+		nested layers are sorted in appearance order,
+		and style rules without further nesting
+		are similarly added to an implicit sub-layer
+		after the explicitly nested layers:
+
+		1. ''reset.type''
+		2. ''reset'' (implicit sub-layer)
+		3. ''framework.theme''
+		4. ''framework'' (implicit sub-layer)
+		5. (implicit outer layer)
+	</div>
+
+	Layers that are defined inside of a [=conditional group rule=]
+	do not contribute to the layer order unless the condition is true
+	or unless the [=conditional group rule=] can evaluate differently
+	for different elements in the document.
+
+	Note: Since the layer order is global to the document,
+	any layers defined inside an element-sensitive [=conditional group rule=]
+	need to be accommodated when establishing the global layer order,
+	regardless of the rule's condition.
+	Conditions that are global to the document, however
+	(such as ''@media'' and ''@supports'')
+	can accommodate such ''@layer'' rules conditionally.
+
+	<div class=example>
+		For example,
+		the following layer order
+		will depend on which media conditions match:
+
+		<pre class='lang-css'>
+			@media (min-width: 30em) {
+			  @layer layout {
+			    .title { font-size: x-large; }
+			  }
+			}
+
+			@media (prefers-color-scheme: dark) {
+			  @layer theme {
+			    .title { color: white; }
+			  }
+			}
+
+			@layer theme, layout;
+		</pre>
+
+		If the first media-query matches based on viewport dimensions,
+		then the ''layout'' layer will come first in the layer order.
+		If the color-scheme preference query matches,
+		or if neither condition is true,
+		then ''theme'' will come first in the layer order.
+
+		Authors who want to avoid this behavior can establish
+		an explicit ordering of layers in advance,
+		and avoid defining new layers inside conditional rules.
+	</div>
+
+	Note: [=Cascade layers=] are scoped to their [=origin=] and [=context=],
+	so the ordering of layers in the light DOM has no impact
+	on the order of identically-named layers in the shadow DOM
+	(and vice versa).
+
+	Issue(6323): Allow authors to explicitly place unlayered styles in the layer order
+
+<h4 id="at-layer">
+Declaring Layers Inline: the ''@layer'' rule</h4>
+
+	The <dfn at-rule id="at-ruledef-layer">@layer</dfn> rule
+	declares a [=cascade layer=], with the option to assign style rules.
+
+<h5 id="layer-block">
+Assigning Styles Inline: the ''@layer'' block at-rule</h5>
+
+	The ''@layer'' [=block at-rule=]
+	assigns its child style rules to a particular named [=cascade layer=].
+	This block layer-assignment syntax is:
+
+	<pre class='prod'>
+		@layer <<layer-name>>? {
+			<<rule-list>>
+		}
+	</pre>
+
+	Such ''@layer'' block rules have the same restrictions and processing
+	as a [=conditional group rule=] [[CSS-CONDITIONAL-3]]
+	with a true condition.
+
+	<div class=example>
+		For example, ''@layer'' and ''@media'' can be mixed:
+
+		<pre class=lang-css>
+		@layer framework {
+			h1, h2 { color: maroon; background: white;}
+
+			@media (prefers-color-scheme: dark) {
+				h1, h2 { color: red; background: black; }
+			}
+		}
+		</pre>
+	</div>
+
+	Note: ''@layer'' [=block at-rules=] cannot be interleaved with ''@import'' rules.
+
+<h5 id="layer-empty">
+Declaring Without Styles: the ''@layer'' statement at-rule</h5>
+
+	The ''@layer'' rule can also be used to define new layers
+	without assigning any style rules, by providing only the [=layer name=]:
+
+	<pre class='prod'>
+		@layer <<layer-name>>#;
+	</pre>
+
+	Such empty ''@layer'' rules are allowed before ''@import'' and ''@namespace'' rules
+	(after the ''@charset'' rule, if any)
+	as well as everywhere ''@layer'' [=block at-rules=] are allowed.
+
+	Note: No ''@layer'' rules are allowed between ''@import'' and ''@namespace'' rules.
+	Any ''@layer'' rule that comes after an ''@import'' or ''@namespace'' rule
+	will cause any subsequent ''@import'' or ''@namespace'' rules to be ignored.
+
+	Unlike the [[#layer-block|block syntax]],
+	multiple comma-separated layer names can be provided in this syntax,
+	declaring each of the layers in the order specified.
+
+	Note: Since layer ordering is defined by first occurrence of the layer name
+	(see [[#layer-ordering]]),
+	this rule allows a page to declare the order of its layers up front,
+	so that their order is apparent without having to read the entire style sheet.
+	It also allows inline layers to be interleaved with imported layers,
+	which is not possible with the [[#layer-block|block syntax]].
+
+	<div class="example">
+		The statement syntax
+		allows establishing a layer order in advance,
+		regardless of the order in which style rules are added to each layer.
+		It can be helpful to establish that layer order in advance,
+		before any ''@import'' rules.
+		In this example,
+		the imported <code>theme.css</code> style rules will override
+		any rules added in the later <css>default</css> block
+		since the order of layers has already been established:
+
+		<pre class='lang-css'>
+			@layer default, theme, components;
+			@import url(theme.css) layer(theme);
+
+			@layer default {
+			  audio[controls] {
+			    display: block;
+			  }
+			}
+		</pre>
+
+		It's also possible to have ''@import'' rules
+		help establish the order,
+		by placing them between ''@layer'' rules.
+		This example will have the same result:
+
+		<pre class='lang-css'>
+			@layer default;
+			@import url(theme.css) layer(theme);
+			@layer components;
+
+			@layer default {
+			  audio[controls] {
+			    display: block;
+			  }
+			}
+		</pre>
+
+		However,
+		''@import'' and ''@namespace'' rules must be consecutive,
+		without any intervening rules.
+		The following is invalid:
+
+		<pre class='lang-css'>
+			@import url(default.css) layer(default);
+			@layer theme;
+			@import url(components.css) layer(components);
+
+			@layer theme {
+			  audio[controls] {
+			    display: block;
+			  }
+			}
+		</pre>
+	</div>
+
+
+<h3 id="preshint">
+Precedence of Non-CSS Presentational Hints</h3>
+
+	The UA may choose to honor presentational hints in a source document's markup,
+	for example the <code>bgcolor</code> attribute or <{s}> element in [[HTML]].
+	All document language-based styling must be translated to corresponding CSS rules
+	and enter the cascade as rules in either
+	the [=UA-origin=] or a special-purpose <dfn>author presentational hint origin</dfn>
+	between the regular [=user origin=] and the [=author origin=].
+	For the purpose of [=cascading=]
+	this [=author presentational hint origin=] is treated as an independent [=origin=];
+	however for the purpose of the ''revert'' keyword
+	(but not for the ''revert-layer'' keyword)
+	it is considered part of the [=author origin=].
+
+	A document language may define whether such a presentational hint
+	enters the [=cascade=] as [=UA-origin=] or [=author-origin=];
+	if so, the UA must behave accordingly.
+	For example, [[SVG11]] maps its presentation attributes into the [=author origin=].
+
+	Note: Presentational hints entering the [=cascade=] as [=UA-origin=] rules
+	can be overridden by [=author-origin=] or [=user-origin=] styles.
+	Presentational hints entering the cascade as [=author presentational hint origin=] rules
+	can be overridden by [=author-origin=] styles,
+	but not by non-[=important=] [=user-origin=] styles.
+	Host languages should choose the appropriate origin for presentational hints
+	with these considerations in mind.
+
+
+<!--
+████████  ████████ ████████    ███    ██     ██ ██       ████████
+██     ██ ██       ██         ██ ██   ██     ██ ██          ██
+██     ██ ██       ██        ██   ██  ██     ██ ██          ██
+██     ██ ██████   ██████   ██     ██ ██     ██ ██          ██
+██     ██ ██       ██       █████████ ██     ██ ██          ██
+██     ██ ██       ██       ██     ██ ██     ██ ██          ██
+████████  ████████ ██       ██     ██  ███████  ████████    ██
+-->
+
+<h2 id="defaulting">
+Defaulting</h2>
+
+	When the <a>cascade</a> does not result in a value,
+	the <a>specified value</a> must be found some other way.
+	<a>Inherited properties</a> draw their defaults from their parent element through <a>inheritance</a>;
+	all other properties take their <a>initial value</a>.
+	Authors can explicitly request inheritance or initialization
+	via the ''inherit'' and ''initial'' keywords.
+
+<h3 id="initial-values">
+Initial Values</h3>
+
+	Each property has an <dfn export>initial value</dfn>,
+	defined in the property's definition table.
+	If the property is not an <a>inherited property</a>,
+	and the <a>cascade</a> does not result in a value,
+	then the <a>specified value</a> of the property is its <a>initial value</a>.
+
+<h3 id="inheriting">
+Inheritance</h3>
+
+	<dfn export for="CSS" lt="inheritance|inherit">Inheritance</dfn> propagates property values from parent elements to their children.
+	The <dfn export>inherited value</dfn> of a property on an element
+	is the <a>computed value</a> of the property on the element's parent element.
+	For the root element,
+	which has no parent element,
+	the <a>inherited value</a> is the <a>initial value</a> of the property.
+
+	For a [[DOM]] tree with shadows,
+	inheritance operates on the [=flattened element tree=].
+	<span class="note">This means that slotted elements inherit from the <{slot}> they're assigned to,
+	rather than directly from their [=light tree=] parent.</span>
+	[=Pseudo-elements=] inherit according to the fictional tag sequence
+	described for each [=pseudo-element=]. [[!CSS-PSEUDO-4]]
+
+	Some properties are <dfn export lt="inherited property">inherited properties</dfn>,
+	as defined in their property definition table.
+	This means that,
+	unless the [=cascade=] results in a value,
+	the value will be determined by [=inheritance=].
+
+	A property can also be explicitly inherited. See the ''inherit'' keyword.
+
+	Note: Inheritance follows the document tree and is not intercepted by <a href="https://www.w3.org/TR/CSS2/visuren.html#box-gen">anonymous boxes</a>,
+	or otherwise affected by manipulations of the box tree.
+
+<h3 id="defaulting-keywords">
+Explicit Defaulting</h3>
+
+	Several CSS-wide property values are defined below;
+	declaring a property to have these values explicitly specifies a particular defaulting behavior.
+	As specified in <a href="https://www.w3.org/TR/css-values/#common-keywords">CSS Values and Units</a> [[!css-values-3]],
+	all CSS properties can accept these values.
+
+	The keywords ''revert'' and ''revert-layer''
+	are <dfn export lt="cascade-dependent keyword">cascade-dependent keywords</dfn>;
+	some contexts may restrict their use
+	while allowing the other [=CSS-wide keywords=].
+
+<h4 id="initial" caniuse="css-initial-value">
+Resetting a Property: the ''initial'' keyword</h4>
+
+	The <dfn value for=all>initial</dfn> [=CSS-wide keyword=]
+	represents the value defined as the property's [=initial value=].
+
+	If the <a>cascaded value</a> of a property is
+	the ''initial'' keyword,
+	the property's <a>specified value</a> is its <a>initial value</a>.
+
+<h4 id="inherit">
+Explicit Inheritance: the ''inherit'' keyword</h4>
+
+	The <dfn value for=all>inherit</dfn> [=CSS-wide keyword=]
+	represents the property’s [=computed value=] on the parent element.
+
+	If the <a>cascaded value</a> of a property is
+	the ''inherit'' keyword,
+	the property's <a lt="specified value">specified</a> and <a>computed values</a> are the <a>inherited value</a>.
+
+<h4 id="inherit-initial" caniuse="css-unset-value">
+Erasing All Declarations: the ''unset'' keyword</h4>
+
+	The <dfn value for=all>unset</dfn> [=CSS-wide keyword=]
+	acts as either ''inherit'' or ''initial'',
+	depending on whether the property is [=inherited property|inherited=] or not.
+
+	If the <a>cascaded value</a> of a property is
+	the ''unset'' keyword,
+	then if it is an inherited property, this is treated as ''inherit'',
+	and if it is not, this is treated as ''initial''.
+	This keyword effectively erases all <a>declared values</a> occurring earlier in the <a>cascade</a>,
+	correctly inheriting or not as appropriate for the property
+	(or all longhands of a <a>shorthand</a>).
+
+<h4 id="default" for=all caniuse="css-revert-value">
+Rolling Back Cascade Origins: the ''revert'' keyword</h4>
+
+	The <dfn value for=all>revert</dfn> [=CSS-wide keyword=]
+	rolls back the cascade to the [=cascaded value=] of the earlier [=origin=].
+
+	If the <a>cascaded value</a> of a property is
+	the ''revert'' keyword,
+	the behavior depends on the [=cascade origin=] to which the [=declaration=] belongs:
+
+	<dl>
+		<dt>[=user-agent origin=]
+		<dd>
+			Equivalent to ''unset''.
+
+		<dt>[=user origin=]
+		<dd>
+			Rolls back the <a>cascaded value</a> to the user-agent level,
+			so that the <a>specified value</a> is calculated
+			as if no [=author-origin=] or [=user-origin=] rules were specified
+			for this property on this element.
+
+		<dt>[=author origin=]
+		<dd>
+			Rolls back the <a>cascaded value</a> to the user level,
+			so that the <a>specified value</a> is calculated
+			as if no [=author-origin=] rules were specified
+			for this property on this element.
+			For the purpose of ''revert'', this origin includes the Animation <a>origin</a>.
+	</dl>
+
+	Note: Effectively the ''revert'' keyword is substituted with
+	the value from the earlier [=cascade origin=].
+	Thus, reverting a [=shorthand property=] reverts all its longhands;
+	reverting any [[#aliasing|property alias]] of a property reverts all of them;
+	reverting one of the paired properties in a [=logical property group=]
+	also reverts the other one; etc.
+
+<h4 id="revert-layer" caniuse="mdn-css_types_global_keywords_revert-layer">
+Rolling Back Cascade Layers: the ''revert-layer'' keyword</h4>
+
+	The <dfn value for=all>revert-layer</dfn> [=CSS-wide keyword=]
+	rolls back the cascade similar to ''revert'',
+	except it works by [=cascade layer=] rather than by [=cascade origin=].
+
+	If the <a>cascaded value</a> of a property is
+	the ''revert-layer'' keyword,
+	the <a>cascaded value</a> is rolled back to the earlier [=layer=],
+	so that the <a>specified value</a> is calculated
+	as if no rules were specified in the current [=cascade layer=]--
+	or between its [=normal=] and [=important=] levels in the [=cascade=]--
+	for this property on this element.
+	For ''revert-layer'' in [=important=] <a href="#style-attr">element-attached styles</a>,
+	however,
+	it only reverts the <a href="#style-attr">element-attached styles</a>
+	and the intervening [=animation origin=],
+	and not any of the intervening [=author-origin=] [=important=] rules.
+
+	<div class="example">
+		For example,
+		applying ''revert-layer'' to the 'height' in layer <code>two</code>,
+		reverts the 'height' property to the value
+		defined in layer <code>one</code>,
+		yielding a 'height' of <code>100px</code>.
+
+		<pre class='lang-css'>
+		@layer one {
+		  div { height: 100px }
+		}
+
+		@layer two {
+		  div { height: 200px }
+		  div { height: revert-layer }
+		}
+		</pre>
+
+		Note that since 'height' and 'block-size' are
+		paired properties in a [=logical property group=],
+		the following layer <code>two</code> declaration
+		would also revert to the 'height' defined in layer <code>one</code>.
+
+		<pre class='lang-css'>
+		@layer two {
+		  div { height: 200px }
+		  div { block-size: revert-layer }
+		}
+		</pre>
+	</div>
+
+	Note: If there are no lower-precedence [=declarations=]
+	in the same [=cascade origin=] as the ''revert-layer'' value,
+	the <a>cascaded value</a> will roll back to the previous origin.
+
+	Note: The [=animation origin=] is not collapsed with the [=author origin=] for this purpose
+	as it is for ''revert'',
+	and thus effectively forms its own [=cascade layer=].
+
+<h2 id="layer-apis">Layer APIs</h2>
+
+<h3 id="the-csslayerblockrule-interface">
+The <code>CSSLayerBlockRule</code> interface</h3>
+
+	The {{CSSLayerBlockRule}} interface represents
+	the ''@layer'' [[#layer-block|block rule]]:
+
+	<pre class='idl' export>
+	[Exposed=Window]
+	interface CSSLayerBlockRule : CSSGroupingRule {
+	  readonly attribute CSSOMString name;
+	};
+	</pre>
+
+	Its <dfn attribute for=CSSLayerBlockRule>name</dfn> attribute represents
+	the [=layer name=] declared by the at-rule itself,
+	and is an empty string if the layer is anonymous.
+
+	<div class="example">
+	For example,
+	additional nested context is not added from wrapping layer rules.
+
+	  <pre class='lang-css'>
+	  @layer outer {
+	    @layer foo.bar { }
+	  }
+	  </pre>
+
+	in this case the {{CSSLayerBlockRule/name}} of the inner ''@layer'' rule
+	is “foo.bar” (and not “outer.foo.bar”).
+	</div>
+
+<h3 id="the-csslayerstatementrule-interface">
+The <code>CSSLayerStatementRule</code> interface</h3>
+
+	The {{CSSLayerStatementRule}} interface represents
+	the ''@layer'' [[#layer-empty|statement]]:
+
+	<pre class='idl' export>
+	[Exposed=Window]
+	interface CSSLayerStatementRule : CSSRule {
+	  readonly attribute FrozenArray&lt;CSSOMString> nameList;
+	};
+	</pre>
+
+	Its <dfn attribute for=CSSLayerStatementRule>nameList</dfn> attribute represents
+	the list of [=layer names=] declared by the at-rule,
+	normalized following the same rule as
+	the {{CSSLayerBlockRule}}’s {{CSSLayerBlockRule/name}} attribute.
+
+
+<!--
+████████ ████████  ██████
+██          ██    ██    ██
+██          ██    ██
+██████      ██    ██
+██          ██    ██
+██          ██    ██    ██
+████████    ██     ██████
+-->
+
+<h2 id="changes">
+Changes</h2>
+
+<h3 id="changes-2022-01">
+Changes since the 13 Jan 2022 Candidate Recommendation Snapshot</h3>
+
+Non-trivial changes since the <a href="CSS Cascading and Inheritance Level 5">13 January 2022 Candidate Recommendation Snapshot</a>:
+
+<!-- to 13 Jan 2022 -->
+	* Clarify that all “aliases” of a property are reverted by ''revert''/''revert-layer''.
+	* Clarify that style sheets are ordered in [[final CSS style sheets]] order.
+	* Clarify that only ''@layer'' statement rules are ignored when checking validity of ''@import'', not empty ''@layer'' block rules.
+
+<h3 id="changes-2021-10">
+Changes since the 15 Oct 2021 Working Draft</h3>
+
+Non-trivial changes since the <a href="https://www.w3.org/TR/2021/WD-css-cascade-5-20211015/">15 October 2021 Working Draft</a>:
+
+<!-- to 4 Dec 2021 -->
+	* Updated grammar style for @import media queries and supports conditions
+	* Allowed functional notation parse-time aliases (<a href="https://github.com/w3c/csswg-drafts/issues/6193">Issue 6193</a>)
+	* Made CSSImportRule.layerName nullable (<a href="https://github.com/w3c/csswg-drafts/issues/6576">Issue 6576</a>)
+	* Clarified that revert-layer in style attr does not revert author layers (<a href="https://github.com/w3c/csswg-drafts/issues/6743">Issue 6743</a>)
+	* Clarified revert-layer on style attr and keyframes (<a href="https://github.com/w3c/csswg-drafts/issues/6743">Issue 6743</a>)
+	* Added [[#value-aliasing]] section.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6193">Issue 6193</a>)
+	* Added [[#layer-apis]] section.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6576">Issue 6576</a>)
+	* Clarified the behavior of ''revert-layer'' keyword when
+		used in the style attribute or ''@keyframes'' at-rule.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6743">Issue 6743</a>)
+	* Clarified the behavior of the ''layer'' keyword and ''layer()'' function
+		on ''@import'' rules.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6776">Issue 6776</a>)
+
+<h3 id="changes-2021-08">
+Changes since the 29 August 2021 Working Draft</h3>
+
+	Changes since the <a href="https://www.w3.org/TR/2021/WD-css-cascade-5-20210829/">29 August 2021 Working Draft</a> include:
+
+	* Revert the ordering of unlayered styles.
+		(See [[#changes-2021-06]] and
+		<a href="https://github.com/w3c/csswg-drafts/issues/6284">Issue 6284</a>)
+	* Defined presentational hints to use the [=author presentational hint origin=]
+		instead of layers, matching update to [[CSS-CASCADE-4]].
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6659">Issue 6659</a>)
+
+<h3 id="changes-2021-06">
+Changes since the 8 June 2021 Working Draft</h3>
+
+	Significant changes since the <a href="https://www.w3.org/TR/2021/WD-css-cascade-5-20210608/">8 June 2021 Working Draft</a> include:
+
+	* Reserve the CSS-wide keywords for future use in layer-names.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6323">Issue 6323</a>)
+	* Clarify that ''@layer'' rules respect global conditional rules,
+		but are always applied to the layer order when declared in non-global conditions
+		such as a container query.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6407">Issue 6407</a>)
+	* Name-defining at-rules follow layer order for collision resolution,
+		similar to specificity resolution.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6404">Issue 6404</a>)
+	* Disallow interleaving of ''@layer'' with ''@import'' or ''@namespace'' rules.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6522">Issue 6522</a>)
+
+<h3 id="changes-2021-03">
+Changes since the 19 March 2021 Working Draft</h3>
+
+	Significant changes since the <a href="https://www.w3.org/TR/2021/WD-css-cascade-5-20210319/">19 March 2021 Working Draft</a> include:
+
+	* Switched the ordering of unlayered styles
+		from highest to lowest precedence in the normal origins.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/6284">Issue 6284</a>)
+
+<h3 id="changes-2021-01">
+Changes since the 19 January 2021 Working Draft</h3>
+
+	Significant changes since the <a href="https://www.w3.org/TR/2021/WD-css-cascade-5-20210119/">19 January 2021 First Public Working Draft</a> include:
+
+	* Switched [=layer=] import syntax from using ''@layer'' to using ''@import''.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/5681">Issue 5681</a>)
+	* Added ''revert-layer'' keyword.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/5793">Issue 5793</a>)
+
+<h3 id="additions-l4">
+Additions Since Level 4</h3>
+
+	The following features have been added since
+	<a href="https://www.w3.org/TR/css-cascade-4/">Level 4</a>:
+
+	* Added [=cascade layers=] to the [=cascade=] sort criteria
+		(and defined style attributes as a distinct step of the [=cascade=] sort criteria
+		so that they interact appropriately).
+	* Introduced the ''@layer'' rule for defining cascade layers.
+	* Added ''layer''/''layer()'' option to ''@import'' definition.
+	* Introduced the ''revert-layer'' keyword for rolling back values to previous layers.
+
+<h3 id="additions-l3">
+Additions Since Level 3</h3>
+
+	The following features have been added since
+	<a href="https://www.w3.org/TR/css-cascade-3/">Level 3</a>:
+
+	* Introduced ''revert'' keyword, for rolling back the cascade.
+	* Introduced ''supports()'' syntax for supports-conditional ''@import'' rules.
+	* Added [=encapsulation context=] to the [=cascade=] sort criteria
+		to accommodate Shadow DOM. [[DOM]]
+	* Defined the property two aliasing mechanisms CSS uses to support legacy syntaxes. See [[#aliasing]].
+<!--
+	* Added definition of how scoped styles would cascade
+		(deferred from Level 3)
+-->
+
+<h3 id="changes-2">
+Additions Since Level 2</h3>
+
+	The following features have been added since
+	<a href="http://www.w3.org/TR/CSS2/cascade.html">Level 2</a>:
+
+	<ul>
+		<li>The 'all' shorthand
+		<li>The ''initial'' keyword
+		<li>The ''unset'' keyword
+		<li>Incorporation of animations and transitions into the <a>cascade</a>.
+	</ul>
+
+<h2 class="no-num" id="acknowledgments">Acknowledgments</h2>
+
+	David Baron,
+	Tantek Çelik,
+	Florian Rivoal,
+	Noam Rosenthal,
+	Simon Sapin,
+	Jen Simmons,
+	and Boris Zbarsky
+	contributed to this specification.
+
+<h2 class=no-num id=priv-sec>
+Privacy and Security Considerations</h2>
+
+	* The cascade process does not distinguish between same-origin and cross-origin stylesheets,
+		enabling the content of cross-origin stylesheets to be inferred
+		from the computed styles they apply to a document.
+
+	* User preferences and UA defaults expressed via application of style rules
+		are exposed by the cascade process,
+		and can be inferred from the computed styles they apply to a document.
+
+	* The ''@import'' rule does not apply the [=CORS protocol=] to loading cross-origin stylesheets,
+		instead allowing them to be freely imported and applied.
+
+	* The ''@import'' rule assumes that resources without <a href="https://html.spec.whatwg.org/multipage/urls-and-fetching.html#content-type"><code>Content-Type</code> metadata</a>
+		(or any same-origin file if the host document is in quirks mode)
+		are <code>text/css</code>,
+		potentially allowing arbitrary files to be imported into the page
+		and interpreted as CSS,
+		potentially allowing sensitive data to be inferred from the computed styles they apply to a document.

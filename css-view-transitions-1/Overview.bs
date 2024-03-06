@@ -1,0 +1,1994 @@
+<pre class='metadata'>
+Title: CSS View Transitions Module Level 1
+Shortname: css-view-transitions
+Level: 1
+Status: CR
+Prepare for TR: yes
+Date: 2023-09-05
+Deadline: 2023-12-05
+Group: csswg
+ED: https://drafts.csswg.org/css-view-transitions-1/
+TR: https://www.w3.org/TR/css-view-transitions-1/
+Work Status: exploring
+Editor: Tab Atkins-Bittner, Google, http://xanthir.com/contact/, w3cid 42199
+Editor: Jake Archibald, Google, w3cid 76394
+Editor: Khushal Sagar, Google, w3cid 122787
+Implementation Report: https://wpt.fyi/results/css/css-view-transitions
+Abstract: This module defines the View Transition API, along with associated properties and pseudo-elements,
+	which allows developers to create animated visual transitions representing changes in the document state.
+Markup Shorthands: css yes, markdown yes
+</pre>
+
+<pre class=link-defaults>
+spec:webidl; type:dfn; text:resolve
+spec:css-position-3; type:property
+	text: inset-block-start
+	text: inset-inline-start
+spec:css-shapes-3; type:function; text:rect()
+spec:webidl; type:interface; text:Promise
+spec:css-images-4; type:function; text:element()
+spec:dom; type:dfn; text:document
+spec:css-2022; type:dfn; text:style sheet
+spec:selectors-4; type:dfn;
+	text:selector
+	text:type selector
+spec:css-box-4; type:dfn; text:border box
+spec:css-display-3; type:dfn;
+	text:containing block
+	text:replaced element
+spec:css-cascade-5; type:dfn; text:computed value
+spec:css22; type:dfn; text:element
+spec:css-break-4; type:dfn; text:fragment
+spec:css-viewport; type:dfn; text:interactive-widget;
+spec:css-display-4; type: dfn; text:invisible;
+</pre>
+
+<pre class=anchors>
+urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
+	text: NavigateEvent
+	text: signal; for: NavigateEvent; url: #ref-for-dom-navigateevent-signal①
+</pre>
+
+<script async type="module" src="diagrams/resources/scaler.js"></script>
+
+<style>
+	spec-scaler {
+		display: block;
+	}
+	spec-scaler:not(:defined) > * {
+		display: none;
+	}
+	.spec-slides {
+		width: 100%;
+		height: 100%;
+		border: none;
+		display: block;
+	}
+	.spec-slide-controls {
+		text-align: center;
+	}
+	.main-example-video {
+		display: block;
+		width: 100%;
+		max-width: 702px;
+		height: auto;
+		margin: 0 auto;
+	}
+
+	/* Put nice boxes around each algorithm. */
+	[data-algorithm]:not(.heading) {
+		padding: .5em;
+		border: thin solid #ddd; border-radius: .5em;
+		margin: .5em calc(-0.5em - 1px);
+	}
+	[data-algorithm]:not(.heading) > :first-child {
+		margin-top: 0;
+	}
+	[data-algorithm]:not(.heading) > :last-child {
+		margin-bottom: 0;
+	}
+	[data-algorithm] [data-algorithm] {
+		margin: 1em 0;
+	}
+	pre {
+		tab-size: 2;
+	}
+	.domintro {
+		position: relative;
+		color: green;
+		background: #DDFFDD;
+		margin: 2.5em 0 2em 0;
+		padding: 1.5em 1em 0.5em 2em;
+	}
+	.domintro dt, .domintro dt * {
+		color: black;
+		font-size: inherit;
+	}
+	.domintro dd {
+		margin: 0.5em 0 1em 2em; padding: 0;
+	}
+	.domintro dd p {
+		margin: 0.5em 0;
+	}
+	.domintro::before {
+		content: 'For web developers (non-normative)';
+		background: green;
+		color: white;
+		padding: 0.15em 0.25em;
+		font-style: normal;
+		position: absolute;
+		top: -0.8em;
+		left: -0.8em;
+	}
+</style>
+
+# Introduction # {#intro}
+
+	*This section is non-normative.*
+
+	This specification introduces a DOM API and associated CSS features
+	that allow developers to create animated visual transitions,
+	called <dfn export>view transitions</dfn>
+	between different states of a [=/document=].
+
+## Separating Visual Transitions from DOM Updates ## {#separating-transitions}
+
+	Traditionally, creating a visual transition between two document states
+	required a period where both states were present in the DOM at the same time.
+	In fact, it usually involved creating a specific DOM structure
+	that could represent both states.
+	For example, if one element was “moving” between containers,
+	that element often needed to exist outside of either container for the period of the transition,
+	to avoid clipping from either container or their ancestor elements.
+
+	This extra in-between state often resulted in UX and accessibility issues,
+	as the structure of the DOM was compromised for a purely-visual effect.
+
+	[=View Transitions=] avoid this troublesome in-between state
+	by allowing the DOM to switch between states instantaneously,
+	then performing a customizable visual transition between the two states in another layer,
+	using a static visual capture of the old state, and a live capture of the new state.
+	These captures are represented as a tree of [=pseudo-elements=]
+	(detailed in [[#view-transition-pseudos]]),
+	where the old visual state co-exists with the new state,
+	allowing effects such as cross-fading
+	while animating from the old to new size and position.
+
+## View Transition Customization ## {#customizing}
+
+	By default, <code>document.{{Document/startViewTransition()}}</code>
+	creates a [=view transition=] consisting of
+	a page-wide cross-fade between the two DOM states.
+	Developers can also choose which elements are captured independently
+	using the 'view-transition-name' CSS property,
+	allowing these to be animated independently of the rest of the page.
+	Since the transitional state (where both old and new visual captures exist)
+	is represented as pseudo-elements,
+	developers can customize each transition using familiar features
+	such as <a href="https://www.w3.org/TR/css-animations/">CSS Animations</a>
+	and <a href="https://www.w3.org/TR/web-animations/">Web Animations</a>.
+
+## View Transition Lifecycle ## {#lifecycle}
+
+	A successful [=view transition=] goes through the following phases:
+
+	1. Developer calls <code>document.{{Document/startViewTransition}}({{UpdateCallback|updateCallback}})</code>,
+		which returns a {{ViewTransition}}, <var>viewTransition</var>.
+
+	1. Current state captured as the “old” state.
+
+	1. Rendering paused.
+
+	1. Developer's {{UpdateCallback|updateCallback}} function, if provided, is called,
+		which updates the document state.
+
+	1. <code><var>viewTransition</var>.{{ViewTransition/updateCallbackDone}}</code> fulfills.
+
+	1. Current state captured as the “new” state.
+
+	1. Transition pseudo-elements created.
+		See [[#view-transition-pseudos]] for an overview of this structure.
+
+	1. Rendering unpaused, revealing the transition pseudo-elements.
+
+	1. <code><var>viewTransition</var>.{{ViewTransition/ready}}</code> fulfills.
+
+	1. Pseudo-elements animate until finished.
+
+	1. Transition pseudo-elements removed.
+
+	1. <code><var>viewTransition</var>.{{ViewTransition/finished}}</code> fulfills.
+
+	<div id="phases-diagram">
+		<spec-scaler canvaswidth="1920" canvasheight="1080" style="aspect-ratio: 1920/1080">
+			<iframe class="spec-slides" src="diagrams/phases/phases.html"></iframe>
+		</spec-scaler>
+		<p class="spec-slide-controls">
+			<button disabled>Previous</button>
+			<button disabled>Next</button>
+		</p>
+		<script type="module">
+			const root = document.querySelector('#phases-diagram');
+			const [previous, next] = root.querySelectorAll('.spec-slide-controls button');
+			const iframe = root.querySelector('iframe');
+			next.disabled = false;
+
+			const updateButtons = (slide) => {
+				next.disabled = !slide.hasNext;
+				previous.disabled = !slide.hasPrevious;
+			};
+
+			next.addEventListener('click', async () => {
+				const slide = iframe.contentDocument.querySelector('spec-slide');
+				await slide.next();
+				updateButtons(slide);
+			});
+			previous.addEventListener('click', async () => {
+				const slide = iframe.contentDocument.querySelector('spec-slide');
+				await slide.previous();
+				updateButtons(slide);
+			});
+		</script>
+	</div>
+
+## Transitions as an enhancement ## {#transitions-as-enhancements}
+
+	A key part of the View Transition API design
+	is that an animated transition is a visual <em>enhancement</em>
+	to an underlying document state change.
+	That means a failure to create a visual transition,
+	which can happen due to misconfiguration or device constraints,
+	will not prevent the developer's {{UpdateCallback}} being called,
+	even if it's known in advance that the transition animations cannot happen.
+
+	For example, if the developer calls {{ViewTransition/skipTransition()}} at the start of the [[#lifecycle|view transition lifecycle]],
+	the steps relating to the animated transition,
+	such as creating the [=view transition tree=],
+	will not happen.
+	However, the {{UpdateCallback}} will still be called.
+	It's only the visual transition that's skipped,
+	not the underlying state change.
+
+	Note: If the DOM change should also be skipped,
+	then that needs to be handled by another feature.
+	<code>{{NavigateEvent|navigateEvent}}.{{NavigateEvent/signal}}</code> is an example of a feature developers could use to handle this.
+
+	Although the View Transition API allows DOM changes to be asynchronous via the {{UpdateCallback}},
+	the API is not responsible for queuing or otherwise scheduling DOM changes
+	beyond any scheduling needed for the transition itself.
+	Some asynchronous DOM changes can happen concurrently (e.g if they're happening within independent components),
+	whereas others need to queue, or abort an earlier change.
+	This is best left to a feature or framework that has a more holistic view of the application.
+
+## Rendering Model ## {#rendering-model}
+
+	View Transition works by replicating an element's rendered state using UA generated pseudo-elements.
+	Aspects of the element's rendering which apply to the element itself or its descendants,
+	for example visual effects like 'filter' or 'opacity' and clipping from 'overflow' or 'clip-path',
+	are applied when generating its image in [=Capture the image=].
+
+	However, properties like 'mix-blend-mode' which define how the element draws when it is embedded can't be applied to its image.
+	Such properties are applied to the element's corresponding ''::view-transition-group()'' pseudo-element,
+	which is meant to generate a box equivalent to the element.
+
+	If the ''::view-transition-group()'' has a corresponding element in the "new" states,
+	the browser keeps the properties copied over to the ''::view-transition-group()'' in sync with the DOM element in the "new" state.
+	If the ''::view-transition-group()'' has a corresponding both in the "old" and "new" state,
+	and the property being copied is interpolatable,
+	the browser also sets up a default animation to animate the property smoothly.
+
+## Examples ## {#examples}
+
+	<div class=example>
+		Taking a page that already updates its content using a pattern like this:
+
+		```js
+		function spaNavigate(data) {
+			updateTheDOMSomehow(data);
+		}
+		```
+
+		A [=view transition=] could be added like this:
+
+		```js
+		function spaNavigate(data) {
+			// Fallback for browsers that don't support this API:
+			if (!document.startViewTransition) {
+				updateTheDOMSomehow(data);
+				return;
+			}
+
+			// With a transition:
+			document.startViewTransition(() => updateTheDOMSomehow(data));
+		}
+		```
+
+		This results in the default transition of a quick cross-fade:
+
+		<figure>
+			<video src="diagrams/videos/default.mp4" style="aspect-ratio: 1404/738" class="main-example-video" controls muted loop playsinline></video>
+		</figure>
+
+		The cross-fade is achieved using CSS animations on a [[#view-transition-pseudos|tree of pseudo-elements]],
+		so customizations can be made using CSS. For example:
+
+		```css
+		::view-transition-old(root),
+		::view-transition-new(root) {
+			animation-duration: 5s;
+		}
+		```
+
+		This results in a slower transition:
+
+		<figure>
+			<video src="diagrams/videos/slow.mp4" style="aspect-ratio: 1404/738" class="main-example-video" controls muted loop playsinline></video>
+		</figure>
+	</div>
+
+	<div class=example>
+		Building on the previous example, motion can be added:
+
+		```css
+		@keyframes fade-in {
+			from { opacity: 0; }
+		}
+
+		@keyframes fade-out {
+			to { opacity: 0; }
+		}
+
+		@keyframes slide-from-right {
+			from { transform: translateX(30px); }
+		}
+
+		@keyframes slide-to-left {
+			to { transform: translateX(-30px); }
+		}
+
+		::view-transition-old(root) {
+			animation: 90ms cubic-bezier(0.4, 0, 1, 1) both fade-out,
+				300ms cubic-bezier(0.4, 0, 0.2, 1) both slide-to-left;
+		}
+
+		::view-transition-new(root) {
+			animation: 210ms cubic-bezier(0, 0, 0.2, 1) 90ms both fade-in,
+				300ms cubic-bezier(0.4, 0, 0.2, 1) both slide-from-right;
+		}
+		```
+
+		Here's the result:
+
+		<figure>
+			<video src="diagrams/videos/slide.mp4" style="aspect-ratio: 1404/738" class="main-example-video" controls muted loop playsinline></video>
+		</figure>
+	</div>
+
+	<div class=example>
+		Building on the previous example,
+		the header and text within the header can be given their own ''::view-transition-group()''s for the transition:
+
+		```css
+		.main-header {
+			view-transition-name: main-header;
+		}
+
+		.main-header-text {
+			view-transition-name: main-header-text;
+			/* Give the element a consistent size, assuming identical text: */
+			width: fit-content;
+		}
+		```
+
+		By default, these groups will transition size and position from their “old” to “new” state,
+		while their visual states cross-fade:
+
+		<figure>
+			<video src="diagrams/videos/header.mp4" style="aspect-ratio: 1404/738" class="main-example-video" controls muted loop playsinline></video>
+		</figure>
+	</div>
+
+	<div class=example>
+		Building on the previous example, let's say some pages have a sidebar:
+
+		<figure>
+			<video src="diagrams/videos/bad-sidebar.mp4" style="aspect-ratio: 1404/738" class="main-example-video" controls muted loop playsinline></video>
+		</figure>
+
+		In this case, things would look better if the sidebar was static if it was in both the “old” and “new” states.
+		Otherwise, it should animate in or out.
+
+		The '':only-child'' pseudo-class can be used to create animations specifically for these states:
+
+		```css
+		.sidebar {
+			view-transition-name: sidebar;
+		}
+
+		@keyframes slide-to-right {
+			to { transform: translateX(30px); }
+		}
+
+		/* Entry transition */
+		::view-transition-new(sidebar):only-child {
+			animation: 300ms cubic-bezier(0, 0, 0.2, 1) both fade-in,
+				300ms cubic-bezier(0.4, 0, 0.2, 1) both slide-from-right;
+		}
+
+		/* Exit transition */
+		::view-transition-old(sidebar):only-child {
+			animation: 150ms cubic-bezier(0.4, 0, 1, 1) both fade-out,
+				300ms cubic-bezier(0.4, 0, 0.2, 1) both slide-to-right;
+		}
+		```
+
+		For cases where the sidebar has both an “old” and “new” state, the default animation is correct.
+
+		<figure>
+			<video src="diagrams/videos/good-sidebar.mp4" style="aspect-ratio: 1404/738" class="main-example-video" controls muted loop playsinline></video>
+		</figure>
+	</div>
+
+	<div class=example>
+		Not building from previous examples this time,
+		let's say we wanted to create a circular reveal from the user's cursor.
+		This can't be done with CSS alone.
+
+		Firstly, in the CSS, allow the “old” and “new” states to layer on top of one another without the default blending,
+		and prevent the default cross-fade animation:
+
+		```css
+		::view-transition-image-pair(root) {
+			isolation: auto;
+		}
+
+		::view-transition-old(root),
+		::view-transition-new(root) {
+			animation: none;
+			mix-blend-mode: normal;
+		}
+		```
+
+		Then, the JavaScript:
+
+		```js
+		// Store the last click event
+		let lastClick;
+		addEventListener('click', event => (lastClick = event));
+
+		function spaNavigate(data) {
+			// Fallback for browsers that don't support this API:
+			if (!document.startViewTransition) {
+				updateTheDOMSomehow(data);
+				return;
+			}
+
+			// Get the click position, or fallback to the middle of the screen
+			const x = lastClick?.clientX ?? innerWidth / 2;
+			const y = lastClick?.clientY ?? innerHeight / 2;
+			// Get the distance to the furthest corner
+			const endRadius = Math.hypot(
+				Math.max(x, innerWidth - x),
+				Math.max(y, innerHeight - y)
+			);
+
+			// Create a transition:
+			const transition = document.startViewTransition(() => {
+				updateTheDOMSomehow(data);
+			});
+
+			// Wait for the pseudo-elements to be created:
+			transition.ready.then(() => {
+				// Animate the root's new view
+				document.documentElement.animate(
+					{
+						clipPath: [
+							\`circle(0 at ${x}px ${y}px)\`,
+							\`circle(${endRadius}px at ${x}px ${y}px)\`,
+						],
+					},
+					{
+						duration: 500,
+						easing: 'ease-in',
+						// Specify which pseudo-element to animate
+						pseudoElement: '::view-transition-new(root)',
+					}
+				);
+			});
+		}
+		```
+
+		And here's the result:
+
+		<figure>
+			<video src="diagrams/videos/circle.mp4" style="aspect-ratio: 1404/738" class="main-example-video" controls muted loop playsinline></video>
+		</figure>
+	</div>
+
+# CSS properties # {#css-properties}
+
+## Tagging Individually Transitioning Subtrees: the 'view-transition-name' property ## {#view-transition-name-prop}
+
+	<pre class=propdef>
+	Name: view-transition-name
+	Value: none | <<custom-ident>>
+	Initial: none
+	Inherited: no
+	Percentages: n/a
+	Computed Value: as specified
+	Animation type: discrete
+	</pre>
+
+	Note: though 'view-transition-name' is [=discrete|discretely animatable=], animating it doesn't
+	affect the running view transition. Rather, it's a way to set its value in a way that can change
+	over time or based on a [=timeline=]. An example for using this would be to change the 'view-transition-name'
+	based on [=scroll-driven animations=].
+
+	The 'view-transition-name' property “tags” an element
+	for [=capture in a view transition=],
+	tracking it independently in the [=view transition tree=]
+	under the specified <dfn>view transition name</dfn>.
+	An element so captured is animated independently of the rest of the page.
+
+	<dl dfn-type=value dfn-for=view-transition-name>
+		: <dfn>none</dfn>
+		:: The [=/element=] will not participate independently in a view transition.
+
+		: <dfn><<custom-ident>></dfn>
+		:: The [=/element=] participates independently in a view transition--
+			as either an old or new [=/element=]--
+			with the specified [=view transition name=].
+
+			The values <css>none</css> and <css>auto</css> are excluded from <<custom-ident>> here.
+
+			Note: If this name is not unique
+			(i.e. if two elements simultaneously specify the same [=view transition name=])
+			then the [=view transition=] will abort.
+	</dl>
+
+	Note:  For the purposes of this API,
+	if one element has [=view transition name=] ''foo'' in the old state,
+	and another element has [=view transition name=] ''foo'' in the new state,
+	they are treated as representing different visual state of the same element,
+	and will be paired in the [=view transition tree=].
+	This may be confusing, since the elements themselves are not necessarily referring to the same object,
+	but it is a useful model to consider them to be visual states of the same conceptual page entity.
+
+	If the element’s [=principal box=] is [=fragmented=],
+	[=skips its contents|skipped=],
+	or [=element-not-rendered|not rendered=],
+	this property has no effect.
+	See [[#algorithms]] for exact details.
+
+### Rendering Consolidation ### {#named-and-transitioning}
+
+	[=/Elements=] [=captured in a view transition=] during a [=view transition=]
+	or whose 'view-transition-name' [=computed value=] is not ''view-transition-name/none'' (at any time):
+	- Form a [=stacking context=].
+	- Are [[css-transforms-2#grouping-property-values|flattened in 3D transforms]].
+	- Form a [=backdrop root=].
+
+# Pseudo-elements # {#pseudo}
+
+## Pseudo-element Trees ## {#pseudo-root}
+
+	Note: This is a general definition for trees of pseudo-elements. If other features need this behavior, these definitions will be moved to [[css-pseudo-4]].
+
+	A <dfn>pseudo-element root</dfn> is a type of [=tree-abiding pseudo-element=] that is the [=tree/root=] in a [=tree=] of [=tree-abiding pseudo-elements=],
+	known as the <dfn>pseudo-element tree</dfn>.
+
+	The [=pseudo-element tree=] defines the document order of its [=tree/descendant=] [=tree-abiding pseudo-elements=].
+
+	When a [=pseudo-element=] [=tree/participates=] in a [=pseudo-element tree=],
+	its [=originating pseudo-element=] is its [=tree/parent=].
+
+	If a [=tree/descendant=] |pseudo| of a [=pseudo-element root=] has no other [=tree/siblings=],
+	then '':only-child'' matches that |pseudo|.
+
+	Note: This means that `::view-transition-new(ident):only-child` will only select `::view-transition-new(ident)` if the parent `::view-transition-image-pair(ident)` contains a single [=tree/child=].
+	As in, there is no [=tree/sibling=] `::view-transition-old(ident)`.
+
+## View Transition Pseudo-elements ## {#view-transition-pseudos}
+
+	The visualization of a [=view transition=]
+	is represented as a [=pseudo-element tree=]
+	called the <dfn>view transition tree</dfn>
+	composed of the <dfn>view transition pseudo-elements</dfn> defined below.
+	This tree is built during the [=setup transition pseudo-elements=] step,
+	and is rooted under a ''::view-transition'' pseudo-element
+	[=originating element|originating=] from the [=root element=].
+	All of the [=view transition pseudo-elements=] are selected
+	from their [=ultimate originating element=], the [=document element=].
+
+	The [=view transition tree=] is not exposed to the accessibility tree.
+
+	<div class="example">
+		For example,
+		the ''::view-transition-group()'' pseudo-element is attached to the root element selector directly,
+		as in '':root::view-transition-group()'';
+		it is not attached to its parent, the ''::view-transition'' pseudo-element.
+	</div>
+
+	<div class=note>
+		Once the user-agent has captured both the “old” and “new” states of the document,
+		it creates a structure of pseudo-elements like the following:
+
+		```
+		::view-transition
+		├─ ::view-transition-group(name)
+		│  └─ ::view-transition-image-pair(name)
+		│     ├─ ::view-transition-old(name)
+		│     └─ ::view-transition-new(name)
+		└─ …other groups…
+		```
+
+		Each element with a 'view-transition-name' is captured separately,
+		and a ''::view-transition-group()'' is created for each unique 'view-transition-name'.
+
+		For convenience, the [=document element=] is given the 'view-transition-name' "root" in the [[#ua-styles|user-agent style sheet]].
+
+		Either ''::view-transition-old()'' or ''::view-transition-new()'' are absent in cases where the capture does not have an “old” or “new” state.
+
+		Each of the pseudo-elements generated can be targeted by CSS in order to customize its appearance,
+		behavior and/or add animations.
+		This enables full customization of the transition.
+	</div>
+
+### Named View Transition Pseudo-elements ### {#named-view-transition-pseudo}
+
+	Several of the [=view transition pseudo-elements=]
+	are <dfn>named view transition pseudo-elements</dfn>,
+	which are [=functional pseudo-element|functional=] [=tree-abiding pseudo-element|tree-abiding=] [=view transition pseudo-elements=]
+	associated with a [=view transition name=].
+	These pseudo-elements take a <<pt-name-selector>> as their argument,
+	and their syntax follows the pattern:
+
+	<pre class=prod>
+		::view-transition-<var>pseudo</var>(<<pt-name-selector>>)
+	</pre>
+
+	where <<pt-name-selector>> selects a [=view transition name=],
+	and has the following syntax definition:
+
+	<pre class=prod>
+		<dfn>&lt;pt-name-selector></dfn> = '*' | <<custom-ident>>
+	</pre>
+
+	A [=named view transition pseudo-element=] [=selector=] only matches
+	a corresponding [=pseudo-element=]
+	if its <<pt-name-selector>> matches that [=pseudo-element=]’s [=view transition name=],
+	i.e. if it is either ''*'' or a matching <<custom-ident>>.
+
+	Note: The [=view transition name=] of a [=view transition pseudo-element=]
+	is set to the 'view-transition-name' that triggered its creation.
+
+	The specificity of a [=named view transition pseudo-element=] [=selector=]
+	with a <<custom-ident>> argument
+	is equivalent to a [=type selector=].
+	The specificity of a [=named view transition pseudo-element=] [=selector=]
+	with a ''*'' argument
+	is zero.
+
+### View Transition Tree Root: the ''::view-transition'' pseudo-element ### {#view-transition-pseudo}
+
+	The <dfn>::view-transition</dfn> [=pseudo-element=]
+	is a [=tree-abiding pseudo-element=] that is also a [=pseudo-element root=].
+	Its [=originating element=] is the document's [=document element=],
+	and its [=containing block=] is the [=snapshot containing block=].
+
+	Note: This element serves as the [=tree/parent=] of all ''::view-transition-group()'' pseudo-elements.
+
+### View Transition Named Subtree Root: the ''::view-transition-group()'' pseudo-element ### {#::view-transition-group}
+
+	The <dfn>::view-transition-group()</dfn> [=pseudo-element=]
+	is a [=named view transition pseudo-element=]
+	that represents a matching named [=view transition=] capture.
+	A ''::view-transition-group()'' [=pseudo-element=]
+	is generated for each [=view transition name=]
+	as a [=tree/child=] of the ''::view-transition'' [=pseudo-element=],
+	and contains a corresponding ''::view-transition-image-pair()''.
+
+	<div class=note>
+		This element initially mirrors the size and position of the “old” element,
+		or the “new” element if there isn't an “old” element.
+
+		If there's both an “old” and “new” state,
+		styles in the [=document/dynamic view transition style sheet=] animate this pseudo-element's 'width' and 'height'
+		from the size of the old element's [=border box=] to that of the new element's [=border box=].
+
+		Also the element's 'transform' is animated from the old element's screen space transform to the new element's screen space transform.
+
+		This style is generated dynamically since the values of animated properties are determined at the time that the transition begins.
+	</div>
+
+
+### View Transition Image Pair Isolation: the ''::view-transition-image-pair()'' pseudo-element ### {#::view-transition-image-pair}
+
+	The <dfn>::view-transition-image-pair()</dfn> [=pseudo-element=]
+	is a [=named view transition pseudo-element=]
+	that represents a pair of corresponding old/new [=view transition=] captures.
+	This pseudo-element is a [=tree/child=] of the corresponding ''::view-transition-group()'' pseudo-element
+	and contains
+	a corresponding ''::view-transition-old()'' pseudo-element
+	and/or
+	a corresponding ''::view-transition-new()'' pseudo-element
+	(in that order).
+
+	<div class=note>
+		This element exists to provide ''isolation: isolate'' for its children,
+		and is always present as a [=tree/child=] of each ''::view-transition-group()''.
+		This isolation allows the image pair to be blended with non-normal blend modes
+		without affecting other visual outputs.
+	</div>
+
+### View Transition Old State Image: the ''::view-transition-old()'' pseudo-element ### {#::view-transition-old}
+
+	The <dfn>::view-transition-old()</dfn> [=pseudo-element=]
+	is an empty [=named view transition pseudo-element=]
+	that represents a visual snapshot of the “old” state as a [=replaced element=];
+	it is omitted if there's no “old” state to represent.
+	Each ''::view-transition-old()'' pseudo-element is a [=tree/child=]
+	of the corresponding ''::view-transition-image-pair()'' pseudo-element.
+
+	<div class=note>
+		'':only-child'' can be used to match cases where this element is the only element in the ''::view-transition-image-pair()''.
+
+		The appearance of this element can be manipulated with `object-*` properties in the same way that other replaced elements can be.
+	</div>
+
+	Note: The content and [=natural dimensions=] of the image are captured in [=capture the image=],
+	and set in [=setup transition pseudo-elements=].
+
+	Note: Additional styles in the [=document/dynamic view transition style sheet=] added to animate these pseudo-elements
+	are detailed in [=setup transition pseudo-elements=] and [=update pseudo-element styles=].
+
+### View Transition New State Image: the ''::view-transition-new()'' pseudo-element ### {#::view-transition-new}
+
+	The <dfn>::view-transition-new()</dfn> [=pseudo-element=]
+	(like the analogous ''::view-transition-old()'' pseudo-element)
+	is an empty [=named view transition pseudo-element=]
+	that represents a visual snapshot of the “new” state as a [=replaced element=];
+	it is omitted if there's no “new” state to represent.
+	Each ''::view-transition-new()'' pseudo-element is a [=tree/child=]
+	of the corresponding ''::view-transition-image-pair()'' pseudo-element.
+
+	Note: The content and [=natural dimensions=] of the image are captured in [=capture the image=],
+	then set and updated in [=setup transition pseudo-elements=] and [=update pseudo-element styles=].
+
+# View Transition Layout # {#view-transition-rendering}
+
+	The [=view transition pseudo-elements=] are styled, laid out, and rendered like normal elements,
+	except that they originate in the [=snapshot containing block=] rather than the [=initial containing block=]
+	and are painted in the [=view transition layer=] above the rest of the document.
+
+## The Snapshot Containing Block ## {#snapshot-containing-block-concept}
+
+	The <dfn>snapshot containing block</dfn> is a rectangle
+	that covers all areas of the window that could potentially display page content
+	(and is therefore consistent regardless of root scrollbars or [=interactive-widget|interactive widgets=]).
+	This makes it likely to be consistent for the [=document element=]'s [=captured element/old image=] and [=captured element/new element=].
+
+	<figure>
+		<img src="diagrams/phone-browser.svg" width="200" height="335" alt="A diagram of a phone screen, including a top status bar, a browser URL bar, web-content area with a floating scrollbar, a virtual keyboard, and a bottom bar with an OS back button">
+		<img src="diagrams/phone-browser-snapshot-root.svg" width="200" height="335" alt="The previous diagram, but highlights the area that's the 'snapshot containing block', which includes everything except the top status bar and the bottom bar with the OS back button">
+		<figcaption>
+			An example of the [=snapshot containing block=] on a mobile OS.
+			The snapshot includes the URL bar, as this can be scrolled away.
+			The keyboard is included as this appears and disappears.
+			The top and bottom bars are part of the OS rather than the browser, so they're not included in the snapshot containing block.
+		</figcaption>
+	</figure>
+
+	<figure>
+		<img src="diagrams/desktop-browser.svg" width="132" height="79" alt="A diagram of a desktop browser window, including a tab bar, a URL bar, and a web-content area featuring both horizontal and vertical scrollbars" style="height:auto; width: 600px">
+		<img src="diagrams/desktop-browser-snapshot-root.svg" width="132" height="79" alt="The previous diagram, but highlights the area that's the 'snapshot containing block', which includes the web content area and the scrollbars" style="height:auto; width: 600px">
+		<figcaption>
+			An example of the [=snapshot containing block=] on a desktop OS.
+			This includes the scrollbars, but does not include the URL bar, as web content never appears in that area.
+		</figcaption>
+	</figure>
+
+	The <dfn>snapshot containing block origin</dfn> refers to the top-left corner of the [=snapshot containing block=].
+
+	The <dfn>snapshot containing block size</dfn> refers to the width and height of the [=snapshot containing block=] as a [=/tuple=] of two numbers.
+
+	The [=snapshot containing block=] is considered to be an [=absolute positioning containing block=]
+	and a [=fixed positioning containing block=] for ''::view-transition'' and its descendants.
+
+## View Transition Painting Order ## {#view-transition-stacking-layer}
+
+	This specification introduces a new stacking layer, the [=view transition layer=],
+	to the end of the painting order established in
+	<a href="https://www.w3.org/TR/CSS22/zindex.html">CSS2&sect;E Elaborate Description of Stacking Contexts</a>. [[!CSS2]]
+
+	The ''::view-transition'' pseudo-element generates a new stacking context,
+	called the <dfn>view transition layer</dfn>,
+	which paints after all other content of the document
+	(including any content rendered in the [=Document/top layer=]),
+	after any filters and effects that are applied to such content.
+	(It is not subject to such filters or effects,
+	except insofar as they affect the rendered contents
+	of the ''::view-transition-old()'' and ''::view-transition-new()'' pseudo-elements.)
+
+	Note: The intent of the feature is to be able to capture the contents of the page, which includes the top layer elements.
+	In order to accomplish that, the [=view transition layer=] cannot be a part of the captured stacking contexts,
+	since that results in a circular dependency.
+	Therefore, the [=view transition layer=] is a sibling of all other content.
+
+	When a {{Document}}'s [=document/active view transition=]'s [=ViewTransition/phase=] is "`animating`",
+	the boxes generated by any element in that {{Document}} with [=captured in a view transition=]
+	and its [=element contents=],
+	except [=ViewTransition/transition root pseudo-element=]'s [=tree/inclusive descendants=],
+	are not painted (as if they had ''visibility: hidden'') and
+	do not respond to hit-testing (as if they had ''pointer-events: none'').
+
+	Note: Elements participating in a transition need to skip painting in their DOM location because
+		their image is painted in the corresponding ''::view-transition-new()'' pseudo-element instead.
+		Similarly, hit-testing is skipped because the element's DOM location does not correspond to where its contents are rendered.
+		However, there is no change in how these elements are accessed by assistive technologies or the accessibility tree.
+
+
+# User Agent Stylesheet # {#ua-styles}
+
+	The <dfn>global view transition user agent style sheet</dfn> is
+	a [=user-agent origin=] style sheet containing the following rules:
+
+	```css
+	:root {
+		view-transition-name: root;
+	}
+
+	:root::view-transition {
+		position: fixed;
+		inset: 0;
+	}
+
+	:root::view-transition-group(*) {
+		position: absolute;
+		top: 0;
+		left: 0;
+
+		animation-duration: 0.25s;
+		animation-fill-mode: both;
+	}
+
+	:root::view-transition-image-pair(*) {
+		position: absolute;
+		inset: 0;
+
+		animation-duration: inherit;
+		animation-fill-mode: inherit;
+		animation-delay: inherit;
+	}
+
+	:root::view-transition-old(*),
+	:root::view-transition-new(*) {
+		position: absolute;
+		inset-block-start: 0;
+		inline-size: 100%;
+		block-size: auto;
+
+		animation-duration: inherit;
+		animation-fill-mode: inherit;
+		animation-delay: inherit;
+	}
+
+	/* Default cross-fade transition */
+	@keyframes -ua-view-transition-fade-out {
+		to { opacity: 0; }
+	}
+	@keyframes -ua-view-transition-fade-in {
+		from { opacity: 0; }
+	}
+
+	/* Keyframes for blending when there are 2 images */
+	@keyframes -ua-mix-blend-mode-plus-lighter {
+		from { mix-blend-mode: plus-lighter }
+		to { mix-blend-mode: plus-lighter }
+	}
+	```
+
+	<details class="note">
+		<summary>Explanatory Summary</summary>
+		This UA style sheet does several things:
+		* Lay out ''::view-transition'' to cover the entire [=snapshot containing block=]
+			so that each '':view-transition-group()'' child can lay out relative to it.
+		* Give the [=root element=] a default [=view transition name=],
+			to allow it to be independently selected.
+		* Reduce layout interference from the ''::view-transition-image-pair()'' pseudo-element
+			so that authors can essentially treat ''::view-transition-old()'' and ''::view-transition-new()''
+			as direct children of ''::view-transition-group()'' for most purposes.
+		* Inherit animation timing through the tree so that by default,
+			the animation timing set on a ''::view-transition-group()''
+			will dictate the animation timing of all its descendants.
+		* Style the element captures ''::view-transition-old()'' and ''::view-transition-new()''
+			to match the size and position set on ''::view-transition-group()''
+			(insofar as possible without breaking their aspect ratios)
+			as it interpolates between them.
+			Since the sizing of these elements depends on the mapping between logical and physical coordinates,
+			[=dynamic view transition style sheet=] copies relevant styles from the DOM elements.
+		* Set up a default quarter-second cross-fade animation
+			for each ''::view-transition-group()''.
+	</details>
+
+	Additional styles are dynamically added to the [=user-agent origin=] during a [=view transition=]
+	through the [=document/dynamic view transition style sheet=].
+
+# API # {#api}
+
+## Additions to {{Document}} ## {#additions-to-document-api}
+
+	<xmp class=idl>
+		partial interface Document {
+			ViewTransition startViewTransition(optional UpdateCallback updateCallback);
+		};
+
+		callback UpdateCallback = Promise<any> ();
+	</xmp>
+
+	<dl class="domintro non-normative">
+		: <code>{{ViewTransition|viewTransition}} = {{Document|document}}.{{startViewTransition}}({{UpdateCallback|updateCallback}})</code>
+		:: Starts a new [=view transition=]
+			(canceling the {{Document|document}}’s existing [=active view transition=], if any).
+
+			{{UpdateCallback|updateCallback}}, if provided, is called asynchronously, once the current state of the document is captured.
+			Then, when the promise returned by {{UpdateCallback|updateCallback}} fulfills,
+			the new state of the document is captured
+			and the transition is initiated.
+
+			Note that {{UpdateCallback|updateCallback}}, if provided, is *always* called,
+			even if the transition cannot happen
+			(e.g. due to duplicate `view-transition-name` values).
+			The transition is an enhancement around the state change, so a failure to create a transition never prevents the state change.
+			See [[#transitions-as-enhancements]] for more details on this principle.
+
+			If the promise returned by {{UpdateCallback|updateCallback}} rejects, the transition is skipped.
+	</dl>
+
+### {{Document/startViewTransition()}} Method Steps ### {#ViewTransition-prepare}
+
+	<div algorithm>
+		The [=method steps=] for <dfn method for=Document>startViewTransition(|updateCallback|)</dfn> are as follows:
+
+		1. Let |transition| be a new {{ViewTransition}} object in [=this's=] [=relevant Realm=].
+
+		1. If |updateCallback| is provided, set |transition|'s [=ViewTransition/update callback=] to |updateCallback|.
+
+		1. Let |document| be [=this's=] [=relevant global object's=] [=associated document=].
+
+		1. If |document|'s [=Document/visibility state=] is "<code>hidden</code>",
+			then [=skip the view transition|skip=] |transition| with an "{{InvalidStateError}}" {{DOMException}},
+			and return.
+
+		1. If |document|'s [=active view transition=] is not null,
+			then [=skip the view transition|skip that view transition=]
+			with an "{{AbortError}}" {{DOMException}} in [=this's=] [=relevant Realm=].
+
+			Note: This can result in two asynchronous [=ViewTransition/update callbacks=] running concurrently
+			(and therefore possibly out of sequence):
+			one for the |document|'s current [=active view transition=], and another for this |transition|.
+			As per the [design of this feature](#transitions-as-enhancements), it's assumed that the developer is using another feature or framework to correctly schedule these DOM changes.
+
+		1. Set |document|'s [=active view transition=] to |transition|.
+
+			Note: The [=view transition=] process continues in [=setup view transition=],
+			via [=perform pending transition operations=].
+
+		1. Return |transition|.
+	</div>
+
+## The {{ViewTransition}} interface ## {#the-domtransition-interface}
+
+	<xmp class=idl>
+		[Exposed=Window]
+		interface ViewTransition {
+			readonly attribute Promise<undefined> updateCallbackDone;
+			readonly attribute Promise<undefined> ready;
+			readonly attribute Promise<undefined> finished;
+			undefined skipTransition();
+		};
+	</xmp>
+
+	The {{ViewTransition}} interface represents and controls a single same-document [=view transition=],
+	i.e. a transition where the starting and ending document are the same,
+	possibly with changes to the document's DOM structure.
+
+	<dl class="domintro non-normative">
+		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/updateCallbackDone}}</code>
+		:: A promise that fulfills when the promise returned by {{UpdateCallback|updateCallback}} fulfills, or rejects when it rejects.
+
+			Note: The View Transition API wraps a DOM change and creates a visual transition.
+			However, sometimes you don't care about the success/failure of the transition animation,
+			you just want to know if and when the DOM change happens.
+			{{ViewTransition/updateCallbackDone}} is for that use-case.)
+
+		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/ready}}</code>
+		:: A promise that fulfills once the pseudo-elements for the transition are created,
+			and the animation is about to start.
+
+			It rejects if the transition cannot begin.
+			This can be due to misconfiguration, such as duplicate 'view-transition-name's,
+			or if {{ViewTransition/updateCallbackDone}} returns a rejected promise.
+
+			The point that {{ViewTransition/ready}} fulfills
+			is the ideal opportunity to animate the [=view transition pseudo-elements=]
+			with the [[web-animations-1#extensions-to-the-element-interface|Web Animation API]].
+
+		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/finished}}</code>
+		:: A promise that fulfills once the end state is fully visible and interactive to the user.
+
+			It only rejects if {{UpdateCallback|updateCallback}} returns a rejected promise,
+			as this indicates the end state wasn't created.
+
+			Otherwise, if a transition fails to begin,
+			or is skipped (by {{ViewTransition/skipTransition()}}),
+			the end state is still reached,
+			so {{ViewTransition/finished}} fulfills.
+
+		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/skipTransition}}()</code>
+		:: Immediately finish the transition, or prevent it starting.
+
+			This never prevents {{UpdateCallback|updateCallback}} being called,
+			as the DOM change is independent of the transition.
+			See [[#transitions-as-enhancements]] for more details on this principle.
+
+			If this is called before {{ViewTransition/ready}} resolves, {{ViewTransition/ready}} will reject.
+
+			If {{ViewTransition/finished}} hasn't resolved, it will fulfill or reject along with {{ViewTransition/updateCallbackDone}}.
+	</dl>
+
+	A {{ViewTransition}} has the following:
+
+	<dl dfn-for="ViewTransition">
+		: <dfn>named elements</dfn>
+		:: a [=/map=], whose keys are [=view transition names=] and whose values are [=captured elements=].
+			Initially a new [=map=].
+			Note: Since this is associated to the {{ViewTransition}}, it will be cleaned up when [=Clear view transition=] is called.
+
+		: <dfn>phase</dfn>
+		:: One of the following ordered phases, initially "`pending-capture`":
+
+			1. "`pending-capture`".
+			1. "`update-callback-called`".
+			1. "`animating`".
+			1. "`done`".
+
+			Note: For the most part, a developer using this API does not need to worry about the different phases, since they progress automatically.
+			It is, however, important to understand what steps happen in each of the phases: when the snapshots are captured, when pseudo-element DOM is created, etc.
+			The description of the phases below tries to be as precise as possible, with an intent to provide an unambiguous set of steps for implementors to follow in order to produce a spec-compliant implementation.
+
+		: <dfn>update callback</dfn>
+		:: an {{UpdateCallback}} or null. Initially null.
+
+		: <dfn>ready promise</dfn>
+		:: a {{Promise}}.
+			Initially [=a new promise=] in [=this's=] [=relevant Realm=].
+
+		: <dfn>update callback done promise</dfn>
+		:: a {{Promise}}.
+			Initially [=a new promise=] in [=this's=] [=relevant Realm=].
+
+			Note: The [=ready promise=] and [=update callback done promise=] are immediately created,
+			so rejections will cause {{unhandledrejection}}s unless they're [=mark as handled|handled=],
+			even if the getters such as {{updateCallbackDone}} are not accessed.
+
+		: <dfn>finished promise</dfn>
+		:: a {{Promise}}.
+			Initially [=a new promise=] in [=this's=] [=relevant Realm=],
+				[=marked as handled=].
+
+			Note: This is [=marked as handled=] to prevent duplicate {{unhandledrejection}}s,
+			as this promise only ever rejects along with the [=update callback done promise=].
+
+		: <dfn>transition root pseudo-element</dfn>
+		:: a ''::view-transition''.
+			Initially a new ''::view-transition''.
+
+		: <dfn>initial snapshot containing block size</dfn>
+		:: a [=tuple=] of two numbers (width and height), or null.
+			Initially null.
+
+			Note: This is used to detect changes in the [=snapshot containing block size=],
+			which causes the transition to [=skip the view transition|skip=].
+			[Discussion of this behavior](https://github.com/w3c/csswg-drafts/issues/8045).
+	</dl>
+
+	The {{ViewTransition/finished}} [=getter steps=] are to return [=this's=] [=ViewTransition/finished promise=].
+
+	The {{ViewTransition/ready}} [=getter steps=] are to return [=this's=] [=ViewTransition/ready promise=].
+
+	The {{ViewTransition/updateCallbackDone}} [=getter steps=] are to return [=this's=] [=ViewTransition/update callback done promise=].
+
+### {{ViewTransition/skipTransition()}} Method Steps ### {#ViewTransition-skipTransition}
+
+	<div algorithm="dom-viewtransition-skipTransition">
+		The [=method steps=] for <dfn method for="ViewTransition">skipTransition()</dfn> are:
+
+		1. If [=this=]'s [=ViewTransition/phase=] is not "`done`",
+			then [=skip the view transition=] for [=this=]
+			with an "{{AbortError}}" {{DOMException}}.
+	</div>
+
+# Algorithms # {#algorithms}
+
+## Data Structures ## {#concepts}
+
+### Additions to {{Document}} ### {#additions-to-document}
+
+	A {{Document}} additionally has:
+
+	<dl dfn-for=document>
+		: <dfn>active view transition</dfn>
+		:: a {{ViewTransition}} or null. Initially null.
+
+		: <dfn>rendering suppression for view transitions</dfn>
+		:: a boolean. Initially false.
+
+			While a {{Document}}’s [=document/rendering suppression for view transitions=] is true,
+			all pointer hit testing must target its [=document element=],
+			ignoring all other [=elements=].
+
+			Note: This does not affect pointers that are [=pointer capture|captured=].
+
+		: <dfn>dynamic view transition style sheet</dfn>
+		:: a [=/style sheet=].
+			Initially a new [=/style sheet=] in the [=user-agent origin=], ordered after the [=global view transition user agent style sheet=].
+
+			Note: This is used to hold dynamic styles relating to transitions.
+
+		: <dfn>show view transition tree</dfn>
+		:: A boolean. Initially false.
+
+			When this is true, [=this=]'s [=active view transition=]'s [=ViewTransition/transition root pseudo-element=] renders as a child of [=this=]'s [=document element=],
+			with [=this=]'s [=document element=] is its [=originating element=].
+
+			Note: The position of the [=ViewTransition/transition root pseudo-element=] within the [=document element=] does not matter, as the [=ViewTransition/transition root pseudo-element=]'s [=containing block=] is the [=snapshot containing block=].
+	</dl>
+
+### Additions to Elements ### {#elements-concept}
+
+	[=/Elements=] have a <dfn export>captured in a view transition</dfn> boolean, initially false.
+
+	Note: This spec uses CSS's definition of [=element=], which includes [=pseudo-elements=].
+
+### [=Captured elements=] ### {#captured-elements}
+
+	A <dfn>captured element</dfn> is a [=struct=] with the following:
+
+	<dl dfn-for="captured element">
+		: <dfn>old image</dfn>
+		:: an 2D bitmap or null. Initially null.
+
+		: <dfn>old width</dfn>
+		: <dfn>old height</dfn>
+		:: an {{unrestricted double}}, initially zero.
+
+		: <dfn>old transform</dfn>
+		:: a <a data-xref-type="css-type">&lt;transform-function&gt;</a>, initially the [=identity transform function=].
+
+		: <dfn>old writing-mode</dfn>
+		:: Null or a 'writing-mode', initially null.
+
+		: <dfn>old direction</dfn>
+		:: Null or a 'direction', initially null.
+
+		: <dfn>old text-orientation</dfn>
+		:: Null or a 'text-orientation', initially null.
+
+		: <dfn>old mix-blend-mode</dfn>
+		:: Null or a 'mix-blend-mode', initially null.
+
+		: <dfn>old backdrop-filter</dfn>
+		:: Null or a 'backdrop-filter', initially null.
+
+		: <dfn>old color-scheme</dfn>
+		:: Null or a 'color-scheme', initially null.
+
+		: <dfn>new element</dfn>
+		:: an [=/element=] or null. Initially null.
+	</dl>
+
+	In addition, a [=captured element=] has the following <dfn for="captured element">style definitions</dfn>:
+
+	<dl dfn-for="captured element">
+		: <dfn>group keyframes</dfn>
+		:: A {{CSSKeyframesRule}} or null. Initially null.
+
+		: <dfn>group animation name rule</dfn>
+		:: A {{CSSStyleRule}} or null. Initially null.
+
+		: <dfn>group styles rule</dfn>
+		:: A {{CSSStyleRule}} or null. Initially null.
+
+		: <dfn>image pair isolation rule</dfn>
+		:: A {{CSSStyleRule}} or null. Initially null.
+
+		: <dfn>image animation name rule</dfn>
+		:: A {{CSSStyleRule}} or null. Initially null.
+	</dl>
+
+	Note: These are used to update, and later remove styles
+	from a [=/document=]'s [=document/dynamic view transition style sheet=].
+
+## [=Perform pending transition operations=] ## {#perform-pending-transition-operations-algorithm}
+
+	<div algorithm>
+		To <dfn>perform pending transition operations</dfn> given a {{Document}} |document|, perform the following steps:
+
+		1. If |document|'s [=document/active view transition=] is not null, then:
+
+			1. If |document|'s [=document/active view transition=]'s [=ViewTransition/phase=] is "`pending-capture`",
+				then [=setup view transition=] for |document|'s [=document/active view transition=].
+
+			1. Otherwise, if |document|'s [=document/active view transition=]'s [=ViewTransition/phase=] is "`animating`",
+				then [=handle transition frame=] for |document|'s [=document/active view transition=].
+	</div>
+
+## [=Setup view transition=] ## {#setup-view-transition-algorithm}
+
+	<div algorithm>
+		To <dfn>setup view transition</dfn> for a {{ViewTransition}} |transition|,
+			perform the following steps:
+
+		Note: This algorithm captures the current state of the document,
+		calls the transition's {{UpdateCallback}},
+		then captures the new state of the document.
+
+		1. Let |document| be |transition|'s [=relevant global object's=] [=associated document=].
+
+		1. [=Capture the old state=] for |transition|.
+
+			If failure is returned, then [=skip the view transition=] for |transition| with an "{{InvalidStateError}}" {{DOMException}} in |transition|'s [=relevant Realm=],
+			and return.
+
+		1. Set |document|'s [=document/rendering suppression for view transitions=] to true.
+
+		1. [=Queue a global task=] on the [=DOM manipulation task source=],
+			given |transition|'s [=relevant global object=],
+			to perform the following steps:
+
+				Note: A task is queued here because the texture read back in [=capturing the image=] may be async,
+					although the render steps in the HTML spec act as if it's synchronous.
+
+			1. If |transition|'s [=ViewTransition/phase=] is "`done`", then abort these steps.
+
+				Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
+
+			1. [=call the update callback=].
+	</div>
+
+	<div algorithm>
+		To <dfn>activate view transition</dfn> for a {{ViewTransition}} |transition|,
+			perform the following steps:
+
+		1. If |transition|'s [=ViewTransition/phase=] is "`done`", then return.
+
+			Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
+
+		1. Set [=document/rendering suppression for view transitions=] to false.
+
+		1. If |transition|'s [=ViewTransition/initial snapshot containing block size=] is not equal to the [=snapshot containing block size=],
+			then [=skip the view transition=] for |transition|, and return.
+
+		1. [=Capture the new state=] for |transition|.
+
+			If failure is returned, then [=skip the view transition=] for |transition| with an "{{InvalidStateError}}" {{DOMException}} in |transition|'s [=relevant Realm=],
+			and return.
+
+		1. [=Resolve=] |transition|'s [=ViewTransition/update callback done promise=] with undefined.
+
+		1. [=list/For each=] |capturedElement| of |transition|'s [=ViewTransition/named elements=]' [=map/values=]:
+
+			1. If |capturedElement|'s [=captured element/new element=] is not null,
+				then set |capturedElement|'s [=captured element/new element=]'s [=captured in a view transition=] to true.
+
+		1. [=Setup transition pseudo-elements=] for |transition|.
+
+		1. [=Update pseudo-element styles=] for |transition|.
+
+			If failure is returned, then [=skip the view transition=] for |transition| with an "{{InvalidStateError}}" {{DOMException}} in |transition|'s [=relevant Realm=],
+			and return.
+
+			Note: The above steps will require running document lifecycle phases,
+				to compute information calculated during style/layout.
+
+		1. Set |transition|'s [=ViewTransition/phase=] to "`animating`".
+
+		1. [=Resolve=] |transition|'s [=ViewTransition/ready promise=].
+	</div>
+
+### [=Capture the old state=] ### {#capture-old-state-algorithm}
+
+	<div algorithm>
+		To <dfn>capture the old state</dfn> for {{ViewTransition}} |transition|:
+
+		1. Let |document| be |transition|'s [=relevant global object's=] [=associated document=].
+
+		1. Let |namedElements| be |transition|'s [=ViewTransition/named elements=].
+
+		1. Let |usedTransitionNames| be a new [=/set=] of strings.
+
+		1. Let |captureElements| be a new [=/list=] of elements.
+
+		1. Let |document| be |transition|'s [=relevant global object's=] [=associated document=].
+
+		1. Set |transition|'s [=ViewTransition/initial snapshot containing block size=] to the [=snapshot containing block size=].
+
+		1. [=list/For each=] |element| of every [=/element=] that is [=/connected=],
+			and has a [=node document=] equal to to |document|,
+			in [paint order](https://drafts.csswg.org/css2/#painting-order):
+
+			<div class=note>We iterate in paint order to ensure that this order is cached in |namedElements|.
+			This defines the DOM order for ::view-transition-group pseudo-elements, such that the element at the bottom of the paint stack generates the first pseudo child of ::view-transition.</div>
+
+			1. If any [=flat tree=] ancestor of this |element| [=skips its contents=], then [=continue=].
+
+			1. If |element| has more than one [=box fragment=], then [=continue=].
+
+				Note: We might want to enable transitions for fragmented elements in future versions.
+				See [#8900](https://github.com/w3c/csswg-drafts/issues/8900).
+
+				Note: [=box fragment=] here does not refer to fragmentation of <a href="https://www.w3.org/TR/CSS2/visuren.html#inline-boxes">inline boxes</a> across <a href="https://www.w3.org/TR/CSS2/visuren.html#line-box">line boxes</a>.
+					Such inlines can participate in a transition.
+
+			1. Let |transitionName| be the [=computed value=] of 'view-transition-name' for |element|.
+
+			1. If |transitionName| is ''view-transition-name/none'',
+				or |element| is [=element-not-rendered|not rendered=],
+				then [=continue=].
+
+			1. If |usedTransitionNames| [=list/contains=] |transitionName|, then return failure.
+
+			1. [=set/Append=] |transitionName| to |usedTransitionNames|.
+
+			1. Set |element|'s [=captured in a view transition=] to true.
+
+			1. [=list/Append=] |element| to |captureElements|.
+
+			<div class="note">The algorithm continues in a separate loop to ensure that [=captured in a view transition=] is set on all elements participating in this capture before it is read by future steps in the algorithm.</div>
+
+		1. [=list/For each=] |element| in |captureElements|:
+
+			1. Let |capture| be a new [=captured element=] struct.
+
+			1. Set |capture|'s [=old image=] to the result of [=capturing the image=] of |element|.
+
+			1. Let |originalRect| be [=snapshot containing block=] if |element| is the [=document element=],
+				otherwise, the element|'s [=border box=].
+
+			1. Set |capture|'s [=captured element/old width=] to |originalRect|'s {{DOMRect/width}}.
+
+			1. Set |capture|'s [=captured element/old height=] to |originalRect|'s {{DOMRect/height}}.
+
+			1. Set |capture|'s [=captured element/old transform=] to a
+				<a data-xref-type="css-type">&lt;transform-function&gt;</a> that would map
+				|element|'s [=border box=] from the [=snapshot containing block origin=] to its
+				current visual position.
+
+			1. Set |capture|'s [=captured element/old writing-mode=] to the [=computed value=] of 'writing-mode' on |element|.
+
+			1. Set |capture|'s [=captured element/old direction=] to the [=computed value=] of 'direction' on |element|.
+
+			1. Set |capture|'s [=captured element/old text-orientation=] to the [=computed value=] of 'text-orientation' on |element|.
+
+			1. Set |capture|'s [=captured element/old mix-blend-mode=] to the [=computed value=] of 'mix-blend-mode' on |element|.
+
+			1. Set |capture|'s [=captured element/old backdrop-filter=] to the [=computed value=] of 'backdrop-filter' on |element|.
+
+			1. Set |capture|'s [=captured element/old color-scheme=] to the [=computed value=] of 'color-scheme' on |element|.
+
+			1. Let |transitionName| be the [=computed value=] of 'view-transition-name' for |element|.
+
+			1. Set |namedElements|[|transitionName|] to |capture|.
+
+		1. [=list/For each=] |element| in |captureElements|:
+
+			1. Set |element|'s [=captured in a view transition=] to false.
+	</div>
+
+### [=Capture the new state=] ### {#capture-new-state-algorithm}
+
+	<div algorithm>
+		To <dfn>capture the new state</dfn> for {{ViewTransition}} |transition|:
+
+		1. Let |document| be |transition|'s [=relevant global object's=] [=associated document=].
+
+		1. Let |namedElements| be |transition|'s [=ViewTransition/named elements=].
+
+		1. Let |usedTransitionNames| be a new [=/set=] of strings.
+
+		1. [=list/For each=] |element| of every [=/element=] that is [=/connected=],
+			and has a [=node document=] equal to to |document|,
+			in [paint order](https://drafts.csswg.org/css2/#painting-order):
+
+			1. If any [=flat tree=] ancestor of this |element| [=skips its contents=], then [=continue=].
+
+			1. Let |transitionName| be the [=computed value=] of 'view-transition-name' for |element|.
+
+			1. If |transitionName| is ''view-transition-name/none'',
+				or |element| is [=element-not-rendered|not rendered=],
+				then [=continue=].
+
+			1. If |usedTransitionNames| [=list/contains=] |transitionName|,
+				then return failure.
+
+			1. [=set/Append=] |transitionName| to |usedTransitionNames|.
+
+			1. If |namedElements|[|transitionName|] does not [=map/exist=],
+				then set |namedElements|[|transitionName|] to a new [=captured element=] struct.
+
+				Note: We intentionally add this struct to the end of this ordered map.
+					This implies than names which only exist in the new DOM (entry animations) will be painted on top of names only in the old DOM (exit animations) and names in both DOMs (paired animations).
+					This might not be the right layering for all cases. See <a href="https://github.com/w3c/csswg-drafts/issues/8941">issue 8941</a>.
+
+			1. Set |namedElements|[|transitionName|]'s [=new element=] to |element|.
+	</div>
+
+### [=Setup transition pseudo-elements=] ### {#setup-transition-pseudo-elements-algorithm}
+
+	<div algorithm>
+		To <dfn>setup transition pseudo-elements</dfn> for a {{ViewTransition}} |transition|:
+
+		Note: This algorithm constructs the pseudo-element tree for the transition,
+		and generates initial styles.
+		The structure of the pseudo-tree is covered at a higher level in [[#view-transition-pseudos]].
+
+		1. Let |document| be [=this's=] [=relevant global object's=] [=associated document=].
+
+		1. Set |document|'s [=show view transition tree=] to true.
+
+		1. [=map/For each=] |transitionName| → |capturedElement| of |transition|'s [=ViewTransition/named elements=]:
+
+			1. Let |group| be a new ''::view-transition-group()'',
+				with its [=view transition name=] set to |transitionName|.
+
+			1. Append |group| to |transition|'s [=ViewTransition/transition root pseudo-element=].
+
+			1. Let |imagePair| be a new ''::view-transition-image-pair()'',
+				with its [=view transition name=] set to |transitionName|.
+
+			1. Append |imagePair| to |group|.
+
+			1. If |capturedElement|'s [=captured element/old image=] is not null, then:
+
+				1. Let |old| be a new ''::view-transition-old()'',
+					with its [=view transition name=] set to |transitionName|,
+					displaying |capturedElement|'s [=captured element/old image=]
+					as its [=replaced element|replaced=] content.
+
+				1. Append |old| to |imagePair|.
+
+			1. If |capturedElement|'s [=new element=] is not null, then:
+
+				1. Let |new| be a new ''::view-transition-new()'',
+					with its [=view transition name=] set to |transitionName|.
+
+					Note: The styling of this pseudo is handled in [=update pseudo-element styles=].
+
+				1. Append |new| to |imagePair|.
+
+			1. If |capturedElement|'s [=captured element/old image=] is null, then:
+				1. [=Assert=]: |capturedElement|'s [=captured element/new element=] is not null.
+
+				1. Set |capturedElement|'s [=captured element/image animation name rule=] to a new {{CSSStyleRule}} representing the following CSS,
+					and append it to |document|'s [=document/dynamic view transition style sheet=]:
+
+					<!-- deliberately using <pre> so the example can contain <var> references -->
+					<pre highlight="css">
+						:root::view-transition-new(<var>transitionName</var>) {
+							animation-name: -ua-view-transition-fade-in;
+						}
+					</pre>
+
+					Note: The above code example contains variables to be replaced.
+
+			1. If |capturedElement|'s [=captured element/new element=] is null, then:
+				1. [=Assert=]: |capturedElement|'s [=captured element/old image=] is not null.
+
+				1. Set |capturedElement|'s [=captured element/image animation name rule=] to a new {{CSSStyleRule}} representing the following CSS,
+					and append it to |document|'s [=document/dynamic view transition style sheet=]:
+
+					<!-- deliberately using <pre> so the example can contain <var> references -->
+					<pre highlight="css">
+						:root::view-transition-old(<var>transitionName</var>) {
+							animation-name: -ua-view-transition-fade-out;
+						}
+					</pre>
+
+					Note: The above code example contains variables to be replaced.
+
+			1. If both of |capturedElement|'s [=captured element/old image=] and [=captured element/new element=]
+				are not null, then:
+
+				1. Let |transform| be |capturedElement|'s [=captured element/old transform=].
+
+				1. Let |width| be |capturedElement|'s [=captured element/old width=].
+
+				1. Let |height| be |capturedElement|'s [=captured element/old height=].
+
+				1. Let |backdropFilter| be |capturedElement|'s [=captured element/old backdrop-filter=].
+
+				1. Set |capturedElement|'s [=captured element/group keyframes=] to a new {{CSSKeyframesRule}} representing the following CSS,
+					and append it to |document|'s [=document/dynamic view transition style sheet=]:
+
+					<!-- deliberately using <pre> so the example can contain <var> references -->
+					<pre highlight="css">
+						@keyframes -ua-view-transition-group-anim-<var>transitionName</var> {
+							from {
+								transform: <var>transform</var>;
+								width: <var>width</var>;
+								height: <var>height</var>;
+								backdrop-filter: <var>backdropFilter</var>;
+							}
+						}
+					</pre>
+
+					Note: The above code example contains variables to be replaced.
+
+				1. Set |capturedElement|'s [=captured element/group animation name rule=] to a new {{CSSStyleRule}} representing the following CSS,
+					and append it to |document|'s [=document/dynamic view transition style sheet=]:
+
+					<!-- deliberately using <pre> so the example can contain <var> references -->
+					<pre highlight="css">
+						:root::view-transition-group(<var>transitionName</var>) {
+							animation-name: -ua-view-transition-group-anim-<var>transitionName</var>;
+						}
+					</pre>
+
+					Note: The above code example contains variables to be replaced.
+
+				1. Set |capturedElement|'s [=captured element/image pair isolation rule=] to a new {{CSSStyleRule}} representing the following CSS,
+					and append it to |document|'s [=document/dynamic view transition style sheet=]:
+
+					<!-- deliberately using <pre> so the example can contain <var> references -->
+					<pre highlight="css">
+						:root::view-transition-image-pair(<var>transitionName</var>) {
+							isolation: isolate;
+						}
+					</pre>
+
+					Note: The above code example contains variables to be replaced.
+
+				1. Set |capturedElement|'s [=captured element/image animation name rule=] to a new {{CSSStyleRule}} representing the following CSS,
+					and append it to |document|'s [=document/dynamic view transition style sheet=]:
+
+					<!-- deliberately using <pre> so the example can contain <var> references -->
+					<pre highlight="css">
+						:root::view-transition-old(<var>transitionName</var>) {
+							animation-name: -ua-view-transition-fade-out, -ua-mix-blend-mode-plus-lighter;
+						}
+						:root::view-transition-new(<var>transitionName</var>) {
+							animation-name: -ua-view-transition-fade-in, -ua-mix-blend-mode-plus-lighter;
+						}
+					</pre>
+
+					Note: The above code example contains variables to be replaced.
+
+					Note: ''mix-blend-mode: plus-lighter'' ensures
+					that the blending of identical pixels from the old and new images
+					results in the same color value as those pixels,
+					and achieves a “correct” cross-fade.
+	</div>
+
+## [=Call the update callback=] ## {#call-dom-update-callback-algorithm}
+
+	<div algorithm>
+		To <dfn>call the update callback</dfn> of a {{ViewTransition}} |transition|:
+
+		Note: This is guaranteed to happen for every {{ViewTransition}},
+		even if the transition is [=Skip the view transition|skipped=].
+		The reasons for this are discussed in [[#transitions-as-enhancements]].
+
+		1. [=Assert=]: |transition|'s [=ViewTransition/phase=] is "`done`", or before "`update-callback-called`".
+
+		1. Let |callbackPromise| be null.
+
+		1. If |transition|'s [=ViewTransition/update callback=] is null,
+			then set |callbackPromise| to [=a promise resolved with=] undefined,
+			in |transition|'s [=relevant Realm=].
+
+		1. Otherwise, set |callbackPromise| to the result of [=/invoking=] |transition|'s [=ViewTransition/update callback=].
+
+		1. If |transition|'s [=ViewTransition/phase=] is not "`done`", then set |transition|'s [=ViewTransition/phase=] to "`update-callback-called`".
+
+		1. Let |fulfillSteps| be to following steps:
+			1. [=Activate view transition|Activate=] |transition|.
+
+			1. [=Resolve=] |transition|'s [=ViewTransition/update callback done promise=] with undefined.
+
+				Note: This would be a no-op if the previous step already resolved the promise.
+
+		1. Let |rejectSteps| be the following steps given |reason|:
+			1. [=Reject=] |transition|'s [=ViewTransition/update callback done promise=] with |reason|.
+
+			1. If |transition|'s [=ViewTransition/phase=] is "`done`", then return.
+
+				Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
+
+			1. [=Mark as handled=] |transition|'s [=ViewTransition/ready promise=].
+
+				Note: |transition|'s [=ViewTransition/update callback done promise=] will provide the {{unhandledrejection}}.
+				This step avoids a duplicate.
+
+			1. [=Skip the view transition=] |transition| with |reason|.
+
+		1. [=React=] to |callbackPromise| with |fulfillSteps| and |rejectSteps|.
+
+		1. To skip a transition after a timeout, the user agent may perform the following steps [=in parallel=]:
+			1. Wait for an implementation-defined [=duration=].
+
+			1. [=Queue a global task=] on the [=DOM manipulation task source=],
+				given |transition|'s [=relevant global object=], to perform the following steps:
+
+				1. If |transition|'s [=ViewTransition/phase=] is "`done`", then return.
+
+					Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
+
+				1. [=skip the view transition|Skip=] |transition| with a "{{TimeoutError}}" {{DOMException}}.
+
+	</div>
+
+## [=Skip the view transition=] ## {#skip-the-view-transition-algorithm}
+
+	<div algorithm>
+		To <dfn>skip the view transition</dfn> for {{ViewTransition}} |transition| with reason |reason|:
+
+		1. Let |document| be |transition|'s [=relevant global object's=] [=associated document=].
+
+		1. [=Assert=]: |transition|'s [=ViewTransition/phase=] is not "`done`".
+
+		1. If |transition|'s [=ViewTransition/phase=] is before "`update-callback-called`", then [=queue a global task=] on the [=DOM manipulation task source=],
+			given |transition|'s [=relevant global object=], to [=call the update callback=] of |transition|.
+
+		1. Set [=document/rendering suppression for view transitions=] to false.
+
+		1. If |document|'s [=document/active view transition=] is |transition|,
+			[=Clear view transition=] |transition|.
+
+		1. Set |transition|'s [=ViewTransition/phase=] to "`done`".
+
+		1. [=Reject=] |transition|'s [=ViewTransition/ready promise=] with |reason|.
+
+			Note: The [=ViewTransition/ready promise=] may already be resolved at this point,
+			if {{ViewTransition/skipTransition()}} is called after we start animating.
+			In that case, this step is a no-op.
+
+		1. [=Resolve=] |transition|'s [=ViewTransition/finished promise=] with the result of [=reacting=] to |transition|'s [=ViewTransition/update callback done promise=]:
+
+			- If the promise was fulfilled, then return undefined.
+
+			Note: Since the rejection of |transition|'s [=ViewTransition/update callback done promise=] isn't explicitly handled here,
+			if |transition|'s [=ViewTransition/update callback done promise=] rejects,
+			then |transition|'s [=ViewTransition/finished promise=] will reject with the same reason.
+	</div>
+
+## View transition page-visibility change steps ## {#page-visibility-change-steps}
+	<div algorithm>
+	The <dfn export>view transition page-visibility change steps</dfn> given {{Document}} |document| are:
+
+	1. If |document|'s [=Document/visibility state=] is "<code>hidden</code>", then:
+
+		1. If |document|'s [=active view transition=] is not null, then [=skip the view transition|skip=] |document|'s [=active view transition=].
+
+	1. Otherwise, [=assert=]: [=active view transition=] is null.
+
+	Note: this is called from the HTML spec.
+	</div>
+
+## [=Capture the image=] ## {#capture-the-image-algorithm}
+
+	<div algorithm>
+		To <dfn lt="capture the image|capturing the image">capture the image</dfn> given an [=/element=] |element|, perform the following steps.
+		They return an image.
+
+		1. If |element| is the [=document element=], then:
+
+			1. Render the region of document
+				(including its [=canvas background=] and any [=Document/top layer=] content)
+				that intersects the [=snapshot containing block=],
+				on a transparent canvas the size of the [=snapshot containing block=],
+				following the [=capture rendering characteristics=], and these additional characteristics:
+
+				- Areas outside |element|'s [=scrolling box=] should be rendered as if they were scrolled to, without moving or resizing the [=layout viewport=].
+					This must not trigger events related to scrolling or resizing, such as {{IntersectionObserver}}s.
+
+					<figure>
+						<img src="diagrams/phone-browser-with-url.svg" width="202" height="297" alt="A phone browser window, showing a URL bar, a fixed-position element directly beneath it, and some page content beneath that. A scroll bar indicates the page has been scrolled significantly.">
+						<img src="diagrams/phone-browser-without-url.svg" width="202" height="297" alt="The captured snapshot. It shows that content beneath the URL bar was included in the capture.">
+						<figcaption>
+							An example of what the user sees compared to the captured snapshot.
+							This example assumes the root is the only element with a transition name.
+						</figcaption>
+					</figure>
+
+				- Areas that cannot be scrolled to (i.e. they are out of scrolling bounds),
+					should render the [=canvas background=].
+
+					<figure>
+						<img src="diagrams/phone-browser-scrolled-to-top-with-url.svg" width="202" height="297" alt="A phone browser window, showing a URL bar, and some content beneath. A scroll bar indicates the page is scrolled to the top.">
+						<img src="diagrams/phone-browser-scrolled-to-top-without-url.svg" width="202" height="297" alt="The captured snapshot. It shows the area underneath the URL bar as the same color as the rest of the document.">
+						<figcaption>
+							An example of what the user sees compared to the captured snapshot.
+							This example assumes the root is the only element with a transition name.
+						</figcaption>
+					</figure>
+
+			1. Return this canvas as an image.
+				The natural size of the image is equal to the [=snapshot containing block=].
+
+		1. Otherwise:
+
+			1. Render |element| and its [=tree/descendants=],
+				at the same size it appears in its [=node document=],
+				over an infinite transparent canvas,
+				following the [=capture rendering characteristics=].
+
+			1. Return the portion of this canvas that includes |element|'s [=ink overflow rectangle=] as an image.
+				The [=natural dimensions=] of this image must be those of its [=principal box|principal=] [=border box=],
+				and its origin must correspond to that [=border box=]'s origin,
+				such that the image represents the contents of this [=border box=]
+				and any captured [=ink overflow=] is represented outside these bounds.
+
+				Note: When this image is rendered as a [=replaced element=] at its [=natural size=],
+				it will display with the size and contents of element’s [=principal box=],
+				with any captured [=ink overflow=] overflowing its [=content box=].
+	</div>
+
+### [=Capture rendering characteristics=] ### {#capture-rendering-characteristics-algorithm}
+
+	<div algorithm>
+		The <dfn>capture rendering characteristics</dfn> are as follows:
+
+		* If the referenced element has a transform applied to it (or its ancestors),
+			then the transform is ignored.
+
+			Note: This transform is applied to the snapshot using the `transform` property of the associated ''::view-transition-group'' pseudo-element.
+
+		* Effects applied on the element and its descendants, such as 'opacity' and 'filter', are applied to the capture.
+			Effects applied to the element from its ancestors are ignored.
+
+		* Implementations may clip the rendered contents if the [=ink overflow rectangle=] exceeds some [=implementation-defined=] maximum.
+			However, the captured image should include, at the very least, the contents of |element| that intersect with the [=snapshot containing block=].
+			Implementations may adjust the rasterization quality to account for elements with a large [=ink overflow area=] that are transformed into view.
+
+		* [=list/For each=] |descendant| of [=shadow-including descendant=] {{Element}} and [=pseudo-element=] of |element|,
+			if |descendant| is [=captured in a view transition=],
+			then skip painting |descendant|.
+
+			Note: This is necessary since the descendant will generate its own snapshot which will be displayed and animated independently.
+	</div>
+
+## [=Handle transition frame=] ## {#handle-transition-frame-algorithm}
+
+	<div algorithm>
+		To <dfn>handle transition frame</dfn> given a {{ViewTransition}} |transition|:
+
+		1. Let |document| be |transition|'s [=relevant global object's=] [=associated document=].
+
+		1. Let |hasActiveAnimations| be a boolean, initially false.
+
+		1. [=list/For each=] |element| of |transition|'s [=ViewTransition/transition root pseudo-element=]'s [=tree/inclusive descendants=]:
+			1. For each |animation| whose [=timeline=] is a [=document timeline=] associated with |document|,
+				and contains at least one [=animation/associated effect=] whose [=effect target=] is |element|,
+				set |hasActiveAnimations| to true if any of the following conditions is true:
+
+				- |animation|'s [=animation/play state=] is [=play state/paused=] or [=play state/running=].
+
+				- |document|'s [=pending animation event queue=] has any events associated with |animation|.
+
+		1. If |hasActiveAnimations| is false:
+
+			1. Set |transition|'s [=ViewTransition/phase=] to "`done`".
+
+			1. [=Clear view transition=] |transition|.
+
+			1. [=Resolve=] |transition|'s [=ViewTransition/finished promise=].
+
+			1. Return.
+
+		1. If |transition|'s [=ViewTransition/initial snapshot containing block size=] is not equal to the [=snapshot containing block size=],
+			then [=skip the view transition=] for |transition|, and return.
+
+		1. [=Update pseudo-element styles=] for |transition|.
+
+			If failure is returned, then [=skip the view transition=] for |transition| with an "{{InvalidStateError}}" {{DOMException}} in |transition|'s [=relevant Realm=],
+			and return.
+
+			Note: The above implies that a change in incoming element's size or position will cause a new keyframe to be generated.
+				This can cause a visual jump.
+				We could retarget smoothly but don't have a use-case to justify the complexity.
+				See [issue 7813](https://github.com/w3c/csswg-drafts/issues/7813) for details.
+	</div>
+
+## [=Update pseudo-element styles=] ## {#style-transition-pseudo-elements-algorithm}
+
+	<div algorithm>
+		To <dfn>update pseudo-element styles</dfn> for a {{ViewTransition}} |transition|:
+
+		1. [=map/For each=] |transitionName| → |capturedElement| of |transition|'s [=ViewTransition/named elements=]:
+
+			1. Let |width|, |height|, |transform|, |writingMode|, |direction|, |textOrientation|, |mixBlendMode|, |backdropFilter| and |colorScheme| be null.
+
+			1. If |capturedElement|'s [=new element=] is null, then:
+
+				1. Set |width| to |capturedElement|'s [=captured element/old width=].
+
+				1. Set |height| to |capturedElement|'s [=captured element/old height=].
+
+				1. Set |transform| to |capturedElement|'s [=captured element/old transform=].
+
+				1. Set |writingMode| to |capturedElement|'s [=captured element/old writing-mode=].
+
+				1. Set |direction| to |capturedElement|'s [=captured element/old direction=].
+
+				1. Set |textOrientation| to |capturedElement|'s [=captured element/old text-orientation=].
+
+				1. Set |mixBlendMode| to |capturedElement|'s [=captured element/old mix-blend-mode=].
+
+				1. Set |backdropFilter| to |capturedElement|'s [=captured element/old backdrop-filter=].
+
+				1. Set |colorScheme| to |capturedElement|'s [=captured element/old color-scheme=].
+
+			1. Otherwise:
+
+				1. Return failure if any of the following conditions is true:
+					- |capturedElement|'s [=new element=] has a [=flat tree=] ancestor that [=skips its contents=].
+
+					- |capturedElement|'s [=new element=] is [=element-not-rendered|not rendered=].
+
+					- |capturedElement| has more than one [=box fragment=].
+
+					Note: Other rendering constraints are enforced via |capturedElement|'s [=new element=] being [=captured in a view transition=].
+
+				1. Set |width| to the current width of |capturedElement|'s [=new element=]'s [=border box=].
+
+				1. Set |height| to the current height of |capturedElement|'s [=new element=]'s [=border box=].
+
+				1. Set |transform| to a transform that would map |capturedElement|'s [=new element=]'s [=border box=] from the [=snapshot containing block origin=] to its current visual position.
+
+				1. Set |writingMode| to the [=computed value=] of 'writing-mode' on |capturedElement|'s [=new element=].
+
+				1. Set |direction| to the [=computed value=] of 'direction' on |capturedElement|'s [=new element=].
+
+				1. Set |textOrientation| to the [=computed value=] of 'text-orientation' on |capturedElement|'s [=new element=].
+
+				1. Set |mixBlendMode| to the [=computed value=] of 'mix-blend-mode' on |capturedElement|'s [=new element=].
+
+				1. Set |backdropFilter| to the [=computed value=] of 'backdrop-filter' on |capturedElement|'s [=new element=].
+
+				1. Set |colorScheme| to the [=computed value=] of 'color-scheme' on |capturedElement|'s [=new element=].
+
+			1. If |capturedElement|'s [=captured element/group styles rule=] is null,
+				then set |capturedElement|'s [=captured element/group styles rule=] to a new {{CSSStyleRule}} representing the following CSS,
+				and append it to |transition|'s [=relevant global object's=] [=associated document=]'s [=document/dynamic view transition style sheet=].
+
+				Otherwise, update |capturedElement|'s [=captured element/group styles rule=] to match the following CSS:
+
+				<!-- deliberately using <pre> so the example can contain <var> references -->
+				<pre highlight="css">
+					:root::view-transition-group(<var>transitionName</var>) {
+						width: <var>width</var>;
+						height: <var>height</var>;
+						transform: <var>transform</var>;
+						writing-mode: <var>writingMode</var>;
+						direction: <var>direction</var>;
+						text-orientation: <var>textOrientation</var>;
+						mix-blend-mode: <var>mixBlendMode</var>;
+						backdrop-filter: <var>backdropFilter</var>;
+						color-scheme: <var>colorScheme</var>;
+					}
+				</pre>
+
+				Note: The above code example contains variables to be replaced.
+
+			1. If |capturedElement|'s [=new element=] is not null, then:
+
+				1. Let |new| be the ''::view-transition-new()'' with the [=view transition name=] |transitionName|.
+
+				1. Set |new|'s [=replaced element=] content to the result of [=capturing the image=] of |capturedElement|'s [=new element=].
+
+		This algorithm must be executed to update styles in [=user-agent origin=] if its effects can be observed by a web API.
+
+		Note: An example of such a web API is `window.getComputedStyle(document.documentElement, "::view-transition")`.
+	</div>
+
+## [=Clear view transition=] ## {#clear-view-transition-algorithm}
+
+	<div algorithm>
+		To <dfn>clear view transition</dfn> of a {{ViewTransition}} |transition|:
+
+		1. Let |document| be |transition|'s [=relevant global object's=] [=associated document=].
+
+		1. [=Assert=]: |document|'s [=document/active view transition=] is |transition|.
+
+		1. [=list/For each=] |capturedElement| of |transition|'s [=ViewTransition/named elements=]' [=map/values=]:
+
+			1. If |capturedElement|'s [=captured element/new element=] is not null,
+				then set |capturedElement|'s [=captured element/new element=]'s [=captured in a view transition=] to false.
+
+			1. [=list/For each=] |style| of |capturedElement|'s [=captured element/style definitions=]:
+
+				1. If |style| is not null,
+					and |style| is in |document|'s [=document/dynamic view transition style sheet=],
+					then remove |style| from |document|'s [=document/dynamic view transition style sheet=].
+
+		1. Set |document|'s [=document/show view transition tree=] to false.
+
+		1. Set |document|'s [=document/active view transition=] to null.
+	</div>
+
+<h2 id="priv" class="no-num">Privacy Considerations</h2>
+
+This specification introduces no new privacy considerations.
+
+<h2 id="sec" class="no-num">Security Considerations</h2>
+
+The images generated using [=capture the image=] algorithm could contain cross-origin data (if the Document is embedding cross-origin resources) or sensitive information like visited links.
+The implementations must ensure this data can not be accessed by the Document.
+This should be feasible since access to this data should already be prevented in the default rendering of the Document.
+
+<h2 class="no-num non-normative" id="changes">Appendix A. Changes</h2>
+
+This appendix is <em>informative</em>.
+
+<h3 id="changes-since-2022-05-30">
+Changes from <a href="https://www.w3.org/TR/2023/WD-css-view-transitions-1-20230530/">2022-05-30 Working Draft</a>
+</h3>
+* Use a keyframe to add plus-lighter blending during cross-fade. See <a href="https://github.com/w3c/csswg-drafts/issues/8924">issue 8924</a>.
+* Add mix-blend-mode to list of properties copied over to the ''::view-transition-group''. See <a href="https://github.com/w3c/csswg-drafts/issues/8962">issue 8962</a>.
+* Add text-orientation to list of properties copied over to the ''::view-transition-group''. See <a href="https://github.com/w3c/csswg-drafts/issues/8230">issue 8230</a>.
+* Refactor the old capture algorithm to properly set [=captured in a view transition=] before reading the value.
+* Make the {{Document/startViewTransition()}} parameter non-nullable. See <a href="https://github.com/w3c/csswg-drafts/issues/9460">issue 9460</a>.
+* Elements participating in a [=view transition=] are exposed to accessibility tree. See <a href="https://github.com/w3c/csswg-drafts/issues/9365">issue 9365</a>.
+* The [=view transition tree=] is not exposed to accessibility tree. See <a href="https://github.com/w3c/csswg-drafts/issues/9365">issue 9365</a>.
+* Animate back-drop filter similar to transform/size. See <a href="https://github.com/w3c/csswg-drafts/issues/9358">issue 9358</a>.
+* Copy `color-scheme` from DOM element to ''::view-transition-group()''. See <a href="https://github.com/w3c/csswg-drafts/issues/9276">issue 9276</a>.
+* Expose [=auto-skip view transition=] for a {{Document}}, to allow having outbound cross-document transitions preceed programmatic view transiitons. see <a href="https://github.com/w3c/csswg-drafts/issues/9512">issue 9512</a>.
+* Add a note about why 'view-transition-name' should be animatable.
+* `view-transition-name: auto` should be an invalid value. See <a href="https://github.com/w3c/csswg-drafts/issues/9639">issue 9639</a>.
+* Add note to explain paint order for entry animations. See <a href="https://github.com/w3c/csswg-drafts/issues/9672">issue 9672</a>.
+* Add note to explain how the named elements are cleaned up. See <a href="https://github.com/w3c/csswg-drafts/issues/9669">issue 9669</a>.
+* Refactor algorithm to clarify timing, especially of `updateCallbackDone. See <a href="https://github.com/w3c/csswg-drafts/issues/9762">issue 9762</a>.
+* Add animation-delay inherit to UA stylesheet rules for (::view-transition) -image-pair, -old, and -new. See <a href="https://github.com/w3c/csswg-drafts/issues/9817">issue 9817</a>.
+* Auto-skip animation when document is hidden. See <a href="https://github.com/w3c/csswg-drafts/issues/9543">issue 9543</a>.
+* Remove references to cross-document view-transitions, to keep the L1 spec clean. See <a href="https://github.com/w3c/csswg-drafts/issues/9886">Issue 9886</a>.
+* Export an algorithm to skip the active transition when the page is hidden. See <a href="https://github.com/w3c/csswg-drafts/issues/9543">issue 9543</a>.
+
+<h3 id="changes-since-2022-05-25">
+Changes from <a href="https://www.w3.org/TR/2023/WD-css-view-transitions-1-20230525/">2022-05-25 Working Draft</a>
+</h3>
+* Fix typo in ::view-transition-new user agent style sheet. See <a href="https://github.com/w3c/csswg-drafts/pull/8879">PR</a>.
+
+<h3 id="changes-since-2022-11-24">
+Changes from <a href="https://www.w3.org/TR/2022/WD-css-view-transitions-1-20221124/">2022-11-24 Working Draft</a>
+</h3>
+
+* Pointer events resolve to the documentElement when rendering is suppressed. See <a href="https://github.com/w3c/csswg-drafts/issues/7797">issue 7797</a>.
+* Add rendering constraints to elements participating in a transition. See <a href="https://github.com/w3c/csswg-drafts/issues/8139">issue 8139</a> and <a href="https://github.com/w3c/csswg-drafts/issues/7882">issue 7882</a>.
+* Remove html specifics from UA stylesheet to support ViewTransitions on SVG Documents.
+* Rename updateDOMCallback to {{UpdateCallback}}. See <a href="https://github.com/w3c/csswg-drafts/issues/8144">issue 8144</a>.
+* Rename snapshot viewport to [=snapshot containing block=].
+* Skip the transition if viewport size changes. See <a href="https://github.com/w3c/csswg-drafts/issues/8045">issue 8045</a>.
+* Add support for :only-child. See <a href="https://github.com/w3c/csswg-drafts/issues/8057">issue 8057</a>.
+* Add concept of a tree of pseudo-elements under [=pseudo-element root=]. See <a href="https://github.com/w3c/csswg-drafts/issues/8113">issue 8113</a>.
+* When skipping a transition, the {{UpdateCallback}} is called in own task rather than synchronously. See <a href="https://github.com/w3c/csswg-drafts/issues/7904">issue 7904</a>
+* When capturing images, at least the in-viewport part of the image should be captured, downscale if needed. See <a href="https://github.com/w3c/csswg-drafts/issues/8561">issue 8561</a>.
+* Applying the [=ink overflow=] to the captured image is implementation defined, and doesn't affect the image's [=natural size=]. See <a href="https://github.com/w3c/csswg-drafts/issues/8597">issue 8597</a>.
+* Fragmented elements don't participate in view transitions. See <a href="https://github.com/w3c/csswg-drafts/issues/8339">issue 8339</a>.
+* Rename "snapshot root" to "snapshot containing block", and make it an [=absolute positioning containing block=] and a [=fixed positioning containing block=] for its descendants. See <a href="https://github.com/w3c/csswg-drafts/issues/8505">issue 8505</a>.
+
+<h3 id="changes-since-2022-10-25">
+Changes from <a href="https://www.w3.org/TR/2022/WD-css-view-transitions-1-20221025/">2022-10-25 Working Draft (FPWD)</a>
+</h3>
+
+* Add [=document/dynamic view transition style sheet=] concept for dynamically generated UA styles scoped to the current Document.
+* Add snapshot viewport concept. See <a href="https://github.com/w3c/csswg-drafts/issues/7859">issue 7859</a>.
+* Clarify timing for resolving/rejecting promises when skipping the transition. See <a href="https://github.com/w3c/csswg-drafts/issues/7956">issue 7956</a>.
+* Elements under a content-visibility:auto element that skips its contents are ignored. See <a href="https://github.com/w3c/csswg-drafts/issues/7874">issue 7874</a>.
+* UA styles on the pseudo-DOM stay in sync with author DOM for any developer observable API. See <a href="https://github.com/w3c/csswg-drafts/issues/7812">issue 7812</a>.
+* Suppress rendering during updateCallback. See <a href="https://github.com/w3c/csswg-drafts/issues/7784">issue 7784</a>.
+* Changes in size/position of elements in the new Document generate new UA animation keyframes. See <a href="https://github.com/w3c/csswg-drafts/issues/7813">issue 7813</a>.
+* Scope keyframes to user agent stylesheets using -ua- prefix. See <a href="https://github.com/w3c/csswg-drafts/issues/7560">issue 7560</a>.
+* Update pseudo element names to view-transition*. See <a href="https://github.com/w3c/csswg-drafts/issues/7960">issue 7960</a>.
+* Update selector syntax for pseudo-elements. See <a href="https://github.com/w3c/csswg-drafts/issues/7788">issue 7788</a>.
+* Add sections for security/privacy considerations.
