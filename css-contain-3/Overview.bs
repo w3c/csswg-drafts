@@ -579,7 +579,7 @@ Container Queries: the ''@container'' rule</h3>
 	The syntax of the ''@container'' rule is:
 
 	<pre class="prod def">
-	@container <<container-condition>> {
+	@container <<container-condition>># {
 	  <<block-contents>>
 	}
 	</pre>
@@ -612,9 +612,9 @@ Container Queries: the ''@container'' rule</h3>
 	is selected from among the element’s ancestor [=query containers=]
 	that are established as a valid [=query container=]
 	for all the [=container features=]
-	in the <<container-query>>. If the <<container-query>> contains unknown
-	or unsupported [=container feature=]s, no [=query container=] will be
-	selected.
+	in the <<container-query>>. If the <<container-query>> contains
+	unknown or unsupported [=container feature=]s,
+	no [=query container=] will be selected for that <<container-condition>>.
 	The optional <<container-name>>
 	filters the set of [=query containers=] considered
 	to just those with a matching [=query container name=].
@@ -623,12 +623,20 @@ Container Queries: the ''@container'' rule</h3>
 	each [=container feature=] in the <<container-query>>
 	is evaluated against that [=query container=].
 	If no ancestor is an eligible [=query container=],
-	then the [=container query=] is ''unknown'' for that element. As for media queries,
-	<<general-enclosed>> evaluates to ''unknown''.
+	then the [=container query=] is ''unknown'' for that element.
+	As with media queries, <<general-enclosed>> evaluates to ''unknown''.
+
+	If a [=container query=] includes multiple <<container-condition>>s,
+	each condition will select it's own [=query container=],
+	and evaluate independently.
+	A [=container query=] is ''true'' if <em>any</em> of its component
+	<<container-condition>>s are ''true'',
+	and ''false'' only if <em>all</em> of its component
+	<<container-condition>>s are ''false''.
 
 	<div class=example>
 		As with [=media queries=],
-		we can string together multiple conditions in a single query list:
+		we can string together multiple queries in a single condition:
 
 		<pre class=lang-css>
 		@container card (inline-size > 30em) and style(--responsive: true) {
@@ -640,6 +648,21 @@ Container Queries: the ''@container'' rule</h3>
 		if there is an ancestor container named "card"
 		that meets both the '@container/inline-size'
 		and [=container style query|style=] conditions.
+
+		We can also combine multiple conditions into a list,
+		with each condition evaluating against a different container:
+
+		<pre class=lang-css>
+		@container card (inline-size > 30em), style(--large: true) {
+		  /* styles */
+		}
+		</pre>
+
+		The styles above will be applied
+		if there is an ancestor container named "card"
+		that meets the '@container/inline-size' condition
+		<em>or</em> the nearest style container
+		meets the [=container style query|style=] condition.
 	</div>
 
 	Style rules defined on an element inside multiple nested [=container queries=]
@@ -650,9 +673,22 @@ Container Queries: the ''@container'' rule</h3>
 	into a single query.
 
 	<div class=example>
-		While it is not possible to query multiple containers
-		in a single [=container query=],
-		that can be achieved by nesting multiple queries:
+		Using a single comma-separated [=container query=],
+		we can query multiple containers:
+
+		<pre class=lang-css>
+		@container card (inline-size > 30em), style(--responsive: true) {
+		  /* styles */
+		}
+		</pre>
+
+		The styles above will apply for an element inside <em>either</em>
+		a container named "card" that meets the '@container/inline-size' condition,
+		<em>or</em> a container meeting the [=container style query|style=] condition.
+
+		In order to require that <em>all</em> conditions are met
+		while querying multiple containers,
+		we would need to nest multiple queries:
 
 		<pre class=lang-css>
 		@container card (inline-size > 30em) {
@@ -663,10 +699,10 @@ Container Queries: the ''@container'' rule</h3>
 		</pre>
 
 		The styles above will only be applied
-		if there is an ancestor container named "card"
+		if there is <em>both</em> an ancestor container named "card"
 		that meets the '@container/inline-size' condition,
-		as well as an ancestor container
-		meeting [=container style query|style=] condition.
+		<em>and</em> an ancestor container
+		meeting the [=container style query|style=] condition.
 	</div>
 
 	Global, name-defining [=at-rules=]
@@ -767,10 +803,15 @@ Size Container Features</h3>
 
 	[=Relative length=] units
 	(including [=container query length=] units)
+	and [=custom properties=]
 	in [=container query=] conditions
 	are evaluated based on the the [=computed values=] of the [=query container=].
 
 	Note: This is different from the handling of relative units in [=media queries=].
+
+	Note: If [=custom property=] substitution results in an invalid value for the
+	[=size feature=], it is handled the same as other invalid feature values,
+	and the result of the [=size feature=] is ''unknown''.
 
 	<div class=example>
 		For example, [=query containers=] with different font-sizes
@@ -797,6 +838,33 @@ Size Container Features</h3>
 			the query condition will be true above ''640px''.
 		* For any ''h2'' inside ''main'',
 			the query condition will be true above ''960px''.
+	</div>
+
+	<div class=example>
+		Similarly, [=query containers=] will evaluate ''var()''-based queries
+		relative to their own [=computed value=] of the [=custom property=]:
+
+		<pre class=lang-css>
+		aside, main {
+		  container-type: inline-size;
+		}
+
+		aside { --query: 300px; }
+		main { --query: 500px; }
+
+		@container (width > var(--query)) {
+		  h2 { font-size: 1.5em; }
+		}
+		</pre>
+
+		The ''var(--query)'' value used in the query condition
+		is substituted with the [=computed value=] of
+		the ''--query'' [=custom property=] on the relevant [=query container=]:
+
+		* For any ''h2'' inside ''aside'',
+			the query condition will be true above ''300px''.
+		* For any ''h2'' inside ''main'',
+			the query condition will be true above ''500px''.
 	</div>
 
 <h4 id="width">
@@ -1128,6 +1196,10 @@ Changes since the 18 August 2022 Working Draft</h3>
 		(<a href="https://github.com/w3c/csswg-drafts/issues/7669">Issue 7669</a>)
 	* Make the 'content-visibility' property animatable.
 		(<a href="https://github.com/w3c/csswg-drafts/issues/8627">Issue 8627</a>)
+	* Allow ''var()'' references in [=container size queries=].
+		(<a href="https://github.com/w3c/csswg-drafts/issues/8088">Issue 8088</a>)
+	* Allow comma-separated <<container-condition>>s to match different containers.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/7551">Issue 7551</a>)
 
 <h3 id="changes-2021-12">
 Changes since the 21 December 2021 First Public Working Draft</h3>
