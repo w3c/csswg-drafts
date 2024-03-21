@@ -50,6 +50,7 @@ spec:html
 	text: deactivate a document for a cross-document navigation; type: dfn;
 	text: pagereveal; type: dfn; for: Window;
 	text: has been revealed; type: dfn;
+	text: render-blocking mechanism; type: dfn;
 spec:infra; type:dfn; text:list
 </pre>
 
@@ -124,6 +125,83 @@ spec:infra; type:dfn; text:list
 
 *This section is non-normative.*
 
+### Activation ### {#activating-cross-document-view-transition}
+With same-document view transitions, the author starts a view transition using JavaScript, by calling {{Document/startViewTransition}}.
+In cross-document view transition, what triggers a view transition is a navigation between two documents, as long as the following conditions are met:
+
+	* Both documents are of the [=same origin=];
+	* The page is visible throughout the entire course of the navigatiion;
+	* the navigation is initiated by the page, e.g. by clicking a link or submitting a form, or is a {{NavigationType/traverse}} navigation (back/forward). This excludes, for example, navigations initiated by the URL bar;
+	* the navigation didn't include cross-origin redirects; and
+	* both documents opted in to cross-document view transitions, using the ''@view-transition'' rule.
+
+See the <a href="#lifecycle">lifecycle</a> section for more details.
+
+### Waiting for the new state to stabilize ### {#waiting-for-stable-state}
+In same-document view transitions, the author can indicate when the new state of the transition is in a stable state by using the callback passed to {{Document/startViewTransition}}.
+Since cross-document view transitions are declarative, there is no such explicit promise. Instead, the user agent relies on the [=render-blocking mechanism=] to decide when the stable state is ready.
+In this way, the author can use the the <code data-x="">blocking</code> attribute, to delay the transition until:
+	* All expected scripts are executed, by using the script's {{HTMLScriptElement/blocking}} attribute on required scripts.
+	* All expected styles are executed, by using the style or link's {{HTMLStyleElement/blocking}} attribute on required styles.
+	* All expected HTML elements are seen by the parser, using an [^link/rel/expect^] {{HTMLLinkElement}} element.
+
+<div class="example">
+</div>
+
+### Customization ### {#customizing-cross-document-view-transitions}
+While in same-document view transition the author handles a single {{ViewTransition}} object returned from the {{Document/startViewTransition}} call,
+in the cross-document case, the view transition is divided to two {{ViewTransition}} objects, one in the old document and one in the new document.
+
+### Handling the view transition in the old document ### {#old-doc-event}
+
+The {{Window/pageswap}} event is fired at the last moment before a document is about to be unloaded and swapped by another document.
+It can be used to find out whether a view transition is about to take place, customize it using {{ViewTransition/types}}, make last minute changes to the captured elements, or skip it if necessary.
+The {{PageSwapEvent}} interface has a {{PageSwapEvent/viewTransition}} object, which would be non-null when the navigation is eligible to a view transition,
+and a {{PageSwapEvent/activation}} object, providing handy information about the navigation, like the URL after redirects.
+
+### Handling the view transition in the new document ### {#new-doc-event}
+
+The {{Window/pagereveal}} event is fired right before presenting the first frame of the new document.
+It can be used to find out if the view transition is still valid, by querying the {{PageRevealEvent/viewTransition}} attribute.
+Similar to a same-document view transition, the author can now select different {{ViewTransition/types}}, make last minute changes to the captured elements, wait for the transition to be {{ViewTransition/ready}} in order to animate it, or skip it altogether.
+
+### Lifecycle ### {#lifecycle}
+
+	*This section is non-normative.*
+
+	A successful cross-document view transition goes through the following phases:
+
+	1. In the old {{Document}}:
+
+		1. The user initiates a navigation, by clicking a link, submitting a form, pressing the browser's back button, etc.
+
+			Note: some navigations do not trigger a view-transition, e.g. typing a new address in the URL bar.
+
+		1. When the new {{Document}} is ready to be activated, the {{Window/pageswap}} event is fired.
+
+		1. If the navigation is [=same origin=], has no cross-origin redirects,
+			and the old {{Document}} has <a href="#cross-doc-opt-in">opted in to cross-document view transitions</a>, the event's {{PageSwapEvent/viewTransition}} attribute would be
+			a {{ViewTransition}} object.
+
+		1. The author can now customize the transition, e.g. by mutating its {{ViewTransition/types}}, or {{ViewTransition/skipTransition()|skip}} it altogether.
+
+		1. If the {{ViewTransition}} is not skipped, the state of the old document is [=capture the old state|captured=].
+
+		1. The navigation proceeds: the old {{Document}} is unloaded, and the new {{Document}} is now active.
+
+	1. Then, in the new {{Document}}:
+
+		1. When the new {{Document}} is ready for its first [=rendering opportunity=], an event named {{Window/pagereveal}} is fired on the new {{Document}}, with a {{PageRevealEvent/viewTransition}} attribute.
+
+		1. This {{ViewTransition}}'s <code>{{ViewTransition/updateCallbackDone}}</code> promise is already resolved,
+			and its [=captured elements=] are populated from the old {{Document}}.
+
+		1. This is another opportunity for the author customize the transition, e.g. by mutating its {{ViewTransition/types}}, or {{ViewTransition/skipTransition()|skip}} it altogether.
+
+		1. The state of the new document is [=capture the new state|captured=] as the "new" state of the transition.
+
+		1. From this point forward, the transition continues in a similar fashion to a same-document transition, as per [=activate view transition=].
+
 ## Examples ## {#cross-doc-examples}
 
 <div class=example>
@@ -144,6 +222,21 @@ spec:infra; type:dfn; text:list
 	documents.
 </div>
 
+<div class=example>
+	Note that the ''@view-transition'' rule can be used together with media queries.
+	For example, this would only perform the transition when the screen width is greater than:
+
+	```css
+	@view-transition {
+		navigation: auto;
+	}
+
+	@media (max-width: 600px) {
+		navigation: none;
+	}
+	```
+</div>
+
 <div class="example">
 	To achieve the effect in [[css-view-transitions-1#examples|example 5]], we have to do several
 	things:
@@ -159,7 +252,6 @@ spec:infra; type:dfn; text:list
 	}
 
 	```
-
 	In the old page:
 	```js
 	addEventListener('click', event => {
@@ -203,49 +295,65 @@ spec:infra; type:dfn; text:list
 	```
 </div>
 
-## Lifecycle ## {#lifecycle}
+<div class="example">
+	To choose which elements are captured based on properties of the navigation, and whether certain images are loaded:
 
-	*This section is non-normative.*
+	In the old page:
+	```js
+		window.addEventListener("pageswap", event => {
+			// For example, the page was hidden, or the navigation is cross-document.
+			if (!event.viewTransition)
+				return;
 
-	A successful cross-document view transition goes through the following phases:
+			// If you don't want view transition for back/forward navigations...
+			if (event.activation.navigationType === "traverse") {
+				event.viewTransition.skipTransition();
+			}
 
-	1. In the old {{Document}}:
+			const newURL = new URL(event.activation.entry.url);
+			if (newURL.pathname === "/details" && thumbnail.complete) {
+				thumbnail.classList.add("transition-to-hero");
 
-		1. The user initiates a navigation, by clicking a link, submitting a form, pressing the browser's back button, etc.
+				// This will cleanup the state if the page is restored from BFCache.
+				event.viewTransition.finished.then(() => {
+					thumbnail.classList.remove("transition-to-hero");
+				});
+			}
 
-			Note: some navigations do not trigger a view-transition, e.g. typing a new address in the URL bar.
+		});
+	```
 
-		1. When the new {{Document}} is ready to be activated, the {{Window/pageswap}} event is fired.
+	In the new page:
+	```js
+		window.addEventListener("pagereveal", event => {
+			// For example, the page was hidden, the navigation is cross-document, or the transition was skipped in the old document.
+			if (!event.viewTransition)
+				return;
 
-		1. If the navigation is [=same origin=], has no cross-origin redirects,
-			and the old {{Document}} has <a href="#cross-doc-opt-in">opted in to cross-document view transitions</a>, the event's {{PageSwapEvent/viewTransition}} attribute would be
-			a {{ViewTransition}} object.
+			const oldURL = new URL(navigation.activation.from.url);
+			if (newURL.pathname === "/list") {
+				event.viewTransition.types.add("coming-from-list");
 
-		1. The author can now customize the transition, e.g. by mutating its {{ViewTransition/typeList}}, or {{ViewTransition/skipTransition()|skip}} it altogether.
-
-		1. If the {{ViewTransition}} is not skipped, the state of the old document is [=capture the old state|captured=].
-
-		1. The navigation proceeds: the old {{Document}} is unloaded, and the new {{Document}} is now active.
-
-	1. Then, in the new {{Document}}:
-
-		1. When the new {{Document}} is ready for its first [=rendering opportunity=], an event named {{Window/pagereveal}} is fired on the new {{Document}}, with a {{PageRevealEvent/viewTransition}} attribute.
-
-		1. This {{ViewTransition}}'s <code>{{ViewTransition/updateCallbackDone}}</code> promise is already resolved,
-			and its [=captured elements=] are populated from the old {{Document}}.
-
-		1. This is another opportunity for the author customize the transition, e.g. by mutating its {{ViewTransition/typeList}}, or {{ViewTransition/skipTransition()|skip}} it altogether.
-
-		1. The state of the new document is [=capture the new state|captured=] as the "new" state of the transition.
-
-		1. From this point forward, the transition continues in a similar fashion to a same-document transition, as per [=activate view transition=].
+				// This will show the thumbnail until the view transition is finished.
+				if (!hero.complete) {
+					setToThumbnail(hero);
+					event.viewTransition.finished.then(() => {
+						setToFullResolution(hero);
+					})
+				}
+			}
+		});
+	```
+</div>
 
 ## Opting in to cross-document view transitions ## {#cross-doc-opt-in}
 
 ### The <dfn id="at-view-transition-rule">''@view-transition''</dfn> rule ### {#view-transition-rule}
 
 The ''@view-transition'' rule is used by a document to indicate that cross-document navigations
-should setup and activate a {{ViewTransition}}. To take effect, it must be present in the old document
+should setup and activate a {{ViewTransition}}.
+
+Note: To take effect, it must be present in the old document
 when unloading, and in the new document when the {{Window/pagereveal}} is fired.
 
 The ''@view-transition'' rule has the following syntax:
@@ -256,10 +364,14 @@ The ''@view-transition'' rule has the following syntax:
 	}
 </pre>
 
-The ''@view-transition'' rule accepts the [=@view-transition/navigation=] and [=@view-transition/type=] descriptors.
+The ''@view-transition'' rule accepts the [=@view-transition/navigation=] and [=@view-transition/types=] descriptors.
 
 Note: as per default behavior, the ''@view-transition'' rule can be nested inside a
 [=conditional group rule=] such as ''@media'' or ''@supports''.
+
+When the ''@view-transition'' rule changes for {{Document}} |document|, the user agent must [=update the opt-in state for outbound transitions=] given |document|.
+
+Note: this needs to be cached in the boolean because the result needs to be read [=in parallel=], when navigating.
 
 #### The [=@view-transition/navigation=] descriptor ### {#view-transition-navigation-descriptor}
 
@@ -285,12 +397,7 @@ Note: as per default behavior, the ''@view-transition'' rule can be nested insid
 
 			Note: Navigations excluded from ''@view-transition/navigation/auto'' are for example, navigating
 			via the URL address bar or clicking a bookmark, as well as any form of user or script initiated {{NavigationType/reload}}.
-
 	</dl>
-
-### Responding to changes in the ''@view-transition'' rule ### {#respond-to-rule-changes}
-
-When the ''@view-transition'' rule changes for {{Document}} |document|, the user agent must [=update the opt-in state for outbound transitions=] given |document|.
 
 ### Accessing the ''@view-transition'' rule using CSSOM ### {#cssom}
 #### Extensions to the <code>CSSRule</code> interface</h3> #### {#extensions-to-cssrule-interface}
@@ -312,7 +419,7 @@ The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 		[Exposed=Window]
 		interface CSSViewTransitionRule : CSSRule {
 			attribute ViewTransitionNavigation navigation;
-			attribute DOMTokenList typeList;
+			attribute FrozenArray<DOMString> types;
 		};
 </xmp>
 
@@ -331,7 +438,7 @@ The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 
 		1. Assert: |matchingRule|'s [=@view-transition/navigation=] descriptor's [=computed value=] is ''@view-transition/navigation/auto''.
 
-		1. Let |typesDescriptor| be |matchingRule|'s [=@view-transition/type=] descriptor.
+		1. Let |typesDescriptor| be |matchingRule|'s [=@view-transition/types=] descriptor.
 
 		1. If |typesDescriptor|'s [=computed value=] is ''@view-transition/type/none'', then return a [=/set=] « ».
 
@@ -393,8 +500,8 @@ The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 	1. Set |outboundTransition|'s [=ViewTransition/active types=]'s [=DOMTokenList/token set=] to |transitionTypesFromRule|.
 
 		Note: the [=ViewTransition/active types=] are not shared between documents.
-		Manipulating the {{ViewTransition/typeList}} in the new document does not affect the types in the new document,
-		which would be read from the [=@view-transition/type=] descriptor once the document is revealed.
+		Manipulating the {{ViewTransition/types}} in the new document does not affect the types in the new document,
+		which would be read from the [=@view-transition/types=] descriptor once the document is revealed.
 
 		Note: the {{ViewTransition}} is skipped once the old document is hidden.
 
@@ -560,8 +667,8 @@ matches the [=document element=] if the types in the selectors match the [=activ
 The {{ViewTransition}}'s [=active types=] are populated in one of the following ways:
 
 	1. Passed as part of the arguments to {{Document/startViewTransition(callbackOptions)}}
-	1. Mutated at any time, using the transition's {{ViewTransition/typeList}}
-	1. Declared for a cross-document view transition, using the [=@view-transition/type=] descriptor.
+	1. Mutated at any time, using the transition's {{ViewTransition/types}}
+	1. Declared for a cross-document view transition, using the [=@view-transition/types=] descriptor.
 
 ## Examples ## {#active-view-transition-pseudo-examples}
 
@@ -628,7 +735,7 @@ whose [=ViewTransition/active types=] [=list/contains=] at least one of the <<cu
 	<xmp class=idl>
 		dictionary StartViewTransitionOptions {
 			UpdateCallback? update = null;
-			sequence<DOMString>? type = null;
+			sequence<DOMString>? types = null;
 		};
 
 		partial interface Document {
@@ -658,7 +765,7 @@ whose [=ViewTransition/active types=] [=list/contains=] at least one of the <<cu
 
 		1. Let |viewTransition| be the result of running the [=method steps=] for {{Document/startViewTransition(updateCallback)}} given |updateCallback|.
 
-		1. If |callbackOptions| is a {{StartViewTransitionOptions}}, set |viewTransition|'s [=ViewTransition/active types=]'s [=DOMTokenList/token set=] to a [=list/clone=] of {{StartViewTransitionOptions/type}} as a [=/set=].
+		1. If |callbackOptions| is a {{StartViewTransitionOptions}}, set |viewTransition|'s [=ViewTransition/active types=]'s [=DOMTokenList/token set=] to a [=list/clone=] of {{StartViewTransitionOptions/types}} as a [=/set=].
 
 		1. Return |viewTransition|.
 	</div>
@@ -669,11 +776,11 @@ The {{ViewTransition}} interface is extended as follows:
 
 <pre class='idl'>
 partial interface ViewTransition {
-	readonly attribute DOMTokenList typeList;
+	readonly attribute DOMTokenList types;
 };
 </pre>
 
-The {{ViewTransition/typeList}} [=getter steps=] are to return [=this=]'s [=ViewTransition/active types=].
+The {{ViewTransition/types}} [=getter steps=] are to return [=this=]'s [=ViewTransition/active types=].
 
 A {{ViewTransition}} additionally has:
 <dl dfn-for=ViewTransition>
@@ -683,7 +790,7 @@ A {{ViewTransition}} additionally has:
 
 ## Activating the transition type for cross-document view transitions ## {#types-cross-doc}
 
-### The [=@view-transition/type=] descriptor ### {#view-transition-type-descriptor}
+### The [=@view-transition/types=] descriptor ### {#view-transition-type-descriptor}
 
 	<pre class='descdef'>
 	Name: type
@@ -692,10 +799,10 @@ A {{ViewTransition}} additionally has:
 	Initial: none
 	</pre>
 
-	The '<dfn for="@view-transition">type</dfn>' descriptor sets the [=ViewTransition/active types=] for the transition
-	when capturing or performing the transition, equivalent to calling {{Document/startViewTransition(callbackOptions)}} with that {{StartViewTransitionOptions/type}}.
+	The '<dfn for="@view-transition">types</dfn>' descriptor sets the [=ViewTransition/active types=] for the transition
+	when capturing or performing the transition, equivalent to calling {{Document/startViewTransition(callbackOptions)}} with that {{StartViewTransitionOptions/types}}.
 
-	Note: the [=@view-transition/type=] descriptor only applies to the {{Document}} in which it is defined.
+	Note: the [=@view-transition/types=] descriptor only applies to the {{Document}} in which it is defined.
 	The author is responsible for using their chosen set of types in both documents.
 
 # Sharing styles between view transition pseudo-elements # {#shared-style-with-vt-classes}
