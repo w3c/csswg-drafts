@@ -172,7 +172,7 @@ Escaping</h3>
 			to be followed by "real" hex digits.
 
 			<p class=example>
-				An [=ident sequence=] with the value "&B"
+				An [=ident sequence=] with the value "&amp;B"
 				could be written as ''\26 B'' or ''\000026B''.
 
 			<p class=note>
@@ -2393,12 +2393,12 @@ Parse a rule</h4>
 				Otherwise,
 				if the <a>next token</a> from |input| is an <<at-keyword-token>>,
 				<a>consume an at-rule</a> from |input|,
-				and let <var>rule</var> be the return value.
+				and let |rule| be the return value.
 
 				Otherwise,
 				<a>consume a qualified rule</a> from |input|
-				and let <var>rule</var> be the return value.
-				If nothing was returned,
+				and let |rule| be the return value.
+				If nothing or an [=invalid rule error=] was returned,
 				return a syntax error.
 
 			<li>
@@ -2406,7 +2406,7 @@ Parse a rule</h4>
 
 			<li>
 				If the <a>next token</a> from |input| is an <<EOF-token>>,
-				return <var>rule</var>.
+				return |rule|.
 				Otherwise, return a syntax error.
 		</ol>
 	</div>
@@ -2580,7 +2580,7 @@ Consume a stylesheet's contents</h4>
 		<dt>anything else
 		<dd>
 			<a>Consume a qualified rule</a> from |input|.
-			If anything is returned,
+			If a [=rule=] is returned,
 			append it to |rules|.
 	</dl>
 
@@ -2624,8 +2624,14 @@ Consume an at-rule</h4>
 		<dt><a href="#tokendef-open-curly">&lt;{-token></a>
 		<dd>
 			[=Consume a block=] from |input|,
-			and assign the results to |rule|'s
-			lists of [=declarations=] and child [=rules=].
+			and assign the result to |rule|'s child [=rules=].
+
+			Note: If the result contains [=lists=] of [=declarations=],
+			how they're materialized in the CSSOM
+			depends on the rule.
+			Some turn them all into ''@nest'' rules,
+			others will treat them all as declarations,
+			and others will treat the first item differently from the rest.
 
 			If |rule| is valid in the current context,
 			return it.
@@ -2717,7 +2723,7 @@ Consume a qualified rule</h4>
 				carefully vetting their syntax.
 				Authors <em>can</em> write a custom property
 				that takes a {}-block in its value,
-				even combined with other thing;
+				even combined with other things;
 				if that custom property is then invalid
 				(due to an invalidly-written ''var()'' function, for example),
 				when it's reparsed as a rule
@@ -2750,9 +2756,20 @@ Consume a qualified rule</h4>
 			and assign the results to |rule|'s
 			lists of [=declarations=] and child [=rules=].
 
+
+			[=Consume a block=] from |input|,
+			and let |child rules| be the result.
+			If the first item of |child rules| is a [=list=] of [=declarations=],
+			remove it from |child rules|
+			and assign it to |rule|'s declarations.
+			If any remaining items of |child rules| are [=lists=] of [=declarations=],
+			replace them with ''@nest'' [=at-rules=]
+			containing the [=list=] as its sole child.
+			Assign |child rules| to |rule|'s child [=rules=].
+
 			If |rule| is valid in the current context,
 			return it;
-			otherwise return nothing.
+			otherwise return an <dfn>invalid rule error</dfn>.
 
 		<dt>anything else
 		<dd>
@@ -2770,15 +2787,12 @@ Consume a block</h4>
 	Assert: The [=next token=]
 	is a <a href="#tokendef-open-curly">&lt;{-token></a>.
 
-	Let |decls| be an empty [=list=] of [=declarations=],
-	and |rules| be an empty [=list=] of [=rules=].
-
 	[=Discard a token=] from |input|.
 	[=Consume a block's contents=] from |input|
-	and assign the results to |decls| and |rules|.
+	and let |rules| be the result.
 	[=Discard a token=] from |input|.
 
-	Return |decls| and |rules|.
+	Return |rules|.
 
 
 <h4 id="consume-block-contents" oldids="consume-list-of-declarations">
@@ -2787,8 +2801,19 @@ Consume a block's contents</h4>
 	To <dfn>consume a block's contents</dfn>
 	from a [=token stream=] |input|:
 
-	Let |decls| be an empty [=list=] of [=declarations=],
-	and |rules| be an empty [=list=] of [=rules=].
+	Note: This algorithm returns a [=list=],
+	consisting of [=rules=] and [=lists=] of [=declarations=].
+	Depending on the parent context,
+	a [=list=] of [=declarations=]
+	might be materialized in the CSSOM as either
+	a {{CSSStyleDeclaration}},
+	or as a {{CSSNestRule}}.
+
+	Let |rules| be an empty [=list=],
+	containing either [=rules=]
+	or [=lists=] of [=declarations=].
+
+	Let |decls| be an empty [=list=] of [=declarations=].
 
 	[=token stream/Process=] |input|:
 
@@ -2801,10 +2826,14 @@ Consume a block's contents</h4>
 		<dt><<EOF-token>>
 		<dt><a href="#tokendef-close-curly">&lt;}-token></a>
 		<dd>
-			Return |decls| and |rules|.
+			Return |rules|.
 
 		<dt><<at-keyword-token>>
 		<dd>
+			If |decls| is not empty,
+			append it to |rules|,
+			and set |decls| to a fresh empty [=list=] of [=declarations=].
+
 			[=Consume an at-rule=] from |input|,
 			with |nested| set to true.
 			If a [=rule=] was returned,
@@ -2824,8 +2853,25 @@ Consume a block's contents</h4>
 			then [=consume a qualified rule=] from |input|,
 			with |nested| set to true,
 			and <<semicolon-token>> as the |stop token|.
-			If a [=rule=] was returned,
-			append it to |rules|.
+
+			<dl class=switch>
+				: If nothing was returned
+				:: Do nothing
+
+				: If an [=invalid rule error=] was returned
+				::
+					If |decls| is not empty,
+					append |decls| to |rules|,
+					and set |decls| to a fresh empty [=list=] of [=declarations=].
+					(Otherwise, do nothing.)
+
+				: If a [=rule=] was returned
+				::
+					If |decls| is not empty,
+					append |decls| to |rules|,
+					and set |decls| to a fresh empty [=list=] of [=declarations=].
+					Append the [=rule=] to |rules|.
+			</dl>
 	</dl>
 
 	<details class=note>
@@ -3930,6 +3976,12 @@ Changes from the 24 December 2021 Candidate Recommendation Draft</h3>
 		([=custom properties=], the ''@font-face/unicode-range'' descriptor)
 		require access to the original string of a declaration's entire value,
 		and marked where that occurs in the parser.
+
+	* When [=consuming a block's contents=],
+		rather than grouping all declarations together,
+		regardless of where they appear relative to other rules,
+		declarations now maintain their relative position wrt surrounding rules.
+		It's up to individual rules to determine what they actually do with that information.
 
 <h3 id="changes-CR-20190716">
 Changes from the 16 August 2019 Candidate Recommendation</h3>
