@@ -224,6 +224,8 @@ many of which don't integrate well with the model for CSS animations or transiti
 ## Stakeholder Feedback / Opposition
 
 - Google: [Positive](https://chromestatus.com/feature/5196713071738880)
+- Mozilla: https://github.com/mozilla/standards-positions/issues/1022
+- WebKit: https://github.com/WebKit/standards-positions/issues/348
 
 ## References & acknowledgements
 
