@@ -79,7 +79,7 @@ discussed in this proposal.
 
 ## Proposed Syntax
 
-See "2. Extensions to the the `@supports` rule" in [CSS Conditionals
+See "2. Extensions to the `@supports` rule" in [CSS Conditionals
 5](https://www.w3.org/TR/css-conditional-5/#at-supports-ext).
 
 Examples:
