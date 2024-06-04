@@ -1,12 +1,13 @@
 <pre class='metadata'>
 Title: CSS View Transitions Module Level 2
-Shortname: css-view-transitions-2
+Shortname: css-view-transitions
 Level: 2
-Status: ED
+Status: FPWD
 Group: csswg
-Date: 2023-05-30
+Date: 2024-05-09
 Prepare for TR: yes
 ED: https://drafts.csswg.org/css-view-transitions-2/
+TR: https://www.w3.org/TR/css-view-transitions-2/
 Work Status: exploring
 Editor: Noam Rosenthal, Google, w3cid 121539
 Editor: Khushal Sagar, Google, w3cid 122787
@@ -130,8 +131,8 @@ With same-document view transitions, the author starts a view transition using J
 In cross-document view transition, what triggers a view transition is a navigation between two documents, as long as the following conditions are met:
 
 	* Both documents are of the [=same origin=];
-	* The page is visible throughout the entire course of the navigatiion;
-	* the navigation is initiated by the page, e.g. by clicking a link or submitting a form, or is a {{NavigationType/traverse}} navigation (back/forward). This excludes, for example, navigations initiated by the URL bar;
+	* The page is visible throughout the entire course of the navigation;
+	* The user initiates the navigation by interacting with the page, e.g. by clicking a link or submitting a form; or by interacting with the browser UI to do a {{NavigationType/traverse}} navigation (back/forward). This excludes, for example, navigations initiated by the URL bar;
 	* the navigation didn't include cross-origin redirects; and
 	* both documents opted in to cross-document view transitions, using the ''@view-transition'' rule.
 
@@ -139,13 +140,46 @@ See the <a href="#lifecycle">lifecycle</a> section for more details.
 
 ### Waiting for the new state to stabilize ### {#waiting-for-stable-state}
 In same-document view transitions, the author can indicate when the new state of the transition is in a stable state by using the callback passed to {{Document/startViewTransition}}.
-Since cross-document view transitions are declarative, there is no such explicit promise. Instead, the user agent relies on the [=render-blocking mechanism=] to decide when the stable state is ready.
-In this way, the author can use the the <code data-x="">blocking</code> attribute, to delay the transition until:
+Since cross-document view transitions are declarative, there is no such explicit promise. Instead, the user agent relies on the [=render-blocking mechanism=] to decide when the document has reached a stable state.
+In this way, the author can use the <code data-x="">blocking</code> attribute, to delay the transition until:
 	* All expected scripts are executed, by using the script's {{HTMLScriptElement/blocking}} attribute on required scripts.
 	* All expected styles are executed, by using the style or link's {{HTMLStyleElement/blocking}} attribute on required styles.
 	* All expected HTML elements are seen by the parser, using an <{link/rel/expect}> {{HTMLLinkElement}} element.
 
+Note: overusing the render-blocking mechanism could make it so that the old state remains frozen for a long time, resulting in a jarring user experience.
+To avoid this, it's advised to ensure that the render-blocking elements are available in a timely manner.
+
 <div class="example">
+
+In this example, the last frame of the old document will be shown, and the animation will be delayed, until all the following conditions are met:
+- `style.css` is applied, to ensure the new state has the correct styles
+- `fixup.js` is run, to ensure the presentation is up to date with script-based fixups.
+- The `main-article` section is seen and parsed, to ensure enough of the content is loaded before allowing the transition to proceed.
+
+```html
+<!DOCTYPE html>
+<html>
+	<head>
+		< !-- This will be render-blocking by default -->
+		<link rel="stylesheet" href="style.css">
+
+		< !-- Since this script fixes up the layout, marking it as render blocking will
+			  ensure it's run before the view transition is activated -->
+		<script async href="fixup.js" blocking="render"></script>
+
+		< !-- Wait until the main-article element is seen and fully parsed before
+			  activating the transition -->
+		<link rel="expect" href="#main-article" blocking="render">
+	</head>
+	<body>
+		<header>...</header>
+		<main>
+			<article id="main-article">...</article>
+		</main>
+		<article id="secondary-article">...</article>
+	</body>
+</html>
+```
 </div>
 
 ### Customization ### {#customizing-cross-document-view-transitions}
@@ -198,7 +232,7 @@ Similar to a same-document view transition, the author can now select different 
 		1. This {{ViewTransition}}'s <code>{{ViewTransition/updateCallbackDone}}</code> promise is already resolved,
 			and its [=captured elements=] are populated from the old {{Document}}.
 
-		1. This is another opportunity for the author customize the transition, e.g. by mutating its {{ViewTransition/types}}, or {{ViewTransition/skipTransition()|skip}} it altogether.
+		1. This is another opportunity for the author to customize the transition, e.g. by mutating its {{ViewTransition/types}}, or {{ViewTransition/skipTransition()|skip}} it altogether.
 
 		1. The state of the new document is [=capture the new state|captured=] as the "new" state of the transition.
 
@@ -414,14 +448,9 @@ The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 		enum ViewTransitionNavigation { "auto", "none" };
 
 		[Exposed=Window]
-		interface CSSViewTransitionTypeSet {
-			readonly setlike<CSSOMString>;
-		};
-
-		[Exposed=Window]
 		interface CSSViewTransitionRule : CSSRule {
-			attribute ViewTransitionNavigation navigation;
-			attribute CSSViewTransitionTypeSet types;
+			readonly attribute ViewTransitionNavigation navigation;
+			[SameObject] readonly attribute FrozenArray<CSSOMString> types;
 		};
 </xmp>
 
@@ -511,6 +540,7 @@ whose [=ViewTransition/active types=] [=list/contains=] at least one of the <<cu
 The {{ViewTransition}} interface is extended as follows:
 
 <xmp class='idl'>
+[Exposed=Window]
 interface ViewTransitionTypeSet {
 	setlike<DOMString>;
 };
@@ -520,6 +550,11 @@ partial interface ViewTransition {
 	attribute ViewTransitionTypeSet types;
 };
 </xmp>
+
+The {{ViewTransitionTypeSet}} object represents a [=/set=] of strings, without special semantics.
+
+Note: a {{ViewTransitionTypeSet}} can contain strings that are invalid for '':active-view-transition-type'', e.g.
+strings that are not a <<custom-ident>>.
 
 The {{ViewTransition/types}} [=getter steps=] are to return [=this=]'s [=ViewTransition/active types=].
 
@@ -631,18 +666,24 @@ div.box {
 	are extended to support the following syntax:
 
 	<pre class=prod>
-		::view-transition-group(<<pt-name-selector>><<pt-class-selector>>)
-		::view-transition-image-pair(<<pt-name-selector>><<pt-class-selector>>)
-		::view-transition-old(<<pt-name-selector>><<pt-class-selector>>)
-		::view-transition-new(<<pt-name-selector>><<pt-class-selector>>)
+		::view-transition-group(<<pt-name-and-class-selector>>)
+		::view-transition-image-pair(<<pt-name-and-class-selector>>)
+		::view-transition-old(<<pt-name-and-class-selector>>)
+		::view-transition-new(<<pt-name-and-class-selector>>)
 	</pre>
 
 	where <<pt-name-selector>> works as previously defined, and
-	<<pt-class-selector>> has the following syntax definition:
+	<<pt-name-and-class-selector>> has the following syntax definition:
 
 	<pre class=prod>
-		<dfn>&lt;pt-class-selector></dfn> = ['.' <<custom-ident>>]*
+		<dfn>&lt;pt-name-and-class-selector></dfn> = <<pt-name-selector>> <<pt-class-selector>>? | <<pt-class-selector>>
+		<dfn>&lt;pt-class-selector></dfn> = ['.' <<custom-ident>>]+
 	</pre>
+
+	When interpreting the above grammar, white space is forbidden:
+
+		* Between <<pt-name-selector>> and <<pt-class-selector>>
+		* Between any of the components of <<pt-class-selector>>.
 
 	A [=named view transition pseudo-element=] [=selector=] which has one or more <<custom-ident>> values
 	in its <<pt-class-selector>> would only match an element if the [=captured element/class list=] value in
@@ -723,7 +764,7 @@ A {{Document}} additionaly has:
 A {{ViewTransition}} additionally has:
 <dl dfn-for=ViewTransition>
 	: <dfn>active types</dfn>
-	:: A [=/set=] of strings, initially empty.
+	:: A {{ViewTransitionTypeSet}}, initially empty.
 
 	: <dfn>outbound post-capture steps</dfn>
 	:: Null or a set of steps, initially null.

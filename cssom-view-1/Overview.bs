@@ -28,12 +28,16 @@ Can I Use URL: https://www.w3.org/TR/cssom-view-1/
 
 <pre class='link-defaults'>
 spec:css-ui-4; type:property; text:pointer-events
-spec:css2; type:dfn; text:canvas
-spec:css2; type:dfn; text:viewport
+spec:css-viewport; type:dfn; text:effective zoom
+spec:css2; type:dfn;
+    text: canvas
+    text: viewport
+spec:dom; type:dfn; text:parent element
 spec:html; type:dfn;
     text: inert
     text: the body element
     text: rules for parsing integers
+    text: being rendered
 </pre>
 
 <style>
@@ -1011,7 +1015,7 @@ Note: Some non-conforming implementations are known to return 32 instead of 24.
 partial interface Document {
   Element? elementFromPoint(double x, double y);
   sequence&lt;Element> elementsFromPoint(double x, double y);
-  CaretPosition? caretPositionFromPoint(double x, double y);
+  CaretPosition? caretPositionFromPoint(double x, double y, ShadowRoot... shadowRoots);
   readonly attribute Element? scrollingElement;
 };
 </pre>
@@ -1042,7 +1046,7 @@ instance, an element can be excluded from being a target for hit testing by usin
 1. If the document has a [=root element=], and the last item in <var>sequence</var> is not the [=root element=], append the [=root element=] to <var>sequence</var>.
 1. Return <var>sequence</var>.
 
-The <dfn method for=Document>caretPositionFromPoint(<var>x</var>, <var>y</var>)</dfn> method must return the
+The <dfn method for=Document>caretPositionFromPoint(<var>x</var>, <var>y</var>, ...<var>shadowRoots</var>)</dfn> method must return the
 result of running these steps:
 
 1. If there is no <a>viewport</a> associated with the document, return null.
@@ -1066,25 +1070,20 @@ result of running these steps:
         <dt><a>caret offset</a>
         <dd>The amount of 16-bit units to the left of where the
         text insertion point indicator would have inserted.
-
-        <dt><a>caret range</a>
-        <dd>null
     </dl>
-1. Otherwise, return a <a>caret position</a> where the
-    <a>caret range</a> is a collapsed
-    {{Range}} object for the position
-    where the text insertion point indicator would have been inserted when applying the <a>transforms</a> that apply to the descendants of the
-    <a>viewport</a>, and the other properties are set as follows:
+1. Otherwise:
 
-    <dl>
-        <dt><a>caret node</a>
-        <dd>The [=range/start node=]
-            of the <a>caret range</a>.
+    1. Let <var>caretPosition</var> be a <a for=/>tuple</a> consisting of a <var>caretPositionNode</var> (a <a for=/>node</a>) and a <var>caretPositionOffset</var> (a non-negative integer) for the position where the text insertion point indicator would have been inserted when applying
+        the <a>transforms</a> that apply to the descendants of the <a>viewport</a>.
+    1. Let <var>startNode</var> be the <var>caretPositionNode</var> of the <var>caretPosition</var>, and let <var>startOffset</var> be the <var>caretPositionOffset</var> of the <var>caretPosition</var>.
+    1. While <var>startNode</var> is a [=node=], <var>startNode</var>'s [=tree/root=] is a [=shadow root=], and <var>startNode</var>'s [=tree/root=] is not a [=shadow-including inclusive ancestor=] of any of <var>shadowRoots</var>, repeat these steps:
+        1. Set <var>startOffset</var> to [=tree/index=] of <var>startNode</var>'s [=tree/root=]'s [=host=].
+        1. Set <var>startNode</var> to <var>startNode</var>'s [=tree/root=]'s [=host=]'s [=tree/parent=].</li>
+    1. Return a <a>caret position</a> with its properties set as follows:
+        1. <a>caret node</a> is set to <var>startNode</var>.
+        1. <a>caret offset</a> is set to <var>startOffset</var>.
 
-        <dt><a>caret offset</a>
-        <dd>The [=range/start offset=] of
-            the <a>caret range</a>.
-    </dl>
+Note: This <a>caret position</a> is not <a spec=html>live</a>.
 
 Note: The specifics of hit testing are out of scope of this
 specification and therefore the exact details of
@@ -1117,7 +1116,7 @@ in that the latter can return a <code>frameset</code> element.
 <h3 id=the-caretposition-interface>The {{CaretPosition}} Interface</h3>
 
 A <dfn>caret position</dfn> gives the position of a text insertion point indicator. It always has an associated
-<dfn>caret node</dfn>, <dfn>caret offset</dfn>, and <dfn>caret range</dfn>. It is represented by a {{CaretPosition}} object.
+<dfn>caret node</dfn> and <dfn>caret offset</dfn>. It is represented by a {{CaretPosition}} object.
 
 <pre class=idl>
 [Exposed=Window]
@@ -1135,16 +1134,15 @@ The <dfn attribute for=CaretPosition>offset</dfn> attribute must return the <a>c
 The <dfn method for=CaretPosition>getClientRect()</dfn> method must follow these steps,
 aborting on the first step that returns a value:
 
-1. If <a>caret range</a> is not null:
-    1. Let <var>list</var> be the result of invoking the {{Range/getClientRects()}} method on the range.
-    1. If <var>list</var> is empty, return null.
-    1. Return the {{DOMRect}} object in <var>list</var> at index 0.
 1. If <a>caret node</a> is a text entry widget that is a replaced element,
     and that is in the document,
     return a [=scaled=] {{DOMRect}} object for the caret in the widget
     as represented by the <a>caret offset</a> value.
     The <a>transforms</a> that apply to the element and its ancestors are applied.
-1. Return null.
+1. Otherwise:
+
+    1. Let <var>caretRange</var> be a collapsed {{Range}} object whose [=range/start node=] and [=range/end node=] are set to <a>caret node</a>, and whose [=range/start offset=] and [=range/end offset=] are set to <a>caret offset</a>.
+    1. Return the {{DOMRect}} object which is the result of invoking the {{Range/getBoundingClientRect()}} method on <var>caretRange</var>.
 
 Note: This {{DOMRect}} object is not <a spec=html>live</a>.
 
@@ -1439,7 +1437,7 @@ The <dfn attribute for=Element>clientHeight</dfn> attribute must run these steps
 1. Return the [=unscaled=] height of the <a>padding edge</a> excluding the height of any rendered scrollbar between the <a>padding edge</a> and the <a>border edge</a>, ignoring any <a>transforms</a> that apply to the element and its ancestors.
 
 The <dfn attribute for=Element>currentCSSZoom</dfn> attribute must return the
-[=effective zoom=] of the element, or 1.0 if the element isn't [=rendered=].
+[=effective zoom=] of the element, or 1.0 if the element isn't [=being rendered=].
 
 <h3 id=element-scrolling-members>{{Element}} Scrolling Members</h3>
 
@@ -1567,8 +1565,8 @@ The <dfn attribute for=HTMLElement>offsetParent</dfn> attribute must return the 
 1. Let <var>ancestor</var> be the parent of the element in the <a>flat tree</a> and repeat these substeps:
     1. If <var>ancestor</var> is <a>closed-shadow-hidden</a> from the element and its computed value of the 'position' property is ''position/fixed'', terminate this algorithm and return null.
     1. If <var>ancestor</var> is not <a>closed-shadow-hidden</a> from the element and satisfies at least one of the following, terminate this algorithm and return <var>ancestor</var>.
-        * The element is a containing block of absolutely-positioned descendants (regardless of whether there are any absolutely-positioned descendants).
-        * The element has a non-default used value of 'zoom'.
+        * <var>ancestor</var> is a containing block of absolutely-positioned descendants (regardless of whether there are any absolutely-positioned descendants).
+        * The element has a different [=effective zoom=] than <var>ancestor</var>.
         * It is <a>the <code>body</code> element</a>.
         * The computed value of the 'position' property of the element is ''static'' and the ancestor is one of the following <a>HTML elements</a>: <code>td</code>, <code>th</code>, or <code>table</code>.
     1. If there is no more parent of <var>ancestor</var> in the <a>flat tree</a>, terminate this algorithm and return null.
@@ -1926,7 +1924,7 @@ Whenever a <a>viewport</a> gets scrolled (whether in response to user interactio
 
 1. Let <var>doc</var> be the <a>viewport’s</a> associated {{Document}}.
 1. If <var>doc</var> is a <a spec=css-scroll-snap lt="scroll snap container">snap container</a>,
-    run the steps to <a spec=css-scroll-snap-2 lt="update snapchanging targets">update snapchanging targets</a>
+    run the steps to <a spec=css-scroll-snap-2 lt="update scrollsnapchanging targets">update scrollsnapchanging targets</a>
     for <var>doc</var> with <var>doc</var>'s <a spec="css-scroll-snap-2">eventual snap target</a> in the block axis
     as newBlockTarget and <var>doc</var>'s <a spec="css-scroll-snap-2">eventual snap target</a> in the inline axis
     as newInlineTarget.
@@ -1937,7 +1935,7 @@ Whenever an element gets scrolled (whether in response to user interaction or by
 
 1. Let <var>doc</var> be the element's <a>node document</a>.
 1. If the element is a <a spec=css-scroll-snap lt="scroll snap container">snap container</a>,
-    run the steps to <a spec=css-scroll-snap-2 lt="update snapchanging targets">update snapchanging targets</a>
+    run the steps to <a spec=css-scroll-snap-2 lt="update scrollsnapchanging targets">update scrollsnapchanging targets</a>
     for the element with the element's <a spec="css-scroll-snap-2">eventual snap target</a> in the block axis
     as newBlockTarget and the element's <a spec="css-scroll-snap-2">eventual snap target</a> in the inline axis
     as newInlineTarget.
@@ -1953,14 +1951,14 @@ Whenever a <a>visual viewport</a> gets scrolled (whether in response to user int
 
 When asked to <dfn export for=Document>run the scroll steps</dfn> for a {{Document}} <var>doc</var>, run these steps:
 
-1. Run the steps to <a spec="css-scroll-snap-2">dispatch pending snapchanging events</a> for <var>doc</var>.
+1. Run the steps to <a spec="css-scroll-snap-2">dispatch pending scrollsnapchanging events</a> for <var>doc</var>.
 1. For each item <var>target</var> in <var>doc</var>'s <a>pending scroll event targets</a>,
     in the order they were added to the list, run these substeps:
 
     1. If <var>target</var> is a {{Document}}, <a>fire an event</a> named <a event>scroll</a> that bubbles at <var>target</var>.
     1. Otherwise, <a>fire an event</a> named <a event>scroll</a> at <var>target</var>.
 1. Empty <var>doc</var>'s <a>pending scroll event targets</a>.
-1. Run the steps to <a spec="css-scroll-snap-2">dispatch pending snapchanged events</a> for <var>doc</var>.
+1. Run the steps to <a spec="css-scroll-snap-2">dispatch pending scrollsnapchange events</a> for <var>doc</var>.
 
 Whenever scrolling is <a lt="scroll completed">completed</a>, the user agent must run these steps:
 
@@ -1971,10 +1969,10 @@ Issue: In what order are scrollend events dispatched? Ordered based on scroll st
         If <var>box</var> belongs to a {{VisualViewport}}, let <var>doc</var> be the {{VisualViewport}}'s <a for=visualviewport>associated document</a> and <var>target</var>
         be the {{VisualViewport}}. Otherwise, <var>box</var> belongs to an element and let <var>doc</var> be the element's <a>node document</a> and <var>target</var> be the element.
     1. If <var>box</var> belongs to a <a spec=css-scroll-snap lt="scroll snap container">snap container</a>, |snapcontainer|,
-        run the <a spec=css-scroll-snap-2 lt="update snapchanged targets">update snapchanged targets</a> steps for |snapcontainer|.
+        run the <a spec=css-scroll-snap-2 lt="update scrollsnapchange targets">update scrollsnapchange targets</a> steps for |snapcontainer|.
     1. If <var>target</var> is already in <var>doc</var>'s <a>pending scrollend event targets</a>, abort these steps.
     1. Append <var>target</var> to <var>doc</var>'s <a>pending scrollend event targets</a>.
-1. Run the steps to <a spec="css-scroll-snap-2">dispatch pending snapchanged targets</a> for <var>doc</var>.
+1. Run the steps to <a spec="css-scroll-snap-2">dispatch pending scrollsnapchange targets</a> for <var>doc</var>.
 1. For each item <var>target</var> in <var>doc</var>'s <a>pending scrollend event targets</a>, in the order they were added to the list, run these substeps:
     1. If <var>target</var> is a {{Document}}, <a>fire an event</a> named <a event>scrollend</a> that bubbles at <var>target</var>.
     1. Otherwise, <a>fire an event</a> named <a event>scrollend</a> at <var>target</var>.
