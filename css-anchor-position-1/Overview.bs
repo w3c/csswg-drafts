@@ -13,6 +13,7 @@ Editor: Elika J. Etemad / fantasai, Apple, http://fantasai.inkedblade.net/contac
 Former Editor: Jhey Tompkins, Google, https://twitter.com/jh3yy, w3cid 137616
 Editor: Ian Kilpatrick, Google, w3cid 73001
 Abstract: This specification defines 'anchor positioning', where a positioned element can size and position itself relative to one or more "anchor elements" elsewhere on the page.
+Ignored Terms: cssText, transitions
 </pre>
 
 <pre class=link-defaults>
@@ -24,6 +25,10 @@ spec:css-position-3;
 	type:property; text:inset-inline-start
 spec:css-cascade-5; type:dfn; text:property
 spec:dom; type:dfn; text:shadow tree
+</pre>
+
+<pre class=anchors>
+spec:aria-1.3; type: element-attr; text: role; for: html-global; url: https://w3c.github.io/aria/#host_general_role
 </pre>
 
 <style>
@@ -148,11 +153,21 @@ Not all elements are capable of being [=anchor elements=]
 for a given positioned element,
 so a name can be reused in multiple places
 if the usages are scoped appropriately.
-If the element has either [=style containment=] or [=layout containment=],
-the 'anchor-name' property is [=scoped property|scoped=] [=scoped to a sub-tree|to a sub-tree=].
-If there are still multiple valid [=anchor elements=]
-with the given [=anchor name=],
-the last one is chosen.
+
+Note: If multiple elements share an [=anchor name=]
+and are all visible to a given positioned element,
+the [=target anchor element=] will be the last one in DOM order.
+'anchor-scope' can be used to limit what names are visible to a given element.
+
+[=Anchor names=] are <em>not</em> scoped by [=containment=] by default;
+even if an element has [=style containment|style=] or [=layout containment=]
+(or any similar sort of containment),
+the [=anchor names=] of its descendants are visible to elements elsewhere in the page.
+
+Note: While an element is in the [=skipped contents=] of another element
+(due to ''content-visibility: hidden'', for instance),
+it's not an [=acceptable anchor element=],
+effectively acting as if it had no names.
 
 ### Implicit Anchor Elements ### {#implicit}
 
@@ -162,9 +177,9 @@ a particular element is an <dfn>implicit anchor element</dfn>
 for a given positioned element.
 
 <p class=example>
-	TODO fill in new popover-related details.
-	This makes the declared element the [=implicit anchor element=]
-	for the element with the attribute.
+	TODO: Fill in an example using the "anchor" attribute
+	(once that finally lands in the HTML spec),
+	which sets the implicit anchor element.
 
 [=Implicit anchor elements=] can be referenced
 with the ''implicit'' keyword,
@@ -282,6 +297,20 @@ that should match an 'anchor-name' value elsewhere on the page,
 or the keyword ''implicit'',
 or nothing (a missing specifier).
 
+Note: The general rule captured by these conditions
+is that an element can only be an anchor
+if it's fully laid out
+before the positioned element that wants to reference it
+is laid out.
+CSS's layout rules provide some useful guarantees about this,
+depending on the anchor and positioned element's relationship
+with each other and their containing blocks.
+The list of conditions below
+exactly rephrases the stacking context rules
+into just what's relevant for this purpose,
+ensuring there is no possibly circularity
+in anchor positioning.
+
 <div algorithm>
 	To determine the <dfn>target [=anchor element=]</dfn>
 	given a querying element |query el|
@@ -324,17 +353,6 @@ or nothing (a missing specifier).
 		which can affect what elements can be [=anchor elements=]
 		for a given lookup.
 
-	Note: The general rule captured by these conditions
-	is that |el| must be fully laid out
-	before |query el| is laid out.
-	CSS's rules about the layout order of stacking contexts
-	give us assurances about this,
-	and the list of conditions above
-	exactly rephrases the stacking context rules
-	into just what's relevant for this purpose,
-	ensuring there is no possibly circularity
-	in anchor positioning.
-
 	Note: An 'anchor-name' defined by styles in one [=shadow tree=]
 	won't be seen by [=anchor functions=] in styles in a different [=shadow tree=],
 	preserving encapsulation.
@@ -365,12 +383,14 @@ or nothing (a missing specifier).
 		is either not [=absolutely positioned=]
 		or precedes |query el| in the tree order.
 
-	* |el| is either an [=element=],
-		or a [=pseudo-element=] that acts like one.
+	* |el| is either an [=element=]
+		or a [=part-like pseudo-element=].
 
-		Issue: define the term that actually means this,
-		matching ::before/after/backdrop/etc
-		(but not ::marker/placeholder/etc whose box is not detectable).
+	* |el| is not in the [=skipped contents=] of another element.
+
+	* |el| is in scope for |query el|,
+		per the effects of 'anchor-scope' on |query el|
+		or its ancestors.
 </div>
 
 <!-- Big Text: default
@@ -389,8 +409,8 @@ Default Anchors: the 'position-anchor' property</h3>
 
 <pre class=propdef>
 Name: position-anchor
-Value: <<anchor-element>>
-Initial: implicit
+Value: auto | <<anchor-element>>
+Initial: auto
 Applies to: [=absolutely positioned=] elements
 Inherited: no
 Animation type: discrete
@@ -401,13 +421,17 @@ for all [=anchor functions=] on the element,
 allowing multiple elements to use the same set of [=anchor functions=]
 (and [=position options lists=]!)
 while changing which [=anchor element=] each is referring to.
+'position-anchor' is a [=reset-only sub-property=] of 'position'.
 
 The [=target anchor element=] selected by the [=default anchor specifier=]
 (if one exists)
 is the element's <dfn>default anchor element</dfn>.
 
 Its values are identical to the <<anchor-element>> term
-in ''anchor()'' and ''anchor-size()''.
+in ''anchor()'' and ''anchor-size()'',
+except that the ''position-anchor/auto'' value
+is equivalent to omitting the <<anchor-element>> in ''anchor()''
+(referring to the [=implicit anchor element=], if one exists).
 
 <div class=example>
 	For example, in the following code
@@ -432,6 +456,26 @@ in ''anchor()'' and ''anchor-size()''.
 	}
 	</pre>
 </div>
+
+<h3 id=anchor-relevance>
+Anchor Relevance</h3>
+
+When determining whether an element |el| is [=relevant to the user=],
+if a descendant of |el| is a [=target anchor element=]
+for a positioned element
+(which is not [=skipped contents|skipped=]
+and whose containing block is not |el|
+or a descendant of |el|),
+then |el| must be considered [=relevant to the user=].
+
+Note: This means that, for example,
+an anchor in a ''content-visibility: auto'' subtree
+will prevent its subtree from [=skipping its contents=]
+as long as the positioned element relying on it
+is also not [=skipped contents|skipped=].
+(Unless the anchor and the positioned element
+are both under the same ''content-visibility: auto'' element;
+they can't cyclicly keep each other visible.)
 
 
 Anchor-Based Positioning {#positioning}
@@ -515,24 +559,52 @@ Its syntax is:
 		or is not an [=absolutely-positioned=] element,
 		this value has no effect.
 
-		Otherwise, the property selects a region of the [=inset-area grid=],
-		and makes that the element's [=containing block=].
+		Otherwise, it has the following effects:
 
-		Note: This means that the [=inset properties=] specify offsets from the inset-area,
-		and some property values,
-		like ''max-height: 100%'',
-		will be relative to the inset-area as well.
+		* The property selects a region of the [=inset-area grid=],
+			and makes that the element's [=containing block=].
+			See [[#resolving-spans]] for details.
 
-		Additionally, the ''align-self/normal'' value for the [=self-alignment properties=]
-		behaves as either ''align-self/start'', ''align-self/end'',
-		or ''align-self/anchor-center'',
-		depending on the positioning of the region,
-		to give a good default alignment for the positioned element.
+			Note: This means that the [=inset properties=] specify offsets from the inset-area,
+			and some property values,
+			like ''max-height: 100%'',
+			will be relative to the inset-area as well.
 
-		See [[#resolving-spans]] for details on both of these effects.
+		* The ''align-self/normal'' value for the [=self-alignment properties=]
+			behaves as either ''align-self/start'', ''align-self/end'',
+			or ''align-self/anchor-center'',
+			depending on the positioning of the region,
+			to give a good default alignment for the positioned element.
+			Again, see [[#resolving-spans]] for details.
 
-		Also, any ''top/auto'' [=inset properties=] resolve to ''0''.
+		* Any ''top/auto'' [=inset properties=] resolve to ''0''.
+
+		* The element is not considered to be in a [=legacy alignment mode=]
+			in either axis.
 </dl>
+
+<div class=note>
+	If the element overflows its 'inset-area' (and 'inset') -modified [=containing block=],
+	but would still fit within its [=original containing block=],
+	by default it will "shift" to stay within its [=original containing block=],
+	even if that violates its normal alignment.
+	See [[css-align-3#overflow-values]] for details.
+
+	This behavior makes it more likely
+	that positioned elements remain visible
+	and within their intended bounds,
+	even when their [=containing block=]
+	ends up smaller than anticipated.
+
+	For example, an ''inset-area: bottom span-right'' value
+	lets the positioned element stretch
+	from its anchors left edge
+	to its containing block's right edge,
+	and left-aligns it in that space by default.
+	But if the positioned element is larger than that space
+	(such as if the anchor is very close to the right edge of the screen),
+	it will shift leftwards to stay visible.
+</div>
 
 
 <h4 id=resolving-spans>
@@ -623,9 +695,11 @@ The <<inset-area>> also implies a default [=self-alignment=],
 which will be used if the [=self-alignment property=] on the element
 is ''align-self/normal'':
 
-* If the inset area includes the center region in an axis
+* If the only the center region in an axis is selected,
+	or all three regions are selected,
 	the default alignment in that axis is ''align-self/anchor-center''.
-* Otherwise, it's the opposite of the region it specifies:
+* Otherwise, the default alignment in that axis
+	is toward the non-specified side region:
 	if it's specifying the "start" region of its axis,
 	the default alignment in that axis is ''align-self/end''; etc.
 
@@ -634,13 +708,17 @@ is ''align-self/normal'':
 	then the value ''span-x-start top'' resolves to
 	the "start" region of the vertical axis,
 	and the "start" and "center" regions of the horizontal axis,
-	so the default alignments will be ''align-self: end;'' and ''justify-self: anchor-center;''
+	so the default alignments will be ''align-self: end''
+	(making the element's bottom flush with the bottom of the "top" region)
+	and ''justify-self: end''
+	(making the element's end side flush with the end side of the "start+center" region).
 
 	<figure>
 		<img src="images/inset-area-example.png" width=400>
 		<figcaption>
 			An example of ''inset-area: span-x-start top'' positioning.
 		</figcaption>
+	</figure>
 </div>
 
 Note: When the [=default anchor element=]
@@ -667,10 +745,11 @@ can use the <dfn>anchor()</dfn> function
 as a value in its [=inset properties=]
 to refer to the position of one or more [=anchor elements=].
 The ''anchor()'' function resolves to a <<length>>.
+It is only valid to be used in the [=inset properties=].
 
 <pre class=prod>
-	&lt;anchor()> = anchor( <<anchor-element>>? <<anchor-side>>, <<length-percentage>>? )
-	<dfn><<anchor-element>></dfn> = <<dashed-ident>> | implicit
+	&lt;anchor()> = anchor( <<anchor-element>>? && <<anchor-side>>, <<length-percentage>>? )
+	<dfn><<anchor-element>></dfn> = <<dashed-ident>>
 	<dfn><<anchor-side>></dfn> = inside | outside
 			   | top | left | right | bottom
 			   | start | end | self-start | self-end
@@ -682,7 +761,6 @@ The ''anchor()'' function has three arguments:
 * the <<anchor-element>> value
 	specifies how to find the [=anchor element=]
 	it will be drawing positioning information from.
-	If omitted, it behaves as the element's [=default anchor specifier=].
 	Its possible values are:
 
 	<dl dfn-type=value dfn-for="anchor()">
@@ -690,7 +768,7 @@ The ''anchor()'' function has three arguments:
 		:: Specifies the [=anchor name=] it will look for.
 			This name is a [=tree-scoped reference=].
 
-		: <dfn>implicit</dfn>
+		: omitted
 		:: Selects the [=implicit anchor element=]
 			defined for the element,
 			if possible.
@@ -748,16 +826,9 @@ The ''anchor()'' function has three arguments:
 	specifying what the function should resolve to
 	if it's an [=invalid anchor function=].
 
-Issue: Computed value for anchor()
-probably needs to be the anchor() function,
-but with the target anchor element resolved.
-This allows for transitions to work properly
-with tree-scoped names,
-and with changing anchor elements.
-See <a href="https://github.com/w3c/csswg-drafts/issues/8180">Issue 8180</a>.
-
 An ''anchor()'' function representing a [=valid anchor function=]
-resolves at [=used value=] time
+resolves at [=computed value=] time
+(using [=style & layout interleaving=])
 to the <<length>> that would align the edge
 of the positioned elements' [=inset-modified containing block=]
 corresponding to the property the function appears in
@@ -768,12 +839,17 @@ and the positioned element's [=containing block=]
 are scrolled to their initial scroll position
 (but see [[#scroll]]).
 
+Note: This means that [=transitions=] or [=animations=]
+of a property using an [=anchor function=]
+will work "as expected" for all sorts of possible changes:
+the anchor element moving,
+anchor elements being added or removed from the document,
+the 'anchor-name' property being changed on anchors,
+etc.
+
 If the [=target anchor element=] is [=fragmented=],
 the axis-aligned bounding rectangle
 of the fragments' border boxes is used instead.
-
-Issue: Do we need to control which box we're referring to,
-so you can align to padding or content edge?
 
 The positioned element
 is additionally visually shifted
@@ -870,17 +946,19 @@ in the relevant axis.
 
 Additionally,
 any ''top/auto'' [=inset properties=] resolve to ''0''.
-However, the [=available space=] for the positioned element in the relevant axis
-is reduced to the size of the largest rectangle
-that is centered on the [=default anchor element=]
-and doesn't overflow the [=inset-modified containing block=].
-(Possibly being zero-sized,
-if the anchor's center is not within the [=inset-modified containing block=].)
 
 If the element is not [=absolutely positioned=],
 or does not have a [=default anchor element=],
 this value behaves as ''<self-position>/center''
 and has no additional effect on how [=inset properties=] resolve.
+
+Note: Similar to 'inset-area',
+when using ''anchor-center'',
+if the anchor is too close to the edge of the element's
+[=original containing block=],
+by default it will "shift" from being purely centered,
+to instead remain within the [=original containing block=].
+See [[css-align-3#overflow-values]] for more details.
 
 
 <!-- Big Text: scroll
@@ -947,11 +1025,57 @@ we define:
 
 	* Otherwise, the length is 0.
 
+	If the [=default anchor element=],
+	or ancestors between it and |query el|'s [=containing block=],
+	are subject to additional scroll adjustments,
+	such as from further anchor positioning,
+	or sticky positioning,
+	etc.,
+	add that adjustment to the [=snapshotted scroll offset=] as well.
+
 	Issue: Define the precise timing of the snapshot:
 	updated each frame,
 	before style recalc.
 </div>
 
+<details class=note>
+	<summary>Implied restrictions of scroll adjustment</summary>
+
+	In short: a positioned element
+	is able to have its <em>position</em>
+	rely on a scrollable anchor in a different scroll container,
+	but cannot have its <em>size</em> depend on that.
+	This restriction allows "composited scrolling" to continue to be used,
+	where the actual shifting of a scrollable element's contents
+	is done in a separate "compositing thread" in the UA,
+	and the rest of the CSS
+	(in particular, layout)
+	can't directly depend on its results.
+
+	This is why only <em>one</em> anchor
+	(the [=default anchor element=])
+	is used for scroll adjustment--
+	if multiple anchors could be adjusted for,
+	then a positioned element could use different ones for opposite sides,
+	and trigger layout as a result of either of them scrolling.
+
+	Position fallback *can* end up depending on scroll adjustment,
+	which can cause re-layout
+	since the [=sizing properties=] are [=accepted @position-try properties=].
+	However, it's acceptable for fallback due to scrolling
+	to happen <em>a frame late</em>,
+	after the UA has had time to receive scrolling information
+	from the compositing thread.
+	This is not the case for simple position tracking--
+	if the positioned element is meant to sit snug against the anchor,
+	having it lag a frame behind is very user-visible,
+	and a pretty bad experience.
+
+	If you want to have a positioned element's size
+	depend on an anchor's scroll position,
+	the positioned element must be inside of the same scroll container,
+	so the two elements are never scrolled relative to each other at all.
+</details>
 
 Validity {#anchor-valid}
 --------
@@ -974,7 +1098,155 @@ only if all the following conditions are true:
 If any of these conditions are false,
 the ''anchor()'' function resolves to its specified fallback value.
 If no fallback value is specified,
-it resolves to ''0px''.
+it makes the declaration referencing it [=invalid at computed-value time=].
+
+
+<!-- Big Text: visibility
+
+█▌   █▌ ████  ███▌  ████ ████▌  ████ █▌    ████ █████▌ █   ▐▌
+█▌   █▌  ▐▌  █▌  █▌  ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌   ▐▌  █ 
+█▌   █▌  ▐▌  █▌      ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌    █ ▐▌ 
+▐▌   █   ▐▌   ███▌   ▐▌  █████   ▐▌  █▌     ▐▌    █▌    ▐▌█  
+ █  ▐▌   ▐▌      █▌  ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌     █▌  
+ ▐▌ █    ▐▌  █▌  █▌  ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌     █▌  
+  ▐█    ████  ███▌  ████ ████▌  ████ █████ ████   █▌     █▌  
+-->
+
+Conditional Hiding: the 'position-visibility' property {#position-visibility}
+------------------------------------------------------
+
+<pre class=propdef>
+Name: position-visibility
+Value: always | [ anchors-valid || anchors-visible || no-overflow ]
+Initial: anchors-visible
+Applies to: [=absolutely-positioned=] elements
+Percentages: n/a
+Inherited: no
+Animation type: discrete
+</pre>
+
+There are times when an element's anchors
+are not appropriate for positioning the element with,
+and it would be better to simply not display the element at all.
+'position-visibility' provides several conditions
+where this could be the case.
+
+<dl dfn-type=value dfn-for=position-visibility>
+	: <dfn>always</dfn>
+	::
+		This property has no effect.
+		(The element is displayed without regard for its anchors
+		or its overflowing status.)
+
+	: <dfn>anchors-valid</dfn>
+	::
+		If any of the element's [=required anchor references=]
+		do not resolve to a [=target anchor element=],
+		the element is [=strongly hidden=].
+
+		Issue: What is a <dfn dfn for>required anchor reference</dfn>?
+		''anchor()'' functions that don't have a fallback value;
+		the default anchor *sometimes*?
+		Need more detail here.
+
+		Issue: <em>Any</em> anchors are missing,
+		or <em>all</em> anchors are missing?
+		I can see use-cases for either, potentially.
+		Do we want to make a decision here, or make it controllable somehow?
+
+	: <dfn>anchors-visible</dfn>
+	::
+		If the element has a [=default anchor element=]
+		but the anchor element is [=clipped by intervening elements=],
+		this element is also [=strongly hidden=].
+
+	: <dfn>no-overflow</dfn>
+	::
+		If the element overflows its [=inset-modified containing block=],
+		even after applying 'position-try',
+		then the element is [=strongly hidden=].
+</dl>
+
+<div algorithm>
+	An anchor element |anchor|
+	is <dfn noexport>clipped by intervening elements</dfn>
+	relative to a positioned element |abspos| relying on it
+	if |anchor|'s [=ink overflow rectangle=]
+	is fully clipped by an element
+	which is an ancestor of |anchor|
+	but a descendant of |abspos|'s containing block.
+	This "clipping" can be due to the ancestor being a [=scroll container=],
+	or being clipped to its [=overflow clip edge=]
+	(such as by ''overflow: clip'' or [=paint containment=]).
+
+	Note: This means that if an abspos is next to its anchor in the DOM,
+	for example,
+	it'll remain visible even if its default anchor is scrolled off,
+	since it's clipped by the same scroller anyway.
+
+	Issue: Make sure this definition of clipped
+	is consistent with View Transitions,
+	which wants a similar concept.
+
+	|anchor| is also considered [=clipped by intervening elements=]
+	if it is [=strongly hidden=]
+	by 'position-visibility'.
+
+	Note: This ensures that in a "chained anchor" situation,
+	if the first abspos is hidden due to this property
+	(due to its anchor being scrolled off),
+	then another abspos using it as an anchor will also be hidden,
+	rather than <em>also</em> floating in a nonsensical location.
+</div>
+
+Making an element <dfn noexport>strongly hidden</dfn>
+makes it act as if it
+and all of its descendants
+were ''visibility: hidden'',
+regardless of what their actual 'visibility' value is.
+
+
+Accessibility Implications {#accessibility}
+--------------------------
+
+It's important to remember that Anchor Positioning
+does not automatically establish any semantic relationship
+between a positioned element
+and any of its anchors,
+because it can be used in many different ways.
+Authors must not rely solely on a <em>visual</em> connection
+implied by the positioning
+to link elements together semantically;
+without additional help,
+the elements often have <em>no</em> meaningful DOM relationship,
+making them difficult or impossible to use in non-visual user agents,
+like screen readers.
+
+Many features on the web platform,
+both existing and upcoming,
+allow establishing such connections explicitly,
+so that non-visual user agents can also benefit.
+
+For example, the Popover API in HTML
+automatically links the invoker button
+to the popover element,
+including automatically adjusting tabbing order;
+it <em>also</em> establishes the invoker button
+as the [=implicit anchor element=] for the popover,
+making it easy to use Anchor Positioning as well.
+
+In more general cases,
+ARIA features such as
+the <a href="https://w3c.github.io/aria/#aria-details"><code>aria-details</code></a>
+or <a href="https://w3c.github.io/aria/#aria-describedby"><code>aria-describedby</code></a> attributes
+on an anchor element
+can provide this information
+in a slightly more manual fashion;
+in concert with the <{html-global/role}> attribute on the positioned element,
+non-visual user agents
+can tell their users about the relationship between the elements
+and let them automatically navigate between them.
+
 
 
 <!-- Big Text: a-size()
@@ -996,12 +1268,13 @@ can use the <dfn>anchor-size()</dfn> function
 in its [=sizing properties=]
 to refer to the size of one or more [=anchor elements=].
 The ''anchor-size()'' function resolves to a <<length>>.
+It is only valid to be used in the [=sizing properties=].
 
 The ''anchor-size()'' Function {#anchor-size-fn}
 ------------------------------
 
 <pre class=prod>
-anchor-size() = anchor-size( <<anchor-element>>? <<anchor-size>>, <<length-percentage>>? )
+anchor-size() = anchor-size( [ <<anchor-element>> || <<anchor-size>> ]? , <<length-percentage>>? )
 <dfn><<anchor-size>></dfn> = width | height | block | inline | self-block | self-inline
 </pre>
 
@@ -1030,8 +1303,16 @@ according to either the [=writing mode=] of the element
 or the [=writing mode=] of the element's [=containing block=]
 (for ''anchor-size()/block'' and ''anchor-size()/inline'').
 
+If the <<anchor-size>> keyword is omitted,
+it defaults to behaving as whatever keyword
+matches the axis of the property that ''anchor-size()'' is used in.
+(For example, ''width: anchor-size()''
+is equivalent to ''width: anchor-size(width)''.)
+
 An ''anchor-size()'' function representing a [=valid anchor-size function=]
-resolves to the <<length>> separating the relevant border edges
+resolves at [=computed value=] time
+(via [=style & layout interleaving=])
+to the <<length>> separating the relevant border edges
 (either left and right, or top and bottom,
 whichever is in the specified axis)
 of the [=target anchor element=].
@@ -1052,7 +1333,7 @@ only if all the following conditions are true:
 If any of these conditions are false,
 the ''anchor-size()'' function resolves to its specified fallback value.
 If no fallback value is specified,
-it resolves to ''0px''.
+it makes the declaration referencing it [=invalid at computed-value time=].
 
 
 <!-- Big Text: fallback
@@ -1099,7 +1380,7 @@ Giving Fallback Options: the 'position-try-options' property {#position-try-opti
 
 <pre class=propdef>
 Name: position-try-options
-Value: none | [ [<<dashed-ident>> || <<try-tactic>>] | inset-area( <<'inset-area'>> ) ]#
+Value: none | [ [<<dashed-ident>> || <<try-tactic>>] | <<'inset-area'>> ]#
 Initial: none
 Inherited: no
 Applies to: [=absolutely-positioned=] elements
@@ -1138,12 +1419,10 @@ Values have the following meanings:
 	::
 		Automatically creates a [=position option=]
 		from the element's computed style,
-		by swapping the
-		[=margin property|margin=],
-		[=sizing property|sizing=],
-		[=inset property|inset=],
-		and [=self-alignment property|self-alignment=] property values
-		among the element's sides,
+		by [=swapping due to a try-tactic=]
+		according to the specified keyword,
+		and adding the constructed [=position option=]
+		to the element's [=position options list=].
 		and adds it to the [=position options list=].
 
 		<pre class=prod>
@@ -1175,11 +1454,6 @@ Values have the following meanings:
 		the transformations are composed in order
 		to produce a single [=position option=].
 
-		Issue: Define how the values themselves are changed upon flipping:
-		anchor(top) becomes anchor(bottom);
-		start becomes end;
-		etc.
-
 	: <dfn><<dashed-ident>> || <<try-tactic>></dfn>
 	::
 		Combines the effects of the previous two options:
@@ -1192,12 +1466,119 @@ Values have the following meanings:
 
 		Otherwise, does nothing.
 
-	: <dfn>inset-area( <<'inset-area'>> )</dfn>
+	: <dfn><<'inset-area'>></dfn>
 	::
 		Automatically creates a [=position option=]
 		composed solely of an 'inset-area' property
 		with the given value.
 </dl>
+
+<div algorithm>
+	To <dfn>swap due to a try-tactic</dfn>
+	the styles of an element |el|
+	between two directions |directions|,
+	returning a set of styles:
+
+	0. If |directions| are opposites along the same axis,
+		they are "opposing".
+		Otherwise (when they are specifying different axises),
+		they are "perpendicular".
+
+	1. Determine the specified values of the [=accepted @position-try properties=]
+		on |el|,
+		and let |styles| be the result.
+
+	2. [=substitute a var()|Substitute variables=],
+		''env()'' functions,
+		and similar substitution functions
+		in |styles|.
+
+		Issue: Need to define a term to hook for substitution functions,
+		to make sure we can hit var(), env(), random(), etc...
+
+	3. Swap the values of the |styles| between
+		the associated properties
+		corresponding to |directions|.
+
+		<div class=example>
+			For example, if "top" and "left" are being swapped,
+			then the values of 'margin-top' and 'margin-left' are swapped,
+			'width' and 'height' are swapped,
+			etc.
+		</div>
+
+		Note: If the directions are opposites along the same axis,
+		some properties (like 'width' or 'align-self')
+		wont' swap,
+		since they're associated with themselves across the two directions,
+		but their values might be changed by the next step.
+
+	4. Modify the values of the properties
+		as they swap to match the new directions,
+		as follows:
+
+		* For [=inset properties=],
+			change the specified side in ''anchor()'' functions
+			to maintain the same relative relationship to the new direction
+			that they had to the old.
+
+			If a <<percentage>> is used,
+			and |directions| are opposing,
+			change it to ''100%'' minus the original percentage.
+
+			<div class=example>
+				For example, if "top" and "left" are being swapped,
+				then ''margin-top: anchor(bottom)''
+				will become ''margin-left: anchor(right)''.
+
+				If "top" and "bottom" are being swapped,
+				then ''margin-top: anchor(20%)''
+				will become ''margin-bottom: anchor(80%)''.
+			</div>
+		* For [=sizing properties=],
+			change the specified axis in ''anchor-size()'' functions
+			to maintain the same relative relationship to the new direction
+			that they had to the old.
+
+			<div class=example>
+				For example, if "top" and "left" are being swapped,
+				then ''width: anchor-size(width)''
+				will become ''height: anchor-size(height)''.
+			</div>
+		* For the [=self-alignment properties=],
+			if |directions| are opposing,
+			change the specified <<self-position>>
+			(or ''align-self/left''/''align-self/right'' keywords),
+			if any,
+			to maintain the same relative relationship to the new direction
+			that they had to the old.
+
+			<div class=example>
+				For example, if "top" and "bottom" are being swapped,
+				then ''align-self: start''
+				will become ''align-self: end''.
+
+				However, ''align-self: center'' will remain unchanged,
+				as it has the same relationship to both directions.
+
+				Similarly, ''align-self: first baseline'' will remain unchanged,
+				as it's a <<baseline-position>>
+				rather than a <<self-position>>.
+			</div>
+		* For 'inset-area',
+			change the value
+			so that the selected rows/columns of the [=inset-area grid=]
+			maintain the same relative relationship to the new direction
+			that they had to the old.
+
+			<div class=example>
+				For example, if "top" and "left" are being swapped,
+				then ''inset-area: left span-bottom''
+				will become ''inset-area: top span-right''.
+			</div>
+
+	5. Return |styles|.
+</div>
 
 <!-- Big Text: -order
 
@@ -1395,8 +1776,6 @@ is the rule's name.
 If multiple ''@position-try'' rules are declared with the same name,
 the last one in document order "wins".
 
-Issue: Or should they cascade together?
-
 The ''@position-try'' rule only <dfn export lt="accepted @position-try properties">accepts</dfn>
 the following [=properties=]:
 
@@ -1407,21 +1786,34 @@ the following [=properties=]:
 * 'position-anchor'
 * 'inset-area'
 
-Issue(#9195): What exactly are the constraints that determine what's allowed here?
-Current list is based off of what's reasonable
-from Chrome's experimental impl.
-We can make a CQ that keys off of which fallback was used
-to allow more general styling,
-at least for descendants.
+It is invalid to use ''!important'' on the properties in the <<declaration-list>>.
+Doing so causes the property it is used on to become invalid,
+but does not invalid the ''@property-try'' rule as a whole.
 
-Issue(#7758): Would be useful to be able to detect
-when your anchor(s) are fully off-screen
-and suppress your display entirely.
-For example, tooltips living outside the scroller
-holding the text they're anchored to
-don't want to just hover over arbitrary parts of the page
-because their anchor happens to have that position
-relative to the scrollport.
+All of the properties in a ''@position-try'' are applied to the element
+as part of the <dfn>Position Fallback Origin</dfn>,
+a new [=cascade origin=] that lies between
+the [=Author Origin=]
+and the [=Animation Origin=].
+
+Similar to the [=Animation Origin=],
+use of the ''revert'' value
+acts as if the property was part of the [=Author Origin=],
+so that it instead reverts back to the [=User Origin=].
+(As with the [=Animation Origin=], however,
+''revert-layer'' has no special behavior
+and acts as specified.)
+
+Note: The [=accepted @position-try properties=] are the smallest group of properties
+that affect just the size and position of the box itself,
+without changing its contents area.
+This significantly simplifies the implementation of position fallback,
+without reducing the possible behaviors overly much.
+It is expected that a future extension to [=container queries=]
+will allow querying an element
+based on the position fallback it's using,
+allowing many cases not allowed by this restricted list
+to be handled.
 
 Note: If multiple elements using different anchors
 want to use the same fallback positioning,
@@ -1462,10 +1854,6 @@ so they affect [=computed values=]
 (and can trigger transitions/etc)
 even tho they depend on layout and [=used values=].
 
-They are applied as <dfn export>position fallback origin</dfn>,
-a new [=cascade origin=] positioned between the [=author origin=]
-and the [=animation origin=].
-
 <div algorithm>
 	To <dfn>apply a position option</dfn> to an element |el|,
 	given a [=position option=] |new styles|:
@@ -1489,16 +1877,39 @@ and the [=animation origin=].
 
 		2. Let |el rect| be the size and position of |el|'s margin box,
 			when laid out with |adjusted styles|.
+
 			Let |cb rect| be the size and position of |el|'s [=inset-modified containing block=].
 
-		3. If |el| has a [=snapshotted scroll offset=],
-			subtract it from the position of both |el rect| and |cb rect|.
+		3. If |el| has a [=snapshotted scroll offset=]:
+
+			1. Set |el rect| to the result of shifting it
+				by the [=snapshotted scroll offset=].
+
+			2. Recalculate |el|'s [=inset-modified containing block=],
+				with any non-''top/auto'' [=inset property|inset=] values
+				shifted by the [=snapshotted scroll offset=].
+
+				If |el| has a non-''inset-area/none'' 'inset-area' value,
+				then for the purpose of the preceding calculation,
+				shift the value of ''anchor(start)'' and ''anchor(end)''
+				in the [=inset-area grid=]
+				by the [=snapshotted scroll offset=] as well.
+
+				Note: In other words, ''top: anchor(bottom); bottom: auto;''
+				and ''inset-area: bottom;''
+				should result in the same IMCB
+				for the purpose of these overflow calculations.
+
+				Set |cb rect| to this result.
+
+			3. If |cb rect| was negative-size in either axis
+				and corrected into zero-size,
+				[=iteration/continue=].
 
 		4. If |el rect| is not fully contained within |cb rect|,
 			[=iteration/continue=].
 
-		5. Set |option| as |el|'s <dfn>last successful position option</dfn>.
-			Return |adjusted styles|.
+		5. Return |adjusted styles|.
 
 	3. Assert: The previous step finished without finding a [=position option=]
 		that avoids overflow.
@@ -1534,14 +1945,31 @@ laying out later elements cannot change this decision.
 	Layout does not "go backward", in other words.
 </div>
 
-At the time that {{ResizeObserver}} events are determined and delivered,
-if an element has a [=last successful position option=]
-but is not an [=absolutely positioned=] element,
-remove its [=last successful position option=].
-(This is intentionally identical to the treatment of [=last remembered sizes=].)
+<div algorithm="remember or forget the last rememberd position option">
+	At the time that {{ResizeObserver}} events are determined and delivered:
 
-Issue: Make sure the snapshotted scroll offset stuff is correct now,
-given interleaving.
+	* If an element |el| is [=absolutely positioned=],
+		set its <dfn export>last successful position option</dfn>
+		to the set of [=accepted @position-try properties=] (and values)
+		that it's currently using.
+
+	* Otherwise, if |el| has a [=last successful position option=]
+		and if any of the following are true of it,
+		remove its [=last successful position option=]:
+
+		* |el| is not an [=absolutely positioned=] element
+		* |el|'s computed value for 'position-try-options' has changed
+		* Any of the ''@position-try'' rules referenced by |el|'s 'position-try-options'
+			have been added, removed, or mutated.
+
+		Then, [=determine the position fallback styles=] of |el|
+		and set its [=last successful position option=]
+		to the set of [=accepted @position-try properties=] (and values)
+		that it's now using.
+
+	Note: The timing of this recording/removal
+	is intentionally identical to the treatment of [=last remembered sizes=].
+</div>
 
 Implementations may choose to impose an implementation-defined limit
 on the length of [=position options lists=],
@@ -1747,24 +2175,108 @@ The CSSPositionTryRule interface {#om-position-try}
 The {{CSSPositionTryRule}} interface represents
 the ''@position-try'' rule:
 
-<pre class='idl' export>
+<xmp class='idl' export>
 [Exposed=Window]
 interface CSSPositionTryRule : CSSRule {
 	readonly attribute CSSOMString name;
-	[SameObject, PutForwards=cssText] readonly attribute CSSStyleDeclaration style;
+	[SameObject, PutForwards=cssText] readonly attribute CSSPositionTryDescriptors style;
 };
-</pre>
+
+[Exposed=Window]
+interface CSSPositionTryDescriptors : CSSStyleDeclaration {
+	attribute CSSOMString margin;
+	attribute CSSOMString marginTop;
+	attribute CSSOMString marginRight;
+	attribute CSSOMString marginBottom;
+	attribute CSSOMString marginLeft;
+	attribute CSSOMString marginBlock;
+	attribute CSSOMString marginBlockStart;
+	attribute CSSOMString marginBlockEnd;
+	attribute CSSOMString marginInline;
+	attribute CSSOMString marginInlineStart;
+	attribute CSSOMString marginInlineEnd;
+	attribute CSSOMString margin-top;
+	attribute CSSOMString margin-right;
+	attribute CSSOMString margin-bottom;
+	attribute CSSOMString margin-left;
+	attribute CSSOMString margin-block;
+	attribute CSSOMString margin-block-start;
+	attribute CSSOMString margin-block-end;
+	attribute CSSOMString margin-inline;
+	attribute CSSOMString margin-inline-start;
+	attribute CSSOMString margin-inline-end;
+	attribute CSSOMString inset;
+	attribute CSSOMString insetBlock;
+	attribute CSSOMString insetBlockStart;
+	attribute CSSOMString insetBlockEnd;
+	attribute CSSOMString insetInline;
+	attribute CSSOMString insetInlineStart;
+	attribute CSSOMString insetInlineEnd;
+	attribute CSSOMString top;
+	attribute CSSOMString left;
+	attribute CSSOMString right;
+	attribute CSSOMString bottom;
+	attribute CSSOMString inset-block;
+	attribute CSSOMString inset-block-start;
+	attribute CSSOMString inset-block-end;
+	attribute CSSOMString inset-inline;
+	attribute CSSOMString inset-inline-start;
+	attribute CSSOMString inset-inline-end;
+	attribute CSSOMString width;
+	attribute CSSOMString minWidth;
+	attribute CSSOMString maxWidth;
+	attribute CSSOMString height;
+	attribute CSSOMString minHeight;
+	attribute CSSOMString maxHeight;
+	attribute CSSOMString blockSize;
+	attribute CSSOMString minBlockSize;
+	attribute CSSOMString maxBlockSize;
+	attribute CSSOMString inlineSize;
+	attribute CSSOMString minInlineSize;
+	attribute CSSOMString maxInlineSize;
+	attribute CSSOMString min-width;
+	attribute CSSOMString max-width;
+	attribute CSSOMString min-height;
+	attribute CSSOMString max-height;
+	attribute CSSOMString block-size;
+	attribute CSSOMString min-block-size;
+	attribute CSSOMString max-block-size;
+	attribute CSSOMString inline-size;
+	attribute CSSOMString min-inline-size;
+	attribute CSSOMString max-inline-size;
+	attribute CSSOMString placeSelf;
+	attribute CSSOMString alignSelf;
+	attribute CSSOMString justifySelf;
+	attribute CSSOMString place-self;
+	attribute CSSOMString align-self;
+	attribute CSSOMString justify-self;
+	attribute CSSOMString positionAnchor;
+	attribute CSSOMString position-anchor;
+	attribute CSSOMString insetArea;
+	attribute CSSOMString inset-area;
+};
+</xmp>
 
 Its <dfn attribute for=CSSPositionTryRule>name</dfn> attribute
 represents the name declared in the rule's prelude.
 
 Its <dfn attribute for=CSSPositionTryRule>style</dfn> attribute
-represents the styles declared in the rule's body,
+represents the properties declared in the rule's body,
 in the specified order.
-Only the [=accepted @position-try properties=] are valid in this rule.
+On getting, it must return a {{CSSPositionTryDescriptors}} object
+for the ''@position-try'' at-rule,
+with the following properties:
 
-Issue: match the concept of validity to whatever we do in similar situations.
-
+: [=CSSStyleDeclaration/computed flag=]
+:: Unset
+: [=CSSStyleDeclaration/readonly flag=]
+:: Unset
+: [=CSSStyleDeclaration/declarations=]
+:: The declared descriptors in the rule, in <l spec=cssom>[=specified order=]</l>.
+: [=CSSStyleDeclaration/parent CSS rule=]
+:: The context object
+: [=CSSStyleDeclaration/owner node=]
+:: Null
 
 <h2 id=interleaving>
 Appendix: Style & Layout Interleaving</h2>

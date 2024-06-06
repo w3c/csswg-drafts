@@ -41,6 +41,7 @@ spec:css22; type:dfn; text:element
 spec:css-break-4; type:dfn; text:fragment
 spec:css-viewport; type:dfn; text:interactive-widget;
 spec:css-display-4; type: dfn; text:invisible;
+spec:css2; type:dfn; text:viewport
 </pre>
 
 <pre class=anchors>
@@ -768,7 +769,7 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 	(and is therefore consistent regardless of root scrollbars or [=interactive-widget|interactive widgets=]).
 	This makes it likely to be consistent for the [=document element=]'s [=captured element/old image=] and [=captured element/new element=].
 
-	For iframes, the [=snapshot containing block=] corresponds to its [=initial containing block=].
+	Within a [=child navigable=], the [=snapshot containing block=] is the union of the navigable's [=viewport=] with any [=scrollbar gutters=].
 
 	<figure>
 		<img src="diagrams/phone-browser.svg" width="200" height="335" alt="A diagram of a phone screen, including a top status bar, a browser URL bar, web-content area with a floating scrollbar, a virtual keyboard, and a bottom bar with an OS back button">
@@ -1279,8 +1280,6 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 			If failure is returned, then [=skip the view transition=] for |transition| with an "{{InvalidStateError}}" {{DOMException}} in |transition|'s [=relevant Realm=],
 			and return.
 
-		1. [=Resolve=] |transition|'s [=ViewTransition/update callback done promise=] with undefined.
-
 		1. [=list/For each=] |capturedElement| of |transition|'s [=ViewTransition/named elements=]' [=map/values=]:
 
 			1. If |capturedElement|'s [=captured element/new element=] is not null,
@@ -1321,7 +1320,8 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 		1. Set |transition|'s [=ViewTransition/initial snapshot containing block size=] to the [=snapshot containing block size=].
 
 		1. [=list/For each=] |element| of every [=/element=] that is [=/connected=],
-			and has a [=node document=] equal to to |document|,
+			and has a [=node document=] equal to |document|,
+			and has a [=tree context=] equal to |document|,
 			in [paint order](https://drafts.csswg.org/css2/#painting-order):
 
 			<div class=note>We iterate in paint order to ensure that this order is cached in |namedElements|.
@@ -1404,7 +1404,8 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 		1. Let |usedTransitionNames| be a new [=/set=] of strings.
 
 		1. [=list/For each=] |element| of every [=/element=] that is [=/connected=],
-			and has a [=node document=] equal to to |document|,
+			and has a [=node document=] equal to |document|,
+			and has a [=tree context=] equal to |document|,
 			in [paint order](https://drafts.csswg.org/css2/#painting-order):
 
 			1. If any [=flat tree=] ancestor of this |element| [=skips its contents=], then [=continue=].
@@ -1598,11 +1599,9 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 		1. If |transition|'s [=ViewTransition/phase=] is not "`done`", then set |transition|'s [=ViewTransition/phase=] to "`update-callback-called`".
 
 		1. Let |fulfillSteps| be to following steps:
-			1. [=Activate view transition|Activate=] |transition|.
-
 			1. [=Resolve=] |transition|'s [=ViewTransition/update callback done promise=] with undefined.
 
-				Note: This would be a no-op if the previous step already resolved the promise.
+			1. [=Activate view transition|Activate=] |transition|.
 
 		1. Let |rejectSteps| be the following steps given |reason|:
 			1. [=Reject=] |transition|'s [=ViewTransition/update callback done promise=] with |reason|.
@@ -1672,11 +1671,15 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 	<div algorithm>
 	The <dfn export>view transition page-visibility change steps</dfn> given {{Document}} |document| are:
 
-	1. If |document|'s [=Document/visibility state=] is "<code>hidden</code>", then:
+	1. [=Queue a global task=] on the [=DOM manipulation task source=],
+			given |document|'s [=relevant global object=],
+			to perform the following steps:
 
-		1. If |document|'s [=active view transition=] is not null, then [=skip the view transition|skip=] |document|'s [=active view transition=] with an "{{InvalidStateError}}" {{DOMException}}.
+		1. If |document|'s [=Document/visibility state=] is "<code>hidden</code>", then:
 
-	1. Otherwise, [=assert=]: [=active view transition=] is null.
+			1. If |document|'s [=active view transition=] is not null, then [=skip the view transition|skip=] |document|'s [=active view transition=] with an "{{InvalidStateError}}" {{DOMException}}.
+
+		1. Otherwise, [=assert=]: [=active view transition=] is null.
 
 	Note: this is called from the HTML spec.
 	</div>
@@ -1846,11 +1849,14 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 
 					Note: Other rendering constraints are enforced via |capturedElement|'s [=new element=] being [=captured in a view transition=].
 
-				1. Set |width| to the current width of |capturedElement|'s [=new element=]'s [=border box=].
+				1. Let |newRect| be [=snapshot containing block=] if |capturedElement| is the [=document element=],
+					otherwise, |capturedElement|'s [=border box=].
 
-				1. Set |height| to the current height of |capturedElement|'s [=new element=]'s [=border box=].
+				1. Set |width| to the current width of |newRect|.
 
-				1. Set |transform| to a transform that would map |capturedElement|'s [=new element=]'s [=border box=] from the [=snapshot containing block origin=] to its current visual position.
+				1. Set |height| to the current height of |newRect|.
+
+				1. Set |transform| to a transform that would map |newRect| from the [=snapshot containing block origin=] to its current visual position.
 
 				1. Set |writingMode| to the [=computed value=] of 'writing-mode' on |capturedElement|'s [=new element=].
 
@@ -1937,8 +1943,8 @@ This should be feasible since access to this data should already be prevented in
 
 This appendix is <em>informative</em>.
 
-<h3 id="changes-since-2022-05-30">
-Changes from <a href="https://www.w3.org/TR/2023/WD-css-view-transitions-1-20230530/">2022-05-30 Working Draft</a>
+<h3 id="changes-since-2023-05-30">
+Changes from <a href="https://www.w3.org/TR/2023/WD-css-view-transitions-1-20230530/">2023-05-30 Working Draft</a>
 </h3>
 * Use a keyframe to add plus-lighter blending during cross-fade. See <a href="https://github.com/w3c/csswg-drafts/issues/8924">issue 8924</a>.
 * Add mix-blend-mode to list of properties copied over to the ''::view-transition-group''. See <a href="https://github.com/w3c/csswg-drafts/issues/8962">issue 8962</a>.
@@ -1959,6 +1965,9 @@ Changes from <a href="https://www.w3.org/TR/2023/WD-css-view-transitions-1-20230
 * Auto-skip animation when document is hidden. See <a href="https://github.com/w3c/csswg-drafts/issues/9543">issue 9543</a>.
 * Remove references to cross-document view-transitions, to keep the L1 spec clean. See <a href="https://github.com/w3c/csswg-drafts/issues/9886">Issue 9886</a>.
 * Export an algorithm to skip the active transition when the page is hidden. See <a href="https://github.com/w3c/csswg-drafts/issues/9543">issue 9543</a>.
+* Use snapshot containing block when capturing new state for document element. See <a href="https://github.com/w3c/csswg-drafts/issues/10177">issue #10177</a>.
+* Fix algorithm for dispatching updateDOMCallback promise.
+* Scope view transition names to matching tree context. See <a href="https://github.com/w3c/csswg-drafts/issues/10145">issue 10145</a>.
 
 <h3 id="changes-since-2022-05-25">
 Changes from <a href="https://www.w3.org/TR/2023/WD-css-view-transitions-1-20230525/">2022-05-25 Working Draft</a>
