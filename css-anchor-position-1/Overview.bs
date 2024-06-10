@@ -27,6 +27,10 @@ spec:css-cascade-5; type:dfn; text:property
 spec:dom; type:dfn; text:shadow tree
 </pre>
 
+<pre class=anchors>
+spec:aria-1.3; type: element-attr; text: role; for: html-global; url: https://w3c.github.io/aria/#host_general_role
+</pre>
+
 <style>
 /* Put nice boxes around each algorithm. */
 [data-algorithm]:not(.heading) {
@@ -293,6 +297,20 @@ that should match an 'anchor-name' value elsewhere on the page,
 or the keyword ''implicit'',
 or nothing (a missing specifier).
 
+Note: The general rule captured by these conditions
+is that an element can only be an anchor
+if it's fully laid out
+before the positioned element that wants to reference it
+is laid out.
+CSS's layout rules provide some useful guarantees about this,
+depending on the anchor and positioned element's relationship
+with each other and their containing blocks.
+The list of conditions below
+exactly rephrases the stacking context rules
+into just what's relevant for this purpose,
+ensuring there is no possibly circularity
+in anchor positioning.
+
 <div algorithm>
 	To determine the <dfn>target [=anchor element=]</dfn>
 	given a querying element |query el|
@@ -335,17 +353,6 @@ or nothing (a missing specifier).
 		which can affect what elements can be [=anchor elements=]
 		for a given lookup.
 
-	Note: The general rule captured by these conditions
-	is that |el| must be fully laid out
-	before |query el| is laid out.
-	CSS's rules about the layout order of stacking contexts
-	give us assurances about this,
-	and the list of conditions above
-	exactly rephrases the stacking context rules
-	into just what's relevant for this purpose,
-	ensuring there is no possibly circularity
-	in anchor positioning.
-
 	Note: An 'anchor-name' defined by styles in one [=shadow tree=]
 	won't be seen by [=anchor functions=] in styles in a different [=shadow tree=],
 	preserving encapsulation.
@@ -380,6 +387,10 @@ or nothing (a missing specifier).
 		or a [=part-like pseudo-element=].
 
 	* |el| is not in the [=skipped contents=] of another element.
+
+	* |el| is in scope for |query el|,
+		per the effects of 'anchor-scope' on |query el|
+		or its ancestors.
 </div>
 
 <!-- Big Text: default
@@ -398,8 +409,8 @@ Default Anchors: the 'position-anchor' property</h3>
 
 <pre class=propdef>
 Name: position-anchor
-Value: <<anchor-element>>
-Initial: implicit
+Value: auto | <<anchor-element>>
+Initial: auto
 Applies to: [=absolutely positioned=] elements
 Inherited: no
 Animation type: discrete
@@ -410,13 +421,17 @@ for all [=anchor functions=] on the element,
 allowing multiple elements to use the same set of [=anchor functions=]
 (and [=position options lists=]!)
 while changing which [=anchor element=] each is referring to.
+'position-anchor' is a [=reset-only sub-property=] of 'position'.
 
 The [=target anchor element=] selected by the [=default anchor specifier=]
 (if one exists)
 is the element's <dfn>default anchor element</dfn>.
 
 Its values are identical to the <<anchor-element>> term
-in ''anchor()'' and ''anchor-size()''.
+in ''anchor()'' and ''anchor-size()'',
+except that the ''position-anchor/auto'' value
+is equivalent to omitting the <<anchor-element>> in ''anchor()''
+(referring to the [=implicit anchor element=], if one exists).
 
 <div class=example>
 	For example, in the following code
@@ -544,24 +559,52 @@ Its syntax is:
 		or is not an [=absolutely-positioned=] element,
 		this value has no effect.
 
-		Otherwise, the property selects a region of the [=inset-area grid=],
-		and makes that the element's [=containing block=].
+		Otherwise, it has the following effects:
 
-		Note: This means that the [=inset properties=] specify offsets from the inset-area,
-		and some property values,
-		like ''max-height: 100%'',
-		will be relative to the inset-area as well.
+		* The property selects a region of the [=inset-area grid=],
+			and makes that the element's [=containing block=].
+			See [[#resolving-spans]] for details.
 
-		Additionally, the ''align-self/normal'' value for the [=self-alignment properties=]
-		behaves as either ''align-self/start'', ''align-self/end'',
-		or ''align-self/anchor-center'',
-		depending on the positioning of the region,
-		to give a good default alignment for the positioned element.
+			Note: This means that the [=inset properties=] specify offsets from the inset-area,
+			and some property values,
+			like ''max-height: 100%'',
+			will be relative to the inset-area as well.
 
-		See [[#resolving-spans]] for details on both of these effects.
+		* The ''align-self/normal'' value for the [=self-alignment properties=]
+			behaves as either ''align-self/start'', ''align-self/end'',
+			or ''align-self/anchor-center'',
+			depending on the positioning of the region,
+			to give a good default alignment for the positioned element.
+			Again, see [[#resolving-spans]] for details.
 
-		Also, any ''top/auto'' [=inset properties=] resolve to ''0''.
+		* Any ''top/auto'' [=inset properties=] resolve to ''0''.
+
+		* The element is not considered to be in a [=legacy alignment mode=]
+			in either axis.
 </dl>
+
+<div class=note>
+	If the element overflows its 'inset-area' (and 'inset') -modified [=containing block=],
+	but would still fit within its [=original containing block=],
+	by default it will "shift" to stay within its [=original containing block=],
+	even if that violates its normal alignment.
+	See [[css-align-3#overflow-values]] for details.
+
+	This behavior makes it more likely
+	that positioned elements remain visible
+	and within their intended bounds,
+	even when their [=containing block=]
+	ends up smaller than anticipated.
+
+	For example, an ''inset-area: bottom span-right'' value
+	lets the positioned element stretch
+	from its anchors left edge
+	to its containing block's right edge,
+	and left-aligns it in that space by default.
+	But if the positioned element is larger than that space
+	(such as if the anchor is very close to the right edge of the screen),
+	it will shift leftwards to stay visible.
+</div>
 
 
 <h4 id=resolving-spans>
@@ -652,9 +695,11 @@ The <<inset-area>> also implies a default [=self-alignment=],
 which will be used if the [=self-alignment property=] on the element
 is ''align-self/normal'':
 
-* If the inset area includes the center region in an axis
+* If the only the center region in an axis is selected,
+	or all three regions are selected,
 	the default alignment in that axis is ''align-self/anchor-center''.
-* Otherwise, it's the opposite of the region it specifies:
+* Otherwise, the default alignment in that axis
+	is toward the non-specified side region:
 	if it's specifying the "start" region of its axis,
 	the default alignment in that axis is ''align-self/end''; etc.
 
@@ -663,13 +708,17 @@ is ''align-self/normal'':
 	then the value ''span-x-start top'' resolves to
 	the "start" region of the vertical axis,
 	and the "start" and "center" regions of the horizontal axis,
-	so the default alignments will be ''align-self: end;'' and ''justify-self: anchor-center;''
+	so the default alignments will be ''align-self: end''
+	(making the element's bottom flush with the bottom of the "top" region)
+	and ''justify-self: end''
+	(making the element's end side flush with the end side of the "start+center" region).
 
 	<figure>
 		<img src="images/inset-area-example.png" width=400>
 		<figcaption>
 			An example of ''inset-area: span-x-start top'' positioning.
 		</figcaption>
+	</figure>
 </div>
 
 Note: When the [=default anchor element=]
@@ -699,8 +748,8 @@ The ''anchor()'' function resolves to a <<length>>.
 It is only valid to be used in the [=inset properties=].
 
 <pre class=prod>
-	&lt;anchor()> = anchor( <<anchor-element>>? <<anchor-side>>, <<length-percentage>>? )
-	<dfn><<anchor-element>></dfn> = <<dashed-ident>> | implicit
+	&lt;anchor()> = anchor( <<anchor-element>>? && <<anchor-side>>, <<length-percentage>>? )
+	<dfn><<anchor-element>></dfn> = <<dashed-ident>>
 	<dfn><<anchor-side>></dfn> = inside | outside
 			   | top | left | right | bottom
 			   | start | end | self-start | self-end
@@ -712,7 +761,6 @@ The ''anchor()'' function has three arguments:
 * the <<anchor-element>> value
 	specifies how to find the [=anchor element=]
 	it will be drawing positioning information from.
-	If omitted, it behaves as the element's [=default anchor specifier=].
 	Its possible values are:
 
 	<dl dfn-type=value dfn-for="anchor()">
@@ -720,7 +768,7 @@ The ''anchor()'' function has three arguments:
 		:: Specifies the [=anchor name=] it will look for.
 			This name is a [=tree-scoped reference=].
 
-		: <dfn>implicit</dfn>
+		: omitted
 		:: Selects the [=implicit anchor element=]
 			defined for the element,
 			if possible.
@@ -898,17 +946,19 @@ in the relevant axis.
 
 Additionally,
 any ''top/auto'' [=inset properties=] resolve to ''0''.
-However, the [=available space=] for the positioned element in the relevant axis
-is reduced to the size of the largest rectangle
-that is centered on the [=default anchor element=]
-and doesn't overflow the [=inset-modified containing block=].
-(Possibly being zero-sized,
-if the anchor's center is not within the [=inset-modified containing block=].)
 
 If the element is not [=absolutely positioned=],
 or does not have a [=default anchor element=],
 this value behaves as ''<self-position>/center''
 and has no additional effect on how [=inset properties=] resolve.
+
+Note: Similar to 'inset-area',
+when using ''anchor-center'',
+if the anchor is too close to the edge of the element's
+[=original containing block=],
+by default it will "shift" from being purely centered,
+to instead remain within the [=original containing block=].
+See [[css-align-3#overflow-values]] for more details.
 
 
 <!-- Big Text: scroll
@@ -1054,12 +1104,12 @@ it makes the declaration referencing it [=invalid at computed-value time=].
 <!-- Big Text: visibility
 
 █▌   █▌ ████  ███▌  ████ ████▌  ████ █▌    ████ █████▌ █   ▐▌
-█▌   █▌  ▐▌  █▌  █▌  ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌   ▐▌  █
-█▌   █▌  ▐▌  █▌      ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌    █ ▐▌
-▐▌   █   ▐▌   ███▌   ▐▌  █████   ▐▌  █▌     ▐▌    █▌    ▐▌█
- █  ▐▌   ▐▌      █▌  ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌     █▌
- ▐▌ █    ▐▌  █▌  █▌  ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌     █▌
-  ▐█    ████  ███▌  ████ ████▌  ████ █████ ████   █▌     █▌
+█▌   █▌  ▐▌  █▌  █▌  ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌   ▐▌  █ 
+█▌   █▌  ▐▌  █▌      ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌    █ ▐▌ 
+▐▌   █   ▐▌   ███▌   ▐▌  █████   ▐▌  █▌     ▐▌    █▌    ▐▌█  
+ █  ▐▌   ▐▌      █▌  ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌     █▌  
+ ▐▌ █    ▐▌  █▌  █▌  ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌     █▌  
+  ▐█    ████  ███▌  ████ ████▌  ████ █████ ████   █▌     █▌  
 -->
 
 Conditional Hiding: the 'position-visibility' property {#position-visibility}
@@ -1156,6 +1206,48 @@ were ''visibility: hidden'',
 regardless of what their actual 'visibility' value is.
 
 
+Accessibility Implications {#accessibility}
+--------------------------
+
+It's important to remember that Anchor Positioning
+does not automatically establish any semantic relationship
+between a positioned element
+and any of its anchors,
+because it can be used in many different ways.
+Authors must not rely solely on a <em>visual</em> connection
+implied by the positioning
+to link elements together semantically;
+without additional help,
+the elements often have <em>no</em> meaningful DOM relationship,
+making them difficult or impossible to use in non-visual user agents,
+like screen readers.
+
+Many features on the web platform,
+both existing and upcoming,
+allow establishing such connections explicitly,
+so that non-visual user agents can also benefit.
+
+For example, the Popover API in HTML
+automatically links the invoker button
+to the popover element,
+including automatically adjusting tabbing order;
+it <em>also</em> establishes the invoker button
+as the [=implicit anchor element=] for the popover,
+making it easy to use Anchor Positioning as well.
+
+In more general cases,
+ARIA features such as
+the <a href="https://w3c.github.io/aria/#aria-details"><code>aria-details</code></a>
+or <a href="https://w3c.github.io/aria/#aria-describedby"><code>aria-describedby</code></a> attributes
+on an anchor element
+can provide this information
+in a slightly more manual fashion;
+in concert with the <{html-global/role}> attribute on the positioned element,
+non-visual user agents
+can tell their users about the relationship between the elements
+and let them automatically navigate between them.
+
+
 
 <!-- Big Text: a-size()
 
@@ -1182,7 +1274,7 @@ The ''anchor-size()'' Function {#anchor-size-fn}
 ------------------------------
 
 <pre class=prod>
-anchor-size() = anchor-size( <<anchor-element>>? <<anchor-size>>, <<length-percentage>>? )
+anchor-size() = anchor-size( [ <<anchor-element>> || <<anchor-size>> ]? , <<length-percentage>>? )
 <dfn><<anchor-size>></dfn> = width | height | block | inline | self-block | self-inline
 </pre>
 
@@ -1210,6 +1302,12 @@ according to either the [=writing mode=] of the element
 (for ''self-block'' and ''self-inline'')
 or the [=writing mode=] of the element's [=containing block=]
 (for ''anchor-size()/block'' and ''anchor-size()/inline'').
+
+If the <<anchor-size>> keyword is omitted,
+it defaults to behaving as whatever keyword
+matches the axis of the property that ''anchor-size()'' is used in.
+(For example, ''width: anchor-size()''
+is equivalent to ''width: anchor-size(width)''.)
 
 An ''anchor-size()'' function representing a [=valid anchor-size function=]
 resolves at [=computed value=] time
@@ -1282,7 +1380,7 @@ Giving Fallback Options: the 'position-try-options' property {#position-try-opti
 
 <pre class=propdef>
 Name: position-try-options
-Value: none | [ [<<dashed-ident>> || <<try-tactic>>] | inset-area( <<'inset-area'>> ) ]#
+Value: none | [ [<<dashed-ident>> || <<try-tactic>>] | <<'inset-area'>> ]#
 Initial: none
 Inherited: no
 Applies to: [=absolutely-positioned=] elements
@@ -1368,7 +1466,7 @@ Values have the following meanings:
 
 		Otherwise, does nothing.
 
-	: <dfn>inset-area( <<'inset-area'>> )</dfn>
+	: <dfn><<'inset-area'>></dfn>
 	::
 		Automatically creates a [=position option=]
 		composed solely of an 'inset-area' property
@@ -1699,10 +1797,12 @@ the [=Author Origin=]
 and the [=Animation Origin=].
 
 Similar to the [=Animation Origin=],
-use of the ''revert'' or ''revert-layer'' values
-(or anything else that would rollback the property to the preceding origin)
-acts as if the property was part of the [=Author Origin=].
-(Thus, it instead reverts back to the [=User Origin=].)
+use of the ''revert'' value
+acts as if the property was part of the [=Author Origin=],
+so that it instead reverts back to the [=User Origin=].
+(As with the [=Animation Origin=], however,
+''revert-layer'' has no special behavior
+and acts as specified.)
 
 Note: The [=accepted @position-try properties=] are the smallest group of properties
 that affect just the size and position of the box itself,
@@ -1849,7 +1949,7 @@ laying out later elements cannot change this decision.
 	At the time that {{ResizeObserver}} events are determined and delivered:
 
 	* If an element |el| is [=absolutely positioned=],
-		set its [=last successful position option=]
+		set its <dfn export>last successful position option</dfn>
 		to the set of [=accepted @position-try properties=] (and values)
 		that it's currently using.
 
