@@ -107,7 +107,7 @@ Strong Containment: the 'contain' property</h2>
 
 	<pre class='propdef'>
 		Name: contain
-		Value: none | strict | content | [ size || layout || style || paint ]
+		Value: none | strict | content | [ [size | inline-size] || layout || style || paint ]
 		Initial: none
 		Inherited: no
 		Applies to: See <a href="#contain-applies">below</a>
@@ -258,6 +258,34 @@ Strong Containment: the 'contain' property</h2>
 				contain-size-grid-indefinite-height-min-height-flex-row.html
 				contain-size-grid-stretches-auto-rows.html
 			</wpt>
+
+		<dt><dfn>inline-size</dfn>
+		<dd>
+			This value turns on [=inline-size containment=] for the element.
+			This prevents the [=inline-size=] of its [=principal box=]
+			from directly depending on its contents.
+
+			<wpt>
+				contain-inline-size-bfc-floats-001.html
+				contain-inline-size-bfc-floats-002.html
+				contain-inline-size-fieldset.html
+				contain-inline-size-flex.html
+				contain-inline-size-flexitem.html
+				contain-inline-size-grid.html
+				contain-inline-size-intrinsic.html
+				contain-inline-size-legend.html
+				contain-inline-size-multicol.html
+				contain-inline-size-regular-container.html
+				contain-inline-size-removed.html
+				contain-inline-size-replaced.html
+				contain-inline-size-table.html
+				contain-inline-size-vertical-rl-.html
+				contain-inline-size-grid-indefinite-height-min-height-flex-row.html
+				contain-inline-size-grid-stretches-auto-rows.html
+			</wpt>
+
+			Note: There can still be indirect dependencies,
+			see [[#containment-inline-size]].
 
 		<dt><dfn>layout</dfn>
 		<dd>
@@ -801,6 +829,165 @@ Possible Size-Containment Optimizations</h4>
 	2. When laying out the page,
 		if the [=size containment box|containment box=] is off-screen or obscured,
 		the layout of its contents (i.e. "[=laying out in-place=]") can be delayed or done at a lower priority.
+
+<h3 id='containment-inline-size'>
+Inline-Size Containment</h3>
+
+	Giving an element <dfn export>inline-size containment</dfn>
+	applies [=size containment=] to the [=inline-axis=] sizing of its [=principal box=].
+	This means the [=inline-axis=] [=intrinsic sizes=] of the [=principal box=]
+	are determined as if the element had no content.
+	However, content continues to impact the box’s [=block-axis=] [=intrinsic sizes=] as usual,
+	and the box is allowed to [=fragmentation|fragment=] normally in the [=block axis=].
+
+	<div class=note>
+		<span class="marker">Note:</span> In some cases,
+		a box’s [=block-axis=] [=intrinsic sizes=]
+		can impact layout in the parent [=formatting context=]
+		in ways that affect the box’s [=inline size=]
+		(e.g. by triggering scrollbars on an ancestor element),
+		creating a dependency of the box’s [=inline size=] on its own content.
+		If this changed [=inline size=] results in a different [=block size=],
+		that new [=block size=] can loop into further impacting the parent formatting context,
+		but not in a way that reverts it to the previously-problematic layout.
+
+		For example, if scrollbars were introduced,
+		they are not then removed,
+		even if the consequent [=block size=] is small enough to not need them;
+		or if a box’s logical height collides with a lower-placed float and is cleared down
+		to where it also has more available inline space
+		and thus becomes short enough to not have collided,
+		it is not them moved back up to its previous problematic size and position.
+
+		Thus, although [=inline-size containment=] prevents
+		the box’s content from directly affecting its [=inline size=]
+		through its [=inline-axis=] [=intrinsic sizes=],
+		its [=inline size=] can still indirectly depend on its contents
+		by their effect on its [=block size=].
+	</div>
+
+	ISSUE:
+		In general, the relationship between an element's inline size
+		and it's block size
+		is unpredictable and non-monotonic,
+		with the block size capable of shifting up and down arbitrarily
+		as the inline size is changed.
+		Infinite cycles are prevented
+		by ensuring that layout does not revert to a previous (known-problematic) state,
+		even if a naive analysis of the constraints would allow for such;
+		in other words, layout always “moves forward”.
+		We believe that current CSS layout specifications incorporate such rules,
+		but to the extent that they don't,
+		please <a href="https://github.com/w3c/csswg-drafts/issues">inform the CSSWG</a>
+		so that these errors can be corrected.
+
+	<div class=example>
+		Consider this example,
+		where float placement creates a dependency of block sizes on inline sizes:
+
+		<xmp class=lang-markup>
+			<section style="width: 200px; border: solid; display: flow-root;">
+			  <!-- floated elements that impact the available space -->
+			  <div style="float: left; width: 50px; height: 80px; background: blue;"></div>
+			  <div style="float: right; width: 50px; height: 80px; background: blue;"></div>
+			  <div style="float: left; width: 160px; height: 80px; background: navy;"></div>
+
+			  <!-- parent layout, determining context -->
+			  <article style="border: solid orangered; display: flow-root; min-width: min-content">
+			    <div style="background: orange; aspect-ratio: 1/1;">
+			      Article
+			    </div>
+			  </article>
+			</section>
+		</xmp>
+
+		<figure style="float: left; margin: 1em 0.5em">
+			<section style="width: 200px; border: solid; display: flow-root;">
+				<!-- floated elements that impact the available space -->
+				<div style="float: left; width: 50px; height: 80px; background: blue;"></div>
+				<div style="float: right; width: 50px; height: 80px; background: blue;"></div>
+				<div style="float: left; width: 160px; height: 80px; background: navy;"></div>
+
+				<!-- parent layout, determining context -->
+				<article style="border: solid orangered; display: flow-root; min-width: 50px">
+					<div style="background: orange; aspect-ratio: 1/1;">
+						Article
+					</div>
+				</article>
+			</section>
+		</figure>
+
+		The block layout algorithm will first place the floating boxes,
+		with the first two sitting in the left and right corners of the container,
+		and the third, being too wide to fit between, being pushed below them.
+
+		The following <code>article</code> will then be laid out.
+		Because it is ''display: flow-root'',
+		it cannot intersect any floats,
+		and thus must take them into account
+		when figuring out how to size and position itself.
+
+		The layout engine first attempts to place the <code>article</code>
+		flush with the top of the container,
+		resulting a ''100px'' width,
+		plenty wide enough to accommodate its [=min-content size=].
+		However, due to the 'aspect-ratio' of its child,
+		this would cause the <code>article</code> to be ''100px'' tall as well,
+		which would intersect the third float 80px below,
+		so this layout opportunity is discarded.
+
+		It then attempts to position the <code>article</code>
+		flush with the top of the third float,
+		in the narrow ''40px''-wide space to its right.
+		However, since the <code>article</code>’s 'min-width' makes it too large
+		to fit in the 40px-wide space beside the third float,
+		it shifts below that one as well,
+		forming a 200px square below all the floated boxes.
+
+		<figure style="float: right; margin: 1em 0.5em">
+			<section style="width: 200px; border: solid; display: flow-root;">
+				<!-- floated elements that impact the available space -->
+				<div style="float: left; width: 50px; height: 80px; background: blue;"></div>
+				<div style="float: right; width: 50px; height: 80px; background: blue;"></div>
+				<div style="float: left; width: 160px; height: 80px; background: navy;"></div>
+
+				<!-- parent layout, determining context -->
+				<article style="border: solid orangered; display: flow-root;">
+					<div style="background: orange; aspect-ratio: 1/1;">
+						Article
+					</div>
+				</article>
+			</section>
+		</figure>
+
+		If the 'min-width' is removed from the <code>article</code>,
+		or if [=inline-size containment=] is added to
+		either the <code>article</code> or <code>header</code>
+		(causing ''min-width: min-content'' to resolve to zero),
+		then the <code>article</code> will fit as a 40px square
+		next to the final floated <code>div</code>
+		(possibly with some of its content overflowing).
+
+		At this point, the width and height of the <code>article</code>
+		(''40px'' each)
+		<em>would</em> fit back in the first considered space,
+		flush with the top of the container.
+		However, the box is not returned to the previous position,
+		because the layout engine knows already
+		that this position would result in an invalid layout.
+	</div>
+
+	Giving an element [=inline-size containment=]
+	has no effect if any of the following are true:
+
+	* if the element does not generate a <a>principal box</a>
+		(as is the case with ''display: contents'' or ''display: none'')
+	* if its [=inner display type=] is ''display/table''
+	* if its [=principal box=] is
+		an <a spec="css-display-3">internal table box</a>
+	* if its [=principal box=] is
+		an <a spec="css-display-3">internal ruby box</a>
+		or a <a spec="css-display-3" lt="atomic inline">non-atomic</a> <a spec="css-display-3">inline-level</a> box
 
 <h3 id='containment-layout'>
 Layout Containment</h3>
@@ -2500,20 +2687,6 @@ Changes from <a href="https://www.w3.org/TR/css-contain-1/">CSS Containment Leve
 
 <!-- catch all for tests only relevant to the css-contain-3, to stop bikeshed from complaining -->
 <wpt>
-contain-inline-size-bfc-floats-001.html
-contain-inline-size-bfc-floats-002.html
-contain-inline-size-fieldset.html
-contain-inline-size-flex.html
-contain-inline-size-flexitem.html
-contain-inline-size-grid.html
-contain-inline-size-intrinsic.html
-contain-inline-size-legend.html
-contain-inline-size-multicol.html
-contain-inline-size-regular-container.html
-contain-inline-size-removed.html
-contain-inline-size-replaced.html
-contain-inline-size-table.html
-contain-inline-size-vertical-rl-.html
 container-queries/animation-container-size.html
 container-queries/animation-container-type-dynamic.html
 container-queries/animation-nested-animation.html
@@ -2713,7 +2886,5 @@ container-queries/size-container-with-quotes.html
 container-queries/style-container-for-shadow-dom.html
 container-queries/style-container-invalidation-inheritance.html
 container-queries/style-query-with-unknown-width.html
-contain-inline-size-grid-indefinite-height-min-height-flex-row.html
-contain-inline-size-grid-stretches-auto-rows.html
 container-type-important.html
 </wpt>
