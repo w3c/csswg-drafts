@@ -141,18 +141,13 @@ animate its `height` when it opens and closes:
 ```css
 details::details-content {
   --open-close-duration: 500ms;
-  display: block; /* override default 'display: contents' */
   height: 0;
   overflow: hidden;
   transition: height var(--open-close-duration),
-              content-visibility var(--open-close-duration) allow-discrete step-end;
+              content-visibility var(--open-close-duration) allow-discrete;
 }
 details[open]::details-content {
   height: calc-size(max-content);
-  /* repeat the 'transition' but with 'step-start' (for opening) rather than
-     'step-end' (for closing) */
-  transition: height var(--open-close-duration),
-              content-visibility var(--open-close-duration) allow-discrete step-start;
 }
 ```
 

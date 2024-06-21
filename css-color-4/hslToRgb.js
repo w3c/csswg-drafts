@@ -5,11 +5,6 @@
  * @return {number[]} Array of sRGB components; in-gamut colors in range [0..1]
  */
 function hslToRgb(hue, sat, light) {
-    hue = hue % 360;
-
-    if (hue < 0) {
-        hue += 360;
-    }
 
     sat /= 100;
     light /= 100;
