@@ -39,7 +39,7 @@ and onwards).
 
 There is an [open github issue](https://github.com/w3c/csswg-drafts/issues/6402)
 for state container queries where it was resolved to defer to the next level of
-the spec - presumably css-contain-4.
+the spec - presumably css-conditional-6.
 
 ## Container Queries vs Pseudo Classes
 
@@ -169,10 +169,10 @@ This needs further exploration.
 Add a new scroll-state() function to `@container` similar to `style()` where
 `state:value` pairs, and logical combinations of them, can be queried.
 `<state-feature>` will be similar to
-[`<style-feature>`](https://drafts.csswg.org/css-contain-3/#typedef-style-feature)
+[`<style-feature>`](https://drafts.csswg.org/css-conditional-5/#typedef-style-feature)
 in that it takes a state name and value separated by a colon.
 
-Add a new [`container-type`](https://drafts.csswg.org/css-contain-3/#container-type)
+Add a new [`container-type`](https://drafts.csswg.org/css-conditional-5/#container-type)
 for each state which can be combined with size container types:
 
 - `stuck`
