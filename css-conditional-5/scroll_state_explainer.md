@@ -37,9 +37,8 @@ depending on this state (see
 [this comment](https://github.com/w3c/csswg-drafts/issues/5979#issuecomment-899765136)
 and onwards).
 
-There is an [open github issue](https://github.com/w3c/csswg-drafts/issues/6402)
-for state container queries where it was resolved to defer to the next level of
-the spec - presumably css-conditional-6.
+There is a [resolution](https://github.com/w3c/csswg-drafts/issues/6402#issuecomment-1812973013)
+to add scroll-state() queries.
 
 ## Container Queries vs Pseudo Classes
 
