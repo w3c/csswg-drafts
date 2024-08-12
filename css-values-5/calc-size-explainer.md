@@ -130,26 +130,6 @@ this would be a normal intermediate value at 70% of the way through an animation
 
 This is specified [in css-values-5](https://drafts.csswg.org/css-values-5/#calc-size).
 
-The following slightly more involved example shows
-(while using the separately proposed `::details-content` pseudo-element)
-the CSS needed to make a `<details>` element
-animate its `height` when it opens and closes:
-
-```css
-details::details-content {
-  --open-close-duration: 500ms;
-  height: 0;
-  overflow: hidden;
-  transition: height var(--open-close-duration),
-              content-visibility var(--open-close-duration) allow-discrete;
-}
-details[open]::details-content {
-  height: calc-size(max-content, size);
-}
-```
-
-This is specified [in css-values-5](https://drafts.csswg.org/css-values-5/#calc-size).
-
 ## `interpolate-size`
 
 The CSS `interpolate-size` property is an inherited property that takes two values:
@@ -163,6 +143,30 @@ it is designed to make it easy to opt in the entire page.
 Therefore, it is an inherited property so that it can just be specified once on the root.
 It is also not part of any shorthands because being part of a shorthand
 would cause use of the shorthand to reset the opt-in.
+
+This is specified [in css-values-5](https://drafts.csswg.org/css-values-5/#interpolate-size).
+
+The following slightly more involved example shows
+(while using the separately proposed `::details-content` pseudo-element)
+the CSS needed to make a `<details>` element
+animate its `height` when it opens and closes:
+
+```css
+:root {
+  interpolate-size: allow-keywords;
+}
+
+details::details-content {
+  --open-close-duration: 500ms;
+  height: 0;
+  overflow: hidden;
+  transition: height var(--open-close-duration),
+              content-visibility var(--open-close-duration) allow-discrete;
+}
+details[open]::details-content {
+  height: max-content;
+}
+```
 
 ## Detailed design discussion
 
