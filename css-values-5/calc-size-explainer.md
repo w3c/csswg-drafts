@@ -122,17 +122,6 @@ this would be a normal intermediate value at 70% of the way through an animation
 
 This is specified [in css-values-5](https://drafts.csswg.org/css-values-5/#calc-size).
 
-## `calc-size(<value>)`
-
-`calc-size()` also has a single-argument form.
-If that single argument is an intrinsic sizing keyword or a `calc-size()` function,
-then the argument is treated as the `<basis>` and the calculation is `size`.
-Otherwise the single argument is a `<calc-sum>` expression that is treated as the calculation,
-and the basis is `any`.
-
-This form makes it more convenient to opt in to animation using `calc-size()`
-by wrapping at least one endpoint of the animation in `calc-size()`.
-
 The following slightly more involved example shows
 (while using the separately proposed `::details-content` pseudo-element)
 the CSS needed to make a `<details>` element
@@ -147,7 +136,7 @@ details::details-content {
               content-visibility var(--open-close-duration) allow-discrete;
 }
 details[open]::details-content {
-  height: calc-size(max-content);
+  height: calc-size(max-content, size);
 }
 ```
 
