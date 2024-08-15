@@ -7,14 +7,14 @@ Prepare for TR: no
 Group: csswg
 TR: https://www.w3.org/TR/css-color-5/
 ED: https://drafts.csswg.org/css-color-5/
-Previous Version: https://www.w3.org/TR/2022/WD-css-color-5-20220628/
+Previous Version: https://www.w3.org/TR/2024/WD-css-color-5-20240229/
 Work Status: exploring
 !Delta Spec: yes
 Editor: Chris Lilley, W3C, https://svgees.us/, w3cid 1438
 Editor: Una Kravets, Google, https://una.im, w3cid 115525
 Editor: Lea Verou, Invited Expert, http://lea.verou.me/about, w3cid 52258
 Editor: Adam Argyle, Google, https://nerdy.dev, w3cid 112669
-Abstract: This module extends CSS Color [[css-color-4]] to add color modification functions, custom color spaces (ICC profiles), and device-cmyk().
+Abstract: This module extends CSS Color [[css-color-4]] to add color modification functions, custom color spaces (ICC profiles), light-dark() and device-cmyk().
 Repository: w3c/csswg-drafts
 WPT Path Prefix: css/css-color/
 WPT Display: open
@@ -34,10 +34,38 @@ spec:css-color-4; type:value; text:srgb
 spec:css-color-4; type:dfn; text:modern color syntax
 spec:css-color-4; type:value; text:alpha-value
 spec:css-values-5; type:value; text:color
+spec:css-color-adjust-1; type:value; text:light
+spec:css-color-adjust-1; type:value; text:dark
+spec:css-color-4; type:value; text:rec2020
 </pre>
+
+<pre class=biblio>
+{
+	"FOGRA39": {
+		"title": "ISO 12647-2:2004 / Amd 1, Offset commercial and specialty printing according to ISO 12647-2, paper type 1 or 2 (gloss or matte coated offset, 115 g/m²), screen frequency 60/cm ",
+		"publisher": "Forschungsgesellschaft Druck e.V. Graphic Technology Research Association",
+		"date": "2006",
+		"href": "https://www.color.org/chardata/FOGRA39.xalter"
+	},
+	"FOGRA51": {
+		"title": "ISO 12647-2:2013, Process control for the production of half-tone colour separations, proof and production printsPart 2: Offset lithographic processes, PS 1, premium coated, 115 g/m², moderate substrate fluorescence",
+		"publisher": "Forschungsgesellschaft Druck e.V. Graphic Technology Research Association",
+		"date": "2015",
+		"href": "https://www.color.org/chardata/fogra51.xalter"
+	},
+	"FOGRA55": {
+		"title": "CMYKOGV-based gamut exchange space",
+		"publisher": "Forschungsgesellschaft Druck e.V. Graphic Technology Research Association",
+		"date": "2021",
+		"href": "https://fogra.org/en/research/prepress-technology/multiprimary-printing-13003"
+	}
+}
+</pre>
+
+
 <link rel="stylesheet" href="style.css" />
 <style>
-	table.deltaE td {border: 4px solid white; padding: 6px; font-size: 1.4em;}
+	table.deltaE td {border: 4px solid white; padding: 6px; font-size: 1.4em; color: black;}
 	table.deltaE td.dE0 { background: rgb(68, 243, 91)}
 	table.deltaE td.dE1 { background: rgb(153, 243, 68)}
 	table.deltaE td.dE2 { background: rgb(217, 243, 68)}
@@ -102,8 +130,8 @@ Introduction {#intro}
 	and two colors with visually different lightness,
 	like yellow and blue, can have the same HSL lightness).
 
-	This module adds a new function:
-	''color-mix()'',
+	This module adds the new functions
+	''color-mix()'' and ''light-dark()'',
 	and extends existing ones with [[#relative-colors|relative color syntax]].
 
 	It also extends the ''color()'' function
@@ -121,14 +149,28 @@ Introduction {#intro}
 	Colors in CSS are represented by the <dfn export><<color>></dfn> type:
 
 	<pre class='prod'>
-	&lt;color> = <<absolute-color-base>> | currentcolor | <<system-color>> | <<device-cmyk()>> 
+	&lt;color> = <<color-base>> | currentColor | <<system-color>> | <<device-cmyk()>>  | <<light-dark()>>
 
-	<dfn>&lt;absolute-color-base></dfn> = <<hex-color>> | <<absolute-color-function>> | <<named-color>> | transparent
-	<dfn>&lt;absolute-color-function></dfn> = <<rgb()>> | <<rgba()>> |
+	<dfn>&lt;color-base></dfn> = <<hex-color>> | <<color-function>> | <<named-color>> | <<color-mix()>> | transparent
+	<dfn>&lt;color-function></dfn> = <<rgb()>> | <<rgba()>> |
 								<<hsl()>> | <<hsla()>> | <<hwb()>> |
 								<<lab()>> | <<lch()>> | <<oklab()>> | <<oklch()>> |
 								<<color()>>
 	</pre>
+
+	An <dfn export>absolute color</dfn>
+	is a <<color>> whose computed value
+	has an absolute, colorimetric interpretation.
+	This means that the value is not:
+
+	* ''currentColor'' (which depends on the value of the 'color' property)
+	* a <<system-color>> (which depends on the color mode)
+	* <<light-dark()>> (which depends on the color mode)
+	* <<device-cmyk()>> (which has no colorimetric basis)
+
+	Nor are any of those values used inside <<color-mix()>>
+	or in relative color syntax.
+
 
 
 <!--
@@ -222,12 +264,9 @@ Mixing Colors: the ''color-mix()'' Function {#color-mix}
 
 After normalizing both percentages, the result is produced via the following algorithm:
 
-1. Both colors are converted to the specified <<color-space>>.
-	If the specified color space
-	cannot express the color
-	(for example, the ''hsl'' and ''hwb'' spaces
-	cannot express colors outside the ''sRGB'' gamut),
-	gamut mapping will occur.
+1. As described in [[css-color-4#interpolation]],
+	both colors are converted to the specified interpolation <<color-space>>,
+	taking into account any [=analogous components=].
 2. Colors are then interpolated in the 	specified color space,
 	as described in [[css-color-4#interpolation]].
 	If the specified color space is a ''cylindrical-polar-color'' space,
@@ -236,9 +275,6 @@ After normalizing both percentages, the result is produced via the following alg
 	[[css-color-4#hue-interpolation]].
 	If no <<hue-interpolation-method>> is specified, it is as if
 	''shorter'' had been specified.
-	If the specified color space is a
-	''rectangular-orthogonal-color'' space,
-	then specifying a <<hue-interpolation-method>> is an error.
 3. If an alpha multiplier was produced during percentage normalization,
 	the alpha component of the interpolated result is multiplied
 	by the alpha multiplier.
@@ -250,6 +286,9 @@ After normalizing both percentages, the result is produced via the following alg
 	parsing/color-invalid-color-mix-function.html
 	parsing/color-valid-color-mix-function.html
 	parsing/color-mix-out-of-gamut.html
+	/html/canvas/element/fill-and-stroke-styles/2d.fillStyle.colormix.html
+	/html/canvas/element/fill-and-stroke-styles/2d.fillStyle.colormix.currentcolor.html
+	/html/canvas/element/fill-and-stroke-styles/2d.strokeStyle.colormix.html
 </wpt>
 
 The result of mixing is the color at the specified percentage along the progression
@@ -442,7 +481,7 @@ The choice of mixing color space can have a large effect on the end result.
 	* <span class="swatch oog" style="--color: white"></span> color(display-p3 0 1 0)
 		is color(srgb -0.5116 1.01827 -0.3107) which is outside the sRGB gamut
 	* Converted to ''hsl''
-		<span class="swatch oog" style="--color: rgb(0% 99.797% 0%)"></span> 
+		<span class="swatch oog" style="--color: rgb(0% 99.797% 0%)"></span>
 		hsl(127.879 301.946 25.334)
 	* <span class="swatch" style="--color: yellow"></span> yellow is
 	    <span class="swatch" style="--color: yellow"></span> hsl(60 100% 50%)
@@ -764,27 +803,6 @@ which is rgb(52.446% 45.821% 62.953%)
 </div>
 -->
 
-<!-- color-mix() IMPLEMENTATIONS
-
-	Chrome, sRGB only for now
-	Implement basic color-mix() functionality, and expose it to chrome code and to content behind a pref.
-	https://bugzilla.mozilla.org/show_bug.cgi?id=1695376
-
-	Gecko,
-	Implement CSS color-mix function
-	https://bugzilla.mozilla.org/show_bug.cgi?id=1682436
-
-	DevTools should understand the color-mix() function
-	https://bugzilla.mozilla.org/show_bug.cgi?id=1695382
-
-	[Closed] Implement basic color-mix() functionality, and expose it to chrome code and to content behind a pref.
-	https://bugzilla.mozilla.org/show_bug.cgi?id=1695376
-
-	WebKit
-	Implemented, shipped in Safari 15.0 as experimental
-
--->
-
 
 <!--
 ████████  ████████ ██          ███    ████████ ████ ██     ██ ████████
@@ -797,8 +815,12 @@ which is rgb(52.446% 45.821% 62.953%)
 -->
 
 <h2 id="relative-colors">
-	Relative Color Syntax
+	Relative Colors
 </h2>
+
+<h3 id="rcs-intro">
+	Processing Model for Relative Colors
+</h3>
 
 In previous levels of this specification,
 the color functions could only specify colors in an absolute manner,
@@ -809,47 +831,114 @@ extends [=modern color syntax=]
 to allow existing colors to be modified
 using the color functions:
 if an <dfn>origin color</dfn> is specified,
-then each color channel 
-(and the alpha channel, if specified) 
+then each color channel
+(and the alpha channel, if specified)
 can <em>either</em> be directly specified,
 or taken from the origin color
 (and possibly modified with [=math functions=]).
 
+The origin color and the relative color need not use the same color function.
 
-<wpt>
-	parsing/color-computed-relative-color.html
-	parsing/color-invalid-relative-color.html
-	parsing/color-valid-relative-color.html
-	parsing/relative-color-out-of-gamut.html
-</wpt>
+All operations take part in the 
+[=color space=] of the [=relative color=] function;
+<span id="required-conversion">if the
+<dfn export>originally specified color space</dfn>
+for the [=origin color=] used a different color function,
+it's first converted into the chosen color function,
+so it has meaningful values for the channels</span>
+and [=channel keywords=] 
+refer to the color space of the relative color,
+<em>not</em> the [=origin color=].
 
-The precise details of each function's changes to accommodate [=relative colors=] are listed below,
+If the alpha value of the relative color is omitted,
+it defaults to that of the [=origin color=]
+(rather than defaulting to ''100%'', as it does in the absolute syntax).
+
+When relative color syntax is used,
+<strong>color channel</strong> values, 
+whether directly specified 
+or arising from color space conversion,
+are <em>not clamped</em> to the reference ranges but are retained as-is.
+This preserves out of gamut values,
+if the destination color space is capable of representing them.
+
+However, when relative color syntax is used,
+<strong>alpha channel</strong> values 
+whether directly specified 
+or arising from color space conversion,
+<em>are</em> clamped to the reference range.
+
+Missing components are handled the same way as with
+[[css-color-4#interpolation-missing]]:
+the origin colorspace and the relative function colorspace
+are checked for [=analogous components=]
+which are then [=carried forward=] as missing.
+
+While most uses of [=relative color=] syntax
+will use the [=channel keywords=] in their corresponding argument,
+you can use them in any position.
+
+Beware when using components outside their normal position;
+when percentages are resolved to numbers,
+there is no "magic scaling"
+to account for the changed position
+if those numbers are used in a different place.
+
+
+<h3 id="relative-syntax">
+	Relative Color Syntax
+</h3>
+
+The precise details of each function's syntactic changes 
+to accommodate [=relative colors=] are listed below,
 but they all follow a common structure:
 
-* An [=origin color=] can be specified with a ''from <<color>>'' value at the start of the function.
+* An [=origin color=] can be specified with a ''from <<color>>'' value 
+	at the start of the function.
 	This includes the optional alpha channel, if specified.
-* The origin color and the relative color need not use the same color function.
+* If no origin color is specified, the function is not a relative color.
 * If an [=origin color=] is specified,
 	the remaining arguments can either be specified directly, as normal,
-	or be specified as a <dfn>channel keyword</dfn> 
-	referring to one of the channels of the [=origin color=].
+	or be specified as a <dfn>channel keyword</dfn>
+	referring to one of the channels of the [=origin color=]
+	converted to the [=color space=] of the relative color.
 	[=Math functions=] can also use these keywords
 	to do dynamic modifications of the [=origin color's=] channels.
 * [=Relative color=] syntax doesn't change whether an argument is required or optional.
-	If the alpha value is omitted, however,
-	it defaults to taking from the [=origin color=]
-	(rather than defaulting to ''100%'', as it does in the absolute syntax).
 * Relative color syntax only applies to the [=modern color syntax=].
 	It <em>cannot</em> be used with <a>legacy color syntax</a>
 	and attempting to do so is an error.
 * However, the [=origin color=] can use either modern or legacy syntax.
 
-The [=channel keywords=] return a <<number>>; 
+The [=channel keywords=] return a <<number>>;
 if they were originally specified as a <<percentage>> or an <<angle>>,
-that <<percentage>> is resolved to a <<number>> 
+that <<percentage>> is resolved to a <<number>>
 and the <<angle>> is resolved to a <<number>> of degrees
 (which is the [=canonical unit=])
 in the range [0, 360].
+
+<wpt>
+	relative-currentcolor-a98rgb-01.html
+	relative-currentcolor-lch-01.html
+	relative-currentcolor-rgb-01.html
+	relative-currentcolor-displayp3-01.html
+	relative-currentcolor-oklab-01.html
+	relative-currentcolor-rgb-02.html
+	relative-currentcolor-hsl-01.html
+	relative-currentcolor-oklch-01.html
+	relative-currentcolor-xyzd50-01.html
+	relative-currentcolor-hsl-02.html
+	relative-currentcolor-prophoto-01.html
+	relative-currentcolor-xyzd65-01.html
+	relative-currentcolor-hwb-01.html
+	relative-currentcolor-rec2020-01.html
+	relative-currentcolor-lab-01.html
+	relative-currentcolor-rec2020-02.html
+	parsing/color-computed-relative-color.html
+	parsing/color-invalid-relative-color.html
+	parsing/color-valid-relative-color.html
+	parsing/relative-color-out-of-gamut.html
+</wpt>
 
 <div class=example>
 	For example, if a color is specified using <<percentage>>,
@@ -883,17 +972,11 @@ in the range [0, 360].
 
 	In this example the resulting RCS color is oklch(0.526 0.115 134.6).
 
-	Had the origin color hue <<angle>> been specified in another unit, 
+	Had the origin color hue <<angle>> been specified in another unit,
 	such as radians or turns,
 	still the resolved <<number>> would be the number of degrees.
-	
-</div>
 
-<p id="required-conversion">If the 
-<dfn export>originally specified color space</dfn> 
-for the [=origin color=] used a different color function,
-it's first converted into the chosen color function,
-so it has meaningful values for the channels.</p>
+</div>
 
 <div class=example>
 	By using the [=channel keywords=] in a [=math function=],
@@ -934,11 +1017,35 @@ so it has meaningful values for the channels.</p>
 	regardless of what the [=origin color's=] opacity was.
 </div>
 
-<div class=example>
-	While most uses of [=relative color=] syntax
-	will use the [=channel keywords=] in their corresponding argument,
-	you can use them in any position.
+<div class="example">
+	For example, a Display P3 color
+	which is outside the gamut of sRGB can still be represented,
+	as it is not clipped.
 
+	<pre highlight=css>
+		--vivid-yellow: <span class="swatch oog" style="--color: color(display-p3 1 1 0)"></span> color(display-p3 1 1 0); 
+		--paler-yellow: <span class="swatch" style="--color: rgb(100% 100% 15.37%)"></span> color(from var(--vivid-yellow) srgb r g calc(b + 0.5));
+	</pre>
+
+	Here --vivid-yellow, once converted to sRGB, 
+	is <span class="swatch oog" style="--color: color(display-p3 1 1 0)"></span> rgb(100% 100% -34.63%)
+	and the negative blue component is not clamped.
+	The result of the RCS calculation is 
+	<span class="swatch" style="--color: rgb(100% 100% 15.37%)"></span> rgb(100% 100% 15.37%)
+</div>
+
+<div class="example">
+	For example, attempting to double an alpha of 0.7 in the origin color
+	results in an alpha in the result of 1, not 1.4.
+
+	<pre highlight=css>
+		--tan: <span class="swatch" style="--color: rgb(80.93% 70% 55.27% / 70%)"></span> oklch(78% 0.06 75 / 0.7);
+		--deeper-tan: <span class="swatch" style="--color: rgb(80.93% 70% 55.27%)"></span> oklch(from var(--tan) l c h / calc(alpha * 2));
+	</pre>
+</div>
+
+
+<div class=example>
 	For example, to do a rough approximation of grayscaling a color:
 
 	<pre highlight=css>
@@ -976,11 +1083,7 @@ so it has meaningful values for the channels.</p>
 </div>
 
 <div class="example" id="ex-no-percentage-magic">
-	<p>Beware when using components outside their normal position;
-		when percentages are resolved,
-		there is no "magic scaling"
-		to account for the changed position.
-		For example,</p>
+	<p>For example,</p>
 
 	<pre  highlight=css>
 		color: color(from color(srgb 0 0 0 / 60%) srgb alpha 0.6 0.6 / 0.9);
@@ -992,27 +1095,22 @@ so it has meaningful values for the channels.</p>
 	</p>
 
 	<p>However, in this second example, again the alpha resolves to 0.6,
-		giving a very different color due to the color component range in
-		legacy rgb() syntax:
+		giving a very different color due to the color component range
+		of 0 to 255 in
+		rgb() syntax:
 	</p>
 
 	<pre  highlight=css>
 		color: rgb(from rgb(0 0 0 / 60%) alpha 153 153 / 0.9);
 	</pre>
 
-	<p>which results in 
+	<p>which results in
 	<span class="swatch" style="--color: rgb(0.235% 60% 60% / 0.9)"></span> ''rgb(0.6 153 153 / 0.9)''
-	and not
+	and <em>not</em>
 	<span class="swatch" style="--color: rgb(153 153 153 / 0.9)"></span> ''rgb(153 153 153 / 0.9)''.
 	</p>
-	
-</div>
 
-Missing components are handled the same way as with 
-[[css-color-4#interpolation-missing]]:
-the origin colorspace and the relative function colorspace
-are checked for [=analogous components=]
-which are then carried forward as missing.
+</div>
 
 <div class="example" id="ex-missing-analogous">
 	In this example the achromatic origin color has a missing hue;
@@ -1030,19 +1128,19 @@ which are then carried forward as missing.
 	</pre>
 
 	The value of --bg when converted to Oklch is
-	oklch(0.592 0.009 17.42) 
+	oklch(0.592 0.009 17.42)
 	but the analogous hue component is carried forward
 	giving oklch(0.592 0.009 none).
 	These values are then used in the relative function, giving
 	the darker color oklch(0.474 0.009 none).
 
-	The light green in the gradient is 
+	The light green in the gradient is
 	<span class="swatch" style="--color: #4C3"></span>  oklch(0.743 0.222 141.6),
 	and so, when interpolated, the other color take that hue,
-	becoming 
+	becoming
 	<span class="swatch" style="--color: rgb(34.96% 36.56% 34.72%)"></span> oklch(0.474 0.009 141.6).
 
-	Thus, the gradient will have a constant greenish hue. 
+	Thus, the gradient will have a constant greenish hue.
 
 	If an implementation failed to do this carrying forward,
 	the grayish --darker-bg would have a hue of 0,
@@ -1061,11 +1159,11 @@ However, if calculations are done on missing values, ''none'' is treated as 0.
 The grammar of the [=modern color syntax=] ''rgb()'' and ''rgba()'' functions are extended as follows:
 
 <pre class='prod'>
-	<dfn><<modern-rgb-syntax>></dfn> = rgb( [ from <<color>> ]? 
-					[ <<number>> | <<percentage>> | none]{3} 
+	<dfn><<modern-rgb-syntax>></dfn> = rgb( [ from <<color>> ]?
+					[ <<number>> | <<percentage>> | none]{3}
 					[ / [<<alpha-value>> | none] ]?  )
-	<dfn><<modern-rgba-syntax>></dfn> = rgba( [ from <<color>> ]? 
-					[ <<number>> | <<percentage>> | none]{3} 
+	<dfn><<modern-rgba-syntax>></dfn> = rgba( [ from <<color>> ]?
+					[ <<number>> | <<percentage>> | none]{3}
 					[ / [<<alpha-value>> | none] ]?  )
 	</pre>
 
@@ -1076,10 +1174,15 @@ the allowed [=channel keywords=] are:
 * <dfn value for="rgb()">r</dfn>, <dfn value for="rgb()">g</dfn>, and <dfn value for="rgb()">b</dfn>
 	are all  <<number>>s
 	that correspond to the [=origin color's=] red, green, and blue channels
-	after <a href="#required-conversion">conversion, if required</a> to sRGB. 
+	after <a href="#required-conversion">conversion, if required</a> to sRGB.
 	255.0 is equivalent to 100%.
-* <dfn value for="rgb()">alpha</dfn> is a <<number>> that corresponds to the 
+* <dfn value for="rgb()">alpha</dfn> is a <<number>> that corresponds to the
 	[=origin color's=] alpha transparency. 1.0 is equivalent to 100%.
+
+<wpt>
+	relative-currentcolor-rgb-01.html
+	relative-currentcolor-rgb-02.html
+</wpt>
 
 <div class="example">
 	To manipulate color channels in the sRGB color space:
@@ -1088,8 +1191,8 @@ the allowed [=channel keywords=] are:
 		rgb(from <span class="swatch" style="--color: indianred"></span> indianred 255 g b)
 	</pre>
 
-	This takes the sRGB value of indianred (205 92 92) and replaces 
-	the red channel with 255 to give 
+	This takes the sRGB value of indianred (205 92 92) and replaces
+	the red channel with 255 to give
 	<span class="swatch" style="--color: rgb(255 92 92)"></span>  rgb(255 92 92).
 </div>
 
@@ -1143,12 +1246,17 @@ the allowed [=channel keywords=] are:
 	after <a href="#required-conversion">conversion, if required</a> to sRGB,
 	normalized to a [0, 360] range. 90 is equivalent to 90deg.
 * <dfn value for="hsl()">s</dfn> and <dfn value for="hsl()">l</dfn>
-	are <<number>>s that correspond to the [=origin color's=] 
+	are <<number>>s that correspond to the [=origin color's=]
 	HSL saturation and lightness,
 	after <a href="#required-conversion">conversion, if required</a> to sRGB.
 	100 is equivalent to 100%.
-* <dfn value for="hsl()">alpha</dfn> is a <<number>> that corresponds to the 
+* <dfn value for="hsl()">alpha</dfn> is a <<number>> that corresponds to the
 	[=origin color's=] alpha transparency 1.0 is equivalent to 100%.
+
+<wpt>
+	relative-currentcolor-hsl-01.html
+	relative-currentcolor-hsl-02.html
+</wpt>
 
 <div class="example">
 	This adds 180 degrees to the hue angle, giving a complementary color.
@@ -1185,8 +1293,12 @@ the allowed [=channel keywords=] are:
 	are <<number>>s that correspond to the [=origin color's=] HWB whiteness and blackness
 	after <a href="#required-conversion">conversion, if required</a> to sRGB.
 	100 is equivalent to 100%.
-* <dfn value for="hwb()">alpha</dfn> is a <<number>> that corresponds to the 
+* <dfn value for="hwb()">alpha</dfn> is a <<number>> that corresponds to the
 	[=origin color's=] alpha transparency. 1.0 is equivalent to 100%.
+
+<wpt>
+	relative-currentcolor-hwb-01.html
+</wpt>
 
 <h3 id="relative-Lab">Relative Lab Colors</h3>
 
@@ -1212,8 +1324,12 @@ the allowed [=channel keywords=] are:
 	that correspond to the [=origin color's=] CIE Lab a and b axes
 	after <a href="#required-conversion">conversion, if required</a>, to CIE Lab.
 	125 is equivalent to 100%, while -125 is equivalent to -100%.
-* <dfn value for="lab()">alpha</dfn> is a <<number>> that corresponds to the 
+* <dfn value for="lab()">alpha</dfn> is a <<number>> that corresponds to the
 	[=origin color's=] alpha transparency. 1.0 is equivalent to 100%.
+
+	<wpt>
+		relative-currentcolor-lab-01.html
+	</wpt>
 
 <div class="example">
 	Multiple ways to adjust the transparency of a base color:
@@ -1222,9 +1338,9 @@ the allowed [=channel keywords=] are:
 	* ''lab(from var(--mycolor) l a b / calc(alpha * 0.8))'' reduces the alpha of ''var(--mycolor)'' by 20% of its original value.
 
 	Note that all the adjustments are lossless in the sense that no gamut clipping occurs, since lab() encompasses all visible color.
-	This is not true for the alpha adjustments in the sRGB based functions 
-	(such as 'rgb()', 'hsl()', or 'hwb()'), 
-	which would also convert to sRGB 
+	This is not true for the alpha adjustments in the sRGB based functions
+	(such as 'rgb()', 'hsl()', or 'hwb()'),
+	which would also convert to sRGB
 	as a necessary step for calculation of HSL or HWB,
 	in addition to adjusting the alpha transparency.
 </div>
@@ -1264,8 +1380,12 @@ the allowed [=channel keywords=] are:
 	that correspond to the [=origin color's=] Oklab a and b axes
 	after <a href="#required-conversion">conversion, if required</a>, to Oklab.
 	0.4 is equivalent to 100%, while -0.4 is equivalent to -100%.
-* <dfn value for="oklab()">alpha</dfn> is a <<number>> that corresponds to the 
+* <dfn value for="oklab()">alpha</dfn> is a <<number>> that corresponds to the
 	[=origin color's=] alpha transparency. 1.0 is equivalent to 100%.
+
+	<wpt>
+		relative-currentcolor-oklab-01.html
+	</wpt>
 
 <h3 id="relative-LCH">Relative LCH Colors</h3>
 
@@ -1295,9 +1415,12 @@ the allowed [=channel keywords=] are:
 	that corresponds to the [=origin color's=] LCH hue, in degrees,
 	after <a href="#required-conversion">conversion, if required</a>, to CIE LCH,
 	normalized to a [0, 360] range. 90 is equivalent to 90deg.
-* <dfn value for="lch()">alpha</dfn> is a <<number>> that corresponds to the 
+* <dfn value for="lch()">alpha</dfn> is a <<number>> that corresponds to the
 	[=origin color's=] alpha transparency. 1.0 is equivalent to 100%.
 
+<wpt>
+	relative-currentcolor-lch-01.html
+</wpt>
 
 <div class="example">
 	''lch(from peru calc(l * 0.8) c h)'' produces a color that is 20% darker than <span class="swatch" style="--color: peru"></span> peru or lch(62.2532% 54.0114 63.6769), with its chroma and hue left unchanged.
@@ -1431,8 +1554,12 @@ the allowed [=channel keywords=] are:
 	that corresponds to the [=origin color's=] Oklch hue, in degrees,
 	after <a href="#required-conversion">conversion, if required</a>, to Oklch,
 	normalized to a [0, 360] range. 90 is equivalent to 90deg.
-* <dfn value for="oklch()">alpha</dfn> is a <<number>> that corresponds to the 
+* <dfn value for="oklch()">alpha</dfn> is a <<number>> that corresponds to the
 	[=origin color's=] alpha transparency. 1.0 is equivalent to 100%.
+
+<wpt>
+	relative-currentcolor-oklch-01.html
+</wpt>
 
 	Because Oklch is both perceptually uniform and chroma-preserving,
 	and because the axes correspond to easily understood attributes of a color,
@@ -1465,13 +1592,13 @@ The Oklch chroma has dropped from 0.251 to 0.117.
 </div>
 
 <!--
- ██████   ███████  ██        ███████  ████████     ███   ███  
-██    ██ ██     ██ ██       ██     ██ ██     ██   ██       ██ 
+ ██████   ███████  ██        ███████  ████████     ███   ███
+██    ██ ██     ██ ██       ██     ██ ██     ██   ██       ██
 ██       ██     ██ ██       ██     ██ ██     ██  ██         ██
 ██       ██     ██ ██       ██     ██ ████████   ██         ██
 ██       ██     ██ ██       ██     ██ ██   ██    ██         ██
-██    ██ ██     ██ ██       ██     ██ ██    ██    ██       ██ 
- ██████   ███████  ████████  ███████  ██     ██    ███   ███  
+██    ██ ██     ██ ██       ██     ██ ██    ██    ██       ██
+ ██████   ███████  ████████  ███████  ██     ██    ███   ███
 -->
 
 <h2 id="color-function">
@@ -1493,7 +1620,7 @@ The Oklch chroma has dropped from 0.251 to 0.117.
 	<pre class='prod'>
 		<dfn>color()</dfn> = color( [from <<color>>]? <<colorspace-params>> [ / [ <<alpha-value>> | none ] ]? )
 		<dfn>&lt;colorspace-params></dfn> = [<<custom-params>> | <<predefined-rgb-params>> | <<xyz-params>>]
-		<dfn>&lt;custom-params></dfn> = <<dashed-ident>> [ <<number>> | <<percentage>> | none ]#
+		<dfn>&lt;custom-params></dfn> = <<dashed-ident>> [ <<number>> | <<percentage>> | none ]+
 		<dfn>&lt;predefined-rgb-params></dfn> = <<predefined-rgb>> [ <<number>> | <<percentage>> | none ]{3}
 		<dfn>&lt;predefined-rgb></dfn> = srgb | srgb-linear | display-p3 | a98-rgb | prophoto-rgb | rec2020
 		<dfn>&lt;xyz-params></dfn> = <<xyz>> [ <<number>> | <<percentage>> | none ]{3}
@@ -1544,6 +1671,7 @@ the allowed [=channel keywords=] are:
 	are all <<number>>s
 	that correspond to the [=origin color's=] red, green, and blue channels
 	after <a href="#required-conversion">conversion, if required</a> to the predefined RGB color space.
+	The value 1.0 corresponds to 100%.
 
 Within a [=relative color=] syntax ''color()'' function using <<xyz-params>>,
 the allowed [=channel keywords=] are:
@@ -1552,12 +1680,13 @@ the allowed [=channel keywords=] are:
 	that correspond to the [=origin color's=] X, Y and Z channels
 	after <a href="#required-conversion">conversion, if required</a> to relative CIE XYZ color space
 	adapted to the relevant white point.
+	The value 1.0 corresponds to 100%.
 
-Within a [=relative color=] syntax ''color()'' function 
+Within a [=relative color=] syntax ''color()'' function
 using either <<predefined-rgb-params>> or
 <<xyz-params>>, an additional allowed [=channel keyword=] is:
 
-* <dfn value for="color()">alpha</dfn> is a <<number>> that corresponds to the 
+* <dfn value for="color()">alpha</dfn> is a <<number>> that corresponds to the
 		[=origin color's=] alpha transparency. 1.0 is equivalent to 100%.
 
 The parameters have the following form:
@@ -1628,7 +1757,7 @@ The parameters have the following form:
 
 <div class="example" id="ex-RCS-XYZ">
 	For example, Relative Color Syntax in the CIE XYZ D65 colorspace
-	is used to generate a color which has 
+	is used to generate a color which has
 	the same chromaticity but exactly half the luminance
 	of the base color:
 
@@ -1958,7 +2087,7 @@ or any other color or monochrome output device which has been characterized.
 		For example, using offset printing to ISO 12647-2:2004 / Amd 1:2007
 		using the FOGRA39 characterization data
 		on 115gsm coated paper
-		with an ink limit of 300% Total Area Coverage.
+		with an ink limit of 300% Total Area Coverage [[FOGRA39]].
 
 		<!--
 			$ xicclu -ir Coated_Fogra39L_VIGC_300.icc
@@ -2009,7 +2138,7 @@ or any other color or monochrome output device which has been characterized.
 			Averaged measured Lab values are available for each patch.
 			The rectangles show the Lab values, converted to sRGB.
 			The circles, which are barely visible, show the Lab values,
-			passed through a FOGRA51 ICC profile to convert them to CMYK.
+			passed through a FOGRA51 [[FOGRA51]] ICC profile to convert them to CMYK.
 			The CMYK values are then passed through the same ICC profile in reverse,
 			to yield new Lab values. These are then converted to sRGB for display.</p>
 			<p>The one patch with a more visible circle (third row, first patch)
@@ -2183,13 +2312,13 @@ or any other color or monochrome output device which has been characterized.
 
 	Colors are not restricted to four inks (CMYK). For example, wide-gamut 7 Color ink sets can be used.
 
-	<div class="example" id="ex-fogra55beta-7color">This example uses the beta FOGRA55 dataset for KCMYOGV seven-color printing.
+	<div class="example" id="ex-fogra55beta-7color">This example uses the beta FOGRA55 dataset [[FOGRA55]] for CMYKOGV seven-color printing.
 		Four of the inks - black, cyan, magenta, and yellow - are the same as,
 		and give the same results as, the FOGRA51 set.
 		The other three inks are:
-		<ul><li>Pantone Orange 021C</li>
-			<li>Pantone Green C</li>
-			<li>Pantone Violet C</li>
+		<ul><li>Orange: CIELAB 65 58 88</li>
+			<li>Green: CIELAB 60 -75 0 </li>
+			<li>CIELAB 22 47 -56</li>
 		</ul>
 
 		The measurement condition is M1,
@@ -2273,20 +2402,26 @@ or any other color or monochrome output device which has been characterized.
 		The ''device-cmyk()'' function allows authors to specify a color in this way:
 
 		<pre class='prod'>
-			<dfn>device-cmyk()</dfn> = device-cmyk( <<cmyk-component>>{4} [ / <<alpha-value>> ]? )
-			<dfn>&lt;cmyk-component></dfn> = <<number>> | <<percentage>>
+			<dfn>device-cmyk()</dfn> = <<legacy-device-cmyk-syntax>> | <<modern-device-cmyk-syntax>>
+			<dfn>&lt;legacy-device-cmyk-syntax></dfn> = device-cmyk( <<number>>#{4} )
+			<dfn>&lt;modern-device-cmyk-syntax></dfn> = device-cmyk( <<cmyk-component>>{4} [ / [ <<alpha-value>> | ''none'' ] ]? )
+			<dfn>&lt;cmyk-component></dfn> = <<number>> | <<percentage>> | ''none''
 		</pre>
 
 		The arguments of the ''device-cmyk()'' function specify the cyan, magenta, yellow, and black components, in order,
-		as a number between 0 and 1 or a percentage between 0% and 100%.
+		as a number between 0 and 1
+		or, in the modern syntax, as a percentage between 0% and 100%.
 		These two usages are equivalent, and map to each other linearly.
 		Values less than 0 or 0%, or greater than 1 or 100%,
 		are not invalid;
 		instead, they are clamped to 0/0% or 1/100% at computed-value time.
 
-		The fifth argument specifies the alpha channel of the color.
+		In the modern syntax, the fifth argument specifies the alpha channel of the color.
 		It's interpreted identically to the fourth argument of the ''rgb()'' function.
 		If omitted, it defaults to ''100%''.
+
+		For <a href="https://www.w3.org/TR/2011/WD-css3-gcpm-20111129/#cmyk-colors">historical reasons</a>,
+		''device-cmyk()'' also support a <a>legacy color syntax</a>.
 
 		Typically, print-based applications will actually store the used colors as CMYK,
 		and send them to the printer in that form.
@@ -2430,6 +2565,70 @@ or any other color or monochrome output device which has been characterized.
 			<li>alpha is the same as the input color
 		</ul>
 
+<h2 id="light-dark">
+	Reacting to the used color-scheme: the ''light-dark()'' Function
+</h2>
+
+	System colors have the ability to react to the current used ''color-scheme'' value.
+	The ''light-dark()'' function exposes the same capability to authors.
+
+	<pre class='prod'>
+		<dfn export>light-dark()</dfn> = light-dark( <<color>>, <<color>> )
+	</pre>
+
+	This function computes to the computed value of the first color,
+	if the <a>used color scheme</a> is ''light'' or unknown,
+	or to the computed value of the second color,
+	if the <a>used color scheme</a> is ''dark''.
+
+	<wpt>
+		light-dark-basic.html
+		light-dark-currentcolor.html
+		light-dark-inheritance.html
+		light-dark-currentcolor-in-color.html
+	</wpt>
+
+<h2 id="contrast-color">
+	Dynamically specifying a text color with adequate contrast: the ''contrast-color()'' Function
+</h2>
+
+	When colors are created dynamically, it can often be a challenge to specify a text color that
+	provides adequate contrast with them when used as a background color.
+	The ''contrast-color()'' function automatically provides a color with guaranteed color contrast
+	when used as a text color on a solid background of the specified color.
+
+	Note: Legibility is a complex topic, and sufficient color contrast is only one piece of the puzzle.
+	Having a color pair with sufficient contrast does not guarantee that the text will be legible,
+	as that also depends on a variety of factors, such as the font, the size of the text,
+	the surrounding colors, etc.
+
+	<pre class='prod'>
+		<dfn export>contrast-color()</dfn> = contrast-color( <<color>> max? )
+	</pre>
+
+	If ''max''' is specified, the function computes to ''white'' or ''black'',
+	depending on which of the two produces _maximum_ color contrast for text when the input color is used as a solid background.
+	If both colors produce the same contrast, the function should return ''white''.
+
+	If ''max''' is omitted, the function computes to a <em>very light</em> or <em>very dark</em> color (which <em>may</em> still be white or black),
+	which will contrast well with the input color when used as a text color and the input color is used as a solid background.
+	The function MUST return a light color if it would have returned ''white'' if ''max'' were specified,
+	and a dark color if it would have returned ''black'' if ''max'' were specified.
+
+	Note: The precise requirement for how close these colors need to be to white and black
+	and what color difference measure to use for that are still under discussion.
+
+	The precise color contrast algorithm for determining whether to output a light or dark color
+	is UA-defined at this level, as is the precise color produced when ''max''' is omitted.
+
+	Note: Future versions of this specification are expected to introduce more control over
+	both the contrast algorithm(s) used, the use cases, as well as the returned color.
+
+	UAs are advised to not simply use the WCAG 2.1 <a href="https://www.w3.org/TR/WCAG21/#contrast-minimum">section 1.4.3 Contrast (Minimum)</a>
+	contrast ratio algorithm to decide between light and dark colors, as it has <a href="https://www.cedc.tools/article.html">several known issues</a>.
+	However, colors returned by this function should still meet the WCAG 2.1 <a href="https://www.w3.org/TR/WCAG21/#contrast-minimum">section 1.4.3 Contrast (Minimum)</a>
+	for AA large text, as many authors need to meet legal requirements that mandate this.
+
 <!--
 ████ ██    ██ ████████ ████████ ████████  ████████   ███████  ██          ███    ████████ ████████
  ██  ███   ██    ██    ██       ██     ██ ██     ██ ██     ██ ██         ██ ██      ██    ██
@@ -2446,20 +2645,20 @@ or any other color or monochrome output device which has been characterized.
 <h3 id="interpolation-space">
 	Color Space for Interpolation</h3>
 
-	The <<color-interpolation-method>> is extended to allow use of the 
+	The <<color-interpolation-method>> is extended to allow use of the
 	<a href="#custom-color">custom color spaces</a>:
 
 	<pre class='prod'>
 		<dfn export>&lt;color-space></dfn> = <<rectangular-color-space>> | <<polar-color-space>> | <<custom-color-space>>
-		<dfn export>&lt;rectangular-color-space></dfn> = ''srgb'' | ''srgb-linear'' | ''lab'' | ''oklab'' | ''xyz'' | ''xyz-d50'' | ''xyz-d65''
+		<dfn export>&lt;rectangular-color-space></dfn> = ''srgb'' | ''srgb-linear'' | ''display-p3'' | ''a98-rgb'' | ''prophoto-rgb'' | ''rec2020'' | ''lab'' | ''oklab'' | ''xyz'' | ''xyz-d50'' | ''xyz-d65''
 		<dfn export>&lt;polar-color-space></dfn> = ''hsl'' | ''hwb'' | ''lch'' | ''oklch''
 		<dfn export>&lt;custom-color-space></dfn> = <<dashed-ident>>
 		<dfn export>&lt;hue-interpolation-method></dfn> = [ shorter | longer | increasing | decreasing ] hue
 		<dfn export id="color-interpolation-method">&lt;color-interpolation-method></dfn> = in [ <<rectangular-color-space>> | <<polar-color-space>> <<hue-interpolation-method>>? | <<custom-color-space>> ]
 	</pre>
 
-	The <<dashed-ident>> must have been declared 
-	in a valid ''@color-profile'' rule, 
+	The <<dashed-ident>> must have been declared
+	in a valid ''@color-profile'' rule,
 	otherwise the <<color-interpolation-method>> is invalid.
 
 <!--
@@ -2507,13 +2706,35 @@ or any other color or monochrome output device which has been characterized.
 		the computed value is the absolute <<color>> value,
 		in the specified RCS color space,
 		resolved according to [[css-color-4#resolving-color-values]].
+
+		<wpt>
+			parsing/color-computed-relative-color.html
+			parsing/color-valid-relative-color.html
+			parsing/color-invalid-relative-color.html
+		</wpt>
+
 		Otherwise (if ''currentColor'' was used in the function),
 		the computed value is the Relative Color Syntax function
 		with the origin <<color>> parameter resolved according to [[css-color-4#resolving-color-values]],
 		thus preserving inheritance into child elements.
 
 		<wpt>
-			
+			relative-currentcolor-a98rgb-01.html
+			relative-currentcolor-lch-01.html
+			relative-currentcolor-rgb-01.html
+			relative-currentcolor-displayp3-01.html
+			relative-currentcolor-oklab-01.html
+			relative-currentcolor-rgb-02.html
+			relative-currentcolor-hsl-01.html
+			relative-currentcolor-oklch-01.html
+			relative-currentcolor-xyzd50-01.html
+			relative-currentcolor-hsl-02.html
+			relative-currentcolor-prophoto-01.html
+			relative-currentcolor-xyzd65-01.html
+			relative-currentcolor-hwb-01.html
+			relative-currentcolor-rec2020-01.html
+			relative-currentcolor-lab-01.html
+			relative-currentcolor-rec2020-02.html
 		</wpt>
 
 <h3 id="resolving-device-cmyk-values">
@@ -2577,7 +2798,7 @@ or any other color or monochrome output device which has been characterized.
 This section extends [[css-color-4#serializing-color-values]]
 to add serialization of the
 results of the
-''color-mix()'', 
+''color-mix()'',
 ''device-cmyk()'',
 and
 relative color functions.
@@ -2624,7 +2845,7 @@ an implicit value of 1 (fully opaque) is the default.
 	Serializing color-mix()
 </h3>
 
-The serialization of the specified value of a ''color-mix()'' function
+The serialization of the declared value of a ''color-mix()'' function
 is the string "color-mix(in ",
 followed by the specified <<color-space>> in all-lowercase,
 followed by ", ",
@@ -2633,7 +2854,7 @@ followed by a space,
 followed by the specified (un-normalized) first percentage (unless both percentages are 50%),
 followed by ", ",
 followed by the second specified color,
-followed by the specified (un-normalized) second percentage 
+followed by the specified (un-normalized) second percentage
 (unless the two specified percentages add to 100%),
 followed by ")".
 
@@ -2642,15 +2863,15 @@ the second percentage is typically omitted,
 even if explicitly specified.
 
 <div class="example" id="ex-serial-specified-mix">
-	For example, the serialized specified value of 
+	For example, the serialized declared value of
 	<pre>color-mix(in oklab, teal, peru 40%)</pre>
 	would be the string "color-mix(in oklab, teal 60%, peru)".
 
-	The serialized specified value of 
+	The serialized declared value of
 	<pre>color-mix(in oklab, teal 50%, peru 50%)</pre>
 	would be the string "color-mix(in oklab, teal, peru)".
 
-	The serialized specified value of 
+	The serialized declared value of
 	<pre>color-mix(in oklab, teal 70%, peru 70%)</pre>
 	would be the string "color-mix(in oklab, teal 70%, peru 70%)"
 	because the fact that these normalize to 50% each
@@ -2659,22 +2880,14 @@ even if explicitly specified.
 
 The serialization of the result of a ''color-mix()'' function
 depends on whether the keyword ''currentColor'' is used in the mix.
-If so, the result is serialized as the specified value.
-This allows the correct mixture to be used 
+If so, the result is serialized as the declared value.
+This allows the correct mixture to be used
 on child elements whose ''color'' property has a different value.
 Otherwise, it
 is a <<color>>,
 as defined in [[css-color-4#serializing-color-values]].
 The form used
-depends on the color space specified with "in".
-
-<wpt>
-	parsing/color-valid-color-mix-function.html
-</wpt>
-
-The <em>minimum</em> precision for round-tripping
-is the same as that specified in
-[[css-color-4#serializing-color-values]].
+depends on the color space specified with "in":
 
 <table class="data">
 	<tr>
@@ -2688,6 +2901,22 @@ is the same as that specified in
 	<tr>
 		<td>srgb-linear</td>
 		<td>color(srgb-linear r g b) </td>
+	</tr>
+	<tr>
+		<td>display-p3</td>
+		<td>color(display-p3 r g b) </td>
+	</tr>
+	<tr>
+		<td>a98-rgb</td>
+		<td>color(a98-rgb r g b) </td>
+	</tr>
+	<tr>
+		<td>prophoto-rgb</td>
+		<td>color(prophoto-rgb r g b) </td>
+	</tr>
+	<tr>
+		<td>rec2020</td>
+		<td>color(rec2020 r g b) </td>
 	</tr>
 	<tr>
 		<td>hsl</td>
@@ -2733,6 +2962,16 @@ is the same as that specified in
 
 </dl>
 
+<wpt>
+	parsing/color-valid-color-mix-function.html
+	color-mix-currentcolor-visited-getcomputedstyle.html
+	color-mix-currentcolor-visited.html
+</wpt>
+
+The <em>minimum</em> precision for round-tripping
+is the same as that specified in
+[[css-color-4#serializing-color-values]].
+
 <div class="example" id="ex-serial-computed-color-mix">
 	The result of this color mixture
 	<pre>color-mix(in lch, peru 40%, palegoldenrod)</pre>
@@ -2748,8 +2987,103 @@ is the same as that specified in
 	Serializing Relative Color Functions
 </h3>
 
+The serialization of the declared value of a relative color function
+is a string identifying the color function in all-lowercase,
+followed by "(from ",
+followed by the serialization of the declared value of the origin color,
+followed by a single space,
+followed by a singly-space-separated list of the arguments to the color function,
+followed by ")".
+
+<div class="example" id="ex-serial-rcs-specified-simple">
+	For example, the result of serializing the declared value
+
+	<pre class="lang-css">OkLcH(from peru  l    c  h)</pre>
+
+	is the string "oklch(from peru l c h)"
+</div>
+
+<!-- need a more complex example, and one with calc too -->
+
 The serialization of the result of a relative color function
-is the resolved value.
+depends on whether the keyword ''currentColor'' is the [=origin color=].
+If so, the result is serialized as the declared value.
+This allows the correct value to be used
+on child elements whose ''color'' property has a different value.
+Otherwise, it
+is the resolved value,
+which is a  <<color>>,
+as defined in [[css-color-4#serializing-color-values]].
+
+The form used
+depends on the color space of the [=relative color=]:
+
+<table class="data">
+	<tr>
+		<th>mixing color space</th>
+		<th>form</th>
+	</tr>
+	<tr>
+		<td>srgb</td>
+		<td>color(srgb r g b)</td>
+	</tr>
+	<tr>
+		<td>srgb-linear</td>
+		<td>color(srgb-linear r g b) </td>
+	</tr>
+	<tr>
+		<td>display-p3</td>
+		<td>color(display-p3 r g b) </td>
+	</tr>
+	<tr>
+		<td>a98-rgb</td>
+		<td>color(a98-rgb r g b) </td>
+	</tr>
+	<tr>
+		<td>prophoto-rgb</td>
+		<td>color(prophoto-rgb r g b) </td>
+	</tr>
+	<tr>
+		<td>rec2020</td>
+		<td>color(rec2020 r g b) </td>
+	</tr>
+	<tr>
+		<td>hsl</td>
+		<td>color(srgb r g b) </td>
+	</tr>
+	<tr>
+		<td>hwb</td>
+		<td>color(srgb r g b)</td>
+	</tr>
+	<tr>
+		<td>xyz-d65</td>
+		<td>color(xyz-d65 x y z)</td>
+	</tr>
+	<tr>
+		<td>xyz-d50</td>
+		<td>color(xyz-d50 x y z)</td>
+	</tr>
+	<tr>
+		<td>xyz</td>
+		<td>color(xyz-d65 x y z)</td>
+	</tr>
+	<tr>
+		<td>lab</td>
+		<td>lab(l a b)</td>
+	</tr>
+	<tr>
+		<td>lch</td>
+		<td>lch(l c h)</td>
+	</tr>
+	<tr>
+		<td>oklab</td>
+		<td>oklab(l a b)</td>
+	</tr>
+	<tr>
+		<td>oklch</td>
+		<td>oklch(l c h)</td>
+	</tr>
+</table>
 
 <wpt>
 
@@ -2759,9 +3093,9 @@ The <em>minimum</em> precision for round-tripping
 is the same as that specified in
 [[css-color-4#serializing-color-function-values]].
 
-<div class="example">
+<div class="example" id="ex-serial-rcs-computed">
 	The result of serializing
-	<pre>lch(from peru calc(l * 0.8) calc(c * 0.7) calc(h + 180)) </pre>
+	<pre  class="lang-css">lch(from peru calc(l * 0.8) calc(c * 0.7) calc(h + 180)) </pre>
 	is the string
 	<span class="swatch" style="--color: rgb(3.12% 50.352% 68.894%)"></span>
 	"lch(49.80224 37.80819 243.6803)"
@@ -2865,19 +3199,19 @@ unless trailing zeroes have been omitted.
 	<dl dfn-type="attribute" dfn-for="CSSColorProfileRule">
 		<dt><dfn>name</dfn></dt>
 		<dd>
-			The <var>name</var> attribute on getting must return 
+			The <var>name</var> attribute on getting must return
 			a <code>CSSOMString</code> object
-			that contains the serialization 
-			of the <a>color profile's</a> <var>name</var> 
+			that contains the serialization
+			of the <a>color profile's</a> <var>name</var>
 			defined for the associated rule.
 		</dd>
 		<dt><dfn>src</dfn></dt>
 		<dt><dfn>renderingIntent</dfn></dt>
 		<dt><dfn>components</dfn></dt>
 		<dd>
-			The remaining attributes on getting 
+			The remaining attributes on getting
 			must return a <code>CSSOMString</code> object
-			that contains the serialization of the 
+			that contains the serialization of the
 			associated descriptor defined for the associated rule.
 			If the descriptor was not specified in the associated rule,
 			the attribute must return an empty string.
@@ -2901,7 +3235,7 @@ unless trailing zeroes have been omitted.
 	Default Style Rules
 </h2>
 
-		The following stylesheet is informative, not normative.  This style sheet could be used by an implementation as part of its default styling of HTML4, HTML5, XHTML1, XHTML1.1, XHTML Basic, and other XHTML Family documents.
+		The following stylesheet is informative, not normative.  This style sheet could be used by an implementation as part of its default styling of HTML Family documents.
 
 		<pre class="lang-css">
 		/* traditional desktop user agent colors for hyperlinks */
@@ -2940,7 +3274,19 @@ and thus do not constitute an increased security risk.
 
 No new privacy considerations have been reported on this specification.
 
+<!--
+   ███       ██      ██   ██    ██
+  ██ ██    ████    ████    ██  ██
+ ██   ██     ██      ██     ████
+██     ██    ██      ██      ██
+█████████    ██      ██      ██
+██     ██    ██      ██      ██
+██     ██  ██████  ██████    ██
+-->
 
+<h2 id="a11y-sec">Accessibility Considerations </h2>
+
+This specification adds a way to ensure adequate contrast for text whose background is a user-specified color, including dynamic colors.
 
 <!--
  ██████  ██     ██    ███    ██    ██  ██████   ████████  ██████
@@ -2956,16 +3302,54 @@ No new privacy considerations have been reported on this specification.
 	Changes
 </h2>
 
+<h3 id="changes-20240229">
+	Since the <a href="https://www.w3.org/TR/2024/WD-css-color-5-20240229/">Working Draft of 29 February 2024</a>
+</h3>
+
+<ul>
+	<!-- to 19 June 2024 -->
+	<li>Added references to FOGRA39, 51 and 55 </li>
+	<li>Removed mention of &lt;hue-interpolation-method> being an error condition for rectangular color spaces, as the grammar does not allow it</li>
+	<li>Clarified which color space the relative color channel keywords relate to</li>
+	<li>Separated out the conceptual aspects of relative colors from the syntactic details</li>
+	<li>Ensured adequate contrast for text in the deltaE table</li>
+	<li>Clarified that relative color components are not clamped, while relative alpha is</li>
+</ul>
+
 <h3 id="changes-20220628">
 	Since the <a href="https://www.w3.org/TR/2022/WD-css-color-5-20220628/">Working Draft of 28 June 2022</a>
 </h3>
 
 <ul>
+	<!-- to 26 February 2024 -->
+	<li>Described CSSOM serialization in terms of declared values, rather than specified values</li>
+	<li>Added the ''contrast-color()'' function</li>
+	<li>Explicitly linked to the CSS color 4 section on interpolation, for ''color-mix()''</li>
+	<li>Removed a leftover mention of gamut mapping to HSL</li>
+	<li>Defined absolute colors in prose, rather than as part of the grammar</li>
+	<li>Explicitly repeated the reference ranges for percent to number conversion in RCS for each case</li>
+	<li>Better defined serialization of relative colors whose origin color is currentColor. sRGB, ''hsl()'' and ''hwb()'' serialize using color(srgb ...) to enable round-tripping.</li>
+	<li>Updated abstract to mention the ''light-dark()'' function</li>
+	<!-- to 7 November 2023 -->
+	<li>Ported forward the larger list of rectangular color spaces from CSS Color 4</li>
+	<li>Correction to the grammar for custom params (whitespace separated, not comma separated)</li>
+	<li>Corrections to the grammar of ''device-cmyk()'' which was missing ''none'', and the previous (legacy) syntax from CSS GCPM</li>
+	<li>''color-mix()'' was missing from the grammar of the color type</li>
+	<li>Clarified serialization of specified RCS values</li>
+	<li>Added the ''light-dark()'' function</li>
+	<!-- to 30 Aug 2023 -->
+	<li>Corrected color-mix percent normalization algorithm to include explicit 50% edge case</li>
+	<li>Updated HSL example which still used gamut mapping before sRGB to HSL conversion step</li>
+	<li>Fixed syntax highlighting in some examples</li>
+	<li>Clarified that RCS origin colors can include optional alpha</li>
+	<li>Fixed erroneous use of powerless components</li>
+
 	<!-- to 1 July 2023 -->
-	<li>Use reference ranges for percent to number conversions</li>
-	<li>Made ''hsl()'' and ''hwb()'' channel values number, per CSSWG resolution. 
-		Also made all the hue angle channel values number, in degrees. 
+	<li>Used reference ranges for percent to number conversions</li>
+	<li>Made ''hsl()'' and ''hwb()'' channel values number, per CSSWG resolution.
+		Also made all the hue angle channel values number, in degrees.
 		The RCS intro already said this but the change had not been fully propagated.</li>
+
 	<!-- to 28 June 2023 -->
 	<li>Added an RCS example in CIE XYZ D65 colorspace</li>
 	<li>Removed un-needed and unchanged copy of a section of CSS Color 4 which was confusing to read</li>
@@ -3176,7 +3560,6 @@ No new privacy considerations have been reported on this specification.
 			t422-rgba-a1.0-a.xht
 			t422-rgba-clamping-a0.0-b.xht
 			t422-rgba-clamping-a1.0-b.xht
-			t422-rgba-clip-outside-device-gamut-b.xht
 			t422-rgba-func-int-a.xht
 			t422-rgba-func-no-mixed-f.xht
 			t422-rgba-func-pct-a.xht
@@ -3185,7 +3568,6 @@ No new privacy considerations have been reported on this specification.
 			t423-transparent-1-a.xht
 			t423-transparent-2-a.xht
 			t424-hsl-basic-a.xht
-			t424-hsl-clip-outside-gamut-b.xht
 			t424-hsl-h-rotating-b.xht
 			t424-hsl-parsing-f.xht
 			t424-hsl-values-b-1.html
@@ -3204,7 +3586,6 @@ No new privacy considerations have been reported on this specification.
 			t424-hsl-values-b-8.html
 			t424-hsl-values-b-9.html
 			t425-hsla-basic-a.xht
-			t425-hsla-clip-outside-device-gamut-b.xht
 			t425-hsla-h-rotating-b.xht
 			t425-hsla-parsing-f.xht
 			t425-hsla-values-b.xht
@@ -3234,6 +3615,7 @@ No new privacy considerations have been reported on this specification.
 			border-left-color.xht
 			border-right-color.xht
 			border-top-color.xht
+			clip-opacity-out-of-flow.html
 			color-001.html
 			color-002.html
 			color-003.html
@@ -3290,6 +3672,8 @@ No new privacy considerations have been reported on this specification.
 			hsla-006.html
 			hsla-007.html
 			hsla-008.html
+			hsl-clamp-negative-saturation.html
+			hsla-clamp-negative-saturation.html
 			hwb-001.html
 			hwb-002.html
 			hwb-003.html
@@ -3324,6 +3708,8 @@ No new privacy considerations have been reported on this specification.
 			oklab-006.html
 			oklab-007.html
 			oklab-008.html
+			oklab-l-almost-0.html
+			oklab-l-almost-1.html
 			oklch-001.html
 			oklch-002.html
 			oklch-003.html
@@ -3334,6 +3720,8 @@ No new privacy considerations have been reported on this specification.
 			oklch-008.html
 			oklch-009.html
 			oklch-010.html
+			oklch-l-almost-0.html
+			oklch-l-almost-1.html
 			opacity-overlapping-letters.html
 			animation/opacity-animation-ending-correctly-001.html
 			animation/opacity-animation-ending-correctly-002.html
@@ -3385,6 +3773,7 @@ No new privacy considerations have been reported on this specification.
 			srgb-linear-003.html
 			srgb-linear-004.html
 			system-color-compute.html
+			t422-rgba-clip-outside-device-gamut-b.xht
 			t423-transparent-1-a.xht
 			t423-transparent-2-a.xht
 			tagged-images-001.html
@@ -3438,18 +3827,18 @@ No new privacy considerations have been reported on this specification.
 			parsing/color-valid-lab.html
 			parsing/color-valid-rgb.html
 			parsing/color-valid-system-color.html
-			system-color-highlights-vs-getSelection-001.html
 			border-color-currentcolor.html
 			currentcolor-004.html
 			oklab-l-over-1-1.html
 			oklab-l-over-1-2.html
 			system-color-hightlights-vs-getSelection-001.html
 			system-color-hightlights-vs-getSelection-002.html
+			out-of-gamut-legacy-rgb.html
+			system-color-support.html
+			currentcolor-visited-fallback.html
+			oklch-l-over-1-1.html
+			oklch-l-over-1-2.html
 		</wpt>
 
 		<wpt hidden title="CSS Color 6">
-			color-contrast-001.html
-			parsing/color-computed-color-contrast-function.html
-			parsing/color-invalid-color-contrast-function.html
-			parsing/color-valid-color-contrast-function.html
 		</wpt>
