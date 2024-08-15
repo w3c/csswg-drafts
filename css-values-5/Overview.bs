@@ -1736,16 +1736,13 @@ in a safe, well-defined way.
 	<pre class=prod>
 	<dfn function lt="calc-size()">&lt;calc-size()></dfn> = calc-size( <<calc-size-basis>>, <<calc-sum>> )
 
-	<dfn>&lt;calc-size-basis></dfn> = [ <<intrinsic-size-keyword>> | percentage | <<calc-size()>> | any | <<calc-sum>> ]
+	<dfn>&lt;calc-size-basis></dfn> = [ <<intrinsic-size-keyword>> | <<calc-size()>> | any | <<calc-sum>> ]
 	</pre>
 
 The <dfn>&lt;intrinsic-size-keyword></dfn> production
 matches any [=intrinsic size=] keywords allowed in the context.
 For example, in 'width',
 it matches ''width/auto'', ''width/min-content'', ''width/stretch'', etc.
-
-The <dfn for=calc-size() value>percentage</dfn> basis keyword
-indicates a basis size of ''100%''.
 
 <details class=note>
 	<summary>Why can ''calc-size()'' be nested?</summary>
@@ -1761,8 +1758,9 @@ indicates a basis size of ''100%''.
 	or even just ''--foo: min-content'',
 	then ''calc( (var(--foo)) + 20px )'' fails.
 
-	The nesting is simplified away at computed-value time,
-	so the basis always ends up as a single keyword
+	The nesting is simplified away during interpolation,
+	and at used-value time,
+	so the basis always ends up as a simple value
 	by the time interpolation and other effects occur;
 	see [[#simplifying-calc-size]].
 </details>
@@ -1840,30 +1838,51 @@ must explicitly include it in its grammar.
 <h3 id=simplifying-calc-size>
 Simplifying ''calc-size()''</h3>
 
-At [=specified value=] time,
-the [=calc-size calculation=] of a ''calc-size()''
-is simplified to the extent possible,
-similar to [=math functions=],
-as defined in [[css-values-4#calc-simplification]]
+Similar to [=math functions=],
+at both [=specified value=] and [=computed value=] times
+the [=calc-size calculation=]
+(and the [=calc-size basis=], if it's a <<calc-sum>>)
+are simplified to the extent possible,
+as defined in [[css-values-4#calc-simplification]].
 
-At [=computed value=] time,
-the [=calc-size calculation=] is again simplified to the extent possible.
-In addition,
-the [=calc-size basis=] is simplified in some cases:
+<div algorithm>
+	To <dfn export for=calc-size()>canonicalize for interpolation</dfn>
+	a ''calc-size()'' function:
 
-* If the [=calc-size basis=] is a ''calc-size()'' function itself,
-	the [=calc-size basis=] of the outer function
-	is replaced with that of the inner function,
-	and the inner function's [=calc-size calculation=]
-	is [=substitute into a calc-size calculation|substituted=]
-	into the outer function's [=calc-size calculation=].
-* If the [=calc-size basis=] is a <<length-percentage>>,
-	the [=calc-size basis=] is replaced with the keyword ''calc-size()/percentage''
-	and the <<length-percentage>> is [=de-percentify a calc-size calculation|de-percentified=],
-	then [=substitute into a calc-size calculation|substituted=]
-	into the [=calc-size calculation=].
+	<dl class=switch>
+		: If the [=calc-size basis=] is a ''calc-size()'' function itself
+		:: The [=calc-size basis=] of the outer function
+			is replaced with that of the inner function,
+			and the inner function's [=calc-size calculation=]
+			is [=substitute into a calc-size calculation|substituted=]
+			into the outer function's [=calc-size calculation=].
 
-(The above is performed recursively, if necessary.)
+		: Otherwise, if the [=calc-size basis=] is a <<calc-sum>> whose
+			[=CSSNumericValue/type=] [=CSSNumericValue/matches=] <<length>>
+			(no percentage present)
+		:: Replace the basis with ''calc-size/any'',
+			and the original basis is [=substitute into a calc-size calculation|substituted=]
+			into the [=calc-size calculation=].
+
+		: Otherwise, if the [=calc-size basis=] is any other <<calc-sum>>
+			(contains a percentage)
+		:: Replace the basis with ''100%''
+			and the original basis is [=de-percentify a calc-size calculation|de-percentified=],
+			then [=substitute into a calc-size calculation|substituted=]
+			into the [=calc-size calculation=].
+	</dl>
+
+	(The above is performed recursively, if necessary.)
+
+	If any [=substitute into a calc-size calculation=]
+	returns failure,
+	the entire operation immediately returns failure.
+
+	Note: After canonicalization,
+	a ''calc-size()'' function
+	will only have a [=calc-size basis=] that's a keyword,
+	or the value ''100%''.
+</div>
 
 <details class=note>
 	<summary>Why are percentages simplified in this way?</summary>
@@ -1925,8 +1944,7 @@ the [=calc-size basis=] is simplified in some cases:
 
 	3. If this substitution would produce a value
 		larger than an UA-defined limit,
-		the property the subsitution is happening in
-		becomes [=invalid at computed-value time=].
+		return failure.
 
 		Note: This is intentionally identical
 		to the protection against substitution attacks
@@ -1941,8 +1959,8 @@ the [=calc-size basis=] is simplified in some cases:
 Resolving ''calc-size()''</h3>
 
 A ''calc-size()'' is treated, in all respects,
-as if it were its [=calc-size basis=].
-(With ''calc-size()/percentage'' acting like ''100%''.)
+as if it were its [=calc-size basis=]
+(with ''calc-size()/any'' acting as an unspecified [=definite=] size).
 
 When actually performing layout calculations, however,
 the size represented by its [=calc-size basis=]
@@ -1956,9 +1974,9 @@ equal to its [=calc-size calculation=].)
 
 <div class=example>
 	For example,
-	an element with ''height: calc-size(auto, size + 20px)''
+	an element with ''height: calc-size(auto, round(up, size, 20px))''
 	will be treated identically to an element with ''height: auto'',
-	but will end up being 20px taller.
+	but with its size rounded up to the nearest multiple of ''20px''.
 </div>
 
 When evaluating the [=calc-size calculation=],
@@ -1971,9 +1989,8 @@ is treated differently;
 [[#simplifying-calc-size|simplification]]
 moves the percentage into the [=calc-size calculation=]
 and replaces it with ''size'' references.
-The [=calc-size basis=] then becomes ''calc-size()/percentage'',
-which acts like percentages would normally in that context
-regardless of definite-ness,
+The [=calc-size basis=] then becomes ''100%'',
+behaving as whatever ''100%'' would normally do in that context,
 including possibly making a property [=behave as auto=], etc.)
 
 <div class=note>
@@ -2001,16 +2018,21 @@ including possibly making a property [=behave as auto=], etc.)
 Interpolating ''calc-size()''</h3>
 
 Two ''calc-size()'' functions can be interpolated if
-(after simplification):
+(after being [=canonicalized for interpolation=]):
 
-: both [=calc-size basises=] are the same <<intrinsic-size-keyword>>
-:: The result's [=calc-size basis=] is that keyword
+<dl class=switch>
+	: Either function returned failure from being [=canonicalized for interpolation=]
+	:: The values cannot be interpolated.
 
-: either [=calc-size basis=] is ''calc-size()/any''
-:: The result's [=calc-size basis=] is the non-''calc-size()/any'' basis
-	(or ''calc-size()/any'' if both are).
+	: Both [=calc-size basises=] are identical
+	:: The result's [=calc-size basis=] is the that basis value.
 
-The result's [=calc-size calculation=] is the interpolation of the two input [=calc-size calculations=].
+	: Either [=calc-size basis=] is ''calc-size()/any''
+	:: The result's [=calc-size basis=] is the non-''calc-size()/any'' basis.
+</dl>
+
+The result's [=calc-size calculation=]
+is the interpolation of the two input [=calc-size calculations=].
 
 Note: These interpolation restrictions ensure that a ''calc-size()''
 doesn't try to act in two different ways at once;
@@ -2060,6 +2082,17 @@ Note: ''calc-size()'' is designed such that
 transitioning to/from ''calc-size(any, [=definite=] length)''
 will <em>always</em> work smoothly,
 regardless of how the other side of the transition is specified.
+
+Note: This "upgrade a plain value into a ''calc-size()''" behavior
+puts <<length-percentage>> values into the [=calc-size calculation=].
+This allows values with percentages
+to interpolate with intrinsic size keywords,
+but does mean that when a percentage isn't [=definite=],
+it'll resolve to zero.
+If you want to resolve to the actual size the percentage would make the element,
+explicitly write a ''calc-size()''
+with the value in its [=calc-size basis=],
+like ''calc-size(50%, size)''.
 
 Issue: Or is it compatible to just allow direct interpolation
 between keywords and fixed lengths,
