@@ -71,6 +71,9 @@ urlPrefix: https://html.spec.whatwg.org/multipage/
     urlPrefix: semantics.html
         type: dfn
             text: a style sheet that is blocking scripts
+            text: contributes a script-blocking style sheet
+            for: Document
+                text: script-blocking style sheet set
 urlPrefix: https://dom.spec.whatwg.org/#concept-
     type: dfn
         text: dispatch; url: event-dispatch
@@ -798,7 +801,7 @@ represents a style sheet as defined by the CSS specification. In the CSSOM a
       <li>Set <var>sheet</var>'s <a spec=cssom>parent CSS style sheet</a> to null.
       <li>Set <var>sheet</var>'s <a spec=cssom>owner node</a> to null.
       <li>Set <var>sheet</var>'s <a spec=cssom>owner CSS rule</a> to null.
-      <li>Set <var>sheet</var>'s <a spec=cssom>title</a> to the the empty string.
+      <li>Set <var>sheet</var>'s <a spec=cssom>title</a> to the empty string.
       <li>Unset <var>sheet</var>'s <a spec=cssom>alternate flag</a>.
       <li>Set <var>sheet</var>'s <a spec=cssom>origin-clean flag</a>.
       <li>Set <var>sheet</var>'s <a>constructed flag</a>.
@@ -1154,9 +1157,14 @@ steps:
 
 <ol>
  <li>Add the <a>CSS style sheet</a> to the list of
- <a>document or shadow root CSS style sheets</a> at the appropriate location. The
- remainder of these steps deal with the
- <a>disabled flag</a>.
+ <a>document or shadow root CSS style sheets</a> at the appropriate location.
+
+ <li>
+  <p>If the <a>CSS style sheet</a>'s <a for=CSSStyleSheet>owner node</a> <a>contributes a
+ script-blocking style sheet</a>, then user agents must <a for=list>append</a> the <a
+ for=CSSStyleSheet>owner node</a> to its <a>node document</a>'s <a for=Document>script-blocking
+ style sheet set</a>.</p>
+ <p class="note">The remainder of these steps deal with the <a>disabled flag</a>.</p>
 
  <li>If the <a>disabled flag</a> is set, then return.
 
@@ -1542,15 +1550,6 @@ must be run:
  </ol>
 </div>
 
-A style sheet referenced by an <a>xml-stylesheet processing instruction</a> using the rules in this section, in the context of
-the {{Document}} of an <a>XML parser</a> is said to be
-<a>a style sheet that is blocking scripts</a> if the <code>ProcessingInstruction</code>
-<a>node</a> was created by that {{Document}}'s parser, and the style sheet was
-enabled when the node was created by the parser, the last time the
-<a>event loop</a> reached step 1, the node was in that Document,
-and the user agent hasn't given up on loading that particular style sheet
-yet. A user agent may give up on such a style sheet at any time.
-
 ### Requirements on user agents Implementing the HTTP Link Header ### {#requirements-on-user-agents-implementing-the-http-link-header}
 
 <!-- XXX ref, one day -->
@@ -1710,10 +1709,14 @@ To <dfn export>serialize a CSS rule</dfn>, perform one of the following in accor
         <ol>
             <li>If |decls| is not null, prepend it to |rules|.
             <li>For each |rule| in |rules|:
-                <ol>
-                    <li>Append a newline followed by two spaces to |s|.
-                    <li>Append |rule| to |s|.
-                </ol>
+                <ul>
+                    <li>If |rule| is the empty string, do nothing.
+                    <li>Otherwise:
+                        <ol>
+                            <li>Append a newline followed by two spaces to |s|.
+                            <li>Append |rule| to |s|.
+                        </ol>
+                </ul>
             <li>Append a newline followed by RIGHT CURLY BRACKET (U+007D) to |s|.
             <li>Return |s|.
         </ol>
@@ -1744,7 +1747,8 @@ To <dfn export>serialize a CSS rule</dfn>, perform one of the following in accor
    <li>The string "<code>@media</code>", followed by a single SPACE (U+0020).</li>
    <li>The result of performing <a>serialize a media query list</a> on rule's media query list.</li>
    <li>A single SPACE (U+0020), followed by the string "{", i.e., LEFT CURLY BRACKET (U+007B), followed by a newline.</li>
-   <li>The result of performing <a>serialize a CSS rule</a> on each rule in the rule's {{CSSGroupingRule/cssRules}} list, separated by a newline and indented by two spaces.</li>
+   <li>The result of performing <a>serialize a CSS rule</a> on each rule in the rule's {{CSSGroupingRule/cssRules}} list,
+   filtering out empty strings, indenting each item with two spaces, all joined with newline.</li>
    <li>A newline, followed by the string "}", i.e., RIGHT CURLY BRACKET (U+007D)</li>
   </ol>
 
@@ -1846,13 +1850,24 @@ To <dfn export>serialize a CSS rule</dfn>, perform one of the following in accor
 
 Issue: The "indented by two spaces" bit matches browsers, but needs work, see <a href="https://github.com/w3c/csswg-drafts/issues/5494">#5494</a>
 
-To <dfn export>insert a CSS rule</dfn> <var>rule</var> in a CSS rule list <var>list</var> at index <var>index</var>, follow these steps:
+To <dfn export>insert a CSS rule</dfn> <var>rule</var> in a CSS rule list <var>list</var> at index <var>index</var>,
+with a flag <var>nested</var>,
+follow these steps:
 <ol>
  <li>Set <var>length</var> to the number of items in <var>list</var>.
  <li>If <var>index</var> is greater than <var>length</var>, then <a>throw</a>
  an {{IndexSizeError}} exception.
  <li>Set <var>new rule</var> to the results of performing <a>parse a CSS rule</a>
  on argument <var>rule</var>.
+ <li>If <var>new rule</var> is a syntax error, and <var>nested</var> is set,
+ perform the following substeps:
+  <ul>
+   <li> Set <var>declarations</var> to the results of performing <a>parse a CSS declaration block</a>,
+   on argument <var>rule</var>.
+   <li> If <var>declarations</var> is empty, <a>throw</a> a {{SyntaxError}} exception.
+   <li> Otherwise, set <var>new rule</var> to a new [=nested declarations rule=]
+   with <var>declarations</var> as it contents.
+  </ul>
  <li>If <var>new rule</var> is a syntax error, <a>throw</a>
  a {{SyntaxError}} exception.
  <li>If <var>new rule</var> cannot be inserted into <var>list</var> at the zero-index position <var>index</var> due to constraints
@@ -1885,7 +1900,7 @@ To <dfn export>remove a CSS rule</dfn> from a CSS rule list <var>list</var> at i
 
 ### The {{CSSRuleList}} Interface ### {#the-cssrulelist-interface}
 
-The {{CSSRuleList}} interface represents an ordered collection of CSS style rules.
+The {{CSSRuleList}} interface represents an ordered collection of [=CSS rules=].
 
 <pre class=idl>
 [Exposed=Window]
@@ -1907,8 +1922,8 @@ collection.
 
 ### The {{CSSRule}} Interface ### {#the-cssrule-interface}
 
-The {{CSSRule}} interface represents an abstract, base CSS style rule. Each
-distinct CSS style rule type is represented by a distinct interface that
+The {{CSSRule}} interface represents an abstract, base [=CSS rule=]. Each
+distinct CSS rule type is represented by a distinct interface that
 inherits from this interface.
 
 <pre class=idl>
@@ -2001,7 +2016,7 @@ The <code>CSSStyleRule</code> interface represents a style rule.
 [Exposed=Window]
 interface CSSStyleRule : CSSGroupingRule {
   attribute CSSOMString selectorText;
-  [SameObject, PutForwards=cssText] readonly attribute CSSStyleDeclaration style;
+  [SameObject, PutForwards=cssText] readonly attribute CSSStyleProperties style;
 };
 </pre>
 
@@ -2014,10 +2029,12 @@ On setting the {{CSSStyleRule/selectorText}} attribute these steps must be run:
  <li>Otherwise, if the algorithm returns a null value, do nothing.
 </ol>
 
-The <dfn attribute for=CSSStyleRule>style</dfn> attribute must return a <code>CSSStyleDeclaration</code> object for the style rule, with the
+The <dfn attribute for=CSSStyleRule>style</dfn> attribute must return a <code>CSSStyleProperties</code> object for the style rule, with the
 following properties:
 <dl>
  <dt><a for="CSSStyleDeclaration">computed flag</a>
+ <dd>Unset.
+ <dt><a for="CSSStyleDeclaration">readonly flag</a>
  <dd>Unset.
  <dt><a for="CSSStyleDeclaration">declarations</a>
  <dd>The declared declarations in the rule, in <a>specified order</a>.
@@ -2086,7 +2103,7 @@ The <dfn attribute for=CSSGroupingRule>cssRules</dfn> attribute must return a <c
 
 The <dfn method for=CSSGroupingRule>insertRule(<var>rule</var>, <var>index</var>)</dfn> method must return the result of
 invoking <a>insert a CSS rule</a> <var>rule</var> into the <a for=CSSRule>child CSS rules</a> at
-<var>index</var>.
+<var>index</var>, with the <var>nested</var> flag set.
 
 The <dfn method for=CSSGroupingRule>deleteRule(<var>index</var>)</dfn> method must <a>remove a CSS rule</a> from the
 <a for=CSSRule>child CSS rules</a> at <var>index</var>.
@@ -2108,13 +2125,31 @@ Issue: Need to define the rules for
 
 <pre class=idl>
 [Exposed=Window]
+interface CSSPageDescriptors : CSSStyleDeclaration {
+  attribute [LegacyNullToEmptyString] CSSOMString margin;
+  attribute [LegacyNullToEmptyString] CSSOMString marginTop;
+  attribute [LegacyNullToEmptyString] CSSOMString marginRight;
+  attribute [LegacyNullToEmptyString] CSSOMString marginBottom;
+  attribute [LegacyNullToEmptyString] CSSOMString marginLeft;
+  attribute [LegacyNullToEmptyString] CSSOMString margin-top;
+  attribute [LegacyNullToEmptyString] CSSOMString margin-right;
+  attribute [LegacyNullToEmptyString] CSSOMString margin-bottom;
+  attribute [LegacyNullToEmptyString] CSSOMString margin-left;
+  attribute [LegacyNullToEmptyString] CSSOMString size;
+  attribute [LegacyNullToEmptyString] CSSOMString pageOrientation;
+  attribute [LegacyNullToEmptyString] CSSOMString page-orientation;
+  attribute [LegacyNullToEmptyString] CSSOMString marks;
+  attribute [LegacyNullToEmptyString] CSSOMString bleed;
+};
+
+[Exposed=Window]
 interface CSSPageRule : CSSGroupingRule {
            attribute CSSOMString selectorText;
-  [SameObject, PutForwards=cssText] readonly attribute CSSStyleDeclaration style;
+  [SameObject, PutForwards=cssText] readonly attribute CSSPageDescriptors style;
 };
 </pre>
 
-The <dfn attribute for=CSSGroupingRule>selectorText</dfn> attribute, on getting, must return the result of
+The <dfn attribute for=CSSPageRule>selectorText</dfn> attribute, on getting, must return the result of
 <a lt="serialize a list of CSS page selectors">serializing</a> the associated <a>list of CSS page selectors</a>.
 On setting the {{CSSPageRule/selectorText}} attribute  these steps must be run:
 <ol>
@@ -2123,13 +2158,15 @@ On setting the {{CSSPageRule/selectorText}} attribute  these steps must be run:
  <li>Otherwise, if the algorithm returns a null value, do nothing.
 </ol>
 
-The <dfn attribute for=CSSGroupingRule>style</dfn> attribute must return a <code>CSSStyleDeclaration</code> object for the
+The <dfn attribute for=CSSPageRule>style</dfn> attribute must return a <code>CSSPageDescriptors</code> object for the
 <code>@page</code> at-rule, with the following properties:
 <dl>
  <dt><a for="CSSStyleDeclaration">computed flag</a>
  <dd>Unset.
+ <dt><a for="CSSStyleDeclaration">readonly flag</a>
+ <dd>Unset.
  <dt><a for="CSSStyleDeclaration">declarations</a>
- <dd>The declared declarations in the rule, in <a>specified order</a>.
+ <dd>The declared descriptors in the rule, in <a>specified order</a>.
  <dt><a for="CSSStyleDeclaration">parent CSS rule</a>
  <dd>The <a>context object</a>.
  <dt><a for="CSSStyleDeclaration">owner node</a>
@@ -2146,17 +2183,19 @@ The <code>CSSMarginRule</code> interface represents a margin at-rule (e.g. <code
 [Exposed=Window]
 interface CSSMarginRule : CSSRule {
   readonly attribute CSSOMString name;
-  [SameObject, PutForwards=cssText] readonly attribute CSSStyleDeclaration style;
+  [SameObject, PutForwards=cssText] readonly attribute CSSMarginDescriptors style;
 };
 </pre>
 
 The <dfn attribute for=CSSMarginRule>name</dfn> attribute must return the name of the margin at-rule. The <code>@</code> character is not
 included in the name. [[!CSS3SYN]]
 
-The <dfn attribute for=CSSMarginRule>style</dfn> attribute must return a <code>CSSStyleDeclaration</code> object for the
+The <dfn attribute for=CSSMarginRule>style</dfn> attribute must return a <code>CSSMarginDescriptors</code> object for the
 margin at-rule, with the following properties:
 <dl>
  <dt><a for="CSSStyleDeclaration">computed flag</a>
+ <dd>Unset.
+ <dt><a for="CSSStyleDeclaration">readonly flag</a>
  <dd>Unset.
  <dt><a for="CSSStyleDeclaration">declarations</a>
  <dd>The declared declarations in the rule, in <a>specified order</a>.
@@ -2217,6 +2256,9 @@ the DOM a <a>CSS declaration block</a> is a
  <dt><dfn>computed flag</dfn>
  <dd>Set if the object is a computed style declaration, rather than a specified
      style. Unless otherwise stated it is unset.
+
+ <dt><dfn>readonly flag</dfn>
+ <dd>Set if the object is not modifiable.</dd>
 
  <dt><dfn>declarations</dfn>
  <dd>The <a>CSS declarations</a> associated with the object.
@@ -2374,6 +2416,10 @@ interface CSSStyleDeclaration {
   [CEReactions] undefined setProperty(CSSOMString property, [LegacyNullToEmptyString] CSSOMString value, optional [LegacyNullToEmptyString] CSSOMString priority = "");
   [CEReactions] CSSOMString removeProperty(CSSOMString property);
   readonly attribute CSSRule? parentRule;
+};
+
+[Exposed=Window]
+interface CSSStyleProperties : CSSStyleDeclaration {
   [CEReactions] attribute [LegacyNullToEmptyString] CSSOMString cssFloat;
 };
 </pre>
@@ -2389,7 +2435,7 @@ Getting the <dfn attribute for="CSSStyleDeclaration">cssText</dfn> attribute mus
 
 Setting the {{CSSStyleDeclaration/cssText}} attribute must run these steps:
 <ol>
- <li>If the <a for="CSSStyleDeclaration">computed flag</a> is set,
+ <li>If the <a for="CSSStyleDeclaration">readonly flag</a> is set,
  then <a>throw</a> a {{NoModificationAllowedError}} exception.
  <li>Empty the <a for="CSSStyleDeclaration">declarations</a>.
  <li><a lt="Parse a CSS declaration block">Parse</a> the given value and, if the return value is not the empty list, insert the items in the list
@@ -2455,7 +2501,7 @@ value would be "<code>important</code>".</div>
 
 The <dfn method for=CSSStyleDeclaration>setProperty(<var>property</var>, <var>value</var>, <var>priority</var>)</dfn> method must run these steps:
 <ol>
- <li>If the <a for="CSSStyleDeclaration">computed flag</a> is set,
+ <li>If the <a for="CSSStyleDeclaration">readonly flag</a> is set,
  then <a>throw</a> a {{NoModificationAllowedError}} exception.
  <li>If <var>property</var> is not a <a>custom property</a>, follow these substeps:
   <ol>
@@ -2570,7 +2616,7 @@ use different algorithms as long as the constraints above hold.
 
 The <dfn method for=CSSStyleDeclaration>removeProperty(<var>property</var>)</dfn> method must run these steps:
 <ol>
- <li>If the <a for="CSSStyleDeclaration">computed flag</a> is set,
+ <li>If the <a for="CSSStyleDeclaration">readonly flag</a> is set,
  then <a>throw</a> a {{NoModificationAllowedError}} exception.
  <li>If <var>property</var> is not a <a>custom property</a>,
  let <var>property</var> be <var>property</var> <a lt="ASCII lowercase">converted to ASCII lowercase</a>.
@@ -2593,7 +2639,7 @@ The <dfn method for=CSSStyleDeclaration>removeProperty(<var>property</var>)</dfn
 The <dfn attribute for=CSSStyleDeclaration>parentRule</dfn> attribute must return the
 <a for="CSSStyleDeclaration">parent CSS rule</a>.
 
-The <dfn attribute for=CSSStyleDeclaration>cssFloat</dfn>
+The <dfn attribute for=CSSStyleProperties>cssFloat</dfn>
 attribute, on getting, must return the result of invoking
 {{CSSStyleDeclaration/getPropertyValue()}} with
 <code>float</code> as argument. On setting, the attribute must invoke
@@ -2607,17 +2653,17 @@ is obtained by running the <a>CSS property to IDL attribute</a> algorithm for
 <var>property</var>.
 
 <pre class="idl extract">
-partial interface CSSStyleDeclaration {
+partial interface CSSStyleProperties {
   [CEReactions] attribute [LegacyNullToEmptyString] CSSOMString _<var>camel_cased_attribute</var>;
 };
 </pre>
 
-The <a attribute for=CSSStyleDeclaration><var>camel-cased attribute</var></a> attribute, on getting, must return the
+The <a attribute for=CSSStyleProperties><var>camel-cased attribute</var></a> attribute, on getting, must return the
 result of invoking {{CSSStyleDeclaration/getPropertyValue()}} with the
 argument being the result of running the <a>IDL attribute to CSS property</a>
 algorithm for <var>camel-cased attribute</var>.
 
-Setting the <a attribute for=CSSStyleDeclaration><var>camel-cased attribute</var></a> attribute must invoke
+Setting the <a attribute for=CSSStyleProperties><var>camel-cased attribute</var></a> attribute must invoke
 {{CSSStyleDeclaration/setProperty()}} with the
 first argument being the result of running the <a>IDL attribute to CSS property</a>
 algorithm for <var>camel-cased attribute</var>, as second argument the given value, and no third argument. Any
@@ -2631,12 +2677,12 @@ with the string <code>-webkit-</code>, the following partial interface applies w
 algorithm for <var>property</var>, with the <i>lowercase first</i> flag set.
 
 <pre class="idl extract">
-partial interface CSSStyleDeclaration {
+partial interface CSSStyleProperties {
   [CEReactions] attribute [LegacyNullToEmptyString] CSSOMString _<var>webkit_cased_attribute</var>;
 };
 </pre>
 
-The <dfn attribute for=CSSStyleDeclaration><var>webkit-cased attribute</var></dfn> attribute, on
+The <dfn attribute for=CSSStyleProperties><var>webkit-cased attribute</var></dfn> attribute, on
 getting, must return the result of invoking {{CSSStyleDeclaration/getPropertyValue()}} with the
 argument being the result of running the <a>IDL attribute to CSS property</a> algorithm for
 <var>webkit-cased attribute</var>, with the <i>dash prefix</i> flag set.
@@ -2656,16 +2702,16 @@ except for properties that have no "<code>-</code>" (U+002D) in the property nam
 the following partial interface applies where <var>dashed attribute</var> is <var>property</var>.
 
 <pre class="idl extract">
-partial interface CSSStyleDeclaration {
+partial interface CSSStyleProperties {
   [CEReactions] attribute [LegacyNullToEmptyString] CSSOMString _<var>dashed_attribute</var>;
 };
 </pre>
 
-The <dfn attribute for=CSSStyleDeclaration><var>dashed attribute</var></dfn> attribute, on getting, must return the
+The <dfn attribute for=CSSStyleProperties><var>dashed attribute</var></dfn> attribute, on getting, must return the
 result of invoking {{CSSStyleDeclaration/getPropertyValue()}} with the
 argument being <var>dashed attribute</var>.
 
-Setting the <a attribute for=CSSStyleDeclaration><var>dashed attribute</var></a> attribute must invoke
+Setting the <a attribute for=CSSStyleProperties><var>dashed attribute</var></a> attribute must invoke
 {{CSSStyleDeclaration/setProperty()}} with the
 first argument being <var>dashed attribute</var>, as second argument the given value, and no third argument. Any
 exceptions thrown must be re-thrown.
@@ -2764,7 +2810,7 @@ follow these rules:
     as a [=list=] of CSS component values |components|
     that, when [=CSS/parsed=] according to the property's grammar,
     would represent that value.
-    Additionally:
+    Additionally, unless otherwise specified:
 
     * If certain component values can appear in any order
         without changing the meaning of the value
@@ -2780,7 +2826,7 @@ follow these rules:
     Note: The rules described here outlines the <em>general principles</em> of serialization.
     For legacy reasons, some properties serialize in a different manner,
     which is intentionally undefined here due to lack of resources.
-    Please consult your local reverse-engineer for details.
+    Please consult that property's specification and/or your local reverse-engineer for details.
 3. Remove any <<whitespace-token>>s from |components|.
 3. Replace each component value in |components|
     with the result of invoking [=serialize a CSS component value=].
@@ -2803,7 +2849,7 @@ depends on the component, as follows:
  <dd>
   The &lt;number> component serialized as per &lt;number> followed by the unit in canonical form as defined in its respective specification.
 
-  Issue: Probably should distinguish between specified and computed / resolved values.
+  Issue: Probably should distinguish between declared and computed / resolved values.
 
  <dt><<color>>
  <dd>
@@ -2812,31 +2858,15 @@ depends on the component, as follows:
  If &lt;color&gt; is a component of a computed value, see [[css-color-4#serializing-color-values]].
 
 
- If <<color>> is a component of a specified value, then
- return the color as follows:
- <ol>
- <li>If the color was explicitly specified by the author, then return the original, author specified color value.
- <li>Otherwise, return the value that would be returned if the color were a component of a computed value.
- </ol>
-
- Issue: Should author specified values be normalized for case, the same as computed values? Or should original case be preserved?
+ If <<color>> is a component of a declared value, then
+for sRGB values, see
+[[css-color-4#resolving-sRGB-values]].
+For other color functions, see
+[[css-color-4#resolving-color-values]].
 
  <dt><<alpha-value>>
  <dd>
-  If the value is internally represented as an integer between 0 and 255 inclusive (i.e. 8-bit unsigned integer),
-  follow these steps:
-
-  <ol>
-   <li>Let <var>alpha</var> be the given integer.
-   <li>If there exists an integer between 0 and 100 inclusive that,
-   when multiplied with 2.55 and rounded to the closest integer (rounding up if two values are equally close), equals <var>alpha</var>,
-   let <var>rounded</var> be that integer divided by 100.
-   <li>Otherwise, let <var>rounded</var> be <var>alpha</var> divided by 0.255 and rounded to the closest integer (rounding up if two values are equally close),
-   divided by 1000.
-   <li>Return the result of serializing <var>rounded</var> as a &lt;number>.
-  </ol>
-
-  Otherwise, return the result of serializing the given value as a &lt;number>.
+ See [[css-color-4#serializing-alpha-values]].
 
  <dt><<counter>>
  <dd>
@@ -2859,7 +2889,7 @@ depends on the component, as follows:
  <dd>
   The &lt;number> component serialized as per &lt;number> followed by the unit in its canonical form as defined in its respective specification.
 
-  Issue: Probably should distinguish between specified and computed / resolved values.
+  Issue: Probably should distinguish between declared and computed / resolved values.
 
  <dt><<identifier>>
  <dd>The identifier
@@ -2874,7 +2904,7 @@ depends on the component, as follows:
  <dd>
   The &lt;number> component serialized as per &lt;number> followed by the unit in its canonical form as defined in its respective specification.
 
-  Issue: Probably should distinguish between specified and computed / resolved values.
+  Issue: Probably should distinguish between declared and computed / resolved values.
 
  <dt><<number>>
  <dd>
@@ -2925,7 +2955,7 @@ depends on the component, as follows:
  <dd>The <a>absolute-URL string</a>
  <a lt="serialize a URL">serialized as URL</a>.
 
- Issue: This should differentiate specified and computed <<url>> values, see <a href="https://github.com/w3c/csswg-drafts/issues/3195">#3195</a>.
+ Issue: This should differentiate declared and computed <<url>> values, see <a href="https://github.com/w3c/csswg-drafts/issues/3195">#3195</a>.
 </dl>
 
 
@@ -2951,7 +2981,7 @@ define the CSS components.
 
 #### Examples #### {#serializing-css-values-examples}
 
-Here are some examples of before and after results on specified values.
+Here are some examples of before and after results on declared values.
 The before column could be what the author wrote in a style sheet, while
 the after column shows what querying the DOM would return.
 
@@ -2993,7 +3023,7 @@ interface mixin ElementCSSInlineStyle {
 </pre>
 
 The <dfn attribute for=ElementCSSInlineStyle>style</dfn> attribute must return a <a>CSS declaration block</a> object whose
-<a for="CSSStyleDeclaration">computed flag</a> is unset, whose <a for="CSSStyleDeclaration">parent CSS rule</a> is null, and
+<a for="CSSStyleDeclaration">readonly flag</a> is unset, whose <a for="CSSStyleDeclaration">parent CSS rule</a> is null, and
 whose <a for="CSSStyleDeclaration">owner node</a> is the <a>context object</a>.
 
 If the user agent supports HTML, the following IDL applies: [[HTML]]
@@ -3060,9 +3090,11 @@ steps:
   <a href="https://github.com/w3c/csswg-drafts/issues/4947">#4947</a>.
 
  <li>
-  Return a live <a>CSS declaration block</a> with the following properties:
+  Return a live <a>CSSStyleProperties</a> object with the following properties:
   <dl>
    <dt><a for="CSSStyleDeclaration">computed flag</a>
+   <dd>Set.
+   <dt><a for="CSSStyleDeclaration">readonly flag</a>
    <dd>Set.
    <dt><a for="CSSStyleDeclaration">declarations</a>
    <dd><var>decls</var>.
@@ -3071,7 +3103,6 @@ steps:
    <dt><a for="CSSStyleDeclaration">owner node</a>
    <dd><var>obj</var>.
   </dl>
-
 </ol>
 
 <p class=warning>The {{Window/getComputedStyle()}} method exposes information from <a lt="CSS style sheet">CSS style

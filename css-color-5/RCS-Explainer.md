@@ -55,9 +55,9 @@ Typically, the origin color uses **CSS variables**.
 The CSS WG [cleared RCS to ship before CR](https://github.com/w3c/csswg-drafts/issues/7978)
 
 - [WebKit] : Positive, [shipping in Safari 16.4](https://developer.apple.com/documentation/safari-release-notes/safari-16_4-release-notes#New-Features) onwards
-- [Gecko] : Positive, [Implementation for this will start soonish](https://github.com/mozilla/standards-positions/issues/841)
+- [Gecko] : [Positive](https://mozilla.github.io/standards-positions/), and[Implementation for this will start soonish](https://github.com/mozilla/standards-positions/issues/841)
 - [Chromium] : [Positive](https://chromestatus.com/feature/5205844613922816), implemented behind a flag
 
-- [WPT results for RCS](https://wpt.fyi/results/css/css-color/parsing?label=master&label=experimental&aligned&q=relative)
+- [WPT results for RCS](https://wpt.fyi/results/css/css-color/?label=master&label=experimental&aligned&q=relative)
 - [CanIUse relative colors](https://caniuse.com/css-relative-colors)
 

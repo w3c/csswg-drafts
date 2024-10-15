@@ -2,10 +2,8 @@
 Title: CSS View Transitions Module Level 1
 Shortname: css-view-transitions
 Level: 1
-Status: CR
-Prepare for TR: yes
-Date: 2023-09-05
-Deadline: 2023-12-05
+Status: ED
+Prepare for TR: no
 Group: csswg
 ED: https://drafts.csswg.org/css-view-transitions-1/
 TR: https://www.w3.org/TR/css-view-transitions-1/
@@ -41,6 +39,7 @@ spec:css22; type:dfn; text:element
 spec:css-break-4; type:dfn; text:fragment
 spec:css-viewport; type:dfn; text:interactive-widget;
 spec:css-display-4; type: dfn; text:invisible;
+spec:css2; type:dfn; text:viewport
 </pre>
 
 <pre class=anchors>
@@ -172,14 +171,14 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 
 	A successful [=view transition=] goes through the following phases:
 
-	1. Developer calls <code>document.{{Document/startViewTransition}}({{UpdateCallback|updateCallback}})</code>,
+	1. Developer calls <code>document.{{Document/startViewTransition}}({{ViewTransitionUpdateCallback|updateCallback}})</code>,
 		which returns a {{ViewTransition}}, <var>viewTransition</var>.
 
 	1. Current state captured as the “old” state.
 
 	1. Rendering paused.
 
-	1. Developer's {{UpdateCallback|updateCallback}} function, if provided, is called,
+	1. Developer's {{ViewTransitionUpdateCallback|updateCallback}} function, if provided, is called,
 		which updates the document state.
 
 	1. <code><var>viewTransition</var>.{{ViewTransition/updateCallbackDone}}</code> fulfills.
@@ -238,14 +237,14 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 	to an underlying document state change.
 	That means a failure to create a visual transition,
 	which can happen due to misconfiguration or device constraints,
-	will not prevent the developer's {{UpdateCallback}} being called,
+	will not prevent the developer's {{ViewTransitionUpdateCallback}} being called,
 	even if it's known in advance that the transition animations cannot happen.
 
 	For example, if the developer calls {{ViewTransition/skipTransition()}} at the start of the [[#lifecycle|view transition lifecycle]],
 	the steps relating to the animated transition,
 	such as creating the [=view transition tree=],
 	will not happen.
-	However, the {{UpdateCallback}} will still be called.
+	However, the {{ViewTransitionUpdateCallback}} will still be called.
 	It's only the visual transition that's skipped,
 	not the underlying state change.
 
@@ -253,7 +252,7 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 	then that needs to be handled by another feature.
 	<code>{{NavigateEvent|navigateEvent}}.{{NavigateEvent/signal}}</code> is an example of a feature developers could use to handle this.
 
-	Although the View Transition API allows DOM changes to be asynchronous via the {{UpdateCallback}},
+	Although the View Transition API allows DOM changes to be asynchronous via the {{ViewTransitionUpdateCallback}},
 	the API is not responsible for queuing or otherwise scheduling DOM changes
 	beyond any scheduling needed for the transition itself.
 	Some asynchronous DOM changes can happen concurrently (e.g if they're happening within independent components),
@@ -539,7 +538,11 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 			as either an old or new [=/element=]--
 			with the specified [=view transition name=].
 
-			The value <css>none</css> is excluded from <<custom-ident>> here.
+			Each [=view transition name=] is a [=tree-scoped name=].
+
+			Note: Since currently only document-scoped view transitions are supported, only view transition names that are associated with the document are respected.
+
+			The values <css>none</css> and <css>auto</css> are excluded from <<custom-ident>> here.
 
 			Note: If this name is not unique
 			(i.e. if two elements simultaneously specify the same [=view transition name=])
@@ -559,6 +562,16 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 	or [=element-not-rendered|not rendered=],
 	this property has no effect.
 	See [[#algorithms]] for exact details.
+
+	<div algorithm>
+	To get the <dfn>document-scoped view transition name</dfn> for an {{Element}} |element|:
+
+		1. Let |scopedViewTransitionName| be the [=computed value=] of 'view-transition-name' for |element|.
+
+		1. If |scopedViewTransitionName| is associated with |element|'s [=node document=], then return |scopedViewTransitionName|.
+
+		1. Otherwise, return ''view-transition-name/none''.
+	</div>
 
 ### Rendering Consolidation ### {#named-and-transitioning}
 
@@ -768,6 +781,8 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 	(and is therefore consistent regardless of root scrollbars or [=interactive-widget|interactive widgets=]).
 	This makes it likely to be consistent for the [=document element=]'s [=captured element/old image=] and [=captured element/new element=].
 
+	Within a [=child navigable=], the [=snapshot containing block=] is the union of the navigable's [=viewport=] with any [=scrollbar gutters=].
+
 	<figure>
 		<img src="diagrams/phone-browser.svg" width="200" height="335" alt="A diagram of a phone screen, including a top status bar, a browser URL bar, web-content area with a floating scrollbar, a virtual keyboard, and a bottom bar with an OS back button">
 		<img src="diagrams/phone-browser-snapshot-root.svg" width="200" height="335" alt="The previous diagram, but highlights the area that's the 'snapshot containing block', which includes everything except the top status bar and the bottom bar with the OS back button">
@@ -858,6 +873,7 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 
 		animation-duration: inherit;
 		animation-fill-mode: inherit;
+		animation-delay: inherit;
 	}
 
 	:root::view-transition-old(*),
@@ -869,6 +885,7 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 
 		animation-duration: inherit;
 		animation-fill-mode: inherit;
+		animation-delay: inherit;
 	}
 
 	/* Default cross-fade transition */
@@ -918,29 +935,29 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 
 	<xmp class=idl>
 		partial interface Document {
-			ViewTransition startViewTransition(optional UpdateCallback updateCallback);
+			ViewTransition startViewTransition(optional ViewTransitionUpdateCallback updateCallback);
 		};
 
-		callback UpdateCallback = Promise<any> ();
+		callback ViewTransitionUpdateCallback = Promise<any> ();
 	</xmp>
 
 	<dl class="domintro non-normative">
-		: <code>{{ViewTransition|viewTransition}} = {{Document|document}}.{{startViewTransition}}({{UpdateCallback|updateCallback}})</code>
+		: <code>{{ViewTransition|viewTransition}} = {{Document|document}}.{{startViewTransition}}({{ViewTransitionUpdateCallback|updateCallback}})</code>
 		:: Starts a new [=view transition=]
 			(canceling the {{Document|document}}’s existing [=active view transition=], if any).
 
-			{{UpdateCallback|updateCallback}}, if provided, is called asynchronously, once the current state of the document is captured.
-			Then, when the promise returned by {{UpdateCallback|updateCallback}} fulfills,
+			{{ViewTransitionUpdateCallback|updateCallback}}, if provided, is called asynchronously, once the current state of the document is captured.
+			Then, when the promise returned by {{ViewTransitionUpdateCallback|updateCallback}} fulfills,
 			the new state of the document is captured
 			and the transition is initiated.
 
-			Note that {{UpdateCallback|updateCallback}}, if provided, is *always* called,
+			Note that {{ViewTransitionUpdateCallback|updateCallback}}, if provided, is *always* called,
 			even if the transition cannot happen
 			(e.g. due to duplicate `view-transition-name` values).
 			The transition is an enhancement around the state change, so a failure to create a transition never prevents the state change.
 			See [[#transitions-as-enhancements]] for more details on this principle.
 
-			If the promise returned by {{UpdateCallback|updateCallback}} rejects, the transition is skipped.
+			If the promise returned by {{ViewTransitionUpdateCallback|updateCallback}} rejects, the transition is skipped.
 	</dl>
 
 ### {{Document/startViewTransition()}} Method Steps ### {#ViewTransition-prepare}
@@ -954,9 +971,9 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 
 		1. Let |document| be [=this's=] [=relevant global object's=] [=associated document=].
 
-		1. If |document|'s [=auto-skip view transitions=] is true,
-			then [=skip the view transition=] for |transition| with "{{InvalidStateError}}" {{DOMException}},
-			and return.
+		1. If |document|'s [=Document/visibility state=] is "<code>hidden</code>",
+			then [=skip the view transition|skip=] |transition| with an "{{InvalidStateError}}" {{DOMException}},
+			and return |transition|.
 
 		1. If |document|'s [=active view transition=] is not null,
 			then [=skip the view transition|skip that view transition=]
@@ -993,7 +1010,7 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 
 	<dl class="domintro non-normative">
 		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/updateCallbackDone}}</code>
-		:: A promise that fulfills when the promise returned by {{UpdateCallback|updateCallback}} fulfills, or rejects when it rejects.
+		:: A promise that fulfills when the promise returned by {{ViewTransitionUpdateCallback|updateCallback}} fulfills, or rejects when it rejects.
 
 			Note: The View Transition API wraps a DOM change and creates a visual transition.
 			However, sometimes you don't care about the success/failure of the transition animation,
@@ -1015,7 +1032,7 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/finished}}</code>
 		:: A promise that fulfills once the end state is fully visible and interactive to the user.
 
-			It only rejects if {{UpdateCallback|updateCallback}} returns a rejected promise,
+			It only rejects if {{ViewTransitionUpdateCallback|updateCallback}} returns a rejected promise,
 			as this indicates the end state wasn't created.
 
 			Otherwise, if a transition fails to begin,
@@ -1026,7 +1043,7 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/skipTransition}}()</code>
 		:: Immediately finish the transition, or prevent it starting.
 
-			This never prevents {{UpdateCallback|updateCallback}} being called,
+			This never prevents {{ViewTransitionUpdateCallback|updateCallback}} being called,
 			as the DOM change is independent of the transition.
 			See [[#transitions-as-enhancements]] for more details on this principle.
 
@@ -1041,6 +1058,7 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 		: <dfn>named elements</dfn>
 		:: a [=/map=], whose keys are [=view transition names=] and whose values are [=captured elements=].
 			Initially a new [=map=].
+			Note: Since this is associated to the {{ViewTransition}}, it will be cleaned up when [=Clear view transition=] is called.
 
 		: <dfn>phase</dfn>
 		:: One of the following ordered phases, initially "`pending-capture`":
@@ -1055,7 +1073,7 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 			The description of the phases below tries to be as precise as possible, with an intent to provide an unambiguous set of steps for implementors to follow in order to produce a spec-compliant implementation.
 
 		: <dfn>update callback</dfn>
-		:: an {{UpdateCallback}} or null. Initially null.
+		:: a {{ViewTransitionUpdateCallback}} or null. Initially null.
 
 		: <dfn>ready promise</dfn>
 		:: a {{Promise}}.
@@ -1088,18 +1106,7 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 			Note: This is used to detect changes in the [=snapshot containing block size=],
 			which causes the transition to [=skip the view transition|skip=].
 			[Discussion of this behavior](https://github.com/w3c/csswg-drafts/issues/8045).
-
-		: <dfn export>process old state captured</dfn>
-		:: An algorithm accepting nothing, or null.
-			Initially null.
-
-			Note: this is used for cross-document view transitions.
 	</dl>
-
-	A {{ViewTransition}} must never have both an [=ViewTransition/update callback=] and a [=ViewTransition/process old state captured=].
-
-	Note: [=ViewTransition/update callback=] is optionally set for same-document view transitions,
-		and [=ViewTransition/process old state captured=] is set for cross-document view transitions.
 
 	The {{ViewTransition/finished}} [=getter steps=] are to return [=this's=] [=ViewTransition/finished promise=].
 
@@ -1109,7 +1116,7 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 
 ### {{ViewTransition/skipTransition()}} Method Steps ### {#ViewTransition-skipTransition}
 
-	<div algorithm>
+	<div algorithm="dom-viewtransition-skipTransition">
 		The [=method steps=] for <dfn method for="ViewTransition">skipTransition()</dfn> are:
 
 		1. If [=this=]'s [=ViewTransition/phase=] is not "`done`",
@@ -1151,9 +1158,6 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 			with [=this=]'s [=document element=] is its [=originating element=].
 
 			Note: The position of the [=ViewTransition/transition root pseudo-element=] within the [=document element=] does not matter, as the [=ViewTransition/transition root pseudo-element=]'s [=containing block=] is the [=snapshot containing block=].
-
-		: <dfn export>auto-skip view transitions</dfn>
-		:: A boolean. Initially false.
 	</dl>
 
 ### Additions to Elements ### {#elements-concept}
@@ -1224,6 +1228,8 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 ## [=Perform pending transition operations=] ## {#perform-pending-transition-operations-algorithm}
 
 	<div algorithm>
+		<div class=note>This algorithm is invoked as a part of <a href="https://html.spec.whatwg.org/#event-loop-processing-model:perform-pending-transition-operations">update the rendering loop</a> in the html spec.</div>
+
 		To <dfn>perform pending transition operations</dfn> given a {{Document}} |document|, perform the following steps:
 
 		1. If |document|'s [=document/active view transition=] is not null, then:
@@ -1242,7 +1248,7 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 			perform the following steps:
 
 		Note: This algorithm captures the current state of the document,
-		calls the transition's {{UpdateCallback}},
+		calls the transition's {{ViewTransitionUpdateCallback}},
 		then captures the new state of the document.
 
 		1. Let |document| be |transition|'s [=relevant global object's=] [=associated document=].
@@ -1252,13 +1258,11 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 			If failure is returned, then [=skip the view transition=] for |transition| with an "{{InvalidStateError}}" {{DOMException}} in |transition|'s [=relevant Realm=],
 			and return.
 
-		1. If |transition|'s [=ViewTransition/process old state captured=] is not null, then call [=ViewTransition/process old state captured=] and return.
-
 		1. Set |document|'s [=document/rendering suppression for view transitions=] to true.
 
 		1. [=Queue a global task=] on the [=DOM manipulation task source=],
 			given |transition|'s [=relevant global object=],
-			to execute the following steps:
+			to perform the following steps:
 
 				Note: A task is queued here because the texture read back in [=capturing the image=] may be async,
 					although the render steps in the HTML spec act as if it's synchronous.
@@ -1266,35 +1270,8 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 			1. If |transition|'s [=ViewTransition/phase=] is "`done`", then abort these steps.
 
 				Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
-					The [=skip the view transition=] steps [=call the update callback=],
-					ensuring the |transition|'s [=ViewTransition/update callback=] is always called.
 
-			1. [=Call the update callback=] of |transition|.
-
-			1. [=promise/React=] to |transition|'s [=ViewTransition/update callback done promise=]:
-
-				* If the promise does not settle within an implementation-defined timeout, then:
-
-					1. If |transition|'s [=ViewTransition/phase=] is "`done`", then return.
-
-						Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
-
-					1. [=Skip the view transition=] |transition| with a "{{TimeoutError}}" {{DOMException}}.
-
-				* If the promise was rejected with reason |reason|, then:
-
-					1. If |transition|'s [=ViewTransition/phase=] is "`done`", then return.
-
-						Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
-
-					1. [=Mark as handled=] |transition|'s [=ViewTransition/ready promise=].
-
-						Note: |transition|'s [=ViewTransition/update callback done promise=] will provide the {{unhandledrejection}}.
-						This step avoids a duplicate.
-
-					1. [=Skip the view transition=] |transition| with |reason|.
-
-				* If the promise was fulfilled, then [=activate view transition|activate=] |transition|.
+			1. [=call the update callback=].
 	</div>
 
 	<div algorithm>
@@ -1350,10 +1327,12 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 
 		1. Let |document| be |transition|'s [=relevant global object's=] [=associated document=].
 
+		1. If the [=snapshot containing block size=] exceeds an [=implementation-defined=] maximum, then return failure.
+
 		1. Set |transition|'s [=ViewTransition/initial snapshot containing block size=] to the [=snapshot containing block size=].
 
 		1. [=list/For each=] |element| of every [=/element=] that is [=/connected=],
-			and has a [=node document=] equal to to |document|,
+			and has a [=node document=] equal to |document|,
 			in [paint order](https://drafts.csswg.org/css2/#painting-order):
 
 			<div class=note>We iterate in paint order to ensure that this order is cached in |namedElements|.
@@ -1369,7 +1348,7 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 				Note: [=box fragment=] here does not refer to fragmentation of <a href="https://www.w3.org/TR/CSS2/visuren.html#inline-boxes">inline boxes</a> across <a href="https://www.w3.org/TR/CSS2/visuren.html#line-box">line boxes</a>.
 					Such inlines can participate in a transition.
 
-			1. Let |transitionName| be the [=computed value=] of 'view-transition-name' for |element|.
+			1. Let |transitionName| be the |element|'s [=document-scoped view transition name=].
 
 			1. If |transitionName| is ''view-transition-name/none'',
 				or |element| is [=element-not-rendered|not rendered=],
@@ -1436,12 +1415,12 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 		1. Let |usedTransitionNames| be a new [=/set=] of strings.
 
 		1. [=list/For each=] |element| of every [=/element=] that is [=/connected=],
-			and has a [=node document=] equal to to |document|,
+			and has a [=node document=] equal to |document|,
 			in [paint order](https://drafts.csswg.org/css2/#painting-order):
 
 			1. If any [=flat tree=] ancestor of this |element| [=skips its contents=], then [=continue=].
 
-			1. Let |transitionName| be the [=computed value=] of 'view-transition-name' for |element|.
+			1. Let |transitionName| be |element|'s [=document-scoped view transition name=].
 
 			1. If |transitionName| is ''view-transition-name/none'',
 				or |element| is [=element-not-rendered|not rendered=],
@@ -1454,6 +1433,10 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 
 			1. If |namedElements|[|transitionName|] does not [=map/exist=],
 				then set |namedElements|[|transitionName|] to a new [=captured element=] struct.
+
+				Note: We intentionally add this struct to the end of this ordered map.
+					This implies than names which only exist in the new DOM (entry animations) will be painted on top of names only in the old DOM (exit animations) and names in both DOMs (paired animations).
+					This might not be the right layering for all cases. See <a href="https://github.com/w3c/csswg-drafts/issues/8941">issue 8941</a>.
 
 			1. Set |namedElements|[|transitionName|]'s [=new element=] to |element|.
 	</div>
@@ -1615,6 +1598,8 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 
 		1. [=Assert=]: |transition|'s [=ViewTransition/phase=] is "`done`", or before "`update-callback-called`".
 
+		1. If |transition|'s [=ViewTransition/phase=] is not "`done`", then set |transition|'s [=ViewTransition/phase=] to "`update-callback-called`".
+
 		1. Let |callbackPromise| be null.
 
 		1. If |transition|'s [=ViewTransition/update callback=] is null,
@@ -1623,15 +1608,39 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 
 		1. Otherwise, set |callbackPromise| to the result of [=/invoking=] |transition|'s [=ViewTransition/update callback=].
 
-		1. If |transition|'s [=ViewTransition/phase=] is not "`done`", then set |transition|'s [=ViewTransition/phase=] to "`update-callback-called`".
+		1. Let |fulfillSteps| be to following steps:
+			1. [=Resolve=] |transition|'s [=ViewTransition/update callback done promise=] with undefined.
 
-		1. [=Resolve=] |transition|'s [=ViewTransition/update callback done promise=]
-			with the result of [=reacting=] to |callbackPromise|:
+			1. [=Activate view transition|Activate=] |transition|.
 
-			- If the promise was fulfilled, then return undefined.
+		1. Let |rejectSteps| be the following steps given |reason|:
+			1. [=Reject=] |transition|'s [=ViewTransition/update callback done promise=] with |reason|.
 
-			Note: Since the rejection of |callbackPromise| isn't explicitly handled here,
-			if |callbackPromise| rejects, then |transition|'s [=ViewTransition/update callback done promise=] will reject with the same reason.
+			1. If |transition|'s [=ViewTransition/phase=] is "`done`", then return.
+
+				Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
+
+			1. [=Mark as handled=] |transition|'s [=ViewTransition/ready promise=].
+
+				Note: |transition|'s [=ViewTransition/update callback done promise=] will provide the {{unhandledrejection}}.
+				This step avoids a duplicate.
+
+			1. [=Skip the view transition=] |transition| with |reason|.
+
+		1. [=React=] to |callbackPromise| with |fulfillSteps| and |rejectSteps|.
+
+		1. To skip a transition after a timeout, the user agent may perform the following steps [=in parallel=]:
+			1. Wait for an implementation-defined [=duration=].
+
+			1. [=Queue a global task=] on the [=DOM manipulation task source=],
+				given |transition|'s [=relevant global object=], to perform the following steps:
+
+				1. If |transition|'s [=ViewTransition/phase=] is "`done`", then return.
+
+					Note: This happens if |transition| was [=skip the view transition|skipped=] before this point.
+
+				1. [=skip the view transition|Skip=] |transition| with a "{{TimeoutError}}" {{DOMException}}.
+
 	</div>
 
 ## [=Skip the view transition=] ## {#skip-the-view-transition-algorithm}
@@ -1666,8 +1675,23 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 			Note: Since the rejection of |transition|'s [=ViewTransition/update callback done promise=] isn't explicitly handled here,
 			if |transition|'s [=ViewTransition/update callback done promise=] rejects,
 			then |transition|'s [=ViewTransition/finished promise=] will reject with the same reason.
+	</div>
 
-		1. If |transition|'s [=ViewTransition/process old state captured=] is not null, then call |transition|'s [=ViewTransition/process old state captured=].
+## View transition page-visibility change steps ## {#page-visibility-change-steps}
+	<div algorithm>
+	The <dfn export>view transition page-visibility change steps</dfn> given {{Document}} |document| are:
+
+	1. [=Queue a global task=] on the [=DOM manipulation task source=],
+			given |document|'s [=relevant global object=],
+			to perform the following steps:
+
+		1. If |document|'s [=Document/visibility state=] is "<code>hidden</code>", then:
+
+			1. If |document|'s [=active view transition=] is not null, then [=skip the view transition|skip=] |document|'s [=active view transition=] with an "{{InvalidStateError}}" {{DOMException}}.
+
+		1. Otherwise, [=assert=]: [=active view transition=] is null.
+
+	Note: this is called from the HTML spec.
 	</div>
 
 ## [=Capture the image=] ## {#capture-the-image-algorithm}
@@ -1745,6 +1769,12 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 		* Implementations may clip the rendered contents if the [=ink overflow rectangle=] exceeds some [=implementation-defined=] maximum.
 			However, the captured image should include, at the very least, the contents of |element| that intersect with the [=snapshot containing block=].
 			Implementations may adjust the rasterization quality to account for elements with a large [=ink overflow area=] that are transformed into view.
+
+		* Implementations may also adjust the rasterization quality for elements whose [=ink overflow rectangle=] does not intersect with the [=snapshot containing block=].
+			To avoid a broken experience if the element ends up becoming visible, the captured image should include, at the very least, some low-quality representation of the contents rather than transparent pixels.
+
+			Note: This allows efficiency in resource usage and rasterization performance for elements that are away from the viewport and might not become visible at all,
+			while maintaining a visual effect close enough to the author's intent.
 
 		* [=list/For each=] |descendant| of [=shadow-including descendant=] {{Element}} and [=pseudo-element=] of |element|,
 			if |descendant| is [=captured in a view transition=],
@@ -1835,11 +1865,14 @@ urlPrefix: https://wicg.github.io/navigation-api/; type: interface;
 
 					Note: Other rendering constraints are enforced via |capturedElement|'s [=new element=] being [=captured in a view transition=].
 
-				1. Set |width| to the current width of |capturedElement|'s [=new element=]'s [=border box=].
+				1. Let |newRect| be [=snapshot containing block=] if |capturedElement| is the [=document element=],
+					otherwise, |capturedElement|'s [=border box=].
 
-				1. Set |height| to the current height of |capturedElement|'s [=new element=]'s [=border box=].
+				1. Set |width| to the current width of |newRect|.
 
-				1. Set |transform| to a transform that would map |capturedElement|'s [=new element=]'s [=border box=] from the [=snapshot containing block origin=] to its current visual position.
+				1. Set |height| to the current height of |newRect|.
+
+				1. Set |transform| to a transform that would map |newRect| from the [=snapshot containing block origin=] to its current visual position.
 
 				1. Set |writingMode| to the [=computed value=] of 'writing-mode' on |capturedElement|'s [=new element=].
 
@@ -1926,8 +1959,8 @@ This should be feasible since access to this data should already be prevented in
 
 This appendix is <em>informative</em>.
 
-<h3 id="changes-since-2022-05-30">
-Changes from <a href="https://www.w3.org/TR/2023/WD-css-view-transitions-1-20230530/">2022-05-30 Working Draft</a>
+<h3 id="changes-since-2023-05-30">
+Changes from <a href="https://www.w3.org/TR/2023/WD-css-view-transitions-1-20230530/">2023-05-30 Working Draft</a>
 </h3>
 * Use a keyframe to add plus-lighter blending during cross-fade. See <a href="https://github.com/w3c/csswg-drafts/issues/8924">issue 8924</a>.
 * Add mix-blend-mode to list of properties copied over to the ''::view-transition-group''. See <a href="https://github.com/w3c/csswg-drafts/issues/8962">issue 8962</a>.
@@ -1938,8 +1971,22 @@ Changes from <a href="https://www.w3.org/TR/2023/WD-css-view-transitions-1-20230
 * The [=view transition tree=] is not exposed to accessibility tree. See <a href="https://github.com/w3c/csswg-drafts/issues/9365">issue 9365</a>.
 * Animate back-drop filter similar to transform/size. See <a href="https://github.com/w3c/csswg-drafts/issues/9358">issue 9358</a>.
 * Copy `color-scheme` from DOM element to ''::view-transition-group()''. See <a href="https://github.com/w3c/csswg-drafts/issues/9276">issue 9276</a>.
-* Expose [=auto-skip view transition=] for a {{Document}}, to allow having outbound cross-document transitions preceed programmatic view transiitons. see <a href="https://github.com/w3c/csswg-drafts/issues/9512">issue 9512</a>.
+* Expose auto-skip view transition for a {{Document}}, to allow having outbound cross-document transitions preceed programmatic view transiitons. see <a href="https://github.com/w3c/csswg-drafts/issues/9512">issue 9512</a>.
 * Add a note about why 'view-transition-name' should be animatable.
+* `view-transition-name: auto` should be an invalid value. See <a href="https://github.com/w3c/csswg-drafts/issues/9639">issue 9639</a>.
+* Add note to explain paint order for entry animations. See <a href="https://github.com/w3c/csswg-drafts/issues/9672">issue 9672</a>.
+* Add note to explain how the named elements are cleaned up. See <a href="https://github.com/w3c/csswg-drafts/issues/9669">issue 9669</a>.
+* Refactor algorithm to clarify timing, especially of `updateCallbackDone. See <a href="https://github.com/w3c/csswg-drafts/issues/9762">issue 9762</a>.
+* Add animation-delay inherit to UA stylesheet rules for (::view-transition) -image-pair, -old, and -new. See <a href="https://github.com/w3c/csswg-drafts/issues/9817">issue 9817</a>.
+* Auto-skip animation when document is hidden. See <a href="https://github.com/w3c/csswg-drafts/issues/9543">issue 9543</a>.
+* Remove references to cross-document view-transitions, to keep the L1 spec clean. See <a href="https://github.com/w3c/csswg-drafts/issues/9886">Issue 9886</a>.
+* Export an algorithm to skip the active transition when the page is hidden. See <a href="https://github.com/w3c/csswg-drafts/issues/9543">issue 9543</a>.
+* Use snapshot containing block when capturing new state for document element. See <a href="https://github.com/w3c/csswg-drafts/issues/10177">issue #10177</a>.
+* Fix algorithm for dispatching updateDOMCallback promise.
+* Scope view transition names to matching tree context. See <a href="https://github.com/w3c/csswg-drafts/issues/10145">issue 10145</a>.
+* Fix scoping to match name instead of element. See <a href="https://github.com/w3c/csswg-drafts/issues/10145">issue 10145</a>.
+* Add a rendering characteristics note about out-of-viewport elements. See <a href="https://github.com/w3c/csswg-drafts/issues/8282">issue 8282</a>.
+* Swap the order of invoking the update callback and setting the phase. See <a href="https://github.com/w3c/csswg-drafts/issues/10822">issue 10822</a>.
 
 <h3 id="changes-since-2022-05-25">
 Changes from <a href="https://www.w3.org/TR/2023/WD-css-view-transitions-1-20230525/">2022-05-25 Working Draft</a>
@@ -1953,12 +2000,12 @@ Changes from <a href="https://www.w3.org/TR/2022/WD-css-view-transitions-1-20221
 * Pointer events resolve to the documentElement when rendering is suppressed. See <a href="https://github.com/w3c/csswg-drafts/issues/7797">issue 7797</a>.
 * Add rendering constraints to elements participating in a transition. See <a href="https://github.com/w3c/csswg-drafts/issues/8139">issue 8139</a> and <a href="https://github.com/w3c/csswg-drafts/issues/7882">issue 7882</a>.
 * Remove html specifics from UA stylesheet to support ViewTransitions on SVG Documents.
-* Rename updateDOMCallback to {{UpdateCallback}}. See <a href="https://github.com/w3c/csswg-drafts/issues/8144">issue 8144</a>.
+* Rename updateDOMCallback to {{ViewTransitionUpdateCallback}}. See <a href="https://github.com/w3c/csswg-drafts/issues/8144">issue 8144</a>.
 * Rename snapshot viewport to [=snapshot containing block=].
 * Skip the transition if viewport size changes. See <a href="https://github.com/w3c/csswg-drafts/issues/8045">issue 8045</a>.
 * Add support for :only-child. See <a href="https://github.com/w3c/csswg-drafts/issues/8057">issue 8057</a>.
 * Add concept of a tree of pseudo-elements under [=pseudo-element root=]. See <a href="https://github.com/w3c/csswg-drafts/issues/8113">issue 8113</a>.
-* When skipping a transition, the {{UpdateCallback}} is called in own task rather than synchronously. See <a href="https://github.com/w3c/csswg-drafts/issues/7904">issue 7904</a>
+* When skipping a transition, the {{ViewTransitionUpdateCallback}} is called in own task rather than synchronously. See <a href="https://github.com/w3c/csswg-drafts/issues/7904">issue 7904</a>
 * When capturing images, at least the in-viewport part of the image should be captured, downscale if needed. See <a href="https://github.com/w3c/csswg-drafts/issues/8561">issue 8561</a>.
 * Applying the [=ink overflow=] to the captured image is implementation defined, and doesn't affect the image's [=natural size=]. See <a href="https://github.com/w3c/csswg-drafts/issues/8597">issue 8597</a>.
 * Fragmented elements don't participate in view transitions. See <a href="https://github.com/w3c/csswg-drafts/issues/8339">issue 8339</a>.
