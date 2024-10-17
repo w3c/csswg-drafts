@@ -46,6 +46,7 @@ spec:css-view-transitions-1;
 	text: group styles rule; type: dfn;
 	text: update pseudo-element styles rule; type: dfn;
 	text: document-scoped view transition name; type: dfn;
+	text: capture rendering characteristics; type: dfn;
 spec:dom; type:dfn; text:document
 spec:css22; type:dfn; text:element
 spec:selectors-4; type:dfn;
@@ -63,7 +64,10 @@ spec:geometry-1
 	text:multiply; type:dfn;
 	text:matrix; type:dfn;
 spec:infra; type:dfn; text:list
-spec:css-borders-4; type: property; text:border-radius;
+spec:css-borders-4;
+	type: property; text:border-color;
+	type: property; text:border-radius;
+	type: property; text:box-shadow;
 </pre>
 
 <style>
@@ -885,6 +889,46 @@ and by applying ''view-transition-group'' to the internal element referencing th
 	The [=used value=] for 'view-transition-group' resolves to a 'view-transition-name' in its ancestor chain, or to ''view-transition-name/none''. When generating the [=named view transition pseudo-element=], the ''::view-transition-group()'' with that name
 	would be the parent of the ''::view-transition-group()'' generated for this element's 'view-transition-name'.
 
+# Layered capture # {#layered-capture}
+
+## Overview ## {#layered-capture-overview}
+
+In [[css-view-transitions-1]], the old and new states are captured as snapshots, and the initial and final geometry are captured,
+creating a crossfade animation by default. This is a simple model and mostly creates the desired outcome.
+
+However, crossfading two flattened snapshots is not always the most expressive animation. CSS allows animating borders, gradient backgrounds, 'filter', 'box-shadow' etc.
+in a way that can feel more expressive and natural than crossfade.
+
+In addition, by supporting <a href="#nested-view-transitions">nested view transitions</a>, some of the animations could look "wrong" when the CSS properties are flattened to a snapshot.
+This includes tree effects, such as 'opacity', 'mask', 'clip-path' and 'filter', and also clipping using 'overflow'. These effects are designed to apply to the whole tree of elements, not just to one element and its content.
+
+With layered capture, all the CSS properties that affect the entire tree, as well as box decorations, are captured as style and animate as part of the group.
+
+	Issue: should this behavior be an opt-in/opt-out with a CSS property?
+
+
+## Table of captured CSS properties {#layered-captured-css-properties}
+
+The following list of <dfn>layered capture properties</dfn> defines the CSS properties that participate in layered capture.
+When the old or new state of the element are captured, these properties are captured as style, and the user agent must render the snapshot
+with disregard to that property:
+
+	- 'background'
+	- 'border'
+	- 'border-radius'
+	- 'border-image'
+	- 'box-shadow'
+	- 'clip-path'
+	- 'filter'
+	- 'mask'
+	- 'opacity'
+	- 'outline'
+	- 'overflow'
+	- 'overflow-clip-margin'
+	- 'padding'
+
+	Issue: the behavior of 'overflow' is not entirely clear, especially with ''overflow/scroll'' and ''overflow-auto''. Should the scroll bars be part of the snapshot?
+
 # Algorithms # {#algorithms}
 
 ## Data structures ## {#cross-doc-data-structures}
@@ -939,15 +983,18 @@ It has the following [=struct/items=]:
 
 ### Captured elements extension ### {#capture-classes-data-structure}
 The [=captured element=] struct should contain these fields, in addition to the existing ones:
-	<dl>
-		: <dfn for="captured element">class list</dfn>
+	<dl dfn-for="captured element">
+		: <dfn>class list</dfn>
 		:: a [=/list=] of strings, initially empty.
 
-		: <dfn for="captured element">containing group name</dfn>
+		: <dfn>containing group name</dfn>
 		:: Null or a string, initially null.
 
-		: <dfn for="captured element">transform from snapshot containing block</dfn>
+		: <dfn>transform from snapshot containing block</dfn>
 		:: A [=matrix=], initially the identity matrix.
+
+		: <dfn>old layered-capture style</dfn>
+		:: A string.
 	</dl>
 
 ## Resolving the ''@view-transition'' rule ## {#vt-rule-algo}
@@ -1255,7 +1302,62 @@ When [[css-view-transitions-1#style-transition-pseudo-elements-algorithm|updatin
 		1. [=Multiply=] |transform| by the inverse matrix of |groupContainerElement|'s [=transform from snapshot containing block=].
 </div>
 
+## Capturing layered CSS properties ## {#layered-capture-algorithms}
 
+### Compute the layered-capture style ### {#layered-capture-compute-style}
+
+<div algorithm="compute layered capture style">
+To compute the <dfn>layered capture style</dfn> of an {{Element}} |element|:
+
+	1. Let |styles| be a « ».
+	1. For each |property| in the list of [=layered capture properties=], [=list/append=] the [=string/concatenate|concatentation=] of « |property|, `":"`, |element|'s [=computed value=] of |property|, `";"` » to |styles|.
+	1. Return the [=string/concatenate|concatentation=] of |styles|.
+</div>
+
+### Capture the old layered properties ### {#capture-new-layered-props-algorithm}
+<div algorithm="additional old capture steps (layered)">
+When [[css-view-transitions-1#capture-new-state-algorithm|capturing the old state for an element]], perform the following steps given a [=captured element=] |capturedElement| and an [=element=] |element|:
+
+	1. Set |capturedElement|'s [=old layered-capture style=] to |element|'s [=layered capture style=].
+</div>
+
+### Render the snapshot with layered capture ### {#layered-capture-rendering}
+
+When capturing an element into a snapshot, apply the following style to the element in addition to the [=capture rendering characteristics=]:
+
+```css
+/*the-element-being-captured*/ {
+	background: none;
+	border-color: transparent;
+	border-image: none;
+	border-radius: none;
+	box-shadow: none;
+	clip-path: none;
+	filter: none;
+	mask: none;
+	opacity: 1;
+	outline-color: transparent;
+}
+```
+
+Note: this style should only apply to the element while painting, it should not be web-observable via e.g. {{Window/getComputedStyle()}}.
+
+Note: we apply 'outline-color' and 'border-color' instead of 'outline' and 'border' so that layout is not affected by capturing.
+
+### Apply the old layered-capture properties to ''::view-transition-group()'' keyframes ### {#vt-layered-capture-apply-keyframes}
+<div algorithm="additional pseudo-element setup steps (layered capture keyframes)">
+When [[css-view-transitions-1#setup-transition-pseudo-elements-algorithm|setting up the transition pseudo-element]] for a [=captured element=] |capturedElement|, given a |transitionName|:
+	1. Let |keyframesName| be the [=string/concatenate|concatentation=] of « `-ua-view-transition-group-anim-`, |transitionName| »
+	1. Append |capturedElement|'s [=old layered-capture style=] to the constructed rule for |keyframesName|.
+</div>
+
+### Apply the new layered-capture properties to ''::view-transition-group()'' ### {#vt-layered-capture-apply-new-state}
+<div algorithm="additional pseudo-element style update steps (layered capture new state)">
+When [[css-view-transitions-1#style-transition-pseudo-elements-algorithm|updating the style of the transition pseudo-element]], perform the following steps before setting the [=captured element/group styles rule=], given a |transitionName| and an {{Element}} |element|:
+
+	1. Append the [=string/concatenate|concatentation=] of « `"::view-transition-group("`, |transitionName|, `") {"`, |element|'s [=layered capture style=], `"}"` » to the constructed user-agent stylesheet.
+
+</div>
 
 <h2 id="priv" class="no-num">Privacy Considerations</h2>
 
