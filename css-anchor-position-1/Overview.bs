@@ -66,7 +66,8 @@ often you want to position relative to <em>some</em> other box.
 and/or the <dfn export>anchor functions</dfn> ''anchor()'' and ''anchor-size()'')
 allows authors to achieve this,
 “anchoring” an [=absolutely positioned box=]
-to one or more other boxes on the page,
+to one or more other boxes on the page
+(its <dfn export lt="anchor reference">anchor references</dfn>,
 while also allowing them to try several possible positions
 to find the “best” one that avoids overlap/overflow.
 
@@ -919,11 +920,6 @@ If the [=target anchor element=] is [=fragmented=],
 the axis-aligned bounding rectangle
 of the [=box fragment|fragments=]' [=border boxes=] is used instead.
 
-The positioned box
-is additionally visually shifted
-by its [=snapshotted scroll offset=],
-as if by an additional ''translate()'' transform.
-
 <div class=example>
 	For example,
 	in ''.bar { inset-block-start: anchor(--foo block-start); }'',
@@ -1041,109 +1037,212 @@ See [[css-align-3#overflow-values]] for more details.
 -->
 
 Taking Scroll Into Account {#scroll}
-------------------------------------------------------------------
+--------------------------
 
-Because scrolling is often done in a separate thread from layout in implementations for performance reasons,
-but ''anchor()'' can result in both positioning changes
-(which can be handled in the scrolling thread)
-and layout changes
-(which cannot),
-''anchor()'' is defined to assume
-all the [=scroll containers=] between the anchor box
-and the positioned box's containing block
-are at their initial scroll position.
-This means a positioned box
-will <em>not</em> be aligned with its anchor
-if any of the scrollers are <em>not</em> at their initial positions.
+For performance reasons,
+implementations usually perform scrolling on a separate scrolling/"compositing" thread,
+which has very limited capabilities
+(simple movement/transforms/etc., but no layout or similar expensive operations)
+and thus can be relied upon to respond to scrolling
+fast enough to be considered "instant" to human perception.
 
-To compensate for this without losing
-the performance benefits of the separate scrolling thread,
-we define:
+If scrolling just causes an anchor-positioned element to <em>move</em>,
+there is in theory no issue;
+the movement can be performed on the scrolling thread
+so the positioned element moves smoothly with the scrolling content.
+However, [=anchor positioning=] allows an element 
+to make the positions of its own opposite edges
+depend on things in <em>different</em> scrolling contexts,
+which means scrolling could move just <em>one</em> edge and cause a size change,
+and thus perform layout.
+This can't be performed on the scrolling thread!
+
+To compensate for this,
+while still allowing as much freedom to anchor to various elements as possible,
+[=anchor positioning=] uses a combination of [=remembered scroll offsets=]
+and [=compensating for scroll=].
+
+<div class=note>
+	The details here are technical, but the gist is:
+
+	* When a positioned element is first displayed, 
+		or when it [[#fallback|changes fallbacks]],
+		its position is correctly calculated
+		according to the up-to-date position of all [=anchor references=].
+
+		If these [=anchor references=] are in a different scroll context,
+		their total scroll offsets are <em>memorized</em>,
+		and layout will continue using those memorized offsets,
+		even if those elements are scrolled later.
+		(Only the scroll offsets are memorized;
+		their actual laid-out positions are freshly calculated each time
+		and remain accurate.)
+		They'll only recalculate if the positioned element stops being displayed and starts again,
+		or changes fallbacks.
+
+	* The one exception to this is the [=default anchor element=];
+		if it's scrolled away from its [=remembered scroll offset=],
+		the positioned element moves with it.
+		Because this is *purely* a shift in position,
+		the positioned element can't change size
+		or otherwise require layout in response.
+
+	The end result is that [=anchor positioning=] should generally "just work",
+	regardless of what the element is anchoring to,
+	but it might be limited in how it can respond to scrolling.
+</div>
+
+<!--
+Here's a silly little example of how anchor pos live-responds to layout changes,
+even if they're in different scrolling contexts,
+while ignoring the effects of scrolling:
+
+<xmp>
+<!DOCTYPE html>
+<style>
+@keyframes jiggle { from { height: 20px; } to { height: 50px; }}
+.box {
+	overflow:scroll; 
+	border: thick dotted; 
+	width: 100px; 
+	height: 100px; 
+	float: left;
+	position: relative;
+}
+.jiggler {
+	width: 50px; 
+	background: green; 
+	animation: jiggle 3s alternate-reverse infinite linear;
+	margin-bottom: 200px;
+}
+.abspos {
+	position: absolute; 
+	background: blue; 
+	inset: anchor(--left bottom) anchor(--right left) anchor(--right top) anchor(--left right);
+}
+</style>
+<div class=box>
+ <div class=jiggler style="anchor-name: --left;"></div>
+</div>
+<div class=box>
+ <div class=jiggler style="position: absolute; bottom: 0; animation-duration: 2s; anchor-name: --right;"></div>
+</div>
+<div class=abspos></div>
+</xmp>
+
+-->
+
+<div algorithm="scroll memory">
+	An <dfn>anchor recalculation point</dfn>
+	occurs for an [=absolutely positioned element=]
+	whenever that element begins generating boxes
+	(aka switches from ''display:none'' or ''display:contents''
+	to any other 'display' value),
+	identical to when it starts running CSS animations.
+
+	An [=anchor recalculation point=] also occurs for an element
+	when [=determining position fallback styles=] for that element;
+	if it changes fallback styles as a result,
+	it uses the result of the [=anchor recalculation point=]
+	associated with the chosen set of fallback styles.
+
+	When an [=anchor recalculation point=] occurs for an element |abspos|,
+	then for every element |anchor|
+	referenced by one of |abspos|'s [=anchor references=],
+	it associates a <dfn>remembered scroll offset</dfn>
+	equal to the <em>current</em> sum of the [=scroll offsets=]
+	of all [=scroll container=] ancestors
+	of |anchor|,
+	up to but not including 
+	|abspos|'s [=containing block=].
+	The [=remembered scroll offset=] also accounts 
+	for other scroll-dependent positioning changes,
+	such as ''position: sticky''.
+	If |abspos| has a [=default anchor element=],
+	it always calculates a [=remembered scroll offset=] for it,
+	even if |abspos| doesn't actually have an [=anchor reference=] to it.
+
+	All [=anchor references=] are calculated
+	as if all [=scroll containers=] were at their [=initial scroll position=],
+	and then have their associated [=remembered scroll offset=]
+	added to them.
+
+	Issue: Transforms have the same issue as scrolling,
+	so Anchor Positioning similarly doesn't pay attention to them normally.
+	Can we go ahead and incorporate the effects of transforms here?
+</div>
+
+The above allows a positioned element to respond 
+to the scroll positions of its [=anchor references=] <em>once</em>,
+but if any of them are scrolled,
+the positioned element will no longer appear to be anchored to them
+(tho it will continue to respond to their non-scrolling movement).
+While this problem can't be solved <em>in general</em>,
+we <em>can</em> respond to the scrolling of <em>one</em> [=anchor reference=];
+specifically, the [=default anchor element=]:
 
 <div algorithm="compensate for scroll">
 	An [=absolutely positioned box=] |abspos|
-	<dfn>needs scroll adjustment</dfn>
+	<dfn export lt="compensate for scroll">compensates for scroll</dfn>
 	in the horizontal or vertical axis
 	if both of the following conditions are true:
 
 	* |abspos| has a [=default anchor box=].
 
-	* |abspos|'s used [=self-alignment property=] value
-		in that axis is ''anchor-center''; or
-		at least one ''anchor()'' function on |abspos|'s
-		[=used value|used=] [=inset properties=] in the axis
-		refers to a [=target anchor element=]
-		with the same nearest [=scroll container=] ancestor
-		as |abspos|'s [=default anchor box=].
+	* |abspos| has an [=anchor reference=] to its [=default anchor box=]
+		or at least to something in the same scrolling context,
+		aka at least one of:
+
+		* |abspos|'s used [=self-alignment property=] value
+			in that axis is ''anchor-center'';
+		* |abspos| has a non-''position-area/none'' value for 'position-area'
+		* at least one ''anchor()'' function on |abspos|'s
+			[=used value|used=] [=inset properties=] in the axis
+			refers to a [=target anchor element=]
+			with the same nearest [=scroll container=] ancestor
+			as |abspos|'s [=default anchor box=].
 
 	Note: If |abspos| has a [=position options list=],
-	then whether it [=needs scroll adjustment=] in an axis
+	then whether it [=compensates for scroll=] in an axis
 	is also affected by the applied fallback style.
 
-	|abspos|'s <dfn>snapshotted scroll offset</dfn> is a pair of lengths
+	|abspos|'s <dfn>default scroll shift</dfn> is a pair of lengths
 	for the horizontal and vertical axises, respectively.
 	Each length is calculated as:
 
-	* If |abspos| [=needs scroll adjustment=] in the axis,
-		then the length is the sum of the [=scroll offsets=]
-		of all [=scroll container=] ancestors
-		of the [=default anchor box=]
-		in the same axis,
-		up to but not including |abspos|'s [=containing block=];
+	* If |abspos| is [=compensating for scroll=] in the axis,
+		then the length is the difference between the [=remembered scroll offset=]
+		of the [=default anchor element=]
+		and what its current [=remembered scroll offset=] would be
+		if it were recalculated.
 
 	* Otherwise, the length is 0.
 
-	If the [=default anchor box=],
-	or ancestors between it and |abspos|'s [=containing block=],
-	are subject to additional scroll adjustments,
-	such as from further anchor positioning,
-	or sticky positioning,
-	etc.,
-	add that adjustment to the [=snapshotted scroll offset=] as well.
+	After layout has been performed for |abspos|,
+	it is additionally shifted by the [=default scroll shift=],
+	as if affected by a [=transform=]
+	(before any other transforms).
 
 	Issue: Define the precise timing of the snapshot:
 	updated each frame,
 	before style recalc.
+
+	Issue: Similar to [=remembered scroll offset=],
+	can we pay attention to transforms on the [=default anchor element=]?
+
+	Note: While [=remembered scroll offsets=]
+	affect the value of ''anchor()'' functions,
+	[=default scroll shift=] directly shifts the element,
+	<em>after</em> determining the value of its [=inset properties=],
+	applying alignment,
+	etc.
+	This is <em>usually</em> indistinguishable,
+	but cases like ''round(anchor(outside), 50px)'',
+	which transform the [=default anchor element's=] position
+	in a non-linear fashion,
+	will expose the difference in behavior.
 </div>
 
-<details class=note>
-	<summary>Implied restrictions of scroll adjustment</summary>
-
-	In short: a positioned box
-	is able to have its <em>position</em>
-	rely on a scrollable anchor in a different scroll container,
-	but cannot have its <em>size</em> depend on that.
-	This restriction allows "composited scrolling" to continue to be used,
-	where the actual shifting of a scrollable box's contents
-	is done in a separate "compositing thread" in the UA,
-	and the rest of the CSS
-	(in particular, layout)
-	can't directly depend on its results.
-
-	This is why only <em>one</em> anchor
-	(the [=default anchor box=])
-	is used for scroll adjustment--
-	if multiple anchors could be adjusted for,
-	then a positioned box could use different ones for opposite sides,
-	and trigger layout as a result of either of them scrolling.
-
-	Position fallback *can* end up depending on scroll adjustment,
-	which can cause re-layout
-	since the [=sizing properties=] are [=accepted @position-try properties=].
-	However, it's acceptable for fallback due to scrolling
-	to happen <em>a frame late</em>,
-	after the UA has had time to receive scrolling information
-	from the compositing thread.
-	This is not the case for simple position tracking--
-	if the positioned box is meant to sit snug against the anchor,
-	having it lag a frame behind is very user-visible,
-	and a pretty bad experience.
-
-	If you want to have a positioned box's size
-	depend on an anchor's scroll position,
-	the positioned box must be inside of the same scroll container,
-	so the two boxes are never scrolled relative to each other at all.
-</details>
 
 Validity {#anchor-valid}
 --------
@@ -1926,7 +2025,9 @@ without using ''@position-try'' at all.
 Applying Position Fallback {#fallback-apply}
 --------------------------
 
-When a positioned box overflows its [=inset-modified containing block=],
+When a positioned box
+(shifted by its [=default scroll shift=])
+overflows its [=inset-modified containing block=],
 and has a non-empty [=position options list=],
 it [=determines position fallback styles=]
 to attempt to find an option that avoids overflow.
@@ -1945,67 +2046,60 @@ even though they depend on layout and [=used values=].
 		resolve the cascade,
 		and perform enough layout to determine |el|'s [=used value|used styles=].
 
+		For the purpose of calculating these styles,
+		a <em>hypothetical</em> [=anchor recalculation point=] is calculated,
+		and the resulting hypothetical [=remembered scroll offsets=] are used to determine |el|'s styles.
+
 	2. Return |el|'s [=used value|used styles=].
 </div>
 
 <div algorithm="determine position fallback styles">
-	To <dfn>determine position fallback styles</dfn> for an element |el|:
+	To <dfn>determine position fallback styles</dfn> for an element |abspos|:
 
-	1. Let |base styles| be the current used styles of |el|.
+	1. Let |current styles| be the current used styles of |abspos|
+		(which might be the result of earlier fallback).
 
 	2. [=list/For each=] |option| in the [=position options list=]:
 
-		1. Let |adjusted styles| be the result of [=applying a position option=] |option| to |el|.
-
-		2. Let |el rect| be the size and position of |el|'s margin box,
-			when laid out with |adjusted styles|.
-
-			Let |cb rect| be the size and position of |el|'s [=inset-modified containing block=].
-
-		3. If |el| has a [=snapshotted scroll offset=]:
-
-			1. Set |el rect| to the result of shifting it
-				by the [=snapshotted scroll offset=].
-
-			2. Recalculate |el|'s [=inset-modified containing block=],
-				with any non-''top/auto'' [=inset property|inset=] values
-				shifted by the [=snapshotted scroll offset=].
-
-				If |el| has a non-''position-area/none'' 'position-area' value,
-				then for the purpose of the preceding calculation,
-				shift the value of ''anchor(start)'' and ''anchor(end)''
-				in the [=position-area grid=]
-				by the [=snapshotted scroll offset=] as well.
-
-				Note: In other words, ''top: anchor(bottom); bottom: auto;''
-				and ''position-area: bottom;''
-				should result in the same IMCB
-				for the purpose of these overflow calculations.
-
-				Set |cb rect| to this result.
-
-			3. If |cb rect| was negative-size in either axis
-				and corrected into zero-size,
-				[=iteration/continue=].
-
-		4. If |el rect| is not fully contained within |cb rect|,
+		1. If |option| is currently |abspos|'s [=last successful position option=],
 			[=iteration/continue=].
 
-		5. Return |adjusted styles|.
+		2. Let |adjusted styles| be the result of [=applying a position option=] |option| to |abspos|.
+
+		3. Let |el rect| be the size and position of |abspos|'s margin box,
+			and |cb rect| be the size and position of |abspos|'s [=inset-modified containing block=],
+			when laid out with |adjusted styles|.
+
+		4. If |cb rect| was negative-size in either axis
+			and corrected into zero-size,
+			[=iteration/continue=].
+
+			Note: This prevents a zero-size |el rect|
+			from still being considered "inside"
+			a negative-size |cb rect|
+			and getting selected as a successful option.
+
+		5. If |el rect| is not fully contained within |cb rect|,
+			[=iteration/continue=].
+
+		6. Return |adjusted styles|,
+			along with the associated set of [=remembered scroll offsets=]
+			that were hypothetically calculated for them.
 
 	3. Assert: The previous step finished without finding a [=position option=]
 		that avoids overflow.
 
-	4. If |el| has a [=last successful position option=],
-		return the result of [=applying a position option=],
-		using that option,
-		to |el|.
-
-	5. Return |base styles|.
+	4. Return |current styles|.
 
 	Note: Descendants overflowing |el|
 	don't affect this calculation,
 	only |el|'s own [=margin box=].
+
+	Note: Because we purposely skip the [=position option=] currently in effect,
+	it doesn't get its [=remembered scroll offsets=] updated;
+	if none of the other fallbacks work
+	and we stick with the current styles,
+	all the [=remembered scroll offsets=] stay the same.
 </div>
 
 During a full layout pass,
@@ -2027,7 +2121,7 @@ laying out later boxes cannot change this decision.
 	Layout does not "go backward", in other words.
 </div>
 
-<div algorithm="remember or forget the last rememberd position option">
+<div algorithm="remember or forget the last successful position option">
 	At the time that {{ResizeObserver}} events are determined and delivered:
 
 	* If a box |el| is [=absolutely positioned=],
