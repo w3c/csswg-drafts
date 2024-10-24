@@ -44,6 +44,48 @@ WPT Display: closed
   }
 }
 </style>
+<style>
+/* Creates an easing example. Use like <div class=easing-track style="--easing: linear"></div>. */
+.easing-track {
+  position: relative;
+  height: 1em;
+  background: linear-gradient(to bottom, transparent calc(50% - 1px), var(--a-normal-underline) 0 calc(50% + 1px), transparent 0);
+  min-width: 200px;
+  margin: .5em;
+}
+.easing-track::before {
+  content: "";
+  position: absolute;
+  width: 1em;
+  height: 1em;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--bg);
+  border: medium solid var(--text);
+  left: 0;
+  animation: --easing-track var(--easing) 3s infinite;
+}
+@keyframes --easing-track {
+  to { left: calc(100% - 1em); }
+}
+</style>
+<style>
+/* Put nice boxes around each algorithm. */
+[data-algorithm]:not(.heading) {
+  padding: .5em;
+  border: thin solid #ddd; border-radius: .5em;
+  margin: .5em calc(-0.5em - 1px);
+}
+[data-algorithm]:not(.heading) > :first-child {
+  margin-top: 0;
+}
+[data-algorithm]:not(.heading) > :last-child {
+  margin-bottom: 0;
+}
+[data-algorithm] [data-algorithm] {
+    margin: 1em 0;
+}
+</style>
 
 Introduction {#introduction}
 ============================
@@ -94,7 +136,7 @@ an [=input progress value=] and produces an [=output progress value=].
 An [=easing function=] must be a pure function meaning that for a given set of
 inputs, it always produces the same [=output progress value=].
 
-The <dfn>input progress value</dfn> is a real number in the range [-&infin;,
+The <dfn export for="easing function">input progress value</dfn> is a real number in the range [-&infin;,
 &infin;].
 Typically, the [=input progress value=] is in the range [0, 1] but this may
 not be the case when [=easing functions=] are chained together.
@@ -112,21 +154,36 @@ may be outside the range [0, 1].
 
 </div>
 
-The <dfn>output progress value</dfn> is a real number in the
+The <dfn export for="easing function">output progress value</dfn> is a real number in the
 range [-&infin;, &infin;].
 
-Some types of easing functions also take an additional boolean [=before flag=]
-input which is defined subsequently.
+Note: While CSS numbers have a theoretically infinite range
+(see [[css-values-4#numeric-ranges]])
+UAs will automatically clamp enormous numbers to a reasonable range.
+If easing functions are used outside of the CSS context,
+care must be taken to either correctly handle potential infinities
+(including those produced by merely <em>very large</em> values
+stored in a floating point number),
+or clamp the [=output progress value=].
 
-This specification defines four types of easing functions whose definitions
-follow.
+Some types of easing functions
+also take an additional boolean <dfn export for="easing function">before flag</dfn>,
+which indicates the easing has not yet started,
+or is going in reverse and is past the finish.
+(Some easing functions can have multiple possible [=output progress values=]
+for a given [=input progress value=],
+and generally favor the last one specified;
+this flag instead causes those [=easing functions=]
+to favor the first specified value
+before the animation has started.)
 
-The syntax for specifying an [=easing function=] is as follows:
+This specification defines several types of easing functions:
 
-<div class="prod"><dfn type>&lt;easing-function&gt;</dfn> =
-  <<linear-easing-function>> |
-  <<cubic-bezier-easing-function>> |
-  <<step-easing-function>></div>
+<pre class="prod">
+  <dfn>&lt;easing-function&gt;</dfn> = <<linear-easing-function>>
+                    | <<cubic-bezier-easing-function>>
+                    | <<step-easing-function>>
+</pre>
 
 <wpt>
   timing-functions-syntax-computed.html
@@ -163,8 +220,8 @@ to an [=output progress value=].
   <figcaption>
     ''linear(0, .1 25%, .75 50%, 1)''<br>
     The shape of the curve follows the [=linear()/control points=].<br>
-    Input progress values serve as <var>x</var> values of the curve,
-    whilst the <var>y</var> values are the output progress values.
+    Input progress values serve as <var ignore>x</var> values of the curve,
+    whilst the <var ignore>y</var> values are the output progress values.
   </figcaption>
 </figure>
 
@@ -238,6 +295,8 @@ A [=linear easing function=] has the following syntax:
 <h4 id=linear-easing-function-serializing>
 Serializing</h4>
 
+The ''linear'' keyword is serialized as itself.
+
 <div algorithm>
   To <dfn export>serialize a linear() function</dfn>:
 
@@ -260,7 +319,7 @@ Serializing</h4>
     return |s|.
 
   3. Otherwise, append " " (U+0020 SPACE) to |s|,
-    then serialize the [=control point's=] [=output progress value=]
+    then serialize the [=control point's=] [=input progress value=]
     as a <<percentage>>
     and append it to |s|.
 
@@ -287,7 +346,8 @@ Output</h4>
 
   To <dfn export>calculate linear easing output progress</dfn>
   for a given [=linear easing function=] |func|,
-  and an [=input progress value=] |inputProgress|,
+  an [=input progress value=] |inputProgress|,
+  and an optional [=before flag=] (defaulting to false),
   perform the following.
   It returns an [=output progress value=].
 
@@ -297,11 +357,16 @@ Output</h4>
     return the [=output progress value=]
     of that item.
 
-  3. If at least one of |points| has an [=input progress value=]
-    matching |inputProgress|,
-    return the largest [=output progress value=] from among them.
+  3. If |inputProgress| matches the [=input progress value=]
+    of the first point in |points|,
+    and the [=before flag=] is true,
+    return the first point's [=output progress value=].
 
-  4. Otherwise, find two [=linear()/control points=],
+  4. If |inputProgress| matches the [=input progress value=]
+    of at least one point in |points|,
+    return the [=output progress value=] of the last such point.
+
+  5. Otherwise, find two [=linear()/control points=] in |points|,
     |A| and |B|,
     which will be used for interpolation:
 
@@ -317,21 +382,20 @@ Output</h4>
       If |A| and |B| have the same [=input progress value=],
       return |B|'s [=output progress value=].
 
-    3. Otherwise, let |A| be the [=linear()/control point=]
-      with the largest [=output progress value=]
+    3. Otherwise, let |A| be the last [=linear()/control point=]
       whose [=input progress value=] is smaller than |inputProgress|,
-      and let |B| be the [=linear()/control point=]
-      with the smallest [=output progress value=]
+      and let |B| be the first [=linear()/control point=]
       whose [=input progress value=] is larger than |inputProgress|.
 
-  5. Linearly interpolate (or extrapolate) |inputProgress|
+  6. Linearly interpolate (or extrapolate) |inputProgress|
     along the line defined by |A| and |B|,
     and return the result.
+
+  <wpt>
+    linear-timing-functions-output.html
+  </wpt>
 </div>
 
-<wpt>
-  linear-timing-functions-output.html
-</wpt>
 
 <h4 id=linear-easing-function-examples>
 Examples</h4>
@@ -345,6 +409,19 @@ Examples</h4>
   <figure>
     <img class="easing-graph" src="images/simple-linear-example.svg" width="535" height="510"
       alt="linear(0, 0.25, 1) plotted on a graph">
+  </figure>
+
+  <figure>
+    <table>
+      <thead>
+        <tr><th>Easing<th>Example
+      <tbody>
+        <tr><td>''linear''<td><div class=easing-track style="--easing:linear"></div>
+        <tr><td>''linear(0, .25, 1)''<td><div class=easing-track style="--easing:linear(0, .25, 1)"></div>
+    </table>
+    <figcaption>
+      An example of the above, with a plain ''linear'' for contrast.
+    </figcaption>
   </figure>
 </div>
 
@@ -364,11 +441,26 @@ Examples</h4>
         The second is at 0.75,0.25.
         The third is at 1,1.">
   </figure>
+
+  <figure>
+    <table>
+      <thead>
+        <tr><th>Easing<th>Example
+      <tbody>
+        <tr><td>''linear''<td><div class=easing-track style="--easing:linear"></div>
+        <tr><td>''linear(0, .25 75%, 1)''<td><div class=easing-track style="--easing:linear(0, .25 75%, 1)"></div>
+    </table>
+    <figcaption>
+      An example of the above, with a plain ''linear'' for contrast.
+    </figcaption>
+  </figure>
+</div>
 </div>
 
 <div class=example>
   If two input values are provided for a single output,
-  it results in two points with the same output.
+  it results in two points with the same output,
+  causing the easing to "pause" between the two inputs.
 
   For example, ''linear(0, 0.25 25% 75%, 1)''
   is equivalent to ''linear(0, 0.25 25%, 0.25 75%, 1)'',
@@ -383,6 +475,20 @@ Examples</h4>
         The third is at 0.75,0.25.
         The forth is at 1,1.">
   </figure>
+
+  <figure>
+    <table>
+      <thead>
+        <tr><th>Easing<th>Example
+      <tbody>
+        <tr><td>''linear''<td><div class=easing-track style="--easing:linear"></div>
+        <tr><td>''linear(0, 0.25 25% 75%, 1)''<td><div class=easing-track style="--easing:linear(0, 0.25 25% 75%, 1)"></div>
+    </table>
+    <figcaption>
+      An example of the above, with a plain ''linear'' for contrast.
+    </figcaption>
+  </figure>
+</div>
 </div>
 
 <div class=example>
@@ -435,6 +541,19 @@ Examples</h4>
       alt="The graph of a rough bounce easing.">
   </figure>
 
+  <figure>
+    <table>
+      <thead>
+        <tr><th>Easing<th>Example
+      <tbody>
+        <tr><td>''linear''<td><div class=easing-track style="--easing:linear"></div>
+        <tr><td>''linear(...)''<td><div class=easing-track style="--easing:linear(0, 0.063, 0.25, 0.563, 1 36.4%, 0.812, 0.75, 0.813, 1 72.7%, 0.953, 0.938, 0.953, 1 90.9%, 0.984, 1 100% 100% )"></div>
+    </table>
+    <figcaption>
+      An example of the above, with a plain ''linear'' for contrast.
+    </figcaption>
+  </figure>
+
   More points could be used to create a smoother result,
   which may be needed for slower animations.
 </div>
@@ -451,18 +570,18 @@ Examples</h4>
 ████▌  █████▌ █████▌ ████ █████▌ █▌  █▌
 -->
 
-<h3 id=cubic-bezier-easing-functions oldids=cubic-bezier-timing-functions>Cubic
-Bézier easing functions:
+<h3 id=cubic-bezier-easing-functions oldids=cubic-bezier-timing-functions>
+Cubic Bézier Easing Functions:
 ''ease'', ''ease-in'', ''ease-out'', ''ease-in-out'', ''cubic-bezier()''</h3>
 
-A <dfn export>cubic Bézier easing function</dfn> is
-a type of [=easing function=] defined by four real numbers
-that specify the two control points,
-<var>P1</var> and <var>P2</var>, of a cubic Bézier curve whose
-end points <var ignore>P0</var> and <var ignore>P3</var>
-are fixed at (0, 0) and (1, 1) respectively.
-The <var>x</var> coordinates of <var>P1</var> and <var>P2</var>
-are restricted to the range [0, 1].
+A <dfn export>cubic Bézier easing function</dfn>
+is an [=easing function=] that interpolates smoothly from 0 to 1
+using a cubic polynomial,
+influenced by two control points
+that the curve will approach
+but (usually) not actually reach.
+(The "endpoints" of the cubic Bézier
+are fixed at (0,0) and (1,1), respectively.)
 
 <figure>
   <img class="easing-graph" src="images/cubic-bezier-easing-curve.svg" width="535" height="510"
@@ -470,41 +589,68 @@ are restricted to the range [0, 1].
   <figcaption>
     A cubic Bézier curve used as an easing function.<br>
     The shape of the curve is determined by the location of the control
-    points <var>P1</var> and <var>P2</var>.<br>
-    Input progress values serve as <var>x</var> values of the curve,
-    whilst the <var>y</var> values are the output progress values.
+    points <var ignore>P1</var> and <var ignore>P2</var>.<br>
+    Input progress values serve as <var ignore>x</var> values of the curve,
+    whilst the <var ignore>y</var> values are the output progress values.
   </figcaption>
 </figure>
 
-A <a>cubic Bézier easing function</a> has the following syntax
-(using notation from [[!CSS-VALUES-3]]):
+A <a>cubic Bézier easing function</a> has the following syntax:
 
-<div class="prod"><dfn type>&lt;cubic-bezier-easing-function&gt;</dfn> =
-  ''ease'' | ''ease-in'' | ''ease-out'' | ''ease-in-out'' |
-  <span class="atom"><a lt="cubic-bezier()"
-  function>cubic-bezier</a>(<<number [0,1]>>, <<number>>, <<number [0,1]>>,
-  <<number>>)</span></div>
+<pre class="prod">
+  <dfn>&lt;cubic-bezier-easing-function></dfn> =
+    ''ease'' | ''ease-in'' | ''ease-out'' | ''ease-in-out'' | <<cubic-bezier()>>
+
+  <dfn>cubic-bezier()</dfn> = cubic-bezier( [ <<number [0,1]>>, <<number>> ]#{2} )
+</pre>
 
 The meaning of each value is as follows:
 
 <dl dfn-type="value" dfn-for="<cubic-bezier-easing-function>">
+  : <dfn>ease-in</dfn>
+  :: A function that starts slowly and smoothly, then quickly approaches the endpoint with an almost linear curve.
+    Equivalent to ''cubic-bezier(0.42, 0, 1, 1)''.
+  : <dfn>ease-out</dfn>
+  :: A function that starts quickly with an almost linear curve, then slowly and smoothly approaches the endpoint.
+    Equivalent to ''cubic-bezier(0, 0, 0.58, 1)''.
+  : <dfn>ease-in-out</dfn>
+  :: A function that starts and ends slowly and smoothly, quickly traversing the middle part.
+    Equivalent to ''cubic-bezier(0.42, 0, 0.58, 1)''.
+  : <dfn>ease</dfn>
+  :: Similar to ''ease-in-out'', but with a quicker start and a slower finish.
+    Equivalent to ''cubic-bezier(0.25, 0.1, 0.25, 1)''.
+  : ''cubic-bezier( x1, y1, x2, y2 )''
+  ::  Specifies a <a>cubic Bézier easing function</a>.
+      The <var ignore>x1</var> and <var ignore>y1</var> arguments
+      specify the first control point,
+      and <var ignore>x2</var> and <var ignore>y2</var> arguments
+      specify the second control point.
 
-:   <dfn>ease</dfn>
-::  Equivalent to ''cubic-bezier(0.25, 0.1, 0.25, 1)''.
-:   <dfn>ease-in</dfn>
-::  Equivalent to ''cubic-bezier(0.42, 0, 1, 1)''.
-:   <dfn>ease-out</dfn>
-::  Equivalent to ''cubic-bezier(0, 0, 0.58, 1)''.
-:   <dfn>ease-in-out</dfn>
-::  Equivalent to ''cubic-bezier(0.42, 0, 0.58, 1)''.
-:   <dt><dfn function lt="cubic-bezier()">cubic-bezier(<<number [0,1]>>, <<number>>, <<number [0,1]>>, <<number>>)</dfn></dt>
-::  Specifies a <a>cubic Bézier easing function</a>.
-    The four numbers specify points <var>P1</var> and <var>P2</var> of
-    the curve as (<var ignore>x1</var>, <var ignore>y1</var>, <var
-    ignore>x2</var>, <var ignore>y2</var>).
-    Both <var>x</var> values must be in the range [0, 1] or the definition is
-    invalid.
+      Both <var ignore>x</var> values must be in the range [0, 1]
+      or the definition is invalid.
 
+      <details class=note>
+        <summary>Details on cubic Bézier curves</summary>
+
+        Note that this does <em>not</em> use the [=input progress value=] as the "t" value
+        commonly used to parametrize cubic Bézier curves
+        (producing a 2d point as the output),
+        but rather uses it as the "x" value on the graph
+        (producing a y value as the output).
+        This means that only the <em>shape</em> of the curve matters,
+        not the velocity along that curve.
+        For example, ''cubic-bezier(0, 0, 0, 0)'' and ''cubic-bezier(1, 1, 1, 1)''
+        produce exactly the same (linear) easing,
+        despite the first's <em>velocity</em> following a <code>t<sup>3</sup></code> curve,
+        while the second follows a <code>t<sup>1/3</sup></code> curve.
+
+        <em>In general</em>, cubic Bézier curves can have loops:
+        places where a single x value is associated with multiple y values.
+        The restriction placed on the control points
+        (that their x values be in the [0,1] range)
+        prevent this,
+        so the resulting easing function is well-defined.
+      </details>
 </dl>
 
 The keyword values listed above are illustrated below.
@@ -518,44 +664,98 @@ The keyword values listed above are illustrated below.
   </figcaption>
 </figure>
 
+<figure>
+  <table>
+    <thead>
+      <tr><th>Easing<th>Example
+    <tbody>
+      <tr><td>''linear''<td><div class=easing-track style="--easing:linear"></div>
+      <tr><td>''ease-in''<td><div class=easing-track style="--easing:ease-in"></div>
+      <tr><td>''ease-out''<td><div class=easing-track style="--easing:ease-out"></div>
+      <tr><td>''ease-in-out''<td><div class=easing-track style="--easing:ease-in-out"></div>
+      <tr><td>''ease''<td><div class=easing-track style="--easing:ease"></div>
+  </table>
+  <figcaption>
+    The above easing functions in action, each applied to a 3s animation of the circles' 'left' property. A ''linear'' easing is provided for contrast.
+  </figcaption>
+</figure>
+
+<h4 id="bezier-serialization">
+Serializing</h4>
+
+The ''ease-in'', ''ease-out'', ''ease-in-out'', and ''ease'' keywords
+serialize as themselves.
+
+<div algorithm>
+  To <dfn export>serialize a cubic-bezier() function</dfn>:
+
+  1. Let |s| be the string "cubic-bezier(".
+
+  2. Serialize the function's four arguments as <<number>>s,
+    [=concatenate=] the results using the separator ", ",
+    and append the result to |s|.
+
+  3. Append ")" to |s|, and return it.
+</div>
+
 
 <h4 id=cubic-bezier-algo>
 Output</h4>
 
-The mapping from input progress to output progress is performed by
-determining the corresponding <var>y</var> value ([=output progress value=]) for
-a given <var>x</var> value ([=input progress value=]).
-The evaluation of this curve is covered in many sources such as
-[[FUND-COMP-GRAPHICS]].
+<div algorithm>
+  To <dfn export lt="calculate cubic Bézier easing output progress|calculate cubic Bezier easing output progress">calculate cubic Bézier easing output progress</dfn>
+  for a given [=cubic Bézier easing function=] |func|
+  and an [=input progress value=] |inputProgress|,
+  perform the following.
+  It returns an [=output progress value=].
 
-For [=input progress values=] outside the range [0, 1], the curve is extended
-infinitely using tangent of the curve at the closest endpoint as follows:
+  1. Let |p0| be the point (0,0),
+    |p1| be the point given by |func|'s first two arguments,
+    |p2| be the point given by |func|'s second two arguments,
+    and |p3| be the point (1,1).
 
-*   For [=input progress values=] less than zero,
+  2. If |inputProgress| is within the range [0,1] (inclusive),
+    return the y value
+    corresponding to |inputProgress| as an x value
+    for the cubic Bézier curve
+    defined as having |p0| and |p3| as endpoints,
+    and |p1| and |p2| as control points.
 
-    1.   If the <var>x</var> value of P1 is greater than zero, use
-         a straight line that passes through P1 and P0 as the tangent.
+    The evaluation of this curve is covered in many sources,
+    such as [[FUND-COMP-GRAPHICS]].
 
-    1.   Otherwise, if the <var>x</var> value of P2 is greater than
-         zero, use a straight line that passes through P2 and P0 as the tangent.
+  3. Otherwise, the curve is extended infinitely,
+    using the tangent of the curve at the endpoints.
+    This tangent is defined as the line between two points,
+    |t1| and |t2|.
 
-    1.   Otherwise, let the [=output progress value=] be zero for all
-         [=input progress values=] in the range [-&infin;, 0).
+    * If |inputProgress| is less than 0,
+      let |t1| be |p0|.
 
-*   For [=input progress values=] greater than one,
+      1. If the x value of |p1| is greater than 0,
+        let |t2| be |p1|.
+      2. Otherwise, if the x value of |p2| is greater than 0,
+        let |t2| be |p2|.
+      3. Otherwise, return 0.
 
-    1.   If the <var>x</var> value of P2 is less than one, use
-         a straight line that passes through P2 and P3 as the tangent.
+    * If |inputProgress| is greater than 1,
+      let |t2| be |p3|.
 
-    1.   Otherwise, if the <var>x</var> value of P1 is less than
-         one, use a straight line that passes through P1 and P3 as the tangent.
+      1. If the x value of |p2| is less than 1,
+        let |t1| be |p2|.
+      2. Otherwise, if the x value of |p1| is less than 1,
+        let |t1| be |p1|.
+      3. Otherwise, return 1.
 
-    1.   Otherwise, let the [=output progress value=] be one for all
-         [=input progress values=] in the range (1, &infin;].
+    Return the y value
+    corresponding to |inputProgress| as an x value
+    for the line passing through |t1| and |t2|.
 
-<wpt>
-  cubic-bezier-timing-functions-output.html
-</wpt>
+  <wpt>
+    cubic-bezier-timing-functions-output.html
+  </wpt>
+</div>
+
 
 
 <!-- Big Text: steps
@@ -569,25 +769,24 @@ infinitely using tangent of the curve at the closest endpoint as follows:
  ███▌    █▌   █████▌ █▌      ███▌ 
 -->
 
-<h3 id=step-easing-functions oldids=step-timing-functions>Step easing functions:
+<h3 id=step-easing-functions oldids=step-timing-functions>
+Step Easing Functions:
 ''step-start'', ''step-end'', ''steps()''</h3>
 
-A <dfn>step easing function</dfn> is a type of [=easing function=]
+A <dfn>step easing function</dfn> is an [=easing function=]
 that divides the input time into a specified number of intervals that
-are equal in length.
-It is defined by a number of <dfn>steps</dfn>, and a <dfn>step position</dfn>.
-It has following syntax:
+are equal in length,
+and holds the output steady within each of those intervals.
+It is defined by a number of <dfn for=steps()>steps</dfn>, and a <dfn for=steps()>step position</dfn>.
+It has the following syntax:
 
-<div class="prod">
-  <dfn type>&lt;step-easing-function&gt;</dfn> =
-  ''step-start'' | ''step-end'' |
-  <span class="atom"><a lt="steps()" function>steps</a>(<<integer>> ,
-    <<step-position>>?)</span>
+<pre class="prod">
+  <dfn>&lt;step-easing-function></dfn> = ''step-start'' | ''step-end'' | <<steps()>>
 
-  <dfn type>&lt;step-position&gt;</dfn> =
-    ''jump-start'' | ''jump-end'' |
-    ''jump-none'' | ''jump-both'' |
-    ''start'' | ''end''</div>
+  <dfn>steps()</dfn> = steps( <<integer>>, <<step-position>>?)
+  <dfn type>&lt;step-position></dfn> = ''jump-start'' | ''jump-end'' | ''jump-none'' | ''jump-both''
+                | ''start'' | ''end''
+</pre>
 
 <wpt>
   step-timing-functions-syntax.html
@@ -595,198 +794,170 @@ It has following syntax:
 
 The meaning of each value is as follows:
 
-<dl dfn-type=value dfn-for="<step-easing-function>">
+<dl dfn-type=value dfn-for="<step-easing-function>, steps()">
+  :   <dfn>step-start</dfn>
+  :: Jumps from the starting to the ending value
+    at the start of the easing interval.
 
-:   <dfn>step-start</dfn>
-::  Computes to ''steps(1, start)''
-:   <dfn>step-end</dfn>
-::  Computes to ''steps(1, end)''
+    Computes to ''steps(1, start)''
+  :   <dfn>step-end</dfn>
+  :: Jumps from the starting to the ending value
+    at the end of the easing interval.
 
-    <figure>
-      <img class="easing-graph" src="images/step-easing-keyword-examples.svg" width="500"
-          alt="Example step easing keywords.">
-      <figcaption>
-        Example step easing function keyword values.
-      </figcaption>
-    </figure>
+    Computes to ''steps(1, end)''
 
-:   <dfn function lt="steps()">steps(&lt;integer&gt;, &lt;step-position&gt;?)</dfn>
-::  The first parameter specifies the number of intervals in the function.
-    It must be a positive integer greater than 0
-    unless the second parameter is <a value for="steps()">jump-none</a>
-    in which case it must be a positive integer greater than 1.
+      <figure>
+        <img class="easing-graph" src="images/step-easing-keyword-examples.svg" width="500"
+            alt="Example step easing keywords.">
+        <figcaption>
+          Example step easing function keyword values.
+        </figcaption>
+      </figure>
 
-    The second parameter, which is optional, specifies the [=step position=]
-    using one of the following values:
+  :   ''steps( &lt;integer&gt;, &lt;step-position&gt;? )''
+  :: Divides the input interval into a number of equal steps
+    specified by the <<integer>>.
+    Within each interval, the [=output progress value=] is constant,
+    and is determined according to the <<step-position>> keyword.
+    If omitted, the <<step-position>> keyword defaults to ''end''.
 
-    <dl dfn-type=value dfn-for="<step-position>">
+    If the <<step-position>> is ''jump-none'',
+    the <<integer>> must be at least 2,
+    or the function is invalid.
+    Otherwise,
+    the <<integer>> must be at least 1,
+    or the function is invalid.
 
-    :   <dfn value for="steps()">jump-start</dfn>
-    ::  The first rise occurs at [=input progress value=] of 0.
-    :   <dfn value for="steps()">jump-end</dfn>
-    ::  The last rise occurs at [=input progress value=] of 1.
-    :   <dfn value for="steps()">jump-none</dfn>
-    ::  All rises occur within the range (0, 1).
-    :   <dfn value for="steps()">jump-both</dfn>
-    ::  The first rise occurs at [=input progress value=] of 0
-        and the last rise occurs at [=input progress value=] of 1.
-    :   <dfn value for="steps()">start</dfn>
-    ::  Behaves as <a value for="steps()">jump-start</a>.
-    :   <dfn value for="steps()">end</dfn>
-    ::  Behaves as <a value for="steps()">jump-end</a>.
+    The <<step-position>> keywords are:
 
+    <dl dfn-type=value dfn-for="<step-position>, steps()">
+      : <dfn>jump-start</dfn>
+      :: The first interval has an [=output progress value=] of <code>1/steps</code>,
+        and subsequent intervals rise by <code>1/steps</code>.
+
+        (It "jumps at the start", with no step returning 0.)
+      : <dfn>jump-end</dfn>
+      :: The first interval has an [=output progress value=] of <code>0</code>,
+        and subsequent intervals rise by <code>1/steps</code>.
+
+        (It "jumps at the end", with no step returning 1.)
+      : <dfn>jump-none</dfn>
+      :: The first interval has an [=output progress value=] of <code>0</code>,
+        and subsequent intervals rise by <code>1/(steps-1)</code>.
+
+        (It "never jumps", with steps returning both 0 and 1.)
+      : <dfn>jump-both</dfn>
+      :: The first interval has an [=output progress value=] of <code>1/(steps+1)</code>,
+        and subsequent intervals rise by <code>1/(steps+1)</code>.
+
+        (It "jumps at both ends", with no steps returning 0 or 1.)
+      : <dfn>start</dfn>
+      ::  Behaves as ''jump-start''.
+      : <dfn>end</dfn>
+      ::  Behaves as ''jump-end''.
     </dl>
-
-    If the second parameter is omitted, the value ''end'' is assumed.
-
-    These values are illustrated below:
-
-    <figure>
-      <img class="easing-graph" src="images/step-easing-func-examples.svg" width="500"
-          alt="Example step easing functions.">
-      <figcaption>
-        Example step easing functions.
-      </figcaption>
-    </figure>
-
 </dl>
+
+The ''jump-*'' keywords values are illustrated below:
+
+<figure>
+  <img class="easing-graph" src="images/step-easing-func-examples.svg" width="500"
+      alt="Example step easing functions.">
+  <figcaption>
+    Example step easing functions.
+  </figcaption>
+</figure>
+
+<figure>
+  <table>
+    <thead>
+      <tr><th>Easing<th>Example
+    <tbody>
+      <tr><td>''linear''<td><div class=easing-track style="--easing:linear"></div>
+      <tr><td>''steps(3, jump-start)''<td><div class=easing-track style="--easing:steps(3, jump-start)"></div>
+      <tr><td>''steps(3, jump-end)''<td><div class=easing-track style="--easing:steps(3, jump-end)"></div>
+      <tr><td>''steps(3, jump-none)''<td><div class=easing-track style="--easing:steps(3, jump-none)"></div>
+      <tr><td>''steps(3, jump-both)''<td><div class=easing-track style="--easing:steps(3, jump-both)"></div>
+  </table>
+  <figcaption style="max-width: 80%;">
+    The above easing functions in action, with a ''linear'' provided for comparison.
+    Each ''steps(3, ...)'' function divides the animation into three constant periods;
+    they differ only on what the value is within each period.
+  </figcaption>
+</figure>
+
+
+
+
+<h4 id=steps-serialization>
+Serializing</h4>
+
+Unlike the other [=easing function=] keywords,
+''step-start'' and ''step-end'' <em>do not</em> serialize as themselves.
+Instead, they serialize as "steps(1, start)" and "steps(1)", respectively.
+
+<div algorithm>
+  To <dfn export>serialize a steps() functions</dfn>:
+
+  1. Let |s| be the string "steps(".
+
+  2. Serialize the function's [=steps()/steps=],
+    and append it to |s|.
+
+  3. If the function's [=steps()/step position=] is ''end'' or ''jump-end'',
+    append ")" to |s| and return |s|.
+
+  4. Otherwise, append ", " to |s|.
+    Serialize the [=steps()/step position=] as a keyword,
+    and append the result to |s|.
+    Append ")" to |s|.
+    Return |s|.
+
+  <wpt>
+    timing-functions-syntax-computed.html
+  </wpt>
+</div>
+
 
 <h4 id=step-easing-algo oldids=step-timing-function-algo>
 Output</h4>
 
-At the exact point where a step occurs, the result of the function is
-conceptually the top of the step. However, an additional <dfn>before flag</dfn>
-passed as input to the [=step easing function=], if true, will cause the
-result of the function to correspond to the bottom of the step at the step
-point.
+<div algorithm>
+  To <dfn export>calculate step easing output progress</dfn>
+  for a given [=step easing function=] |func|,
+  an [=input progress value=] |inputProgress|,
+  and an optional [=before flag=] (defaulting to false),
+  perform the following.
+  It returns an [=output progress value=].
 
-<div class=example>
+  1. If the [=before flag=] is true, return 0.
 
-As an example of how the [=before flag=] affects the behavior of this function,
-consider an animation with a [=step easing function=] whose [=step
-position=] is <a value for="steps()">start</a> and which has a positive
-delay and backwards fill.
+  2. Let |steps| be |func|'s [=steps()/steps=],
+    and |position| be |func|'s [=steps()/step position=].
 
-For example, using CSS animation:
+  3. Divide the interval [-&infin;, &infin;] into several segments,
+    each with an associated value,
+    as follows:
 
-<pre class='lang-css'>
-animation: moveRight 5s 1s steps(5, start);
-</pre>
+    1. [-&infin;, 0) has the value 0.
+    2. [1, &infin;] has the value 1.
+    3. [0, 1) is divided into |steps| half-open intervals,
+      [0, ...) to [..., 1)
+      with their values assigned as defined for the |position|
+      (see <<step-position>>).
 
-During the delay phase, the [=input progress value=] will be zero but if the
-[=before flag=] is set to indicate that the animation has yet to reach its
-animation interval, the easing function will produce zero as its [=output
-progress value=], i.e. the bottom of the first step.
+    Note: In other words,
+    at the boundary between intervals,
+    the associated value is the higher value.
 
-At the exact moment when the animation interval begins, the [=input progress
-value=] will still be zero, but the [=before flag=] will not be set and hence
-the result of the easing function will correspond to the top of the first step.
+  4. Return the associated value
+    for the interval that |inputProgress| is in.
 
+  <wpt>
+    step-timing-functions-output.html
+  </wpt>
 </div>
 
-For the purposes of calculating the [=output progress value=], the
-[=step position=] <a value for="steps()">start</a> is considered equivalent to
-<a value for="steps()">jump-start</a>.
-Likewise <a value for="steps()">end</a> is considered equivalent to <a value
-for="steps()">jump-end</a>.
-As a result, the following algorithm does not make explicit reference to
-<a value for="steps()">start</a> or <a value for="steps()">end</a>.
-
-Note: User agents must still differentiate between
-<a value for="steps()">jump-start</a> and <a value for="steps()">start</a> for
-the purpose of serialization (see [[#serialization]]).
-
-The [=output progress value=] is calculated from the [=input progress value=]
-and [=before flag=] as follows:
-
-1.   Calculate the <var>current step</var> as
-     <code>floor([=input progress value=] &times; [=steps=])</code>.
-
-1.   If the [=step position=] property is one of:
-
-     * <a value for="steps()">jump-start</a>,
-     * <a value for="steps()">jump-both</a>,
-
-     increment <var>current step</var> by one.
-
-1.   If <em>both</em> of the following conditions are true:
-
-     *   the [=before flag=] is set, <em>and</em>
-     *   [=input progress value=] &times; [=steps=] mod 1 equals zero
-         (that is, if [=input progress value=] &times; [=steps=] is
-         integral), then
-
-     decrement <var>current step</var> by one.
-
-1.   If [=input progress value=] &ge; 0 and <var>current step</var> &lt; 0,
-     let <var>current step</var> be zero.
-
-1.   Calculate |jumps| based on the [=step position=] as follows:
-
-      :   <a value for="steps()">jump-start</a> or
-          <a value for="steps()">jump-end</a>
-      ::  [=steps=]
-      :   <a value for="steps()">jump-none</a>
-      ::  [=steps=] - 1
-      :   <a value for="steps()">jump-both</a>
-      ::  [=steps=] + 1
-
-1.   If [=input progress value=] &le; 1 and <var>current step</var> &gt;
-     |jumps|, let <var>current step</var> be |jumps|.
-
-     <div class=note>
-
-     Steps 4 and 6 in this procedure ensure that given an [=input progress
-     value=] in the range [0, 1], a step easing function does not produce an
-     [=output progress value=] outside that range.
-
-     For example, although mathematically we might expect that a step easing
-     function with a [=step position=] of <a value for="steps()">jump-start</a>
-     would step up (i.e. beyond 1) when the [=input progress value=] is 1,
-     intuitively,
-     when we apply such an easing function to a forwards-filling animation,
-     we expect it to produce an [=output progress value=] of 1
-     as the animation fills forwards.
-
-     A similar situation arises for a step easing function with
-     a [=step position=] of <a value for="steps()">jump-end</a>
-     when applied to an animation during its delay phase.
-
-     </div>
-
-1.   The [=output progress value=] is <code><var>current step</var> /
-     |jumps|</code>.
-
-<wpt>
-  step-timing-functions-output.html
-</wpt>
-
-<h3 id=serialization oldids=serializing-a-timing-function>Serialization</h3>
-
-Easing functions are serialized using the common serialization patterns
-defined in [[CSSOM]] with the following additional requirements:
-
-*   The keyword values ''ease'', ''linear'', ''ease-in'', ''ease-out'',
-    and ''ease-in-out'' are serialized as-is, that is, they are
-    <em>not</em> converted to the equivalent ''cubic-bezier()'' or
-    ''linear()'' function before serializing.
-
-*   Step easing functions, whether they are specified using the
-    ''steps()'' function or either of the ''step-start'' or ''step-end''
-    keywords, are serialized as follows:
-
-    1.   If the [=step position=] is ''jump-end'' or ''end'', serialize
-         as <a lt="steps()" function>steps(&lt;integer&gt;)</a>.
-
-    2.   Otherwise, serialize as <a lt="steps()"
-         function>steps(&lt;integer&gt;, &lt;step-position&gt;)</a>.
-
-*   A [=linear easing function=] created via ''linear()''
-    is serialized by getting its [=linear easing function/serialized computed value=].
-
-<wpt>
-  timing-functions-syntax-computed.html
-</wpt>
 
 <h2 class=no-num id=privacy>Privacy Considerations</h2>
 
