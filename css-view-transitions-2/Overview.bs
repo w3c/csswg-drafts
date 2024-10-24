@@ -47,6 +47,7 @@ spec:css-view-transitions-1;
 	text: update pseudo-element styles rule; type: dfn;
 	text: document-scoped view transition name; type: dfn;
 	text: capture rendering characteristics; type: dfn;
+	text: capturing the image; type: dfn;
 spec:dom; type:dfn; text:document
 spec:css22; type:dfn; text:element
 spec:selectors-4; type:dfn;
@@ -72,7 +73,12 @@ spec:css-borders-4;
 	type: property; text:border-right;
 	type: property; text:border-bottom;
 	type: property; text:border-left;
-spec:css-sizing-3; type: value; text:border-box;
+	type: property; text:border-left-width;
+	type: property; text:border-top-width;
+spec:css-sizing-3;
+	type: value; text:box-sizing;
+	type: value; text:border-box;
+	type: value; text:content-box;
 </pre>
 
 <style>
@@ -909,7 +915,7 @@ This includes tree effects, such as 'opacity', 'mask', 'clip-path' and 'filter',
 
 With layered capture, all the CSS properties that affect the entire tree, as well as box decorations, are captured as style and animate as part of the group.
 
-	Issue: should this behavior be an opt-in/opt-out with a CSS property?
+	Issue: should this behavior be an opt-in/opt-out with a CSS property? See <a href="https://github.com/w3c/csswg-drafts/issues/11078">issue 11078</a>.
 
 
 ## Table of captured CSS properties {#layered-captured-css-properties}
@@ -931,12 +937,6 @@ with disregard to that property:
 	- 'mask'
 	- 'opacity'
 	- 'outline'
-	- 'overflow'
-	- 'overflow-clip-margin'
-
-	Issue: the behavior of 'overflow' needs to be clarified, especially with ''overflow/scroll'' and ''overflow-auto''. Should the scroll bars be part of the snapshot?
-
-	Issue: the behavior of 'box-sizing' needs to be clarified, should we carry it forward (together with 'padding'), or simplify by having the pseudo-elements to have ''box-sizing/border-box'' by default?
 
 # Algorithms # {#algorithms}
 
@@ -1003,9 +1003,13 @@ The [=captured element=] struct should contain these fields, in addition to the 
 		:: A string.
 
 		: <dfn>transform from snapshot containing block</dfn>
-		: <dfn>old nested group transform
-		: <dfn>new nested group transform
 		:: A [=matrix=], initially the [=identity transform function=].
+
+		: <dfn>old border offset
+		: <dfn>new border offset
+		:: (number, number), initially (0, 0).
+
+			Note: this is used to correctly position groups nested in this element's '::view-transition-group'.
 	</dl>
 
 ## Resolving the ''@view-transition'' rule ## {#vt-rule-algo}
@@ -1295,7 +1299,7 @@ When [[css-view-transitions-1#setup-transition-pseudo-elements-algorithm|setting
 
 		1. Append |group| to |parentGroup|.
 
-		1. When setting the animation keyframes given |transform|, [=multiply=] |transform| by the inverse matrix of (|groupContainerElement|'s [=old transform=] · |groupContainerElement|'s [=old nested group transform=]).
+		1. When setting the animation keyframes given |transform|, [=adjust the nested group transform=] to |transform|, given |groupContainerElement|'s [=old transform=] and |groupContainerElement|'s [=old border offset=].
 
 	Note: It is TBD how this is resolved when the old and new groups mismatch. See <a href="https://github.com/w3c/csswg-drafts/issues/10631">Issue 10631</a>.
 </div>
@@ -1310,8 +1314,7 @@ When [[css-view-transitions-1#style-transition-pseudo-elements-algorithm|updatin
 
 		1. Let |groupContainerElement| be |transition|'s [=ViewTransition/named elements=][|capturedElement|'s [=containing group name=].
 
-		1. [=Multiply=] |transform| by the inverse matrix of (|groupContainerElement|'s [=transform from snapshot containing block=] · |groupContainerElement|'s [=new nested group transform=]).
-</div>
+		1. [=Adjust the nested group transform=] to |transform|, given |groupContainerElement|'s [=transform from snapshot containing block=] and |groupContainerElement|'s [=new border offset=].</div>
 
 ## Capturing layered CSS properties ## {#layered-capture-algorithms}
 
@@ -1320,8 +1323,11 @@ When [[css-view-transitions-1#style-transition-pseudo-elements-algorithm|updatin
 <div algorithm="compute layered capture style">
 To compute the <dfn>layered capture style</dfn> of an {{Element}} |element|:
 
+	1. Let |propertiesToCapture| be a new [=/list=] corresponding to the [=layered capture properties=],
+	1. If |element| accepts 'box-sizing' (i.e. is not a [=non-replaced=] [=inline=]), [=list/append=] 'box-sizing'
+	1. Issue: Specify the behavior of 'overflow'. See <a href="https://github.com/w3c/csswg-drafts/issues/11079">issue 11079</a>.
 	1. Let |styles| be a « ».
-	1. For each |property| in the list of [=layered capture properties=], [=list/append=] the [=string/concatenate|concatentation=] of « |property|, `":"`, |element|'s [=computed value=] of |property|, `";"` » to |styles|.
+	1. For each |property| in |propertiesToCapture|, [=list/append=] the [=string/concatenate|concatentation=] of « |property|, `":"`, |element|'s [=computed value=] of |property|, `";"` » to |styles|.
 	1. Return the [=string/concatenate|concatentation=] of |styles|.
 </div>
 
@@ -1330,34 +1336,29 @@ To compute the <dfn>layered capture style</dfn> of an {{Element}} |element|:
 When [[css-view-transitions-1#capture-new-state-algorithm|capturing the old state for an element]], perform the following steps given a [=captured element=] |capturedElement| and an [=element=] |element|:
 
 	1. Set |capturedElement|'s [=old layered-capture style=] to |element|'s [=layered capture style=].
-	1. Set |capturedElement|'s [=old nested group transform=] to the [=nested group transform=] given |element|.
+	1. Set |capturedElement|'s [=old border offset=] to (|element|'s [=computed value|computed=] 'border-left-width', |element|'s [=computed value|computed=] 'border-top-width').
+</div>
+
+### Adjustment to image capture size ### {#capture-image-size-algorithm}
+<div algorithm="adjust image capture size (layered)">
+When [=capturing the image=], if |element| is not the [=document element=]:
+	1. If |element|'s [=computed value|computed=] 'box-sizing' is ''box-sizing/content-box'', and 'box-sizing' [=CSS/apply to|applies to=] |element|, the rendered image's [=natural dimensions=] must be the |element|'s [=principal box|principal=] [=content box=] instead of the [=border box=].
+
+	1. Set |capturedElement|'s [=old layered-capture style=] to |element|'s [=layered capture style=].
+	1. Set |capturedElement|'s [=old border offset=] to (|element|'s [=computed value|computed=] 'border-left-width', |element|'s [=computed value|computed=] 'border-top-width').
 </div>
 
 ### Render the snapshot with layered capture ### {#layered-capture-rendering}
 
-When capturing an element into a snapshot, apply the following style to the element in addition to the [=capture rendering characteristics=]:
+When capturing an element into a snapshot, only the [=element contents=] are painted, without the element's effects and box decorations.
+Specifically, the element's 'background', 'border', 'border-image', 'box-shadow', and 'outline' are not painted, and its 'border-radius', 'clip-path', 'filter', 'mask', and 'opacity' are not applied.
 
-```css
-/*the-element-being-captured*/ {
-	background: none;
-	border-color: transparent;
-	border-image: none;
-	border-radius: none;
-	box-shadow: none;
-	clip-path: none;
-	filter: none;
-	mask: none;
-	opacity: 1;
-	outline-color: transparent;
-}
-```
+### Adjust the nested group transform ### {#vt-adjust-nested-group-transform}
+To <dfn>adjust the nested group transform</dfn> given a [=matrix=] |transform|, a [=matrix=] |parentTransform| and a |borderOffset|, perform the following steps:
+	1. [=Multiply=] |transform| with the inverse matrix of |parentTransform|.
+	1. Translate |transform| by -|borderOffset|.
 
-Note: this style should only apply to the element while painting, it should not be web-observable via e.g. {{Window/getComputedStyle()}}.
-
-Note: we apply 'outline-color' and 'border-color' instead of 'outline' and 'border' so that layout is not affected by capturing.
-
-### Compute the nested group transform ### {#vt-compute-nested-group-transform}
-To compute the <dfn>nested group transform</dfn> given an {{Element}} |element|, return a [=matrix=] equivalent to a 2D translation of (|element|'s [=computed value|computed=] ''border-left-width'', |element|'s [=computed value|computed=] ''border-top-width'').
+		Note: These operations ensure that the default position of this nested group would be equivalent to the original element's position, given that by default a nested ':view-transition-group' would be positioned relative to the parent's [=padding edge=].
 
 ### Apply the old layered-capture properties to ''::view-transition-group()'' keyframes ### {#vt-layered-capture-apply-keyframes}
 <div algorithm="additional pseudo-element setup steps (layered capture keyframes)">
@@ -1371,7 +1372,7 @@ When [[css-view-transitions-1#setup-transition-pseudo-elements-algorithm|setting
 When [[css-view-transitions-1#style-transition-pseudo-elements-algorithm|updating the style of the transition pseudo-element]], perform the following steps before setting the [=captured element/group styles rule=], given a |transitionName|, a |capturedElement|, and an {{Element}} |element|:
 
 	1. Let |style| be |element|'s [=layered capture style=].
-	1. Set |capturedElement|'s [=new nested group transform=] to the [=nested group transform=] given |element|.
+	1. Set |capturedElement|'s [=new border offset=] to (|element|'s [=computed value|computed=] 'border-left-width', |element|'s [=computed value|computed=] 'border-top-width').
 	1. Append the [=string/concatenate|concatentation=] of « `"::view-transition-group("`, |transitionName|, `") {"`, |style| , `"}"` » to the constructed user-agent stylesheet.
 
 </div>
