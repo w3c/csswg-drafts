@@ -172,8 +172,8 @@ Commas in Function Arguments</h4>
 	Note: Because {} wrappers are allowed even when not explicitly required,
 	they can be used defensively around values
 	when the author isn't sure if they'll end up containing commas or not,
-	due to [=arbitrary-substitution functions=] like ''var()''.
-	For example, ''font-family: random-item(--x, {var(--list1)}, monospace)''
+	due to [=arbitrary substitution functions=] like ''var()''.
+	For example, <l property>''font-family: random-item(--x, {var(--list1)}, monospace)''</l>
 	will work correctly
 	regardless of whether the ''--list1'' custom property
 	contains a comma-separated list or not.
@@ -204,9 +204,8 @@ Commas in Function Arguments</h4>
 Specifying CSS Syntax in CSS: the <<syntax>> type</h3>
 
 Some features in CSS,
-such as the ''attr()'' function,
-[=registered custom properties=],
-or [=custom function parameters=],
+such as the ''attr()'' function
+or [=registered custom properties=],
 allow you to specify how <em>another</em> value is meant to be parsed.
 This is declared via the <<syntax>> production,
 which resembles a limited form of the CSS [=value definition syntax=]
@@ -214,7 +213,7 @@ used in specifications to define CSS features,
 and which represents a [=syntax definition=]:
 
 <pre class="prod def" nohighlight>
-	<dfn><<syntax>></dfn> = '*' | <<syntax-component>> [ <<syntax-combinator>> <<syntax-component>> ]+
+	<dfn><<syntax>></dfn> = '*' | <<syntax-component>> [ <<syntax-combinator>> <<syntax-component>> ]+ | <<syntax-string>>
 	<dfn><<syntax-component>></dfn> = <<syntax-single-component>> <<syntax-multiplier>>?
 	                   | '<' transform-list '>'
 	<dfn><<syntax-single-component>></dfn> = '<' <<syntax-type-name>> '>' | <<ident>>
@@ -224,6 +223,8 @@ and which represents a [=syntax definition=]:
 	                   | url | transform-function
 	<dfn><<syntax-combinator>></dfn> = '|'
 	<dfn><<syntax-multiplier>></dfn> = [ '#' | '+' ]
+
+	<dfn><<syntax-string>></dfn> = <<string>>
 </pre>
 
 A <<syntax-component>> consists of either
@@ -276,10 +277,72 @@ is a convenience form equivalent to <code>&lt;transform-function&gt;+</code>.
 
 [=Whitespace=] is not allowed
 between the angle bracket <<delim-token>>s (<code>&lt;</code> <code>&gt;</code>)
-and the <<syntax-type>> they enclose,
+and the <<syntax-type-name>> they enclose,
 nor is [=whitespace=] allowed to precede a <<syntax-multiplier>>.
 
 Note: The [=whitespace=] restrictions also apply to <code>&lt;transform-list&gt;</code>.
+
+A <<syntax-string>> is a <<string>>
+whose value successfully [=CSS/parses=] as a <<syntax>>,
+and represents the same value as that <<syntax>> would.
+
+Note: <<syntax-string>> mostly exists for historical purposes;
+before <<syntax>> was defined,
+the ''@property'' rule used a <<string>> for this purpose.
+
+<h4 id=parse-syntax>
+Parsing as <<syntax>></h4>
+
+The purpose of a <<syntax>>
+is usually to specify how to parse another value
+(such as the value of a [=registered custom property=],
+or an attribute value in ''attr()'').
+However, the generic [=CSS/parse something according to a CSS grammar=] algorithm
+returns an unspecified internal structure,
+since parse results might be ambiguous
+and need further massaging.
+
+To avoid these issues and get a well-defined result,
+use [=parse with a &lt;syntax>=]:
+
+<div algorithm>
+	To <dfn export>parse with a <<syntax>></dfn>
+	given a [=string=] or [=list=] or [=CSS/component values=] |values|,
+	a <<syntax>> value |syntax|,
+	and optionally an element |el| for context,
+	perform the following steps.
+	It returns either CSS values,
+	or the [=guaranteed-invalid value=].
+
+	1. [=Parse a list of component values=] from |values|,
+		and let |raw parse| be the result.
+
+	2. If |el| was given,
+		[=substitute arbitrary substitution functions=] in |raw parse|,
+		and set |raw parse| to that result.
+
+	3. [=CSS/parse=] |values| according to |syntax|,
+		with a ''*'' value treated as <code><<declaration-value>>?</code>,
+		and let |parsed result| be the result.
+		If |syntax| used a ''|'' combinator,
+		let |parsed result| be the parse result from the first matching clause.
+
+	4. If |parsed result| is failure,
+		return the [=guaranteed-invalid value=].
+
+	5. Assert: |parsed result| is now a well-defined list of one or more CSS values,
+		since each branch of a <<syntax>> defines an unambiguous parse result
+		(or the ''*'' syntax is unambiguous on its own).
+
+	6. Return |parsed result|.
+</div>
+
+Note: This algorithm does not resolved the parsed values
+into [=computed values=];
+the context in which the value is used will usually do that already,
+but if not,
+the invoking algorithm will need to handle that on its own.
+
 
 
 <h2 id="level-4-extensions">
@@ -637,7 +700,7 @@ Interpolation Progress Functional Notations</h2>
 	following a common syntactic pattern:
 
 	<pre class=prod>
-		<var>progress-function</var>() = <var>progress-function</var>( <var>progress value</var> from <var>start value</var> to <var>end value</var> )
+		<var ignore>progress-function</var>() = <var ignore>progress-function</var>( <var ignore>progress value</var> from <var ignore>start value</var> to <var ignore>end value</var> )
 	</pre>
 
 	Each resolves to a <<number>>
@@ -1331,23 +1394,14 @@ Ian's proposal:
 	substitutes a [=custom property=] value into a function.
 
 	<pre class=prod>
-		attr() = attr( <<attr-name>> <<attr-type>>? , <<declaration-value>>?)
+		attr() = attr( <<attr-name>> <<syntax>>? , <<declaration-value>>?)
 
 		<dfn>&lt;attr-name></dfn> = [ <<ident-token>> '|' ]? <<ident-token>>
-
-		<dfn>&lt;attr-type></dfn> = string | ident | color | number | percentage |
-		              length | angle | time | frequency | flex | <<dimension-unit>>
 	</pre>
 
 	<!-- Switch the <attr-name> to just use <q-name>
 		when Namespaces is rewritten
 		to use the current grammar structures. -->
-
-	The <dfn>&lt;dimension-unit></dfn> production matches a literal "%" character
-	(that is, a <<delim-token>> with a value of "%")
-	or an ident whose value is any of the CSS units
-	for <<length>>, <<angle>>, <<time>>, <<frequency>>, or <<flex>> values
-	(such as ''px'' or ''ms'').
 
 	The arguments of ''attr()'' are:
 
@@ -1370,16 +1424,24 @@ Ian's proposal:
 		if applied to a pseudo-element,
 		the attribute is looked up on the pseudo-element's [=originating element=].
 
-	: <<attr-type>>
+	: <<syntax>>
 	::
-		Specifies what kind of CSS value
-		the attribute's value will be interpreted into
-		(the ''attr()''’s <dfn dfn for=attr()>substitution value</dfn>)
-		and what, if any, special parsing will be done to the value.
+		Specifies how the attribute value is [=CSS/parsed=] into a CSS value.
+		Values that fail to parse according to the syntax
+		trigger fallback.
 
-		The possible values and their behavior are defined in [[#attr-types]].
+		Omitting the <<syntax>> argument
+		causes the attribute's literal value
+		to be treated as the value of a CSS string,
+		with no CSS parsing performed at all
+		(including CSS escapes, whitespace removal, comments, etc).
 
-		Defaults to ''string'' if omitted.
+		Note: This is different from specifying a syntax of ''*'',
+		which still triggers CSS parsing
+		(but with no requirements placed on it
+		beyond that it parse validly),
+		and which substitutes the result of that parsing directly,
+		rather than as a <<string>> value.
 
 	: <<declaration-value>>
 	::
@@ -1388,9 +1450,9 @@ Ian's proposal:
 		if the attribute is missing
 		or fails to parse as the specified type.
 
-		If the <<attr-type>> argument is ''string'',
-		defaults to the empty string if omitted;
-		otherwise, defaults to the [=guaranteed-invalid value=] if omitted.
+		If the <<syntax>> argument is omitted,
+		the fallback defaults to the empty string if omitted;
+		otherwise, it defaults to the [=guaranteed-invalid value=] if omitted.
 
 	If a property contains one or more ''attr()'' functions,
 	and those functions are syntactically valid,
@@ -1400,108 +1462,22 @@ Ian's proposal:
 
 	<div class='note'>
 		Note that the default value need not be of the type given.
-		For instance, if the type required of the attribute by the author is ''px'',
+		For instance, if the type required of the attribute by the author is ''<number px>'',
 		the default could still be <css>auto</css>,
-		like in ''width: attr(size px, auto);''.
+		like in ''width: attr(size <number px>, auto);''.
 	</div>
-
-<h4 id="attr-types">
-''attr()'' Types</h4>
-
-	The behavior of the ''attr()'' function
-	depends partially on the value of the <<attr-type>> argument:
-
-	<dl dfn-type=value dfn-for=attr()>
-		: <dfn>string</dfn>
-		:: The [=substitution value=] is a CSS string,
-			whose value is the literal value of the attribute.
-			(No CSS parsing or "cleanup" of the value is performed.)
-
-			No value triggers fallback.
-
-		: <dfn>ident</dfn>
-		:: The [=substitution value=] is a CSS <<custom-ident>>,
-			whose value is the literal value of the attribute,
-			with [=strip leading and trailing ASCII whitespace|leading and trailing ASCII whitespace stripped=].
-			(No CSS parsing of the value is performed.)
-
-			If the attribute value,
-			after trimming,
-			is the empty string,
-			there is instead no [=substitution value=].
-
-			If the <<custom-ident>>’s value is a [=CSS-wide keyword=]
-			or <css>default</css>,
-			there is instead no [=substitution value=].
-
-		: <dfn>color</dfn>
-		::
-			[=Parse a component value=] from the attribute's value.
-			If the result is a <<hex-color>>
-			or a [=named color=] ident,
-			the [=substitution value=] is that result as a <<color>>.
-
-			Otherwise there is no [=substitution value=].
-
-		: <dfn>number</dfn>
-		::
-			[=Parse a component value=] from the attribute's value.
-			If the result is a <<number-token>>,
-			the result is the [=substitution value=].
-
-			Otherwise, there is no [=substitution value=].
-
-		: <dfn>percentage</dfn>
-		::
-			[=Parse a component value=] from the attribute's value.
-			If the result is a <<percentage-token>>,
-			the result is the [=substitution value=].
-
-			Otherwise, there is no [=substitution value=].
-
-		: <dfn>length</dfn>
-		: <dfn>angle</dfn>
-		: <dfn>time</dfn>
-		: <dfn>frequency</dfn>
-		: <dfn>flex</dfn>
-		::
-			[=Parse a component value=] from the attribute's value.
-			If the result is a <<dimension-token>>
-			whose unit matches the given type,
-			the result is the [=substitution value=].
-
-			Otherwise, there is no [=substitution value=].
-
-		: <dfn><<dimension-unit>></dfn>
-		::
-			[=Parse a component value=] from the attribute's value.
-			If the result is a <<number-token>>,
-			the [=substitution value=] is a dimension
-			with the result's value,
-			and the given unit.
-
-			Otherwise, there is no [=substitution value=].
-	</dl>
-
-	Issue: Do we want to allow [=math functions=] as attr values
-	for all the numeric types?
-	And color functions for "color"?
-	I think we do,
-	but I'd have to check the contents to make sure they don't contain further reference functions;
-	<code highlight=html>foo="rgb(var(--red), 0, 0)"</code>
-	needs to be illegal for ''attr(foo color)''.
 
 	<div class="example">
 		This example shows the use of attr() to visually illustrate data
 		in an XML file:
 
-		<pre>
-		&lt;stock>
-			&lt;wood length="12"/>
-			&lt;wood length="5"/>
-			&lt;metal length="19"/>
-			&lt;wood length="4"/>
-		&lt;/stock>
+		<xmp>
+		<stock>
+			<wood length="12"/>
+			<wood length="5"/>
+			<metal length="19"/>
+			<wood length="4"/>
+		</stock>
 
 		stock::before {
 			display: block;
@@ -1509,7 +1485,7 @@ Ian's proposal:
 		}
 		stock > * {
 			display: block;
-			width: attr(length em, 0px);
+			width: attr(length <number em>, 0px);
 			height: 1em;
 			border: solid thin;
 			margin: 0.5em;
@@ -1520,33 +1496,45 @@ Ian's proposal:
 		metal {
 			background: silver url(metal.png);
 		}
-		</pre>
+		</xmp>
 	</div>
 
 <h4 id=attr-substitution>
 ''attr()'' Substitution</h4>
 
-	Issue: attr() and var() substitute at the same time,
-	so I should probably rewrite [=substitute a var()=]
-	to be more generally about "substitute a reference"
-	and just use that for both of these functions.
+	''attr()'' is an [=arbitrary substitution function=],
+	similar to ''var()'',
+	and so is replaced with the value it represents (if possible)
+	at [=computed value=] time;
+	otherwise, it's replaced with the [=guaranteed-invalid value=],
+	which will make its declaration [=invalid at computed-value time=].
 
-	''attr()'' functions are [=substitute an attr()|substituted=] at computed-value time.
-	If a declaration,
-	once all ''attr()'' functions are substituted in,
-	does not match its declared grammar,
-	the declaration is [=invalid at computed-value time=].
+	<div algorithm>
+		To <dfn export>[=resolve an arbitrary substitution function|resolve an attr() function=]</dfn>:
 
-	To <dfn export>substitute an ''attr()''</dfn>:
+		1. Let |el| be the element that the style containing the ''attr()'' function
+			is being applied to.
+			Let |attr name| be the attribute name specified in the function.
+			Let |syntax| be the <<syntax>> specified in the function,
+			or null if it was omitted.
+			Let |fallback| be the <<declaration-value>>? argument specified in the function,
+			or the [=guaranteed-invalid value=] if it was omitted.
 
-	1. If the ''attr()'' function has a [=substitution value=],
-		replace the ''attr()'' function by the [=substitution value=].
-	2. Otherwise, if the ''attr()'' function has a fallback value as its last argument,
-		replace the ''attr()'' function by the fallback value.
-		If there are any ''var()'' or ''attr()'' references in the fallback,
-		[=substitute an attr()|substitute=] them as well.
-	3. Otherwise, the property containing the ''attr()'' function
-		is [=invalid at computed-value time=].
+		2. If there is no attribute named |attr name| on |el|,
+			return the [=guaranteed-invalid value=] and |fallback|.
+			Otherwise, let |attr value| be that attribute's value.
+
+		3. If |syntax| is null,
+			return a CSS <<string>>
+			whose value is |attr value|.
+
+			Note: No parsing or modification of any kind is performed on the value.
+
+		4. [=Parse with a &lt;syntax>=] |attr value|, with |syntax| and |el|.
+			Return the result and |fallback|.
+	</div>
+
+
 
 
 <h4 id=attr-security>
