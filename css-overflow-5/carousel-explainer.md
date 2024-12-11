@@ -261,7 +261,9 @@ ul::column::scroll-marker {
 }
 ```
 
-## Putting it all together
+## Use cases
+
+### Carousels
 
 With the features described, developers can create an automatically paginated carousel UX from a semantic list of items, e.g.
 
@@ -342,10 +344,99 @@ and only having the user tab through content on the current page.
 }
 ```
 
+Of note, is that they can mix and match the features they want
+and style each piece.
+
+### Table of contents auto-highlighting
+
+The scroll marker feature provides a great drop-in way for a table of contents to automatically highlight the current section, e.g.
+
+```
+<style>
+/* A floating table of contents similar to spec pages */
+#table-of-contents {
+  position: fixed;
+  top: 0;
+  left: 0;
+  scroll-marker-contain: auto;
+
+  & a:target-current {
+    font-weight: bold;
+  }
+}
+</style>
+<ul id=table-of-contents>
+  <li><a href="#s1">Section 1</a></li>
+  <li><a href="#s2">Section 2</a>
+    <ul>
+      <li><a href="#s2-1">Subsection 1</a>
+      <li><a href="#s2-2">Subsection 2</a>
+    <li>
+  </li>
+  ...
+  <li><a href="#s2">Section n</a></li>
+</ul>
+```
+
+### Paginated reading UI
+
+A book reading interface can be created by using the automatic pagination. E.g.
+
+```html
+<style>
+  .book {
+    columns: 1;
+    overflow: auto;
+    scroll-snap-type: x mandatory;
+  }
+  .book::column {
+    scroll-snap-align: center;
+  }
+  /* Optionally adding next/prev page buttons: */
+  .book::scroll-button(next) {
+    content: ">" / "Next page";
+  }
+  .book::scroll-button(prev) {
+    content: "<" / "Previous page";
+  }
+```
+
 ## Future work
 
 There are a few carousel designs not currently addressed.
 This section enumerates and explores these areas.
+
+### Vertical auto-paged carousels
+
+Column fragmentation is a convenient way to automatically paginate a list of items horizontally,
+however we should have a mechanism for paginating vertically as well.
+Most likely, this will be of the form `column-wrap: wrap` similar to the `flex-wrap` property,
+resulting in columns wrapping in the block direction after they overflow the inline direction.
+With this a vertically paginated carousel could be defined as the following:
+
+```css
+.carousel {
+  overflow: auto;
+  scroll-snap-type: y mandatory;
+  columns: 1;
+  column-wrap: wrap;
+}
+
+.carousel::column {
+  scroll-snap-align: center;
+}
+
+.carousel::column::scroll-marker {
+  /* marker styles */
+}
+```
+
+### Improved pagination styling
+
+Many paginated interfaces allow the user to peek into the subsequent / previous pages.
+Column layouts force an integer number of columns per page meaning they always perfectly fill the space.
+This could be supported by allowing for a fractional column value,
+or specifying the desired overlap region.
 
 ### Cyclic carousels
 
@@ -363,3 +454,114 @@ Auto-advancing carousels introduces many potential accessibility issues if not i
 The [Web Accessibility Initiative Carousel Animations](https://www.w3.org/WAI/tutorials/carousels/animations/) guidelines explores the necessary affordances.
 Most carousel experiences can be authored without automatically advancing sections,
 and in the mean-time author script could implement the animation following the WAI guidelines.
+
+## Alternative approaches considered
+
+There are many other ways that we could deliver these capabilities.
+
+### &lt;carousel&gt; element
+
+An element could encapsulate a lot of the features without needing to express them directly as CSS properties.
+One of the main challenges with this approach is that carousels have a large amount of variation in their designs.
+This would likely add significant complexity to the design of a high level element,
+or require some of the individual features proposed anyways.
+
+### Templated content instead of columns and pseudo-elements
+
+It would be nice for authors to be able to slot in rich content,
+as they would with a custom element.
+For example, they could provide a template of content to be created per page
+with a slot for the contents of that page.
+
+One challenge is that the original content should retain its original structure.
+This may be possible by dynamically slotting elements to particular pages in a shadow tree.
+
+### Using regions or grid-flow instead of ::scroll-marker-group
+
+It would be reasonable to think that if we had a way of flowing elements into another area,
+we could use that to create the group of scroll markers.
+E.g. you could imagine using the [flow-into](https://drafts.csswg.org/css-regions/#the-flow-into-property) and [flow-from](https://drafts.csswg.org/css-regions/#flow-from) properties as follows:
+
+```html
+<style>
+  .markers {
+    flow-from: markers;
+  }
+  /* Generated within the element, similar to a ::before pseudo-element. */
+  li::scroll-marker {
+    flow-into: markers;
+    content: ' ';
+  }
+</style>
+<ul class=scroller>
+  <li>Item 1</li>
+  <li>Item 2</li>
+  <li>Item 3</li>
+</ul>
+<div class=markers>
+</div>
+```
+
+This is in fact very similar to the original direction of this proposal,
+and is nice in its generality, but was abandoned for a few main reasons:
+
+1.  In most use cases that developers use scroll markers,
+    they would want them to flow elsewhere rather than inline where the user is already scrolled to the content.
+    Having this implicit with the `::scroll-marker-group` reduces the number of features needed to be combined to establish this.
+    A notable exception to this is that when not reflowed they could serve as self links [#10498](https://github.com/w3c/csswg-drafts/issues/10498).
+2.  Having an implicit group containing the markers makes allows for the implicit establishment of focusgroup semantics for those markers.
+    One is active at a time, and can automatically assign appropriate itemized AX roles.
+    If they're completely independent then there's an expectation they're focused in dom order w.r.t. their owning element,
+    and not necessarily linked with the other markers.
+3.  Requires the developer to create the area for the markers.
+    This could be alleviated by allowing the `::before` or `::after` pseudo-elements to contain flowing content,
+    but would likely introduce significant complexity. E.g.
+    ```css
+    .scroller::after {
+      flow-from: markers;
+    }
+    ```
+
+This is still a nice direction to be considered, and potentially which we could even explain the behavior of `::scroll-marker-group` in the future.
+E.g. If we decide to do this later, we could explain that the default `::scroll-marker` `flow-into` value is the `flow-from` established by the `::scroll-marker-group`.
+
+### Invoker action and focusgroup invoke action instead of scroll markers
+
+We could add a new built-in `invoke-action` (see [invokers](https://open-ui.org/components/invokers.explainer/)) `scrollTo`. When invoked, the `invokeTarget` will be scrolled to within its ancestor scrolling container. E.g.
+
+```html
+<button invoketarget="my-section" invokeaction="scrollTo">Scroll to section</button>
+...
+<section id="my-section">
+  This will be scrolled into view when you click the button
+</section>
+```
+
+Invoker actions are only [invoked](https://open-ui.org/components/invokers.explainer/#terms) on explicit activation,
+and interest actions are shown [interest](https://open-ui.org/components/interest-invokers.explainer/#terms) on focus or hover.
+For scroll markers, we want the action to be taken only when the selected marker changes, which occurs on focus navigation within the group, but not on hover.
+
+As such, we'd propose adding the `invoke` keyword to the `focusgroup` attribute to allow invoking the `invokeaction` on focusgroup focus changes. E.g.
+
+```html
+<style>
+  #toc {
+    position: sticky;
+    top: 0;
+  }
+</style>
+<ul class="toc" focusgroup="invoke">
+  <li><button tabindex="-1" invoketarget="section-1" invokeaction="scrollTo">Section 1</button></li>
+  <li><button tabindex="-1" invoketarget="section-2" invokeaction="scrollTo">Section 2</button></li>
+  <li><button tabindex="-1" invoketarget="section-3" invokeaction="scrollTo">Section 3</button></li>
+  <li><button tabindex="-1" invoketarget="section-4" invokeaction="scrollTo">Section 4</button></li>
+</ul>
+<section id="section-1">...</section>
+<section id="section-2">...</section>
+<section id="section-3">...</section>
+<section id="section-4">...</section>
+```
+
+Note that this example uses tabindex="-1" to apply the [roving tab index with a guaranteed tab stop](https://open-ui.org/components/focusgroup.explainer/#guaranteed-tab-stop) behavior from focusgroup.
+
+This approach implements the navigation behavior, but notably does not explain how scroll markers would track the scroll state and allow styling the active marker.
