@@ -1557,7 +1557,7 @@ Ian's proposal:
 		attr() = attr( <<attr-name>> <<attr-type>>? , <<declaration-value>>?)
 
 		<dfn>&lt;attr-name></dfn> = [ <<ident-token>>? '|' ]? <<ident-token>>
-		<dfn>&lt;attr-type></dfn> = type( <<syntax>> ) | string | <<attr-unit>>
+		<dfn>&lt;attr-type></dfn> = <dfn function lt="type()" for="attr()">type( <<syntax>> )</dfn> | string | <<attr-unit>>
 	</pre>
 
 	The <dfn>&lt;attr-unit></dfn> production matches any [=identifier=]
@@ -1587,6 +1587,9 @@ Ian's proposal:
 		In particular, HTML and SVG do not contain namespaced attributes.)
 		As with [=attribute selectors=],
 		the case-sensitivity of <<attr-name>> depends on the document language.
+
+		Whitespace is not allowed
+		between any of the components of <<attr-name>>.
 
 		If ''attr()'' is used in a property applied to an element,
 		it references the attribute of the given name on that element;
@@ -1790,6 +1793,147 @@ Security</h4>
 	that can stringify other types of values:
 	''--foo: attr(foo type(&lt;number&gt;)); background-image: src(string(var(--foo)))''
 	needs to be invalid as well.
+
+
+<h4 id=attr-cycles>
+Cycles</h4>
+
+An attribute value may contain ''attr()'' functions,
+or other [=arbitrary substitution functions=],
+that are substituted during [=parse with a &lt;syntax>=].
+This can cause cyclic dependecies,
+either by an attribute referring to itself,
+through multiple attributes referring to each other,
+or through a combination of other [=arbitrary substitution functions=]
+(e.g. ''var()'').
+
+For each element, add a node for every attribute on that element
+to the graph described in [[css-variables-1#cycles]].
+Then, for each attribute <var>attrib</var>,
+add edges as follows:
+
+* From <var>attrib</var> to any attributes referenced by ''attr()''
+	within <var>attrib</var>'s value.
+* From <var>attrib</var> to any [=custom properties=] referenced by ''var()''
+	within <var>attrib</var>'s value.
+* From any [=custom property=] that references <var>attrib</var> using ''attr()''
+	to <var>attrib</var>.
+
+An ''attr()'' referencing an attribute
+which is part of a cycle
+makes the containing [=declaration=] [=invalid at computed-value time=].
+
+<div class='example'>
+	In the following,
+	<code>width</code> is [=invalid at computed-value time=],
+	because ''attr()'' tries to substitute a value which refers to itself:
+
+	<pre class='lang-css'>
+	div {
+	  width: attr(data-foo type(*));
+	}
+	</pre>
+	<pre class='lang-html'>
+	&lt;div data-foo="attr(data-foo type(*))">&lt;/div>
+	</pre>
+
+	Note: Even if one (or both) of the ''attr()'' functions had a fallback,
+	the result would be the same.
+</div>
+
+<div class='example'>
+	Cycles can occur through [=custom properties=];
+	in the following,
+	<code>--x</code> and <code>--y</code> are both [=invalid at computed-value time=]:
+
+	<pre class='lang-css'>
+	div {
+	  --x: var(--y);
+	  --y: attr(data-foo type(*));
+	}
+	</pre>
+	<pre class='lang-html'>
+	&lt;div data-foo="var(--x)">&lt;/div>
+	</pre>
+</div>
+
+<!-- Big Text: ident() 
+
+████ ████▌  █████▌ █    █▌ █████▌   ██ ██
+ ▐▌  █▌  █▌ █▌     █▌   █▌   █▌    █▌   ▐█
+ ▐▌  █▌  █▌ █▌     ██▌  █▌   █▌   █▌     ▐█
+ ▐▌  █▌  █▌ ████   █▌▐█ █▌   █▌   █▌     ▐█
+ ▐▌  █▌  █▌ █▌     █▌  ██▌   █▌   █▌     ▐█
+ ▐▌  █▌  █▌ █▌     █▌   █▌   █▌    █▌   ▐█
+████ ████▌  █████▌ █▌   ▐▌   █▌     ██ ██
+-->
+
+<h3 id=ident>
+Constructing <<custom-ident>> values: the ''ident()'' function</h3>
+
+	<!-- https://github.com/w3c/csswg-drafts/issues/9141 -->
+
+	The <dfn>ident()</dfn> function is an [=arbitrary substitution function=]
+	that can be used to manually construct <<custom-ident>> values from several parts.
+
+	<pre class=prod>
+	<dfn function lt="ident()"><<ident()>></dfn> = ident( <<ident-arg>>+ )
+	<dfn><<ident-arg>></dfn> = <<string>> | <<integer>> | <<ident>>
+	</pre>
+
+	Issue(w3c/csswg-drafts#11426): Should we allow a fallback value?
+
+	The ''ident()'' function can be used as a value for any property or function argument
+	that accepts a <<custom-ident>>.
+
+	<div class=example>
+		In the following example,
+		each matched element gets a unique <dfn><<'view-timeline-name'>></dfn>
+		in the format of <code>"vtl-<em>number</em>"</code>.
+		The <code><em>number</em></code> is generated using ''sibling-index()''.
+
+		```css
+		.item {
+			/* vtl-1, vtl-2, vtl-3, … */
+			view-timeline-name: ident("vtl-" sibling-index());
+		}
+		```
+	</div>
+
+	While in many cases ''attr()'' with the <<attr-type>> set to <code>type(<<custom-ident>>)</code> will do,
+	''ident()'' can be used to construct a <<custom-ident>> using values that come from other elements.
+
+	<div class=example>
+		In the following example, the  ''ident()'' function uses a custom property
+		which is defined on a parent.
+
+		```css
+		.card[id] {
+			/* E.g. card1, card2, card3, … */
+			--id: attr(id);
+
+			view-transition-name: ident(var(--id));
+			view-transition-class: card;
+
+			h1 {
+				/* E.g. card1-title, card2-title, card3-title, … */
+				view-transition-name: ident(var(--id) "-title");
+				view-transition-class: card-title;
+			}
+		}
+		```
+	</div>
+
+	To generate a <<dashed-ident>>, put <code>"--"</code> as the first argument.
+
+	<div class=example>
+
+		```css
+		.element {
+			anchor-name: ident("--" attr(id));
+		}
+		```
+	</div>
 
 <!-- Big Text: random
 
