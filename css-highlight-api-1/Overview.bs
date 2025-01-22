@@ -49,6 +49,9 @@ spec:css-color-4; type:property; text:color
 spec:css-pseudo-4; type:dfn; text:highlight overlay
 spec:dom; type:dfn; text:range
 spec:css-values-4; type:dfn; text:identifier
+spec:dom; type:dfn; for:Element; text:shadow root
+spec:dom; type:dfn; text:event
+spec:css21; type:dfn; text:viewport
 </pre>
 
 <style>
@@ -73,7 +76,7 @@ Introduction</h2>
 	''::selection'',
 	''::inactive-selection'',
 	''::spelling-error'',
-	and '''::grammar-error'''.
+	and ''::grammar-error''.
 	This is useful in a variety of scenarios,
 	including editing frameworks that wish to implement their own selection,
 	find-on-page over virtualized documents,
@@ -583,37 +586,96 @@ Range Updating and Invalidation</h3>
 Interacting with Custom Highlights</h2>
 
 User interaction with [=custom highlights=] can be done via the
- {{highlightsFromPoint}}(<var>x</var>, <var>y</var>, <var>options</var>) method.
+{{highlightsFromPoint}}(<var>x</var>, <var>y</var>, <var>options</var>) method.
+It returns a [=sequence=] of highlights at a given point, specified by coordinates <var>x</var> and <var>y</var>,
+ordered by [=priority=]. The developer has the possibility to pass in <var>options</var>, which is an optional [=dictionary=]
+where its [=keys|key=] maps to a [=sequence=] of {{ShadowRoot}} objects.
+The API can search for and return highlights within the provided [=shadow tree=].
+
+	<div class=example id=highlights-from-point-ex>
+		The following example shows a way to use {{highlightsFromPoint}} to interact with mouse click [=event|events=].
+
+		<xmp highlight=html>
+			<style>
+				:root::highlight(foo) {
+					background-color:yellow;
+				}
+				:root::highlight(bar) {
+					color:red;
+				}
+			</style>
+			<body>abc
+			<script>
+				document.addEventListener('click', (event) => {
+					const mouseX = event.clientX;
+					const mouseY = event.clientY;
+					console.log(CSS.highlights.highlightsFromPoint(mouseX, mouseY));
+				});
+
+				let textNode = document.body.firstChild;
+				let r1 = new Range();
+				r1.setStart(textNode, 0);
+				r1.setEnd(textNode, 2);
+				let r2 = new Range();
+				r2.setStart(textNode, 1);
+				r2.setEnd(textNode, 2);
+
+				let h1 = new Highlight(r1);
+				let h2 = new Highlight(r2);
+				h1.priority = 1;
+				h2.priority = 2;
+
+				CSS.highlights.set("foo", h1);
+				CSS.highlights.set("bar", h2);
+			</script>
+		</xmp>
+
+		The code above will display the following styled text, note that "b" is affected by both [=highlight|highlights=]
+		<var>h1</var> and <var>h2</var>, whereas "a" is only affected by <var>h1</var>:
+
+		<div class=sample-out style="color:black">
+			<span style="background:yellow;">a</span><span style="background:yellow;color:red;">b</span><span>c</span>
+		</div>
+
+		In this example there's an [=event listener=] set on click [=event|events=] that logs the [=custom highlights=]
+		present at the point where the click was made.
+		The following [=sequence|sequences=] are some examples of what will be printed to console after a click:
+			* <code>[ <var>h1</var> ]</code>, if the user clicks on character "a".
+			* <code>[ <var>h2</var>, <var>h1</var> ]</code>, if the user clicks on character "b",
+				as <var>h2</var> has higher priority than <var>h1</var>.
+			* <code>[]</code>, if the user clicks on character "c".
+	</div>
+
+The method {{highlightsFromPoint}} is defined as part of the {{HighlightRegistry}} interface as follows:
 
 <pre class=idl>
 partial interface HighlightRegistry {
-  sequence&lt;Highlight> highlightsFromPoint(float x, float y, optional <span>HighlightsFromPointOptions</span> options = {});
+	sequence&lt;Highlight> highlightsFromPoint(float x, float y, optional <span>HighlightsFromPointOptions</span> options = {});
 };
 
 dictionary <dfn dictionary>HighlightsFromPointOptions</dfn> {
-  sequence&lt;ShadowRoot> <dfn dict-member for="HighlightsFromPointOptions">shadowRoots</dfn> = [];
+	sequence&lt;ShadowRoot> <dfn dict-member for="HighlightsFromPointOptions">shadowRoots</dfn> = [];
 };
 </pre>
 
-	The <dfn method for="HighlightRegistry">highlightsFromPoint(<var>x</var>, <var>y</var>, <var>options</var>)</dfn>
-	 method must return the result of running these steps:
+The <dfn method for="HighlightRegistry">highlightsFromPoint(<var>x</var>, <var>y</var>, <var>options</var>)</dfn>
+method must return the result of running these steps:
 
-1. If there is no <a>viewport</a> associated with the document, return the empty sequence.
-1. If either argument is negative, <var>x</var> is greater
-    than the <a>viewport</a> width excluding the size of a rendered
-    scroll bar (if any), or <var>y</var> is greater than the
-    <a>viewport</a> height excluding the size of a rendered scroll bar
-    (if any), return the empty sequence.
-1. Otherwise, return a sequence of custom higlights ordered by [=priority=],
-    where each highlight contains at least one range that satisfies the following constraints:
-	1. The coordinates <var>x</var>,<var>y</var> fall inside at least one of the rectangles returned by calling getClientRects() on it.
-	1. The range's {{commonAncestorContainer}} is not in a shadow DOM, or is one of the shadow roots passed in <var>options</var> or a
-	    descendant of one of them.
+1. If any of the following are true, return the empty [=sequence=]:
+	* <var>x</var> is negative
+	* <var>y</var> is negative
+	* <var>x</var> is greater than the <a>viewport</a> width excluding the size of a rendered scroll bar (if any)
+	* <var>y</var> is greater than the <a>viewport</a> height excluding the size of a rendered scroll bar (if any)
+1. Otherwise, return a [=sequence=] of [=custom highlights=] given by ordering the highlights contained in this {{HighlightRegistry}} by [=priority=],
+	excluding the highlights without at least one [=range=] <var>range</var> that satisfies the following constraints:
+	1. The coordinates <var>x</var>,<var>y</var> fall inside at least one of the {{DOMRect}}s returned by calling {{Range/getClientRects()}} on <var>range</var>.
+	1. The <var>range</var>'s {{commonAncestorContainer}} is not in a [=shadow tree=] or is in a [=shadow tree=] whose
+		[=shadow root=] is [=list/contains|contained by=] by <var>options</var>.<var ignore=''>shadowRoots</var>.
 
-Note: The specifics of hit testing are out of scope of this
-specification and therefore the exact details of
-{{highlightsFromPoint()}} are therefore too. Hit testing
-will hopefully be defined in a future revision of CSS or HTML.
+	Note: The specifics of hit testing are out of scope of this
+	specification and therefore the exact details of
+	{{highlightsFromPoint()}} are therefore too. Hit testing
+	will hopefully be defined in a future revision of CSS or HTML.
 
 <h2 id=events>
 Event Handling</h2>
