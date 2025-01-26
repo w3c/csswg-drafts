@@ -90,7 +90,7 @@ By default, use a monochromatic icon font for icons. Only when font support for
 colored layers—such as in a COLRv0—font is available, upgrade to a COLRv0 font
 with multi-colored glyphs.
 
-Without feature detection, sending a COLRv0 font to to a UA with an incompatible
+Without feature detection, sending a COLRv0 font to a UA with an incompatible
 font stack will lead to unexpected and potentially illegible results. Detecting
 the feature allows progressive enhancement.
 
