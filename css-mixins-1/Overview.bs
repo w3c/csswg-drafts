@@ -17,9 +17,12 @@ Default Highlight: css
 spec:infra; type:dfn; text:list
 spec:css-properties-values-api; type:dfn; text:supported syntax component name
 spec:css-properties-values-api; type:dfn; text:syntax component
+spec:css-syntax-3; type:dfn; text:declaration
 spec:css-syntax-3; type:dfn; text:descriptor;
 spec:css-values-4; type:dfn; text:keyword;
 spec:css-values-4; type:dfn; text:identifier;
+spec:css-values-5; type:dfn; text:invalid at computed-value time
+spec:cssom-1; type:dfn; text:specified order;
 </pre>
 
 <!-- Big Text: intro
@@ -67,7 +70,7 @@ Defining Custom Functions {#defining-custom-functions}
 	<div class='example'>
 		A simple [=custom function=] to negate a value can be defined as follows:
 		<pre class='lang-css'>
-		@function --negative (--value) {
+		@function --negative(--value) {
 		  result: calc(-1 * var(--value));
 		}
 		</pre>
@@ -101,20 +104,24 @@ The ''@function'' rule defines a [=custom function=],
 and its syntax is:
 
 <pre class="prod def" nohighlight>
-&lt;@function> = @function <<function-name>> [ ( <<function-parameter-list>> ) ]?
+&lt;@function> = @function <<function-name>> <<function-parameter-list>>? )
 	[ using ( <<function-dependency-list>> ) ]?
 	[ returns <<css-type>> ]?
 {
 	<<declaration-rule-list>>
 }
 
-<dfn><<function-name>></dfn> = <<dashed-ident>>
 <dfn><<function-parameter-list>></dfn> = <<function-parameter>>#
 <dfn><<function-dependency-list>></dfn> = <<function-parameter>>#
 <dfn><<function-parameter>></dfn> = <<custom-property-name>> <<css-type>>? [ : <<declaration-value>> ]?
 <dfn><<css-type>></dfn> = <<syntax-component>> | <<type()>>
-<dfn>&lt;type()></dfn> = type( <<syntax>> )
+<dfn function lt="type()" for="@function">&lt;type()></dfn> = type( <<syntax>> )
 </pre>
+
+The <dfn><<function-name>></dfn> production
+is a <<function-token>>,
+with the additional restriction that it must start with two dashes
+(U+002D HYPHEN-MINUS).
 
 The name of the resulting [=custom function=] is given by the <<function-name>>,
 the [=function parameters=] are optionally given by <<function-parameter-list>>,
@@ -126,7 +133,7 @@ and the [=return type=] is optionally given by the <<css-type>> following the "r
 	[=function dependency=],
 	or [=custom function=] return value
 	can be described by a single <<syntax-component>>,
-	then the <code>type()</code> function may be omitted:
+	then the ''type()'' function may be omitted:
 
 	<pre class='lang-css'>
 	@function --foo(--a &lt;length&gt;) { /* ... */ }
@@ -135,8 +142,8 @@ and the [=return type=] is optionally given by the <<css-type>> following the "r
 	</pre>
 
 	However,
-	any <<syntax>> that requires a <<combinator>>
-	needs to be wrapped in the <code>type()</code> function:
+	any <<syntax>> that requires a <<syntax-combinator>>
+	needs to be wrapped in the ''type()'' function:
 
 	<pre class='lang-css'>
 	@function --foo(--a type(&lt;number&gt; | &lt;percentage&gt;)) { /* ... */ }
@@ -218,8 +225,6 @@ Its syntax is:
 	--*( <<declaration-value>># )
 </pre>
 
-Issue: Mention semicolon upgrades.
-
 A <<dashed-function>> can only be used where ''var()'' is allowed.
 
 If a property contains one or more <<dashed-function>>s,
@@ -227,13 +232,6 @@ the entire property’s grammar must be assumed to be valid at parse time.
 At computed-value time,
 every <<dashed-function>> must be [=substitute a dashed function|substituted=]
 before finally being checked against the property's grammar.
-
-When a value is being computed,
-substitution of ''var()'', ''env()'' and ''attr()''
-must take place <em>before</em> <<dashed-function>> substitution.
-
-Note: This means arguments passed to a custom function
-never contain ''var()'', or similar functions.
 
 A ''var()'' function within a [=local variable=],
 or within the ''@function/result'' descriptor,
@@ -260,10 +258,13 @@ described in [[!css-variables]].
 			* Append the result of [=resolving an argument=] to |dependency values|,
 				using |dependency value| as value,
 				and |dependency| as parameter.
-		4. [=Evaluate a custom function=],
+		4. [=substitute arbitrary substitution functions|Substitute=]
+			any [=arbitrary substitution functions=]
+			within |dashed function|'s arguments.
+		5. [=Evaluate a custom function=],
 			using |function|, |dashed function| and |dependency values|.
-		5. If failure was returned, return failure.
-		6. Otherwise,
+		6. If failure was returned, return failure.
+		7. Otherwise,
 			replace the <<dashed-function>> with the [=equivalent token sequence=]
 			of the value resulting from the evaluation.
 </div>
@@ -331,7 +332,21 @@ Evaluating Custom Functions {#evaluating-custom-functions}
 			::  The |parameter|'s [=default value=].
 		</dl>
 	3. Return |value|.
+</div>
 
+<div class='example'>
+	A [=comma-containing productions|comma-containing value=]
+	may be passed as a single argument
+	by wrapping the value in curly braces, <code>{}</code>:
+
+	<pre class='lang-css'>
+	@function --max-plus-x(--list, --x) {
+	  result: calc(max(var(--list)) + var(--x));
+	}
+	div {
+	  width: --max-plus-x({ 1px, 7px, 2px }, 3px); /* 10px */
+	}
+	</pre>
 </div>
 
 <div algorithm>
@@ -402,8 +417,10 @@ Parameters and Locals {#parameters}
 A <dfn>resolved local value</dfn> is the value of a [=local variable=] or [=descriptor=], except:
 
 * Any ''var()'' functions are replaced by [=locally substitute a var()|local substitution=].
-* Any ''env()'' or ''attr()'' functions are substituted normally.
 * Any <<dashed-function>>s are replaced by [=substitute a dashed function|dashed function substitution=].
+* Any [=arbitrary substitution functions=]
+	other than ''var()'' and <<dashed-function>>s
+	are substituted normally.
 
 If any substitution algorithm returns failure,
 then the [=resolved local value=] of a [=local variable=]
@@ -412,7 +429,81 @@ is the [=guaranteed-invalid value=].
 Cycles {#cycles}
 ----------------
 
-Issue: TODO
+The ''result'' descriptor and [=local variables=]
+within a [=custom function=]
+may reference other [=custom functions=] or [=custom properties=],
+and may therefore create [[css-variables-1#cycles|cycles]].
+
+For each element, add a node for every specified [=custom function=]
+to the graph described in [[css-variables-1#cycles]];
+add a node for each [=local variable=]
+defined within each of those functions;
+then, for each [=custom function=] <var>func</var>, add edges as follows:
+
+* From <var>func</var> to any [=custom function=]
+	referenced by a <<dashed-function>> within <var>func</var>'s body.
+* From <var>func</var> to any [=custom property=] or [=local variable=]
+	referenced by a ''var()'' within <var>func</var>'s body.
+* To <var>func</var> from any [=custom property=] or [=local variable=]
+	that references <var>func</var>
+	using a <<dashed-function>>.
+
+A <<dashed-function>> referencing a [=custom function=]
+which is part of a cycle
+makes the containing [=declaration=] [=invalid at computed-value time=].
+
+Note: Cycles are disallowed even through branches that are not taken
+	during execution.
+
+<div class='example'>
+	In the following,
+	<code>--foo()</code> is in a cycle with itself,
+	even though the media query never evaluates to "true":
+
+	<pre class='lang-css'>
+	@function --foo(--x) {
+	  @media (unknown-feature) {
+	    result: --foo(42);
+	  }
+	  result: 1;
+	}
+	</pre>
+
+	Similarly,
+	<code>--bar()</code> is in a cycle with itself,
+	even though the local variable <code>--x</code> is never referenced:
+
+	<pre class='lang-css'>
+	@function --bar() {
+	  --x: --bar();
+	  result: 1;
+	}
+	</pre>
+</div>
+
+<div class='example'>
+	The function <code>--baz()</code> is not in a cycle in the example below:
+	even though <code>var(--x)</code> and <code>var(--y)</code> appear in the function body,
+	they refer to a [=function parameter=] and [=local variable=], respectively.
+	The [=custom properties=] <code>--x</code> and <code>--y</code>
+	both reference <code>--baz()</code>, but that's fine:
+	those [=custom properties=] are not referenced within <code>--baz()</code>.
+
+	<pre class='lang-css'>
+	@function --baz(--x) {
+	  --y: 10px;
+	  result: calc(var(--x) + var(--y));
+	}
+
+	div {
+	  --x: --baz(1px);
+	  --y: --baz(2px);
+	  width: var(--x);  /* 11px */
+	  height: var(--y); /* 12px */
+	}
+	</pre>
+</div>
+
 
 <!-- Big Text: execution
 
@@ -446,7 +537,6 @@ If this happens, then declarations appearing later win over earlier ones.
 	</pre>
 	The value of the '@function/result' descriptor of <code>--mypi</code>
 	is <code>3.14</code>.
-	</pre>
 </div>
 
 <div class='example'>
@@ -458,7 +548,6 @@ If this happens, then declarations appearing later win over earlier ones.
 	</pre>
 	[=Local variable=] descriptors may appear before or after
 	they are referenced.
-	</pre>
 </div>
 
 Conditional Rules {#conditional-rules}
@@ -545,7 +634,7 @@ interface CSSFunctionRule : CSSGroupingRule { };
 While declarations may be specified directly within a ''@function'' rule,
 they are not represented as such in the CSSOM.
 Instead, consecutive segments of declarations
-appear as if wrapped in {{CSSNestedDeclarations}} rules.
+appear as if wrapped in {{CSSFunctionDeclarations}} rules.
 
 Note: This also applies to the "leading" declarations in the ''@function'' rule,
 	i.e those that do not follow another nested rule.
@@ -566,110 +655,69 @@ Note: This also applies to the "leading" declarations in the ''@function'' rule,
 
 	<pre class='lang-css'>
 	@function --bar() {
-	  /* CSSNestedDeclarations { */
+	  /* CSSFunctionDeclarations { */
 	    --x: 42;
 	    result: var(--y);
 	  /* } */
 	  @media (width > 1000px) {
 	    /* ... */
 	  }
-	  /* CSSNestedDeclarations { */
+	  /* CSSFunctionDeclarations { */
 	    --y: var(--x);
 	  /* } */
 	}
 	</pre>
 </div>
 
-Issue: Should we indeed use {{CSSNestedDeclarations}} for this purpose?
-	The <code>style</code> attribute of the {{CSSNestedDeclarations}} rule
-	should probably not be a regular {{CSSStyleDeclaration}},
-	since only custom properties
-	and the '@function/result' descriptor
-	are relevant.
 
-<!-- Big Text: appendix
+The {{CSSFunctionDeclarations}} Interface {#the-function-declarations-interface}
+--------------------------------------------------------------------------------
 
- ███▌  ████▌  ████▌  █████▌ █    █▌ ████▌  ████ █     █
-▐█ ▐█  █▌  █▌ █▌  █▌ █▌     █▌   █▌ █▌  █▌  ▐▌   █   █ 
-█▌  █▌ █▌  █▌ █▌  █▌ █▌     ██▌  █▌ █▌  █▌  ▐▌    █ █  
-█▌  █▌ ████▌  ████▌  ████   █▌▐█ █▌ █▌  █▌  ▐▌     █   
-█████▌ █▌     █▌     █▌     █▌  ██▌ █▌  █▌  ▐▌    █ █  
-█▌  █▌ █▌     █▌     █▌     █▌   █▌ █▌  █▌  ▐▌   █   █ 
-█▌  █▌ █▌     █▌     █████▌ █▌   ▐▌ ████▌  ████ █     █
--->
+The {{CSSFunctionDeclarations}} interface represents a run
+of consecutive [=declarations=] within a ''@function'' rule.
 
-Appendix: The <<syntax>> Production {#syntax}
-=============================================
+<xmp class=idl>
+[Exposed=Window]
+interface CSSFunctionDescriptors : CSSStyleDeclaration {
+	attribute [LegacyNullToEmptyString] CSSOMString result;
+};
 
-The <<syntax>> production represents a [=syntax definition=],
-which may be used to impose a type
-on [=function parameters=],
-[=function dependencies=],
-or [=custom function=] return values.
+[Exposed=Window]
+interface CSSFunctionDeclarations : CSSRule {
+	[SameObject, PutForwards=cssText] readonly attribute CSSFunctionDescriptors style;
+};
+</xmp>
 
-<pre class="prod def" nohighlight>
+<div algorithm>
+	The <dfn attribute for=CSSFunctionDeclarations>style</dfn> attribute
+	must return a {{CSSFunctionDescriptors}} object for the rule,
+	with the following properties:
 
-<dfn><<type-name>></dfn> = angle | color | custom-ident | image | integer |
-	length | length-percentage | number |
-	percentage | resolution | string | time |
-	url | transform-function
-<dfn><<combinator>></dfn> = '|'
-<dfn><<multiplier>></dfn> = [ '#' | '+' ]
-<dfn><<syntax-component-name>></dfn> = '<' <<type-name>> '>' | <<custom-ident>>
-<dfn><<syntax-component>></dfn> = <<syntax-component-name>> <<multiplier>>? |
-	'<' transform-list '>'
-<dfn><<syntax>></dfn> = '*' | <<syntax-component>> [ <<combinator>> <<syntax-component>> ]+
-
-</pre>
-
-A <<syntax-component>> consists of either a <<type-name>>,
-which maps to one of the [=supported syntax component names=];
-or a <<custom-ident>>, which represents any [=keyword=].
-Additionally,
-a <<syntax-component>> may contain a [[css-properties-values-api-1#multipliers|multiplier]],
-which indicates a [=list=] of values.
-
-Note: This means that <code>&lt;length&gt;</code>
-	and <code>length</code> are two different types:
-	the former describes a <<length>>,
-	whereas the latter describes a [=keyword=] <code>length</code>.
-
-Multiple <<syntax-component>>s may be [[css-properties-values-api-1#combinator|combined]]
-with a <code>|</code> <<delim-token>>,
-causing the syntax components to be matched
-against a value
-in the specified order.
-
-<div class='example'>
-	<pre class='lang-css'>
-	&lt;percentage&gt; | &lt;number&gt; | auto
-	</pre>
-	The above, when parsed as a <<syntax>>,
-	would accept <<percentage>> values,
-	<<number>> values,
-	as well as the keyword <code>auto</code>.
+	: [=CSSStyleDeclaration/computed flag=]
+	:: Unset
+	: [=CSSStyleDeclaration/readonly flag=]
+	:: Unset
+	: [=CSSStyleDeclaration/declarations=]
+	:: The declared declarations in the rule, in [=specified order=].
+		<span class=note>This includes any [=local variables=].</span>
+	: [=CSSStyleDeclaration/parent CSS rule=]
+	:: [=this=]
+	: [=CSSStyleDeclaration/owner node=]
+	:: Null
 </div>
 
-<div class='example'>
-	<pre class='lang-css'>
-	red | &lt;color&gt;
-	</pre>
-	The [=syntax definition=] resulting from the above <<syntax>>,
-	when used as a grammar for [=parse|parsing=],
-	would match an input <code>red</code> as an [=identifier=],
-	but would match an input <code>blue</code> as a <<color>>.
-</div>
+The {{CSSFunctionDeclarations}} rule, like {{CSSNestedDeclarations}},
+[=serialize a CSS rule|serializes=] as if its [=CSS declaration block|declaration block=]
+had been [=serialize a CSS declaration block|serialized=] directly.
 
-The <code>*</code> <<delim-token>> represents the [=universal syntax definition=].
+Privacy Considerations {#privacy}
+===============================================
 
-The <code>&lt;transform-list&gt;</code> production
-is a convenience form equivalent to <code>&lt;transform-function&gt;+</code>.
-<span class=note>Note that <code>&lt;transform-list&gt;</code> may not
-	be followed by a <<multiplier>>.</span>
+The constructs defined by this specification
+are defined and used entirely within CSS;
+they expose no new information.
 
-[=Whitespace=] is not allowed
-between the angle bracket <<delim-token>>s (<code>&lt;</code> <code>&gt;</code>)
-and the <<type-name>> they enclose,
-nor is [=whitespace=] allowed to precede a <<multiplier>>.
+Security Considerations {#security}
+===============================================
 
-Note: The [=whitespace=] restrictions also apply to <code>&lt;transform-list&gt;</code>.
+No issues have been opened against this specification.

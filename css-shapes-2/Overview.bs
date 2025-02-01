@@ -9,6 +9,7 @@ TR: https://www.w3.org/TR/css-shapes-2/
 ED: https://drafts.csswg.org/css-shapes-2/
 Editor: Rossen Atanassov, Microsoft Corporation, ratan@microsoft.com, w3cid 49885
 Editor: Alan Stearns, Adobe Systems&#44; Inc., stearns@adobe.com, w3cid 46659
+Editor: Noam Rosenthal, Google, w3cid 121539
 Abstract: This draft contains the features of CSS relating to wrapping content around and inside shapes. It (implicitly for now) includes and extends the functionality of CSS Shapes Level 1 [[CSS-SHAPES]]. The main points of extension compared to level 1 include additional ways of defining shapes, defining an exclusion area using a shape, and restricting an element's content area using a shape.
 Link Defaults: css2 (property) margin, css-display-3 (value) table
 </pre>
@@ -27,6 +28,16 @@ spec:css-writing-modes-4; type:concept; text:physical
 spec:css-writing-modes-4; type:concept; text:"writing mode"
 spec:svg2; type:property;
 	text:fill-rule
+spec:css-values-5; type:value;
+	text:top;
+	text:right;
+	text:bottom;
+	text:left;
+	text:center;
+	text:x-start;
+	text:y-start;
+	text:x-end;
+	text:y-end;
 </pre>
 
 <style type="text/css">
@@ -136,10 +147,12 @@ The ''shape()'' Function</h4>
 	and inherits a number of limitations from SVG,
 	such as implicitly only allowing the ''px'' unit.
 
-	The ''shape()'' function defines a path in the same way,
+	The ''shape()'' function uses a set of commands equivalent to the ones used by ''path()'',
 	but does so with more standard CSS syntax,
 	and allows the full range of CSS functionality,
 	such as additional units and math functions.
+	The commands used by ''shape()'' are dynamically turned into path segments when it is used for rendering,
+	e.g., when computing the rendered 'clip-path'.
 
 	<pre class=prod>
 		<dfn>shape()</dfn> = shape( <<'fill-rule'>>? from <<coordinate-pair>>, <<shape-command>>#)
@@ -161,17 +174,32 @@ The ''shape()'' Function</h4>
 	Each command's starting point is the previous command's ending point.
 
 	<pre class=prod>
-		<<shape-command>> = <<move-command>> | <<line-command>> | <<hv-line-command>> |
-		                  <<curve-command>> | <<smooth-command>> | <<arc-command>> | close
+		<<shape-command>> = <<move-command>> | <<line-command>> | close |
+		                  <<horizontal-line-command>> | <<vertical-line-command>> | 
+		                  <<curve-command>> | <<smooth-command>> | <<arc-command>>
+
+		<<move-command>> = move <<command-end-point>>
+		<<line-command>> = line <<command-end-point>>
+		<<horizontal-line-command>> = hline
+						[ to [ <<length-percentage>> | left | center | right | x-start | x-end ]
+						| by <<length-percentage>> ]
+		<<vertical-line-command>> = vline
+						[ to [ <<length-percentage>> | top | center | bottom | y-start | y-end ]
+						| by <<length-percentage>> ]
+		<<curve-command>> = curve
+						[ [ to <<position>> with <<control-point>> [ / <<control-point>> ]? ]
+						| [ by <<coordinate-pair>> with <<relative-control-point>> [ / <<relative-control-point>> ]? ] ]
+		<<smooth-command>> = smooth
+						[ [ to <<position>> [ with <<control-point>> ]? ]
+						| [ by <<coordinate-pair>> [ with <<relative-control-point>> ]? ] ]
+		<<arc-command>> = arc <<command-end-point>>
+								[ [ of <<length-percentage>>{1,2} ]
+								  && <<arc-sweep>>? && <<arc-size>>? && [rotate <<angle>>]? ]
+
+		<<command-end-point>> = [ to <<position>> | by <<coordinate-pair>> ]
+		<<control-point>> = [ <<position>> | <<relative-control-point>> ]
+		<<relative-control-point>> = <<coordinate-pair>> [ from [ start | end | origin ] ]?
 		<<coordinate-pair>> = <<length-percentage>>{2}
-		<<by-to>> = by | to
-		<<move-command>> = move <<by-to>> <<coordinate-pair>>
-		<<line-command>> = line <<by-to>> <<coordinate-pair>>
-		<<hv-line-command>> = [hline | vline] <<by-to>> <<length-percentage>>
-		<<curve-command>> = curve <<by-to>> <<coordinate-pair>> via <<coordinate-pair>>{1,2}
-		<<smooth-command>> = smooth <<by-to>> <<coordinate-pair>> [via <<coordinate-pair>>]?
-		<<arc-command>> = arc <<by-to>> <<coordinate-pair>> of <<length-percentage>>{1,2}
-		                    [ <<arc-sweep>> || <<arc-size>> || rotate <<angle>> ]?
 		<<arc-sweep>> = cw | ccw
 		<<arc-size>> = large | small
 	</pre>
@@ -184,19 +212,25 @@ The ''shape()'' Function</h4>
 			Percentages are resolved against the width or height, respectively,
 			of the [=reference box=].
 
-		<dt><dfn><<by-to>></dfn> = <dfn value for="shape(), <by-to>">by</dfn> | <dfn value for="shape(), <by-to>">to</dfn>
+		<dt><dfn><<command-end-point>></dfn> = [ <dfn value for="shape(), <command-end-point>">to</dfn> <<position>> | <dfn value for="shape(), <command-end-point>">by</dfn> <<coordinate-pair>> ]
 		<dd>
 			Every command can be specified in "absolute" or "relative" coordinates,
-			determined by their <<by-to>> component.
-			''to'' indicates that any <<coordinate-pair>>s in the command
+			determined by their ''shape()/by'' or ''shape()/to'' component.
+			''shape()/to'' indicates that any <<coordinate-pair>>s in the command
 			are relative to the top-left corner of the [=reference box=],
-			while ''by'' indicates that the <<coordinate-pair>>s
+			while ''shape()/by'' indicates that the <<coordinate-pair>>s
 			are relative to the command's starting point.
+
+			<<relative-control-point>> defines how ''shape()/by'' and ''shape()/to'' are interpreted for curve control points,
+			while <<horizontal-line-command>> and <<vertical-line-command>> define how ''shape()/by'' and ''shape()/to'' are
+			interpreted for horizontal and vertical lines, respectively.
+
+			When ''shape()/to'' is used, the coordinates can be specified as <<position>>s instead of <<coordinate-pair>>s.
 
 			Note: In either case, <<percentage>> values in <<coordinate-pair>>s
 			are always computed relative to the [=reference box's=] size.
 
-		<dt><dfn><<move-command>></dfn> = <dfn value>move</dfn> <<by-to>> <<coordinate-pair>>
+		<dt><dfn><<move-command>></dfn> = <dfn value>move</dfn> <<command-end-point>>
 		<dd>
 			Adds a <a href="https://www.w3.org/TR/SVG/paths.html#PathDataMovetoCommands">moveto</a> command
 			to the list of path data commands,
@@ -208,7 +242,7 @@ The ''shape()'' Function</h4>
 			Note: This starts a new subpath,
 			for the purpose of the ''close'' command.
 
-		<dt><dfn><<line-command>></dfn> = <dfn value>line</dfn> <<by-to>> <<coordinate-pair>>
+		<dt><dfn><<line-command>></dfn> = <dfn value>line</dfn> <<command-end-point>>
 		<dd>
 			Adds a <a href="https://www.w3.org/TR/SVG/paths.html#PathDataLinetoCommands">lineto</a> command
 			to the list of path data commands,
@@ -216,34 +250,50 @@ The ''shape()'' Function</h4>
 
 			This draws a straight line from the command's starting point to its ending point.
 
-		<dt><dfn><<hv-line-command>></dfn> = [<dfn value>hline</dfn> | <dfn value>vline</dfn>] <<by-to>> <<length-percentage>>
+		<dt><dfn><<horizontal-line-command>></dfn> = hline [ to [ <<length-percentage>> | left | center | right | x-start | x-end ]
+															| by <<length-percentage>> ]
 		<dd>
-			Adds a horizontal (for ''hline'') or vertical (for ''vline'')
+			Adds a horizontal
 			<a href="https://www.w3.org/TR/SVG/paths.html#PathDataLinetoCommands">lineto</a> command
 			to the list of path data commands.
 
 			This is equivalent to a ''line'' command
-			with the <<length-percentage>> given as the horizontal or vertical component, respectively,
-			of the <<coordinate-pair>>,
-			and the other component specified appropriately to make the line horizontal or vertical.
+			with the <<length-percentage>> given as the horizontal component of the <<coordinate-pair>>.
+			Specifying the horizontal component of <<position>> instead of a <<length-percentage>> (''left'', ''center'', ''right'', ''x-start'', or ''x-end''),
+			would draw a line to that <<position>>, with the <<position>>'s vertical component remaining the same as the starting point.
 
-		<dt><dfn><<curve-command>></dfn> = <dfn value>curve</dfn> <<by-to>> <<coordinate-pair>> via <<coordinate-pair>>{1,2}
+		<dt><dfn><<vertical-line-command>></dfn> = vline [ to [ <<length-percentage>> | top | center | bottom | y-start | y-end ] | by <<length-percentage>> ]
+		<dd>
+			Adds a vertical
+			<a href="https://www.w3.org/TR/SVG/paths.html#PathDataLinetoCommands">lineto</a> command
+			to the list of path data commands.
+
+			This is equivalent to a ''line'' command
+			with the <<length-percentage>> given as the vertical component of the <<coordinate-pair>>.
+			Specifying the horizontal component of <<position>>
+			(''top'', ''center'', ''bottom'', ''y-start'', or ''y-end'')
+			instead of a <<length-percentage>>,
+			would draw a line to that <<position>>, with the <<position>>'s horizontal component remaining the same as the starting point.
+
+		<dt><dfn><<curve-command>></dfn> = <dfn value>curve</dfn> [ [ to <<position>> with <<control-point>> [ / <<control-point>> ]? ]
+						| [ by <<coordinate-pair>> with <<relative-control-point>> [ / <<relative-control-point>> ]? ] ]
 		<dd>
 			Adds a Bézier curve command to the list of path data commands,
-			ending at the point specified by the first <<coordinate-pair>>.
+			ending at the point specified by the <<position>> following the ''shape()/to'' keyword,
+			or the <<coordinate-pair>> following the ''shape()/by'' keyword, as specified by <<command-end-point>>.
 
-			The <css>via</css> component specifies control points for the curve:
-			if a single <<coordinate-pair>> is provided,
+			The <css>with</css> component specifies control points for the curve:
+			if a single <<control-point>> or <<relative-control-point>> is provided,
 			the command specifies a <a href="https://www.w3.org/TR/SVG/paths.html#PathDataQuadraticBezierCommands">quadratic curve</a>;
-			if two <<coordinate-pair>>s are provided,
+			if two  <<control-point>>s or <<relative-control-point>>s are provided,
 			it specifies a <a href="https://www.w3.org/TR/SVG/paths.html#PathDataCubicBezierCommands">cubic curve</a>.
 
-		<dt><dfn><<smooth-command>></dfn> = <dfn value>smooth</dfn> <<by-to>> <<coordinate-pair>> [via <<coordinate-pair>>]?
+		<dt><dfn><<smooth-command>></dfn> = <dfn value>smooth</dfn> [ [ to <<position>> [with <<control-point>> ]? ]
+						| [ by <<coordinate-pair>> [ with <<relative-control-point>> ]? ] ]
 		<dd>
 			Adds a smooth Bézier curve command to the list of path data commands,
-			ending at the point specified by the first <<coordinate-pair>>.
-
-			The <css>via</css> component specifies control points for the curve:
+			ending at the point specified by the <<position>> following the ''shape()/to'' keyword, or the <<coordinate-pair>> following the ''shape()/by'' keyword, as specified by <<command-end-point>>.
+			The <css>with</css> component specifies control points for the curve:
 			if it's omitted,
 			the command specifies a <a href="https://www.w3.org/TR/SVG/paths.html#PathDataQuadraticBezierCommands">smooth quadratic curve</a>;
 			if it's provided,
@@ -258,11 +308,23 @@ The ''shape()'' Function</h4>
 			so the curve appears to smoothly continue from the previous command,
 			rather than possibly making a sudden direction change.
 
-		<dt><dfn><<arc-command>></dfn> = <dfn value>arc</dfn> <<by-to>> <<coordinate-pair>> of <<length-percentage>>{1,2} [ <<arc-sweep>> || <<arc-size>> || rotate <<angle>> ]
+		<dt><dfn><<control-point>></dfn> = [ <<position>> | <<relative-control-point>> ]
+		<dd>
+			Provides a control point to a quadratic or cubic Bézier curve.
+
+		<dt><dfn><<relative-control-point>></dfn> = <<coordinate-pair>> [ from [ start | end | origin ] ]?
+		<dd>
+			Provides a control point to a quadratic or cubic Bézier curve.
+			When a <css>from</css> keyword is specified followed by <css>start</css>, <css>end</css>, or <css>origin</css>,
+			the given <<coordinate-pair>> is relative to
+			the command's starting point, the command's end point, or the [=reference box=], respectively.
+			If such component is not provided, the <<coordinate-pair>> is relative to the segment's start.
+
+		<dt><dfn><<arc-command>></dfn> = <dfn value>arc</dfn> <<command-end-point>> [[of <<length-percentage>>{1,2}] && <<arc-sweep>>? && <<arc-size>>? && rotate <<angle>>? ]
 		<dd>
 			Add an <a href="https://www.w3.org/TR/SVG/paths.html#PathDataEllipticalArcCommands">elliptical arc</a> command
 			to the list of path data commands,
-			ending at the point specified by the <<coordinate-pair>>.
+			ending at the <<command-end-point>>.
 
 			The <css>of</css> component specifies the size of the ellipse that the arc is taken from.
 			The first <<length-percentage>> provides the horizontal radius of the ellipse
@@ -346,12 +408,130 @@ The ''shape()'' Function</h4>
 			which affects how line-joins and line-caps are rendered.
 	</dl>
 
+<h5 id=shape-examples>Using ''shape()'' to create responsive, parametric speech bubble</h5>
+
+<div class=example>
+The ''shape()'' function enables shapes that are responsive, rather than scalable.
+While the ''polygon()'' shape is also responsive, it only support simple rounded corners and not complex curves.
+
+To demonstrate, let's start with a speech bubble, such as the following:
+
+<img src="images/bubble.svg" width=300 style="background: unset">
+
+Using this shape with a ''clip-path'' can be done by using the ''path()'' function:
+
+<pre highlight="css">
+.bubble { clip-path: path("m 5 0 H 95 Q 100 0 100 5 V 92 Q 100 97 95 97 H 70 l -2 3 l -2 -3 H 5 Q 0 97 0 92 V 5 Q 0 0 5 0") };
+</pre>
+
+Altohugh this path can easily scale, the scaled results are not always desirable. e.g. when scaled to a small balloon, the arrow and corners are scaled to become almost invisible:
+
+<img src="images/bubble.svg" width=100 style="background: unset">
+
+To construct this shape using the ''shape()'' function, let's start by turning all the pixel values from the ''path'' function to percentages.
+Note that the ''shape()'' function begins with <css>from</css>:
+
+<pre highlight="css">
+.bubble { clip-path: shape(	from 5% 0%,
+							hline to 95%,
+							curve to 100% 5% with 100% 0%,
+							vline to 92%,
+							curve to 95% 97% with 100% 97%,
+							hline to 70%,
+							line by -2% 3%,
+							line by -2% -3%,
+							hline to 5%,
+							curve to 0% 92% with 0% 97%,
+							vline to 5%,
+							curve to 5% 0% with 0% 0%); }
+</pre>
+
+To make this path responsive, as in, respond well to size changes, we will convert some of its units to ''px'' values,
+specifically the ones the control the curves and arrows:
+
+<pre highlight="css">
+.bubble { clip-path: shape(	from 5px 0%,
+							hline to calc(100% - 5px),
+							curve to 100% 5px with 100% 0%,
+							vline to calc(100% - 8px),
+							curve to calc(100% - 5px) calc(100% - 3px) with 100% calc(100% - 3px),
+							hline to 70%,
+							line by -2px 3px,
+							line by -2px -3px,
+							hline to 5px,
+							curve to 0% calc(100% - 8px) with 0% calc(100% - 3px),
+							vline to 5px,
+							curve to 5px 0% with 0% 0%); }
+</pre>
+
+When applied as ''clip-path'', it would looks like the following:
+<p>
+<img src="images/bubble-50.svg" width=150 style="background: unset">
+</p>
+
+The whole speech bubble is scaled to the reference box, while the curves and arrows stay more constant.
+
+Since ''shape()'' uses CSS units, we can replace some of the edges with ''position'' values:
+
+<pre highlight="css">
+.bubble { clip-path: shape(from 5px 0,
+							hline to calc(100% - 5px),
+							curve to right 5px with right top,
+							vline to calc(100% - 8px),
+							curve to calc(100% - 5px) calc(100% - 3px) with right calc(100% - 3px),
+							hline to 70%,
+							line by -2px 3px,
+							line by -2px -3px,
+							hline to 5px,
+							curve to left calc(100% - 8px) with left calc(100% - 3px),
+							vline to 5px,
+							curve to 5px top with left top); }
+</pre>
+
+Another useful feature of ''shape()'' is that it can be used alongside CSS properties. In this case,
+we can make the arrow and radius parametric:
+
+<pre highlight="css">
+
+:root {
+	--radius: 5px;
+	--arrow-length: 3px;
+	--arrow-half-width: 2px;
+	--arrow-position: 70%;
+	--arrow-bottom-offset: calc(100% - var(--radius) - var(--arrow-length));
+}
+
+.bubble {
+	animation: bubble 100ms;
+	clip-path: shape(from var(---radius) top,
+		hline to calc(100% - var(---radius)),
+		curve to right var(---radius) with right top,
+		vline to var(---arrow-bottom-offset),
+		curve to calc(100% - var(---radius)) calc(100% - var(---arrow-length))
+              with right calc(100% - var(---arrow-length)),
+		hline to var(---arrow-position),
+		line by var(---arrow-half-width) var(---arrow-length),
+		line by var(---arrow-half-width) calc(0px - var(---arrow-length)),
+		hline to var(---radius),
+		curve to left var(---arrow-bottom-offset) with left calc(100% - var(---arrow-length)),
+		vline to var(---radius),
+		curve to var(---radius) top with left top); }
+</pre>
+
+
+
+</div>
+
 <h5 id=interpolating-shape>
 Interpolating the ''shape()'' Function</h5>
 
 	''shape()'' and ''path()'' functions can be <l spec=css-values-4>[=interpolated=]</l> with each other
 	if their associated list of path data commands is the same length
-	and has the same commands, in order.
+	and has the same commands, in order, with the first command of the ''path()'' function interpolating with the
+	initial <<coordinate-pair>> in the ''shape()'' function.
+
+		Note: The first command of a ''path()'' function is guaranteed to be a ''move'', see <a href="https://www.w3.org/TR/SVG2/paths.html#PathDataMovetoCommands">moveTo</a> in the SVG spec.
+
 	If the starting and ending values are both ''path()'' functions,
 	the interpolated value is a ''path()'' function;
 	otherwise it's a ''shape()'' function.
@@ -490,7 +670,7 @@ Declaring Shapes</h3>
 		<img class="singleImgExample"
 		src="images/shapes_CSS2.1_MBP.png"
 		alt="Example rendering of circle shape and box model."
-		style="max-width:40%"/>
+		style="max-width:40%">
 	</div>
 
 <h3 id="shape-outside-property">
@@ -537,7 +717,7 @@ The 'shape-inside' Property</h4>
 		<dd>
 			The shape is computed based
 			on the values of one of
-			''inset()'', ''circle()'', ''ellipse()'' or ''polygon()''.
+			the <<basic-shape>> functions.
 
 		<dt><dfn><<url>></dfn>
 		<dd>
@@ -565,7 +745,7 @@ The 'shape-inside' Property</h4>
 
 	<figure>
 		<img alt="Content flowing with and without a shape-inside"
-		     src="images/shape-inside-content.png"/>
+		     src="images/shape-inside-content.png">
 		<figcaption>Effect of shape-inside on inline content.</figcaption>
 	</figure>
 
@@ -581,10 +761,10 @@ The 'shape-inside' Property</h4>
 	<figure>
 		<img alt="Overflow interacting with rounded rect"
 		     style="display:inline-block;vertical-align:top"
-		     src="images/rounded-rect-overflow.png"/>
+		     src="images/rounded-rect-overflow.png">
 		<img alt="Overflow interacting with ellipse"
 		     style="display:inline-block;vertical-align:top"
-		     src="images/ellipse-overflow.png"/>
+		     src="images/ellipse-overflow.png">
 		<figcaption>
 			Overflow interacting with exclusion areas
 			defined by 'shape-inside' and 'shape-padding'.
@@ -654,7 +834,7 @@ The 'shape-padding' Property</h4>
 
 	<div class="example">
 		<figure>
-			<img src="images/shape-padding.png" alt="Example of a shape-padding offset"/>
+			<img src="images/shape-padding.png" alt="Example of a shape-padding offset">
 			<figcaption>
 				A 'shape-padding' creating an offset from a circular 'shape-inside'.
 				The light blue rectangles represent inline content

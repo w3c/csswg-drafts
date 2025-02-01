@@ -1,4 +1,4 @@
-# Explainer: calc-size() function for transitions and animations to/from intrinsic sizes
+# Explainer: interpolate-size property and calc-size() function for transitions and animations to/from intrinsic sizes
 
 ## Authors:
 
@@ -15,7 +15,7 @@ It is important for animation of elements
 (such as the contents of disclosure widgets)
 opening/closing between a content-based height (or width)
 and a small (often zero) height (or width).
-This `calc-size()` proposal fits the desire to do such animations
+This proposal fits the desire to do such animations
 into the way that CSS transitions and animations work.
 More generally,
 this allows animating
@@ -23,14 +23,22 @@ between a fixed length and
 almost any type of height (or width, or min/max-height/width)
 that can currently be specified in CSS.
 
-The CSS `calc-size()` function is a CSS function similar to calc(),
+The CSS `calc-size()` function is a CSS function similar to `calc()`,
 but that also supports operations on exactly one of the values
 auto, min-content, max-content, fit-content, stretch, or contain,
 which are the intrinsic sizing keywords.
-This allows transitions and animations to and from these values
-(or mathematical functions of these values),
-as long as the `calc-size()` function is used
-on at least one of the endpoints of the transition or animation to opt in.
+This allows transitions and animations to and from these keyword values
+(or mathematical functions of these values)
+by providing a syntax for representing fractions of these values.
+
+The CSS `interpolate-size` property allows authors to opt pages in
+to having CSS transitions and animations work with these keywords.
+Since this opt-in is needed for compatibility with web content
+that assumes that these animations do *not* work,
+the recommended way to use the opt-in is to specify it once on the root element
+to opt in the entire page:
+`:root { interpolate-size: allow-keywords }`.
+This will make animations and transitions to and from these keywords work.
 
 ## Goals
 
@@ -89,8 +97,8 @@ It is designed to fit in to the existing CSS mechanisms for transitions and anim
 
 ## `calc-size(<basis>, <calculation>)`
 
-The basic form of the proposal is a `calc-size()` function that takes two arguments.
-(There is also a one-argument form for convenience; see below.)
+The underlying mechanism that is added to support these animations is
+a `calc-size()` function that takes two arguments.
 The first argument is the *basis* and the second argument is the *calculation*.
 It is similar to the existing `calc()` function but is accepted only
 for [a small set of CSS properties](https://github.com/w3c/csswg-drafts/issues/626#issuecomment-2025918637)
@@ -122,16 +130,21 @@ this would be a normal intermediate value at 70% of the way through an animation
 
 This is specified [in css-values-5](https://drafts.csswg.org/css-values-5/#calc-size).
 
-## `calc-size(<value>)`
+## `interpolate-size`
 
-`calc-size()` also has a single-argument form.
-If that single argument is an intrinsic sizing keyword or a `calc-size()` function,
-then the argument is treated as the `<basis>` and the calculation is `size`.
-Otherwise the single argument is a `<calc-sum>` expression that is treated as the calculation,
-and the basis is `any`.
+The CSS `interpolate-size` property is an inherited property that takes two values:
+`numeric-only` (the initial value) and `allow-keywords`.
+It exists because there is enough web content that depends on
+intrinsic sizing keywords *not* animating
+that we need a way for pages to opt in to allowing these animations.
 
-This form makes it more convenient to opt in to animation using `calc-size()`
-by wrapping at least one endpoint of the animation in `calc-size()`.
+Since it is an opt-in for compatibility,
+it is designed to make it easy to opt in the entire page.
+Therefore, it is an inherited property so that it can just be specified once on the root.
+It is also not part of any shorthands because being part of a shorthand
+would cause use of the shorthand to reset the opt-in.
+
+This is specified [in css-values-5](https://drafts.csswg.org/css-values-5/#interpolate-size).
 
 The following slightly more involved example shows
 (while using the separately proposed `::details-content` pseudo-element)
@@ -139,6 +152,10 @@ the CSS needed to make a `<details>` element
 animate its `height` when it opens and closes:
 
 ```css
+:root {
+  interpolate-size: allow-keywords;
+}
+
 details::details-content {
   --open-close-duration: 500ms;
   height: 0;
@@ -147,11 +164,9 @@ details::details-content {
               content-visibility var(--open-close-duration) allow-discrete;
 }
 details[open]::details-content {
-  height: calc-size(max-content);
+  height: max-content;
 }
 ```
-
-This is specified [in css-values-5](https://drafts.csswg.org/css-values-5/#calc-size).
 
 ## Detailed design discussion
 
@@ -161,7 +176,8 @@ starting with
 There has also been further discussion in
 [w3c/csswg-drafts#10220](https://github.com/w3c/csswg-drafts/issues/10220),
 [w3c/csswg-drafts#10259](https://github.com/w3c/csswg-drafts/issues/10259), and
-[w3c/csswg-drafts#10294](https://github.com/w3c/csswg-drafts/issues/10294).
+[w3c/csswg-drafts#10294](https://github.com/w3c/csswg-drafts/issues/10294)
+(for `interpolate-size`).
 
 ## Considered alternatives
 

@@ -31,6 +31,9 @@ spec:css-view-transitions-1;
 	text: update callback done promise; for: ViewTransition; type: dfn;
 	text: initial snapshot containing block size; for: ViewTransition; type: dfn;
 	text: captured elements; type: dfn;
+	text: snapshot containing block; type: dfn;
+	text: old transform; for: captured element; type: dfn;
+	text: new element; for: captured element; type: dfn;
 	text: updateCallbackDone; type: property; for: ViewTransition;
 	text: phase; type: dfn; for: ViewTransition;
 	text: call the update callback; type: dfn;
@@ -38,6 +41,11 @@ spec:css-view-transitions-1;
 	text: setup view transition; type: dfn;
 	text: named view transition pseudo-element; type: dfn;
 	text: rendering suppression for view transitions; type: dfn;
+	text: view transition tree; type: dfn;
+	text: view transition name; type: dfn;
+	text: group styles rule; type: dfn;
+	text: update pseudo-element styles rule; type: dfn;
+	text: document-scoped view transition name; type: dfn;
 spec:dom; type:dfn; text:document
 spec:css22; type:dfn; text:element
 spec:selectors-4; type:dfn;
@@ -51,7 +59,11 @@ spec:html
 	text: pagereveal; type: dfn; for: Window;
 	text: has been revealed; type: dfn;
 	text: render-blocking mechanism; type: dfn;
+spec:geometry-1
+	text:multiply; type:dfn;
+	text:matrix; type:dfn;
 spec:infra; type:dfn; text:list
+spec:css-borders-4; type: property; text:border-radius;
 </pre>
 
 <style>
@@ -431,27 +443,28 @@ Note: this needs to be cached in the boolean because the result needs to be read
 			via the URL address bar or clicking a bookmark, as well as any form of user or script initiated {{NavigationType/reload}}.
 	</dl>
 
+This at-rule conforms with the forward-compatible parsing requirement of CSS;
+conformant parsers that don't understand these rules will ignore them without error.
+Any descriptors that are not recognized or implemented by a given user agent,
+or whose value does not match the grammars given here or in a future version of this specification,
+must be ignored in their entirety;
+they do not make the ''@view-transition'' rule invalid.
+
 ### Accessing the ''@view-transition'' rule using CSSOM ### {#cssom}
-
-The <code>CSSRule</code> interface is extended as follows:
-
-<pre class='idl'>
-partial interface CSSRule {
-	const unsigned short VIEW_TRANSITION_RULE = 15;
-};
-</pre>
 
 The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 
 <xmp class=idl>
-		enum ViewTransitionNavigation { "auto", "none" };
-
 		[Exposed=Window]
 		interface CSSViewTransitionRule : CSSRule {
-			readonly attribute ViewTransitionNavigation navigation;
+			readonly attribute CSSOMString navigation;
 			[SameObject] readonly attribute FrozenArray<CSSOMString> types;
 		};
 </xmp>
+
+The {{CSSViewTransitionRule/navigation}} getter step is to return the value of the corresponding ''@view-transition/navigation'' descriptor if one exists, otherwise the empty string.
+
+The {{CSSViewTransitionRule/types}} getter steps is to return the value of the corresponding ''@view-transition/types'' descriptor if one exists, otherwise an empty [=list=].
 
 # Selective view transitions # {#selective-vt}
 
@@ -461,7 +474,7 @@ The {{CSSViewTransitionRule}} represents a ''@view-transition'' rule.
 
 For simple pages, with a single view transition, setting the ''view-transition-name'' property on participating elements should be sufficient.
 However, in more complex scenarios, the author might want to declare various view transitions, and only run one of them simultaneously.
-For example, sliding the whole page when clicking on the navigation bar, and sorting a list when one if its items is dragged.
+For example, sliding the whole page when clicking on the navigation bar, and sorting a list when one of its items is dragged.
 
 To make sure each view transition only captures what it needs to, and different transitions don't interfere with each other,
 this spec introduces the concept of [=active types=], alongside the '':active-view-transition'' and '':active-view-transition-type()'' pseudo-classes.
@@ -522,7 +535,7 @@ An '':active-view-transition'' pseudo-class matches the [=document element=] whe
 
 ### The '':active-view-transition-type()'' pseudo-class ### {#the-active-view-transition-type-pseudo}
 
-The <dfn id='active-view-transition-type-pseudo'>:active-view-transition-type()</dfn> pseudo-class applies to the root element of the document, if it has a matching [=active view transition=].
+The <dfn id="active-view-transition-type-pseudo">:active-view-transition-type()</dfn> pseudo-class applies to the root element of the document, if it has a matching [=active view transition=].
 It has the following syntax definition:
 
 <pre class=prod>
@@ -653,6 +666,8 @@ div.box {
 		:: All of the specified <<custom-ident>> values (apart from <css>none</css>) are applied when used in [=named view transition pseudo-element=] selectors.
 			<css>none</css> is an invalid <<custom-ident>> for 'view-transition-class', even when combined with another <<custom-ident>>.
 
+			Each 'view transition class' is a [=tree-scoped name=].
+
 			Note: If the same 'view-transition-name' is specified for an element both in the old and new states of the transition,
 			only the 'view-transition-class' values from the new state apply. This also applies for cross-document view transitions:
 			classes from the old document would only apply if their corresponding 'view-transition-name' was not specified in the new document.
@@ -700,13 +715,12 @@ div.box {
 # Extending {{Document/startViewTransition|document.startViewTransition()}} # {#extend-document-types}
 	<xmp class=idl>
 		dictionary StartViewTransitionOptions {
-			UpdateCallback? update = null;
+			ViewTransitionUpdateCallback? update = null;
 			sequence<DOMString>? types = null;
 		};
 
 		partial interface Document {
-
-			ViewTransition startViewTransition(optional (UpdateCallback or StartViewTransitionOptions) callbackOptions = {});
+			ViewTransition startViewTransition(optional (ViewTransitionUpdateCallback or StartViewTransitionOptions) callbackOptions = {});
 		};
 	</xmp>
 
@@ -716,7 +730,7 @@ div.box {
 
 		1. Let |updateCallback| be null.
 
-		1. If |callbackOptions| is an an {{UpdateCallback}}, set |updateCallback| to |callbackOptions|.
+		1. If |callbackOptions| is a {{ViewTransitionUpdateCallback}}, set |updateCallback| to |callbackOptions|.
 
 		1. Otherwise, if |callbackOptions| is a {{StartViewTransitionOptions}}, then set |updateCallback| to |callbackOptions|'s {{StartViewTransitionOptions/update}}.
 
@@ -739,6 +753,137 @@ div.box {
 
 		1. Return |viewTransition|.
 	</div>
+
+# Determining 'view-transition-name' automatically # {#auto-vt-name}
+
+## Overview ## {#auto-vt-name-overview}
+
+*This section is non-normative.*
+
+For an element to participate in a view transition, it needs to receive a unique 'view-transition-name'.
+This can be tedious and verbose when multiple elements are involved in the same view transition, especially in cases where many of those are same-element transitions,
+as in, the element has the same 'view-transition-name' in the old and new state.
+
+To make this easier, setting the 'view-transition-name' to ''view-transition-name/auto'' would generate a 'view-transition-name' for the element, or take it from the element's [=Element/id=] if present.
+
+## Examples ## {#auto-vt-name-example}
+
+<div class="example">
+In this example, view transition is used to sort a list in an animated way:
+
+```html
+<ul>
+	<li>Item 1</li>
+	<li>Item 2</li>
+	<li>Item 3</li>
+	<li>Item 4</li>
+	...
+</ul>
+```
+
+Ordinarily, each of these items would have to receive a unique 'view-transition-name':
+
+```css
+li:nth-child(1) { view-transition-name: item1; }
+li:nth-child(2) { view-transition-name: item1; }
+li:nth-child(3) { view-transition-name: item1; }
+li:nth-child(4) { view-transition-name: item1; }
+...
+```
+
+With ''view-transition-name/auto'', this CSS would work:
+
+```css
+li {
+	view-transition-name: auto;
+}
+```
+</div>
+
+## Additions to 'view-transition-name' ## {#additions-to-vt-name}
+
+In addition to the existing values, the 'view-transition-name' also accepts an <dfn for=view-transition-name export>auto</dfn> keyword.
+To resolve the [=used value=] of 'view-transition-name' for |element|:
+	1. Let |computed| be the [=computed value=] of 'view-transition-name'.
+	1. If |computed| is <css>none</css>, return null.
+	1. If |computed| is a <<custom-ident>>, return |computed|.
+	1. Assert: |computed| is <css>auto</css>.
+	1. If |element| has an associated [=Element/id=], and |computed| is associated with the same [=tree/root=] as |element|'s [=tree/root=], then return the value of |element|'s [=Element/id=].
+
+		Note: this means that a ''::part()'' pseudo-element wouldn't resolve to its matching element's [=Element/id=].
+
+	1. Return a unique string. The string should remain consistent and unique for this element and {{Document}}, at least for the lifetime of |element|'s [=node document=]'s [=active view transition=].
+
+		Note: this string is not web-observable, and is used for addressing the element in internal algorithms.
+
+		Note: When used in a cross-document view transition, generated <css>auto</css> values never match, resulting in separate ''::view-transition-group()'' pseudo-elements, one exiting and one entering.
+
+A 'view-transition-name' generated by <css>auto</css> is a [=tree-scoped name=].
+
+# Nested view-transitions # {#nested-view-transitions}
+
+## Overview ## {#nested-overview}
+
+*This section is non-normative.*
+
+By default, setting `view-transition-name` on multiple elements generates a flat [=view transition tree=], where all the ''::view-transition-group()'' pseudo-elements are children of the ''::view-transition'' pseudo-element.
+This is sufficient for many simple use-cases, but there are some styling use-cases that cannot be achieved with a flat tree.
+The most prominent use-case is clipping: with a flat tree, all pseudo-elements are clipped to the [=snapshot containing block=], so clipping elements in the normal tree would lose their clipping during the view-transition, resulting in a broken visual effect.
+The effects that have can have an unexpected visual effect in a flat tree:
+* Clipping ('overflow', 'clip-path', 'border-radius'): clipping affects the children of the element.
+* 'opacity', 'mask-image' and 'filter': These effects that are designed to work on a fully rasterized image of a tree, rather than on each item individually.
+* 3D transforms ('transform-style', 'transform', 'perspective'): to display the full range of 3D transform animations, some hierarchy needs to be kept.
+
+To enable these use cases, this specification introduces the concept of nesting view-transition pseudo-elements. By using the 'view-transition-group' CSS property,
+the author can assign a "parent group" for a generated ''::view-transition-group()'' pseudo-element, creating a hierarchy in the [=view transition tree=].
+
+## Examples ## {#nested-vt-example}
+
+<div class="example">
+This example creates a transition where the [=view transition tree=] is nested instead of flat:
+
+```html
+<section class="container">
+	<article>Content</article>
+</section>
+```
+
+```css
+.container {
+	view-transition-name: container;
+}
+
+.container,
+::view-transition-group(container) {
+	clip-path: circle();
+}
+
+article {
+	view-transition-name: article;
+	view-transition-group: container;
+}
+```
+
+By applying the ''clip-path'' to both the containing element and its generated pseudo-element, we preserve the clip during the transition,
+and by applying ''view-transition-group'' to the internal element referencing the container, we make the tree "nested" in a way that would apply this clipping.
+</main>
+
+## The 'view-transition-group' property ## {#view-transition-group-prop}
+
+	<pre class=propdef>
+	Name: view-transition-group
+	Value: normal | contain | nearest | <<custom-ident>>
+	Initial: normal
+	Inherited: no
+	Percentages: n/a
+	Computed Value: as specified
+	Animation type: discrete
+	</pre>
+
+	The 'view-transition-group' property can be used in conjuction with 'view-transition-name' to generate a hierarchy of [=named view transition pseudo-element=].
+
+	The [=used value=] for 'view-transition-group' resolves to a 'view-transition-name' in its ancestor chain, or to ''view-transition-name/none''. When generating the [=named view transition pseudo-element=], the ''::view-transition-group()'' with that name
+	would be the parent of the ''::view-transition-group()'' generated for this element's 'view-transition-name'.
 
 # Algorithms # {#algorithms}
 
@@ -781,11 +926,28 @@ It has the following [=struct/items=]:
 	:: a [=tuple=] of two numbers (width and height).
 </dl>
 
+## Additions to the view transition page-visibility change steps ## {#page-visibility-change-steps-additions}
+	<div algorithm="visibility change step additions">
+	The next steps are appended to the tasks [=view transition page-visibility change steps=] given |document|, after the current steps in the queued task:
+
+	1. Set |document|'s [=inbound view transition params=] to null.
+
+	Note: this is called from the HTML spec.
+	</div>
+
+
+
 ### Captured elements extension ### {#capture-classes-data-structure}
 The [=captured element=] struct should contain these fields, in addition to the existing ones:
 	<dl>
 		: <dfn for="captured element">class list</dfn>
 		:: a [=/list=] of strings, initially empty.
+
+		: <dfn for="captured element">containing group name</dfn>
+		:: Null or a string, initially null.
+
+		: <dfn for="captured element">transform from snapshot containing block</dfn>
+		:: A [=matrix=], initially the identity matrix.
 	</dl>
 
 ## Resolving the ''@view-transition'' rule ## {#vt-rule-algo}
@@ -830,7 +992,9 @@ The [=captured element=] struct should contain these fields, in addition to the 
 
 	1. If |oldDocument|'s [=Document/origin=] is not [=same origin=] as |newDocument|'s [=Document/origin=], then return false.
 
-	1. If |newDocument| [=was created via cross-origin redirects=], then return false.
+	1. If |newDocument| [=was created via cross-origin redirects=] and |newDocument|'s [=latest entry=] is null, then return false.
+
+		Note: A [=Document=]'s [=latest entry=] would be null if this is a new navigation, rather than a restore from BFCache.
 
 	1. If |navigationType| is {{NavigationType/traverse}}, then return true.
 
@@ -878,6 +1042,14 @@ The [=captured element=] struct should contain these fields, in addition to the 
 		1. Set |newDocument|'s [=inbound view transition params=] to |params|.
 
 			Note: The inbound transition is activated after the dispatch of {{Window/pagereveal}} to ensure mutations made in this event apply to the captured new state.
+
+		1. To skip the transition after a timeout, the user agent may perform the following steps [=in parallel=]:
+
+			1. Wait for an [=implementation-defined=] [=duration=].
+
+			1. [=Queue a global task=] on the [=DOM manipulation task source=] given |newDocument|'s [=relevant global object=] to perform the following step:
+
+				1. If |newDocument|'s [=inbound view transition params=] is |params|, then set |newDocument|'s [=inbound view transition params=] to null.
 
 		1. Call |proceedWithNavigation|.
 
@@ -974,9 +1146,6 @@ Prepend the following step to the [=Perform pending transition operations=] algo
 
 	1. Set |transition|'s [=ViewTransition/active types=] to |resolvedRule|.
 
-	1. At any given time, the UA may decide to skip the inbound transition, e.g. after an [=implementation-defined=] timeout.
-		To do so, the UA should [=queue a global task=] on the [=DOM manipulation task source=] given |document|'s [=relevant global object=] to perform the following step:
-			If |transition|'s [=ViewTransition/phase=] is not "`done`", then [=skip the view transition=] |transition| with a "{{TimeoutError}}" {{DOMException}}.
 
 	1. Return |transition|.
 </div>
@@ -986,10 +1155,109 @@ Prepend the following step to the [=Perform pending transition operations=] algo
 <div algorithm="additional capture steps">
 When capturing the old or new state for an element, perform the following steps given a [=captured element=] |capture| and an [=element=] |element|:
 
-	1. Set |capture|'s [=captured element/class list=] to the [=computed value=] of |element|'s 'view-transition-class'.
+	1. Set |capture|'s [=captured element/class list=] to the [=computed value=] of |element|'s 'view-transition-class', if it is associated with |element|'s [=node document=].
 
 	Note: This is written in a monkey-patch manner, and will be merged into the algorithm once the L1 spec graduates.
 </div>
+
+## Capturing and applying 'view-transition-group' ## {#vt-group-algorithm}
+
+### Resolving the 'view-transition-group' value ### {#vt-group-value-resolve}
+
+<div algorithm="resolve the document-scoped view-transition-group">
+To get the <dfn>document-scoped view transition group</dfn> of an {{Element}} |element|, perform the following steps:
+
+	1. Let |computedGroup| be the [=computed value=] of element's 'view-transition-group' property.
+	1. If |computedGroup| is associated with |element|'s [=node document=], return |computedGroup|.
+	1. Return ''view-transition-group/normal''.
+</div>
+
+### Resolving the containing group name ### {#vt-containing-group-name-resolve}
+
+<div algorithm="resolve nearest containing group name">
+
+To resolve the <dfn>nearest containing group name</dfn> of an {{Element}} |element|, perform the following steps given a {{ViewTransition}} |viewTransition|:
+	1. Assert: |element| participates in |viewTransition|.
+	1. Let |ancestorGroup| be |element|'s nearest [=flat tree=] [=tree/ancestor=] who participates in |viewTransition| and whose [=document-scoped view transition group=] is not ''view-transition-group/normal''.
+	1. If |ancestorGroup| exists, return |ancestorGroup|'s [=document-scoped view transition name=].
+	1. Return ''view-transition-name/none''.
+</div>
+
+### Resolving the group name ### {#vt-group-name-resolve}
+
+<div algorithm="resolve used group name">
+To resolve the <dfn>used group name</dfn> of an {{Element}} |element|, perform the following steps given a {{ViewTransition}} |transition|:
+
+	1. Assert: |element| participates in |transition|.
+	1. Let |group| be |element|'s [=document-scoped view transition group=].
+	1. Let |containingGroupName| be |element|'s [=nearest containing group name=] given |transition|.
+	1. Return the first matching statement, switching on |group|:
+
+	<dl dfn-type=value dfn-for=view-transition-group>
+		: <dfn>normal</dfn>
+		: <dfn>contain</dfn>
+		:: |containingGroupName|.
+
+			Note: an element with ''view-transition-group/contain'' becomes the [=nearest containing group name=] for its descendants.
+
+		: <dfn>nearest</dfn>
+		:: The [=document-scoped view transition name=] of the element's nearest [=flat tree=] ancestor which participates in the |transition|.
+
+		: <dfn><<custom-ident>></dfn>
+		:: |group| if the element has a [=flat tree=] [=tree/ancestor=] whose [=document-scoped view transition name=] is |group| and participates in |transition|; Otherwise |containingGroupName|.
+	</dl>
+</div>
+
+### Compute the old 'view-transition-group' ### {#vt-group-capture-old}
+<div algorithm="additional old capture steps (group)">
+When  [[css-view-transitions-1#capture-old-state-algorithm|capturing the old state for an element]], perform the following steps given a [=captured element=] |capturedElement|, a {{ViewTransition}} |transition|, and an [=element=] |element|:
+
+	1. Set |capturedElement|'s [=captured element/containing group name=] to |element|'s [=used group name=] given |transition|.
+</div>
+
+### Compute the new 'view-transition-group' ### {#vt-group-capture-new}
+<div algorithm="additional new capture steps (group)">
+When [[css-view-transitions-1#capture-new-state-algorithm|capturing the new state for an element]], perform the following steps given a [=captured element=] |capturedElement| a {{ViewTransition}} |transition|, and an [=element=] |element|:
+
+	1. Set |capturedElement|'s [=captured element/containing group name=] to |element|'s [=used group name=] given |transition|.
+</div>
+
+### Reparent a ''::view-transition-group()'' to its specified containing group ### {#vt-group-reparent}
+<div algorithm="additional pseudo-element setup steps (group)">
+When [[css-view-transitions-1#setup-transition-pseudo-elements-algorithm|setting up the transition pseudo-element]] for a [=captured element=] |capturedElement|, given a |transitionName| and a |transition|:
+
+	1. Let |containingGroupName| be |capturedElement|'s [=containing group name=].
+	1. If |containingGroupName| is not null, then:
+
+		1. Let |groupContainerElement| be |transition|'s [=ViewTransition/named elements=][|containingGroupName|].
+
+		1. Let |group| be the ''::view-transition-group()'',
+			whose [=view transition name=] is set to |transitionName|.
+
+		1. Let |parentGroup| be the ''::view-transition-group()'',
+			whose [=view transition name=] is set to |containingGroupName|.
+
+		1. Append |group| to |parentGroup|.
+
+		1. When setting the animation keyframes given |transform|, [=multiply=] |transform| by the inverse matrix of |groupContainerElement|'s [=old transform=].
+
+	Note: It is TBD how this is resolved when the old and new groups mismatch. See <a href="https://github.com/w3c/csswg-drafts/issues/10631">Issue 10631</a>.
+</div>
+
+### Adjust the group's 'transform' to be relative to its containing ''::view-transition-group()'' ### {#vt-group-transform-adjust}
+<div algorithm="additional pseudo-element style update steps (group)">
+When [[css-view-transitions-1#style-transition-pseudo-elements-algorithm|updating the style of the transition pseudo-element]], perform the following steps before setting the [=captured element/group styles rule=], given a [=captured element=] |capturedElement|, given a |transform| and a {{ViewTransition}} |transition|:
+
+	1. Set |capturedElement|'s [=transform from snapshot containing block=] to |transform|.
+
+	1. If |capturedElement|'s [=containing group name=] is not null, then:
+
+		1. Let |groupContainerElement| be |transition|'s [=ViewTransition/named elements=][|capturedElement|'s [=containing group name=]].
+
+		1. [=Multiply=] |transform| by the inverse matrix of |groupContainerElement|'s [=transform from snapshot containing block=].
+</div>
+
+
 
 <h2 id="priv" class="no-num">Privacy Considerations</h2>
 
@@ -1026,3 +1294,23 @@ this still presents two potential threats:
 See <a href="https://github.com/w3c/csswg-drafts/issues/8684">Issue #8684</a> and
 <a href="https://github.com/WICG/view-transitions/issues/200">WICG/view-transitions#200</a> for
 detailed discussion.
+
+<h2 class="no-num non-normative" id="changes">Appendix A. Changes</h2>
+
+This appendix is <em>informative</em>.
+
+<h3 id="changes-since-2024-05-16">
+Changes from <a href="https://www.w3.org/TR/2024/WD-css-view-transitions-2-20240516/">2024-05-16 Working Draft</a>
+</h3>
+
+* First pass at layered capture (<a href="https://github.com/w3c/csswg-drafts/issues/10585">#10585</a>)
+* Allow transitions when traversing into a document that was created using cross-origin redirects (<a href="https://github.com/w3c/csswg-drafts/issues/11063">#11063</a>#11063)
+* Clarify a few nesting details (<a href="https://github.com/w3c/csswg-drafts/issues/10780">#10780</a> and <a href="https://github.com/w3c/csswg-drafts/issues/10633">#10633</a>)
+* Allow `auto` as a keyword for 'view-transition-name' (<a href="https://github.com/w3c/csswg-drafts/issues/8320">#8320</a>)
+* Clarify timeout behavior for inbound view transition (<a href="https://github.com/w3c/csswg-drafts/issues/10800">#10800</a>)
+* When hiding the document, and inbound cross-document view transition should be skipped. (<a href="https://github.com/w3c/csswg-drafts/issues/9822">#9822</a>)
+* Rename UpdateCallback to something more specific.
+* Clarify that CSSViewTransitionRule returns an empty string for invalid/missing navigation descriptor (<a href="https://github.com/w3c/csswg-drafts/issues/10654">#10654</a>)
+* Initial spec for nested view transitions (<a href="https://github.com/w3c/csswg-drafts/issues/10334">#10334</a>)
+* `view-transition-class` is a tree-scoped name (<a href="https://github.com/w3c/csswg-drafts/issues/10529">#10529</a>)
+* Stop extending CSSRule with obsolete pattern (See <a href="https://github.com/w3c/csswg-drafts/issues/10606">#10606</a>)
