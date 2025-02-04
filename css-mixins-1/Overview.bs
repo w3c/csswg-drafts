@@ -15,6 +15,7 @@ Default Highlight: css
 
 <pre class=link-defaults>
 spec:infra; type:dfn; text:list
+spec:infra; type:dfn; for:list; text:append
 spec:css-properties-values-api; type:dfn; text:supported syntax component name
 spec:css-properties-values-api; type:dfn; text:syntax component
 spec:css-syntax-3; type:dfn; text:declaration
@@ -83,19 +84,12 @@ Defining Custom Functions {#defining-custom-functions}
 
 	A <dfn>custom function</dfn> consists of a name (<<function-name>>),
 	a list of [=function parameter|parameters=],
-	a list of [=function dependency|dependencies=],
 	a function body,
 	and optionally a <dfn>return type</dfn> described by a [=syntax definition=].
 
 	A <dfn>function parameter</dfn> consists of a name (<<custom-property-name>>);
 	optionally a <dfn>parameter type</dfn>, described by a [=syntax definition=];
 	and optionally a <dfn>default value</dfn>.
-
-	A <dfn>function dependency</dfn>,
-	is a special [=function parameter=],
-	that represents
-	a [=local variable=], [=function parameter=], or [=custom property=]
-	being implicitly passed as an argument from the calling context.
 
 The <dfn>@function</dfn> Rule {#function-rule}
 ----------------------------------------------
@@ -105,14 +99,12 @@ and its syntax is:
 
 <pre class="prod def" nohighlight>
 &lt;@function> = @function <<function-name>> <<function-parameter-list>>? )
-	[ using ( <<function-dependency-list>> ) ]?
 	[ returns <<css-type>> ]?
 {
 	<<declaration-rule-list>>
 }
 
 <dfn><<function-parameter-list>></dfn> = <<function-parameter>>#
-<dfn><<function-dependency-list>></dfn> = <<function-parameter>>#
 <dfn><<function-parameter>></dfn> = <<custom-property-name>> <<css-type>>? [ : <<declaration-value>> ]?
 <dfn><<css-type>></dfn> = <<syntax-component>> | <<type()>>
 <dfn function lt="type()" for="@function">&lt;type()></dfn> = type( <<syntax>> )
@@ -125,12 +117,10 @@ with the additional restriction that it must start with two dashes
 
 The name of the resulting [=custom function=] is given by the <<function-name>>,
 the [=function parameters=] are optionally given by <<function-parameter-list>>,
-the [=function dependencies=] are optionally given by <<function-dependency-list>>,
 and the [=return type=] is optionally given by the <<css-type>> following the "returns" keyword.
 
 <div class='example'>
-	If the <<css-type>> of a [=function parameter=],
-	[=function dependency=],
+	If the <<css-type>> of a [=function parameter=]
 	or [=custom function=] return value
 	can be described by a single <<syntax-component>>,
 	then the ''type()'' function may be omitted:
@@ -150,8 +140,6 @@ and the [=return type=] is optionally given by the <<css-type>> following the "r
 	</pre>
 </div>
 
-Issue: Should duplicates be disallowed <em>across</em> parameters/dependencies
-	as well?
 
 If more than one ''@function'' exists for a given name,
 then the rule in the stronger cascade layer wins,
@@ -160,8 +148,6 @@ and rules defined later win within the same layer.
 The <<function-name>> of a ''@function'' rule is a [=tree-scoped name=].
 
 If the <<function-parameter-list>>
-contains the same <<custom-property-name>> more than once,
-or if the <<function-dependency-list>>
 contains the same <<custom-property-name>> more than once,
 then the ''@function'' rule is invalid.
 
@@ -191,7 +177,7 @@ The '@function/result' descriptor
 determines the result of [=evaluate a custom function|evaluating=]
 the [=custom function=] that is defined by a ''@function'' rule.
 Using [=locally substitute a var()|locally substituted=] ''var()'' functions,
-it can reference [=function parameters=], [=function dependencies=], [=local variables=],
+it can reference [=function parameters=], [=local variables=],
 as well as other [=custom functions=] via <<dashed-function>>s.
 
 The '@function/result' descriptor itself does not have a type,
@@ -246,23 +232,24 @@ described in [[!css-variables]].
 		1. Let |function| be the result of dereferencing
 			the |dashed function|'s name as a [=tree-scoped reference=].
 			If no such name exists, return failure.
-		2. Let |dependency values| be an initially empty [=list=].
-		3. For each |dependency| in |function|'s [=function dependency|dependencies=]:
-			* Let |dependency value| be the value that would be substituted
-				if a ''var()'' function had been specified explicitly
-				at the end of |dashed function|'s argument list,
-				with |dependency| as its only argument.
-			* If that substitution would have made a containing declaration
-				[=invalid at computed-value time=],
-				set |dependency value| to the [=guaranteed-invalid value=].
-			* Append the result of [=resolving an argument=] to |dependency values|,
-				using |dependency value| as value,
-				and |dependency| as parameter.
+		2. Let |dependencies| be an initially empty [=list=].
+		3. For every possible argument to ''var()'' (with no fallback)
+			that would lead to a valid [=locally substitute a var()|local substitution=]
+			in place of |dashed function|:
+			[=append=] a [=declaration=] to |dependencies|
+			with that argument as the name,
+			and the substitution value as the value.
+
+			Note: This exposes any [=custom properties=], [=local variables=],
+				and [=function parameters=] that are visible
+				in any given context
+				to [=custom functions=] invoked by that context.
+
 		4. [=substitute arbitrary substitution functions|Substitute=]
 			any [=arbitrary substitution functions=]
 			within |dashed function|'s arguments.
 		5. [=Evaluate a custom function=],
-			using |function|, |dashed function| and |dependency values|.
+			using |function|, |dashed function| and |dependencies|.
 		6. If failure was returned, return failure.
 		7. Otherwise,
 			replace the <<dashed-function>> with the [=equivalent token sequence=]
@@ -281,7 +268,7 @@ Evaluating Custom Functions {#evaluating-custom-functions}
 	To <dfn>evaluate a custom function</dfn>,
 	with |function| being a [=custom function=],
 	|dashed function| being the <<dashed-function>> invoking that |function|,
-	and |dependency values| being a [=list=] of values.
+	and |dependencies| being a [=list=] of [=declarations=].
 
 	1. If the number of values in |dashed function|'s argument list
 		is greater than the number of values in |function|'s [=function parameter|parameters=],
@@ -297,7 +284,7 @@ Evaluating Custom Functions {#evaluating-custom-functions}
 			and |parameter| as parameter.
 	3. Let |result| be the [=resolved local value=]
 		of the '@function/result' descriptor,
-		using |function|, |dashed function|, and |dependency values|.
+		using |function|, |dashed function|, and |dependencies|.
 	4. If |function| has a [=return type=],
 		set |result| to the result of [=resolve a typed value|resolving a typed value=],
 		using |result| as the value,
@@ -367,25 +354,26 @@ Evaluating Custom Functions {#evaluating-custom-functions}
 Parameters and Locals {#parameters}
 -----------------------------------
 
-	The [=function parameters=] and [=function dependencies=] of a [=custom function=]
+	The [=function parameters=] of a [=custom function=]
 	are available for [=locally substitute a var()|local substitution=]
 	as if they were declared as [=local variables=]
 	at the start of the ''@function'' rule body.
 
 	Note: A [=local variable=] with the same name
-		as a [=function parameter=]/[=function dependency=] is allowed,
-		but will make the parameter/dependency unreachable
+		as a [=function parameter=] is allowed,
+		but will make the parameter unreachable
 		for [=locally substitute a var()|substitution=]
 
 	A <dfn>local variable</dfn>
 	is a custom property defined with the body of a [=custom function=].
-	It is only visible within the function where it is defined.
+	It is visible within the function where it is defined,
+	and within other [=custom functions=] invoked by that function.
 
 <div algorithm>
 	To <dfn>locally substitute a var()</dfn> within a value,
 	with |function| being a [=custom function=],
 	|dashed function| being the <<dashed-function>> invoking that |function|,
-	and |dependency values| being a [=list=] of values:
+	and |dependencies| being a [=list=] of [=declarations=]:
 
 	1. Let |substitution value| be one of the following options,
 		depending on the [=custom property=] named in the first argument of the ''var()'' function:
@@ -397,9 +385,9 @@ Parameters and Locals {#parameters}
 			:   Otherwise, if the [=custom property=] name matches a [=function parameter|parameter=] within |function|
 			::  The corresponding argument value within the |dashed function|.
 
-			:   Otherwise, if the [=custom property=] name matches a [=function dependency|dependency=] within |function|
-			::  The corresponding value of that [=function dependency|dependency=]
-				within |dependency values|.
+			:   Otherwise, if the [=custom property=] name matches the name
+				of a [=declaration=] within |dependencies|
+			::  The corresponding value of that [=declaration=].
 
 			:   Otherwise
 			::  The [=guaranteed-invalid value=].
@@ -425,6 +413,39 @@ A <dfn>resolved local value</dfn> is the value of a [=local variable=] or [=desc
 If any substitution algorithm returns failure,
 then the [=resolved local value=] of a [=local variable=]
 is the [=guaranteed-invalid value=].
+
+<div class='example'>
+	A [=custom function=] can access [=local variables=]
+	and [=function parameters=]
+	from functions higher up in the call stack:
+
+	<pre class='lang-css'>
+	@function --foo(--x) {
+	  --y: 2;
+	  result: --bar();
+	}
+	@function --bar() returns &lt;number&gt; {
+	  result: calc(var(--x) + var(--y));
+	}
+	div {
+	  z-index: --foo(1); /* 3 */
+	}
+	</pre>
+
+	Similarly, [=custom properties=] are implicitly available:
+
+	<pre class='lang-css'>
+	@function --double-z() returns &lt;number&gt; {
+	  result: calc(var(--z) * 2);
+	}
+	div {
+	  --z: 3;
+	  z-index: --double-z(); /* 6 */
+	}
+	</pre>
+
+</div>
+
 
 Cycles {#cycles}
 ----------------
