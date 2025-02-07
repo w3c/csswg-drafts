@@ -102,8 +102,16 @@ Introduction {#intro}
 	like:
 
 	<xmp highlight=css>
-	@function --shadow(--color <color> : var(--shadow-color)) {
-		result: 2px 2px var(--color, black);
+	@function --shadow(--shadow-color <color> : inherit) {
+		/* If --shadow-color argument isn't passed,
+		   or doesn't successfully parse as a <color>,
+		   try to use the --shadow-color *property*
+		   from the element instead */
+
+		/* var(--shadow-color) refers to the --shadow-color parameter,
+		   rather than a custom property,
+		   but can still use a fallback value as normal */
+		result: 2px 2px var(--shadow-color, black);
 	}
 
 	.foo {
@@ -129,8 +137,8 @@ Defining Custom Functions {#defining-custom-functions}
 ======================================================
 
 	A [=custom function=] can be thought of as an advanced [=custom property=],
-	which instead of being substituted by a single fixed value
-	provides its substitution value based on [=function parameters=]
+	which instead of being substituted by a single fixed value,
+	computes its substitution value based on [=function parameters=]
 	and the value of [=custom properties=] at the point it's invoked.
 	Rather than the ''var()'' syntax that [=custom properties=] use for substitution,
 	[=custom functions=] are invoked by <<dashed-function>> syntax,
@@ -180,7 +188,7 @@ A <dfn>function parameter</dfn> consists of a name (<<custom-property-name>>);
 optionally a <dfn>parameter type</dfn>, described by a [=syntax definition=];
 and optionally a <dfn>default value</dfn>.
 
-<pre class="prod" nohighlight>
+<pre class="prod def" nohighlight>
 &lt;@function> = @function <<function-token>> <<function-parameter>>#? )
 	[ returns <<css-type>> ]?
 {
@@ -267,6 +275,81 @@ as well as other [=custom functions=] via <<dashed-function>>s.
 The '@function/result' descriptor itself does not have a type,
 but its [=resolve function styles|resolved=] value is type checked
 during the [=substitute a dashed function|substitution=] of a <<dashed-function>>.
+
+Arguments & Local Variables {#args}
+-----------------------------------
+
+<em>This section is non-normative.</em>
+
+Within a [=custom function's=] [=function body=],
+the ''var()'' function can access
+[=local variables=]
+(the [=custom properties=] defined in the [=function body=]),
+[=function parameters=]
+(the values passed to the function, or set to default values),
+and [=custom properties=] defined at the <em>call site</em>
+(an element, or another [=custom function=]).
+
+In that list, earlier things "win" over later things of the same name--
+if you have a [=local variable=] named '--foo',
+''var(--foo)'' will be substituted by that [=local variable=],
+not by an argument or a custom property defined outside.
+(The other values can still be <em>accessed</em>, however:
+setting the '--foo' local variable to ''initial''
+will resolve it to the '--foo' parameter,
+while ''inherit'' will resolve it
+to the '--foo' custom property from the call site.)
+
+<div class='example'>
+	A [=custom function=] can access [=local variables=]
+	and [=function parameters=]
+	from functions higher up in the call stack:
+
+	<xmp class='lang-css'>
+	@function --outer(--outer-arg) {
+	  --outer-local: 2;
+	  result: --inner();
+	}
+	@function --inner() returns <number> {
+	  result: calc(var(--outer-arg) + var(--outer-local));
+	}
+	div {
+	  z-index: --outer(1); /* 3 */
+	}
+	</xmp>
+
+	Similarly, [=custom properties=] are implicitly available:
+
+	<xmp class='lang-css'>
+	@function --double-z() returns <number> {
+	  result: calc(var(--z) * 2);
+	}
+	div {
+	  --z: 3;
+	  z-index: --double-z(); /* 6 */
+	}
+	</xmp>
+
+	But [=function parameters=] "shadow" [=custom properties=],
+	and [=local variables=] "shadow" both:
+
+	<xmp class='lang-css'>
+	@function --add-a-b-c(--b, --c) {
+		--c: 300;
+		result: calc(var(--a) + var(--b) + var(--c));
+		/* uses the --a from the call site's custom property,
+		   the --b from the function parameter,
+		   and the --c from the local variable */
+	}
+	div {
+		--a: 1;
+		--b: 2;
+		--c: 3;
+		z-index: --add-a-b-c(20, 30); /* 321 */
+	}
+	</xmp>
+
+</div>
 
 
 <!-- Big Text: using
@@ -358,6 +441,21 @@ If [=substitute a dashed function=] fails,
 and the substitution is taking place on a property's value,
 then the declaration containing the <<dashed-function>> becomes
 [=invalid at computed-value time=].
+
+<div class='example'>
+	A [=comma-containing productions|comma-containing value=]
+	may be passed as a single argument
+	by wrapping the value in curly braces, <code>{}</code>:
+
+	<pre class='lang-css'>
+	@function --max-plus-x(--list, --x) {
+	  result: calc(max(var(--list)) + var(--x));
+	}
+	div {
+	  width: --max-plus-x({ 1px, 7px, 2px }, 3px); /* 10px */
+	}
+	</pre>
+</div>
 
 Evaluating Custom Functions {#evaluating-custom-functions}
 ----------------------------------------------------------
@@ -477,52 +575,7 @@ with its [=function parameters=] overriding "inherited" custom properties of the
 		will be used from these styles.
 </div>
 
-<div class='example'>
-	A [=comma-containing productions|comma-containing value=]
-	may be passed as a single argument
-	by wrapping the value in curly braces, <code>{}</code>:
 
-	<pre class='lang-css'>
-	@function --max-plus-x(--list, --x) {
-	  result: calc(max(var(--list)) + var(--x));
-	}
-	div {
-	  width: --max-plus-x({ 1px, 7px, 2px }, 3px); /* 10px */
-	}
-	</pre>
-</div>
-
-<div class='example'>
-	A [=custom function=] can access [=local variables=]
-	and [=function parameters=]
-	from functions higher up in the call stack:
-
-	<pre class='lang-css'>
-	@function --foo(--x) {
-	  --y: 2;
-	  result: --bar();
-	}
-	@function --bar() returns &lt;number&gt; {
-	  result: calc(var(--x) + var(--y));
-	}
-	div {
-	  z-index: --foo(1); /* 3 */
-	}
-	</pre>
-
-	Similarly, [=custom properties=] are implicitly available:
-
-	<pre class='lang-css'>
-	@function --double-z() returns &lt;number&gt; {
-	  result: calc(var(--z) * 2);
-	}
-	div {
-	  --z: 3;
-	  z-index: --double-z(); /* 6 */
-	}
-	</pre>
-
-</div>
 
 
 Cycles {#cycles}
