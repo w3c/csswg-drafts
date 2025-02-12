@@ -32,6 +32,7 @@ Ignored Vars: identifier, i
 <pre class=link-defaults>
 spec:css-values-4; type:dfn; text:identifier
 spec:css-display-3; type:property; text:display
+spec:css-display-4; type:property; text:visibility
 spec:css-pseudo-4; type:selector;
 	text: ::before
 	text: ::after
@@ -2136,10 +2137,11 @@ The Hyperlink Pseudo-class: '':any-link''</h3>
 <h3 id="link">
 The Link History Pseudo-classes: '':link'' and '':visited''</h3>
 
-	User agents commonly display unvisited <a href="#the-any-link-pseudo">hyperlinks</a> differently from
-	previously visited ones. Selectors
-	provides the pseudo-classes <dfn id='link-pseudo'>:link</dfn> and
-	<dfn id='visited-pseudo'>:visited</dfn> to distinguish them:
+	User agents commonly display unvisited [[#the-any-link-pseudo|hyperlinks]]
+	differently from previously visited ones.
+	Selectors provides the pseudo-classes
+	<dfn id='link-pseudo'>:link</dfn> and <dfn id='visited-pseudo'>:visited</dfn>
+	to distinguish them:
 
 	<ul>
 		<li>The '':link'' pseudo-class applies to links that have
@@ -2148,23 +2150,53 @@ The Link History Pseudo-classes: '':link'' and '':visited''</h3>
 		been visited by the user.
 	</ul>
 
-	After some amount of time, user agents may choose to return a
-	visited link to the (unvisited) '':link'' state.
-
 	The two states are mutually exclusive.
 
-	<div class="example">
-		The following selector represents links carrying class
-		<code>footnote</code> and already visited:
+	After some amount of time,
+	user agents may choose to return a visited link
+	to the (unvisited) '':link'' state.
 
-		<pre>.footnote:visited </pre>
+	The '':visited'' pseudo-class comes with obvious privacy implications--
+	letting random websites know what <em>other</em> websites you've visited
+	can be problematic for a number of reasons--
+	and so user agents <em>must</em> preserve user privacy
+	in their implementation of '':visited''.
+
+	<div class=note>
+		This specification intentionally does not specify
+		exactly how to preserve user privacy in this regard,
+		to allow for user agents to innovate in this space.
+		The following methods are suggested, however:
+
+		* Have '':visited'' never match,
+			so all links match '':link'' instead.
+		* Carefully track what history entries
+			could have been observed by a given origin on their own,
+			and only have links match '':visited''
+			if that visit would have been observable from the site's origin.
+			A possible specific approach for this
+			is described in [[#visited-privacy]].
+		* Allow links to match '':visited'' on any origin,
+			but carefully restrict what styles they can apply
+			and what information is returned by style-querying APIs
+			like {{getComputedStyle()}},
+			to prevent sites from observing
+			whether a link is styled with '':link'' or '':visited''.
+			(This is documented at <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/Privacy_and_the_:visited_selector">MDN</a>,
+			and was the historical approach browsers took,
+			but is not perfect;
+			there are several ways for a hostile page
+			to still extract history information.)
 	</div>
 
-	Since it is possible for style sheet authors to abuse the :link and :visited pseudo-classes
-	to determine which sites a user has visited without the user's consent,
-	UAs may treat all links as unvisited links
-	or implement other measures to preserve the user's privacy
-	while rendering visited and unvisited links differently.
+	<div class="example">
+		For example, the selector ''.footnote:visited''
+		would allow styling footnote links differently
+		if they've been previously followed,
+		allowing users of the page to know
+		they might not need to click the footnote again.
+	</div>
+
 
 <h3 id="the-local-link-pseudo">
 The Local Link Pseudo-class: '':local-link''</h3>
@@ -4198,6 +4230,107 @@ Appendix B: Obsolete but Required <code>-webkit-</code> Parsing Quirks for Web C
 			will be met with shaming and derision from members of the CSSWG,
 			and all right-thinking web developers.
 		</details>
+
+<h2 id="visited-privacy">
+Appendix C: Example Privacy-Preserving '':visited'' Restrictions</h2>
+
+Previous attempts to protect user privacy in '':visited''
+involved <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/Privacy_and_the_:visited_selector">complex restrictions and behaviors</a>
+to "lie" about whether the link match '':visited'' or '':link'',
+to reduce the chance that a hostile site
+could observe what unrelated sites a user had visited
+while still allowing '':visited'' to work in all cases
+and help the user know what links they'd already clicked.
+This is ultimately an arms race that can't be won;
+there are multiple documented ways to still extract a user's browsing history
+even with these mitigations.
+
+This section describes an approach first developed and documented at
+<a href="https://github.com/explainers-by-googlers/Partitioning-visited-links-history">https://github.com/explainers-by-googlers/Partitioning-visited-links-history</a>,
+that partitions a user's browsing history information,
+to allow '':visited'' to only match links
+corresponding to navigations that the site's origin could have observed on its own.
+With this, '':visited'' can be treated as a normal pseudo-class,
+without any of the complex mitigations described above,
+as it doesn't expose any information not already theoretically available to the site,
+while still preserving as much of the <em>usefulness</em> of '':visited'' as possible for the user.
+
+1. Let |visited history| be a [=/set=]
+	containing [=tuples=] of three pieces of information:
+	* a visited [=/URL=]
+	* an [=/origin=] for the site that started a navigation
+	* a [=/site=] for the top-level site containing the frame that started the navigation.
+		(This will often be the same as the previous,
+		but can differ if the user clicks a link in a iframe, for example.)
+
+2. Whenever a navigation is triggered <em>from within a page</em>--
+	e.g.,
+	from the user clicking a link,
+	or a script on the page initiating a navigation--
+	add an entry to |visited history|
+	recording the navigation's destination URL,
+	the origin of the page containing the link or script,
+	and the (schemeful) site of the top-level site containing that
+	page (which might be the same site as the previous origin).
+
+	Note: This allows a site to see '':visited'' information
+	for links that the user has clicked
+	from anywhere in that site's origin.
+	In other words, any <code>A -> B</code> navigation
+	where the site is A.
+
+	Additionally, add an entry to |visited history|
+	recording the destination's URL, the <em>destination's</em>
+	origin, and the <em>destination's</em> site. Do this only
+	for navigations from top-level frames or iframes which are
+	same-origin with their top-level frame.
+
+	Note: This allows for a site to see '':visited'' information about its own pages
+	(which is already observable by the site)
+	regardless of what site initiated the navigation to that page.
+	In other words, any <code>A -> B</code> navigation
+	where the site is B.
+
+	Note: Notably, direct navigations triggered by the <em>user agent's</em> UI,
+	such as typing into the address bar,
+	clicking on bookmarks,
+	or dragging a link from another program into the page,
+	<em>do not</em> add a |visited history| entry.
+	These can, of course,
+	still add to the browser's record of visited sites
+	that it uses for other purposes,
+	such as suggesting URLs as the user types into the URL bar.
+
+3. When determining if a link element should match '':link'' or '':visited'',
+	only allow it to match '':visited'' if
+	the link's destination,
+	the origin of the page containing the link,
+	and the top-level site containing the link
+	match a tuple in |visited history|.
+
+<div class=note>
+	The inclusion of both page origin and top-level site
+	prevents several possible privacy attacks,
+	such as:
+
+	* If history entries were <em>only</em> keyed by the starting site's URL,
+		a tracking site could be embedded in a hidden iframe on multiple sites
+		which triggers a navigation to a unique URL for a user on the first visit,
+		and then uses many such links on subsequent visits
+		to see which one had been visited,
+		effectively becoming a new "third-party cookie"
+		identifying the user across the web.
+		By keying the history entry with the top-level site,
+		this information can't be shared across different sites.
+
+	* If history entires were <em>only</em> keyed by the top-level site's URL,
+		a hostile iframe,
+		perhaps included in a page as part of an advertisement,
+		could observe what sites were visited from the top-level site.
+		By keying the history entry with the link's own site,
+		the top-level site's information can't "leak" into cross-origin iframes.
+</div>
+
 
 
 <h2 id="changes">
