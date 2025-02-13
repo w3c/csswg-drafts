@@ -12,5 +12,5 @@ function deltaEITP (reference, sample) {
 	let ΔI = I1 - I2;
 	let ΔT = 0.5 * (Ct1 - Ct2);
 	let ΔP = Cp1 - Cp2;
-	return Math.sqrt(ΔI ** 2 + ΔT ** 2 + ΔP ** 2);
+	return 720 * Math.sqrt(ΔI ** 2 + ΔT ** 2 + ΔP ** 2);
 }
