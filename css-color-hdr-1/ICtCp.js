@@ -1,50 +1,37 @@
-const c1 = 3424 / 4096;
-const c2 = 2413 / 128;
-const c3 = 2392 / 128;
-const m1 = 2610 / 16384;
-const m2 = 2523 / 32;
-const im1 = 16384 / 2610;
-const im2 = 32 / 2523;
-
-// The matrix below includes the 4% crosstalk components
-// and is from the procedure in the Dolby "What is ICtCp" paper"
-const XYZtoICtCp_LMS_M = [
-	[  0.3592832590121217,  0.6976051147779502, -0.0358915932320290 ],
-	[ -0.1920808463704993,  1.1004767970374321,  0.0753748658519118 ],
-	[  0.0070797844607479,  0.0748396662186362,  0.8433265453898765 ],
-];
-
-// This matrix includes the Ebner LMS coefficients,
-// the rotation, and the scaling to [-0.5,0.5] range
-// rational terms are from Fröhlich p.97
-// and ITU-R BT.2124-0 pp.2-3
-const ICtCp_LMStoIPT_M = [
-	[  2048 / 4096,   2048 / 4096,       0      ],
-	[  6610 / 4096, -13613 / 4096,  7003 / 4096 ],
-	[ 17933 / 4096, -17390 / 4096,  -543 / 4096 ],
-];
-
-// inverted matrices, calculated from the above
-const IPTtoICtCp_LMS_M = [
-	[ 0.9999999999999998,  0.0086090370379328,  0.1110296250030260 ],
-	[ 0.9999999999999998, -0.0086090370379328, -0.1110296250030259 ],
-	[ 0.9999999999999998,  0.5600313357106791, -0.3206271749873188 ],
-];
-
-const ICtCp_LMStoXYZ_M = [
-	[  2.0701522183894223, -1.3263473389671563,  0.2066510476294053 ],
-	[  0.3647385209748072,  0.6805660249472273, -0.0453045459220347 ],
-	[ -0.0497472075358123, -0.0492609666966131,  1.1880659249923042 ],
-];
 
 function XYZ_to_ICtCp (XYZ) {
 	// convert an array of absolute, D65 XYZ to the ICtCp form of LMS
 
-    let LMS = multiplyMatrices(XYZtoICtCp_LMS_M, XYZ);
+    // The matrix below includes the 4% crosstalk components
+    // and is from the procedure in the Dolby "What is ICtCp" paper"
+    const M = [
+        [  0.3592832590121217,  0.6976051147779502, -0.0358915932320290 ],
+        [ -0.1920808463704993,  1.1004767970374321,  0.0753748658519118 ],
+        [  0.0070797844607479,  0.0748396662186362,  0.8433265453898765 ],
+    ];
+
+    let LMS = multiplyMatrices(M, XYZ);
     return LMStoICtCp(LMS);
 }
 
 function LMStoICtCp (LMS) {
+
+    const c1 = 3424 / 4096;
+    const c2 = 2413 / 128;
+    const c3 = 2392 / 128;
+    const m1 = 2610 / 16384;
+    const m2 = 2523 / 32;
+
+    // This matrix includes the Ebner LMS coefficients,
+    // the rotation, and the scaling to [-0.5,0.5] range
+    // rational terms are from Fröhlich p.97
+    // and ITU-R BT.2124-0 pp.2-3
+    const M = [
+        [  2048 / 4096,   2048 / 4096,       0      ],
+        [  6610 / 4096, -13613 / 4096,  7003 / 4096 ],
+        [ 17933 / 4096, -17390 / 4096,  -543 / 4096 ],
+    ];
+
 	// apply the PQ EOTF
 	// we can't ever be dividing by zero because of the "1 +" in the denominator
 	let PQLMS = LMS.map (function (val) {
@@ -55,18 +42,37 @@ function LMStoICtCp (LMS) {
 	});
 
 	// LMS to IPT, with rotation for Y'C'bC'r compatibility
-	return multiplyMatrices(LMStoIPT_M, PQLMS);
+	return multiplyMatrices(M, PQLMS);
 }
 
 function ICtCp_to_XYZ (ICtCp) {
     // convert ICtCp to an array of absolute, D65 XYZ
 
+    const M = [
+        [  2.0701522183894223, -1.3263473389671563,  0.2066510476294053 ],
+        [  0.3647385209748072,  0.6805660249472273, -0.0453045459220347 ],
+        [ -0.0497472075358123, -0.0492609666966131,  1.1880659249923042 ],
+    ];
+
     let LMS = ICtCptoLMS(ICtCp);
-	return multiplyMatrices(ICtCp_LMStoXYZ_M, LMS);
+	return multiplyMatrices(M, LMS);
 }
 
 function ICtCptoLMS (ICtCp) {
-	let PQLMS = multiplyMatrices(IPTtoICtCp_LMS_M, ICtCp);
+
+    const c1 = 3424 / 4096;
+    const c2 = 2413 / 128;
+    const c3 = 2392 / 128;
+    const im1 = 16384 / 2610;
+    const im2 = 32 / 2523;
+
+    const M = [
+        [ 0.9999999999999998,  0.0086090370379328,  0.1110296250030260 ],
+        [ 0.9999999999999998, -0.0086090370379328, -0.1110296250030259 ],
+        [ 0.9999999999999998,  0.5600313357106791, -0.3206271749873188 ],
+    ];
+
+	let PQLMS = multiplyMatrices(M, ICtCp);
 
 	// Undo PQ encoding, From BT.2124-0 Annex 2 Conversion 3
 	let LMS = PQLMS.map (function (val) {
