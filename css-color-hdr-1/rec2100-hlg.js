@@ -52,3 +52,8 @@ function hlg_decode(RGB) {
         return ((Math.exp((val - c) / a) + b) / 12) * scale;
     });
 }
+
+function spow (base, exp) {
+    let sign = base < 0? -1 : 1;
+	return sign * (Math.abs(base) ** exp);
+}
