@@ -1,6 +1,6 @@
 
 function XYZ_to_ICtCp (XYZ) {
-	// convert an array of absolute, D65 XYZ to the ICtCp form of LMS
+    // convert an array of absolute, D65 XYZ to the ICtCp form of LMS
 
     // The matrix below includes the 4% crosstalk components
     // and is from the procedure in the Dolby "What is ICtCp" paper"
@@ -32,17 +32,17 @@ function LMStoICtCp (LMS) {
         [ 17933 / 4096, -17390 / 4096,  -543 / 4096 ],
     ];
 
-	// apply the PQ EOTF
-	// we can't ever be dividing by zero because of the "1 +" in the denominator
-	let PQLMS = LMS.map (function (val) {
-		let num = c1 + (c2 * ((val / 10000) ** m1));
-		let denom = 1 + (c3 * ((val / 10000) ** m1));
+    // apply the PQ EOTF
+    // we can't ever be dividing by zero because of the "1 +" in the denominator
+    let PQLMS = LMS.map (function (val) {
+        let num = c1 + (c2 * ((val / 10000) ** m1));
+        let denom = 1 + (c3 * ((val / 10000) ** m1));
 
-		return (num / denom)  ** m2;
-	});
+        return (num / denom)  ** m2;
+    });
 
-	// LMS to IPT, with rotation for Y'C'bC'r compatibility
-	return multiplyMatrices(M, PQLMS);
+    // LMS to IPT, with rotation for Y'C'bC'r compatibility
+    return multiplyMatrices(M, PQLMS);
 }
 
 function ICtCp_to_XYZ (ICtCp) {
@@ -55,7 +55,7 @@ function ICtCp_to_XYZ (ICtCp) {
     ];
 
     let LMS = ICtCptoLMS(ICtCp);
-	return multiplyMatrices(M, LMS);
+    return multiplyMatrices(M, LMS);
 }
 
 function ICtCptoLMS (ICtCp) {
@@ -72,14 +72,14 @@ function ICtCptoLMS (ICtCp) {
         [ 0.9999999999999998,  0.5600313357106791, -0.3206271749873188 ],
     ];
 
-	let PQLMS = multiplyMatrices(M, ICtCp);
+    let PQLMS = multiplyMatrices(M, ICtCp);
 
-	// Undo PQ encoding, From BT.2124-0 Annex 2 Conversion 3
-	let LMS = PQLMS.map (function (val) {
-		let num  = Math.max((val ** im2) - c1, 0);
-		let denom = (c2 - (c3 * (val ** im2)));
-		return 10000 * ((num / denom) ** im1);
-	});
+    // Undo PQ encoding, From BT.2124-0 Annex 2 Conversion 3
+    let LMS = PQLMS.map (function (val) {
+        let num  = Math.max((val ** im2) - c1, 0);
+        let denom = (c2 - (c3 * (val ** im2)));
+        return 10000 * ((num / denom) ** im1);
+    });
 
-	return LMS;
+    return LMS;
 }
