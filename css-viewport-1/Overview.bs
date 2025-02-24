@@ -32,6 +32,11 @@ spec: fenced-frames; urlPrefix: https://wicg.github.io/fenced-frame/
 	type: interface; text: FencedFrames
 </pre>
 
+<pre class=link-defaults>
+	spec:webdriver2; type:dfn; text:remote end steps
+	spec:webdriver2; type:dfn; text:error
+</pre>
+
 <h2 id="intro">
 Introduction</h2>
 
@@ -118,6 +123,22 @@ for a document is defined as the computed value of the 'direction'
 property for the first <code class=html>&lt;BODY&gt;</code> element of
 an HTML or XHTML document. For other document types, it is the
 computed 'direction' for the root element.
+
+<h3 id="display-feature"><dfn>Display feature</dfn> definition</h3>
+A display feature is a hardware feature that acts as a divider
+and creates logically separate region of the viewport called {{segments}}.
+It can be a fold area of a device with a foldable screen or a physical
+split occupying a logical space within the viewport for example some dual
+screen models.
+
+Below is an illustration describing the concept of display features and how
+they divide the viewport in {{segments}}:
+
+<img src="display_features_general.svg" alt="Two images,
+showing two display feature configurations and the respective segments.
+One image is showing an vertical display feature, the other is showing
+an horizontal display feature" style="width: 70%;height: auto; margin:auto; display: flex;">
+
 
 <h2 id="viewport-meta">
 Viewport <code class=html>&lt;meta&gt;</code> element</h2>
@@ -524,7 +545,6 @@ The <dfn export>unscaled</dfn> value of a CSS length relative to an element is t
 	and not be divided by the zoom of the element.
 
 	The {{Window/devicePixelRatio}} of a frame is multiplied by the [=effective zoom=] inherited by its parent frame.
-</h3>
 
 <h2 id=extensions-to-the-window-interface>Extensions to the {{Window}} Interface</h2>
 
@@ -541,7 +561,7 @@ partial interface Window {
 <pre class=idl>
 [Exposed=Window]
 interface Viewport {
-  readonly attribute FrozenArray&lt;DOMRect>? segments;
+	readonly attribute FrozenArray&lt;DOMRect>? segments;
 };
 </pre>
 
@@ -554,10 +574,12 @@ Each {{DOMRect}} contains the geometry of the segment (x, y, width, height) in C
 
 Additonal details about the definition of a viewport segment can be found here: [[css-env-1#viewport-segments]].
 
-The {{segments}} attribute must run these steps:
+The {{segments}} attribute getter steps are:
 1. If the {{Viewport}}'s associated {{Document}} is not <a>fully active</a>, return null.
-2. Returns null if there is only a single viewport segment and abort these steps.
-3. Otherwise, return the {{Viewport}}'s [[css-env-1#viewport-segments|segments]] array.
+2. Let |topLevelTraversable| be |document|'s [=relevant global object=]'s [=/navigable=]'s [=browsing context/top-level traversable=].
+3. If |topLevelTraversable|.[=[[DisplayFeaturesOverride]]=] is non-null, return {{Viewport}}'s [[css-env-1#viewport-segments|segments]] array calculated from |topLevelTraversable|.[=[[DisplayFeaturesOverride]]=].
+4. Returns null if there is only a single viewport segment and abort these steps.
+5. Otherwise, return the {{Viewport}}'s [[css-env-1#viewport-segments|segments]] array calculated from the hardware features.
 
 <div class=non-normative>
 <em>This section is not normative.</em>
@@ -608,3 +630,186 @@ This appendix is <em>informative</em>.
 	<li>Extend [[!CSS3-CONDITIONAL]] rather than CSS21 for nesting in @media.
 	<li>Removed @viewport
 </ul>
+
+<h2 class="no-num" id="automation">Appendix B. Automation</h2>
+
+<h3>Automation of the {{segments}} property</h3>
+The {{segments}} property poses a challenge to test authors, as exercising this property
+requires access to specific hardware devices. To address this challenge this document defines
+[[WEBDRIVER2]] [=extension commands=] that allow users to control how the viewport is split by
+one or more [=display feature| display features=] (such as a fold or a hinge between two separate displays).
+
+A <dfn>display feature override</dfn> is a [=struct=] encapsulating the result of a single display feature.
+It has a <dfn data-dfn-for="display feature override">orientation</dfn> (a string that is either "vertical" or "horizontal"),
+a <dfn data-dfn-for="display feature override">mask length</dfn> (a positive number describing the length of the feature in CSS ''<length>/px''), and
+an <dfn data-dfn-for="display feature override">offset</dfn> (which describe the distance from the origin of the viewport in CSS ''<length>/px'').
+
+<h4 id="internal-slots">Internal slots</h4>
+To support the [=extension commands=] below and their integration with
+the {{segments}} attribute getter steps, [=browsing context/top-level traversables=] must have the following
+internal slots:
+<table class="def">
+<thead>
+	<tr>
+	<th>
+		Internal slot
+	</th>
+	<th>
+		Description
+	</th>
+	</tr>
+</thead>
+<tbody>
+	<tr>
+	<td>
+		<dfn data-dfn-for="top-level traversable">\[[DisplayFeaturesOverride]]</dfn>
+	</td>
+	<td>
+		List of [=display feature override=] that overrides those provided by the hardware, or <code>null</code>.
+	</td>
+	</tr>
+</tbody>
+</table>
+
+<h4 id="extension-commands">Extensions Commands</h4>
+
+<h5 id="set-display-features">Set display features</h5>
+<table class="def">
+	<tr>
+		<th>
+			HTTP Method
+		</th>
+		<th>
+			[=extension command URI Template|URI Template=]
+		</th>
+	</tr>
+	<tr>
+		<td>
+			POST
+		</td>
+		<td>
+			/session/{session id}/displayfeatures
+		</td>
+	</tr>
+</table>
+
+This [=extension command=] creates a setup that emulates a set of [=display feature override=] by taking a list of display features as
+parameter.
+
+<div class=non-normative>
+	<em>This section is not normative.</em>
+
+	This section exists because the input format is not trivial. Here is a pseudo IDL example on
+	how a [=display feature override=] is defined:
+	<pre class="idl">
+		enum OrientationType {
+			"vertical",
+			"horizontal"
+		};
+
+		interface DisplayFeature {
+			readonly attribute OrientationType orientation;
+			readonly attribute double offset;
+			readonly attribute double maskLength;
+		};
+	</pre>
+
+	Below is an illustration showing the various properties of a display feature:
+
+	<img src="display_features.svg" alt="Two images,
+	showing the meaning of each display feature attributes. One image is showing an
+	vertical display feature, the other is showing an horizontal display feature" style="width: 70%;height: auto; margin:auto; display: flex;">
+
+	<div class="example">
+		To create a [=[[DisplayFeaturesOverride]]=] in the <a spec="WEBDRIVER2">current browsing context</a> of the [=session=] with ID 23,
+		the [=local end=] would POST to `/session/23/displayfeatures` with the body:
+		<pre class="lang-json">
+		{
+			"features": [
+				{
+					"orientation": "horizontal",
+					"offset": 190,
+					"maskLength": 20
+				}
+			]
+		}
+		</pre>
+		Considering a viewport of 400px by 400px the command will result of a {{segments}} property with the following content:
+		<code highlight=javascript>[DOMRect(0, 0, 400, 190), DOMRect(0, 210, 400, 190)]</code>
+	</div>
+</div>
+
+<div>
+The [=remote end steps=] are:
+</div>
+<ol>
+	<li>Let |features| be the result of invoking <a spec="WEBDRIVER2">getting a property</a> "features" from
+	|parameters|.
+	</li>
+	<li>If |features| is not a {{Array}}, return [=error=] with [=error
+	code|WebDriver error code=] [=invalid argument=].
+	</li>
+	<li>Let |parsedFeatures| be a new <a spec=infra>list</a> of [=display feature override=].</li>
+	<li>For each |feature item| in |features|:
+		<ol>
+			<li>If |feature item| is not an {{Object}}, return [=error=] with [=error code|WebDriver error code=] [=invalid argument=].</li>
+			<li>Let |mask length| be the result of invoking <a spec="WEBDRIVER2">getting a property</a> "maskLength" from |feature item|.</li>
+			<li>If |mask length| is not a {{Number}} or its value is {{Number/NaN}}, +∞, −∞, or negative return [=error=] with [=error code|WebDriver error code=] [=invalid argument=].
+			<li>Let |offset| be the result of invoking <a spec="WEBDRIVER2">getting a property</a> "offset" from |feature item|.</li>
+			<li>If |offset| is not a {{Number}} or its value is {{Number/NaN}}, +∞, −∞, or negative return [=error=] with [=error code|WebDriver error code=] [=invalid argument=].
+			<li>Let |orientation| be the result of invoking <a spec="WEBDRIVER2">getting a property</a> "orientation" from |feature item|.</li>
+			<li>If |orientation| is not a {{string}}, return [=error=] with [=error code|WebDriver error code=] [=invalid argument=].</li>
+			<li>If |orientation| is neither "vertical" or "vertical", return [=error=] with [=error code|WebDriver error code=] [=invalid argument=].
+			<li>If |orientation| is "vertical" and |mask length| + |offset| is greater than viewport width including the size of the rendered scrollbar, return [=error=] with [=error code|WebDriver error code=] [=invalid argument=].</li>
+			<li>If |orientation| is "vertical" and |mask length| + |offset| is greater than viewport height including the size of the rendered scrollbar, return [=error=] with [=error code|WebDriver error code=] [=invalid argument=].</li>
+			<li>Let |override| be a new [=display feature override=].</li>
+			<li>Set |override|'s [=mask length=] to |mask length|.</li>
+			<li>Set |override|'s [=orientation=] to |orientation|.</li>
+			<li>Set |override|'s [=offset=] to |offset|.</li>
+			<li>[=list/Append=] |override| to |parsedFeatures|.</li>
+		</ol>
+	</li>
+	<li>Let |topLevelTraversable| be the <a spec="WEBDRIVER2">current browsing context</a>'s
+	[=browsing context/top-level traversable=].
+	</li>
+	<li>Set |topLevelTraversable|.[=[[DisplayFeaturesOverride]]=] to |parsedFeatures|.
+	</li>
+	<li>Return [=success=] with data <code>null</code>.
+	</li>
+</ol>
+
+<h5 id="clear-display-features">Clear display features</h5>
+<table class="def">
+	<tr>
+		<th>
+			HTTP Method
+		</th>
+	<th>
+		[=extension command URI Template|URI Template=]
+	</th>
+	</tr>
+	<tr>
+		<td>
+			DELETE
+		</td>
+		<td>
+			/session/{session id}/displayfeatures
+		</td>
+	</tr>
+</table>
+<div>
+	This [=extension command=] removes the display features override and returns
+	control back to hardware.
+</div>
+<div>
+	The [=remote end steps=] are:
+</div>
+<ol>
+	<li>Let |topLevelTraversable| be the <a spec="WEBDRIVER2">current browsing context</a>'s 
+	[=browsing context/top-level traversable=].
+	</li>
+	<li>Set |topLevelTraversable|. [=[[DisplayFeaturesOverride]]=] to <code>null</code>.
+	</li>
+	<li>Return [=success=] with data <code>null</code>.
+	</li>
+</ol>
