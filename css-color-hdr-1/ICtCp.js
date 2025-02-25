@@ -1,6 +1,6 @@
 
 function XYZ_to_ICtCp (XYZ) {
-    // convert an array of absolute, D65 XYZ to the ICtCp form of LMS
+    // convert an array of D65 XYZ to ICtCp
 
     // The matrix below includes the 4% crosstalk components
     // and is from the procedure in the Dolby "What is ICtCp" paper"
@@ -10,7 +10,7 @@ function XYZ_to_ICtCp (XYZ) {
         [  0.0070797844607479,  0.0748396662186362,  0.8433265453898765 ],
     ];
 
-    let LMS = multiplyMatrices(M, XYZ);
+    let LMS = multiplyMatrices(M, XYZ.map(v => v * Yw));
     return LMStoICtCp(LMS);
 }
 
@@ -33,6 +33,7 @@ function LMStoICtCp (LMS) {
     ];
 
     // apply the PQ EOTF
+    // values scaled so [0, 10,000] maps to [0, 1]
     // we can't ever be dividing by zero because of the "1 +" in the denominator
     let PQLMS = LMS.map (function (val) {
         let num = c1 + (c2 * ((val / 10000) ** m1));
