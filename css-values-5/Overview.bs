@@ -1997,6 +1997,8 @@ Generating a Random Numeric Value: the ''random()'' function</h3>
 	                       | <<number [0,1]>>
 	</pre>
 
+	See [[#random-evaluation]] and [[#random-caching]]
+	for details on how the function is evaluated.
 	Its arguments are:
 
 	<dl>
@@ -2036,38 +2038,24 @@ Generating a Random Numeric Value: the ''random()'' function</h3>
 			chosen uniformly randomly from the possible values
 			that result in an in-range value.
 
-			To avoid issues with numeric precision,
-			if the max value is <em>very close</em> to equalling a stepped value
-			(above or below it),
-			the max value is used as the final stepped value instead.
-			See [[#random-evaluation]] for precise details.
-
 			<div class=example>
 				For example, ''random(100px, 300px, 50px)''
 				can only resolve to ''100px'', ''150px'', ''200px'', ''250px'', or ''300px'';
 				it will never return a value like ''120px''.
 
-				While the minimum value is always a possible result,
-				the maximum value isn't always,
-				if it's not also a multiple of the step from the minimum.
-				For example, in ''random(100px, 200px, 30px)'',
-				the largest possible value it can resolve to is ''190px'',
-				3 steps from the minimum value.
-
-				Numeric precision issues can be avoided by using exact formula
-				for step values that would be repeating decimals.
-				For example, in ''random(100px, 200px, 33.3px)'',
-				the largest possible value is ''199.9px'' (not ''200px''),
-				and in ''random(100px, 200px, 33.4px)'',
-				the largest possible value is <strong>''166.8px''</strong>,
-				because 3 steps from the min would give ''200.1px''
-				which is outside the allowed range.
-				But in ''random(100px, 200px, 100px / 3)'',
-				the largest value is guaranteed to be exactly ''200px''
-				because 3 steps from the min is
-				(to within the allowed error)
-				exactly equal to the max.
+				Note that the max value might not actually show up as a possible value;
+				for example, in ''random(100px, 200px, 30px)'',
+				the possible values are ''100px'', ''130px'', ''160px'', and ''190px''.
 			</div>
+
+			Note: Even if it's <em>intended</em> that <code>min</code> and <code>max</code>
+			are exactly some integer multiple of <code>step</code> apart,
+			numeric precision issues can prevent that from being true.
+			To avoid these issues,
+			if the max value is <em>very close</em> to equalling a stepped value
+			(above or below it),
+			the max value is used as the final stepped value instead.
+			See [[#random-evaluation]] for precise details.
 
 			<div class=example>
 				As explained in the definition of ''round()'',
@@ -2365,19 +2353,19 @@ Picking a Random Item From a List: the ''random-item()'' function</h3>
 	&lt;random-item()> = random-item( <<random-value-sharing>> , [ <<declaration-value>>? ]# )
 	</pre>
 
+	See [[#random-evaluation]] and [[#random-caching]]
+	for details on how the function is evaluated.
+
 	The <em>required</em> <<random-value-sharing>>
 	is interpreted identically to ''random()''.
 	(See [[#random-caching]] for details.)
 
 	Note: The <<random-value-sharing>> argument is required in ''random-item()'',
 	but optional in ''random()'',
-	both for parsing reasons
+	for parsing reasons
 	(it's impossible to tell whether ''random-item(--foo, --bar, --baz)''
 	has three <<declaration-value>> arguments
-	or two and a <<random-value-sharing>> argument),
-	and because accidentally associating the random generation of ''random-item()'' functions together
-	is much easier to do accidentally,
-	since only the number of arguments is used to distinguish instances.
+	or two and a <<random-value-sharing>> argument).
 
 	The remaining arguments are arbitrary sequences of CSS values.
 	The ''random-item()'' function is substituted with one of these sequences,
@@ -2412,26 +2400,68 @@ Evaluating Random Values</h3>
 
 	: for a ''random()'' function with |min|, |max|, and |step|
 	::
-		* Let |threshold| be <code>|step| / 1000</code>,
-			or the smallest representable value in the numeric type being used
-			if |threshold| would round to zero.
-		* Let |values| be a list containing all values of the form <code>|min| + |N| * |step|</code>,
-			where |N| is a non-negative integer
-			and the result is less than or equal to |max|.
+		* Let |epsilon| be <code>|step| / 1000</code>,
+			or the smallest representable value greater than zero
+			in the numeric type being used
+			if |epsilon| would round to zero.
+		* Let |N| be the largest integer
+			such that <code>|min| + |N| * |step|</code> is less than or equal to |max|.
 
-			If the largest |N| produces a value that is not within |threshold| of |max|,
-			but |N|+1 would be within |threshold| of |max|,
-			include the |N|+1 value as well.
-		* If the largest value in |values| is within |threshold| of |max|,
-			replace it with |max|.
-		* Let |length| be the length of |values|.
-		* Let |random int| be <css>round(down, |R| * |length|, 1)</css>.
-		* Return the |random int|'th item of |values| (0-indexed).
+			If |N| produces a value that is not within |epsilon| of |max|,
+			but |N|+1 would produce a value within |epsilon| of |max|,
+			set |N| to |N|+1.
+		* Let |step index| be a [=random integer=] less than |N|+1, given |R|.
+		* Let |value| be <code>|min| + |step index| * |step|</code>.
+		* If |step index| is |N| and |value| is within |epsilon| of |max|, return |max|.
+		* Otherwise, return |value|.
+
+		<details class=note>
+			<summary>Epsilon/max Details</summary>
+
+			|epsilon| was chosen to be <code>|step| / 1000</code>
+			as a useful "middle ground" value:
+			small enough that it's very unlikely to accidentally trigger
+			when the author didn't intend it,
+			but large enough that it's guaranteed to catch floating-point precision errors.
+
+			It's size is also within the realm for authors to exploit themselves;
+			if their |max| is meant to be an integer multiple of their |step|,
+			but the |step| is not a terminating decimal,
+			as long as they write the |step| with 5 or 6 digits of precision
+			then the largest value should land within |epsilon| of |max|.
+
+			For example, while ''random(0px, 100px, 33.3px)'' will not generate a ''100px'' value
+			(the epsilon is ''.0333px'',
+			but 3 steps yields ''99.9px'',
+			which is ''.1px'' from |max|, more than the epsilon),
+			''random(0px, 100px, 33.333px)'' will
+			(the epsilon is ''.033333px'',
+			similar to the previous example,
+			but 3 steps yields ''99.999px'',
+			which is ''.001px'' from |max|, much less than the epsilon).
+			(A sufficiently large number of steps
+			could still cause enough divergence to defeat this,
+			but it works for any remotely reasonable use-case.)
+
+			Using a [=calculation=] to "exactly" represent non-terminating decimals
+			will also work, of course:
+			''random(0px, 100px, 100px / 3)''
+			is guaranteed to be able to generate a ''100px'' value,
+			as the step value will only be subject to floating-point precision errors
+			far smaller than the epsilon.
+		</details>
 
 	: for a ''random-item()'' function with |N| <<declaration-value>>? arguments:
 	::
-		* Let |random int| be <css>round(down, |R| * |N|, 1)</css>.
-		* Return the |random int|'th argument (0-indexed).
+		* Let |index| be a [=random integer=] less than |N|, given |R|.
+		* Return the |index|'th argument (0-indexed).
+
+	<div algorithm>
+		To <dfn local-lt="random integer">generate a random integer</dfn>
+		less than some integer |limit|
+		given a [=random base value=] |R|,
+		return <css>round(down, |R| * |limit|, 1)</css>
+	</div>
 
 
 
