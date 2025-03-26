@@ -1338,22 +1338,22 @@ Selecting the First Supported Value: the ''first-valid()'' notation</h3>
 <h3 id="if-notation">
 Conditional Value Selection: the ''if()'' notation</h3>
 
-	The <dfn>if()</dfn> notation is an [=arbitrary substitution function=]
+	The <dfn>if()</dfn> function is an [=arbitrary substitution function=]
 	that represents conditional values.
 	Its argument consists of an ordered semi-colon&ndash;separated list of statements,
 	each consisting of a condition
 	followed by a colon
 	followed by a value.
-	An ''if()'' notation represents
+	An ''if()'' function represents
 	the value corresponding to the first condition in its argument list to be true;
 	if no condition matches,
-	then the ''if()'' notation represents an empty token stream.
+	then the ''if()'' function represents an empty token stream.
 
-	The ''if()'' notation syntax is defined as follows:
+	The ''if()'' function's syntax is defined as follows:
 
 	<pre class=prod>
-	<dfn><<if()>></dfn> = if( [ <<if-condition>> : <<declaration-value>>? ; ]*
-	             <<if-condition>> : <<declaration-value>>? ;? )
+	<dfn><<if()>></dfn> = if( [ <<if-branch>> ; ]* <<if-branch>> ;? )
+	<dfn><<if-branch>></dfn> = <<if-condition>> : <<declaration-value>>?
 	<dfn><<if-condition>></dfn> = <<boolean-expr[ <<if-test>> ]>> | else
 	<dfn><<if-test>></dfn> =
 	  supports( [ <<ident>> : <<declaration-value>> ] | <<supports-condition>> ) |
@@ -1361,21 +1361,44 @@ Conditional Value Selection: the ''if()'' notation</h3>
 	  style( <<style-query>> )
 	</pre>
 
-
 	The <dfn value for="if()">else</dfn> keyword represents
 	a condition that is always true.
 
-	To <dfn export>[=resolve an arbitrary substitution function|resolve an if() function=]</dfn>,
-	return the <<declaration-value>>?
-	associated with the first <<if-condition>> that is true;
-	if none are true,
-	return nothing (an empty token stream).
+	The ''if()'' function's [=argument grammar=] is:
+
+	<pre class=prod>
+		<dfn><<if-args>></dfn> = if( [ <<if-args-branch>> ; ]* <<if-args-branch>> ;? )
+		<dfn><<if-args-branch>></dfn> = <<declaration-value>> : <<declaration-value>>?
+	</pre>
+
+	<div algorithm>
+		To <dfn export>[=replace an arbitrary substitution function|replace an if() function=]</dfn>,
+		given a list of |arguments|:
+
+		1. [=list/For each=] <<if-args-branch>> |branch| in |arguments|:
+
+			1. [=Substitute arbitrary substitution functions=] in the first <<declaration-value>> of |branch|,
+				then [=CSS/parse=] the result as an <<if-condition>>.
+				If parsing returns failure,
+				[=iteration/continue=];
+				otherwise, let the result be |condition|.
+
+			2. Evaluate |condition|.
+				If the result is false,
+				[=iteration/continue=].
+
+			3. [=Substitute arbitrary substitution functions=] in the second <<declaration-value>> of |branch|,
+				and return the result.
+
+		2. Return nothing (an empty sequence of [=component values=]).
+	</div>
 
 	Note: Unlike using ''@media''/''@supports''/''@container'' rules,
 	which just ignore their contents when they're false
 	and let the cascade determine what values otherwise apply,
 	declarations with ''if()'' do not roll back the cascade if the conditions are false;
 	any fallback values must be provided inline.
+	However, see the ''revert-rule'' [=CSS-wide keyword=].
 
 <!-- Big Text: toggle()
 
@@ -1457,7 +1480,7 @@ Toggling Between Values: the ''toggle()'' notation</h3>
 	This is similar to the ''inherit'' keyword,
 	which works even on non-inherited properties.
 
-	Note: That the [=computed value=] of a property is an abstract set of values,
+	Note: The [=computed value=] of a property is an abstract set of values,
 	not a particular serialization [[!CSS21]],
 	so comparison between computed values should always be unambiguous and have the expected result.
 	For example,
@@ -1516,7 +1539,8 @@ Inherited Value References: the ''inherit()'' notation</h3>
 	Like the ''inherit'' keyword, the <dfn>inherit()</dfn> [=functional notation=]
 	resolves to the [=computed value=] of a property on the parent.
 	Rather than resolving to the value of the same property, however,
-	it resolves to the tokenized [=computed value=]
+	it resolves to a sequence of [=component values=]
+	representing the [=computed value=]
 	of the property specified as its first argument.
 	Its second argument, if present, is used as a fallback
 	in case the first argument resolves to the [=guaranteed-invalid value=].
@@ -1528,9 +1552,37 @@ Inherited Value References: the ''inherit()'' notation</h3>
 		<dfn><<inherit()>></dfn> = inherit( <<custom-property-name>>, <<declaration-value>>? )
 	</pre>
 
-	To <dfn export>[=resolve an arbitrary substitution function|resolve an inherit() function=]</dfn>,
-	return the [=inherited value=] of the [=custom property=] specified by the first argument,
-	and (if specified) the fallback specified by the second argument.
+	The ''inherit()'' function's [=argument grammar=] is:
+
+	<pre class=prod>
+		<dfn><<inherit-args>></dfn> = inherit( <<declaration-value>>, <<declaration-value>>? )
+	</pre>
+
+	Like ''var()'', a bare comma can be used with nothing following it,
+	indicating that the second <<declaration-value>> was passed,
+	just as an empty sequence.
+
+	Note: That is, ''inherit(--foo)'' does not pass a fallback value,
+	but ''inherit(--foo,)'' does (the fallback is just empty).
+
+	<div algorithm>
+		To <dfn export>[=replace an arbitrary substitution function|replace an inherit() function=]</dfn>,
+		given a list of |arguments|:
+
+		1. [=Substitute arbitrary substitution functions=] in the first <<declaration-value>> of |arguments|,
+			then [=CSS/parse=] it as a <<custom-property-name>>.
+
+		2. If parsing returned a <<custom-property-name>>,
+			and the [=inherited value=] of that [=custom property=] on the element
+			does not contain the [=guaranteed-invalid value=],
+			return that inherited value.
+
+		3. Otherwise, if a second <<declaration-value>>? was passed in |arguments|,
+			[=substitute arbitrary substitution functions=] in that argument,
+			and return the result.
+
+		4. Otherwise, return the [=guaranteed-invalid value=].
+	</div>
 
 	Note: Future levels of CSS may allow specifying standard CSS properties in ''inherit()'';
 	however because the tokenization of [=computed values=]
@@ -1571,6 +1623,19 @@ Ian's proposal:
 		<dfn>&lt;attr-name></dfn> = [ <<ident-token>>? '|' ]? <<ident-token>>
 		<dfn>&lt;attr-type></dfn> = <dfn function lt="type()" for="attr()">type( <<syntax>> )</dfn> | raw-string | <<attr-unit>>
 	</pre>
+
+	The ''attr()'' function's [=argument grammar=] is:
+
+	<pre class=prod>
+		<dfn><<attr-args>></dfn> = attr( <<declaration-value>>, <<declaration-value>>? )
+	</pre>
+
+	Like ''var()'', a bare comma can be used with nothing following it,
+	indicating that the second <<declaration-value>> was passed,
+	just as an empty sequence.
+
+	Note: That is, ''attr(foo)'' does not pass a fallback value,
+	but ''attr(foo,)'' does (the fallback is just empty).
 
 	The <dfn>&lt;attr-unit></dfn> production matches any [=identifier=]
 	that is an [=ASCII case-insensitive=] match
@@ -1699,7 +1764,7 @@ Ian's proposal:
 	</div>
 
 <h4 id=attr-substitution>
-Attribute Value Substitution: the ''attr()'' notation</h4>
+Substitution</h4>
 
 	''attr()'' is an [=arbitrary substitution function=],
 	similar to ''var()'',
@@ -1709,33 +1774,50 @@ Attribute Value Substitution: the ''attr()'' notation</h4>
 	which will make its declaration [=invalid at computed-value time=].
 
 	<div algorithm>
-		To <dfn export>[=resolve an arbitrary substitution function|resolve an attr() function=]</dfn>:
+		To <dfn export>[=replace an arbitrary substitution function|replace an attr() function=]</dfn>,
+		given a list of |arguments|:
 
 		1. Let |el| be the element that the style containing the ''attr()'' function
 			is being applied to.
-			Let |attr name| be the attribute name specified in the function.
-			Let |syntax| be the <<syntax>> specified in the function,
-			or null if it was omitted.
-			Let |fallback| be the <<declaration-value>>? argument specified in the function,
-			or the [=guaranteed-invalid value=] if it was omitted.
+			Let |first arg| be the first <<declaration-value>> in |arguments|.
+			Let |second arg| be the <<declaration-value>>? passed after the comma,
+			or null if there was no comma.
 
-		2. Let |attr value| be the value of the |attr name| attribute on |el|.
+		2. [=Substitute arbitrary substitution functions=] in |first arg|,
+			then [=CSS/parse=] it as <css><<attr-name>> <<attr-type>>?</css>.
+			If that returns failure, jump to the last step (labeled FAILURE).
+			Otherwise, let |attr name| and |syntax| be the results of parsing
+			(with |syntax| being null if <<attr-type>> was omitted),
+			processed as specified in the definition of those arguments.
 
-			If such an attribute does not exist,
-			return an empty CSS string if |syntax| is null,
-			or the [=guaranteed-invalid value=] and |fallback| otherwise.
+		3. If |attr name| exists as an attribute on |el|,
+			let |attr value| be its value;
+			otherwise jump to the last step (labeled FAILURE).
 
-		3. If |syntax| is null,
+		4. If |syntax| is null,
 			return a CSS <<string>>
 			whose value is |attr value|.
 
 			Note: No parsing or modification of any kind is performed on the value.
 
-		4. [=Parse with a <syntax>=] |attr value|, with |syntax| and |el|.
-			Return the result and |fallback|.
+		5. [=Substitute arbitrary substitution functions=] in |attr value|,
+			with &bs<<;"attribute", |attr name|&bs>>; as the [=substitution context=],
+			then [=parse with a <syntax>=] |attr value|, with |syntax| and |el|.
+			If that succeeds, return the result;
+			otherwise, jump to the last step (labeled FAILURE).
+
+		6. <b>FAILURE:</b>
+
+			1. If |second arg| is null,
+				and |syntax| was omitted,
+				return an CSS <<string>>.
+
+			2. If |second arg| is null,
+				return the [=guaranteed-invalid value=].
+
+			3. [=Substitute arbitrary substitution functions=] in |second arg|,
+				and return the result.
 	</div>
-
-
 
 
 <h4 id=attr-security>
@@ -2356,6 +2438,12 @@ Picking a Random Item From a List: the ''random-item()'' function</h3>
 	&lt;random-item()> = random-item( <<random-value-sharing>> , [ <<declaration-value>>? ]# )
 	</pre>
 
+	The ''random-item()'' function's [=argument grammar=] is:
+
+	<pre class=prod>
+		<dfn><<random-item-args>></dfn> = random-item( <<declaration-value>>, [ <<declaration-value>>? ]# )
+	</pre>
+
 	See [[#random-evaluation]] and [[#random-caching]]
 	for details on how the function is evaluated.
 
@@ -2389,6 +2477,30 @@ Picking a Random Item From a List: the ''random-item()'' function</h3>
 			so children all inherit the same resolved value.
 		* If the substituted value ends up making the property invalid,
 			the property's value becomes the [=guaranteed-invalid value=].
+	</div>
+
+	<div algorithm>
+		To <dfn export>[=replace an arbitrary substitution function|replace a random-item() function=]</dfn>,
+		given a list of |arguments|:
+
+		1. Let |value sharing| be the first <<declaration-value>> in |arguments|,
+			and |options| be a list of the remaining <<declaration-value>>? options.
+
+		2. [=Substitute arbitrary substitution functions=] in |value sharing|,
+			then [=CSS/parse=] it as <<random-value-sharing>>.
+			If parsing returns failure,
+			return the [=guaranteed-invalid value=];
+			otherwise set |value sharing| to the result.
+
+		3. Select one of the |options|,
+			as specified in [[#random-evaluation]],
+			using |value sharing|
+			as specified in [[#random-caching]],
+			and let |chosen option| be the result.
+
+		4. [=Substitute arbitrary substitution functions=]
+			in |chosen option|,
+			then return the result.
 	</div>
 
 
@@ -3210,15 +3322,348 @@ Appendix A: Arbitrary Substitution Functions</h2>
 	is a [=functional notation=] that will,
 	when resolved,
 	substitute itself with other values
-	that are potentially unknowable at parse time--
-	and must therefore be parsed while resolving its [=computed value=].
+	that are unknowable at parse time.
 
-	Note: Since [=arbitrary substitution functions=] resolve at [=computed value=] time,
-	if the resulting value after substitution is invalid,
-	the property falls back (essentially) to ''unset'' behavior,
-	rather than falling back to an earlier value in the [=cascade=]
-	the way declarations invalid at parse time do.
-	See [[#invalid-substitution]].
+<h3 id=substitution>
+Substitution</h3>
+
+	Each [=arbitrary substitution function=]
+	must define how to <dfn export local-lt="replace|replacement">replace an arbitrary substitution function</dfn>
+	for itself,
+	given a list of arguments
+	and a [=/stack=] of [=substitution contexts=],
+	and likely involving further [=substitution=].
+	It must return a sequence of [=component values=]
+	(fully resolved,
+	so no further [=arbitrary substitution functions=] exist in the sequence),
+	which it will be replaced by.
+
+	Note: See, for example, [=replace an if() function=].
+
+	<div algorithm>
+		To <dfn export local-lt="substitute|substitution" lt="substitute arbitrary substitution function|arbitrary substitution">substitute arbitrary substitution functions</dfn>
+			in a sequence of [=component values=] |values|,
+			given an optional [=substitution context=] |context|:
+
+		1. If |context| was provided,
+			and forms a [=cyclic substitution context=],
+			return the [=guaranteed-invalid value=].
+
+		2. [=list/For each=] [=arbitrary substitution function=] |func| in |values|
+			(ordered via a depth-first pre-order traversal)
+			that is not nested in the contents of another [=arbitrary substitution function=]:
+
+			1. [=Substitute early-invoked functions=] in |func|'s contents,
+				and let |early result| be the result.
+
+			2. If |early result| contains the [=guaranteed-invalid value=],
+				replace |func| in |values| with the [=guaranteed-invalid value=]
+				and [=iteration/continue=].
+
+			3. [=CSS/Parse=] |early result| acccording to |func|'s [=argument grammar=].
+				If this returns failure,
+				replace |func| in values with the [=guaranteed-invalid value=]
+				and [=iteration/continue=];
+				otherwise,
+				let |arguments| be the result.
+
+			3. [=Replace an arbitrary substitution function=] for |func|,
+				given |arguments|,
+				as defined by that function.
+				Let |result| be the returned list of [=component values=].
+
+			4. If |result| contains the [=guaranteed-invalid value=],
+				replace |func| in |values| with the [=guaranteed-invalid value=].
+				Otherwise, replace |func| in |values| with |result|.
+
+		3. Return |values|.
+	</div>
+
+	<div algorithm>
+		A <dfn export>substitution context</dfn>
+		is a [=/list=] consisting of:
+		the dependency type, as a string;
+		one or more additional values, specific to the dependency type.
+		(Usually, just one additional string.)
+
+		As [=arbitrary substitution functions=] are [=resolved=]
+		they accumulate [=substitution contexts=]
+		which affect how <em>nested</em> [=arbitrary substitution functions=] resolve.
+
+		<div class=example>
+			For example, while resolving a ''var(--foo)'' function,
+			the value of the ''--foo'' property is fetched and [=substituted=],
+			with a [=substitution context=] of <code>&bs<<;"property", "--foo"&bs>>;</code>,
+			preventing any nested [=arbitrary substitution functions=]
+			from cyclicly depending on ''--foo'' as well.
+
+			While resolving an ''attr(foo)'' function,
+			the value of the ''foo'' attribute on the element is fetched and [=substituted=],
+			with a [=substitution context=] of <code>&bs<<;"attribute", "foo"&bs>>;</code>,
+			preventing any nested functions
+			from cyclicly depending on the ''foo'' attribute as well.
+		</div>
+
+		The types of [=substitution contexts=] are currently:
+		* "property", followed by a property name
+		* "attribute", followed by an attribute name
+	</div>
+
+	<div algorithm>
+		As [=substitution=] is recursively invoked
+		by nested [=arbitrary substitution functions=] being [=replaced=],
+		the [=substitution contexts=] passed to each invocation "stack up".
+
+		A <dfn export>cyclic substitution context</dfn>
+		is a [=substitution context=]
+		which matches one of the [=substitution contexts=]
+		established by a [=substitution=] invocation "higher in the stack".
+
+		<div class=example>
+			For example, given the following style:
+
+			<pre highlight=css>
+			.foo {
+				--one: var(--two);
+				--two: var(--one);
+			}
+			</pre>
+
+			[=Property replacement=] for '--one'
+			invokes [=substitution=] with a [=substitution context=] of &bs<<;"property", "--one"&bs>>;.
+			[=Substitution=] sees the ''var(--two)'' function
+			and invokes [=replace a var() function=],
+			which fetches the values of '--two' and [=substitutes=] again,
+			this time with a [=substitution context=] of &bs<<;"property", "--two"&bs>>;.
+			That [=substitution=] sees the ''var(--one)'' function
+			and invokes [=replace a var() function=],
+			which fetches the value of '--one' and [=substitutes=] again,
+			with a [=substitution context=] of &bs<<;"property", "--one"&bs>>;.
+
+			This, finally, is a [=cyclic substitution context=],
+			since it matches the [=substitution context=] from the first [=substitution=],
+			causing the [=substitution=] to just produce the [=guaranteed-invalid value=].
+			This percolates back up the nested invocations,
+			eventually resulting in '--one' becoming [=invalid at computed-value time=].
+			The same happens, in opposite order,
+			when performing [=property replacement=] on '--two'.
+		</div>
+	</div>
+
+
+
+<!-- Big Text: early
+
+█████▌  ███▌  ████▌  █▌    █   ▐▌
+█▌     ▐█ ▐█  █▌  █▌ █▌    ▐▌  █
+█▌     █▌  █▌ █▌  █▌ █▌     █ ▐▌
+████   █▌  █▌ ████▌  █▌     ▐▌█
+█▌     █████▌ █▌▐█   █▌      █▌
+█▌     █▌  █▌ █▌ ▐█  █▌      █▌
+█████▌ █▌  █▌ █▌  █▌ █████   █▌
+-->
+
+<h3 id=early-resolution>
+Argument Grammars and Spread Syntax</h3>
+
+	Each [=arbitrary substitution function=],
+	in addition to its standard grammar,
+	must define an <dfn export>argument grammar</dfn>:
+	a much less specific and less restrictive version of its normal grammar,
+	which serves solely to separate the function's contents
+	into distinct arguments.
+
+	Note: Typically, an [=argument grammar=] will only consist of some punctuation
+	(usually commas)
+	and the <<declaration-value>> production.
+	See the ''if()'' function for an example.
+
+	Each function, in its [=resolution=] algorithm,
+	will apply [=substitution=] to its arguments
+	and then [=CSS/parse=] them
+	according to the appropriate parts of its standard grammar.
+	As it is in control of this process, however,
+	some arguments can be left unresolved and unparsed.
+
+	<div class=example>
+		For example, the ''if()'' function's [=argument grammar=]
+		merely divides its value into alternating "test" and "result" arguments,
+		separated by `:` and `;`.
+		It then evaluates tests one by one,
+		and only evaluates a single argument
+		matching the first successful test.
+
+		This allow ''if()'' to achieve behavior similar to `if` constructs
+		in other programming languages,
+		where later "branches" aren't evaluated at all
+		(beyond a basic parse)
+		and thus can't cause errors in cases that would be caught by earlier branches.
+
+		This means the following is a valid declaration
+		when the viewport is ''600px'' or wider,
+		resulting in the value ''blue''.
+		Only when the viewport is narrower than ''600px''
+		does the ''if()'' trigger cyclic behavior
+		and cause ''--color'' to be [=invalid at computed-value time=].
+
+		<pre highlight=css>
+		.foo {
+			--color: if(media(width >= 600px): blue; else: var(--foo));
+		}
+		</pre>
+	</div>
+
+	This also means that, ordinarily,
+	parsing according to a function's [=argument grammar=]
+	<em>does not</em> see the results of any nested [=arbitrary substitution functions=];
+	the contents are divided into arguments
+	based only on the values literally present inside the function.
+
+	<div class=example>
+		For example, in ''random-item(auto, var(--foo), var(--bar))'',
+		the ''random-item()'' function selects between two random values,
+		either the result of ''var(--foo)'' or ''var(--bar)''.
+		This is true even if one of them contains commas, like:
+
+		<pre highlight=css>
+		.random-fonts {
+			--foo: Courier, monospace;
+			--bar: Arial, serif;
+			font-family: random-item(auto, var(--foo), var(--bar));
+			/* equivalent to: */
+			font-family: random-item(auto, {Courier, monospace}, {Arial, serif});
+
+			/* and thus, randomly, equivalent to either */
+			font-family: Courier, monospace;
+			/* or */
+			font-family: Arial, serif;
+		}
+		</pre>
+
+		This behavior ensures that authors don't have to defensively wrap
+		any arguments containing [=arbitrary substitution functions=]
+		in ''{}'' characters;
+		what you see is what you get.
+	</div>
+
+	Note: This is different from the behavior of [=arbitrary substitution functions=]
+	substituted into "normal" functions or properties.
+	For example, ''--colors: red, blue, green; background: linear-gradient(var(--colors));''
+	works in the expected fashion,
+	producing a gradient with three color stops,
+	because normal functions don't do this separate [=argument grammar=] parse.
+
+	This behavior can be worked around
+	by immediately preceding an [=arbitrary substitution function=]
+	with the <dfn export>spread syntax</dfn> ''...'',
+	indicating that it must be resolved "early",
+	before division into arguments.
+
+	<div class=example>
+		For example, the following <strong>will not work</strong>:
+
+		<pre highlight=css>
+		.invalid-if {
+			--if-clause: media(width >= 600px): blue;
+			color: if(var(--if-clause); else: green;);
+		}
+		</pre>
+
+		The ''if()'' function entirely fails to parse
+		according to its [=argument grammar=]:
+		there's no `:` character separating the test from the value in the first branch.
+
+		To get the desired behavior of "spreading" the variable
+		into the function's arguments,
+		use ''...''':
+
+		<pre highlight=css>
+		.valid-if {
+			--if-clause: media(width >= 600px): blue;
+			color: if(...var(--if-clause); else: green;);
+		}
+		</pre>
+	</div>
+
+	The [=spread syntax=] is three distinct <<delim-token>>s with the value `"."`,
+	all of which must not contain any whitespace between them,
+	or between the group and the subsequent [=arbitrary substitution function=].
+
+	<div class=example>
+		That is, ''...var(--foo)'' is a valid use of the [=spread syntax=],
+		but ''... var(--foo)'' is not,
+		nor is ''. . .var(--foo)''.
+
+		The latter usages will result in the [=arbitrary substitution function=]
+		being evaluated at the normal time,
+		<em>after</em> the [=argument grammar=] has been applied,
+		and the period characters being part of the function's value.
+	</div>
+
+	Note: The [=spread syntax=] is only used
+	<em>within</em> an [=arbitrary substitution function's=] value,
+	as it's only referenced by the [=substitution=] algorithm
+	when parsing an [=arbitrary substitution function=].
+	Using it outside of that,
+	such as in ''width: ...var(--sidebar-width);'',
+	is not recognized as an early invocation;
+	instead, the periods are just part of the property's value,
+	unrelated to the ''var()'' function,
+	and would in this case make the 'width' property invalid.
+	(This is similar to JavaScript,
+	where this syntax was borrowed from,
+	where `[1, ...arr, 5]` is valid,
+	but `var x = ...arr;` is not.)
+
+	<div algorithm>
+		To <dfn export>substitute early-invoked functions</dfn>
+		in a sequence of [=component values=] |values|:
+
+		1.  [=list/For each=] [=arbitrary substitution function=] |func| in |values|
+			(ordered via a depth-first pre-order traversal)
+			using the [=spread syntax=]
+			that is not nested in the contents of another [=arbitrary substitution function=]:
+
+			1. [=Substitute early-invoked functions=] in |func|'s contents,
+				and let |early result| be the result.
+
+			2. If |early result| contains the [=guaranteed-invalid value=],
+				replace |func| in |values| with the [=guaranteed-invalid value=]
+				and [=iteration/continue=].
+
+			3. [=CSS/Parse=] |early result| acccording to |func|'s [=argument grammar=].
+				If this returns failure,
+				replace |func| in values with the [=guaranteed-invalid value=]
+				and [=iteration/continue=];
+				otherwise,
+				let |arguments| be the result.
+
+			1. [=Replace an arbitrary substitution function=] for |func|,
+				given |arguments|,
+				as defined by that function.
+				Let |result| be the returned list of [=component values=].
+
+			2. If |result| contains the [=guaranteed-invalid value=],
+				replace |func| in |values| with the [=guaranteed-invalid value=].
+				Otherwise, replace |func| in |values| with |result|.
+
+		2. Return |values|.
+	</div>
+
+
+<!-- Big Text: props
+
+████▌  ████▌   ███▌  ████▌   ███▌
+█▌  █▌ █▌  █▌ █▌  █▌ █▌  █▌ █▌  █▌
+█▌  █▌ █▌  █▌ █▌  █▌ █▌  █▌ █▌
+████▌  ████▌  █▌  █▌ ████▌   ███▌
+█▌     █▌▐█   █▌  █▌ █▌         █▌
+█▌     █▌ ▐█  █▌  █▌ █▌     █▌  █▌
+█▌     █▌  █▌  ███▌  █▌      ███▌
+-->
+
+<h3 id=resolve-property>
+Resolving in Properties</h3>
 
 	Unless otherwise specified,
 	[=arbitrary substitution functions=] can be used
@@ -3263,9 +3708,16 @@ Appendix A: Arbitrary Substitution Functions</h2>
 	during style [=computed value|computation=],
 	before any other value transformations or introspection can occur.
 	If a property,
-	after [=substitution=],
+	after [=property replacement=],
 	does not match its declared grammar,
 	the declaration is [=invalid at computed-value time=].
+
+	Note: Since [=arbitrary substitution functions=] resolve at [=computed value=] time,
+	if the resulting value after substitution is invalid,
+	the property falls back (essentially) to ''unset'' behavior,
+	rather than falling back to an earlier value in the [=cascade=]
+	the way declarations invalid at parse time do.
+	See [[#invalid-substitution]].
 
 	<wpt pathprefix="css/css-variables">
 	variable-declaration-16.html
@@ -3278,7 +3730,7 @@ Appendix A: Arbitrary Substitution Functions</h2>
 	</wpt>
 
 	If a property value,
-	after [=substitution=],
+	after [=property replacement=],
 	contains only a single [=CSS-wide keyword=]
 	(and possibly whitespace/comments),
 	its value is determined as if that keyword were its [=specified value=] all along.
@@ -3332,50 +3784,23 @@ Appendix A: Arbitrary Substitution Functions</h2>
 		as it would if there were no fallback.
 	</div>
 
-	Each [=arbitrary substitution function=]
-	must define how to <dfn export>resolve an arbitrary substitution function</dfn>
-	for itself,
-	returning optional |result| and |fallback| values.
-	The |result| is used to replace the function
-	as long as it does not contain the [=guaranteed-invalid value=];
-	the |fallback| is used otherwise.
-	(The |fallback| does not need to be resolved in any way;
-	[=substitution=] will handle that if it's actually used.)
-
-	Note: See, for example, [=resolve a var() function=].
-
 	<div algorithm>
-		To <dfn export local-lt="substitute|substitution" lt="substitute arbitrary substitution function|arbitrary substitution">substitute arbitrary substitution functions</dfn> in a |value|:
+		To <dfn export lt="property replacement|replace substitution functions|replace substitution functions in a property">replace substitution functions in a property</dfn> |prop|:
 
-		1. [=list/For each=] [=arbitrary substitution function=] |func|
-			in |value|:
+		1. [=Substitute arbitrary substitution functions=] in |prop|'s value,
+			given &bs<<;"property", |prop|'s name&bs>>; as the [=substitution context=].
+			Let |result| be the returned [=component value=] sequence.
 
-			1. [=Resolve=] |func|.
-				Let |result| be the returned result,
-				and |fallback| be the returned fallback.
+		2. If |result| contains the [=guaranteed-invalid value=],
+			|prop| is [=invalid at computed-value time=];
+			return.
 
-				If no |result| was returned,
-				set |result| to the [=guaranteed-invalid value=].
-				If no |fallback| was returned,
-				set |fallback| to the [=guaranteed-invalid value=].
+		3. [=CSS/Parse=] |result| according to |prop|'s grammar.
+			If this returns failure,
+			|prop| is [=invalid at computed-value time=];
+			return.
 
-			2. <dl class=switch>
-					: If |result| does not contain the [=guaranteed-invalid value=]
-					:: Replace |func| in |value| with |result|.
-					: Otherwise, if |fallback| does not contain the [=guaranteed-invalid value=]
-					:: Replace |func| in |value| with |fallback|.
-					: Otherwise
-					:: Replace all of |value| with the [=guaranteed-invalid value=].
-						Exit this algorithm.
-				</dl>
-
-		2. If there are still [=arbitrary substitution functions=]
-			in |value| (due to substitution),
-			repeat the previous step.
-
-		3. Grammar-check |value| according to its context as normal.
-			If it is not valid at this point,
-			replace |value| with the [=guaranteed-invalid value=].
+		3. Otherwise, replace |prop|'s value with the parsed result.
 	</div>
 
 	<wpt pathprefix="css/css-variables">
@@ -3476,7 +3901,7 @@ Appendix A: Arbitrary Substitution Functions</h2>
 <h3 id=invalid-substitution oldids='invalid-variables'>
 Invalid Substitution</h3>
 
-	When [=substitution=] results in a property's value
+	When [=property replacement=] results in a property's value
 	containing the [=guaranteed-invalid value=],
 	this makes the declaration <dfn export>invalid at computed-value time</dfn>.
 	When this happens,
