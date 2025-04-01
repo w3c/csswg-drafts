@@ -9,6 +9,7 @@ function rgbToHsl (red, green, blue) {
     let min = Math.min(red, green, blue);
     let [hue, sat, light] = [NaN, 0, (min + max)/2];
     let d = max - min;
+    let epsilon = 1 / 100000;   // max Sat is 1, in this code
 
     if (d !== 0) {
         sat = (light === 0 || light === 1)
@@ -21,7 +22,11 @@ function rgbToHsl (red, green, blue) {
             case blue:  hue = (red - green) / d + 4;
         }
 
-        hue = hue * 60;
+        hue = hue * 60; // degrees
+    }
+
+    if (sat <= epsilon) {
+        hue = NaN;
     }
 
     return [hue, sat * 100, light * 100];
