@@ -93,6 +93,10 @@ spec:css-color-4;
         text:blue
         text:transparent
 spec:css-values-3; type:type; text:<time>
+spec:web-animations-1;
+    type:dfn;
+        text: target properties
+        text: animation effect
 </pre>
 <!-- FIXME: These overrides aren't great for dev/TR switching -->
 <pre class="anchors">
@@ -432,52 +436,10 @@ Starting of transitions {#starting}
       </p>
 
       <p>
-        Implementations must also maintain a set of
-        <dfn export lt="completed transition">completed transitions</dfn>,
-        each of which
-        (like <a>running transitions</a>)
-        applies to a specific element and non-shorthand property.
-        <span class="note">
-          This specification maintains the invariant that
-          there is never both a <a>running transition</a> and
-          a <a>completed transition</a> for the same property and element.
-        </span>
-      </p>
-
-      <p>
         If an element is no longer in the document,
         implementations must <a>cancel</a> any <a>running transitions</a>
-        on it and remove transitions on it from the
-        <a>completed transitions</a>.
+        on that element.
       </p>
-
-      <div class="note">
-
-        <p>
-          This set of completed transitions
-          needs to be maintained
-          in order to prevent
-          transitions from repeating themselves in certain cases,
-          i.e., to maintain the invariant
-          that this specification tries to maintain
-          that unrelated style changes do not trigger transitions.
-        </p>
-
-        <p class="example">
-          An example where maintaining the set of completed transitions
-          is necessary would be a transition on
-          an inherited property,
-          where the parent specifies a transition of that property for
-          a longer duration (say, ''transition: 4s text-indent'')
-          and a child element that inherits the parent's value specifies
-          a transition of the same property for a shorter duration
-          (say, ''transition: 1s text-indent'').
-          Without the maintenance of this set of completed transitions,
-          implementations could start additional transitions on the child
-          after the initial 1 second transition on the child completes.
-        </p>
-
-      </div>
 
       <p>
         Various things can cause the <a>computed values</a> of properties
@@ -538,28 +500,29 @@ Starting of transitions {#starting}
         the previous style change event,
         then transitions are not started for that element
         in that style change event.
-        Otherwise,
-        define the <dfn export>before-change style</dfn> as
-        the <a>computed values</a> of all properties on the element as of
-        the previous <a>style change event</a>,
-        except with any styles derived from declarative
-        animations such as CSS Transitions, CSS Animations
-        ([[CSS3-ANIMATIONS]]),
-        and SMIL Animations ([[SMIL-ANIMATION]], [[SVG11]])
-        updated to the current time.
-        Likewise, define the <dfn export>after-change style</dfn> as
-        the <a>computed values</a> of all properties
-        on the element based on the information
-        known at the start of that <a>style change event</a>,
-        but using the computed values of the 'animation-*' properties from the
-        <a>before-change style</a>,
-        excluding any styles from CSS Transitions in the computation,
-        and inheriting from
-        the <a>after-change style</a> of the parent.
-        Note that this means the <a>after-change style</a> does not differ from
-        the <a>before-change style</a> due to newly created or canceled CSS
-        Animations.
+        Otherwise, define the following:
       </p>
+
+      <dl>
+        <dt><dfn export>base style</dfn></dt>
+        <dd>
+          the <a>computed values</a> of all properties on the element
+          as they <em>would be</em>
+          without any declarations from the "Animation" or "Transition" [[css-cascade-3#cascading-origins|origins]];
+          without any declarations originating from [[smil-animation|SMIL]];
+          and inheriting from the base style of the parent element.
+        </dd>
+
+        <dt><dfn export>before-change style</dfn></dt>
+        <dd>
+          the <a>base style</a> as of the previous <a>style change event</a>.
+        </dd>
+
+        <dt><dfn export>after-change style</dfn></dt>
+        <dd>
+          the <a>base style</a> as of the current <a>style change event</a>.
+        </dd>
+      </dl>
 
       <div class="note">
         <p>
@@ -635,6 +598,11 @@ Starting of transitions {#starting}
       ''0px 0px black'' and ''inset 10px 10px black''
       are <em>not</em> [=transitionable=].
 
+      A property on a given element is <dfn>affected by an animation</dfn>
+      when there is a <a>relevant animation</a> for that element
+      whose <a>animation effect</a> is associated with that property
+      through its <a>target properties</a>.
+
       For each element and property, the implementation must act
       as follows:
 
@@ -647,15 +615,16 @@ Starting of transitions {#starting}
             a <a>running transition</a> for the property,
           </li>
           <li>
+            the property is not <a>affected by an animation</a>,
+          </li>
+          <li>
+            the property was not <a>affected by an animation</a>
+            at the time of the previous <a>style change event</a>,
+          </li>
+          <li>
             the <a>before-change style</a> is different from
             the <a>after-change style</a> for that property,
             and the values for the property are [=transitionable=],
-          </li>
-          <li>
-            the element does not have a <a>completed transition</a>
-            for the property
-            or the <a>end value</a> of the <a>completed transition</a>
-            is different from the <a>after-change style</a> for the property,
           </li>
           <li>
             there is a <a>matching transition-property value</a>, and
@@ -665,8 +634,6 @@ Starting of transitions {#starting}
           </li>
         </ul>
         then implementations must
-        remove the <a>completed transition</a> (if present) from the set
-        of completed transitions and
         start a transition whose:
         <ul>
           <li>
@@ -698,23 +665,11 @@ Starting of transitions {#starting}
         </ul>
       </li>
       <li>
-        Otherwise,
-        if the element has a <a>completed transition</a> for the property
-        and the <a>end value</a> of the <a>completed transition</a>
-        is different from the <a>after-change style</a> for the property,
-        then implementations must
-        remove the <a>completed transition</a> from the set of
-        <a>completed transitions</a>.
-      </li>
-      <li>
-        If the element has a <a>running transition</a> or
-        <a>completed transition</a> for the property,
+        If the element has a <a>running transition</a> for the property,
         and there is <strong>not</strong>
         a <a>matching transition-property value</a>,
         then implementations must
-        <a>cancel</a> the <a>running transition</a>
-        or remove the <a>completed transition</a> from the set of
-        <a>completed transitions</a>.
+        <a>cancel</a> the <a>running transition</a>.
       </li>
       <li>
         If the element has a <a>running transition</a> for the property,
@@ -920,14 +875,35 @@ Starting of transitions {#starting}
         property immediately changes to its final value).
       </p>
 
-      <p class="note">
-        Note that above rules mean that
-        transitions do not start when the computed
-        value of a property changes as a result of declarative animation
-        (as opposed to scripted animation).
-        This happens because the before-change style includes up-to-date
-        style for declarative animations.
-      </p>
+      <div class="example" id="commitStyles-no-transition-start">
+          <pre>
+&lt;style&gt;
+  #target {
+    transition: width 1s;
+    width: 100px;
+  }
+&lt;/style&gt;
+&lt;script&gt;
+  let animation = target.animate([{ "width": "200px" }], { duration: 1000 });
+  animation.finished.then(() => {
+    animation.commitStyles();
+    animation.cancel();
+  });
+&lt;/script&gt;
+          </pre>
+          <p>
+            The call to <code>commitStyles()</code>
+            will trigger a <a>style change event</a>,
+            with the <a href="#before-change-style">before-change</a>
+            <code>width</code> being <code>100px</code>,
+            and the <a href="#after-change-style">after-change</a>
+            <code>width</code> being <code>200px</code>.
+            However,
+            since <code>width</code> is <a>affected by an animation</a>
+            at the time of the previous <a>style change event</a>,
+            no transition will start.
+          </p>
+        </div>
 
 Faster reversing of interrupted transitions {#reversing}
 --------------------------------------------------------
@@ -1059,15 +1035,14 @@ Completion of transitions {#complete}
         but prior to the first <a>style change event</a>
         whose time is equal to or after their <a>end time</a>.
         When a transition completes,
-        implementations must move
+        implementations must remove
         all transitions that complete at that time
         from the set of <a>running transitions</a>
-        to the set of <a>completed transitions</a>
         and then fire the <a href="#transition-events">events</a>
         for those completions.
         <span class="note">(Note that doing otherwise, that is,
-        firing some of the events before doing all of the moving
-        from <a>running transitions</a> to <a>completed transitions</a>,
+        firing some of the events before removing all completed transitions
+        from <a>running transitions</a>
         could allow
         a style change event to happen
         without the necessary transitions completing,
@@ -1361,7 +1336,12 @@ The following are the substantive changes made since the
 <a href="https://www.w3.org/TR/2018/WD-css-transitions-1-20181011/">Working Draft
 dated 11 October 2018</a>:
 
-*   (Not up to date)
+* Redefined the <a>before-change style</a> and <a>after-change style</a>
+    in terms of the <a>base style</a>;
+    removed the "completed transition" concept;
+    more explicitly prevented transitions <a>affected by an animation</a>
+    from starting.
+    (<a href="https://github.com/w3c/csswg-drafts/issues/6398">6398</a>)
 
 For more details on these changes, see the version control
 <a href="https://github.com/w3c/csswg-drafts/commits/main/css-transitions-1/Overview.bs">change log</a>.
