@@ -36,8 +36,12 @@ function rgbToHue(red, green, blue) {
  * @return {number[]} Array of HWB values: Hue as degrees 0..360, Whiteness and Blackness in reference range [0,100]
  */
 function rgbToHwb(red, green, blue) {
+    let epsilon = 1 / 100000;  // account for multiply by 100
     var hue = rgbToHue(red, green, blue);
     var white = Math.min(red, green, blue);
     var black = 1 - Math.max(red, green, blue);
+    if (white + black >= 1 - epsilon) {
+        hue = NaN;
+    }
     return([hue, white*100, black*100]);
 }
