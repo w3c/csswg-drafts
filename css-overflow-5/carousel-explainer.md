@@ -57,7 +57,9 @@ to access content on future pages.
 
 This is typically accomplished through the use of Javascript,
 as can be seen in the [Web Accessibility Initiative Carousel example](https://www.w3.org/WAI/tutorials/carousels/working-example/).
-However, this should be simple to express and declare in CSS.
+However, the interactivity state of carousel pages is necessarily dynamic.
+Being able to express this in CSS allows authors to correctly reflect this expected design
+without tracking and updating the script via state.
 
 ### Stylable columns
 
@@ -565,3 +567,19 @@ As such, we'd propose adding the `invoke` keyword to the `focusgroup` attribute 
 Note that this example uses tabindex="-1" to apply the [roving tab index with a guaranteed tab stop](https://open-ui.org/components/focusgroup.explainer/#guaranteed-tab-stop) behavior from focusgroup.
 
 This approach implements the navigation behavior, but notably does not explain how scroll markers would track the scroll state and allow styling the active marker.
+
+### overflow-interactivity: inert
+
+One idea that was explored in [#10711](https://github.com/w3c/csswg-drafts/issues/10711)
+is a property on a scrolling container which would automatically remove content which is outside of the scrollport.
+This is appealing in that it would only remove content which is not seen currently,
+ensuring that the content the user is seeing would be interactive and in the accessibility tree.
+
+However, as we have explored use cases,
+two key visual effects kept coming up where the later or earlier content is visible, but not intended to be interacted with.
+These are:
+* Peeking into the next item in the carousel (e.g. [1](https://flackr.github.io/web-demos/css-overflow/carousel/), [2](https://chrome.dev/carousel/vertical/list/)),
+* Stacking or other 3d effects where the future or previous content may be visually obscured, scaled down, not intended to be interacted with but still within the scrollport (e.g. [1](https://chrome.dev/carousel/vertical/stack/)).
+
+In these cases, overflow-interactivity would not produce the user's expected interaction model,
+and they would have to manually adjust an attribute as they would need to today to mark that content as not currently readable / interactable.
