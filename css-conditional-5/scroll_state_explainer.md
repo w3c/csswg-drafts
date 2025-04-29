@@ -149,14 +149,13 @@ a carousel.
 
 ### Scrollable
 
-Query whether a container has [scrollable overflow](https://drafts.csswg.org/css-overflow-3/#scrollable-overflow-region). Can be used to indicate
-there is content to scroll to in a given direction.
-
-Needs further exploration.
+Query whether a container has [scrollable overflow](https://drafts.csswg.org/css-overflow-3/#scrollable-overflow-region).
+Can be used to indicate there is content to scroll to in a given direction.
 
 ### Scroll-direction
 
-Query based on direction of [scrolling](https://drafts.csswg.org/cssom-view/#scrolling). For instance:
+Query based on direction of [scrolling](https://drafts.csswg.org/cssom-view/#scrolling).
+For instance:
 
 ```css
 @container scroll-state(scroll-direction: top) {
@@ -166,14 +165,33 @@ Query based on direction of [scrolling](https://drafts.csswg.org/cssom-view/#scr
 }
 ```
 
+#### Open questions
+
+The initial value of `scroll-direction` is `none`. When else should
+`scroll-direction` be `none`?
+
+1. Once the scroll is [completed](https://drafts.csswg.org/cssom-view/#scroll-completed),
+i.e. should match [scrollend event](https://drafts.csswg.org/cssom-view/#eventdef-document-scrollend).
+2. Once the scrollbar is not moving anymore. (Note that unlike the option above
+if a user is still pressing on a scrollbar after scrolling but not dragging it
+anymore, the `scroll-direction` state becomes `none`).
+3. Only in initial state, see [the proposal](https://github.com/w3c/csswg-drafts/issues/6400#issuecomment-2836870276).
+
+
 #### Workaround
 
-The current workaround solution to style elements based on scroll direction is by using `transition-delay` trick, see 
-[Solved by CSS Scroll-Driven Animations: hide a header when scrolling down, show it again when scrolling up](https://www.bram.us/2024/09/29/solved-by-css-scroll-driven-animations-hide-a-header-when-scrolling-up-show-it-again-when-scrolling-down/). However, in this approach, if a user was still pressing on the scrollbar after scrolling to the specific direction the `scroll-direction` would be considered as `none` since the scrollbar wasn't moving anymore. This behaviour is inconsistent with [the completed state of scrolling](https://drafts.csswg.org/cssom-view/#scroll-completed).
+A workaround solution to style elements based on scroll direction is by using a
+`transition-delay` trick, see [Solved by CSS Scroll-Driven Animations: hide a
+header when scrolling down, show it again when scrolling up](https://www.bram.us/2024/09/29/solved-by-css-scroll-driven-animations-hide-a-header-when-scrolling-up-show-it-again-when-scrolling-down/).
+However, in this approach, if a user was still pressing on the scrollbar after
+scrolling in the specific direction the `scroll-direction` would be considered
+as `none` since the scrollbar wasn't moving anymore. This behaviour matches an
+option 2 in [Open Questions](#open-questions).
 
 #### Use Cases and Author Requests
 
-To hide/show or partially collapse some content based on the direction of scrolling.
+To hide/show or partially collapse some content based on the direction of
+scrolling.
 
 - [Author request on github](https://github.com/w3c/csswg-drafts/issues/6400)
 
@@ -199,8 +217,6 @@ for each state which can be combined with size container types:
 
 - `stuck`
 - `snapped`
-- `scrollable`
-- `scroll-direction`
 
 Query values for `stuck`:
 
