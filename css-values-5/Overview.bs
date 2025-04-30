@@ -1387,7 +1387,7 @@ Conditional Value Selection: the ''if()'' notation</h3>
 
 				If a <<style-query>> in |condition| tests the value of a property,
 				and a &bs<<;"property", referenced-property-name&bs>>; [=substitution context=]
-				would be a [=cyclic substitution context=],
+				would be [=detect cyclic substitutions|detected=] as a [=cyclic substitution context=],
 				that query evaluates to false.
 
 				<div class=example>
@@ -3295,7 +3295,8 @@ Substitution</h3>
 			given an optional [=substitution context=] |context|:
 
 		1. If |context| was provided,
-			and forms a [=cyclic substitution context=],
+			[=detect cyclic substitutions=] using |context|.
+			If |context| is marked as a [=cyclic substitution context=],
 			return the [=guaranteed-invalid value=].
 
 		2. [=list/For each=] [=arbitrary substitution function=] |func| in |values|
@@ -3309,7 +3310,7 @@ Substitution</h3>
 				replace |func| in |values| with the [=guaranteed-invalid value=]
 				and [=iteration/continue=].
 
-			3. [=CSS/Parse=] |early result| acccording to |func|'s [=argument grammar=].
+			3. [=CSS/Parse=] |early result| according to |func|'s [=argument grammar=].
 				If this returns failure,
 				replace |func| in values with the [=guaranteed-invalid value=]
 				and [=iteration/continue=];
@@ -3325,7 +3326,12 @@ Substitution</h3>
 				replace |func| in |values| with the [=guaranteed-invalid value=].
 				Otherwise, replace |func| in |values| with |result|.
 
-		3. Return |values|.
+		3. If |context| is marked as a [=cyclic substitution context=],
+			return the [=guaranteed-invalid value=].
+			<span class=note>Nested [=arbitrary substitution functions=]
+				may have marked |context| as [=cyclic substitution context|cyclic=]
+				in step 2.</span>
+		4. Return |values|.
 	</div>
 
 	<div algorithm>
@@ -3358,15 +3364,28 @@ Substitution</h3>
 		* "attribute", followed by an attribute name
 	</div>
 
-	<div algorithm>
+	<div>
 		As [=substitution=] is recursively invoked
 		by nested [=arbitrary substitution functions=] being [=replaced=],
 		the [=substitution contexts=] passed to each invocation "stack up".
 
-		A <dfn export>cyclic substitution context</dfn>
-		is a [=substitution context=]
-		which matches one of the [=substitution contexts=]
-		established by a [=substitution=] invocation "higher in the stack".
+		A [=substitution context=] may be marked
+		as a <dfn export>cyclic substitution context</dfn>
+		if it's involved in a cycle.
+
+		<div algorithm>
+			To <dfn export>detect cyclic substitutions</dfn>,
+			given a [=substitution context=] |context|:
+
+			1. If |context| matches a [=substitution context=] |outer context|
+				established by a [=substitution=] invocation "higher in the stack",
+				mark |context|,
+				|outer context|,
+				and any [=substitution context=] in between
+				as [=cyclic substitution contexts=].
+			2. Otherwise,
+				do nothing.
+		</div>
 
 		<div class=example>
 			For example, given the following style:
@@ -3396,6 +3415,25 @@ Substitution</h3>
 			eventually resulting in '--one' becoming [=invalid at computed-value time=].
 			The same happens, in opposite order,
 			when performing [=property replacement=] on '--two'.
+		</div>
+
+		<div class=example>
+			When a cycle is [=detect cyclic substitutions|detected=],
+			all participants in the cycle become invalid.
+			For example,
+			all of the following declarations
+			become [=invalid at computed-value time=].
+
+			<pre highlight=css>
+			.foo {
+				--one: var(--two);
+				--two: var(--three, baz);
+				--three: var(--one);
+			}
+			</pre>
+
+			The presence of a fallback in <code>var(--three, baz)</code>
+			does not affect the outcome.
 		</div>
 	</div>
 
