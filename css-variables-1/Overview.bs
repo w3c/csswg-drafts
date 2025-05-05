@@ -509,132 +509,6 @@ Guaranteed-Invalid Values</h3>
 	the only way to create the [=guaranteed-invalid value=]
 	is by having an invalid [=arbitrary substitution function=].
 
-
-
-<!-- Big Text: cycles
-
- ███▌  █   ▐▌  ███▌  █▌    █████▌  ███▌
-█▌  █▌ ▐▌  █  █▌  █▌ █▌    █▌     █▌  █▌
-█▌      █ ▐▌  █▌     █▌    █▌     █▌
-█▌      ▐▌█   █▌     █▌    ████    ███▌
-█▌       █▌   █▌     █▌    █▌         █▌
-█▌  █▌   █▌   █▌  █▌ █▌    █▌     █▌  █▌
- ███▌    █▌    ███▌  █████ █████▌  ███▌
--->
-
-<h3 id='cycles'>
-Resolving Dependency Cycles</h3>
-
-	<a>Custom properties</a> are left almost entirely unevaluated,
-	except that they allow and evaluate the ''var()'' function in their value.
-	This can create cyclic dependencies
-	where a custom property uses a ''var()'' referring to itself,
-	or two or more <a>custom properties</a> each attempt to refer to each other.
-
-	For each element,
-	create a directed dependency graph,
-	containing nodes for each <a>custom property</a>.
-	If the value of a <a>custom property</a> <var>prop</var>
-	contains a ''var()'' function referring to the property <var>var</var>
-	(including in the fallback argument of ''var()''),
-	add an edge between <var>prop</var> and the <var>var</var>.
-	<span class='note'>Edges are possible from a custom property to itself.</span>
-
-	If there is a cycle in the dependency graph,
-	all the <a>custom properties</a> in the cycle
-	are [=invalid at computed-value time=].
-
-	<wpt>
-	variable-cycles.html
-	variable-declaration-30.html
-	variable-declaration-48.html
-	variable-declaration-49.html
-	variable-declaration-50.html
-	variable-reference-39.html
-	</wpt>
-
-	Note: Defined properties that participate in a dependency cycle
-	either end up with invalid variables in their value
-	(becoming [=invalid at computed-value time=]),
-	or define their own cyclic handling
-	(like 'font-size' using ''em'' values).
-	They do not compute to the [=guaranteed-invalid value=]
-	like custom properties do.
-
-	<div class='example'>
-		This example shows a custom property safely using a variable:
-
-		<pre>
-		:root {
-			--main-color: #c06;
-			--accent-background: linear-gradient(to top, var(--main-color), white);
-		}
-		</pre>
-
-		The '--accent-background' property
-		(along with any other properties that use ''var(--main-color)'')
-		will automatically update when the '--main-color' property is changed.
-	</div>
-
-	<div class='example invalid-example'>
-		On the other hand,
-		this example shows an invalid instance of variables depending on each other:
-
-		<pre>
-		:root {
-			--one: calc(var(--two) + 20px);
-			--two: calc(var(--one) - 20px);
-		}
-		</pre>
-
-		Both '--one' and '--two' are now [=invalid at computed-value time=],
-		and compute to the [=guaranteed-invalid value=]
-		rather than lengths.
-	</div>
-
-	It is important to note that
-	<a>custom properties</a> resolve any ''var()'' functions in their values at computed-value time,
-	which occurs <em>before</em> the value is inherited.
-	In general,
-	cyclic dependencies occur only when multiple custom properties on the same element refer to each other;
-	custom properties defined on elements higher in the element tree can never cause a cyclic reference with properties defined on elements lower in the element tree.
-
-	<wpt>
-	variable-declaration-51.html
-	variable-declaration-52.html
-	</wpt>
-
-	<div class='example'>
-		For example,
-		given the following structure,
-		these custom properties are <strong>not</strong> cyclic,
-		and all define valid variables:
-
-		<xmp highlight=markup>
-			<one><two><three /></two></one>
-			<style>
-			one   { --foo: 10px; }
-			two   { --bar: calc(var(--foo) + 10px); }
-			three { --foo: calc(var(--bar) + 10px); }
-			</style>
-		</xmp>
-
-		The &lt;one> element defines a value for '--foo'.
-		The &lt;two> element inherits this value,
-		and additionally assigns a value to '--bar' using the ''foo'' variable.
-		Finally,
-		the &lt;three> element inherits the '--bar' value
-		<em>after</em> variable substitution
-		(in other words, it sees the value ''calc(10px + 10px)''),
-		and then redefines '--foo' in terms of that value.
-		Since the value it inherited for '--bar' no longer contains a reference to the '--foo' property defined on &lt;one>,
-		defining '--foo' using the ''var(--bar)'' variable is not cyclic,
-		and actually defines a value that will eventually
-		(when referenced as a variable in a normal property)
-		resolve to ''30px''.
-	</div>
-
-
 <!-- Big Text: var()
 
 █▌   █▌  ███▌  ████▌    ██ ██
@@ -658,7 +532,12 @@ Using Cascading Variables: the ''var()'' notation</h2>
 	<dfn>var()</dfn> = var( <<custom-property-name>> , <<declaration-value>>? )
 	</pre>
 
-	The ''var()'' function is an [=arbitrary substitution function=].
+	The ''var()'' function is an [=arbitrary substitution function=],
+	and its [=argument grammar=] is:
+
+	<pre class='prod'>
+	<dfn><<var-args>></dfn> = var( <<declaration-value>> , <<declaration-value>>? )
+	</pre>
 
 	<wpt>
 	variable-reference-07.html
@@ -824,16 +703,27 @@ Using Cascading Variables: the ''var()'' notation</h2>
 		</pre>
 	</div>
 
-	<div algorithm="resolve a var()">
-		To <dfn export>[=resolve an arbitrary substitution function|resolve a var() function=]</dfn>:
+	<div algorithm="replace a var()">
+		To <dfn export>[=resolve an arbitrary substitution function|replace a var() function=]</dfn>,
+		given a list of |arguments|:
 
-		1. Let |result| be the value of the [=custom property=]
-			named by the function's first argument,
-			on the element the function's property is being applied to.
+		1. Let |el| be the element that the style containing the ''var()'' function
+			is being applied to.
+			Let |first arg| be the first <<declaration-value>> in |arguments|.
+			Let |second arg| be the <<declaration-value>>? passed after the comma,
+			or null if there was no comma.
 
-		2. Let |fallback| be the value of the function's second argument,
-			defaulting to the [=guaranteed-invalid value=]
-			if it doesn't have a second argument.
+		2. [=Substitute arbitrary substitution functions=] in |first arg|,
+			then [=CSS/parse=] it as a <<custom-property-name>>.
+			If parsing returned a <<custom-property-name>>,
+			let |result| be the [=computed value=]
+			of the corresponding [=custom property=] on |el|.
+			Otherwise,
+			let |result| be the [=guaranteed-invalid value=].
+
+			Note: Determining the [=computed value=] for the [=custom property=]
+			implies that [=property replacement=] takes place,
+			which may cause a [=cyclic substitution context|cycle=].
 
 		3. If the [=custom property=]
 			named by the ''var()''’s first argument
@@ -841,10 +731,53 @@ Using Cascading Variables: the ''var()'' notation</h2>
 			and the ''var()'' is being used in a property that is [=not animatable=],
 			set |result| to the [=guaranteed-invalid value=].
 
-		4. Return |result| and |fallback|.
+		3. If |result| contains the [=guaranteed-invalid value=],
+			and |second arg| was provided,
+			set |result| to the result of [=substitute arbitrary substitution functions=]
+			on |second arg|.
+
+		4. Return |result|.
 	</div>
 
+	<div class='example'>
+		Due to [=property replacement=],
+		[=custom properties=] can form [=cyclic substitution context|cycles=]:
 
+		<pre>
+		:root {
+			--one: calc(var(--two) + 20px);
+			--two: calc(var(--one) - 20px);
+		}
+		</pre>
+		In the above,
+		both '--one' and '--two' compute to the [=guaranteed-invalid value=],
+		since their [=substitution contexts=] have been marked
+		as [=cyclic substitution contexts|cyclic=].
+	</div>
+
+	<wpt>
+		variable-cycles.html
+		variable-declaration-30.html
+		variable-declaration-48.html
+		variable-declaration-49.html
+		variable-declaration-50.html
+		variable-reference-39.html
+	</wpt>
+
+	<div class='example'>
+		Note that the [=custom property=] name looked up by a ''var()''
+		may itself come from a ''var()'' function:
+
+		<pre>
+		:root {
+			--other: 10px;
+			--myvar: --other;
+			--result: var(var(--myvar));
+		}
+		</pre>
+		Since the inner ''var()'' is resolved before the outer ''var()'',
+		the computed value of '--result' becomes 10px.
+	</div>
 
 <!-- Big Text: cssom
 
@@ -986,6 +919,8 @@ Changes Since the 16 June 2022 CR Snapshot</h3>
 
 	* Clarified that the comment-insertion can happen with 0+ comments between the original tokens, not just exactly 1.
 	* Clarified the transition behavior of custom properties, in a note
+	* Made ''var()'' short-circuiting.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/11500">Issue 11500</a>)
 
 <h3 id='changes-20211111'>
 Changes Since the 11 November 2021 CR Draft</h3>
