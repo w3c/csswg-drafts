@@ -285,7 +285,7 @@ as well as other [=custom functions=] via <<dashed-function>>s.
 
 The '@function/result' descriptor itself does not have a type,
 but its [=resolve function styles|resolved=] value is type-checked
-during the [=substitute a dashed function|substitution=] of a <<dashed-function>>.
+during the [=replace a dashed function|substitution=] of a <<dashed-function>>.
 
 Arguments & Local Variables {#args}
 -----------------------------------
@@ -385,7 +385,7 @@ with a <<dashed-function>>.
 
 A <dfn><<dashed-function>></dfn> is a [=functional notation=]
 whose function name starts with two dashes (U+002D HYPHEN-MINUS).
-Its syntax is:
+Its [=argument grammar=] is:
 
 <pre class="prod informative" nohighlight>
 	&lt;dashed-function> = --*( <<declaration-value>>#? )
@@ -396,7 +396,7 @@ A <<dashed-function>> can only be used where ''var()'' is allowed.
 If a property contains one or more <<dashed-function>>s,
 the entire property’s grammar must be assumed to be valid at parse time.
 At computed-value time,
-every <<dashed-function>> must be [=substitute a dashed function|substituted=]
+every <<dashed-function>> must be [=replace a dashed function|replaced=]
 before finally being checked against the property's grammar.
 
 Note: Within the body of a [=custom function=],
@@ -420,18 +420,18 @@ a [=calling context's=] <dfn for="calling context">root element</dfn>
 is the real element at the root of the [=calling context=] stack.
 
 <div algorithm>
-	To <dfn>substitute a dashed function</dfn> in a value,
-		with |dashed function| being a <<dashed-function>>:
+	To <dfn>replace a dashed function</dfn> |dashed function|,
+		with a list of |arguments|:
 
 		1. Let |function| be the result of dereferencing
 			the |dashed function|'s name as a [=tree-scoped reference=].
-			If no such name exists, return failure.
-		2. [=substitute arbitrary substitution functions|Substitute=]
-			any [=arbitrary substitution functions=]
-			within |dashed function|'s arguments,
-			then parse it as ''<<declaration-value>>#''
-			and let |arguments| be the result
-			(a comma-separated list of CSS values).
+			If no such name exists, return the [=guaranteed-invalid value=].
+		2. For each |arg| in |arguments|, 
+		[=substitute arbitrary subsitution functions=] in |arg|,
+		and replace |arg| with the result.
+
+			Note: This may leave some (or all) arguments as the [=guaranteed-invalid value=],
+				triggering [=default values=] (if any).
 		3. If |dashed function| is being substituted into a property on an element,
 			let |calling context| be a [=calling context=]
 			with that element and that property
@@ -442,16 +442,11 @@ is the real element at the root of the [=calling context=] stack.
 			Let |calling context| be a [=calling context=]
 			with that "hypothetical element" and that descriptor.
 
-		5. [=Evaluate a custom function=],
+		4. [=Evaluate a custom function=],
 			using |function|, |arguments|, and |calling context|,
-			and replace the <<dashed-function>> with the [=equivalent token sequence=]
+			and return the [=equivalent token sequence=]
 			of the value resulting from the evaluation.
 </div>
-
-If [=substitute a dashed function=] fails,
-and the substitution is taking place on a property's value,
-then the declaration containing the <<dashed-function>> becomes
-[=invalid at computed-value time=].
 
 <div class='example'>
 	A [=comma-containing productions|comma-containing value=]
@@ -464,6 +459,66 @@ then the declaration containing the <<dashed-function>> becomes
 	}
 	div {
 	  width: --max-plus-x({ 1px, 7px, 2px }, 3px); /* 10px */
+	}
+	</pre>
+</div>
+
+<div class='example'>
+	In the following,
+	<code>--foo()</code> is in a cycle with itself:
+
+	<pre class='lang-css'>
+	@function --foo(--x) {
+	  result: --foo(10);
+	}
+	</pre>
+
+	Similarly,
+	<code>--bar()</code> is in a cycle with itself,
+	even though the local variable <code>--x</code> is never referenced
+	by '@function/result':
+
+	<pre class='lang-css'>
+	@function --bar() {
+	  --x: --bar();
+	  result: 1;
+	}
+	</pre>
+
+	However, <code>--baz()</code> is not in a cycle with itself here,
+	since we never evaluate the <code>result</code> declaration within
+	the <code>@media</code> rule:
+
+	<pre class='lang-css'>
+	@function --baz(--x) {
+	  @media (unknown-feature) {
+	    result: --baz(42);
+	  }
+	  result: 1;
+	}
+
+	</pre>
+</div>
+
+<div class='example'>
+	The function <code>--baz()</code> is not in a cycle in the example below:
+	even though <code>var(--x)</code> and <code>var(--y)</code> appear in the function body,
+	they refer to a [=function parameter=] and [=local variable=], respectively.
+	The [=custom properties=] <code>--x</code> and <code>--y</code>
+	both reference <code>--baz()</code>, but that's fine:
+	those [=custom properties=] are not referenced within <code>--baz()</code>.
+
+	<pre class='lang-css'>
+	@function --baz(--x) {
+	  --y: 10px;
+	  result: calc(var(--x) + var(--y));
+	}
+
+	div {
+	  --x: --baz(1px);
+	  --y: --baz(2px);
+	  width: var(--x);  /* 11px */
+	  height: var(--y); /* 12px */
 	}
 	</pre>
 </div>
@@ -486,18 +541,29 @@ with its [=function parameters=] overriding "inherited" custom properties of the
 	and a list of CSS values |arguments|,
 	returning a CSS value:
 
-	1. If the number of items in |arguments|
+	1. Let |substitution context| be a [=substitution context=]
+		containing &bs<<;"function", |custom function|&bs>>;.
+
+		Note: Due to [=tree-scoped names|tree-scoping=],
+		the same function name may appear multiple times on the stack
+		while referring to different [=custom functions=].
+		For this reason, the [=custom function=] itself is included
+		in the [=substitution context=], not just its name.
+	2. [=guarded|Guard=] |substitution context| for the remainder of this algorithm.
+		If |substitution context| is marked as [=cyclic substitution context|cyclic=],
+		return the [=guaranteed-invalid value=].
+	3. If the number of items in |arguments|
 		is greater than the number of [=function parameters=] in |custom function|,
 		return the [=guaranteed-invalid value=].
-	2. Let |registrations| be an initially empty set of [=custom property registrations=].
-	3. For each [=function parameter=] of |custom function|,
+	4. Let |registrations| be an initially empty set of [=custom property registrations=].
+	5. For each [=function parameter=] of |custom function|,
 		create a [=custom property registration=]
 		with the parameter's name,
 		a syntax of the [=parameter type=],
 		an inherit flag of "true",
 		and no initial value.
 		Add the registration to |registrations|.
-	4. If |custom function| has a [=custom function/return type=],
+	6. If |custom function| has a [=custom function/return type=],
 		create a [=custom property registration=]
 		with the name "return"
 		(violating the usual rules for what a registration's name can be),
@@ -505,33 +571,41 @@ with its [=function parameters=] overriding "inherited" custom properties of the
 		an inherit flag of "false",
 		and no initial value.
 		Add the registration to |registrations|.
-	5. Let |argument rule| be an initially empty [=style rule=].
-	6. For each [=function parameter=] of |custom function|:
+	7. Let |argument rule| be an initially empty [=style rule=].
+	8. For each [=function parameter=] of |custom function|:
 		1. Let |arg value| be the value of the corresponding argument in |arguments|,
 			or the [=guaranteed-invalid value=] if there is no corresponding argument.
 		2. Let |default value| be the parameter's [=default value=].
 		3. Add a [=custom property=] to |argument rule|
 			with a name of the parameter's name,
 			and a value of ''first-valid(|arg value|, |default value|)''.
-	7. [=Resolve function styles=] using |argument styles|, |registrations|, and |calling context|.
+	9. [=Resolve function styles=] using |custom function|, |argument styles|, |registrations|, and |calling context|.
 		Let |argument styles| be the result.
-	8. Let |body rule| be the [=function body=] of |custom function|,
+	10. Let |body rule| be the [=function body=] of |custom function|,
 		as a [=style rule=].
-	9. For each [=custom property registration=] of |registrations|,
+	11. For each [=custom property registration=] of |registrations|,
 		set its initial value
 		to the corresponding value in |argument styles|,
 		set its syntax
 		to the [=universal syntax definition=],
 		and prepend a [=custom property=] to |body rule|
 		with the property name and value in |argument styles|.
-	10. [=Resolve function styles=] using |body rule|, |registrations|, and |calling context|.
+	12. [=Resolve function styles=] using |custom function|, |body rule|, |registrations|, and |calling context|.
 		Let |body styles| be the result.
-	11. Return the value of the '@function/result' property in |body styles|.
+	13. If |substitution context| is marked as a [=cyclic substitution context=],
+		return the [=guaranteed-invalid value=].
+
+		Note: Nested [=arbitrary substitution functions=]
+			may have marked |substitution context| as [=cyclic substitution context|cyclic=]
+			at some point after step 2,
+			for example when resolving '@function/result'.
+	14. Return the value of the '@function/result' property in |body styles|.
 </div>
 
 <div algorithm>
 	To <dfn>resolve function styles</dfn>,
-	given a style rule |rule|,
+	given a [=custom function=] |custom function|,
+	a style rule |rule|,
 	a set of [=custom property registrations=] |registrations|,
 	and a [=calling context=] |calling context|,
 	returning a set of [=computed value|computed=] styles:
@@ -565,6 +639,17 @@ with its [=function parameters=] overriding "inherited" custom properties of the
 			Note: ''result: inherit'', for example,
 			will cause the <<dashed-function>> to <em>evaluate to</em> the ''inherit'' keyword,
 			similar to ''var(--unknown, inherit)''.
+		* For a given [=custom property=] |prop|,
+			during [=property replacement=] for that property,
+			the [=substitution context=] also includes |custom function|.
+			In other words, the [=substitution context=] is
+			&bs<<;"property", |prop|'s name, |custom function|&bs>>;
+
+			Note: Due to dynamic scoping,
+			the same property name may appear multiple times on the stack
+			while referring to different [=custom properties=].
+			For this reason, the [=custom function=] itself is included
+			in the [=substitution context=], not just its name.
 
 	3. Determine the [=computed value=] of all [=custom properties=]
 		and the '@function/result' "property" on |el|,
@@ -587,88 +672,6 @@ with its [=function parameters=] overriding "inherited" custom properties of the
 		Note: Only [=custom properties=] and the '@function/result' descriptor
 		will be used from these styles.
 </div>
-
-
-
-
-Cycles {#cycles}
-----------------
-
-The ''@function/result'' descriptor and [=local variables=]
-within a [=custom function=]
-may reference other [=custom functions=] or [=custom properties=],
-and may therefore create [[css-variables-1#cycles|cycles]].
-
-For each element, add a node for every specified [=custom function=]
-to the graph described in [[css-variables-1#cycles]];
-add a node for each [=local variable=]
-defined within each of those functions;
-then, for each [=custom function=] <var>func</var>, add edges as follows:
-
-* From <var>func</var> to any [=custom function=]
-	referenced by a <<dashed-function>> within <var>func</var>'s body.
-* From <var>func</var> to any [=custom property=] or [=local variable=]
-	referenced by a ''var()'' within <var>func</var>'s body.
-* To <var>func</var> from any [=custom property=] or [=local variable=]
-	that references <var>func</var>
-	using a <<dashed-function>>.
-
-A <<dashed-function>> referencing a [=custom function=]
-which is part of a cycle
-makes the containing [=declaration=] [=invalid at computed-value time=].
-
-Note: Cycles are disallowed even through branches that are not taken
-	during execution.
-
-<div class='example'>
-	In the following,
-	<code>--foo()</code> is in a cycle with itself,
-	even though the media query never evaluates to "true":
-
-	<pre class='lang-css'>
-	@function --foo(--x) {
-	  @media (unknown-feature) {
-	    result: --foo(42);
-	  }
-	  result: 1;
-	}
-	</pre>
-
-	Similarly,
-	<code>--bar()</code> is in a cycle with itself,
-	even though the local variable <code>--x</code> is never referenced:
-
-	<pre class='lang-css'>
-	@function --bar() {
-	  --x: --bar();
-	  result: 1;
-	}
-	</pre>
-</div>
-
-<div class='example'>
-	The function <code>--baz()</code> is not in a cycle in the example below:
-	even though <code>var(--x)</code> and <code>var(--y)</code> appear in the function body,
-	they refer to a [=function parameter=] and [=local variable=], respectively.
-	The [=custom properties=] <code>--x</code> and <code>--y</code>
-	both reference <code>--baz()</code>, but that's fine:
-	those [=custom properties=] are not referenced within <code>--baz()</code>.
-
-	<pre class='lang-css'>
-	@function --baz(--x) {
-	  --y: 10px;
-	  result: calc(var(--x) + var(--y));
-	}
-
-	div {
-	  --x: --baz(1px);
-	  --y: --baz(2px);
-	  width: var(--x);  /* 11px */
-	  height: var(--y); /* 12px */
-	}
-	</pre>
-</div>
-
 
 <!-- Big Text: execution
 
