@@ -20,7 +20,7 @@ Embedded SVG documents (in `<object>`/`<embed>`) already support responsive layo
 
 Use cases include:
  * 3P comment widgets ([example](https://github.com/whatwg/html/issues/555#issuecomment-177836009))
- * Embedding self-contained worked examples in teaching UI ([example](https://browser.engineering/layout.html))
+ * Embedding self-contained worked examples in teaching UI ([example]([https://browser.engineering/layout.html](https://browser.engineering/layout.html#block-layout)))
 
 In general, there is a lot of demand for this feature, as evidenced by:
  * [Stack overflow](https://stackoverflow.com/search?q=resize+iframe)
