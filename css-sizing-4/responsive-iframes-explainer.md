@@ -2,13 +2,13 @@
 
 ## Problem description
 
-[Iframes]([url](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe)) are very useful for sandboxing web content into different documents. The options currently available are:
- 1. A [same-origin]([url](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy)) iframe, which provides full style & 
+[url](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe) are very useful for sandboxing web content into different documents. The options currently available are:
+ 1. A [same-origin](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy) iframe, which provides full style & 
 layout isolation, and by-default script isolation. This prevents the parent and child documents from accidentally interfering with each other.
  2. A cross-origin iframe, which additionally provides robust security and privacy against untrusted embedders or embedees.
 
 In addition, iframes participate in the layout of the parent document, via the style and layout of their owning `<iframe>` element.
-However, unlike other HTML elements such as `<div>`, iframe elements do not have the ability to support *responsive layout*, i.e. size themselves automatically to contain the [natural dimensions]([url](https://drafts.csswg.org/css-images-3/#natural-dimensions)) of the contents of the iframe. Instead, browsers automatically add scrollbars to iframes as necessary, so that users can access the content.
+However, unlike other HTML elements such as `<div>`, iframe elements do not have the ability to support *responsive layout*, i.e. size themselves automatically to contain the [natural dimensions](https://drafts.csswg.org/css-images-3/#natural-dimensions) of the contents of the iframe. Instead, browsers automatically add scrollbars to iframes as necessary, so that users can access the content.
 
 This is a problem:
  * From a user's perspective, iframe scrollbars are a worse UX in cases where the iframe contents are important to them and can fit reasonably in the visible viewport without these additional scrollbars.
@@ -19,19 +19,19 @@ Embedded SVG documents already support responsive layout. *Responsive iframes* a
 ## Use cases
 
 Use cases include:
- * 3P comment widgets ([example]([url](https://github.com/whatwg/html/issues/555#issuecomment-177836009)))
- * Embedding self-contained worked examples in teaching UI ([example]([url](https://browser.engineering/layout.html)))
+ * 3P comment widgets [example](https://github.com/whatwg/html/issues/555#issuecomment-177836009)
+ * Embedding self-contained worked examples in teaching UI (https://browser.engineering/layout.html)
 
 In general, there is a lot of demand for this feature, as evidenced by:
- * [Stack overflow]([url](https://stackoverflow.com/search?q=resize+iframe))
- * Many comments and positive reactions on the [issue proposing the feature for HTML]([url](https://github.com/whatwg/html/issues/555)), and [the same for CSS]([url](https://github.com/w3c/csswg-drafts/issues/1771)).
+ * [Stack overflow](https://stackoverflow.com/search?q=resize+iframe)
+ * Many comments and positive reactions on the [issue proposing the feature for HTML](https://github.com/whatwg/html/issues/555), and [the same for CSS](https://github.com/w3c/csswg-drafts/issues/1771).
  * Existence of multiple polyfills
 
 ## Solution
 
 The embedding document opts in via the `contain-intrinsic-size: from-element` CSS property on the `<iframe>` element, and the embedded document opts in via a new `<meta name="responsive-embedded-sizing">` tag.
 
-When the meta tag is present at the time the `load` event on the embedded document fires, the embedding document is notified with the new [natural height]([url](https://drafts.csswg.org/css-images-3/#natural-height)) of the embedded (iframe) document. If `contain-intrinsic-size` is set on the `<iframe>` element, it takes this heigh into consideration in the same way as any other replaced element's layout, along with other constraints specified by the HTML and CSS of the embedding document. Subsequent changes to content, styling or layout fo the embedded document do not affect the `<iframe>` sizing.
+When the meta tag is present at the time the `load` event on the embedded document fires, the embedding document is notified with the new [natural height](https://drafts.csswg.org/css-images-3/#natural-height) of the embedded (iframe) document. If `contain-intrinsic-size` is set on the `<iframe>` element, it takes this heigh into consideration in the same way as any other replaced element's layout, along with other constraints specified by the HTML and CSS of the embedding document. Subsequent changes to content, styling or layout fo the embedded document do not affect the `<iframe>` sizing.
 
 The double opt-in preserves:
  * Backward compatibility for existing content
@@ -40,6 +40,32 @@ The double opt-in preserves:
 The "one-shot" sizing to natural dimensions avoids:
  * Performance issues and CLS due to changing iframe sizing (To further mitigatge performance risks, limitations on levels of `<iframe>` nesting may be imposed.)
  * Potential infinite layout loops
+
+## Example:
+
+The following example wil display an iframe of content `width `300px` (the default) and height `1000px` (the height of the `<div>`),
+plus a 1px border.
+
+Embedding document:
+
+```html
+<style>
+  iframe {
+    contain-intrinsic-size: from-element;
+    border: 1px solid black;
+  }
+</style>
+<iframe src="my-iframe.html">
+```
+
+`my-iframe.html`:
+```html
+<style>
+  * { margin: 0; }
+</style>
+<meta name="responsive-embedded-sizing">
+<div style="height: 100px">
+```
 
 ## Future extensions
 
