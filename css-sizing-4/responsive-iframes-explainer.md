@@ -66,7 +66,7 @@ Embedding document:
   * { margin: 0; }
 </style>
 <meta name="responsive-embedded-sizing"></meta>
-<div style="height: 100px"></div>
+<div style="height: 1000px"></div>
 ```
 
 ## Future extensions
