@@ -69,6 +69,10 @@ Embedding document:
 <div style="height: 1000px"></div>
 ```
 
+## Related work
+
+A previous explainer for this feature is [here](https://github.com/domenic/cooperatively-sized-iframes).
+
 ## Future extensions
 
 A JavaScript API could be added in the future that would allow embedded documents to request relayout in their embedding document context. This would allow dynamically generated iframe documents to update at times other than `load`.
