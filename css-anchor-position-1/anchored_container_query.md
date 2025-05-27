@@ -5,7 +5,8 @@
 CSS Anchor Positioning Level 1 introduced a way to position and size absolute
 positioned elements relative to a specific anchor element.
 
-Note: This explainer currently does not explore the [`::tether` proposal]().
+Note: This explainer currently does not explore the
+[`::tether` proposal](https://github.com/w3c/csswg-drafts/issues/9271).
 
 There have been multiple requests to support styling of anchored elements based
 on the chosen position.
