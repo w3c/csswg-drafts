@@ -80,3 +80,5 @@ A JavaScript API could be added in the future that would allow embedded document
 ## Privacy and security
 
 Information about the contents of a cross-origin iframe can be exfiltrated by embedding it in a malicious document that observes the laid-out size of the iframe. This can be mitigated through use of the the `X-Frame-Options` HTTP header to allow embedding into only trusted embedding documents, plus the `responsive-embedded-sizing` `<meta>` tag to further opt into responsive layout. Additional restrictions could be put in place through contents of the `<meta>` tag that would restrict to only explicitly allowed origins.
+
+[Fenced frames](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/fencedframe) are excluded from this feature.
