@@ -337,7 +337,7 @@ We recommend this as best practice, but it might not be practical to do on an ex
 }
 ```
 
-#### Explicitly adjusting the text size {#explicitly-adjusting-the-text-size}
+#### Explicitly adjusting the text size
 
 Authors can use the `text-size-adjust` property to selectively boost the font size and line height of certain elements. Note that currently, `text-size-adjust` only has an effect on mobile browsers, but mobile browsers are where text boosting is more prominently needed.
 
@@ -367,7 +367,7 @@ Authors can use `env(preferred-text-scale)` in media queries and container queri
 .sidebar-layout {
   display: grid;
 
-  @media {
+  @media (width > calc(50rem * env(preferred-text-scale))) {
     grid-template-columns: 1fr 18rem;
   }
 }
