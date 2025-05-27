@@ -73,6 +73,10 @@ Embedding document:
 
 A previous explainer for this feature is [here](https://github.com/domenic/cooperatively-sized-iframes).
 
+## Other notes
+
+[Fenced frames](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/fencedframe) are excluded from this feature.
+
 ## Future extensions
 
 A JavaScript API could be added in the future that would allow embedded documents to request relayout in their embedding document context. This would allow dynamically generated iframe documents to update at times other than `load`.
