@@ -5,9 +5,6 @@
 CSS Anchor Positioning Level 1 introduced a way to position and size absolute
 positioned elements relative to a specific anchor element.
 
-Note: This explainer currently does not explore the
-[`::tether` proposal](https://github.com/w3c/csswg-drafts/issues/9271).
-
 There have been multiple requests to support styling of anchored elements based
 on the chosen position.
 
@@ -147,6 +144,28 @@ and the limited list of properties which can be applied by `@position-try` and
 other fallback rules. See
 [The @position-try Rule](https://drafts.csswg.org/css-anchor-position-1/#fallback-rule)
 
+
+## ::tether
+
+There is an [alternative proposal](https://github.com/w3c/csswg-drafts/issues/9271)
+to introduce a `::tether` pseudo element for the tether rendering use case
+specifically.
+
+Having a separate pseudo element for tethers could make them more convenient
+for authors to create if it is possible to construct UA styles which gives a
+sensible behavior for sizing and positioning in more than just the trivial use
+cases. As can be seen from
+[explorations in the issue](https://github.com/w3c/csswg-drafts/issues/9271#issuecomment-1721772484),
+this is complicated.
+
+The codepen demo in the section below uses the `::after` element in the
+anchored element to render the tether. One thing to point out from the
+`::tether` proposal is that it is pulling the box for the pseudo element out as
+a sibling of its originating element, which is something one cannot do with the
+container query proposed here. However, pulling the box out like that is known
+to have [issues](https://github.com/w3c/csswg-drafts/issues/11213) with e.g.
+size container queries. It is not unlikely that an author would want the tether
+to respond to size queries on the anchored element.
 
 ## Use Cases and Author Requests
 
