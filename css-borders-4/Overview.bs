@@ -20,6 +20,12 @@ Warning: Not Ready
 spec:css-text-4; type:value; text:collapse
 spec:css-shapes-2; type:function; text:path()
 spec:css-shapes-2; type:property; text:shape-inside
+spec:geometry-1; type: dfn; text: width dimension
+spec:geometry-1; type: dfn; text: height dimension
+spec:geometry-1; type: dfn; text: x coordinate; for: rectangle
+spec:geometry-1; type: dfn; text: y coordinate; for: rectangle
+spec:geometry-1; type: dfn; text: rectangle
+spec:dom; type: dfn; text: element;
 </pre>
 
 <link rel="stylesheet" href="style.css" />
@@ -358,10 +364,144 @@ Like 'border-radius', 'corner-shape' clips elements according to the [=overflow=
 Since stroking a superellipse accurately may be computationally intensive, user agents may approximate the path using bezier curves,
 as well as account for sharp edges and overlaps.
 
-Issue: 'border-radius' already handles *adjacent* corners overlapping by shrinking the radiuses proportionally.
-A negative ''superellipse()'' parameter allows for *opposite* corners to sometimes overlap, and needs additional restrictions defined.
+When rendering a [=border=] for a box that has a 'border-radius' and a 'corner-shape',
+the inner border follows the curve of the outer shape, with a nearly consistent distance from the outer path throughout,
+or a linearly increasing distance if the 'border-width' of the two edges of the corner is not uniform.
 
-Issue <a href="https://github.com/w3c/csswg-drafts/issues/11610">#11610</a>: check if we need additional rendering restrictions.
+In contrast, when rendering a 'box shadow' or when extending the [=overflow clip edge=], the resulting path does not trace border contour.
+Instead, it preserves the original shape and scales it in an axis-aligned manner.
+
+<figure>
+	<img src="images/corner-shape-adjusting.svg"
+		style="background: white;"
+		alt="Adjusting corner shapes">
+	<figcaption>Borders are aligned to the curve, shadows and clip are aligned to the axis.</figcaption>
+</figure>
+
+
+An [=/element=] |element|'s <dfn>outer contour</dfn> is the [=border contour path=] given |element| and |element|'s [=border edge=].
+
+An [=/element=] |element|'s <dfn>inner contour</dfn> is the [=border contour path=] given |element| and |element|'s [=padding edge=].
+
+An [=/element=]'s [=border=] is rendered in the area between its [=outer contour=] and its [=inner contour=].
+
+An [=/element=]'s [=overflow=] area is shaped by its [=inner contour=].
+An [=/element=]'s [=overflow clip edge=] is shaped by the [=border contour path=] given |element|, and |element|'s [=padding edge=], and |element|'s [=used value|used=] 'overflow-clip-margin'.
+
+Each shadow of [=/element=]'s 'box shadow' is shaped by the [=border contour path=] given |element|, and |element|'s [=border edge=], and the shadow's [=used value|used=] 'box-shadow-spread'.
+
+<div algorithm="adjust-border-inner-path-for-corner-shape">
+To compute an [=/element=] |element|'s <dfn>border contour path</dfn> given an an [=edge=] |targetEdge| and an optional number |spread| (default 0):
+	1. Let |outerLeft|, |outerTop|, |outerRight|, |outerBottom| be |element|'s [=unshaped edge|unshaped=] [=border edge=].
+	1. Let |topLeftHorizontalRadius|, |topLeftVericalRadius|, |topRightHorizontalRadius|, |topRightVerticalRadius|, |bottomRightHorizontalRadius|,
+		|bottomRightVerticalRadius|, |bottomLeftHorizontalRadius|, and |bottomLeftVerticalRadius| be |element| [=border edge=]'s radii.
+	1. Let |topLeftShape|, |topRightShape|, |bottomRightShape|, and |bottomLeftShape| be |element|'s [=computed value|computed=] 'corner-*-shape' values.
+	1. Let |targetLeft|, |targetTop|, |targetRight|, |targetBottom| [=unshaped edge|unshaped=] |targetEdge|.
+	1. Let |path| be a new path [[SVG2]].
+	1. Compute a [=corner path=] given
+		the [=rectangle=] <code>(|outerRight| - |topRightHorizontalRadius|, |outerTop|, |topRightHorizontalRadius|, |topRightVerticalRadius|)</code>,
+		0, |targetTop| - |outerTop|, |outerRight| - |targetRight|, and |topRightShape|,
+		and append it to |path|.
+	1. Compute a [=corner path=] given
+		the rectangle <code>(|outerRight| - |bottomRightHorizontalRadius|, |outerBottom| - |bottomRightVerticalRadius|, |bottomRightHorizontalRadius|, |bottomRightVerticalRadius|)</code>, |targetEdge|,
+		1, |outerRight| - |targetRight|, |outerBottom| - |targetBottom|, and |bottomRightShape|,
+		and append it to |path|.
+	1. Compute a [=corner path=] given
+		the rectangle <code>(|outerLeft|, |outerBottom| - |bottomLeftVerticalRadius|, |bottomLeftHorizontalRadius|, |bottomLeftVerticalRadius|)</code>, |targetEdge|,
+		2, |outerBottom| - |targetBottom|, |targetLeft| - |outerLeft|, and |bottomLeftShape|,
+		and append it to |path|.
+	1. Compute a [=corner path=] given
+		the rectangle <code>(|outerLeft|, |outerTop|, |topLeftHorizontalRadius|, |topLeftVericalRadius|)</code>, |targetEdge|,
+		3, |targetLeft| - |outerLeft|, |targetTop| - |outerTop|, and |topLeftShape|,
+		and append it to |path|.
+	1. If |spread| is not 0, then:
+		1. Scale |path| by <code>1 + (|spread| * 2) / (|targetRect|'s [=width dimension|width=]), 1 + (|spread| * 2) / (|targetEdge|'s [=height dimension|height=])</code>.
+		1. Translate |path| by <code>-|spread|, -|spread|</code>.
+
+		Note: this creates an effect where the resulting path has the same shape as the original path, but scaled to fit the given spread.
+	1. Return |path|.
+
+To compute the <dfn>corner path</dfn> given a rectangle |cornerRect|, a rectangle |trimRect|, and numbers |startThickness|, |endThickness|, |orientation|, and |curvature|:
+	1. Assert: |orientation| is 0, 1, 2, or 3.
+	1. If |curvature| is less than zero, then:
+		1. Set |curvature| to <code>-|curvature|</code>.
+		1. Swap between |startThickness| and |endThickness|.
+		1. Set |orientation| to (|orientation| + 2) % 4.
+	1. Let |cornerPath| be a path that begins at <code>(0, 1)</code>.
+	1. Switch on |curvature|:
+		<dl class=switch>
+			: 0
+			:: Extend |cornerPath| by adding a straight line to <code>(1, 0)</code>.
+
+			: &infin;
+			::
+				1. Extend |cornerPath| by adding a straight line to <code>(1, 1)</code>.
+				1. Extend |cornerPath| by adding a straight line to <code>(1, 0)</code>.
+
+			: Otherwise
+			::
+				1. Let |K| be <code>0.5<sup>|curvature|</sup></code>.
+				1. For each |T| between 0 and 1, extend |cornerPath| through <code>(|T|<sup>|K|</sup>, (1−|T|)<sup>|K|</sup>)</code>.
+
+				User agents may approximate this path, for instance, by using concatenated Bezier curves, to balance between performance and rendering accuracy.
+		</dl>
+
+	1. Let (|x|, |y|, |width|, |height|) be |targetRect|.
+	1. Let |clockwiseRectQuad| be « (|x|, |y|), (|x| + |width|, |y|), (|x| + |width|, |y| + |height|), (|x|, |y| + height|) ».
+	1. Let |curveStartPoint| be |clockwiseRectQuad|[|orientation|].
+	1. Let |curveEndPoint| be |clockwiseRectQuad|[(|orientation| + 2) % 4].
+	1. If either |startThickness| or |endThickness| is greater than 0, then:
+
+		Note: the following substeps compute a new |curveStartPoint| and |curveEndPoint|, based on the thickness and |curvature|.
+		The start and end points are offset inwards, perpendicular to the direction of the curve, with the corresponding |startThickness| or |endThickness|.
+
+		1. Let |tangentUnitVector| be <code>(1, 0)</code>.
+
+			Note: |tangentUnitVector| is a unit vector (length of 1 pixel) that points along a curve with both positive X and Y components
+			(like a top-right corner) and reflects the given |curvature|. This base vector can then be rotated to align with the specific corner's orientation
+			and scaled to match the required border thickness.
+			For round curvatures, or for hyperellipses (|curvature| greater than 1), the tangent is a horizontal line to the right.
+
+			<figure>
+				<img src="images/corner-shape-target-unit-vector-round.svg"
+					style="background: white; padding: 8px;"
+					alt="Tangent unit vector with round (s=1)">
+				<figcaption>When the 'corner-shape' is ''corner-shape/round'' or more convex (<code>>= 1</code>), the unit vector is <code>1, 0</code>.
+				</figcaption>
+			</figure>
+
+		1. If |curvature| is less than 1:
+			1. Let |halfCorner| be the [=normalized superellipse half corner=] given |curvature|.
+			1. Let |offsetX| be <code>max(0, (|halfCorner| - 1) * 2 + &Sqrt;2)</code>.
+			1. Let |offsetY| be <code>max(0, &Sqrt;2 - |halfCorner| * 2)</code>.
+
+				Note: This formula defines the tangent of a quadratic Bezier curve that's equivalent to a superellipse quadrant.
+				Notably, convex hypoellipses (superellipses with a [=superellipse parameter|parameter=] between 0 and 1) can be very precisely represented by quadratic curves.
+
+			1. Let |length| be <code>hypot(|offsetX|, |offsetY|)</code>.
+			1. Set |tangentUnitVector| to <code>(|offsetX| / |length|, |offsetY| / |length|)</code>.
+
+				At this point |curvature| is guaranteed to be convex (>=1), so ther resulting |tangentUnitVector| would be in the range between <code>(1, 0)</code> and <code>(&Sqrt;2/2, &Sqrt;2/2)</code>.
+
+				<figure>
+					<img src="images/corner-shape-target-unit-vector-bevel.svg"
+						style="background: white; padding: 8px;"
+						alt="Tangent unit vector with bevel (s=0)">
+					<figcaption>When the 'corner-shape' is ''corner-shape/bevel'' (<code>0</code>), the unit vector is <code>&Sqrt;2/2, &Sqrt;2/2</code>.
+					</figcaption>
+				</figure>
+
+		1. Let |startOffset| be |tangentUnitVector|, scaled by |startThickness| and rotated <code>90° * ((|orientation| + 1) % 4)</code> clockwise.
+		1. Let |endOffset| be |tangentUnitVector|, scaled by |endThickness| and rotated by <code>90° * ((|orientation| + 2) % 4)</code> clockwise.
+		1. Translate |curveStartPoint| by |startOffset|.
+		1. Translate |curveEndPoint| by |endOffset|.
+		1. Set |cornerRect| to a rectangle that contains |curveStartPoint| and |curveEndPoint|.
+	1. Rotate |cornerPath| by <code>90° * |orientation|</code>, with <code>(0.5, 0.5)</code> as the origin, as described [=transformation matrix|here=].
+	1. Scale |cornerPath| by <code>|cornerRect|'s [=width dimension|width=], |cornerRect|'s [=width dimension|height=]</code>.
+	1. translate |cornerPath| by<code> |cornerRect|'s [=x coordinate|x=], |cornerRect|'s [=y coordinate|y=]</code>.
+	1. Trim |cornerPath| to |trimRect|.
+	1. Return |cornerPath|.
+</div>
 
 <h4 id=corner-shape-value>
 'corner-shape' values</h4>
@@ -396,7 +536,7 @@ Issue <a href="https://github.com/w3c/csswg-drafts/issues/11610">#11610</a>: che
 	It is a number between <css>-infinity</css> and <css>infinity</css>, with <css>-infinity</css> corresponding to a straight concave corner,
 	<css>infinity</css> corresponding to a square convex corner.
 
-	The <dfn>canonical superellipse formula</dfn> can be described in Cartesian coordinates, as follows,
+	The <dfn export>canonical superellipse formula</dfn> can be described in Cartesian coordinates, as follows,
 	where <code>s</code> is the [=superellipse parameter=]:
 
 	<pre>
@@ -415,10 +555,10 @@ Issue <a href="https://github.com/w3c/csswg-drafts/issues/11610">#11610</a>: che
 
 		<figure>
 			<img src="images/superellipse-param.svg"
-			     width="320" height="240"
-			     style="background: white; padding: 8px;"
-			     title="rendering of different superellipse parameter values"
-			     alt="Rendering of different superellipse parameter values.">
+				width="320" height="240"
+				style="background: white; padding: 8px;"
+				title="rendering of different superellipse parameter values"
+				alt="Rendering of different superellipse parameter values.">
 			<figcaption>
 				Rendering examples of different ''superellipse()'' values.
 			</figcaption>
@@ -504,7 +644,7 @@ Since it uses a <code>log2</code>, interpolating it linearly would result in an 
 To balance that, the <dfn>superellipse interpolation</dfn> formula describes how a [=superellipse parameter=] is converted to a value between 0 and 1, and vice versa:
 
 <div algorithm="superellipse-param-to-interpolation-value">
-To interpolate a <<number [-&infin;,&infin;]>> |s| to an interpolation value between 0 and 1, return the first matching statement, switch on |s|:
+To compute the <dfn>normalized superellipse half corner</dfn> given a [=superellipse parameter=] |s|, return the first matching statement, switching on |s|:
 <dl class=switch>
 	: -&infin;
 	:: Return 0.
@@ -518,8 +658,9 @@ To interpolate a <<number [-&infin;,&infin;]>> |s| to an interpolation value bet
 		1. Let |convexHalfCorner| be <code>0.5<sup>|k|</sup></code>.
 		1. If |param| is less than 0, return <code>1 - |convexHalfCorner|</code>.
 		1. Return |convexHalfCorner|.
-
 </dl>
+
+To interpolate a [=superellipse parameter=] |s| to an interpolation value between 0 and 1, return the [=normalized superellipse half corner=] given |s|.
 
 To convert a <<number [0,1]>> |interpolationValue| back to a [=superellipse parameter=], switch on |interpolationValue|:
 <dl class=switch>
