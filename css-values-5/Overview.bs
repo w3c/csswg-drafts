@@ -841,134 +841,433 @@ Interpolation Progress Calculations: the ''progress()'' notation</h2>
 -->
 
 <h2 id="mixing">
-Mixing and Interpolation Notations: the *-mix() family</h2>
-
-	ISSUE(6245): This section is an exploratory draft, and not yet approved by the CSSWG.
-
-	ISSUE(6245): This feature <a href="https://css.typetura.com/ruleset-interpolation/explainer/">does not handle multiple breakpoints very well</a>,
-	and <a href="https://github.com/w3c/csswg-drafts/issues/6245#issuecomment-2469190377">might need to be redesigned</a>.
+Weighted Average Notations: the *-mix() family</h2>
 
 	Several <dfn>mix notations</dfn> in CSS
-	allow representing the interpolation of two values,
-	the <dfn>mix start value</dfn> and the <dfn>mix end value</dfn>,
-	at a given point in progress between them (the <dfn>mix progress value</dfn>).
+	allow representing the weighted average of a set of values.
 	These [=functional notations=] follow the syntactic pattern:
 
 	<pre class=prod>
-		<var>mix-function</var>() = <var>mix-function</var>( <<progress>>, <l>[=mix start value|start-value=]</l>, <l>[=mix end value|end-value=]</l> )
+		<var>*mix</var>() = <var>*mix</var>( <var>options</var>? , [ <var>value</var> && <<percentage>>? ]# )
 	</pre>
+
+	where the <var>options</var> can provide type-specific mixing options,
+	and each <var>value</var> and optional <<percentage>> pair in the argument list
+	is a <dfn>mix item</dfn> representing
+	an input to the mix and its weight in the average.
 
 	The [=mix notations=] in CSS include:
 	* ''calc-mix()'',
+		for mixing <<length>>, <<percentage>>, <<time>>,
+		and other dimensions representable in ''calc()'' expressions
+	* ''transform-mix()'',
+		for mixing <<transform-list>>s
+	* ''color-mix()'',
+		for mixing <<color>> values (see [[css-color-5]])
+	* ''cross-fade()'',
+		for mixing <<image>> values (see [[css-images-4]])
+	* ''palette-mix()'',
+		for mixing 'font-palette' values (see [[css-fonts-4]])
+
+<h3 id="mix-percentage-normalization">
+Normalizing Mix Percentages</h3>
+
+	If the sum of the mix percentages are greater than 100%,
+	they are scaled down;
+	if it is less, any remaining percentage is distributed to values whose <<percentage>> is omitted,
+	or else assigned to a “none” type value as defined by the specific [=mix notation=].
+
+	<div algorithm>
+		To <dfn>normalize mix percentages</dfn>
+		given
+		* a [=/list=] of [=mix items=] |items|
+			(a value and optional percentage, each between 0% and 100% if specified)
+		* an optional |force normalization| flag
+			(defaulting to false),
+
+		returning a list of [=mix items=] with normalized percentages
+		and a “leftover” percentage:
+
+		1. Let |specified sum| be the sum of the percentages specified in |items|
+			(clamped to 100%),
+			or 0% if the percentages are omitted for all items.
+		2. For each omitted percentage in |items|,
+			set it to
+			<code>(100% - |specified sum|) / (number of omitted percentages)</code>.
+		3. Let |total| be the sum of the percentages of all the items,
+			clamped to 100%.
+		4. If |total| is greater than 0%,
+			or if |total| is greater than 0% and the |force normalization| flag is true,
+			multiply every percentage in |items| by <code>(100% / |total|)</code>.
+		5. If |total| is less than 100%,
+			let |leftover| be <code>(100% - |total|)</code>.
+			Otherwise, let |leftover| be 0%.
+		6. Return |items| and |leftover|.
+
+		Note: At the end of this algorithm, every percentage is set,
+		and the sum of all percentages is either 0%
+		(if they were all specified as 0% to begin with)
+		or 100%.
+		The |leftover| value will be applied to the usage-specific “none” type value
+		mixed into the final result.
+	</div>
+
+<h3 id="calc-mix">
+Weighted Average of Numeric and Dimensional Values: the ''calc-mix()'' notation</h3>
+
+	The <dfn>calc-mix()</dfn> [=mix notation=]
+	represents a weighted average of numeric or dimensional value.
+	Like ''calc()'', it is a [=math function=],
+	with the following syntactic form:
+
+	<pre class=prod>
+		<<calc-mix()>> = calc-mix( [ <<calc-sum>> <<percentage [0,100]>>? ]# )
+	</pre>
+
+	The <<calc-sum>> arguments can resolve
+	to any <<number>>, <<dimension>>, or <<percentage>>,
+	but must have a [=consistent type=]
+	or else the function is invalid.
+	The result's type will be the [=consistent type=],
+	[=made consistent=] with the type of the <<calc-sum>> values.
+
+	The [=used value=] of a valid ''calc-mix()'' is
+	the result of producing a weighted average of its <<calc-sum>> values,
+	with the weight of each item given by its corresponding <<percentage>>
+	after [=normalize mix percentage|normalizing these mix percentages=].
+	(Any “leftover” mix percentage is applied to a consistently-typed zero value,
+	and thus effectively discarded.)
+
+	The [=computed value=] of a valid ''calc-mix()'' is
+	its [=used value=] if all of the <<calc-sum>> and <<percentage>> values in it
+	can be resolved,
+	and is a ''calc-mix()'' notation
+	with each of its <<calc-sum>> and <<percentage>> values computed individually
+	otherwise.
+
+<h3 id="transform-mix">
+Weighted Average of Transform Values: the ''transform-mix()'' notation</h3>
+
+	The <dfn>transform-mix()</dfn> [=mix notation=]
+	represents a weighted average of <<transform-list>>,
+	with the following syntactic form:
+
+	<pre class=prod>
+		<<transform-mix()>> = transform-mix( [ <<transform-list>> && <<percentage [0,100]>> ]# )
+	</pre>
+
+	The [=used value=] of a valid ''transform-mix()'' is
+	the result of producing a weighted average of its <<transform-list>> values,
+	with the weight of each item given by its corresponding <<percentage>>
+	after [=normalize mix percentage|normalizing these mix percentages=].
+	Any “leftover” mix percentage is applied to an [=identity transform=]
+	appended to the list.
+	The weighting can be calculated by
+	interpolating each <<transform-list>>
+	using its <<percentage>> weight as the interpolation progress
+	from the [=identity transform=] towards the <<transform-list>>.
+
+	If every <<percentage>> weight can be fully resolved,
+	and the <<transform-list>>s can be interpolated
+	without used-value-time information,
+	then the [=computed value=] is the [=used value=];
+	it is otherwise the ''transform-mix()'' notation itself
+	with its arguments each computed according to their type.
+
+	''transform-mix()'' is, itself, a <<transform-function>>.
+
+
+<h2 id="interpolation-notation">
+Interpolation Mapping Notations: the *-interpolate() family</h2>
+
+	Several <dfn>interpolation notations</dfn> in CSS
+	allow representing an interpolated value
+	corresponding to a certain amount of <dfn>interpolation progress</dfn>
+	along a defined scale or mapping function
+	(the <dfn>interpolation map</dfn>).
+	The [=functional notations=] follow the syntactic pattern:
+
+	<pre class=prod>
+		<var>*interpolate</var>() = <var>*interpolate</var>( <var>progress</var> && <var>global-options</var>?,
+		                               <var>stop</var>, [  <var>between-options</var>? , <var>stop</var> ]# )
+	</pre>
+
+	Where:
+	* |progress| specifies the input position into the [=interpolation map=]; see [[#interpolation-progress-arguments]]
+	* |global-options| specifies additional options for the interpolation as a whole,
+		and defaults for the between-stop interpolation options.
+	* |stop| represents an [=interpolation stop=]; see [[#interpolation-map-arguments]]
+	* |between-options| specifies options for the interpolation between the two surrounding stops.
+
+	The [=interpolation notations=] in CSS include:
+	* ''calc-interpolate()'',
 		for interpolating <<length>>, <<percentage>>, <<time>>,
 		and other dimensions representable in ''calc()'' expressions
-	* ''color-mix()'',
-		for interpolating two <<color>> values
-	* ''cross-fade()'',
-		for interpolating <<image>> values
-	* ''palette-mix()'',
-		for interpolating two 'font-palette' values
+	* ''transform-interpolate()'',
+		for interpolating <<transform-list>>s
+	* ''color-interpolate()'',
+		for interpolating <<color>> values
+	* ''palette-interpolate()'',
+		for interpolating 'font-palette' values
 
-	and finally the generic ''mix()'' notation,
-	which can represent the interpolation of any property's values
-	(but only the property's entire value, not individual components).
+	and finally the generic ''interpolate()'' notation,
+	which can represent the interpolation of any property’s values
+	(but only the property’s entire value, not individual components).
 
-	Note: The ''cross-fade()'' notation
-	also has an alternative syntax
-	that allows for mixing more than two values,
-	but does not allow for the more complex expressions of <<progress>>.
-
-	ISSUE: The ''mix()'' notation also has a variant that takes a set of keyframes.
+	ISSUE: The ''interpolate()'' notation also has a variant that takes a set of keyframes.
 	It does this by referring to an ''@keyframes'' rule,
 	and pulling the corresponding property declaration out of that.
 	It would be nice to allow the other mix notations to take keyframe also,
 	but how would we represent a set of keyframes for a [=component value=]
 	(rather than a full property value)?
 
-<h3 id="progress-type">
-Representing Interpolation Progress: the <<progress>> type</h3>
+<h3 id="interpolation-syntax">
+Global Syntax of the *-interpolate() family</h3>
 
-	The <dfn><<progress>></dfn> value type represents
-	the [=mix progress value=] in a [=mix notation=],
-	and ultimately resolves to a percentage.
-	It can, however, draw that percentage value
-	from sources such as media queries and animation timelines,
-	and can also convert it through an [=easing function=]
-	before using it for interpolation.
+	The generic syntax of the [=interpolation notations=] is as follows:
 
-	Its syntax is defined as follows:
 	<pre class=prod>
-		<<progress>> = [ <<percentage-token>> | <<number>> | <<'animation-timeline'>> ] && [ by <<easing-function>> ]?
+		<var>interpolate-function</var>() = <var>interpolate-function</var>(
+			<<progress-source>> && [ by <<easing-function>> ]?
+			&& <<easing-function>>? && <<segment-options>>?,
+			<<input-position>>{1,2} : <<output-value>> ,
+			[ [ <<easing-function>> || <<segment-options>> , ]? <<input-position>>{1,2} : <<output-value>> ]*
+		)
+	</pre>
+
+	These represent the [=interpolation progress=] and [=interpolation map=]
+	as described below.
+
+<h4 id="interpolation-progress-arguments">
+Specifying the Interpolation Progress</h4>
+
+	The <dfn><<progress-source>></dfn> value type represents
+	the [=interpolation progress=] in an [=interpolation notation=].
+	Its syntax is:
+
+	<pre class=prod>
+		<<progress-source>> = <<percentage>> | <<number>> | <<dimension>> | <<'animation-timeline'>>
 	</pre>
 
 	where:
 
-	<dl dfn-type=value dfn-for="<progress>">
-		<dt><dfn><<percentage-token>></dfn>
+	<dl dfn-type=value dfn-for="<progress-source>, calc-interpolate(), transform-interpolate(), color-interpolate(), palette-interpolate()">
+		<dt><dfn><<percentage>></dfn>
 		<dd>
-			Computes to the equivalent <<number>>:
-			''0%'' becomes ''0'',
-			''100%'' becomes ''1'',
-			etc.
-
-			Note: This only allows literal percentages,
-			like ''15%'';
-			calculations like ''calc(100% / 7)'' will not work,
-			as they will instead attempt to use the normal rules
-			for resolving a percentage against another type
-			(such as <<length>>, in 'width').
-			Use expressions like ''calc(1 / 7)'' instead.
+			Represents the [=interpolation progress=] as a percentage,
+			with ''0%'' computing to zero and ''100%'' computing to 1.
 
 		<dt><dfn><<number>></dfn>
 		<dd>
-			Represents the [=mix progress value=].
+			Represents the [=interpolation progress=] as a number directly.
 
-			Note: This allows the use of the ''progress()'',
-			''media-progress()'',
-			and ''container-progress()'' notations.
+			Note: This allows the use of the ''progress()'' notations
+			and other [=math functions=] that output a <<number>>.
+
+		<dt><dfn><<dimension>></dfn>
+		<dd>
+		   Represents the [=interpolation progress=] as a dimension,
+		   which is converted to a number as specified in [[#interpolation-normalization]].
+
+
+		Note: Using a <<dimension>> value as <<progress-source>>
+		requires at least some of the stops in the [=interpolation map=]
+		to also use <<dimension>> positions of the same type.
+		See [[#interpolation-normalization]].
 
 		<dt><dfn><<'animation-timeline'>></dfn>
 		<dd>
-			Represents the [=mix progress value=]
+			Represents the [=interpolation progress=]
 			as the progress of the specified [[web-animations-1#timelines|animation timeline]].
-			The values ''animation-timeline/none'' and ''animation-timeline/auto'', however,
-			are invalid.
+			The values ''animation-timeline/none'' and ''animation-timeline/auto'' are invalid.
 			[[!CSS-ANIMATIONS-2]] [[!WEB-ANIMATIONS-2]]
-
-		<dt><dfn><<easing-function>></dfn>
-		<dd>
-			Converts the specified input [=mix progress value=]
-			into an output [=mix progress value=]
-			using the specified [=easing function=].
-			[[!CSS-EASING-1]]
 	</dl>
 
-	Note: Progress values below ''0'' and above ''1'' are valid;
-	they allow representing interpolation beyond the range
-	defined by the start and end values.
+	Note: Progress values below ''0''/''0%'' and above ''1''/''100%''
+	are unconventional, and potentially awkward, but valid.
+	For example, most [=easing functions=], though they will accept any input,
+	are defined in consideration of progress defined between the [0,1] (i.e. [0%,100%]) range.
 
-	Note: While <<progress>> itself can be a <<percentage>>,
-	mapping directly to the equivalent <<number>>,
-	a function that <em>resolves</em> to a <<number>>,
-	like ''progress()'',
-	resolves <<percentage>>s using the normal rules for the context;
-	for example, in 'width', they would be resolved against a length.
+<h5 id="interpolation-progress-easing">
+Easing Interpolation Progress: the ''by <<easing-function>>'' argument</h5>
 
-	The [=computed value=] of a <<progress>> value specified with <<percentage>> or <<number>>
-	is the computed <<number>> converted through the <<easing-function>> (if any).
-	The [=computed value=] of a <<progress>> value specified with <<'animation-timeline'>>
-	is the computed <<'animation-timeline'>> and <<easing-function>> (if any).
+	The [=interpolation progress=] given by <<progress-source>> may be optionally modified
+	by the <<easing-function>> specified after the <dfn dfn-type=value dfn-for="calc-interpolate(), transform-interpolate(), color-interpolate(), palette-interpolate(), interpolate()">by</dfn> keyword.
+	It applies the specified [=easing function=] to the “timeline” of progress as a whole
+	by modifying the [=interpolation progress=] before it's applied to the [=interpolation map=],
+	analogous to 'animation-easing'.
 
-<h3 id="calc-mix">
-Interpolated Numeric and Dimensional Values: the ''calc-mix()'' notation</h3>
+<h4 id="interpolation-map-arguments">
+Defining the Interpolation Map</h4>
 
-	The <dfn>calc-mix()</dfn> [=mix notation=]
+	Similar to the [=gradient functions=],
+	the [=interpolation notations=] define an [=interpolation map=] using a stop list,
+	associating <dfn>input positions</dfn> with <dfn>output values</dfn>.
+	Each <dfn>interpolation stop</dfn> represents, essentially,
+	a keyframe of the [=interpolation map=]:
+	values between [=interpolation stops=] are interpolated between these adjacent keyframes
+	in accordance with the <<segment-options>> and <<easing-function>> arguments applying between those keyframes.
+
+	The [=interpolation map=] values are defined as follows:
+
+	<dl dfn-for="calc-interpolate(), transform-interpolate(), color-interpolate(), palette-interpolate(), interpolate()">
+		<dt><dfn type lt="<input-position>|<output-value>"><<input-position>>{1,2} : <<output-value>></dfn>
+		<dd>
+			Represents an [=interpolation stop=]
+			associating the specified [=input position=](s) with the specified [=output values=].
+			As with the [=gradient functions=],
+			if two <<input-position>>s are specified,
+			it is treated the same as two stops with the same <<output-value>>.
+
+		<dt><dfn value><<easing-function>></dfn>
+		<dd>
+			When appearing in the first argument,
+			specifies the “default” [=easing function=] to be used between each stop.
+			When appearing between stops,
+			specifies the [=easing function=] to be used between the two surrounding stops,
+			overriding any default provided by a global <<easing-function>> argument.
+			(It is analogous to 'animation-timing-function'.)
+
+			The [=input progress value=] to this [=easing function=]
+			is the <dfn dfn for>segment interpolation progress</dfn>--
+			how far the [=interpolation progress=] is
+			between the [=input positions=] of the nearest stops preceding and following it.
+
+			<div class=example>
+				For example, in ''color-interpolate(20%, 0%: red, ease-in-out, 80%: green, 100%: blue)'',
+				the ''20%'' [=interpolation progress=]
+				becomes a ''25%'' [=segment interpolation progress=],
+				as ''20%'' is 25% of the way between ''0%'' and ''80%'',
+				the surrounding [=input positions=].
+			</div>
+
+		<dt><dfn type><<segment-options>></dfn>
+		<dd>
+			When appearing in the first argument,
+			provides any type-specific interpolation options
+			that apply to every segment in the [=interpolation map=].
+			When appearing between stops,
+			provides any type-specific interpolation options
+			that apply to the interpolation segment between
+			the stops on either side of this argument,
+			overriding any default provided by a corresponding global <<segment-options>> argument.
+	</dl>
+
+	All positions before the first [=interpolation stop=] map to the first stop's <<output-value>>,
+	and all positions after the last [=interpolation stop=] map to the last stop's <<output-value>>.
+	In other words, the map fills outward from the first/last stop (just like gradients)--
+	it does not interpolate beyond them.
+
+<h3 id="interpolation-normalization">
+Validation and Normalization</h3>
+
+<h4 id="interpolation-validity">
+Type Checking</h4>
+
+	Each <<progress-source>> and <<input-position>> has a <dfn lt="interpolation input type">type</dfn>,
+	which can be <dfn for="interpolation input type">proportional</dfn>
+	(<<number>>, <<percentage>>, or <<'animation-timeline'>>)
+	or <dfn for="interpolation input type">absolute</dfn>
+	(all other types, and <<'animation-timeline'>>).
+	The proportional types represent progress as a percentage;
+	any mix of these types is valid.
+	The absolute types represent progress in absolute dimensions,
+	and all <<progress-source>> and <<input-position>> values that are not proportional
+	must have a [=consistent type=] for the notation to be valid.
+	Additionally, an [=interpolation notation=] whose <<progress-source>> is not proportional
+	must have at least one absolute <<input-position>>
+	(in order to define the [=interpolation range=]),
+	or else the notation is invalid.
+
+	Note: An <<'animation-timeline'>> has both a proportional type (the percentage progress)
+	as well as an absolute type (<<time>> or <<length>>).
+
+<h4 id="interpolation-range-calculation">
+Calculating the Absolute Interpolation Range</h4>
+
+	The <dfn>interpolation range</dfn> specifies the <<dimension>> values
+	corresponding to 0% and 100% [=interpolation progress=],
+	and thereby defines the mapping between proportional and absolute values.
+
+	In an absolutely typed [=interpolation map=],
+	the first and last absolute stops in the list
+	are pinned to 0% and 100%, respectively.
+	(If there is only one absolutely typed [=interpolation stop=],
+	it is pinned to both 0% and 100%.)
+
+	A proportionally typed [=interpolation map=]
+	does not define an [=interpolation range=].
+
+<h4 id=interpolation-dimension-normaolization>
+Normalizing Absolute Positions and Progress</h4>
+
+	If a <<progress-source>> or <<input-position>> is specified as a <<dimension>>,
+	it is normalized to a number
+	by linearly interpolating it between the start and end of the [=interpolation range=].
+	(This can produce values less than 0 or greater than 1.)
+
+	<div class=example>
+		For example, given a function like:
+
+		<pre highlight=css>
+			background-color: color-interpolate(300px in hsl, 200px: red, 500px: green, 600px: blue);
+		</pre>
+
+		The [=interpolation range=] is ''(200px, 600px)'',
+		so the <<progress-source>> is converted to the number ''0.25'',
+		and the three stops are converted to the numbers ''0'', ''.75'', and ''1''.
+
+		Thus, that function is equivalent to:
+
+		<pre highlight=css>
+			background-color: color-interpolate(25% in hsl, 0%: red, 75%: green, 100%: blue);
+		</pre>
+
+		In either case, the result will be a color 1/3 of the way between ''red'' and ''green''
+		using HSL interpolation,
+		giving ''hsl(40deg, 100%, 50%)'', a light orange.
+	</div>
+
+<h4 id=interpolation-stop-fixup>
+Interpolation Stop Fixup</h4>
+
+	Once all [=interpolation stops=] have been normalized,
+	they are additionally fixed up so that they progress in order
+	from the first stop to the last.
+	If any stop has an [=input position=] that is less than the [=input position=] of the preceding stop,
+	it is set to the [=input position=] of the previous stop.
+
+<h3 id=interpolation-resolution>
+Interpolation Resolution</h3>
+
+	The [=used value=] of a valid [=interpolation notation=] is
+	the result of mapping its [=interpolation progress=]
+	through the specified [=interpolation map=].
+
+	The [=computed value=] is the [=used value=] if it is possible to calculate.
+	Otherwise,
+	if its [=interpolation progress=], [=input positions=], and interpolation options
+	can all be resolved,
+	then it is simplified to a two-stop [=interpolation notation=]
+	with <<number>> values for the [=interpolation progress=] and [=input positions=],
+	and all other values computed according to their type.
+	Otherwise,
+	it is the [=interpolation notation=] itself, with its arguments computed individually otherwise.
+
+<h3 id="calc-interpolate">
+Interpolated Numeric and Dimensional Values: the ''calc-interpolate()'' notation</h3>
+
+	The <dfn>calc-interpolate()</dfn> [=interpolation notation=]
 	represents an interpolated numeric or dimensional value.
 	Like ''calc()'', it is a [=math function=],
-	with the following syntactic form:
+	with the following syntax:
 
 	<pre class=prod>
-		<<calc-mix()>> = calc-mix( <<progress>>, <<calc-sum>>, <<calc-sum>> )
+		<<calc-interpolate()>> = calc-interpolate(
+			<<progress-source>> && [ by <<easing-function>> ]?
+			&& <<easing-function>>?,
+			<<input-position>>{1,2} : <<calc-sum>> ,
+			[ <<easing-function>>? , <<input-position>>{1,2} : <<calc-sum>> ]# )
 	</pre>
 
 	The <<calc-sum>> arguments can resolve
@@ -978,154 +1277,87 @@ Interpolated Numeric and Dimensional Values: the ''calc-mix()'' notation</h3>
 	The result's type will be the [=consistent type=],
 	[=made consistent=] with the type of the <<progress>> value.
 
-	The [=used value=] of a valid ''calc-mix()'' is
-	the result of interpolating these two values
-	to the progress given by <<progress>>.
-	If the <<progress>> value can be computed to a <<number>>,
-	then the [=computed value=] is likewise
-	the result of interpolating the two [=computed values=]
-	to that <<progress>> value
-	(in other words, ''A * (1-progress) + B * progress'')
-	it is otherwise the ''calc-mix()'' notation itself
-	with its arguments each computed according to their type.
+<h3 id="color-interpolate">
+Interpolated Color Values: the ''color-interpolate()'' notation</h3>
 
-<h3 id="color-mix">
-Interpolated Color Values: the ''color-mix()'' notation</h3>
-
-	This specification extends the ''color-mix()'' [=functional notation=]
-	as a [=mix notation=] accepting the following syntaxes:
+	The <dfn>color-interpolate()</dfn> [=interpolation notation=]
+	represents an interpolated <<color>> value,
+	with the following syntax:
 
 	<pre class=prod>
-		<<color-mix()>> =
-		  color-mix( [ <<progress>> && <<color-interpolation-method>>? ] , <<color>>, <<color>> ) |
-		  color-mix( <<color-interpolation-method>>, [<<color>> && <<percentage [0,100]>>?]# )
+		<<color-interpolate()>> = color-interpolate(
+			<<progress-source>> && [ by <<easing-function>> ]?
+			&& <<easing-function>>? && <<color-interpolation-method>>?,
+			<<input-position>>{1,2} : <<color>>,
+			[ [ <<easing-function>> || <<color-interpolation-method>> ],
+			  <<input-position>>{1,2} : <<color>> ]# )
 	</pre>
 
-	The used value of the first [=mix notation=] variant
-	is equivalent to assigning the <<progress>> value,
-	as a <<percentage>>,
-	to the <<percentage>> of the second <<color>> argument in the second variant.
-	<span class=note>That is, ''color-mix(progress, color1, color2)'' is equivalent to ''color-mix(color1, color2 progress)''.</span>
-	See [[css-color-5#color-mix]] for the normative definition of the second variant.
+<h3 id="transform-interpolate">
+Interpolated Transform Values: the ''transform-interpolate()'' notation</h3>
 
-	ISSUE: <<progress>> allows returning percentages outside 0-100%,
-	but ''color-mix()'' doesn't allows such values,
-	so need to define how that gets processed.
-
-<h3 id="cross-fade">
-Interpolated Image Values: the ''cross-fade()'' notation</h3>
-
-	This specification extends the ''cross-fade()'' [=functional notation=]
-	as a [=mix notation=] accepting the following syntaxes:
-
-	<pre class=prod>
-		<<cross-fade()>> =
-		  cross-fade( <<progress>>, [ <<image>> | <<color>> ], [ <<image>> | <<color>> ] ) |
-		  cross-fade( <<cf-image>># )
-	</pre>
-
-	The used value of the first [=mix notation=] variant
-	is equivalent to assigning the <<progress>> value
-	as the <<percentage>> of the second <<color>> argument in the second variant.
-	<span class=note>That is, ''cross-fade(progress, image1, image2)'' is equivalent to ''cross-fade(image1, image2 progress)''.</span>
-	See [[css-images-4#cross-fade-function]] for the normative definition of the second variant.
-
-
-<h3 id="transform-mix">
-Interpolated Transform Values: the ''transform-mix()'' notation</h3>
-
-	The <dfn>transform-mix()</dfn> [=mix notation=]
+	The <dfn>transform-interpolate()</dfn> [=interpolation notation=]
 	represents an interpolated <<transform-list>>,
-	with the following syntactic form:
+	with the following syntax:
 
 	<pre class=prod>
-		<<transform-mix()>> = transform-mix( <<progress>>, <<transform-list>>, <<transform-list>> )
+		<<transform-interpolate()>> = transform-interpolate(
+			<<progress-source>> && [ by <<easing-function>> ]?
+			&& <<easing-function>>?,
+			<<input-position>>{1,2} : <<transform-list>>,
+			[ <<easing-function>>?, <<input-position>>{1,2} : <<transform-list>> ]# )
 	</pre>
 
-	The [=used value=] of a valid ''transform-mix()'' is
-	the result of interpolating these two values
-	to the progress given by <<progress>>.
-	If the <<progress>> value can be computed to a <<percentage>>,
-	and the <<transform-list>>s can be interpolated
-	without used-value-time information,
-	then the [=computed value=] is likewise
-	the result of interpolating the two [=computed values=]
-	to that <<progress>> value;
-	it is otherwise the ''transform-mix()'' notation itself
-	with its arguments each computed according to their type.
-
-	''transform-mix()'' is, itself, a <<transform-function>>.
+	''transform-interpolate()'' is, itself, a <<transform-function>>.
 
 <h3 id="mix">
-Interpolated Property Values: the ''mix()'' notation</h3>
+Interpolated Property Values: the ''interpolate()'' notation</h3>
 
-	[=Interpolation=] of any two property values can be represented
-	by the <dfn>mix()</dfn> [=mix notation=],
+	The <dfn>interpolate()</dfn> [=interpolation notation=]
+	represents the interpolation of entire property values,
 	which supports two alternative syntax patterns:
 
-	<pre class="prod">
-		<<mix()>> =
-		  mix( <<progress>> , <<whole-value>> , <<whole-value>> ) |
-		  mix( <<progress>> && of <<keyframes-name>> )
+	<pre class=prod>
+		<<interpolate()>> = interpolate(
+			<<progress-source>> && [ by <<easing-function>> ]?
+			&& <<easing-function>>?,
+			<<input-position>>{1,2} : <<whole-value>>,
+			[ <<easing-function>>?, <<input-position>>{1,2} : <<whole-value>> ]# ) |
+		interpolate( <<progress-source>> && [ by <<easing-function>> ]?
+			&& <<easing-function>>?
+			of <<keyframes-name>> )
 	</pre>
 
-	The first syntax alternative, like other [=mix notations=],
-	interpolates between the first <<whole-value>> (its [=mix start value=])
-	and the second <<whole-value>> (its [=mix end value=]).
-	The second uses the [=mix progress value=]
-	to interpolate the corresponding property declarations from a set of keyframes,
-	allowing for more complex interpolation curves.
+	The first syntax alternative, like other [=interpolation notations=],
+	assembles an [=interpolation map=] from a list of [=interpolation stops=].
+	The second uses the corresponding property declarations from a set of keyframes,
+	incorporating those values into the normal [=cascade=] for this property.
 
-	For the standard [=mix notation=] variant,
-	if the two <<whole-value>>s being interpolated by ''mix()''
-	are [=interpolation|interpolable=]
-	as values for the property in which it is specified,
-	and the interpolated value can be represented without ''mix()'',
-	the [=computed value=] of ''mix()'' is
-	the result of interpolating these two values
-	to the progress given by <<progress>>.
-	Otherwise,
-	the [=computed value=] of ''mix()'' is
-	the ''mix()'' [=functional notation=] itself
-	with its <<progress>> value computed
-	and its <<whole-value>>s (if provided)
-	computed as values for this property.
+	Each <<whole-value>> argument is computed as if it were the value of this property;
+	and all other arguments computed according to their type.
 
 	<div class="example">
-		For example, most uses of ''mix()''
+		For example, most uses of ''interpolate()''
 		will resolve at computed-value time:
 
 		<pre>
-			color: mix(90%, red, blue);
+			color: interpolate(90%, 0: red, 1: blue);
 			/* via simple interpolation,
 			   computes to: */
 			color: rgb(10% 0 90%);
 
-			color: mix(90%, currentcolor, black);
+			color: interpolate(90%, 0: currentcolor, 1: black);
 			/* can't be fully resolved at computed-value time,
 			   but still has a defined representation: */
 			color: color-mix(currentcolor 90%, black 10%);
 
-			float: mix(90%, left, right);
+			float: interpolate(90%, 0: left, 1: right);
 			/* discretely animatable */
 			float: right;
 		</pre>
-
-		But a few cases don't have an intermediate representation:
-
-		<pre>
-			transform: mix(90%, translate(calc(1em + 50%)), rotate(30deg));
-			/* because functions don't match, it will interpolate
-			   via matrix(). But translate(%) needs layout
-			   information to turn into a matrix(), so the
-			   interpolated value can't actually be represented.
-			   Computes to: */
-			transform: mix(90%, translate(calc(16px + 50%)), rotate(30deg));
-			transform: mix(90% of ripple);
-		</pre>
 	</div>
 
-	The ''mix()'' notation is a <<whole-value>>.
+	The ''interpolate()'' notation is a <<whole-value>>.
 	Additionally,
 	if any of its <<whole-value>> arguments are [=not animatable=],
 	the notation is invalid.
@@ -1136,16 +1368,15 @@ Interpolated Property Values: the ''mix()'' notation</h3>
 
 		<pre>
 			/* Invalid start value */
-			color: mix(90%, #invalid, #F00);
+			color: interpolate(90%, 0: #invalid, 1: #F00);
 
 			/* Function is mixed with other values */
-			background: url(ocean) mix(10%, blue, yellow);
+			background: url(ocean) interpolate(10%, 0: blue, 1: yellow);
 
 			/* 'animation-*' is not animatable */
-			animation-delay: mix(0%, 0s, 2s);
+			animation-delay: interpolate(0%, 0: 0s, 1: 2s);
 		</pre>
 	</div>
-
 
 <!-- Big Text: subs
 
@@ -2726,7 +2957,7 @@ Tree Counting Functions: the ''sibling-count()'' and ''sibling-index()'' notatio
  ███▌  █▌  █▌ █████  ███▌         ███▌  ████ █████▌ █████▌   ██ ██
 -->
 
-<h2 id=calc-size caniuse="mdn-css_types_calc-size">
+<h2 id=calc-size>
 Calculating With Intrinsic Sizes: the ''calc-size()'' function</h2>
 
 	When transitioning between two [=definite=] sizes,
