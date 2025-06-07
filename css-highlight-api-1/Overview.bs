@@ -51,7 +51,8 @@ spec:dom; type:dfn; text:range
 spec:css-values-4; type:dfn; text:identifier
 spec:dom; type:dfn; for:Element; text:shadow root
 spec:dom; type:dfn; text:event
-spec:css21; type:dfn; text:viewport
+spec:css2; type:dfn; text:viewport
+spec:cssom-view; type:dfn; text:transforms
 </pre>
 
 <style>
@@ -586,9 +587,9 @@ Range Updating and Invalidation</h3>
 Interacting with Custom Highlights</h2>
 
 The {{highlightsFromPoint}}(<var>x</var>, <var>y</var>, <var>options</var>) method allows developers to build scenarios
-involving user interaction with [=custom highlights=]. The method returns a [=sequence=] containing the [=custom highlights=]
-at a given <var>x</var>, <var>y</var> coordinate. The [=custom highlights=] are listed in this [=sequence=] in
-descending [=priority=] order.
+involving user interaction with [=custom highlights=]. The method returns a [=sequence=] containing {{HighlightHitResult}} objects
+which encapsulate the [=custom highlights=] and their [=ranges=] that are hit at a given <var>x</var>, <var>y</var> coordinate.
+This sequence is ordered by descending order of [=priority=] of its {{HighlightHitResult}}'s [=custom highlights|highlights=].
 By default, [=custom highlights=] in a [=shadow tree=] are not returned, but the developer has the possibility to pass in
 an optional <var>options</var> [=dictionary=] with a <var>shadowRoots</var> property containing a [=sequence=] of {{ShadowRoot}}
 objects. [=custom highlights|Highlights=] contained within a [=shadow tree=] provided in this way will be returned.
@@ -605,7 +606,7 @@ objects. [=custom highlights|Highlights=] contained within a [=shadow tree=] pro
 					color:red;
 				}
 			</style>
-			<body>abc
+			<body>abcd
 			<script>
 				document.addEventListener('click', (event) => {
 					const mouseX = event.clientX;
@@ -620,8 +621,11 @@ objects. [=custom highlights|Highlights=] contained within a [=shadow tree=] pro
 				let r2 = new Range();
 				r2.setStart(textNode, 1);
 				r2.setEnd(textNode, 2);
+				let r3 = new Range();
+				r3.setStart(textNode, 3);
+				r3.setEnd(textNode, 4);
 
-				let h1 = new Highlight(r1);
+				let h1 = new Highlight(r1, r3);
 				let h2 = new Highlight(r2);
 				h1.priority = 1;
 				h2.priority = 2;
@@ -632,26 +636,33 @@ objects. [=custom highlights|Highlights=] contained within a [=shadow tree=] pro
 		</xmp>
 
 		The code above will display the following styled text, note that "b" is affected by both [=custom highlight|highlights=]
-		<var>h1</var> and <var>h2</var>, whereas "a" is only affected by <var>h1</var>:
+		<var>h1</var> and <var>h2</var>, whereas "a" and "d" are only affected by <var>h1</var>:
 
 		<div class=sample-out style="color:black">
-			<span style="background:yellow;">a</span><span style="background:yellow;color:red;">b</span><span>c</span>
+			<span style="background:yellow;">a</span><span style="background:yellow;color:red;">b</span><span>c</span><span style="background:yellow;">d</span>
 		</div>
 
 		In this example there's an [=event listener=] set on click [=event|events=] that logs the [=custom highlights=]
-		present at the point where the click was made.
+		and their ranges present at the point where the click was made.
 		The following [=sequence|sequences=] are some examples of what will be printed to console after a click:
-			* <code>[ <var>h1</var> ]</code>, if the user clicks on character "a".
-			* <code>[ <var>h2</var>, <var>h1</var> ]</code>, if the user clicks on character "b",
-				as <var>h2</var> has higher priority than <var>h1</var>.
+			* <code>[ HighlightHitResult {highlight: <var>h1</var>, ranges: [<var>r1</var>]} ]</code>, if the user clicks on character "a".
+				Note that only <var>r1</var> is included in the {{HighlightHitResult}} returned since that's the only range in <var>h1</var> that was hit.
+			* <code>[ HighlightHitResult {highlight: <var>h2</var>, ranges: [<var ignore=''>r2</var>]}, HighlightHitResult {highlight: <var>h1</var>, ranges: [<var>r1</var>]} ]</code>,
+				if the user clicks on character "b", as <var>h2</var> has higher priority than <var>h1</var>.
 			* <code>[]</code>, if the user clicks on character "c".
+			* <code>[ HighlightHitResult {highlight: <var>h1</var>, ranges: [<var ignore=''>r3</var>]} ]</code>, if the user clicks on character "d".
 	</div>
 
 The method {{highlightsFromPoint}} is defined as part of the {{HighlightRegistry}} interface as follows:
 
 <pre class=idl>
 partial interface HighlightRegistry {
-	sequence&lt;Highlight> highlightsFromPoint(float x, float y, optional <span>HighlightsFromPointOptions</span> options = {});
+	sequence&lt;HighlightHitResult> highlightsFromPoint(float x, float y, optional <span>HighlightsFromPointOptions</span> options = {});
+};
+
+dictionary <dfn dictionary>HighlightHitResult</dfn> {
+	Highlight <dfn dict-member>highlight</dfn>;
+	sequence&lt;AbstractRange> <dfn dict-member>ranges</dfn>;
 };
 
 dictionary <dfn dictionary>HighlightsFromPointOptions</dfn> {
@@ -665,23 +676,30 @@ method must return the result of running these steps:
 1. If any of the following are true, return the empty [=sequence=]:
 	* <var>x</var> is negative
 	* <var>y</var> is negative
-	* <var>x</var> is greater than the <a>viewport</a> width excluding the size of a rendered scroll bar (if any)
-	* <var>y</var> is greater than the <a>viewport</a> height excluding the size of a rendered scroll bar (if any)
-1. Otherwise, return a [=sequence=] of [=custom highlights=] given by ordering the highlights contained in this {{HighlightRegistry}} in descending order of [=priority=],
-	including only those highlights that contain at least one {{AbstractRange}} <var>abstractRange</var> that satisfies the following:
+	* <var>x</var> is greater than the [=viewport=] width excluding the size of a rendered scroll bar (if any)
+	* <var>y</var> is greater than the [=viewport=] height excluding the size of a rendered scroll bar (if any)
+	* The topmost [=box=] in the [=viewport=] in paint order that would be a target for hit testing at coordinates <var>x</var>,<var>y</var> when applying
+		the [=transforms=] that apply to the descendants of the viewport, has an element associated to it that's in a [=shadow tree=] whose
+		[=shadow root=] is not [=list/contains|contained by=] <var>options</var>.<var>shadowRoots</var>.
+1. Otherwise, let <var>results</var> be an empty [=sequence=].
+1. For each {{Highlight}} <var>highlight</var> in this {{HighlightRegistry}}:
+	1. Let <var>result</var> be a new {{HighlightHitResult}} with {{HighlightHitResult/highlight}} set to <var>highlight</var>.
+	1. For each {{AbstractRange}} <var>abstractRange</var> in <var>highlight</var>:
+		1. If <var>abstractRange</var> is an [=StaticRange/valid|invalid=] {{StaticRange}}, then [=iteration/continue=].
+		1. Let <var>range</var> be a new {{Range}} whose [=start node=] and [=end node=] are set to <var>abstractRange</var>'s
+			[=start node=] and [=end node=] respectively, and [=start offset=] and [=end offset=] are set to <var>abstractRange</var>'s 
+			[=start offset=] and [=end offset=] respectively.
+		1. If the coordinates <var>x</var>,<var>y</var> fall inside at least one of the {{DOMRect}}s returned by calling {{Range/getClientRects()}}
+			on <var>range</var>, then append <var>abstractRange</var> to <var>result</var>.{{HighlightHitResult/ranges}}.
 
-	* Let <var>range</var> be a {{Range}} object whose [=start node=] and [=end node=] are set to <var>abstractRange</var>'s [=start node=] and [=end node=] respectively,
-		and [=start offset=] and [=end offset=] are set to <var>abstractRange</var>'s [=start offset=] and [=end offset=] respectively.
-
-	* The coordinates <var>x</var>,<var>y</var> fall inside at least one of the {{DOMRect}}s returned by calling {{Range/getClientRects()}} on <var>range</var>.
-
-		Note: The specifics of hit testing are out of scope of this
-		specification and therefore the exact details of
-		{{highlightsFromPoint()}} are therefore too. Hit testing
-		will hopefully be defined in a future revision of CSS or HTML.
-
-	* The <var>range</var>'s {{commonAncestorContainer}} is not in a [=shadow tree=] or is in a [=shadow tree=] whose
-		[=shadow root=] is [=list/contains|contained by=] by <var>options</var>.<var>shadowRoots</var>.
+			Note: The specifics of hit testing are out of scope of this
+			specification and therefore the exact details of
+			{{highlightsFromPoint()}} are too. Hit testing will
+			hopefully be defined in a future revision of CSS or HTML.
+	
+	1. If <var>result</var>.{{HighlightHitResult/ranges}} is not empty, append <var>result</var> to <var>results</var>.
+1. Sort <var>results</var> by descending order of [=priority=] of its {{HighlightHitResult}}s' {{HighlightHitResult/highlight}} attributes.
+1. Return <var>results</var>.
 
 <h2 id=events>
 Event Handling</h2>
