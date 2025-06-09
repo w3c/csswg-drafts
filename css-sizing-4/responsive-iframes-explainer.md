@@ -1,4 +1,4 @@
-# Responsive iframes
+# Responsively-sized iframes
 
 ## Problem description
 
