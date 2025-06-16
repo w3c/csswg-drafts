@@ -46,6 +46,7 @@ spec:css-view-transitions-1;
 	text: group styles rule; type: dfn;
 	text: update pseudo-element styles rule; type: dfn;
 	text: document-scoped view transition name; type: dfn;
+	text: global view transition user agent style sheet; type: dfn;
 spec:dom; type:dfn; text:document
 spec:css22; type:dfn; text:element
 spec:selectors-4; type:dfn;
@@ -860,7 +861,7 @@ This example creates a transition where the [=view transition tree=] is nested i
 }
 
 .container,
-::view-transition-group(container) {
+::view-transition-group-children(container) {
 	clip-path: circle();
 }
 
@@ -870,7 +871,22 @@ article {
 }
 ```
 
-By applying the ''clip-path'' to both the containing element and its generated pseudo-element, we preserve the clip during the transition,
+The pseudo-element tree for this would be as follows:
+```
+	::view-transition
+	├─ ::view-transition-group(container)
+	│  ├─ ::view-transition-image-pair(container)
+	│  |  ├─ ::view-transition-old(container)
+	│  |  └─ ::view-transition-new(container)
+	│  └─ ::view-transition-group-children(container)
+	│     ├─ ::view-transition-group(article)
+	│     |  ├─ ::view-transition-old(article)
+	│     |  └─ ::view-transition-new(article)
+	│     └─ ...other nested groups...
+	└─ …other groups…
+```
+
+By applying the ''clip-path'' to both the containing element and its generated ''::view-transition-group-children()'' pseudo-element, we preserve the clip during the transition,
 and by applying ''view-transition-group'' to the internal element referencing the container, we make the tree "nested" in a way that would apply this clipping.
 </main>
 
@@ -889,7 +905,34 @@ and by applying ''view-transition-group'' to the internal element referencing th
 	The 'view-transition-group' property can be used in conjuction with 'view-transition-name' to generate a hierarchy of [=named view transition pseudo-element=].
 
 	The [=used value=] for 'view-transition-group' resolves to a 'view-transition-name' in its ancestor chain, or to ''view-transition-name/none''. When generating the [=named view transition pseudo-element=], the ''::view-transition-group()'' with that name
-	would be the parent of the ''::view-transition-group()'' generated for this element's 'view-transition-name'.
+	would create a ''::view-transition-group-children()'' pseudo-element, which would be the parent of the ''::view-transition-group()'' generated for this element's 'view-transition-name'.
+
+### View Transition Tree Root: the ''::view-transition-group-children'' pseudo-element ### {#view-transition-group-children-pseudo}
+
+	The <dfn>::view-transition-group-children()</dfn> [=pseudo-element=]
+	is a [=named view transition pseudo-element=]
+	that represents a matching named [=view transition=] capture.
+	A ''::view-transition-group-children()'' [=pseudo-element=]
+	is generated based on the 'view-transition-group' property,
+	as a [=tree/child=] of the corresponding ''::view-transition-group()'' [=pseudo-element=],
+	and contains one or more ''::view-transition-group()'' elements, corresponding to the nested groups.
+	See the [=used group name=] and related algorithms.
+
+	The ''::view-transition-group-children()'' [=pseudo-element=] is positioned after its sibling ''view-transition-image-pair()''.
+	It is used to control effects like clipping or masking of nested children.
+
+## User Agent Stylesheet # {#ua-styles}
+
+This specification extends the [=global view transition user agent style sheet=] by adding the following rule:
+
+```css
+:root::view-transition-group-children(*) {
+	position: absolute;
+	inset: 0;
+	border-style: solid;
+	border-color: transparent;
+}
+```
 
 # Algorithms # {#algorithms}
 
@@ -953,7 +996,10 @@ The [=captured element=] struct should contain these fields, in addition to the 
 		:: Null or a string, initially null.
 
 		: <dfn for="captured element">transform from snapshot containing block</dfn>
-		:: A [=matrix=], initially the identity matrix.
+		:: A [=matrix=] or null, initially null.
+
+		: <dfn for="captured element">old border width</dfn>
+		:: 'border-width' [=used value=] (top, right, bottom and left pixel values) or null, initially null.
 	</dl>
 
 ## Resolving the ''@view-transition'' rule ## {#vt-rule-algo}
@@ -1219,6 +1265,8 @@ To resolve the <dfn>used group name</dfn> of an {{Element}} |element|, perform t
 When  [[css-view-transitions-1#capture-old-state-algorithm|capturing the old state for an element]], perform the following steps given a [=captured element=] |capturedElement|, a {{ViewTransition}} |transition|, and an [=element=] |element|:
 
 	1. Set |capturedElement|'s [=captured element/containing group name=] to |element|'s [=used group name=] given |transition|.
+
+	1. Set |capturedElement|'s [=captured element/old border width=] to |element|'s [=used value|used=] 'border-width'.
 </div>
 
 ### Compute the new 'view-transition-group' ### {#vt-group-capture-new}
@@ -1233,19 +1281,23 @@ When [[css-view-transitions-1#capture-new-state-algorithm|capturing the new stat
 When [[css-view-transitions-1#setup-transition-pseudo-elements-algorithm|setting up the transition pseudo-element]] for a [=captured element=] |capturedElement|, given a |transitionName| and a |transition|:
 
 	1. Let |containingGroupName| be |capturedElement|'s [=containing group name=].
-	1. If |containingGroupName| is not null, then:
 
-		1. Let |groupContainerElement| be |transition|'s [=ViewTransition/named elements=][|containingGroupName|].
+	1. If |containingGroupName| is null, return.
 
-		1. Let |group| be the ''::view-transition-group()'',
-			whose [=view transition name=] is set to |transitionName|.
+	1. Let |groupContainerElement| be |transition|'s [=ViewTransition/named elements=][|containingGroupName|].
 
-		1. Let |parentGroup| be the ''::view-transition-group()'',
-			whose [=view transition name=] is set to |containingGroupName|.
+	1. Let |group| be the ''::view-transition-group()'',
+		whose [=view transition name=] is set to |transitionName|.
 
-		1. Append |group| to |parentGroup|.
+	1. Let |childrenContainerGroup| be the ''::view-transition-group-children()'' whose [=view transition name=] is set to |containingGroupName|.
 
-		1. When setting the animation keyframes given |transform|, [=multiply=] |transform| by the inverse matrix of |groupContainerElement|'s [=old transform=].
+	1. If |childrenContainerGroup| does not exist:
+		Generate it and append to the ''::view-transition-group()'',
+		whose [=view transition name=] is set to |containingGroupName|.
+
+	1. Append |group| to |childrenContainerGroup|.
+
+	1.  When setting the animation keyframes given |transform|, [=adjust nested view transition group transform|adjust=] |transform| given |groupContainerElement|.
 
 	Note: It is TBD how this is resolved when the old and new groups mismatch. See <a href="https://github.com/w3c/csswg-drafts/issues/10631">Issue 10631</a>.
 </div>
@@ -1254,13 +1306,24 @@ When [[css-view-transitions-1#setup-transition-pseudo-elements-algorithm|setting
 <div algorithm="additional pseudo-element style update steps (group)">
 When [[css-view-transitions-1#style-transition-pseudo-elements-algorithm|updating the style of the transition pseudo-element]], perform the following steps before setting the [=captured element/group styles rule=], given a [=captured element=] |capturedElement|, given a |transform| and a {{ViewTransition}} |transition|:
 
+	1. Let |childrenTransform| be |transform|.
+
 	1. Set |capturedElement|'s [=transform from snapshot containing block=] to |transform|.
 
 	1. If |capturedElement|'s [=containing group name=] is not null, then:
 
-		1. Let |groupContainerElement| be |transition|'s [=ViewTransition/named elements=][|capturedElement|'s [=containing group name=]].
+		1. Let |groupContainerElement| be |transition|'s [=ViewTransition/named elements=][|capturedElement|'s [=containing group name=].
 
-		1. [=Multiply=] |transform| by the inverse matrix of |groupContainerElement|'s [=transform from snapshot containing block=].
+		1. [=adjust nested view transition group transform|Adjust=] |transform| given |groupContainerElement|.
+
+To <dfn>adjust nested view transition group transform</dfn> given a |transform| and a [=captured element=] |groupContainerElement|:
+	1. Let |childrenTransform| be |groupContainerElement|'s [=transform from snapshot containing block=].
+
+	1. If |childrenTransform| is null, set it to |groupContainerElement|'s [=captured element/old transform=].
+
+	1. Translate |childrenTransform| by |groupContainerElement|'s [=captured element/old border width=]'s left and top components.
+
+	1. Multiply |transform| by the inverse matrix of |childrenTransform|.
 </div>
 
 
