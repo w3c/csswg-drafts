@@ -247,14 +247,10 @@ and the optional [=custom function/return type=] is given by the <<css-type>> fo
 	</xmp>
 </div>
 
-
 The name of a ''@function'' rule is a [=tree-scoped name=].
 If more than one ''@function'' exists for a given name,
 then the rule in the stronger cascade layer wins,
 and rules defined later win within the same layer.
-
-
-
 
 If the [=function parameters=]
 contain the same <<custom-property-name>> more than once,
@@ -790,6 +786,368 @@ or acting as if nothing exists at that location otherwise.
 	}
 	</pre>
 </div>
+
+
+<!-- Big Text: @mixin
+
+ ████▌  █     █ ████ █     █ ████ █    █▌
+█▌   █▌ ██   ██  ▐▌   █   █   ▐▌  █▌   █▌
+█▌▐█ █▌ █▌█ █▐█  ▐▌    █ █    ▐▌  ██▌  █▌
+█▌▐█ █▌ █▌ █ ▐█  ▐▌     █     ▐▌  █▌▐█ █▌
+█▌ ██▌  █▌   ▐█  ▐▌    █ █    ▐▌  █▌  ██▌
+█▌      █▌   ▐█  ▐▌   █   █   ▐▌  █▌   █▌
+ ████▌  █▌   ▐█ ████ █     █ ████ █▌   ▐▌
+-->
+
+<h2 id=defining-mixins>
+Defining Mixins</h2>
+
+A [=mixin=] is in many ways similar to a [=custom function=],
+but rather than extending/upgrading [=custom properties=],
+[=mixins=] extend/upgrade [=nested style rules=],
+making them reusable and customizable with arguments.
+
+<div class=example>
+	For example, the following code sets up a mixin
+	applying all the properties you need for a "gradient text" effect,
+	including guarding it with [=supports queries=]:
+
+	<pre highlight=css>
+		@mixin --gradient-text(
+			--from type(color): mediumvioletred,
+			--to type(color): teal,
+			--angle: to bottom right,
+		) {
+			color: env(--from, env(--to));
+
+			@supports (background-clip: text) or (-webkit-background-clip: text) {
+				@env --gradient: linear-gradient(env(--angle), env(--from), env(--to));
+				background: env(--gradient, env(--from));
+				color: transparent;
+				-webkit-background-clip: text;
+				background-clip: text;
+			}
+		}
+
+		h1 {
+			@apply --gradient-text(pink, powderblue);
+		}
+	</pre>
+
+	Note that this example also uses a [=scoped environment variable=]
+	(along with the arguments, which implicitly define [=scoped environment variables=])
+	which is scoped to <em>the rule itself</em>
+	(rather than being applied to the element, like a [=custom property=] would be)
+	to hold a temporary value to aid in readability of the [=mixin=],
+	without polluting the element's styles with unwanted [=custom properties=].
+
+	This is exactly equivalent to writing a [=nested style rule=] literally into the `h1` styles:
+
+	<pre highlight=css>
+		h1 {
+			& {
+				@env --from: pink;
+				@env --to: powderblue;
+				@env --angle: to bottom right;
+				color: env(--from, env(--to));
+
+				@supports (background-clip: text) or (-webkit-background-clip: text) {
+					@env --gradient: linear-gradient(env(--angle), env(--from), env(--to));
+					background: env(--gradient, env(--from));
+					color: transparent;
+					-webkit-background-clip: text;
+					background-clip: text;
+				}
+			}
+		}
+	</pre>
+</div>
+
+Issue: The entire ''@mixin'' feature is experimental and under active development,
+and is much less stable than ''@function''.
+Expect things to change frequently for now.
+
+
+<h3 id=mixin-rule>
+The <dfn>@mixin</dfn> rule</h3>
+
+The ''@mixin'' rule defines a <dfn>mixin</dfn>,
+and consists of a name,
+a list of [=mixin parameters=],
+and a [=mixin body=].
+(Identical to ''@function'',
+save that it lacks a [=custom function/return type=].)
+
+<pre class="prod def">
+	<<@mixin>> = @mixin <<function-token>> <<function-parameter>>#? )
+	{
+		<<declaration-rule-list>>
+	}
+</pre>
+
+If a [=default value=] and a [=parameter type=] are both provided,
+then the default value must parse successfully according to that parameter type’s syntax.
+Otherwise, the ''@mixin'' rule is invalid.
+
+<h4 id=mixin-preamble>
+The Mixin Preamble</h4>
+
+The <<function-token>> production
+must start with two dashes (U+002D HYPHEN-MINUS),
+similar to <<dashed-ident>>,
+or else the definition is invalid.
+
+The name of the resulting [=mixin=] is given by the name of the <<function-token>>,
+the optional [=mixin parameters=]
+are given by the <<function-parameter>> values
+(defaulting to an empty set).
+
+The name of a ''@mixin'' rule is a [=tree-scoped name=].
+If more than one ''@mixin'' exists for a given name,
+then the rule in the stronger cascade layer wins,
+and rules defined later win within the same layer.
+
+If the [=mixin parameters=]
+contain the same <<custom-property-name>> more than once,
+then the ''@mixin'' rule is invalid.
+
+<h4 id=mixin-body dfn lt="mixin body" export>
+The Mixin Body</h4>
+
+The body of a ''@mixin'' rule acts as a [=nested style rule=],
+and accepts the same properties and rules
+that a normal [=nested style rule=] would.
+
+In particular, further [=mixins=] can be invoked
+(via the ''@apply'' rule)
+within a [=mixin body=].
+
+Unknown properties and rules are invalid and ignored,
+but do not make the ''@mixin'' rule itself invalid.
+
+<h3 id=mixin-args dfn lt="mixin parameter" export>
+Mixin Parameters</h3>
+
+Within a [=mixin body=],
+the ''env()'' function can access [=scoped environment variables=]
+defined within the [=mixin body=],
+defined by the mixin's arguments,
+or those defined at the <em>call site</em>
+(a style rule, or another [=mixin=]).
+
+In that list, earlier things "win" over later things of the same name,
+exactly as if the [=mixin body=] was a [=nested style rule=]
+placed at its call site.
+Specifically, it desugars to <em>two</em> [=nested style rules=],
+to correctly reproduce the argument scope
+
+<div class=example>
+	For example, the following mixin use:
+
+	<xmp highlight=css>
+	@mixin --nested(--color2: green) {
+		@env --color3: blue;
+		background: linear-gradient(env(--color1), env(--color2), env(--color3));
+	}
+	p.nested {
+		@env --color1: red;
+		@apply --nested();
+	}
+	</xmp>
+
+	is exactly equivalent to:
+
+	<xmp highlight=css>
+	p.nested {
+		@env --color1: red;
+		& {
+			@env --color2: green;
+			& {
+				@env --color3: blue;
+				background: linear-gradient(env(--color1), env(--color2), env(--color3));
+			}
+		}
+	}
+	</xmp>
+</div>
+
+<div class=example>
+	[=Scoped environment variables=] defined in mixins can "shadow" ones defined higher up,
+	just like they can in [=nested style rules=] normally
+	(and like how variables can be shadowed in [=custom functions=]):
+
+	<xmp class='lang-css'>
+	@mixin --z-index-a-b-c(--b, --c) {
+		@env --c: 300;
+		z-index: calc(env(--a) + env(--b) + env(--c));
+		/* uses the --a from the call site's envs,
+		   the --b from the mixin parameter,
+		   and the --c from the local env */
+	}
+	div {
+		@env --a: 1;
+		@env --b: 2;
+		@env --c: 3;
+		@apply --add-a-b-c(20, 30); /* 321 */
+	}
+	</xmp>
+</div>
+
+<div class=example>
+	Note that [=mixin parameters=] are [=scoped environment variables=]
+	rather than [=custom properties=],
+	which means they exist in a separate namespace
+	and don't interfere with [=custom properties=].
+	They can even be used together.
+
+	For example, this code shows how to use a [=custom property=]
+	as the fallback for a [=mixin parameter=]:
+
+	<pre highlight=css>
+	@mixin --var-fallback(--arg: var(--arg)) {
+		/* TODO: come up with a believable example */
+	}
+	</pre>
+</div>
+
+
+Using Mixins {#using-mixins}
+============================
+
+The result of a [=mixin=] application
+is substituted into the body of another [=style rule=]
+as a [=nested style rule=]
+via the ''@apply'' rule.
+
+<h3 id=apply-rule>
+The <dfn>@apply</dfn> Rule</h3>
+
+The ''@apply'' rule applies a [=mixin=],
+causing it to substitute into the rule
+in place of the ''@apply'' rule itself.
+
+Its grammar is:
+
+<pre class="prod">
+<<@apply>> = @apply <<dashed-function>> ;
+</pre>
+
+The ''@apply'' rule is only valid
+in the body of a [=style rule=]
+or [=nested group rule=];
+using it in any other context causes it to be invalid and ignored.
+
+''@apply'' rules are processed <em>before</em> any styles are applied,
+as they effectively modify the stylesheet itself.
+(Similar, in effect, to how [=conditional group rules=]
+adjust which properties and rules are active in a stylesheet
+before styles are applied.)
+
+The ''@apply'' rule applies the [=mixin=]
+named by the <<dashed-function>>'s name.
+If no such [=mixin=] exists,
+the ''@apply'' does nothing.
+
+The arguments passed to the <<dashed-function>>
+are mapped to the [=mixin's=] arguments;
+if more arguments are passed than the length of the [=mixin's=] argument list,
+the ''@apply'' application does nothing.
+(Passing too few arguments is fine;
+the missing arguments take their default values instead.)
+
+
+<!-- Big Text: @env
+
+ ████▌  █████▌ █    █▌ █▌   █▌
+█▌   █▌ █▌     █▌   █▌ █▌   █▌
+█▌▐█ █▌ █▌     ██▌  █▌ █▌   █▌
+█▌▐█ █▌ ████   █▌▐█ █▌ ▐▌   █
+█▌ ██▌  █▌     █▌  ██▌  █  ▐▌
+█▌      █▌     █▌   █▌  ▐▌ █
+ ████▌  █████▌ █▌   ▐▌   ▐█
+-->
+
+Scoped Environment Variables {#scoped-env}
+============================
+
+Issue: This section should move to [[css-env-1]]
+(or level 2, whatever).
+
+The ''env()'' function,
+defined in [[css-env-1]],
+allows substituting the value of [=environment variables=]
+into a stylesheet.
+These are "global" variables,
+defined by the <l spec=infra>[=user agent=]</l>,
+rather than [=custom properties=]
+defined by the page author on individual elements (and their descendants).
+
+The ''@env'' rule allows defining <dfn>scoped environment variables</dfn>,
+which are <em>lexically scoped</em> to a single rule in a stylesheet
+(and any [=nested style rules=] within it).
+
+Issue: A top-level ''@env'' probably needs to still be lexically scoped to just the stylesheet itself.
+(After all, you can use `media=""` to link in a stylesheet
+*effectively* auto-wrapped in an ''@media'',
+and it would be weird to have that act differently
+from actually using a wrapping ''@media''.)
+That means only JS-defined custom envs are available cross-stylesheet.
+
+
+<h3 id=env-rule>
+The <dfn>@env</dfn> Rule</h3>
+
+The ''@env'' rule defines a [=scoped environment variable=],
+scoped to its parent rule
+(and any other nested rule within its parent rule).
+It's only valid within a [=nested style rule=]
+or [=nested group rule=],
+or at the "top level" of a stylesheet not nested in anything;
+in any other context it's invalid and ignored.
+Its grammar is:
+
+<pre class=prod>
+	<<@env>> = @env <<custom-property-name>> : <<declaration-value>>? ;
+</pre>
+
+This defines a [=scoped environment variable=]
+with a name given by the <<custom-property-name>>,
+and a value given by the <css><<declaration-value>>?</css>.
+Its scope is the rule it's nested in,
+or the stylesheet it's defined in
+if it's not nested.
+
+<h4 id=using-scoped-env>
+Using Scoped Environment Variables</h4>
+
+When an ''env()'' function is used
+with a <<dashed-ident>> as the name of the environment variable,
+it's potentially accessing a [=scoped environment variable=].
+
+First the parent rule
+of the property or rule the ''env()'' is used in
+is checked to see if a [=scoped environment variable=] of that name
+exists scoped to that rule.
+If not,
+its parent rule is checked,
+recursively,
+until finally the stylesheet itself is checked.
+If that fails,
+the global [=environment variables=] are finally checked.
+
+Note: Custom global [=environment variables=] can be defined by the <code>CSS.customEnv</code> API.
+(To be defined.)
+
+Issue: Need some analogue to ''inherit'',
+but for the parent lexical scopes.
+Probably can't use ''inherit'' itself,
+as that's a meaningful value that an ''env()'' could resolve to,
+I guess?
+
+
+
+
+
 
 <!-- Big Text: cssom
 
