@@ -1055,6 +1055,97 @@ aren't visible to anything outside of the [=mixin body=].
 	and the ''.warning'' rule would not be able to use them.
 </div>
 
+Note as well that [=scoped environment variables=] do not have an element context,
+so they can't fully resolve values that require an element context,
+like ''em'' lengths or ''var()'' functions,
+at definition time.
+Instead, they'll be resolved at each point they're used,
+similar to an unregistered [=custom property=].
+
+<div class=example>
+	For example, this mixin applies a size to an element, its parent, and its children.
+	If an ''em'' length is used, all of these might be different values:
+
+	<xmp highlight=css>
+	@mixin --triple-border(--size <length>) {
+		&, :has(&), & > * {
+			border-width: env(--size);
+		}
+	}
+	section {
+		font-size: 16px;
+	}
+	section > h1 {
+		font-size: 30px;
+		@apply --triple-border(.5em);
+	}
+	section > h1 > small {
+		font-size: 20px;
+	}
+	</xmp>
+
+	In this example,
+	despite them all being set with the same ''env(--size)'' value,
+	the `section` element has a border of ''8px'',
+	the `h1` element has a border of ''15px'',
+	and the `small` element has a border of ''10px''.
+
+	There are some ways to work around this, if desired.
+	For example, the value can be stored in a [=registered custom property=]
+	with the appropriate type,
+	so it resolves on one element and then inherits as the absolute value,
+	or passed through a [=custom function=] with a typed argument.
+
+	<xmp highlight=css>
+	@function --as-length(--arg <length>) { result: var(--arg); }
+	@mixin --triple-border(--size <length>) {
+		:has(&) {
+			--triple-border-size: --as-length(env(--size));
+		}
+		&, :has(&), & > * {
+			border-width: var(--triple-border-size);
+		}
+	}
+	section {
+		font-size: 16px;
+	}
+	section > h1 {
+		font-size: 30px;
+		@apply --triple-border(.5em);
+	}
+	section > h1 > small {
+		font-size: 20px;
+	}
+	</xmp>
+
+	In the above code, the [=mixin parameter=]
+	is set to a [=custom property=] on the parent element,
+	where it's forced to resolve as a length
+	due to being passed through the [=custom function=].
+	All the styles then use that [=custom property=]
+	(via ''var()'')
+	rather than the [=mixin parameter=]
+	(via ''env()''),
+	so they all share the same already-resolved value.
+
+	(Note that this value is resolved on the parent element
+	the [=custom property=] is defined on,
+	becoming ''8px'',
+	rather than resolving against the element the [=mixin=] is called on,
+	which would give ''15px''.
+	That's an unavoidable limitation of this situation.)
+</div>
+
+Issue: Do we want to try and figure out a way to have a mixin parameter
+"remember" what element it was called on,
+so it can resolve against that element consistently,
+rather than require these workarounds?
+I think that's inherently cyclic, tho--
+imagine an ''em'' length used to set 'font-size' on a parent element.
+
+
+
+
 <!-- Big Text: @contents
 
  ████▌   ███▌   ███▌  █    █▌ █████▌ █████▌ █    █▌ █████▌  ███▌ 
@@ -1291,6 +1382,43 @@ Probably can't use ''inherit'' itself,
 as that's a meaningful value that an ''env()'' could resolve to,
 I guess?
 
+
+<h4 id='dependent-envs'>
+Element-Dependent Values</h4>
+
+A [=scoped environment variable=] can be defined
+(both explicitly, and implicitly via [=mixin=] parameters)
+that require knowledge about the element the style is being applied to,
+but ''env()'' can be used in locations that don't have an element context.
+
+<div class=example>
+	For example, in this trivial example
+	an ''em'' value is passed to a mixin,
+	but the argument is then used in the ''@media'' rule inside the mixin.
+
+	<pre highlight=css>
+	@mixin --smaller(--size <length>: 800px, @contents) {
+		@media (width <= env(--size)) {
+			@contents;
+		}
+	}
+	h1 {
+		@apply --smaller {
+			margin: 1em 0;
+		}
+	}
+	</pre>
+</div>
+
+When this situation occurs,
+if the value of the ''env()'' can be evaluated in its subsitution context at all,
+it evaluates according to the normal rules for that context.
+(For example, in a ''@media'', ''em'' values resolve against the initial font size,
+rather than the font size of any particular element.)
+
+If the value would be invalid in its substitution context,
+it's instead replaced with the [=guaranteed-invalid value=].
+(For example, ''var()'' isn't allowed in a ''@media''.)
 
 
 
