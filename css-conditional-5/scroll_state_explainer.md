@@ -147,12 +147,53 @@ a carousel.
 
 - [Author request on github](https://github.com/w3c/csswg-drafts/issues/7430)
 
-### Overflowing
+### Scrollable
 
-Query whether a container has scrollable overflow. Can be used to indicate
-there is content to scroll to in a given direction.
+Query whether a container has [scrollable overflow](https://drafts.csswg.org/css-overflow-3/#scrollable-overflow-region).
+Can be used to indicate there is content to scroll to in a given direction.
 
-Needs further exploration.
+### Scroll-direction
+
+Query based on direction of [scrolling](https://drafts.csswg.org/cssom-view/#scrolling).
+For instance:
+
+```css
+@container scroll-state(scroll-direction: top) {
+  .scrolling-up {
+    translate: 0 0;
+  }
+}
+```
+
+#### Open questions
+
+The initial value of `scroll-direction` is `none`. When else should
+`scroll-direction` be `none`?
+
+1. Once the scroll is [completed](https://drafts.csswg.org/cssom-view/#scroll-completed),
+i.e. should match [scrollend event](https://drafts.csswg.org/cssom-view/#eventdef-document-scrollend).
+2. Once the scrollbar is not moving anymore. (Note that unlike the option above
+if a user is still pressing on a scrollbar after scrolling but not dragging it
+anymore, the `scroll-direction` state becomes `none`).
+3. Only in initial state, see [the proposal](https://github.com/w3c/csswg-drafts/issues/6400#issuecomment-2836870276).
+
+
+#### Workaround
+
+A workaround solution to style elements based on scroll direction is by using a
+`transition-delay` trick, see [Solved by CSS Scroll-Driven Animations: hide a
+header when scrolling down, show it again when scrolling up](https://www.bram.us/2024/09/29/solved-by-css-scroll-driven-animations-hide-a-header-when-scrolling-up-show-it-again-when-scrolling-down/).
+However, in this approach, if a user was still pressing on the scrollbar after
+scrolling in the specific direction the `scroll-direction` would be considered
+as `none` since the scrollbar wasn't moving anymore. This behaviour matches an
+option 2 in [Open Questions](#open-questions).
+
+#### Use Cases and Author Requests
+
+To hide/show or partially collapse some content based on the direction of
+scrolling.
+
+- [Author request on github](https://github.com/w3c/csswg-drafts/issues/6400)
 
 ### Anchor position fallback
 
@@ -192,6 +233,43 @@ Query values for `stuck`:
 Query values for `snapped`:
 
 - `none`
+- `x`
+- `y`
+- `block`
+- `inline`
+- `both`
+
+Query values for `scrollable`:
+
+- `none`
+- `top`
+- `right`
+- `bottom`
+- `left`
+- `block-start`
+- `inline-start`
+- `block-end`
+- `inline-end`
+- `x`
+- `y` 
+- `block`
+- `inline`
+
+
+Query values for `scroll-direction`:
+
+- `none`
+- `any`
+- `top`
+- `right`
+- `bottom`
+- `left`
+- `block-start`
+- `inline-start`
+- `block-end`
+- `inline-end`
+- `x`
+- `y` 
 - `block`
 - `inline`
 
