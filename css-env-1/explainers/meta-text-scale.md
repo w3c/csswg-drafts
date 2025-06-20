@@ -144,16 +144,51 @@ We expect `scale` to become best practice for authors to use on all new website 
 
 This comparison table summarises our proposal. **`legacy`** describes current behavior. **`scale`** represents a simple way for sites to obey the OS-level text settings.
 
-| Affected feature                                                         | `legacy`              | `scale`                                |
-| :----------------------------------------------------------------------- | :-------------------- | :------------------------------------- |
-| `font-size: medium` on mobile                                            | 16px                  | 16px × OS-level scale × UA-level scale |
-| `1rem` or `1em` in Media Queries on mobile                               |                       |                                        |
-| `font-size: medium` on desktop                                           | 16px × UA-level scale |                                        |
-| `1rem` or `1em` in Media Queries on desktop                              |                       |                                        |
-| `env(preferred-text-scale)` on mobile                                    | OS-level scale        | OS-level scale × UA-level scale        |
-| `env(preferred-text-scale)` on desktop                                   | 1                     |                                        |
-| Heuristic-based text autosizer (i.e. `text-size-adjust: auto)` on mobile | Enabled               | Disabled                               |
-| Full-page zoom on Windows                                                | Enabled               | Disabled                               |
+<table>
+  <thead>
+    <tr>
+      <th>Affected feature</th>
+      <th><code>legacy</code></th>
+      <th><code>scale</code></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th><code>font-size: medium</code> on mobile</th>
+      <td rowspan="2">16px</td>
+      <td rowspan="4">16px × OS-level scale × UA-level scale</td>
+    </tr>
+    <tr>
+      <th><code>1rem</code> or <code>1em</code> in Media Queries on mobile</th>
+    </tr>
+    <tr>
+      <th><code>font-size: medium</code> on desktop</th>
+      <td rowspan="2">16px × UA-level scale</td>
+    </tr>
+    <tr>
+      <th><code>1rem</code> or <code>1em</code> in Media Queries on desktop</th>
+    </tr>
+    <tr>
+      <th><code>env(preferred-text-scale)</code> on mobile</th>
+      <td>OS-level scale</td>
+      <td rowspan="2">OS-level scale × UA-level scale</td>
+    </tr>
+    <tr>
+      <th><code>env(preferred-text-scale)</code> on desktop</th>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>Heuristic-based text autosizer (i.e. <code>text-size-adjust: auto</code>) on mobile</th>
+      <td>Enabled</td>
+      <td>Disabled</td>
+    </tr>
+    <tr>
+      <th>Full-page zoom on Windows</th>
+      <td>Enabled</td>
+      <td>Disabled</td>
+    </tr>
+  </tbody>
+</table>
 
 ## Alternatives Considered
 
