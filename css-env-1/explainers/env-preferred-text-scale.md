@@ -47,7 +47,6 @@
 - [Alternatives considered](#alternatives-considered)
   - [New meta viewport key for changing text-scale](#new-meta-viewport-key-for-changing-text-scale)
   - [Fold OS-level font scale into initial font size](#fold-os-level-font-scale-into-initial-font-size)
-- [Footnotes](#footnotes)
 
 <!-- TOC end -->
 
@@ -474,8 +473,6 @@ Cons
 
 - Sites are NOT built correctly and things that used to just look small would now be clipped
 - You can simulate the effect of this alternative in Chrome by setting the UA-level font at chrome://settings/fonts. Set "font-size" to the maximum. old.reddit.com, gmail, etc, all break. Sites today ineffectively mix `px` and `em` because there is no safeguard against doing so – few authors change the UA-level font-size at chrome://settings/fonts.
-
-## Footnotes
 
 [^1]: Note: It is not the same as increasing the display pixel density (i.e. the `devicePixelRatio`).
 [^2]: According to research by Appt. [https://appt.org/en/stats/font-size](https://appt.org/en/stats/font-size)
