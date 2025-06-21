@@ -59,7 +59,7 @@ So for authors to continue just using font-relative units, they would need a way
 
 Authors would need to test their websites before opting in to see if they need to adapt them to protect from overflowing text or content that is too squashed to be able to read or view easily. They would need to pay special attention to scaled up text on mobile devices, where the viewport is so small that content is very likely to be squashed.
 
-![Screenshot of ](images/background-bbc-text-scaled-squashed.png)
+![Screenshot showing an example of squashed text in two columns.](images/background-bbc-text-scaled-squashed.png)
 
 _Firefox simulating an iPhone SE 2 with a viewport of 375px on [bbc.co.uk](http://bbc.co.uk), where the text scale is set to 200%. Because the content is in two columns, the boxes can only fit one or two words per line. When the text is scaled up this much on a small viewport, a one column layout would improve readability._
 
@@ -105,6 +105,9 @@ We propose a new HTML `meta` element extension with the keyword `text-scale`. Th
 - `scale`
 
 If the `text-scale` metadata is not included in the document, the `legacy` option would be the _missing default value_.
+
+> [!NOTE]
+> In the [Alternatives Considered section of the `env(preferred-text-scale)` Explainer](./env-preferred-text-scale.md#new-meta-viewport-key-for-changing-text-scale), we proposed that the options would be an addition to the `<meta name="viewport">` tag. However, we decided that that would not be the right place, because text scaling behaviour has no relation to the viewport behaviour.
 
 ### `legacy` option
 
