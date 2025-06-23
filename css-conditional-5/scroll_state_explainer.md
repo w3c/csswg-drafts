@@ -152,41 +152,25 @@ a carousel.
 Query whether a container has [scrollable overflow](https://drafts.csswg.org/css-overflow-3/#scrollable-overflow-region).
 Can be used to indicate there is content to scroll to in a given direction.
 
-### Scroll-direction
+### Direction
 
-Query based on direction of [scrolling](https://drafts.csswg.org/cssom-view/#scrolling).
+Query based on the most recent direction of [scrolling](https://drafts.csswg.org/cssom-view/#scrolling).
 For instance:
 
 ```css
-@container scroll-state(scroll-direction: top) {
+@container scroll-state(direction: top) {
   .scrolling-up {
     translate: 0 0;
   }
 }
 ```
 
-#### Open questions
-
-The initial value of `scroll-direction` is `none`. When else should
-`scroll-direction` be `none`?
-
-1. Once the scroll is [completed](https://drafts.csswg.org/cssom-view/#scroll-completed),
-i.e. should match [scrollend event](https://drafts.csswg.org/cssom-view/#eventdef-document-scrollend).
-2. Once the scrollbar is not moving anymore. (Note that unlike the option above
-if a user is still pressing on a scrollbar after scrolling but not dragging it
-anymore, the `scroll-direction` state becomes `none`).
-3. Only in initial state, see [the proposal](https://github.com/w3c/csswg-drafts/issues/6400#issuecomment-2836870276).
-
-
 #### Workaround
 
-A workaround solution to style elements based on scroll direction is by using a
-`transition-delay` trick, see [Solved by CSS Scroll-Driven Animations: hide a
-header when scrolling down, show it again when scrolling up](https://www.bram.us/2024/09/29/solved-by-css-scroll-driven-animations-hide-a-header-when-scrolling-up-show-it-again-when-scrolling-down/).
-However, in this approach, if a user was still pressing on the scrollbar after
-scrolling in the specific direction the `scroll-direction` would be considered
-as `none` since the scrollbar wasn't moving anymore. This behaviour matches an
-option 2 in [Open Questions](#open-questions).
+A workaround solution to create queries based on scrolling direction is
+described in [Solved by CSS Scroll-Driven Animations: hide a header when
+scrolling down, show it again when scrolling up](https://www.bram.us/2024/09/29/solved-by-css-scroll-driven-animations-hide-a-header-when-scrolling-up-show-it-again-when-scrolling-down/),
+uses `transition-delay` trick to get the active scroll direction.
 
 #### Use Cases and Author Requests
 
@@ -194,6 +178,28 @@ To hide/show or partially collapse some content based on the direction of
 scrolling.
 
 - [Author request on github](https://github.com/w3c/csswg-drafts/issues/6400)
+
+#### Open questions
+
+- Should `none` keyword be removed? Then we can use `inline-start` and
+`block-start` as initial values.
+
+In case if the answer to the question above is yes:
+
+- Values `any`, `X`, `Y`, `block` and `inline` will always match, so there
+would be no point of having them.
+- Should we match `inline-start` or `block-start` if there is no
+horizontal/vertical scroller, i.e. if we have latin script and only vertical
+scroller, should we match `inline-start` initially?
+
+#### Active scroll direction
+
+The proposed `direction` feature matches the state of the most recent
+scroll direction. Web authors might also want to create queries based on the
+current scroll direction, not only the most recent one, similar to [scrollend
+event](https://drafts.csswg.org/cssom-view/#eventdef-document-scrollend).
+
+This needs further discussion with the working group.
 
 ### Anchor position fallback
 
@@ -256,7 +262,7 @@ Query values for `scrollable`:
 - `inline`
 
 
-Query values for `scroll-direction`:
+Query values for `direction`:
 
 - `none`
 - `any`
