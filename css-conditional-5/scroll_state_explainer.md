@@ -179,19 +179,6 @@ scrolling.
 
 - [Author request on github](https://github.com/w3c/csswg-drafts/issues/6400)
 
-#### Open questions
-
-- Should `none` keyword be removed? Then we can use `inline-start` and
-`block-start` as initial values.
-
-In case if the answer to the question above is yes:
-
-- Values `any`, `X`, `Y`, `block` and `inline` will always match, so there
-would be no point of having them.
-- Should we match `inline-start` or `block-start` if there is no
-horizontal/vertical scroller, i.e. if we have latin script and only vertical
-scroller, should we match `inline-start` initially?
-
 #### Active scroll direction
 
 The proposed `direction` feature matches the state of the most recent
@@ -200,6 +187,11 @@ current scroll direction, not only the most recent one, similar to [scrollend
 event](https://drafts.csswg.org/cssom-view/#eventdef-document-scrollend).
 
 This needs further discussion with the working group.
+
+#### Programmatic scrolling
+
+The question about which programmatic scrolls should affect scroll direction
+feature is discussed in [the issue](https://github.com/w3c/csswg-drafts/issues/12394).
 
 ### Anchor position fallback
 
