@@ -44,299 +44,6 @@ Introduction {#intro}
 This is an early delta spec over [[css-position-3]].
 
 
-<!-- Big Text: stack
-
- ███▌  █████▌  ███▌   ███▌  █▌  █▌
-█▌  █▌   █▌   ▐█ ▐█  █▌  █▌ █▌ █▌ 
-█▌       █▌   █▌  █▌ █▌     █▌█▌  
- ███▌    █▌   █▌  █▌ █▌     ██    
-    █▌   █▌   █████▌ █▌     █▌█▌  
-█▌  █▌   █▌   █▌  █▌ █▌  █▌ █▌ █▌ 
- ███▌    █▌   █▌  █▌  ███▌  █▌  █▌
--->
-
-Painting Order and Stacking Contexts {#painting-order}
-====================================
-
-This chapter describes the painting order of CSS's [=box tree=].
-
-When traversing the [=box tree=],
-[=tree order=] is often used.
-For [=fragments=],
-this refers to the logical order of the fragments,
-not the visual order.
-(This can be relevant, for example,
-when rending bidirectional text.)
-
-Painting order is defined in terms of a "painter's model",
-where elements are described as painting in a stack,
-with the bottom of the stack rendered "first",
-below items higher in the stack.
-The user is implied to exist above the top of the stack,
-looking down:
-
-	<pre class=ascii-art>
-	             |     |         |
-	             |          |    |   ⇦ ☻
-	             |          |        user
-	z-index:  canvas  -1    0    1
-	</pre>
-
-The stacking context background and most negative positioned
-stacking contexts are at the bottom of the stack, while the most
-positive positioned stacking contexts are at the top of the stack.
-
-The canvas is transparent if contained within another, and
-given a UA-defined color if it is not. It is infinite in extent
-and contains the root element. Initially, the viewport is anchored
-with its top left corner at the canvas origin.
-
-<div algorithm>
-	To <dfn export>paint a document</dfn>,
-	given a document |doc|
-	and an infinite canvas |canvas|:
-
-	1. [=Paint a stacking context=] given |doc|'s root element
-		 and |canvas|.
-
-	2. For each element |el| in |doc|'s [=Document/top layer=]:
-		1. [=Paint a stacking context=]
-			given |el|&apos;s ''::backdrop'' pseudo-element
-			and |canvas|.
-
-		2. [=Paint a stacking context=] given |el| and |canvas|,
-			treating |el| as a [=stacking context=],
-			with the [=initial containing block=]
-			as its [=containing block=].
-</div>
-
-<div algorithm>
-	To <dfn export>paint a stacking context</dfn>
-	given an [=element=], [=pseudo-element=], or [=box=] |root|,
-	and an infinite canvas |canvas|:
-
-	1. If |root| is an [=element=],
-		[=paint a stacking context=] given |root|'s [=principal box=]
-		and |canvas|,
-		then return.
-
-	1. Assert: |root| is a [=box=],
-		and generates a [=stacking context=].
-
-	1. If |root| is a [=root element's=] [=principal box=],
-		paint |root|'s background over the entire |canvas|,
-		with the origin of the background positioning area
-		being the position on |canvas|
-		that would be used if |root|'s background was being painted normally.
-
-	1. If |root| is a [=block-level box=],
-		[=paint a block's decorations=]
-		given |root| and |canvas|.
-
-	1. For each of |root|'s positioned descendants
-		with negative (non-zero) 'z-index' values,
-		sort those descendants by 'z-index' order (most negative first)
-		then [=tree order=],
-		and [=paint a stacking context=] given each descendant and |canvas|.
-
-	1. For each of |root|'s in-flow, non-positioned, block-level descendants,
-		in [=tree order=],
-		[=paint a block's decorations=]
-		given the descendant and |canvas|.
-
-	1. For each of |root|'s non-positioned floating descendants,
-		in tree order,
-		[=paint a stacking container=]
-		given the descendant and |canvas|.
-
-	1.
-		<dl class=switch>
-			: If |root| is an [=inline-level=] box
-			:: For each line box |root| is in,
-				[=paint a box in a line box=]
-				given |root|,
-				the line box,
-				and |canvas|.
-
-			: Otherwise
-			:: First for |root|,
-				then for all its in-flow, non-positioned, [=block-level=] descendant boxes,
-				in [=tree order=]:
-
-				1. If the box is a [=replaced element=],
-					paint the replaced content into |canvas|, atomically.
-
-				2. Otherwise, for each line box of the box,
-					[=paint a box in a line box=]
-					given the box,
-					the line box,
-					and |canvas|.
-
-				3. If the UA uses [=in-band outlines=],
-					paint the outlines of the box
-					into |canvas|.
-		</dl>
-
-	1. For each of |root|'s positioned descendants
-		with ''z-index: auto'' or ''z-index: 0'',
-		in [=tree order=]:
-
-		<dl class=switch>
-			: descendant has ''z-index: auto''
-			:: [=Paint a stacking container=]
-				given the descendant and |canvas|.
-
-			: descendant has ''z-index: 0''
-			:: [=Paint a stacking context=]
-				given the descendant and |canvas|.
-		</dl>
-
-	1. For each of |root|'s positioned descendants
-		with positive (non-zero) 'z-index' values,
-		sort those descendants by 'z-index' order (smallest first)
-		then [=tree order=],
-		and [=paint a stacking context=] given each descendant and |canvas|.
-
-	1. If the UA uses [=out-of-band outlines=],
-		draw all of |root|'s outlines
-		(those that it skipped drawing
-		due to not using [=in-band outlines=]
-		during the current invocation of this algorithm)
-		into |canvas|.
-</div>
-
-<div algorithm>
-	To <dfn export>paint a block's decorations</dfn>
-	given a block box |root|
-	and a canvas |canvas|:
-
-	1. If |root| is not a [=table wrapper box=]:
-		1. Paint |root|'s background to |canvas|
-			if it is not the [=root element's=] [=principal box=].
-		2. Paint |root|'s border to |canvas|.
-
-	2. If |root| is a [=table wrapper box=]:
-		1. Paint |root|'s background to |canvas|
-			if it is not the [=root element's=] [=principal box=].
-		2. For each column group of |root| in [=tree order=],
-			paint the column group's background to |canvas|.
-		3. For each column of |root| in [=tree order=],
-			paint the column's background to |canvas|.
-		4. For each row group of |root| in [=tree order=],
-			paint the row group's background to |canvas|.
-		5. For each row of |root| in [=tree order=],
-			paint the row's background to |canvas|.
-		6. For each cell of |root| in [=tree order=],
-			paint the cell's background to |canvas|.
-		7. Paint the borders of all of the table elements of |root|.
-			If the borders are separated,
-			do so in [=tree order=];
-			if connected,
-			do so as specified in [[css-tables-3]].
-</div>
-
-<div algorithm>
-	To <dfn export>paint a box in a line box</dfn>,
-	given a box |root|,
-	a line box |line box|,
-	and a canvas |canvas|:
-
-	1. Paint the backgrounds
-		of |root|'s [=fragments=] that are in |line box|
-		into |canvas|.
-
-	2. Paint the borders
-		of |root|'s [=fragments=] that are in |line box|
-		into |canvas|.
-
-	3. <dl class=switch>
-			: If |root| is an [=inline box=]
-			:: For all |root|'s in-flow, non-positioned, inline-level children
-				that generate [=fragments=] in |line box|,
-				and all child [=CSS/text sequences=]
-				that generate [=fragments=] in |line box|,
-				in [=tree order=]:
-
-				<dl class=switch>
-					: If this child is a [=text sequence=], then:
-					::
-						1. Paint any underlining affecting the text,
-							in tree order of the elements applying the underlining
-							(such that the deepest element's underlining, if any,
-							is painted topmost
-							and the root element's underlining, if any,
-							is drawn bottommost)
-							into |canvas|.
-
-						2. Paint any overlining affecting the text,
-							in tree order of the elements applying the overlining
-							(such that the deepest element's overlining, if any,
-							is painted topmost
-							and the root element's overlining, if any,
-							is drawn bottommost)
-							into |canvas|.
-
-						3. Paint the text into |canvas|.
-
-						4. Paint any line-through affecting the text,
-							in tree order of the elements applying the line-through
-							(such that the deepest element's line-through, if any,
-							is painted topmost
-							and the root element's line-through, if any,
-							is drawn bottommost)
-							into |canvas|.
-
-					: If this child is a [=box=]:
-					::
-						[=Paint a box in a line box=]
-						given the child,
-						|line box|,
-						and |canvas|.
-				</dl>
-
-			: If |root| is an [=inline-level=] [=block box|block=] or [=table wrapper box=]
-			:: [=Paint a stacking container=]
-				given |root| and |canvas|.
-
-			: If |root| is an [=inline-level=] replaced element
-			:: Paint the replaced content into |canvas|, atomically.
-		</dl>
-
-	4. If the UA uses [=in-band outlines=],
-		paint the outlines
-		of |root|'s [=fragments=] that are in |line box|
-		into |canvas|.
-
-	Note: Even though the visual order of inline box fragments
-	can be rearranged within a line
-	due to [[css-writing-modes-3#bidi-box-model|bidirectional reordering]],
-	the fragments are nevertheless painted in tree order.
-</div>
-
-<div algorithm>
-	To <dfn export>paint a stacking container</dfn>,
-	given a [=box=] |root|
-	and a canvas |canvas|:
-
-	1. [=Paint a stacking context=] given |root| and |canvas|,
-		treating |root| as if it created a new stacking context,
-		but omitting any positioned descendants
-		or descendants that actually create a stacking context
-		(letting the parent stacking context paint them, instead).
-</div>
-
-UAs can draw outlines (from the 'outline' property)
-either <dfn export lt="in-band outline">in-band</dfn>
-(painted along each element,
-and thus potentially obscured/overlapping by following content)
-or <dfn export lt="out-of-band outline">out-of-band</dfn>
-(all outlines painted at the end of the stacking context,
-so nothing in the stacking context can obscure them).
-It is recommended that UAs use [=out-of-band outlines=],
-as making outlines easily visible
-is an important accessibility feature.
-
-
 <!-- Big Text: scroll cb
 
  ███▌   ███▌  ████▌   ███▌  █▌    █▌         ███▌  ████▌
@@ -751,3 +458,299 @@ The conditions for this are intentionally undefined.
 <span class=note>(This is to prevent potential abuse scenarios
 where a ''transition: overlay 1e9s;'' or similar
 attempts to keep an element in the [=Document/top layer=] permanently.)</span>
+
+
+
+
+
+<!-- Big Text: stack
+
+ ███▌  █████▌  ███▌   ███▌  █▌  █▌
+█▌  █▌   █▌   ▐█ ▐█  █▌  █▌ █▌ █▌
+█▌       █▌   █▌  █▌ █▌     █▌█▌
+ ███▌    █▌   █▌  █▌ █▌     ██
+    █▌   █▌   █████▌ █▌     █▌█▌
+█▌  █▌   █▌   █▌  █▌ █▌  █▌ █▌ █▌
+ ███▌    █▌   █▌  █▌  ███▌  █▌  █▌
+-->
+
+Painting Order and Stacking Contexts {#painting-order}
+====================================
+
+This chapter describes the painting order of CSS's [=box tree=].
+
+When traversing the [=box tree=],
+[=tree order=] is often used.
+For [=fragments=],
+this refers to the logical order of the fragments,
+not the visual order.
+(This can be relevant, for example,
+when rending bidirectional text.)
+
+Painting order is defined in terms of a "painter's model",
+where elements are described as painting in a stack,
+with the bottom of the stack rendered "first",
+below items higher in the stack.
+The user is implied to exist above the top of the stack,
+looking down:
+
+	<pre class=ascii-art>
+	             |     |         |
+	             |          |    |   ⇦ ☻
+	             |          |        user
+	z-index:  canvas  -1    0    1
+	</pre>
+
+The stacking context background and most negative positioned
+stacking contexts are at the bottom of the stack, while the most
+positive positioned stacking contexts are at the top of the stack.
+
+The canvas is transparent if contained within another, and
+given a UA-defined color if it is not. It is infinite in extent
+and contains the root element. Initially, the viewport is anchored
+with its top left corner at the canvas origin.
+
+<div algorithm>
+	To <dfn export>paint a document</dfn>,
+	given a document |doc|
+	and an infinite canvas |canvas|:
+
+	1. [=Paint a stacking context=] given |doc|'s root element
+		 and |canvas|.
+
+	2. For each element |el| in |doc|'s [=Document/top layer=]:
+		1. [=Paint a stacking context=]
+			given |el|&apos;s ''::backdrop'' pseudo-element
+			and |canvas|.
+
+		2. [=Paint a stacking context=] given |el| and |canvas|,
+			treating |el| as a [=stacking context=],
+			with the [=initial containing block=]
+			as its [=containing block=].
+</div>
+
+<div algorithm>
+	To <dfn export>paint a stacking context</dfn>
+	given an [=element=], [=pseudo-element=], or [=box=] |root|,
+	and an infinite canvas |canvas|:
+
+	1. If |root| is an [=element=],
+		[=paint a stacking context=] given |root|'s [=principal box=]
+		and |canvas|,
+		then return.
+
+	1. Assert: |root| is a [=box=],
+		and generates a [=stacking context=].
+
+	1. If |root| is a [=root element's=] [=principal box=],
+		paint |root|'s background over the entire |canvas|,
+		with the origin of the background positioning area
+		being the position on |canvas|
+		that would be used if |root|'s background was being painted normally.
+
+	1. If |root| is a [=block-level box=],
+		[=paint a block's decorations=]
+		given |root| and |canvas|.
+
+	1. For each of |root|'s positioned descendants
+		with negative (non-zero) 'z-index' values,
+		sort those descendants by 'z-index' order (most negative first)
+		then [=tree order=],
+		and [=paint a stacking context=] given each descendant and |canvas|.
+
+	1. For each of |root|'s in-flow, non-positioned, block-level descendants,
+		in [=tree order=],
+		[=paint a block's decorations=]
+		given the descendant and |canvas|.
+
+	1. For each of |root|'s non-positioned floating descendants,
+		in tree order,
+		[=paint a stacking container=]
+		given the descendant and |canvas|.
+
+	1.
+		<dl class=switch>
+			: If |root| is an [=inline-level=] box
+			:: For each line box |root| is in,
+				[=paint a box in a line box=]
+				given |root|,
+				the line box,
+				and |canvas|.
+
+			: Otherwise
+			:: First for |root|,
+				then for all its in-flow, non-positioned, [=block-level=] descendant boxes,
+				in [=tree order=]:
+
+				1. If the box is a [=replaced element=],
+					paint the replaced content into |canvas|, atomically.
+
+				2. Otherwise, for each line box of the box,
+					[=paint a box in a line box=]
+					given the box,
+					the line box,
+					and |canvas|.
+
+				3. If the UA uses [=in-band outlines=],
+					paint the outlines of the box
+					into |canvas|.
+		</dl>
+
+	1. For each of |root|'s positioned descendants
+		with ''z-index: auto'' or ''z-index: 0'',
+		in [=tree order=]:
+
+		<dl class=switch>
+			: descendant has ''z-index: auto''
+			:: [=Paint a stacking container=]
+				given the descendant and |canvas|.
+
+			: descendant has ''z-index: 0''
+			:: [=Paint a stacking context=]
+				given the descendant and |canvas|.
+		</dl>
+
+	1. For each of |root|'s positioned descendants
+		with positive (non-zero) 'z-index' values,
+		sort those descendants by 'z-index' order (smallest first)
+		then [=tree order=],
+		and [=paint a stacking context=] given each descendant and |canvas|.
+
+	1. If the UA uses [=out-of-band outlines=],
+		draw all of |root|'s outlines
+		(those that it skipped drawing
+		due to not using [=in-band outlines=]
+		during the current invocation of this algorithm)
+		into |canvas|.
+</div>
+
+<div algorithm>
+	To <dfn export>paint a block's decorations</dfn>
+	given a block box |root|
+	and a canvas |canvas|:
+
+	1. If |root| is not a [=table wrapper box=]:
+		1. Paint |root|'s background to |canvas|
+			if it is not the [=root element's=] [=principal box=].
+		2. Paint |root|'s border to |canvas|.
+
+	2. If |root| is a [=table wrapper box=]:
+		1. Paint |root|'s background to |canvas|
+			if it is not the [=root element's=] [=principal box=].
+		2. For each column group of |root| in [=tree order=],
+			paint the column group's background to |canvas|.
+		3. For each column of |root| in [=tree order=],
+			paint the column's background to |canvas|.
+		4. For each row group of |root| in [=tree order=],
+			paint the row group's background to |canvas|.
+		5. For each row of |root| in [=tree order=],
+			paint the row's background to |canvas|.
+		6. For each cell of |root| in [=tree order=],
+			paint the cell's background to |canvas|.
+		7. Paint the borders of all of the table elements of |root|.
+			If the borders are separated,
+			do so in [=tree order=];
+			if connected,
+			do so as specified in [[css-tables-3]].
+</div>
+
+<div algorithm>
+	To <dfn export>paint a box in a line box</dfn>,
+	given a box |root|,
+	a line box |line box|,
+	and a canvas |canvas|:
+
+	1. Paint the backgrounds
+		of |root|'s [=fragments=] that are in |line box|
+		into |canvas|.
+
+	2. Paint the borders
+		of |root|'s [=fragments=] that are in |line box|
+		into |canvas|.
+
+	3. <dl class=switch>
+			: If |root| is an [=inline box=]
+			:: For all |root|'s in-flow, non-positioned, inline-level children
+				that generate [=fragments=] in |line box|,
+				and all child [=CSS/text sequences=]
+				that generate [=fragments=] in |line box|,
+				in [=tree order=]:
+
+				<dl class=switch>
+					: If this child is a [=text sequence=], then:
+					::
+						1. Paint any underlining affecting the text,
+							in tree order of the elements applying the underlining
+							(such that the deepest element's underlining, if any,
+							is painted topmost
+							and the root element's underlining, if any,
+							is drawn bottommost)
+							into |canvas|.
+
+						2. Paint any overlining affecting the text,
+							in tree order of the elements applying the overlining
+							(such that the deepest element's overlining, if any,
+							is painted topmost
+							and the root element's overlining, if any,
+							is drawn bottommost)
+							into |canvas|.
+
+						3. Paint the text into |canvas|.
+
+						4. Paint any line-through affecting the text,
+							in tree order of the elements applying the line-through
+							(such that the deepest element's line-through, if any,
+							is painted topmost
+							and the root element's line-through, if any,
+							is drawn bottommost)
+							into |canvas|.
+
+					: If this child is a [=box=]:
+					::
+						[=Paint a box in a line box=]
+						given the child,
+						|line box|,
+						and |canvas|.
+				</dl>
+
+			: If |root| is an [=inline-level=] [=block box|block=] or [=table wrapper box=]
+			:: [=Paint a stacking container=]
+				given |root| and |canvas|.
+
+			: If |root| is an [=inline-level=] replaced element
+			:: Paint the replaced content into |canvas|, atomically.
+		</dl>
+
+	4. If the UA uses [=in-band outlines=],
+		paint the outlines
+		of |root|'s [=fragments=] that are in |line box|
+		into |canvas|.
+
+	Note: Even though the visual order of inline box fragments
+	can be rearranged within a line
+	due to [[css-writing-modes-3#bidi-box-model|bidirectional reordering]],
+	the fragments are nevertheless painted in tree order.
+</div>
+
+<div algorithm>
+	To <dfn export>paint a stacking container</dfn>,
+	given a [=box=] |root|
+	and a canvas |canvas|:
+
+	1. [=Paint a stacking context=] given |root| and |canvas|,
+		treating |root| as if it created a new stacking context,
+		but omitting any positioned descendants
+		or descendants that actually create a stacking context
+		(letting the parent stacking context paint them, instead).
+</div>
+
+UAs can draw outlines (from the 'outline' property)
+either <dfn export lt="in-band outline">in-band</dfn>
+(painted along each element,
+and thus potentially obscured/overlapping by following content)
+or <dfn export lt="out-of-band outline">out-of-band</dfn>
+(all outlines painted at the end of the stacking context,
+so nothing in the stacking context can obscure them).
+It is recommended that UAs use [=out-of-band outlines=],
+as making outlines easily visible
+is an important accessibility feature.
