@@ -154,7 +154,7 @@ Can be used to indicate there is content to scroll to in a given direction.
 
 ### Direction
 
-Query based on the most recent direction of [scrolling](https://drafts.csswg.org/cssom-view/#scrolling).
+Query the most recent direction of [scrolling](https://drafts.csswg.org/cssom-view/#scrolling).
 For instance:
 
 ```css
@@ -170,7 +170,7 @@ For instance:
 A workaround solution to create queries based on scrolling direction is
 described in [Solved by CSS Scroll-Driven Animations: hide a header when
 scrolling down, show it again when scrolling up](https://www.bram.us/2024/09/29/solved-by-css-scroll-driven-animations-hide-a-header-when-scrolling-up-show-it-again-when-scrolling-down/),
-uses `transition-delay` trick to get the active scroll direction.
+uses a `transition-delay` trick to get the active scroll direction.
 
 #### Use Cases and Author Requests
 
@@ -257,7 +257,6 @@ Query values for `scrollable`:
 Query values for `direction`:
 
 - `none`
-- `any`
 - `top`
 - `right`
 - `bottom`
