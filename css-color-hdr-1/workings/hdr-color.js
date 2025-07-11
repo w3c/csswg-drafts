@@ -15,8 +15,11 @@ function colorHdr(col1, H1, col2, H2, H) {
 
     let c1xyz = col1.to("xyz-abs-d65").coords;
     let c2xyz = col2.to("xyz-abs-d65").coords;
+    console.log(c1xyz);
+    console.log(c2xyz);
     let w1 = clamp((H - H2) / (H1 - H2), 0, 1);
     let w2 = clamp((H - H1) / (H2 - H1), 0, 1);
+    console.log(w1, w2);
     let eps = 0.001;
     let cxyz = Array(3);
     for (let i=0; i<3; i++) {
