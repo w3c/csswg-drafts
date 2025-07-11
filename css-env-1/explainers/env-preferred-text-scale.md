@@ -438,8 +438,8 @@ The minimum font size setting is not involved in the derivation of `env(preferre
 
 ### New meta viewport key for changing text-scale
 
-**Update 2025-Jul-08:** The &lt;meta> approach has evolved since this document was written.
-It now has its own explainer at https://github.com/w3c/csswg-drafts/blob/main/css-env-1/explainers/meta-text-scale.md
+**Update 2025-Jul-08:** The `<meta>` approach has evolved since this document was written.
+See the [Meta tag for text scaling behavior Explainer](https://github.com/w3c/csswg-drafts/blob/main/css-env-1/explainers/meta-text-scale.md)
 
 ```html
 <meta
