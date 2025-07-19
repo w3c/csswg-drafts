@@ -3,7 +3,7 @@ let Color = await import("https://colorjs.io/dist/color.js").then(m => m.default
 const clamp = (n, min, max) =>
   Math.min(Math.max(n, min), max)
 
-function colorHdr(col1, H1, col2, H2, H) {
+function hdrColor (col1, H1, col2, H2, H) {
 
     // https://drafts.csswg.org/css-color-hdr/#headroom-interpolation
     // col1, col2 are colors
@@ -33,5 +33,5 @@ let c2 = new Color("color(rec2100-pq 0.8 0.8 0.8)");
 let h1 = 0;
 let h2 = 2;
 let h = 1;
-let result=colorHdr(c1, h1, c2, h2, h);
+let result=hdrColor(c1, h1, c2, h2, h);
 console.log(result.coords);
