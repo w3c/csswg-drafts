@@ -16,3 +16,6 @@ function hdrColor(col1, H1, col2, H2, H) {
     }
     return cxyz;
 }
+
+const clamp = (n, min, max) =>
+  Math.min(Math.max(n, min), max)
