@@ -85,7 +85,7 @@ Abstract: This specification defines a model for synchronization and
     specifications will define declarative means for exposing these
     features.
 Ignored Vars: auto-rewind, current direction, index, initial progress,
-    timeline, new timeline, t, going forwards
+    timeline, new timeline, t, going forwards, did trigger
 </pre>
 <pre class="anchors">
 urlPrefix: https://drafts.csswg.org/web-animations-1/; type: dfn; spec: web-animations-1
@@ -114,6 +114,7 @@ urlPrefix: https://drafts.csswg.org/web-animations-1/; type: dfn; spec: web-anim
     text: iteration progress
     text: iteration start
     text: keyframe effect
+    text: monotonically increasing
     text: not animatable
     text: overall progress
     text: pending pause task
@@ -122,6 +123,7 @@ urlPrefix: https://drafts.csswg.org/web-animations-1/; type: dfn; spec: web-anim
     text: play an animation
     text: playback direction
     text: pause an animation
+    text: reverse an animation
     text: ready
     text: set the timeline of an animation
     text: simple iteration progress
@@ -133,6 +135,7 @@ urlPrefix: https://drafts.csswg.org/web-animations-1/; type: dfn; spec: web-anim
     text: update the timing properties of an animation effect
     text: unresolved
     text: update an animation's finished state
+    text: default document timeline
 urlPrefix: https://webidl.spec.whatwg.org/; type: dfn; spec: webidl
     text: resolve a promise; url: resolve
 urlPrefix: http://www.ecma-international.org/ecma-262/6.0/#sec-; type: dfn; spec: ecma-262
@@ -220,6 +223,13 @@ Add:
 > (e.g. scroll) timeline, the duration has a fixed upper bound. In this
 > case, the timeline is a <dfn lt="progress-based timeline">progress-based
 > timeline</dfn>, and its [=timeline duration=] is 100%.
+
+<h3 id="animation-frame-loop">Animation Frames</h3>
+
+Update the note on the first step of the algorithm by adding the following bullet:
+
+> *   Updating the [=animation trigger state|state=] of [=animation triggers=]
+>     by running the [=updating animation trigger state=] procedure.
 
 <h3 id="animations">Animations</h3>
 
@@ -876,11 +886,11 @@ Replace:
 >
 >            : If |has finite timeline| is true,
 >            ::
->                Set |animation|'s [=start time=] to |seek time|.
+>                Set |animation|'s [=animation/start time=] to |seek time|.
 >
 >            : Otherwise,
 >            ::
->                Set |animation|'s [=hold time=] to |seek time|.
+>                Set |animation|'s [=animation/hold time=] to |seek time|.
 >
 >             </div>
 
@@ -969,13 +979,13 @@ Add the following sentence:
 
 </div>
 
-### Calculating the progress of an animation ### {#the-progress-of-an-animation}
+### Calculating the overall progress of an animation ### {#the-overall-progress-of-an-animation}
 
-  An animation's <dfn export for=animation>progress</dfn> is the ratio of its
+  An animation's <dfn export for=animation>overallProgress</dfn> is the ratio of its
    [=animation/current time=] to its [=associated effect end=].
 
-  <div algorithm="calculate animation progress">
-    The [=animation/progress=] of an [=animation=], |animation|, is calculated as follows:
+  <div algorithm="calculate animation overall progress">
+    The [=animation/overallProgress=] of an [=animation=], |animation|, is calculated as follows:
 
     <dl class=switch>
 
@@ -983,21 +993,21 @@ Add the following sentence:
         * |animation| does not have an [=animation/associated effect=], or
         * |animation|'s [=animation/current time=] is an [=unresolved=] time value,
     ::
-        |animation|'s [=animation/progress=] is null.
+        |animation|'s [=animation/overallProgress=] is null.
     : If |animation|'s [=associated effect end=] is zero,
     ::
         : If |animation|'s [=animation/current time=] is negative,
-        :: |animation|'s [=animation/progress=] is zero.
+        :: |animation|'s [=animation/overallProgress=] is zero.
 
         : Otherwise,
-        :: |animation|'s [=animation/progress=] is one.
+        :: |animation|'s [=animation/overallProgress=] is one.
     : If |animation|'s [=associated effect end=] is infinite,
     ::
-        |animation|'s [=animation/progress=] is zero.
+        |animation|'s [=animation/overallProgress=] is zero.
     : Otherwise,
     ::
         <blockquote>
-          <code><a for="animation">progress</a> = min(max([=animation/current time=] / |animation|'s [=associated effect end=], 0), 1)
+          <code><a for="animation">overallProgress</a> = min(max([=animation/current time=] / |animation|'s [=associated effect end=], 0), 1)
           </code>
         </blockquote>
 
@@ -1052,8 +1062,6 @@ Finally, the description of the [=end delay=] is updated to:
 
 >     An <a>end delay</a> may also be specified but is primarily only of
 >     use when sequencing animations such as by using a <a>sequence effect</a>.
-
-</div>
 
 The normative description is updated as follows:
 
@@ -1244,7 +1252,7 @@ an <a>animation effect</a>.
 
         return false
 
-   1.  Let <var>effective start time</var> be the <a>animation</a>'s
+    1.  Let <var>effective start time</var> be the <a>animation</a>'s
         [=animation/start time=] if resolved, or zero otherwise.
 
     1.  Set <var>unlimited current time</var> based on the first matching
@@ -1499,7 +1507,7 @@ of an <a>animation effect</a> is as follows:
     This differs from the [=playback rate=] on an <a>animation</a>.
     Setting a [=playback rate=] on
     an <a>animation</a> to a negative value at a moment before the
-    <a>animation</a>'s </a>associated effect</a> has begun, will result in the
+    <a>animation</a>'s <a>associated effect</a> has begun, will result in the
     <a>associated effect</a> never playing.
 
 *   Setting the [=animation effect/playback rate=]
@@ -1679,13 +1687,13 @@ Update the definition to include the additional steps to for each phase:
 >                 and that parent group is in the <a>before
 >                 phase</a>, and the <a>fill mode</a> of this animation effect
 >                 is <span class="prop-value">none</span> or <span
->                 class="prop-value">forwards</a>,
+>                 class="prop-value">forwards</span>,
 >             ::  Return an <a>unresolved</a> <a>time value</a>.
 >             :   If the animation effect has a <a>parent group</a>
 >                 and that parent group is in the <a>after
 >                 phase</a>, and the <a>fill mode</a> of this animation effect
 >                 is <span class="prop-value">none</span> or <span
->                 class="prop-value">backwards</a>,
+>                 class="prop-value">backwards</span>,
 >             ::  Return an <a>unresolved</a> <a>time value</a>.
 >             :   Otherwise,
 >             ::  Return the result of evaluating
@@ -1812,7 +1820,6 @@ A simple example is illustrated below.
 When a <a>group effect</a> is <a>directly associated with
 an animation</a>, the <a>animation effect</a> associated with the
 <a>group effect</a> can be seeked, paused, and stopped as a unit.
-</p>
 
 </div>
 
@@ -2353,6 +2360,218 @@ Items sorted earlier are executed before those sorted later.
 
 </ins>
 
+Animation Triggers {#triggers}
+-----------------
+
+### Overview ### {#triggers-overview}
+
+An <dfn export>animation trigger</dfn> is used to control the playback
+of its associated [=animation=] for time-driven animations.
+Like animations, [=animation triggers=] are associated with a [=timeline=]
+and are attached to an [=animation attachment range|attachment range=].
+
+Issue: Should there be any effect of triggers on scroll-driven animations?
+
+### Animation Trigger Internal State ### {#trigger-state}
+
+An [=animation trigger=] |trigger|
+has an internal boolean <dfn export>did trigger</dfn> flag, which is initially false,
+and an internal <dfn export lt="animation trigger state">state</dfn> with
+these possible values:
+
+<dl dfn-for="animation trigger state">
+  <dt><dfn>idle</dfn>
+  <dt><dfn>primary</dfn>
+  <dt><dfn>inverse</dfn>
+</dl>
+
+The values of [=animation trigger state|state=] and [=did trigger=] are
+updated by the [=updating animation trigger state=] procedure, described below.
+
+Issue: Do we need a formal resolution on the spec of the idle state?
+
+### Animation Trigger Behavior ### {#trigger-behaviors}
+
+An [=animation trigger=] has an associated <dfn export>animation trigger behavior</dfn>
+which, along with [=did trigger=] and [=animation trigger state|state=],
+determines the [=animation trigger|trigger=]'s effect on its
+associated [=animation=]'s playback.
+
+The [=animation effect=] associated with an [=animation trigger=]
+in the [=animation trigger state/idle=] state
+remains in its [=animation effect/before phase=] and
+stays at zero [=animation/current time=],
+regardless of the trigger's [=did trigger=] flag or [=animation trigger state|state=].
+Otherwise, the effect on playback is as follows for
+given values of <var ignore=''>behavior</var>:
+
+<dl>
+  <dt>''animation-trigger-behavior/once''</dt>
+  <dd>
+    <dl class=switch>
+      : If [=animation trigger state|state=] is [=animation trigger state/primary=],
+      :: the effect is to [=play an animation|trigger=] the associated animation.
+
+      : Otherwise,
+      :: the trigger has no effect.
+  </dl>
+  </dd>
+
+  <dt>''animation-trigger-behavior/repeat''</dt>
+  <dd>
+    <dl class=switch>
+      : If [=animation trigger state|state=] is [=animation trigger state/primary=],
+      :: the effect is to [=play an animation|trigger=] the associated animation.
+
+      : If [=animation trigger state|state=] is [=animation trigger state/inverse=],
+      :: the effect is to reset the associated [=animation effect=] back to
+         its [=animation effect/before phase=] and its associated [=animation=]’s
+         [=animation/start time=] to zero.
+  </dl>
+  </dd>
+
+  <dt>''animation-trigger-behavior/alternate''
+  <dd>
+    <dl class=switch>
+      : If [=animation trigger state|state=] is [=animation trigger state/primary=]
+        and [=did trigger=] is false,
+      :: the effect is to [=play an animation|trigger=] the associated animation.
+
+      : If [=animation trigger state|state=] is [=animation trigger state/primary=]
+        and [=did trigger=] is true,
+      :: the effect is to [=reverse an animation|reverse=] the associated animation.
+
+      : If [=animation trigger state|state=] is [=animation trigger state/inverse=]
+      :: the effect is to [=reverse an animation|reverse=] the associated animation.
+  </dl>
+  </dd>
+
+  <dt>''animation-trigger-behavior/state''
+  <dd>
+    <dl class=switch>
+      : If [=animation trigger state|state=] is [=animation trigger state/primary=]
+      :: the effect is to [=play an animation|trigger or resume=] the associated animation.
+
+      : If [=animation trigger state|state=] is [=animation trigger state/inverse=]
+      :: the effect is to [=pause an animation|pause=] the associated animation.
+  </dl>
+  </dd>
+</dl>
+
+Issue: Do we need a proper definition for "behavior types primary/inverse"?
+
+### Animation Trigger Active Interval ### {#trigger-active-interval}
+
+Each [=animation trigger=] defines an <dfn for="animation trigger">active interval</dfn>
+and only one such interval. This interval is the segment of the timeline’s progress
+during which the trigger’s [=animation trigger state|state=] is set to [=animation trigger state/primary=].
+
+### Animation Trigger Ranges ### {#trigger-ranges}
+
+An [=animation trigger=] has two [=animation attachment range|ranges=],
+the <dfn>default range</dfn> and the <dfn>exit range</dfn>.
+The [=exit range=] is used to replace [=default range=] and extend
+the [=animation trigger/active interval|active interval=].
+
+Issue: Should we specify that that exit range’s edges can only be equal to or greater than the default range’s edges?
+
+Depending on its most recent [=animation trigger state|state=] |state|, the
+[=animation trigger/active interval|active interval=] is defined as follows:
+
+<dl class=switch>
+  : If |state| is [=animation trigger state/primary=],
+  ::
+    Then |interval| is set to [=exit range=].
+
+  : Otherwise,
+  ::
+    |interval| is [=default range=].
+
+</dl>
+
+### Setting a Trigger of an Animation ### {#setting-animation-trigger}
+
+  <div algorithm="Setting a Trigger of an Animation">
+    The procedure of <dfn>setting a trigger of an animation</dfn> |animation|,
+    to |new trigger|, is as follows:
+
+    1. Let |old trigger| be the current [=animation trigger=] of |animation|, if any.
+
+    1. If |new trigger| is the same object as |old trigger|, abort this procedure.
+
+    1. Let the [=animation trigger|trigger=] of |animation| be |new trigger|.
+
+    1. Run the procedure to [=updating animation trigger state=] for |new trigger|.
+  </div>
+
+### Setting the timeline of an Animation Trigger ### {#setting-trigger-timeline}
+
+  <div algorithm="setting timeline of animation trigger">
+    The procedure of <dfn>setting timeline of animation trigger</dfn> |trigger|,
+    to |new timeline| which may be <code>null</code>, is as follows:
+
+    1. Let |old timeline| be the current value of |trigger|.{{AnimationTrigger/timeline}}, if any.
+
+    1. If |new timeline| is the same object as |old timeline|, abort this procedure.
+
+    1. Set |trigger|.{{AnimationTrigger/timeline}} to |new timeline|.
+
+    1. Run the [=updating animation trigger state=] procedure for |trigger|.
+  </div>
+
+### Updating Animation Trigger State ### {#updating-trigger-state}
+
+<div algorithm="updating animation trigger state">
+  The procedure of <dfn>updating animation trigger state</dfn>
+  of an [=animation trigger=] |trigger| is as follows:
+
+  1. Let |did trigger| be the current value of |trigger|'s [=did trigger=] flag.
+
+  1. Let |behavior| be |trigger|'s associated [=animation trigger behavior=].
+
+  1. Set |trigger|.[=animation trigger state|state=] as follows:
+    <dl class=switch>
+      : If |trigger|’s [=local time=] is [=unresolved=],
+      ::
+        Then abort this procedure.
+
+      : Otherwise,
+      ::
+
+        <dl class=switch>
+          : If |behavior| is ''animation-trigger-behavior/once'' and |did trigger| is true,
+          ::
+            Then abort this procedure.
+
+          : Otherwise,
+          ::
+
+            <dl class=switch>
+              : If |trigger| is inside its [=animation trigger/active interval|active interval=],
+              ::
+                  1. Set |trigger|.[=animation trigger state|state=] to [=animation trigger state/primary=].
+                  1. Set |trigger|.[=did trigger=] to true.
+
+              : Otherwise,
+              ::
+
+                <dl class=switch>
+                  : If |did trigger| is true,
+                  ::
+                      Set |trigger|.[=animation trigger state|state=] to [=animation trigger state/inverse=].
+
+                </dl>
+
+            </dl>
+
+        </dl>
+
+    </dl>
+
+</div>
+
+Issue: Should it be the correct/expected behavior for the "did trigger" flag to reset to false if the timeline becomes idle again?
+
 <!-- End of animation model -->
 
 <h2 id="programming-interface">Programming interface</h2>
@@ -2425,16 +2644,17 @@ Update the attribute type for currentTime.
 <h3 id="the-animation-interface">The <code>Animation</code> interface</h3>
 
 Update the startTime and currentTime of the Animation interface, and add
-rangeStart, rangeEnd, and progress as follows:
+rangeStart, rangeEnd, and overallProgress as follows:
 
 <pre class="idl">
 [Exposed=Window]
 partial interface Animation {
     attribute CSSNumberish?       startTime;
     attribute CSSNumberish?       currentTime;
+    attribute AnimationTrigger?   trigger;
     attribute (TimelineRangeOffset or CSSNumericValue or CSSKeywordValue or DOMString) rangeStart;
     attribute (TimelineRangeOffset or CSSNumericValue or CSSKeywordValue or DOMString) rangeEnd;
-    readonly attribute double? progress;
+    readonly attribute double? overallProgress;
 };
 </pre>
 
@@ -2480,9 +2700,14 @@ Add:
 >     When reading the attribute, the returned value is either a
 >     {{TimelineRangeOffset}} or the {{DOMString}} "normal".
 >
-> :  <dfn attribute for=Animation>progress</dfn>
-> ::  Specifies the [=animation/progress=] of the <a>animation</a> as a proportion of its
+> :  <dfn attribute for=Animation>overallProgress</dfn>
+> ::  Specifies the [=animation/overallProgress=] of the <a>animation</a> as a proportion of its
 >     [=associated effect end=].
+>
+> :  <dfn attribute for=Animation>trigger</dfn>
+> ::  Specifies the <a>animation</a>’s associated [=animation trigger=].
+>     Setting the attribute follows the same rules as the KeyframeAnimationOption
+>     <a href="#dom-keyframeanimationoptions-trigger">trigger</a>.
 </div>
 
 <h3 id="the-animationeffect-interface">The <code>AnimationEffect</code> interface</h3>
@@ -2769,9 +2994,9 @@ enum FillMode { "none", "forwards", "backwards", "both", "auto" };
 :   <code>auto</code>
 ::  Update the description as:
 
-    > Fill backwards and forwards when applied to an
-    > {{GroupEffect}} and no fill when applied to an
-    > {{KeyframeEffect}}.
+    > Fill backwards and forwards when applied to a
+    > {{GroupEffect}} and no fill when applied to a
+    > {{KeyframeEffect!!interface}}.
 
 <h3 id="the-groupeffect-interface">The <code>GroupEffect</code> interface</h3>
 
@@ -2944,7 +3169,7 @@ a {{EffectTiming}} object.</p>
 The <dfn lt="next sibling not included">next sibling of
 <var>effect</var> not included</dfn> in a set of <a>animation
 effects</a>, <var>effects</var> is determined using the following
-steps:</p>
+steps:
 
 1.  Let <var>context effect</var> be <var>effect</var>.
 2.  While the <a>next sibling</a> of <var>context effect</var> is not
@@ -2979,7 +3204,7 @@ To <dfn lt="insert children">insert</dfn> a series of zero or
 more <a>animation effects</a>, <var>effects</var>, to
 <var>parent</var>'s list of <a>child effects</a> before
 <var>reference child</var> perform the following steps for each
-<var>effect</var> in <var>effects</var>:</p>
+<var>effect</var> in <var>effects</var>:
 
 1.  <a lt="remove an animation effect">Remove</a> <var>effect</var>
     from its parent.
@@ -3062,7 +3287,7 @@ interface SequenceEffect : GroupEffect {
 
 <h3 id="the-keyframeeffect-interface">The <code>KeyframeEffect</code> interfaces</h3>
 
-The {{KeyframeEffect}} interface is modified to add the following:
+The {{KeyframeEffect!!interface}} interface is modified to add the following:
 
 <pre class='idl'>
 partial interface KeyframeEffect {
@@ -3075,7 +3300,7 @@ partial interface KeyframeEffect {
 :   <dfn constructor for=KeyframeEffect
      lt="KeyframeEffect(target, keyframes, options)">
     KeyframeEffect (target, keyframes, options)</dfn>
-::  Amend step 5 of the procedure to create a new {{KeyframeEffect}} object as
+::  Amend step 5 of the procedure to create a new {{KeyframeEffect!!interface}} object as
     follows:
 
     5.  If <var>options</var> is a {{KeyframeEffectOptions}} object,
@@ -3084,13 +3309,13 @@ partial interface KeyframeEffect {
         corresponding value from <var>options</var>.
 
         When assigning these properties, the error-handling defined for the
-        corresponding setters on the {{KeyframeEffect}} interface is applied.
+        corresponding setters on the {{KeyframeEffect!!interface}} interface is applied.
         If any of those setters require an exception to be thrown
         for the values specified by <var>options</var>, this procedure must
         <a>throw</a> the same exception and abort all further steps.
 
 :   <dfn constructor for=KeyframeEffect lt="KeyframeEffect(source)">KeyframeEffect (source)</dfn>
-::  Amend the procedure to create a new {{KeyframeEffect}} object with the
+::  Amend the procedure to create a new {{KeyframeEffect!!interface}} object with the
     same properties as {{KeyframeEffect/KeyframeEffect(source)/source}} to include setting the
     <a>iteration composite operation</a> from <var>source</var> on <var>effect</var>.
 
@@ -3211,7 +3436,7 @@ callback EffectCallback = undefined (double? progress,
                                 Animation animation);
 </pre>
 
-An {{EffectCallback}} is called each time an {{KeyframeEffect}} object
+An {{EffectCallback}} is called each time an {{KeyframeEffect!!interface}} object
 with which it is associated is updated.
 
 <div class="parameters">
@@ -3251,10 +3476,10 @@ with which it is associated is updated.
 
 <h3 id="the-animatable-interface">The <code>Animatable</code> interface</h3>
 
-<div class="methods">
+<div dfn-type=method class=methods
+       dfn-for="Animatable">
 
-:   <dfn method for=Animatable lt="getAnimations()">
-    sequence&lt;Animation&gt; getAnimations()</dfn>
+:   <dfn lt="getAnimations(options)">sequence&lt;Animation&gt; getAnimations(|options|)</dfn>
 ::  Add:
 
     > If this object is the [=effect target/target element=] of two or more
@@ -3266,6 +3491,26 @@ with which it is associated is updated.
 
 The <code>Animatable</code> interface mixin {#the-animatable-interface-mixin}
 ----------------------------------------
+
+The {{Animatable}} mixin interface
+is modified to add the following members:
+
+<div dfn-type=method class=methods
+       dfn-for="Animatable">
+
+  : <dfn lt="animate(keyframes, options)">Animation animate(<var ignore=''>keyframes</var>, <var>options</var>)</dfn>
+  ::  Amend step 6 of the procedure as follows:
+
+    6. If |options| is a {{KeyframeAnimationOptions}} object,
+        let |trigger| be the <code>trigger</code> member of |options|
+        or, if <code>trigger</code> member of |options| is missing,
+        a newly created {{AnimationTrigger}} with an empty
+        {{AnimationTriggerOptions}} dictionary as its options.
+
+    7. Run the procedure to [=setting a trigger of an animation=] for |animation|
+        with the |auto-rewind| flag set to true.
+
+</div>
 
 The {{KeyframeAnimationOptions}} dictionary interface
 is modified to add the following members:
@@ -3279,6 +3524,7 @@ dictionary TimelineRangeOffset {
 partial dictionary KeyframeAnimationOptions {
     (TimelineRangeOffset or CSSNumericValue or CSSKeywordValue or DOMString) rangeStart = "normal";
     (TimelineRangeOffset or CSSNumericValue or CSSKeywordValue or DOMString) rangeEnd = "normal";
+    AnimationTrigger? trigger;
 };
 </pre>
 
@@ -3302,6 +3548,10 @@ partial dictionary KeyframeAnimationOptions {
     and {{TimelineRangeOffset/offset}};
     a {{CSSNumericValue}} is interpreted as a {{TimelineRangeOffset}}
     with that {{TimelineRangeOffset/offset}} and a null {{TimelineRangeOffset/rangeName}}.
+
+:   <dfn dict-member for=KeyframeAnimationOptions>trigger</dfn>
+::  If present, specifies the <a>animation</a>’s associated [=animation trigger=]
+    by running the procedure of [=setting a trigger of an animation=].
 
 </div>
 
@@ -3365,6 +3615,162 @@ Update the type for the AnimationPlaybackEventInit members.
     attribute.
 
 </div>
+
+<h3 id="the-animationtrigger-interface">The <code>AnimationTrigger</code> interface</h3>
+
+<pre class='idl'>
+[Exposed=Window]
+interface AnimationTrigger {
+  constructor(optional AnimationTriggerOptions options = {});
+  attribute AnimationTimeline timeline;
+  attribute AnimationTriggerBehavior behavior;
+  attribute any rangeStart;
+  attribute any rangeEnd;
+  attribute any exitRangeStart;
+  attribute any exitRangeEnd;
+};
+</pre>
+
+<div dfn-type=constructor class=constructors dfn-for="AnimationTrigger">
+  : <dfn lt="AnimationTrigger(options)">AnimationTrigger(|options|)</dfn>
+  ::
+      Creates a new {{AnimationTrigger}} object using the following procedure:
+
+      1. Create a new {{AnimationTrigger}} object, |trigger|.
+
+      1. Set |trigger|.[=did trigger=] to false.
+
+      1. Set |trigger|.[=animation trigger state|state=] to [=animation trigger state/idle=].
+
+      1. Set |trigger|.{{AnimationTrigger/behavior}} to |options|.{{AnimationTriggerOptions/behavior}}.
+
+      1. Set [=default range=] of |trigger| using |options|.{{AnimationTriggerOptions/rangeStart}} and |options|.{{AnimationTriggerOptions/rangeEnd}},
+          following the same rules as the KeyframeAnimationOption
+          <a href="#dom-keyframeanimationoptions-rangestart">rangeStart</a> and
+          <a href="#dom-keyframeanimationoptions-rangeend">rangeEnd</a> respectively.
+
+      1. Set [=exit range=] of |trigger| using |options|.{{AnimationTriggerOptions/exitRangeStart}} and |options|.{{AnimationTriggerOptions/exitRangeEnd}},
+          following the same rules above for [=default range=], unless they are set to
+          "auto", in which case they are set to their corresponding side
+          of the [=default range=].
+
+      1. Run the procedure for [=setting timeline of animation trigger=]
+          on |trigger| passing |options|.{{AnimationTriggerOptions/timeline}} as the <var ignore>new timeline</var>.
+
+      <div dfn-type=argument class=parameters
+           dfn-for="AnimationTrigger/AnimationTrigger(options)">
+
+          : <dfn>options</dfn>
+          ::  Configuration parameters for the newly-created trigger.
+
+      </div>
+
+</div>
+
+<div dfn-type=attribute class=attributes
+       dfn-for="AnimationTrigger">
+
+  : <dfn>timeline</dfn>
+  ::
+      Returns the [=timeline=] for this trigger
+      or `null` if this timeline is [=inactive timeline|inactive=].
+
+  : <dfn>behavior</dfn>
+  ::
+      Returns the [=animation trigger behavior|behavior=] of this trigger.
+
+  : <dfn>rangeStart</dfn>
+  ::
+      Returns the [=default range=]’s start of this trigger.
+
+  : <dfn>rangeEnd</dfn>
+  ::
+      Returns the [=default range=]’s end of this trigger.
+
+  : <dfn>exitRangeStart</dfn>
+  ::
+      Returns the [=exit range=]’s start of this trigger.
+
+  : <dfn>exitRangeEnd</dfn>
+  ::
+      Returns the [=exit range=]’s end of this trigger.
+
+</div>
+
+<h3 id="the-animationtriggeroptions-dictionary">The <code>AnimationTriggerOptions</code> dictionary</h3>
+
+<pre class='idl'>
+dictionary AnimationTriggerOptions {
+  AnimationTimeline? timeline;
+  AnimationTriggerBehavior? behavior = "once";
+  (TimelineRangeOffset or CSSNumericValue or CSSKeywordValue or DOMString) rangeStart = "normal";
+  (TimelineRangeOffset or CSSNumericValue or CSSKeywordValue or DOMString) rangeEnd = "normal";
+  (TimelineRangeOffset or CSSNumericValue or CSSKeywordValue or DOMString) exitRangeStart = "auto";
+  (TimelineRangeOffset or CSSNumericValue or CSSKeywordValue or DOMString) exitRangeEnd = "auto";
+};
+</pre>
+
+<div dfn-type=dict-member class=members
+       dfn-for="AnimationTriggerOptions">
+
+  : <dfn>timeline</dfn>
+  ::
+      The timeline to which the trigger is associated.
+      If not specified, the trigger is associated with [=default document timeline=].
+
+  : <dfn>behavior</dfn>
+  ::
+      The behavior of the trigger.
+      If not specified, the trigger's behavior is ''animation-trigger-type/once''.
+
+  : <dfn>rangeStart</dfn>
+  ::
+      The start of the trigger’s [=default range=].
+      If not specified, the [=default range=]’s start is set to "normal".
+
+  : <dfn>rangeEnd</dfn>
+  ::
+      The end of the trigger’s [=default range=].
+      If not specified, the [=default range=]’s end is set to "normal".
+
+  : <dfn>exitRangeStart</dfn>
+  ::
+      The start of the trigger’s [=exit range=].
+      If not specified, the [=exit range=]’s start is set to "auto".
+
+  : <dfn>exitRangeEnd</dfn>
+  ::
+      The end of the trigger’s [=exit range=].
+      If not specified, the [=exit range=]’s end is set to "auto".
+
+</div>
+
+<h3 id="the-animationtriggerbehavior-enumeration">The <code>AnimationTriggerBehavior</code> enumeration</h3>
+
+<pre class='idl'>
+enum AnimationTriggerBehavior { "once", "repeat", "alternate", "state" };
+</pre>
+
+<dl dfn-type=enum-value
+      dfn-for="AnimationTriggerBehavior">
+
+  : <dfn>once</dfn>
+  ::
+      ''animation-trigger-behavior/once''.
+
+  : <dfn>repeat</dfn>
+  ::
+      ''animation-trigger-behavior/repeat''.
+
+  : <dfn>alternate</dfn>
+  ::
+      ''animation-trigger-behavior/alternate''.
+
+  : <dfn>state</dfn>
+  ::
+      ''animation-trigger-behavior/state''.
+
+</dl>
 
 <h3 id="model-liveness">Model liveness</h3>
 

@@ -35,9 +35,11 @@ ED: https://drafts.csswg.org/css-highlight-api-1/
 TR: https://www.w3.org/TR/css-highlight-api-1/
 Previous Version: https://www.w3.org/TR/2020/WD-css-highlight-api-1-20201022/
 Previous Version: https://www.w3.org/TR/2020/WD-css-highlight-api-1-20201208/
+Editor: Dan Clark, Microsoft Corporation https://www.microsoft.com, https://github.com/dandclark, w3cid 113024
+Editor: Fernando Fiori, Microsoft Corporation https://www.microsoft.com, https://github.com/ffiori, w3cid 129562
 Editor: Florian Rivoal, On behalf of Bloomberg, https://florian.rivoal.net/, w3cid 43241
-Editor: Sanket Joshi, Microsoft Corporation https://www.microsoft.com, https://github.com/sanketj, w3cid 115721
 Editor: Megan Gardner, Apple Inc. https://apple.com/, w3cid 110930
+Former Editor: Sanket Joshi, Microsoft Corporation https://www.microsoft.com, https://github.com/sanketj, w3cid 115721
 Abstract:
 	This CSS module describes a mechanism
 	for styling arbitrary ranges of a document identified by script.
@@ -49,6 +51,10 @@ spec:css-color-4; type:property; text:color
 spec:css-pseudo-4; type:dfn; text:highlight overlay
 spec:dom; type:dfn; text:range
 spec:css-values-4; type:dfn; text:identifier
+spec:dom; type:dfn; for:Element; text:shadow root
+spec:dom; type:dfn; text:event
+spec:css2; type:dfn; text:viewport
+spec:cssom-view; type:dfn; text:transforms
 </pre>
 
 <style>
@@ -73,7 +79,7 @@ Introduction</h2>
 	''::selection'',
 	''::inactive-selection'',
 	''::spelling-error'',
-	and '''::grammar-error'''.
+	and ''::grammar-error''.
 	This is useful in a variety of scenarios,
 	including editing frameworks that wish to implement their own selection,
 	find-on-page over virtualized documents,
@@ -141,7 +147,7 @@ Setting up Custom Highlights</h2>
 <h3 id=creation>
 Creating Custom Highlights</h3>
 
-	A <dfn>custom highlight</dfn> is a collection of [=ranges=]
+	A <dfn export>custom highlight</dfn> is a collection of [=ranges=]
 	representing portions of a document.
 	They do not necessarily fit into the element tree,
 	and can arbitrarily cross element boundaries without honoring its nesting structure.
@@ -203,7 +209,7 @@ Creating Custom Highlights</h3>
 			<li>
 				For each |range| of {{initialRanges}},
 				let |rangeArg| be the result of [=converted to an ECMAScript value|converting=] |range| to an ECMAScript value,
-				then run [[webidl#es-set-add|the steps for a built-in setlike add function]],
+				then run [[webidl#js-set-add|the steps for a built-in setlike add function]],
 				with |highlight| as the <code>this</code> value,
 				and |rangeArg| as the argument.
 			<li>
@@ -241,12 +247,12 @@ Registering Custom Highlights</h3>
 	<div algorithm="to register a custom highlight">
 		To [=register=] a [=custom highlight=],
 		invoke the <code>set</code> method of the [=highlight registry=]
-		which will run [[webidl#es-map-set|the steps for a built-in maplike set function]],
+		which will run [[webidl#js-map-set|the steps for a built-in maplike set function]],
 		with the [=highlight registry=] as the <code>this</code> value,
 		the passed-in [=custom highlight name=] as <var ignore>keyArg</var>,
 		and the passed-in highlight as <var ignore>valueArg</var>.
 
-		The <dfn>custom highlight name</dfn> assigned to a [=custom highlight=] when it is [=registered=]
+		The <dfn export>custom highlight name</dfn> assigned to a [=custom highlight=] when it is [=registered=]
 		is used to identify the highlight during styling (see [[#styling-highlights]]).
 
 	Note: When registering a [=custom highlight=],
@@ -304,15 +310,12 @@ Styling Custom Highlights</h2>
 <h3 id=custom-highlight-pseudo>
 The Custom Highlight Pseudo-element: ''::highlight()''</h3>
 
-	The <dfn>::highlight(<<custom-highlight-name>>)</dfn> pseudo-element
+	The ''::highlight()'' pseudo-element
 	(also known as the <dfn>custom highlight pseudo-element</dfn>)
 	represents the portion of a document that
 	is being [=contained=] or [=partially contained=]
 	in all the [=ranges=] of the [=registered=] [=custom highlight=]
-	with the [=custom highlight name=] <<custom-highlight-name>>,
-	if any.
-	<dfn type><<custom-highlight-name>></dfn> must be a valid CSS <<ident-token>>.
-
+	with the [=custom highlight name=] specified as its argument.
 
 <h3 id=processing-model>
 Processing Model</h3>
@@ -564,7 +567,7 @@ Range Updating and Invalidation</h3>
 		has a significant performance cost.
 		Authors who intend to observe DOM changes and react to them
 		by adjusting or recreating the ranges in their [=custom highlights=]
-		are strongly encouraged to user {{StaticRange}}s
+		are strongly encouraged to use {{StaticRange}}s
 		in order to avoid this costly but unnecessary step.
 
 		Conversely, authors who use {{StaticRange}}s
@@ -581,6 +584,124 @@ Range Updating and Invalidation</h3>
 	If any {{StaticRange}} in the [=highlight registry=] associated with that document's window
 	is not <a spec=dom for="StaticRange">valid</a>,
 	the user agent must ignore that [=range=].
+
+<h2 id="interactions">
+Interacting with Custom Highlights</h2>
+
+The {{highlightsFromPoint}}(<var>x</var>, <var>y</var>, <var>options</var>) method allows developers to build scenarios
+involving user interaction with [=custom highlights=]. The method returns a [=sequence=] containing {{HighlightHitResult}} objects
+which encapsulate the [=custom highlights=] and their [=ranges=] that are hit at a given <var>x</var>, <var>y</var> coordinate.
+This sequence is ordered by descending order of [=priority=] of its {{HighlightHitResult}}'s [=custom highlights|highlights=].
+By default, [=custom highlights=] in a [=shadow tree=] are not returned, but the developer has the possibility to pass in
+an optional <var>options</var> [=dictionary=] with a <var>shadowRoots</var> property containing a [=sequence=] of {{ShadowRoot}}
+objects. [=custom highlights|Highlights=] contained within a [=shadow tree=] provided in this way will be returned.
+
+	<div class=example id=highlights-from-point-ex>
+		The following example shows a way to use {{highlightsFromPoint}} to interact with mouse click [=event|events=].
+
+		<xmp highlight=html>
+			<style>
+				:root::highlight(foo) {
+					background-color:yellow;
+				}
+				:root::highlight(bar) {
+					color:red;
+				}
+			</style>
+			<body>abcd
+			<script>
+				document.addEventListener('click', (event) => {
+					const mouseX = event.clientX;
+					const mouseY = event.clientY;
+					console.log(CSS.highlights.highlightsFromPoint(mouseX, mouseY));
+				});
+
+				let textNode = document.body.firstChild;
+				let r1 = new Range();
+				r1.setStart(textNode, 0);
+				r1.setEnd(textNode, 2);
+				let r2 = new Range();
+				r2.setStart(textNode, 1);
+				r2.setEnd(textNode, 2);
+				let r3 = new Range();
+				r3.setStart(textNode, 3);
+				r3.setEnd(textNode, 4);
+
+				let h1 = new Highlight(r1, r3);
+				let h2 = new Highlight(r2);
+				h1.priority = 1;
+				h2.priority = 2;
+
+				CSS.highlights.set("foo", h1);
+				CSS.highlights.set("bar", h2);
+			</script>
+		</xmp>
+
+		The code above will display the following styled text, note that "b" is affected by both [=custom highlight|highlights=]
+		<var>h1</var> and <var>h2</var>, whereas "a" and "d" are only affected by <var>h1</var>:
+
+		<div class=sample-out style="color:black">
+			<span style="background:yellow;">a</span><span style="background:yellow;color:red;">b</span><span>c</span><span style="background:yellow;">d</span>
+		</div>
+
+		In this example there's an [=event listener=] set on click [=event|events=] that logs the [=custom highlights=]
+		and their ranges present at the point where the click was made.
+		The following [=sequence|sequences=] are some examples of what will be printed to console after a click:
+			* <code>[ HighlightHitResult {highlight: <var>h1</var>, ranges: [<var>r1</var>]} ]</code>, if the user clicks on character "a".
+				Note that only <var>r1</var> is included in the {{HighlightHitResult}} returned since that's the only range in <var>h1</var> that was hit.
+			* <code>[ HighlightHitResult {highlight: <var>h2</var>, ranges: [<var ignore=''>r2</var>]}, HighlightHitResult {highlight: <var>h1</var>, ranges: [<var>r1</var>]} ]</code>,
+				if the user clicks on character "b", as <var>h2</var> has higher priority than <var>h1</var>.
+			* <code>[]</code>, if the user clicks on character "c".
+			* <code>[ HighlightHitResult {highlight: <var>h1</var>, ranges: [<var ignore=''>r3</var>]} ]</code>, if the user clicks on character "d".
+	</div>
+
+The method {{highlightsFromPoint}} is defined as part of the {{HighlightRegistry}} interface as follows:
+
+<pre class=idl>
+partial interface HighlightRegistry {
+	sequence&lt;HighlightHitResult> highlightsFromPoint(float x, float y, optional <span>HighlightsFromPointOptions</span> options = {});
+};
+
+dictionary <dfn dictionary>HighlightHitResult</dfn> {
+	Highlight <dfn dict-member>highlight</dfn>;
+	sequence&lt;AbstractRange> <dfn dict-member>ranges</dfn>;
+};
+
+dictionary <dfn dictionary>HighlightsFromPointOptions</dfn> {
+	sequence&lt;ShadowRoot> <dfn dict-member for="HighlightsFromPointOptions">shadowRoots</dfn> = [];
+};
+</pre>
+
+The <dfn method for="HighlightRegistry">highlightsFromPoint(<var>x</var>, <var>y</var>, <var>options</var>)</dfn>
+method must return the result of running these steps:
+
+1. If any of the following are true, return the empty [=sequence=]:
+	* <var>x</var> is negative
+	* <var>y</var> is negative
+	* <var>x</var> is greater than the [=viewport=] width excluding the size of a rendered scroll bar (if any)
+	* <var>y</var> is greater than the [=viewport=] height excluding the size of a rendered scroll bar (if any)
+	* The topmost [=box=] in the [=viewport=] in paint order that would be a target for hit testing at coordinates <var>x</var>,<var>y</var> when applying
+		the [=transforms=] that apply to the descendants of the viewport, has an element associated to it that's in a [=shadow tree=] whose
+		[=shadow root=] is not [=list/contains|contained by=] <var>options</var>.<var>shadowRoots</var>.
+1. Otherwise, let <var>results</var> be an empty [=sequence=].
+1. For each {{Highlight}} <var>highlight</var> in this {{HighlightRegistry}}:
+	1. Let <var>result</var> be a new {{HighlightHitResult}} with {{HighlightHitResult/highlight}} set to <var>highlight</var>.
+	1. For each {{AbstractRange}} <var>abstractRange</var> in <var>highlight</var>:
+		1. If <var>abstractRange</var> is an [=StaticRange/valid|invalid=] {{StaticRange}}, then [=iteration/continue=].
+		1. Let <var>range</var> be a new {{Range}} whose [=start node=] and [=end node=] are set to <var>abstractRange</var>'s
+			[=start node=] and [=end node=] respectively, and [=start offset=] and [=end offset=] are set to <var>abstractRange</var>'s 
+			[=start offset=] and [=end offset=] respectively.
+		1. If the coordinates <var>x</var>,<var>y</var> fall inside at least one of the {{DOMRect}}s returned by calling {{Range/getClientRects()}}
+			on <var>range</var>, then append <var>abstractRange</var> to <var>result</var>.{{HighlightHitResult/ranges}}.
+
+			Note: The specifics of hit testing are out of scope of this
+			specification and therefore the exact details of
+			{{highlightsFromPoint()}} are too. Hit testing will
+			hopefully be defined in a future revision of CSS or HTML.
+	
+	1. If <var>result</var>.{{HighlightHitResult/ranges}} is not empty, append <var>result</var> to <var>results</var>.
+1. Sort <var>results</var> by descending order of [=priority=] of its {{HighlightHitResult}}s' {{HighlightHitResult/highlight}} attributes.
+1. Return <var>results</var>.
 
 <h2 id=events>
 Event Handling</h2>
@@ -626,12 +747,15 @@ Appendix D. Changes</h2>
 
 	<em>This section is non-normative</em>.
 
-<h3 class=no-num" id="changes-since-20211215">
+<h3 class="no-num" id="changes-since-20211215">
 Changes since the <a href="https://www.w3.org/TR/2020/WD-css-highlight-api-1-20211215/">15 December 2021 Working Draft</a></h3>
 
 	In addition to various editorial improvements and minor tweaks,
 	the main changes are:
 
+	* Added a {{HighlightRegistry/highlightsFromPoint}} method to
+	    {{HighlightRegistry}}.
+		(See <a href="https://github.com/w3c/csswg-drafts/pull/7513">Issue 7513</a>)
 	* Specified that highlight repainting has to be done asynchronously.
 		(See <a href="https://github.com/w3c/csswg-drafts/pull/6987">Issue 6987</a>)
 	* Clarify that UAs cannot specify paired default highlight colors for custom highlights.
@@ -641,7 +765,7 @@ Changes since the <a href="https://www.w3.org/TR/2020/WD-css-highlight-api-1-202
 	* Added an I18N warning about placement of [=range=] endpoints in the middle of a
 		[=grapheme=] or [=supplementary character=].
 
-<h3 class=no-num" id="changes-since-20201208">
+<h3 class="no-num" id="changes-since-20201208">
 Changes since the <a href="https://www.w3.org/TR/2020/WD-css-highlight-api-1-20201208/">8 December 2020 Working Draft</a></h3>
 
 	In addition to various editorial improvements and minor tweaks,
@@ -670,7 +794,7 @@ Changes since the <a href="https://www.w3.org/TR/2020/WD-css-highlight-api-1-202
 		in support of exposing highlights to accessibility tools.
 		(See <a href="https://github.com/w3c/csswg-drafts/pull/6498">Issue 6498</a>)
 
-<h3 class=no-num" id="changes-since-20201022">
+<h3 class="no-num" id="changes-since-20201022">
 Changes since the <a href="https://www.w3.org/TR/2020/WD-css-highlight-api-1-20201022/">22 October 2020 Working Draft</a></h3>
 
 	There have been only editorial changes since the <a href="https://www.w3.org/TR/2020/WD-css-highlight-api-1-20201022/">22 October 2020 Working Draft</a>;

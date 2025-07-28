@@ -9,7 +9,7 @@ ED: https://drafts.csswg.org/css-link-params/
 Editor: Tab Atkins-Bittner, Google, http://xanthir.com/contact/
 Editor: Daniel Holbert, Mozilla
 Editor: Jonathan Watt, Mozilla
-Abstract: This spec introduces a way to pass CSS values into linked resources, such as SVG images, so that they can be used as CSS [=custom property=] values in the destination resource. This allows easy reuse of "templated" SVG images, which can be adapted to a site's theme color, etc. easily, without having to modify the source SVG.
+Abstract: This spec introduces a way to pass CSS values into linked resources, such as SVG images, so that they can be used as CSS [=custom environment variables=] in the destination resource. This allows easy reuse of "templated" SVG images, which can be adapted to a site's theme color, etc. easily, without having to modify the source SVG.
 Ignored Terms: css value definition syntax
 </pre>
 
@@ -39,18 +39,55 @@ and change which image you're referencing.
 This incurs delay on the page as a new resource is downloaded,
 and disallows dynamic effects like CSS Transitions.
 
-<dfn export lt="CSS link parameter" local-lt="link parameter">CSS link parameters</dfn> are a way to set CSS <a>custom properties</a> on an "external" resource,
+<dfn export lt="CSS link parameter" local-lt="link parameter">CSS link parameters</dfn>
+are a way to set CSS <a>custom environment variables</a> on an "external" resource,
 either by a CSS property
 or thru a special fragment scheme on the URL.
 This gives a limited, but powerful, subset of the customizability that "inline" SVG images have
 to "external" SVG images.
 
+A [=link parameter=] is a pair of a <<dashed-ident>> name,
+and an arbitrary (possibly empty) <<declaration-value>> value.
+
+<div class=example>
+	For example, an SVG image can be written to use [=link parameters=],
+	allowing it to have its colors changed on the fly,
+	like:
+
+	<xmp highlight=html>
+		<svg>
+			<path fill="env(--color, black)" d="..." />
+		</svg>
+	</xmp>
+
+	By default, it will fill its shape with black,
+	as that's the fallback color specified.
+	But [=link parameters=] can customize the color
+	in several ways:
+
+	<xmp highlight=html>
+		<img src="image.svg#param(--color,green)">
+	</xmp>
+
+	<pre highlight=css>
+		img {
+			link-parameters: param(color, green);
+		}
+	</pre>
+
+	<pre highlight=css>
+		.foo {
+			background-image: url("image.svg", param(--color, green));
+		}
+	</pre>
+</div>
+
 Setting a Link Parameter {#setting}
 ===================================
 
-An external resource can be accompanied by a map of [=link parameters=],
-each entry composed of a [=custom property name=] as a key,
-and an <<any-value>> as the value.
+An external resource can be accompanied by a list of [=link parameters=],
+each entry composed of a <<dashed-ident>> as a key,
+and a (possibly empty) <<declaration-value>> as the value.
 
 There are three ways to specify a [=link parameter=]:
 
@@ -62,14 +99,20 @@ There are three ways to specify a [=link parameter=]:
 * via a ''param()'' argument in the ''url()'' syntax
 
 If specified in multiple of these ways,
-all of the [=link parameters=] are combined.
-If the same key appears in multiple inputs,
-the latest source in the above list wins
-(that is, URL fragment beats 'link-parameters',
-and ''url("..." param())'' beats URL fragment).
+all of the [=link parameters=] are appended into a single list
+for the external resource,
+in the order:
 
-The influence of [=link parameters=] on the linked resource
-is defined in the next section.
+1. the 'link-parameters' property on the element, if relevant
+2. the [=param()=] URL fragment identifiers
+3. the ''param()'' <<url-modifier>>s in ''url()''
+
+If multiple [=link parameters=] exist with the same name,
+the last one in the list is used.
+
+How to access [=link parameters=] in the linked resource
+is defined in the next section,
+[[#using]].
 
 
 In CSS: the 'link-parameters' property {#link-param-prop}
@@ -77,7 +120,7 @@ In CSS: the 'link-parameters' property {#link-param-prop}
 
 <pre class=propdef>
 Name: link-parameters
-Value: none | <<link-param>>+
+Value: none | <<param()>>#
 Initial: none
 Inherited: no
 Applies to: all elements and pseudo-elements
@@ -95,27 +138,23 @@ Its values are:
 
 <dl dfn-type=value dfn-for=none>
 	: <dfn>none</dfn>
-	:: No [=link parameters=] specified.
+	:: No [=link parameters=] are specified.
 
-	: <dfn><<link-param>>+</dfn>
-	::
-		A list of one or more [=link parameters=].
-		If two [=link parameters=] with the same name are specified
-		with the same <<custom-property-name>>,
-		the last one wins.
+	: <dfn><<param()>>#</dfn>
+	:: A list of one or more [=link parameters=].
 </dl>
 
+The <dfn>param()</dfn> function specifies a [=link parameter=],
+with a key of the <<dashed-ident>>,
+and a value of the <css><<declaration-value>>?</css>.
+(If the <<declaration-value>> is omitted,
+it represents an empty value.)
+It has the syntax:
+
 <pre class=prod>
-<dfn>&lt;link-param></dfn> = param( <<custom-property-name>> <<declaration-value>>? )
+	&lt;param()> = param( <<dashed-ident>> , <<declaration-value>>? )
 </pre>
 
-A <<link-param>> represents a [=link parameter=],
-with a key of the <<custom-property-name>>.
-If the <<declaration-value>> is specified,
-that's the value of the [=link parameter=].
-If omitted,
-the value of the [=custom property=] of the same name on the element
-is the value of the [=link parameter=].
 
 In The URL {#url-frag}
 ----------
@@ -126,23 +165,25 @@ Several examples of existing "fragment identifiers" for SVG documents can be fou
 
 The syntax of an <dfn export local-lt="param()">SVG parameter fragment identifier</dfn> is:
 
-<pre class=prod>param( <<custom-property-name>> <<declaration-value>> )</pre>
+<pre class=prod>param( <<dashed-ident>> , <<declaration-value>>? )</pre>
 
 (using the <a>CSS value definition syntax</a>; TODO define an actual parser for it).
 
 <div class="example">
-	For example, to set the "--text-color" <a>custom property</a> of an SVG image to ''blue'',
-	one can reference the image with a url like “<code>http://example.com/image.svg#param(--text-color%20blue)</code>”.
+	For example, to set the ''env(--text-color)'' [=custom environment variable=]
+	of an SVG image to ''blue'',
+	one can reference the image with a url like
+	“<code>http://example.com/image.svg#param(--text-color,blue)</code>”.
 </div>
 
-If passing multiple parameters to an image,
-additional <a>param()</a> functions must be appended to the URL.
-If multiple <a>param()</a> functions specify the same <<custom-property-name>>,
-the <a>custom property</a> is set to the value of the last one.
+Multiple [=link parameters=] can be passed to an image
+by appending multiple [=param()=] fragment identifiers to the URL.
 
 <div class="example">
-	For example, if the image from the previous example also used a "--bg-color" <a>custom property</a>,
-	it could be referenced with a url like “<code>http://example.com/image.svg#param(--text-color%20blue)param(--bg-color%20white)</code>”.
+	For example, if the image from the previous example also used ''env(--bg-color)'',
+	it could be referenced with a url like
+	“<code>http://example.com/image.svg#param(--text-color,blue)param(--bg-color,white)</code>”
+	to set both ''env(--text-color)'' and ''env(--bg-color)''.
 </div>
 
 Note: Spaces, and some other characters that might be valid in CSS syntax,
@@ -164,21 +205,23 @@ and want to make an SVG image match.
 There's no way, however, to integrate the value of a <a>custom property</a> in CSS into the URL passed to the ''url()'' function.
 
 To accommodate this,
-a <<link-param>> is a valid <<url-modifier>>.
-
-As in the other methods of specifying [=link parameters=],
-if the same <<custom-property-name>> is specified in several <<link-param>>s,
-the last one wins.
+''param()'' is a valid <<url-modifier>>.
+All the ''param()''s specified as a <<url-modifier>>
+define [=link parameters=],
+as for 'link-parameters'.
 
 <div class="example">
 	For example,
 	if the site is using a ''--primary-color'' custom property to theme its elements with,
-	and wanted an SVG background using a ''--color'' custom property to reflect it,
+	and wanted an SVG background using ''env(--color)'' to reflect it,
 	it could write:
 
-	<pre class='lang-css'>
+	<pre highlight=css>
 		.foo {
-			background-image: url("http://example.com/image.svg" param(--color var(--primary-color)));
+			background-image: url(
+				"http://example.com/image.svg"
+				param(--color, var(--primary-color))
+			);
 		}
 	</pre>
 </div>
@@ -189,37 +232,22 @@ Using Link Parameters {#using}
 When an external resource link has one or more [=link parameters=] specified,
 if the linked resource understands CSS
 (such as an SVG or HTML document),
-then the initial value of custom properties
-with names equal to the keys of the [=link parameters=] map
-is set to the corresponding values of the map.
-
-If an ''@property'' rule is specified for one of the custom property names
-in the [=link parameters=],
-the [=link parameter=] value is used for the initial value,
-rather than the ''@property''-specified initial value.
-
-If the linked resource does not understand CSS
-(such as PNG images),
-then [=link parameters=] have no effect.
-
-Issue: Define a way for the linked resource to specify what link parameters they allow.
-For cross-origin iframes/etc, 
-this will default to <em>nothing</em>;
-for same-origin (or cross-origin "SVG as image"),
-it defaults to "everything".
-If not allowed, the link parameter is ignored.
+then those [=link parameters=]
+establish global [=custom environment variables=] for the resource
+with their name and value,
+accessible with the ''env()'' function in stylesheets.
 
 <div class="example">
 	For example, if an SVG image wanted to expose a ''--color'' parameter,
 	it could use it like:
 
-	<pre class="lang-markup">
-		&lt;svg>
-			&lt;g style="fill: var(--color);">
-				&lt;path d="..." />
-			&lt;/g>
-		&lt;/svg>
-	</pre>
+	<xmp highlight=html>
+		<svg>
+			<g style="fill: env(--color);">
+				<path d="..." />
+			</g>
+		</svg>
+	</xmp>
 </div>
 
 <div class="note">
@@ -227,35 +255,54 @@ If not allowed, the link parameter is ignored.
 	by providing "default values" for each of the custom properties.
 	There are several ways to do this.
 
-	1. On each ''var()'' function, provide a fallback value, like ''fill: var(--color, blue)''.
-	2. If the custom property is going to be used a lot,
-		such that providing a fallback for each individual ''var()'' is troublesome,
-		store the <a>custom property</a> in a different name while invoking the default,
+	1. On each ''env()'' function, provide a fallback value, like ''fill: env(--color, blue)''.
+	2. If the ''env()'' is going to be used a lot,
+		such that providing a fallback for each individual ''env()'' is troublesome,
+		store the [=custom environment variable=] in a [=scoped environment variable=]
+		of a different name,
+		with the default specified,
 		like:
 
 		<pre class="lang-css">
+			@env --color2: env(--color, blue);
+
+			/* Alternately, store it in a custom property: */
 			:root {
-				--color2: var(--color, blue);
+				--color: env(--color, blue);
 			}
 		</pre>
 
-		In this example, if ''--color'' is provided via an <a>SVG parameter</a>,
-		''--color2'' will receive its value.
-		If not, it will recieve the default ''blue'' value.
-		In either case, ''--color2'' can be used in the SVG image's stylesheet unconditionally,
+		In this example, if ''--color'' is provided via a [=linked parameter=],
+		''env(--color2)'' will contain its value.
+		If not, it will contain the default ''blue'' value.
+		In either case, ''env(--color2)'' can be used in the stylesheet unconditionally,
 		secure in the knowledge that it will always have a value.
-	3. In a future level of the Custom Properties specification [[CSS-VARIABLES]],
-		some "parent's value" functionality will be available to make the previous suggestion more usable:
-
-		<pre class="lang-css">
-			:root {
-				--color: var(parent --color, blue);
-			}
-		</pre>
-
-		(This is an example syntax, and is not yet final.)
-
-		By invoking the value of the --color property on the parent
-		(which, on the root element, refers to the initial value),
-		an author can avoid self-reference loops while retaining the same <a>custom property</a> name.
 </div>
+
+Note: When we define ''env(parent --color)'' to jump up a scope level,
+you won't need to do the rename;
+''@env --color: env(parent --color);'' will work just fine.
+
+
+<h2 class="no-num no-ref" id=priv>
+Privacy Considerations</h2>
+
+This specification introduces no new privacy considerations.
+
+<h2 class="no-num no-ref" id=sec>
+Security Considerations</h2>
+
+This specification introduces a new way to pass information to a linked resource,
+potentially from a hostile source.
+
+While no explicit handshake is established for this channel,
+the use of ''env()'' to use the information
+minimizes the chance that the linked resource
+can be <em>surprised</em> by the information.
+The only way for the page to be vulnerable
+is to somehow be using an <em>unknown</em> ''env()'' in their styles,
+which will just result in invalid properties by default,
+and be visible in the developer's Dev Tools.
+
+Any hostile information can also only affect
+individual CSS properties that the resource explicitly opts itself into.

@@ -1,36 +1,71 @@
 <pre class='metadata'>
-Title: CSS Functions and Mixins Module
+Title: CSS Custom Functions and Mixins Module Level 1
 Shortname: css-mixins
 Level: 1
 Status: ED
+Prepare for TR: no
 Work Status: Exploring
 Group: CSSWG
 ED: https://drafts.csswg.org/css-mixins/
 TR: https://www.w3.org/TR/css-mixins-1/
 Editor: Miriam E. Suzanne, Invited Expert, http://miriamsuzanne.com/contact, w3cid 117151
 Editor: Tab Atkins-Bittner, Google, http://xanthir.com/contact/, w3cid 42199
-Abstract: This module provides the ability to define custom functional notations.
+Abstract: This module defines the ability for authors to define custom functions, acting similar to <em>parametrized</em> custom properties. They can use the full power of CSS's values and conditional rules. It also defines an early form of a similar idea for CSS rule mixins, allowing parametrized substitution of entire blocks of properties into other rules.
 Default Highlight: css
+Ignored Terms: cssText
 </pre>
 
 <pre class=link-defaults>
 spec:infra; type:dfn; text:list
-spec:css-properties-values-api; type:dfn; text:supported syntax component name
-spec:css-properties-values-api; type:dfn; text:syntax component
-spec:css-syntax-3; type:dfn; text:descriptor;
-spec:css-values-4; type:dfn; text:keyword;
-spec:css-values-4; type:dfn; text:identifier;
+spec:infra; type:dfn; for:list; text:append
+spec:css-cascade-5; type:dfn;
+	text:inherit
+	text:computed value
+	text:specified value
+spec:css-properties-values-api; type:dfn;
+	text:supported syntax component name
+	text:syntax component
+spec:css-syntax-3; type:dfn;
+	text:declaration; for:CSS
+	text:descriptor;
+spec:css-values-4; type:dfn;
+	text:keyword;
+	text:identifier;
+spec:css-values-5; type:dfn; 
+	text:invalid at computed-value time
+spec:cssom-1; type:dfn; 
+	text:specified order;
+spec:css-conditional-5; type:at-rule; 
+	text:@container
 </pre>
+
+<style>
+/* Put nice boxes around each algorithm. */
+[data-algorithm]:not(.heading) {
+	padding: .5em;
+	border: thin solid #ddd; border-radius: .5em;
+	margin: .5em calc(-0.5em - 1px);
+}
+[data-algorithm]:not(.heading) > :first-child {
+	margin-top: 0;
+}
+[data-algorithm]:not(.heading) > :last-child {
+	margin-bottom: 0;
+}
+[data-algorithm] [data-algorithm] {
+	margin: 1em 0;
+}
+</style>
 
 <!-- Big Text: intro
 
-████ █    █▌ █████▌ ████▌   ███▌
+████ █    █▌ █████▌ ████▌   ███▌ 
  ▐▌  █▌   █▌   █▌   █▌  █▌ █▌  █▌
  ▐▌  ██▌  █▌   █▌   █▌  █▌ █▌  █▌
  ▐▌  █▌▐█ █▌   █▌   ████▌  █▌  █▌
  ▐▌  █▌  ██▌   █▌   █▌▐█   █▌  █▌
  ▐▌  █▌   █▌   █▌   █▌ ▐█  █▌  █▌
-████ █▌   ▐▌   █▌   █▌  █▌  ███▌
+████ █▌   ▐▌   █▌   █▌  █▌  ███▌ 
 -->
 
 Introduction {#intro}
@@ -38,7 +73,59 @@ Introduction {#intro}
 
 	<em>This section is not normative.</em>
 
-Issue: TODO
+	Note: At this time, this specification only defines [=custom functions=],
+	which operate at the level of CSS values.
+	It is expected that it will define "mixins" later,
+	which are functions that operate at the style rule level.
+
+	[=Custom properties=] give authors a lot of power
+	to define useful, sometimes complex values
+	in one place,
+	and then re-use them across their stylesheet.
+	They can vary across the document,
+	or based on Media Queries or other conditionals,
+	making them very flexible and responsive.
+
+	However, their values are <em>fixed</em> at the point they're defined,
+	unable to be changed except by fully overriding their previous definition:
+	a ''--shadow: 2px 2px var(--shadow-color)'' declaration
+	takes its ''--shadow-color'' value from the element it's declared on,
+	and later changes to ''--shadow-color'' on descendant elements
+	don't alter the value of ''--shadow'' for them;
+	they continue to use the shadow color defined where ''--shadow'' was defined.
+	This is a common source of confusion for authors
+	making heavy use of composite variables like this.
+
+	[=Custom functions=] allow authors the same power as [=custom properties=],
+	but <em>parameterized</em>:
+	they have the same flexibility and conditionality as a [=custom property=] definition,
+	but take values from other custom properties
+	(or explicitly as arguments)
+	<em>at the point of use</em>.
+	For example, instead of a ''--shadow'' [=custom property=],
+	a ''--shadow()'' [=custom function=] could be defined instead,
+	like:
+
+	<xmp highlight=css>
+	@function --shadow(--shadow-color <color> : inherit) {
+		/* If --shadow-color argument isn't passed,
+		   or doesn't successfully parse as a <color>,
+		   try to use the --shadow-color *property*
+		   from the element instead */
+
+		/* var(--shadow-color) refers to the --shadow-color parameter,
+		   rather than a custom property,
+		   but can still use a fallback value as normal */
+		result: 2px 2px var(--shadow-color, black);
+	}
+
+	.foo {
+		--shadow-color: blue;
+		box-shadow: --shadow(); /* produces a blue shadow */
+		/* or just */
+		box-shadow: --shadow(blue);
+	}
+	</xmp>
 
 <!-- Big Text: @function
 
@@ -55,107 +142,121 @@ Defining Custom Functions {#defining-custom-functions}
 ======================================================
 
 	A [=custom function=] can be thought of as an advanced [=custom property=],
-	which instead of being substituted by a single fixed value
-	provides its substitution value based on [=function parameters=]
-	and [=local variables=].
-
-	Whenever a declaration's value contains a reference to a [=custom function=]
-	(a <<dashed-function>>),
-	the value behaves as if it contained a ''var()'',
-	with the actual check against the property's grammar delayed until computed-value time.
+	which instead of being substituted by a single fixed value,
+	computes its substitution value based on [=function parameters=]
+	and the value of [=custom properties=] at the point it's invoked.
+	Rather than the ''var()'' syntax that [=custom properties=] use for substitution,
+	[=custom functions=] are invoked by <<dashed-function>> syntax,
+	allowing additional values to be passed as arguments.
 
 	<div class='example'>
 		A simple [=custom function=] to negate a value can be defined as follows:
+
 		<pre class='lang-css'>
-		@function --negative (--value) {
+		@function --negative(--value) {
 		  result: calc(-1 * var(--value));
 		}
 		</pre>
-		Then, that function can be referenced with <code>--negative()</code>
-		in some declaration (assuming <code>--gap</code> is defined elsewhere):
+
+		Then, that function can be referenced with ''--negative()''
+		in some declaration:
+
 		<pre class='lang-css'>
-		html { padding: --negative(var(--gap)); }
+		html {
+			--gap: 1em;
+			padding: --negative(var(--gap));
+			/* or by passing the value explicitly, like: */
+			padding: --negative(1em);
+		}
 		</pre>
 	</div>
 
-	A <dfn>custom function</dfn> consists of a name (<<function-name>>),
-	a list of [=function parameter|parameters=],
-	a list of [=function dependency|dependencies=],
-	a function body,
-	and optionally a <dfn>return type</dfn> described by a [=syntax definition=].
+	<<dashed-function>>s are [=arbitrary substitution functions=],
+	like ''var()''.
+	Their presence in a property's value
+	causes it to be assumed valid at parse time,
+	and only evaluated and parsed at computed-value time,
+	after [=arbitrary substitution=] has occurred.
 
-	A <dfn>function parameter</dfn> consists of a name (<<custom-property-name>>);
-	optionally a <dfn>parameter type</dfn>, described by a [=syntax definition=];
-	and optionally a <dfn>default value</dfn>.
 
-	A <dfn>function dependency</dfn>,
-	is a special [=function parameter=],
-	that represents
-	a [=local variable=], [=function parameter=], or [=custom property=]
-	being implicitly passed as an argument from the calling context.
 
 The <dfn>@function</dfn> Rule {#function-rule}
 ----------------------------------------------
 
-The ''@function'' rule defines a [=custom function=],
-and its syntax is:
+The ''@function'' rule defines a <dfn>custom function</dfn>,
+and consists of a name,
+a list of [=function parameter|parameters=],
+a <dfn for="custom function">function body</dfn>,
+and optionally a <dfn for="custom function">return type</dfn> described by a [=syntax definition=].
+
+Each <dfn>function parameter</dfn> consists of a name (<<custom-property-name>>);
+optionally a <dfn>parameter type</dfn>, described by a [=syntax definition=];
+and optionally a <dfn>default value</dfn>.
 
 <pre class="prod def" nohighlight>
-@function <<function-name>> [ ( <<parameter-list>> ) ]?
-	[ using ( <<dependency-list>> ) ]?
-	[ returns <<type>> ]?
+&lt;@function> = @function <<function-token>> <<function-parameter>>#? )
+	[ returns <<css-type>> ]?
 {
 	<<declaration-rule-list>>
 }
 
-<dfn><<function-name>></dfn> = <<dashed-ident>>
-<dfn><<parameter-list>></dfn> = <<parameter>>#
-<dfn><<dependency-list>></dfn> = <<parameter>>#
-<dfn><<type>></dfn> = <<syntax-component>> | type( <<syntax>> )
-<dfn><<parameter>></dfn> = <<custom-property-name>> <<type>>? [ : <<declaration-value>> ]?
+<dfn><<function-parameter>></dfn> = <<custom-property-name>> <<css-type>>? [ : <<default-value>> ]?
+<dfn><<css-type>></dfn> = <<syntax-component>> | <<@function/type()>>
+<dfn><<default-value>></dfn> = <<declaration-value>>
+<dfn function lt="type()" for="@function">&lt;type()></dfn> = type( <<syntax>> )
 </pre>
 
-The name of the resulting [=custom function=] is given by the <<function-name>>,
-the [=function parameters=] are optionally given by <<parameter-list>>,
-the [=function dependencies=] are optionally given by <<dependency-list>>,
-and the [=return type=] is optionally given by the <<type>> following the "returns" keyword.
+If a [=default value=] and a [=parameter type=] are both provided,
+then the [=default value=] must [=CSS/parse=] successfully
+according to that [=parameter type=]'s syntax.
+Otherwise, the ''@function'' rule is invalid.
+
+<h4 id=function-preamble>
+The Function Preamble</h4>
+
+The <<function-token>> production
+must start with two dashes (U+002D HYPHEN-MINUS),
+similar to <<dashed-ident>>,
+or else the definition is invalid.
+
+The name of the resulting [=custom function=] is given by the name of the <<function-token>>,
+the optional [=function parameters=]
+are given by the <<function-parameter>> values
+(defaulting to an empty set),
+and the optional [=custom function/return type=] is given by the <<css-type>> following the <css>returns</css> keyword
+(defaulting to ''type(*)'').
 
 <div class='example'>
-	If the <<type>> of a [=function parameter=],
-	[=function dependency=],
-	or [=custom function=] return value
+	If the <<css-type>> of a [=function parameter=] or [=custom function/return type=]
 	can be described by a single <<syntax-component>>,
-	then the <code>type()</code> function may be omitted:
+	then the ''type()'' function can be omitted:
 
-	<pre class='lang-css'>
-	@function --foo(--a &lt;length&gt;) { /* ... */ }
-	@function --foo(--a &lt;color&gt;) { /* ... */ }
-	@function --foo(--a &lt;length&gt;+) { /* ... */ }
-	</pre>
+	<xmp class='lang-css'>
+	@function --foo(--a <length>) { /* ... */ }
+	@function --foo(--a <color>) { /* ... */ }
+	@function --foo(--a <length>+) { /* ... */ }
+	</xmp>
 
 	However,
-	any <<syntax>> that requires a <<combinator>>
-	needs to be wrapped in the <code>type()</code> function:
+	any <<syntax>> that requires a <<syntax-combinator>>
+	needs to be wrapped in the ''type()'' function:
 
-	<pre class='lang-css'>
-	@function --foo(--a type(&lt;number&gt; | &lt;percentage&gt;)) { /* ... */ }
-	</pre>
+	<xmp class='lang-css'>
+	@function --foo(--a type(<number> | <percentage>)) { /* ... */ }
+	</xmp>
 </div>
 
-Issue: Should duplicates be disallowed <em>across</em> parameters/dependencies
-	as well?
-
+The name of a ''@function'' rule is a [=tree-scoped name=].
 If more than one ''@function'' exists for a given name,
 then the rule in the stronger cascade layer wins,
 and rules defined later win within the same layer.
 
-The <<function-name>> of a ''@function'' rule is a [=tree-scoped name=].
-
-If the <<parameter-list>>
-contains the same <<custom-property-name>> more than once,
-or if the <<dependency-list>>
-contains the same <<custom-property-name>> more than once,
+If the [=function parameters=]
+contain the same <<custom-property-name>> more than once,
 then the ''@function'' rule is invalid.
+
+<h4 id=function-body>
+The Function Body</h4>
 
 The body of a ''@function'' rule accepts [=conditional group rules=],
 such as ''@media''.
@@ -163,8 +264,11 @@ Additionally, it accepts the following descriptors:
 
 	* The '@function/result' descriptor,
 		which determines the result of [=evaluating a custom function|evaluating the function=].
+		If no '@function/result' descriptor exists,
+		the function is valid,
+		but always returns the [=guaranteed-invalid value=].
 	* [=Custom properties=],
-		acting like [=local variable=] descriptors.
+		providing <dfn>local variables</dfn>.
 
 Unknown descriptors are invalid and ignored,
 but do not make the ''@function'' rule itself invalid.
@@ -180,25 +284,101 @@ Initial: n/a (see prose)
 </pre>
 
 The '@function/result' descriptor
-determines the result of [=evaluate a custom function|evaluating=]
-the [=custom function=] that is defined by a ''@function'' rule.
-Using [=locally substitute a var()|locally substituted=] ''var()'' functions,
-it can reference [=function parameters=], [=function dependencies=], [=local variables=],
+defines the result of [=evaluate a custom function|evaluating=]
+the [=custom function=] defined by its ''@function'' rule.
+Using ''var()'' functions,
+it can reference [=function parameters=], [=local variables=],
 as well as other [=custom functions=] via <<dashed-function>>s.
 
 The '@function/result' descriptor itself does not have a type,
-but its [=resolved local value|resolved=] value is type checked
-during the [=substitute a dashed function|substitution=] of a <<dashed-function>>.
+but its [=resolve function styles|resolved=] value is type-checked
+during the [=replace a dashed function|substitution=] of a <<dashed-function>>.
+
+Arguments & Local Variables {#args}
+-----------------------------------
+
+<em>This section is non-normative.</em>
+
+Within a [=custom function's=] [=function body=],
+the ''var()'' function can access
+[=local variables=]
+(the [=custom properties=] defined in the [=function body=]),
+[=function parameters=]
+(the values passed to the function, or set to default values),
+and [=custom properties=] defined at the <em>call site</em>
+(an element, or another [=custom function=]).
+
+In that list, earlier things "win" over later things of the same name--
+if you have a [=local variable=] named '--foo',
+''var(--foo)'' will be substituted by that [=local variable=],
+not by an argument or a custom property defined outside.
+The other values can still be <em>accessed</em>, however:
+setting the '--foo' local variable to ''initial''
+will resolve it to the '--foo' parameter,
+while ''inherit'' will resolve it
+to the '--foo' custom property from the call site.
+
+<div class='example'>
+	A [=custom function=] can access [=local variables=]
+	and [=function parameters=]
+	from functions higher up in the call stack:
+
+	<xmp class='lang-css'>
+	@function --outer(--outer-arg) {
+	  --outer-local: 2;
+	  result: --inner();
+	}
+	@function --inner() returns <number> {
+	  result: calc(var(--outer-arg) + var(--outer-local));
+	}
+	div {
+	  z-index: --outer(1); /* 3 */
+	}
+	</xmp>
+
+	Similarly, [=custom properties=] are implicitly available:
+
+	<xmp class='lang-css'>
+	@function --double-z() returns <number> {
+	  result: calc(var(--z) * 2);
+	}
+	div {
+	  --z: 3;
+	  z-index: --double-z(); /* 6 */
+	}
+	</xmp>
+
+	But [=function parameters=] "shadow" [=custom properties=],
+	and [=local variables=] "shadow" both:
+
+	<xmp class='lang-css'>
+	@function --add-a-b-c(--b, --c) {
+		--c: 300;
+		result: calc(var(--a) + var(--b) + var(--c));
+		/* uses the --a from the call site's custom property,
+		   the --b from the function parameter,
+		   and the --c from the local variable */
+	}
+	div {
+		--a: 1;
+		--b: 2;
+		--c: 3;
+		z-index: --add-a-b-c(20, 30); /* 321 */
+	}
+	</xmp>
+
+</div>
+
 
 <!-- Big Text: using
 
-█▌  █▌  ███▌  ████ █    █▌  ███▌
+█▌  █▌  ███▌  ████ █    █▌  ███▌ 
 █▌  █▌ █▌  █▌  ▐▌  █▌   █▌ █▌  █▌
-█▌  █▌ █▌      ▐▌  ██▌  █▌ █▌
+█▌  █▌ █▌      ▐▌  ██▌  █▌ █▌    
 █▌  █▌  ███▌   ▐▌  █▌▐█ █▌ █▌ ██▌
 █▌  █▌     █▌  ▐▌  █▌  ██▌ █▌  █▌
 █▌  █▌ █▌  █▌  ▐▌  █▌   █▌ █▌  █▌
- ███▌   ███▌  ████ █▌   ▐▌  ███▌
+ ███▌   ███▌  ████ █▌   ▐▌  ███▌ 
 -->
 
 Using Custom Functions {#using-custom-functions}
@@ -207,211 +387,320 @@ Using Custom Functions {#using-custom-functions}
 Similar to how the value of a [=custom property=] can be substituted
 into the value of another property with ''var()'',
 the result of a [=custom function=] evaluation can be substituted
+into the value of a property
 with a <<dashed-function>>.
 
 A <dfn><<dashed-function>></dfn> is a [=functional notation=]
 whose function name starts with two dashes (U+002D HYPHEN-MINUS).
-Its syntax is:
+Its [=argument grammar=] is:
 
-<pre class="prod def" nohighlight>
-	--*() = --*( <<declaration-value>># )
+<pre class="prod informative" nohighlight>
+	&lt;dashed-function> = --*( <<declaration-value>>#? )
 </pre>
-
-Issue: Mention semicolon upgrades.
 
 A <<dashed-function>> can only be used where ''var()'' is allowed.
 
 If a property contains one or more <<dashed-function>>s,
 the entire property’s grammar must be assumed to be valid at parse time.
 At computed-value time,
-every <<dashed-function>> must be [=substitute a dashed function|substituted=]
+every <<dashed-function>> must be [=replace a dashed function|replaced=]
 before finally being checked against the property's grammar.
 
-When a value is being computed,
-substitution of ''var()'', ''env()'' and ''attr()''
-must take place <em>before</em> <<dashed-function>> substitution.
+Note: Within the body of a [=custom function=],
+''var()'' functions might resolve differently
+than on the element the <<dashed-function>> is used on.
+See [[#evaluating-custom-functions]].
 
-	Note: This means arguments passed to a custom function
-		never contain ''var()'', or similar functions.
+A <<dashed-function>> is evaluated in some context:
+either in a property value on an element
+(or in a descriptor that is eventually treated like a property on an element,
+such as in ''@keyframes''),
+or in a descriptor in the [=function body=] of another [=custom function=]
+that is being applied to a "hypothetical" element.
+Either way, this provides a <dfn>calling context</dfn>,
+which contains the property or descriptor name containing the <<dashed-function>>,
+and the element (or "hypothetical" element) that property/descriptor is being applied to.
 
-A ''var()'' function within a [=local variable=],
-or within the ''@function/result'' descriptor,
-invokes [=locally substitute a var()|local substitution=],
-rather than the computed-value based substitution
-described in [[!css-variables]].
+As [=calling contexts=] are nested by <<dashed-function>> evaluations
+<em>inside of</em> [=custom functions=],
+a [=calling context's=] <dfn for="calling context">root element</dfn>
+is the real element at the root of the [=calling context=] stack.
 
 <div algorithm>
-	To <dfn>substitute a dashed function</dfn> in a value,
-		with |dashed function| being a <<dashed-function>>:
+	To <dfn>replace a dashed function</dfn> |dashed function|,
+		with a list of |arguments|:
 
 		1. Let |function| be the result of dereferencing
 			the |dashed function|'s name as a [=tree-scoped reference=].
-			If no such name exists, return failure.
-		2. Let |dependency values| be an initially empty [=list=].
-		3. For each |dependency| in |function|'s [=function dependency|dependencies=]:
-			* Let |dependency value| be the value that would be substituted
-				if a ''var()'' function had been specified explicitly
-				at the end of |dashed function|'s argument list,
-				with |dependency| as its only argument.
-			* If that substitution would have made a containing declaration
-				[=invalid at computed-value time=],
-				set |dependency value| to the [=guaranteed-invalid value=].
-			* Append the result of [=resolving an argument=] to |dependency values|,
-				using |dependency value| as value,
-				and |dependency| as parameter.
+			If no such name exists, return the [=guaranteed-invalid value=].
+		2. For each |arg| in |arguments|, 
+			[=substitute arbitrary substitution functions=] in |arg|,
+			and replace |arg| with the result.
+
+			Note: This may leave some (or all) arguments as the [=guaranteed-invalid value=],
+				triggering [=default values=] (if any).
+		3. If |dashed function| is being substituted into a property on an element,
+			let |calling context| be a [=calling context=]
+			with that element and that property
+
+			Otherwise, it's being substituted into a descriptor
+			on a "hypothetical element",
+			while evaluating another [=custom function=].
+			Let |calling context| be a [=calling context=]
+			with that "hypothetical element" and that descriptor.
+
 		4. [=Evaluate a custom function=],
-			using |function|, |dashed function| and |dependency values|.
-		5. If failure was returned, return failure.
-		6. Otherwise,
-			replace the <<dashed-function>> with the [=equivalent token sequence=]
+			using |function|, |arguments|, and |calling context|,
+			and return the [=equivalent token sequence=]
 			of the value resulting from the evaluation.
 </div>
 
-If [=substitute a dashed function=] fails,
-and the substitution is taking place on a property's value,
-then the declaration containing the <<dashed-function>> becomes
-[=invalid at computed-value time=].
+<div class='example'>
+	A [=comma-containing productions|comma-containing value=]
+	may be passed as a single argument
+	by wrapping the value in curly braces, <code>{}</code>:
+
+	<pre class='lang-css'>
+	@function --max-plus-x(--list, --x) {
+	  result: calc(max(var(--list)) + var(--x));
+	}
+	div {
+	  width: --max-plus-x({ 1px, 7px, 2px }, 3px); /* 10px */
+	}
+	</pre>
+</div>
+
+<div class='example'>
+	In the following,
+	<code>--foo()</code> is in a cycle with itself:
+
+	<pre class='lang-css'>
+	@function --foo(--x) {
+	  result: --foo(10);
+	}
+	</pre>
+
+	Similarly,
+	<code>--bar()</code> is in a cycle with itself,
+	even though the local variable <code>--x</code> is never referenced
+	by '@function/result':
+
+	<pre class='lang-css'>
+	@function --bar() {
+	  --x: --bar();
+	  result: 1;
+	}
+	</pre>
+
+	However, <code>--baz()</code> is not in a cycle with itself here,
+	since we never evaluate the <code>result</code> declaration within
+	the <code>@media</code> rule:
+
+	<pre class='lang-css'>
+	@function --baz(--x) {
+	  @media (unknown-feature) {
+	    result: --baz(42);
+	  }
+	  result: 1;
+	}
+
+	</pre>
+</div>
+
+<div class='example'>
+	The function <code>--baz()</code> is not in a cycle in the example below:
+	even though <code>var(--x)</code> and <code>var(--y)</code> appear in the function body,
+	they refer to a [=function parameter=] and [=local variable=], respectively.
+	The [=custom properties=] <code>--x</code> and <code>--y</code>
+	both reference <code>--baz()</code>, but that's fine:
+	those [=custom properties=] are not referenced within <code>--baz()</code>.
+
+	<pre class='lang-css'>
+	@function --baz(--x) {
+	  --y: 10px;
+	  result: calc(var(--x) + var(--y));
+	}
+
+	div {
+	  --x: --baz(1px);
+	  --y: --baz(2px);
+	  width: var(--x);  /* 11px */
+	  height: var(--y); /* 12px */
+	}
+	</pre>
+</div>
 
 Evaluating Custom Functions {#evaluating-custom-functions}
 ----------------------------------------------------------
 
-<div algorithm>
-	To <dfn>evaluate a custom function</dfn>,
-	with |function| being a [=custom function=],
-	|dashed function| being the <<dashed-function>> invoking that |function|,
-	and |dependency values| being a [=list=] of values.
-
-	1. If the number of values in |dashed function|'s argument list
-		is greater than the number of values in |function|'s [=function parameter|parameters=],
-		return failure.
-	2. For each value |parameter| in |function|'s [=function parameter|parameters=],
-		let |argument| be the corresponding value in |dashed function|'s argument list
-		at the same index:
-		* If |argument| does not exist,
-			set |argument| to the [=guaranteed-invalid value=].
-		* Replace the value in |dashed function|'s argument list
-			with the result of [=resolving an argument=],
-			using |argument| as value,
-			and |parameter| as parameter.
-	3. Let |result| be the [=resolved local value=]
-		of the '@function/result' descriptor,
-		using |function|, |dashed function|, and |dependency values|.
-	4. If |function| has a [=return type=],
-		set |result| to the result of [=resolve a typed value|resolving a typed value=],
-		using |result| as the value,
-		and the [=syntax definition=] associated with the [=return type=] as the syntax.
-	5. If |result| is the [=guaranteed-invalid value=],
-		return failure.
-	6. Otherwise,
-		return |result|.
-</div>
+[=Custom functions=] are evaluated by, essentially,
+pretending their function body is a [=style rule=]
+being applied to a hypothetical element,
+resolving styles as normal,
+and then returning the value of the '@function/result' descriptor on that hypothetical element.
+The hypothetical element "inherits" the values of all custom properties
+as if it were a child of its [=calling context=],
+with its [=function parameters=] overriding "inherited" custom properties of the same name.
 
 <div algorithm>
-	To <dfn>resolve an argument</dfn>,
-	with value |value|,
-	and [=function parameter|parameter=] |parameter|:
+	To <dfn>evaluate a custom function</dfn> |custom function|,
+	given a [=calling context=] |calling context|
+	and a list of CSS values |arguments|,
+	returning a CSS value:
 
-	1. If |value| is not the [=guaranteed-invalid value=],
-		and |parameter| has a [=parameter type|type=],
-		set |value| to the result of [=resolve a typed value|resolving a typed value=]
-		using |value| as the value,
-		and the [=syntax definition=] associated with |parameter|'s type as the syntax.
-		<span class=note>This step may cause |value| to become [=guaranteed-invalid value|guaranteed-invalid=].</span>
-	2. If |value| is the [=guaranteed-invalid value=],
-		and |parameter| has a [=default value=],
-		set |value| to one of the following:
-		<dl class="switch">
-			:   If |parameter| has a [=parameter type|type=]
-			::  The result of [=resolve a typed value|resolving a typed value=]
-				using the |parameter|'s [=default value=] as the value,
-				and the [=syntax definition=] associated with |parameter|'s type as the syntax.
+	1. Let |substitution context| be a [=substitution context=]
+		containing &bs<<;"function", |custom function|&bs>>;.
 
-			:   Otherwise
-			::  The |parameter|'s [=default value=].
-		</dl>
-	3. Return |value|.
-
-</div>
-
-<div algorithm>
-	To <dfn>resolve a typed value</dfn>,
-	with value |value|,
-	and [=syntax definition=] |syntax|:
-
-	1. If |value| is the [=guaranteed-invalid value=],
-		return |value|.
-	2. <a href="https://drafts.css-houdini.org/css-properties-values-api-1/#calculation-of-computed-values">Compute</a>
-		|value| as if it were the value associated with a [=registered custom property=]
-		whose [=syntax definition=] is |syntax|.
-	3. If this would lead to a declaration being [=invalid at computed-value time=],
+		Note: Due to [=tree-scoped names|tree-scoping=],
+		the same function name may appear multiple times on the stack
+		while referring to different [=custom functions=].
+		For this reason, the [=custom function=] itself is included
+		in the [=substitution context=], not just its name.
+	2. [=guarded|Guard=] |substitution context| for the remainder of this algorithm.
+		If |substitution context| is marked as [=cyclic substitution context|cyclic=],
 		return the [=guaranteed-invalid value=].
-	4. Otherwise, return that value.
+	3. If the number of items in |arguments|
+		is greater than the number of [=function parameters=] in |custom function|,
+		return the [=guaranteed-invalid value=].
+	4. Let |registrations| be an initially empty set of [=custom property registrations=].
+	5. For each [=function parameter=] of |custom function|,
+		create a [=custom property registration=]
+		with the parameter's name,
+		a syntax of the [=parameter type=],
+		an inherit flag of "true",
+		and no initial value.
+		Add the registration to |registrations|.
+	6. If |custom function| has a [=custom function/return type=],
+		create a [=custom property registration=]
+		with the name "return"
+		(violating the usual rules for what a registration's name can be),
+		a syntax of the [=custom function/return type=],
+		an inherit flag of "false",
+		and no initial value.
+		Add the registration to |registrations|.
+	7. Let |argument rule| be an initially empty [=style rule=].
+	8. For each [=function parameter=] of |custom function|:
+		1. Let |arg value| be the value of the corresponding argument in |arguments|,
+			or the [=guaranteed-invalid value=] if there is no corresponding argument.
+		2. Let |default value| be the parameter's [=default value=].
+		3. Add a [=custom property=] to |argument rule|
+			with a name of the parameter's name,
+			and a value of ''first-valid(|arg value|, |default value|)''.
+	9. [=Resolve function styles=] using |custom function|, |argument rule|, |registrations|, and |calling context|.
+		Let |argument styles| be the result.
+	10. Let |body rule| be the [=function body=] of |custom function|,
+		as a [=style rule=].
+	11. For each [=custom property registration=] of |registrations|
+		except the registration with the name "result",
+		set its initial value
+		to the corresponding value in |argument styles|,
+		set its syntax
+		to the [=universal syntax definition=],
+		and prepend a [=custom property=] to |body rule|
+		with the property name and value in |argument styles|.
+	12. [=Resolve function styles=] using |custom function|, |body rule|, |registrations|, and |calling context|.
+		Let |body styles| be the result.
+	13. If |substitution context| is marked as a [=cyclic substitution context=],
+		return the [=guaranteed-invalid value=].
+
+		Note: Nested [=arbitrary substitution functions=]
+			may have marked |substitution context| as [=cyclic substitution context|cyclic=]
+			at some point after step 2,
+			for example when resolving '@function/result'.
+	14. Return the value of the '@function/result' property in |body styles|.
 </div>
-
-Parameters and Locals {#parameters}
------------------------------------
-
-	The [=function parameters=] and [=function dependencies=] of a [=custom function=]
-	are available for [=locally substitute a var()|local substitution=]
-	as if they were declared as [=local variables=]
-	at the start of the ''@function'' rule body.
-
-	Note: A [=local variable=] with the same name
-		as a [=function parameter=]/[=function dependency=] is allowed,
-		but will make the parameter/dependency unreachable
-		for [=locally substitute a var()|substitution=]
-
-	A <dfn>local variable</dfn>
-	is a custom property defined with the body of a [=custom function=].
-	It is only visible within the function where it is defined.
 
 <div algorithm>
-	To <dfn>locally substitute a var()</dfn> within a value,
-	with |function| being a [=custom function=],
-	|dashed function| being the <<dashed-function>> invoking that |function|,
-	and |dependency values| being a [=list=] of values:
+	To <dfn>resolve function styles</dfn>,
+	given a [=custom function=] |custom function|,
+	a style rule |rule|,
+	a set of [=custom property registrations=] |registrations|,
+	and a [=calling context=] |calling context|,
+	returning a set of [=computed value|computed=] styles:
 
-	1. Let |substitution value| be one of the following options,
-		depending on the [=custom property=] named in the first argument of the ''var()'' function:
-		<dl class="switch">
+	1. Create a "hypothetical element" |el|
+		that acts as a child of |calling context|'s element.
+		|el| is [=featureless=],
+		and only [=custom properties=]
+		and the '@function/result' descriptor apply to it.
+	2. Apply |rule| to |el| to the [=specified value=] stage,
+		with the following changes:
 
-			:   If the [=custom property=] name matches a [=local variable=] within |function|
-			::  The [=resolved local value=] of that [=local variable=].
+		* Only the [=custom property registrations=] in |registrations| are visible;
+			all other [=custom properties=] are treated as unregistered.
 
-			:   Otherwise, if the [=custom property=] name matches a [=function parameter|parameter=] within |function|
-			::  The corresponding argument value within the |dashed function|.
+		* The [=inherited value=] of |calling context|'s property
+			is the [=guaranteed-invalid value=].
 
-			:   Otherwise, if the [=custom property=] name matches a [=function dependency|dependency=] within |function|
-			::  The corresponding value of that [=function dependency|dependency=]
-				within |dependency values|.
+		* On custom properties,
+			the [=CSS-wide keywords=] have the following effects:
 
-			:   Otherwise
-			::  The [=guaranteed-invalid value=].
-		</dl>
+			<dl>
+				<dt>''initial''</dt>
+				<dd>
+					Resolves to the initial value of the custom property
+					within |registrations|.
+				</dd>
 
-	2. If |substitution value| is not the [=guaranteed-invalid value=],
-		replace the ''var()'' function by that value.
+				<dt>''inherit''</dt>
+				<dd>
+					Resolves like an ''inherit()'' function
+					with the custom property name as its one and only argument.
 
-	3. Otherwise, if the ''var()'' function has a fallback value as its second argument,
-		replace the ''var()'' function by the [=resolved local value|locally resolved=] fallback value.
+					Note: This ensures that a [=function parameter=] defaulted to ''inherit''
+						is reinterpreted using the local [=parameter type=].
+				</dd>
 
-	4. Otherwise, return failure.
+				<dt>any other [=CSS-wide keyword=]</dt>
+				<dd>
+					Resolves to the [=guaranteed-invalid value=].
+				</dd>
+			</dl>
+
+			Note: ''initial'' references the [=custom property registration=]
+			created from the [=function parameters=],
+			letting you "reset" a property to the passed value.
+			''inherit'' inherits from the [=calling context=]'s element.\
+
+			On '@function/result',
+			all [=CSS-wide keywords=] are left unresolved.
+
+			Note: ''result: inherit'', for example,
+			will cause the <<dashed-function>> to <em>evaluate to</em> the ''inherit'' keyword,
+			similar to ''var(--unknown, inherit)''.
+		* For a given [=custom property=] |prop|,
+			during [=property replacement=] for that property,
+			the [=substitution context=] also includes |custom function|.
+			In other words, the [=substitution context=] is
+			&bs<<;"property", |prop|'s name, |custom function|&bs>>;
+
+			Note: Due to dynamic scoping,
+			the same property name may appear multiple times on the stack
+			while referring to different [=custom properties=].
+			For this reason, the [=custom function=] itself is included
+			in the [=substitution context=], not just its name.
+
+	3. Determine the [=computed value=] of all [=custom properties=]
+		and the '@function/result' "property" on |el|,
+		as defined in [[css-properties-values-api#calculation-of-computed-values]],
+		with changes from the previous step,
+		and the following:
+
+		* Aside from references to [=custom properties=]
+			(which use the values on |el| as normal)
+			and numbers/percentages
+			(which are left unresolved in custom properties, as normal),
+			all values which would normally refer to the element being styled
+			instead refer to |calling context|'s [=calling context/root element=].
+
+			Note: For example, ''attr()'' in a property,
+			or ''@container'' queries in the rule.
+
+	4. Return |el|'s styles.
+
+		Note: Only [=custom properties=] and the '@function/result' descriptor
+		will be used from these styles.
 </div>
-
-A <dfn>resolved local value</dfn> is the value of a [=local variable=] or [=descriptor=], except:
-
-* Any ''var()'' functions are replaced by [=locally substitute a var()|local substitution=].
-* Any ''env()'' or ''attr()'' functions are substituted normally.
-* Any <<dashed-function>>s are replaced by [=substitute a dashed function|dashed function substitution=].
-
-If any substitution algorithm returns failure,
-then the [=resolved local value=] of a [=local variable=]
-is the [=guaranteed-invalid value=].
-
-Cycles {#cycles}
-----------------
-
-Issue: TODO
 
 <!-- Big Text: execution
 
@@ -445,7 +734,6 @@ If this happens, then declarations appearing later win over earlier ones.
 	</pre>
 	The value of the '@function/result' descriptor of <code>--mypi</code>
 	is <code>3.14</code>.
-	</pre>
 </div>
 
 <div class='example'>
@@ -457,7 +745,6 @@ If this happens, then declarations appearing later win over earlier ones.
 	</pre>
 	[=Local variable=] descriptors may appear before or after
 	they are referenced.
-	</pre>
 </div>
 
 Conditional Rules {#conditional-rules}
@@ -485,10 +772,10 @@ or acting as if nothing exists at that location otherwise.
 		}
 	}
 	</pre>
+
 	The value of the '@function/result' descriptor
 	is <code>20px</code> if the media query's condition is true,
 	and <code>16px</code> otherwise.
-	</pre>
 </div>
 
 <div class='example'>
@@ -502,9 +789,9 @@ or acting as if nothing exists at that location otherwise.
 		result: 16px;
 	}
 	</pre>
+
 	The value of the '@function/result' descriptor
 	is always <code>16px</code> in the above example.
-	</pre>
 </div>
 
 <div class='example'>
@@ -520,6 +807,709 @@ or acting as if nothing exists at that location otherwise.
 	</pre>
 </div>
 
+
+<!-- Big Text: @mixin
+
+ ████▌  █     █ ████ █     █ ████ █    █▌
+█▌   █▌ ██   ██  ▐▌   █   █   ▐▌  █▌   █▌
+█▌▐█ █▌ █▌█ █▐█  ▐▌    █ █    ▐▌  ██▌  █▌
+█▌▐█ █▌ █▌ █ ▐█  ▐▌     █     ▐▌  █▌▐█ █▌
+█▌ ██▌  █▌   ▐█  ▐▌    █ █    ▐▌  █▌  ██▌
+█▌      █▌   ▐█  ▐▌   █   █   ▐▌  █▌   █▌
+ ████▌  █▌   ▐█ ████ █     █ ████ █▌   ▐▌
+-->
+
+<h2 id=defining-mixins>
+Defining Mixins</h2>
+
+A [=mixin=] is in many ways similar to a [=custom function=],
+but rather than extending/upgrading [=custom properties=],
+[=mixins=] extend/upgrade [=nested style rules=],
+making them reusable and customizable with arguments.
+
+<div class=example>
+	For example, the following code sets up a mixin
+	applying all the properties you need for a "gradient text" effect,
+	including guarding it with [=supports queries=]:
+
+	<pre highlight=css>
+		@mixin --gradient-text(
+			--from type(color): mediumvioletred,
+			--to type(color): teal,
+			--angle: to bottom right,
+		) {
+			color: env(--from, env(--to));
+
+			@supports (background-clip: text) or (-webkit-background-clip: text) {
+				@env --gradient: linear-gradient(env(--angle), env(--from), env(--to));
+				background: env(--gradient, env(--from));
+				color: transparent;
+				-webkit-background-clip: text;
+				background-clip: text;
+			}
+		}
+
+		h1 {
+			@apply --gradient-text(pink, powderblue);
+		}
+	</pre>
+
+	Note that this example also uses a [=scoped environment variable=]
+	(along with the arguments, which implicitly define [=scoped environment variables=])
+	which is scoped to <em>the rule itself</em>
+	(rather than being applied to the element, like a [=custom property=] would be)
+	to hold a temporary value to aid in readability of the [=mixin=],
+	without polluting the element's styles with unwanted [=custom properties=].
+
+	This is exactly equivalent to writing a [=nested style rule=] literally into the `h1` styles:
+
+	<pre highlight=css>
+		h1 {
+			@nest {
+				@env --from: pink;
+				@env --to: powderblue;
+				@env --angle: to bottom right;
+				color: env(--from, env(--to));
+
+				@supports (background-clip: text) or (-webkit-background-clip: text) {
+					@env --gradient: linear-gradient(env(--angle), env(--from), env(--to));
+					background: env(--gradient, env(--from));
+					color: transparent;
+					-webkit-background-clip: text;
+					background-clip: text;
+				}
+			}
+		}
+	</pre>
+
+	(Where <css>@nest</css> is a fictitious rule
+	representing a [=nested declarations rule=].)
+</div>
+
+Issue: The entire ''@mixin'' feature is experimental and under active development,
+and is much less stable than ''@function''.
+Expect things to change frequently for now.
+
+
+<h3 id=mixin-rule>
+The <dfn>@mixin</dfn> rule</h3>
+
+The ''@mixin'' rule defines a <dfn>mixin</dfn>,
+and consists of a name,
+a list of [=mixin parameters=],
+and a [=mixin body=].
+(Identical to ''@function'',
+save that it lacks a [=custom function/return type=].)
+
+<pre class="prod def">
+	<<@mixin>> = @mixin <<function-token>> <<function-parameter>>#? , @contents? )
+	{
+		<<declaration-rule-list>>
+	}
+</pre>
+
+Differing from the ''@function'' rule,
+the final item in the parameters list
+can be the <<at-keyword-token>> ''@contents'',
+indicating that this [=mixin=] accepts a ''@contents'' block.
+
+If a [=default value=] and a [=parameter type=] are both provided,
+then the default value must parse successfully according to that parameter type’s syntax.
+Otherwise, the ''@mixin'' rule is invalid.
+
+<h4 id=mixin-preamble>
+The Mixin Preamble</h4>
+
+The <<function-token>> production
+must start with two dashes (U+002D HYPHEN-MINUS),
+similar to <<dashed-ident>>,
+or else the definition is invalid.
+
+The name of the resulting [=mixin=] is given by the name of the <<function-token>>,
+the optional [=mixin parameters=]
+are given by the <<function-parameter>> values
+(defaulting to an empty set).
+
+The name of a ''@mixin'' rule is a [=tree-scoped name=].
+If more than one ''@mixin'' exists for a given name,
+then the rule in the stronger cascade layer wins,
+and rules defined later win within the same layer.
+
+If the [=mixin parameters=]
+contain the same <<custom-property-name>> more than once,
+then the ''@mixin'' rule is invalid.
+
+<h4 id=mixin-body dfn lt="mixin body" export>
+The Mixin Body</h4>
+
+The body of a ''@mixin'' rule acts as a [=nested declarations rule=],
+and accepts the same properties and rules
+that a normal [=nested declarations rule=] would.
+
+In particular, further [=mixins=] can be invoked
+(via the ''@apply'' rule)
+within a [=mixin body=].
+
+Unknown properties and rules are invalid and ignored,
+but do not make the ''@mixin'' rule itself invalid.
+
+<!-- Big Text: params 
+
+████▌   ███▌  ████▌   ███▌  █     █  ███▌ 
+█▌  █▌ ▐█ ▐█  █▌  █▌ ▐█ ▐█  ██   ██ █▌  █▌
+█▌  █▌ █▌  █▌ █▌  █▌ █▌  █▌ █▌█ █▐█ █▌    
+████▌  █▌  █▌ ████▌  █▌  █▌ █▌ █ ▐█  ███▌ 
+█▌     █████▌ █▌▐█   █████▌ █▌   ▐█     █▌
+█▌     █▌  █▌ █▌ ▐█  █▌  █▌ █▌   ▐█ █▌  █▌
+█▌     █▌  █▌ █▌  █▌ █▌  █▌ █▌   ▐█  ███▌ 
+-->
+
+<h3 id=mixin-args dfn lt="mixin parameter" export>
+Mixin Parameters</h3>
+
+Within a [=mixin body=],
+the ''env()'' function can access [=scoped environment variables=]
+defined within the [=mixin body=],
+defined by the mixin's arguments,
+or those defined at the <em>call site</em>
+(a style rule, or another [=mixin=]).
+
+In that list, earlier things "win" over later things of the same name,
+exactly as if the [=mixin body=] was a [=nested declarations rule=]
+placed at its call site.
+Specifically, it desugars to <em>two</em> [=nested declarations rules=],
+to correctly reproduce the argument scope.
+
+<div class=example>
+	For example, the following mixin use:
+
+	<xmp highlight=css>
+	@mixin --nested(--color2: green) {
+		@env --color3: blue;
+		background: linear-gradient(env(--color1), env(--color2), env(--color3));
+	}
+	p.nested {
+		@env --color1: red;
+		@apply --nested();
+	}
+	</xmp>
+
+	is exactly equivalent to:
+
+	<xmp highlight=css>
+	p.nested {
+		@env --color1: red;
+		@nest {
+			@env --color2: green;
+			@nest {
+				@env --color3: blue;
+				background: linear-gradient(env(--color1), env(--color2), env(--color3));
+			}
+		}
+	}
+	</xmp>
+
+	(Where <css>@nest</css> here is a fictitous rule
+	representing a [=nested declarations rule=].)
+</div>
+
+<div class=example>
+	[=Scoped environment variables=] defined in mixins can "shadow" ones defined higher up,
+	just like they can in [=nested style rules=] normally
+	(and like how variables can be shadowed in [=custom functions=]):
+
+	<xmp class='lang-css'>
+	@mixin --z-index-a-b-c(--b, --c) {
+		@env --c: 300;
+		z-index: calc(env(--a) + env(--b) + env(--c));
+		/* uses the --a from the call site's envs,
+		   the --b from the mixin parameter,
+		   and the --c from the local env */
+	}
+	div {
+		@env --a: 1;
+		@env --b: 2;
+		@env --c: 3;
+		@apply --add-a-b-c(20, 30); /* 321 */
+	}
+	</xmp>
+</div>
+
+Note that [=mixin parameters=] are [=scoped environment variables=]
+rather than [=custom properties=],
+which means they exist in a separate namespace
+and don't interfere with [=custom properties=].
+
+The two generally act very similarly,
+except for the slightly different definition syntax
+(a [=custom property=] versus an ''@env'' rule)
+and substitution functions
+(''var()'' versus ''env()''),
+but using [=custom properties=] actually writes those properties
+into the invoking style rule
+(potentially interacting with other definitions and uses of that [=custom property=],
+which can be good or bad),
+while ''@env'' rules in a [=mixin=]
+aren't visible to anything outside of the [=mixin body=].
+
+<div class=example>
+	For example, this code shows a [=mixin=]
+	setting [=custom properties=] for other properties to use:
+
+	<xmp highlight=css>
+	@mixin --tint-shade(--hue <angle>) {
+		--light-tint: lch(90% 20% env(--hue));
+		--dark-shade: lch(10% 80% env(--hue));
+	}
+	.warning {
+		@apply --tint-shade(0deg);
+		background: var(--light-tint);
+		color: var(--dark-shade);
+		padding: .5em;
+		border: thick solid currentcolor;
+	}
+	</xmp>
+
+	If the [=mixin=] had instead declared them as ''@env --light-tint: ...;''/etc,
+	then those would only be available <em>within</em> the [=mixin body=],
+	and the ''.warning'' rule would not be able to use them.
+</div>
+
+Note as well that [=scoped environment variables=] do not have an element context,
+so they can't fully resolve values that require an element context,
+like ''em'' lengths or ''var()'' functions,
+at definition time.
+Instead, they'll be resolved at each point they're used,
+similar to an unregistered [=custom property=].
+
+<div class=example>
+	For example, this mixin applies a size to an element, its parent, and its children.
+	If an ''em'' length is used, all of these might be different values:
+
+	<xmp highlight=css>
+	@mixin --triple-border(--size <length>) {
+		&, :has(&), & > * {
+			border-width: env(--size);
+		}
+	}
+	section {
+		font-size: 16px;
+	}
+	section > h1 {
+		font-size: 30px;
+		@apply --triple-border(.5em);
+	}
+	section > h1 > small {
+		font-size: 20px;
+	}
+	</xmp>
+
+	In this example,
+	despite them all being set with the same ''env(--size)'' value,
+	the `section` element has a border of ''8px'',
+	the `h1` element has a border of ''15px'',
+	and the `small` element has a border of ''10px''.
+
+	There are some ways to work around this, if desired.
+	For example, the value can be stored in a [=registered custom property=]
+	with the appropriate type,
+	so it resolves on one element and then inherits as the absolute value,
+	or passed through a [=custom function=] with a typed argument.
+
+	<xmp highlight=css>
+	@function --as-length(--arg <length>) { result: var(--arg); }
+	@mixin --triple-border(--size <length>) {
+		:has(&) {
+			--triple-border-size: --as-length(env(--size));
+		}
+		&, :has(&), & > * {
+			border-width: var(--triple-border-size);
+		}
+	}
+	section {
+		font-size: 16px;
+	}
+	section > h1 {
+		font-size: 30px;
+		@apply --triple-border(.5em);
+	}
+	section > h1 > small {
+		font-size: 20px;
+	}
+	</xmp>
+
+	In the above code, the [=mixin parameter=]
+	is used to set a [=custom property=] on the parent element,
+	where it's forced to resolve as a length
+	due to being passed through the [=custom function=].
+	All the styles then use that [=custom property=]
+	(via ''var()'')
+	rather than the [=mixin parameter=]
+	(via ''env()''),
+	so they all share the same already-resolved value.
+
+	(Note that this value is resolved on the parent element
+	the [=custom property=] is defined on,
+	becoming ''8px'',
+	rather than resolving against the element the [=mixin=] is called on,
+	which would give ''15px''.
+	That's an unavoidable limitation of this situation.)
+</div>
+
+Issue: Do we want to try and figure out a way to have a mixin parameter
+"remember" what element it was called on,
+so it can resolve against that element consistently,
+rather than require these workarounds?
+I think that's inherently cyclic, tho--
+imagine an ''em'' length used to set 'font-size' on a parent element.
+
+
+
+
+<!-- Big Text: @contents
+
+ ████▌   ███▌   ███▌  █    █▌ █████▌ █████▌ █    █▌ █████▌  ███▌ 
+█▌   █▌ █▌  █▌ █▌  █▌ █▌   █▌   █▌   █▌     █▌   █▌   █▌   █▌  █▌
+█▌▐█ █▌ █▌     █▌  █▌ ██▌  █▌   █▌   █▌     ██▌  █▌   █▌   █▌    
+█▌▐█ █▌ █▌     █▌  █▌ █▌▐█ █▌   █▌   ████   █▌▐█ █▌   █▌    ███▌ 
+█▌ ██▌  █▌     █▌  █▌ █▌  ██▌   █▌   █▌     █▌  ██▌   █▌       █▌
+█▌      █▌  █▌ █▌  █▌ █▌   █▌   █▌   █▌     █▌   █▌   █▌   █▌  █▌
+ ████▌   ███▌   ███▌  █▌   ▐▌   █▌   █████▌ █▌   ▐▌   █▌    ███▌ 
+-->
+
+<h3 id='contents-rule'>
+The <dfn>@contents</dfn> Rule</h3>
+
+In addition to accepting arguments passed by the <<dashed-function>> in the ''@apply'' rule,
+a [=mixin=] can accept a <dfn>contents block</dfn>.
+This is indicated by the mixin using a final ''@contents'' <<at-keyword-token>> in its parameter list,
+and is passed by giving the ''@apply'' rule invoking the mixin
+a block.
+
+This allows the invoker of the [=mixin=] to pass an entire style block,
+which the [=mixin=] can then substitute into itself.
+This is useful, for example,
+if the [=mixin=] handles some common conditions for the author,
+and substitutes the [=contents block=] into a predefined ''@media'' or ''@container'' rule.
+
+The syntax of a ''@contents'' at-rule is:
+
+<pre class="prod def">
+	<<@contents>> = @contents [ { <<declaration-list>> } ]?
+</pre>
+
+That is, it is either an <em>empty</em> statement ended immediately by a semicolon,
+or a block treated as a [=nested declarations rule=].
+The empty statement form behaves identically to passing an empty block.
+
+* If the [=mixin=] did not declare a ''@contents'' parameter,
+	the ''@contents'' rule is ignored,
+	substituting with nothing.
+	<span class=note>(And if the ''@apply'' rule tries to pass a [=contents blocks=],
+	it's an invalid invocation and has no effect.)</span>
+* Otherwise, if the ''@apply'' rule invoking the [=mixin=] passed a [=contents block=],
+	the ''@contents'' is replaced with the [=contents block=],
+	treating it as a [=nested declarations rule=].
+* Otherwise, if the ''@apply'' rule did not pass a [=contents block=],
+	the ''@contents'' rule is replaced with its own <<declaration-list>>,
+	treated as a [=nested declarations rule=].
+
+Outside of a [=mixin body=],
+the ''@contents'' rule is invalid and ignored.
+
+<div class=example>
+	For example, the following mixins
+	abstracts the cases that the page would consider to be appropriate
+	for a "single column" layout,
+	allowing the rest of the page to handle the case without worrying about the details,
+	so the conditions can be adjusted in the future if necessary:
+
+	<pre highlight=css>
+	@mixin --one-column(@contents) {
+		@media (width <= 800px) {
+			@contents;
+		}
+	}
+	@mixin --two-column(@contents) {
+		@media (width > 800px) {
+			@contents;
+		}
+	}
+	body {
+		@apply --one-column {
+			display: flex;
+			flex-flow: column;
+		}
+		@apply --two-column {
+			display: grid;
+			grid-template-columns: ;
+		}
+	}
+	</pre>
+</div>
+
+
+
+Using Mixins {#using-mixins}
+============================
+
+The result of a [=mixin=] application
+is substituted into the body of another [=style rule=]
+as a [=nested declarations rule=]
+via the ''@apply'' rule.
+
+<!-- Big Text: @apply
+
+ ████▌   ███▌  ████▌  ████▌  █▌    █   ▐▌
+█▌   █▌ ▐█ ▐█  █▌  █▌ █▌  █▌ █▌    ▐▌  █ 
+█▌▐█ █▌ █▌  █▌ █▌  █▌ █▌  █▌ █▌     █ ▐▌ 
+█▌▐█ █▌ █▌  █▌ ████▌  ████▌  █▌     ▐▌█  
+█▌ ██▌  █████▌ █▌     █▌     █▌      █▌  
+█▌      █▌  █▌ █▌     █▌     █▌      █▌  
+ ████▌  █▌  █▌ █▌     █▌     █████   █▌  
+-->
+
+<h3 id=apply-rule>
+The <dfn>@apply</dfn> Rule</h3>
+
+The ''@apply'' rule applies a [=mixin=],
+causing it to substitute into the rule
+in place of the ''@apply'' rule itself.
+
+Its grammar is:
+
+<pre class="prod">
+<<@apply>> = @apply [ <<dashed-ident>> | <<dashed-function>> ] [ { <<declaration-list>> } ]?;
+</pre>
+
+<div class=example>
+	For example, a [=mixin=] can be applied in any of these ways:
+
+	<pre highlight=css>
+	.foo {
+		@apply --one;
+		/* Invokes the --one mixin, with no arguments or contents. */
+
+		@apply --two(blue);
+		/* Invokes --two with one argument, and no contents. */
+
+		@apply --three {color: red;}
+		/* Invokes --three with no arguments, but with contents. */
+
+		@apply --four(blue) {color: red;}
+		/* Invokes --four with both an argument and contents. */
+	}
+	</pre>
+</div>
+
+The ''@apply'' rule is only valid
+in the body of a [=style rule=]
+or [=nested group rule=];
+using it in any other context causes it to be invalid and ignored.
+
+''@apply'' rules are processed <em>before</em> any styles are applied,
+as they effectively modify the stylesheet itself.
+(Similar, in effect, to how [=conditional group rules=]
+adjust which properties and rules are active in a stylesheet
+before styles are applied.)
+
+The ''@apply'' rule applies the [=mixin=]
+named by the <<dashed-ident>> or the <<dashed-function>>'s name.
+If no such [=mixin=] exists,
+the ''@apply'' does nothing.
+
+If passed a <<dashed-function>>,
+the arguments passed to the <<dashed-function>>
+are mapped to the [=mixin's=] arguments;
+if more arguments are passed than the length of the [=mixin's=] argument list,
+the ''@apply'' application does nothing.
+(Passing too few arguments is fine;
+the missing arguments take their default values instead.)
+A <<dashed-ident>> passes no arguments.
+(That is, ''@apply --foo;'' is identical to ''@apply --foo();''.)
+
+If the [=mixin=] declares a ''@contents'' parameter,
+and the ''@apply'' rule has a <<declaration-list>> block,
+that block is passed as its [=contents block=].
+If the [=mixin=] did not declare a ''@contents'' parameter,
+having a <<declaration-list>> block makes the ''@apply'' rule invalid
+(similar to passing too many arguments).
+
+<div class=example>
+	Applying a mixin without arguments, or with an empty argument list,
+	is identical.
+	That is, these two invocations do exactly the same thing:
+
+	<pre highlight=css>
+	.foo {
+		@apply --no-args;
+	}
+	.bar {
+		@apply --no-args();
+	}
+	</pre>
+
+	Passing a [=contents block=] is <em>not</em> the same;
+	omitting the block entirely triggers fallback,
+	while passing an empty block will substitute the empty block:
+
+	<pre highlight=css>
+	@mixin --just-contents(@contents) {
+		@contents { color: red; }
+	}
+
+	.foo {
+		@apply --just-contents;
+		/* substitutes with `color: red;` */
+	}
+	.bar {
+		@apply --just-contents {};
+		/* substitutes with nothing at all */
+	}
+	</pre>
+</div>
+
+
+<!-- Big Text: @env
+
+ ████▌  █████▌ █    █▌ █▌   █▌
+█▌   █▌ █▌     █▌   █▌ █▌   █▌
+█▌▐█ █▌ █▌     ██▌  █▌ █▌   █▌
+█▌▐█ █▌ ████   █▌▐█ █▌ ▐▌   █ 
+█▌ ██▌  █▌     █▌  ██▌  █  ▐▌ 
+█▌      █▌     █▌   █▌  ▐▌ █  
+ ████▌  █████▌ █▌   ▐▌   ▐█   
+-->
+
+Scoped Environment Variables {#scoped-env}
+============================
+
+Issue: This section should move to [[css-env-1]]
+(or level 2, whatever).
+
+The ''env()'' function,
+defined in [[css-env-1]],
+allows substituting the value of [=environment variables=]
+into a stylesheet.
+These are "global" variables,
+defined by the <l spec=infra>[=user agent=]</l>,
+rather than [=custom properties=]
+defined by the page author on individual elements (and their descendants).
+
+The ''@env'' rule allows defining <dfn export>scoped environment variables</dfn>,
+which are <em>lexically scoped</em> to a single rule in a stylesheet
+(and any [=nested style rules=] within it).
+
+Issue: A top-level ''@env'' probably needs to still be lexically scoped to just the stylesheet itself.
+(After all, you can use `media=""` to link in a stylesheet
+*effectively* auto-wrapped in an ''@media'',
+and it would be weird to have that act differently
+from actually using a wrapping ''@media''.)
+That means only JS-defined custom envs are available cross-stylesheet.
+
+
+<h3 id=env-rule>
+The <dfn>@env</dfn> Rule</h3>
+
+The ''@env'' rule defines a [=scoped environment variable=],
+scoped to its parent rule
+(and any other nested rule within its parent rule).
+It's only valid within a [=nested style rule=]
+or [=nested group rule=],
+or at the "top level" of a stylesheet not nested in anything;
+in any other context it's invalid and ignored.
+Its grammar is:
+
+<pre class=prod>
+	<<@env>> = @env <<custom-property-name>> <<css-type>>? : <<declaration-value>>? ;
+</pre>
+
+This defines a [=scoped environment variable=]
+with a name given by the <<custom-property-name>>,
+optionally a type given by <<css-type>>,
+and a value given by the <css><<declaration-value>>?</css>.
+Its scope is the rule it's nested in,
+or the stylesheet it's defined in
+if it's not nested.
+
+If a <<css-type>> is given,
+then when an ''env()'' referencing this [=scoped environment variable=]
+is [=replace an arbitrary substitution function|replaced=],
+the value must [=CSS/parse=] according to the <<css-type>>,
+or else the ''env()'' is replaced by the [=guaranteed-invalid value=].
+If it successfully parses,
+the value has the specified type.
+
+
+<h4 id=using-scoped-env>
+Using Scoped Environment Variables</h4>
+
+When an ''env()'' function is used
+with a <<dashed-ident>> as the name of the environment variable,
+it's potentially accessing a [=scoped environment variable=].
+
+First the parent rule
+of the property or rule the ''env()'' is used in
+is checked to see if a [=scoped environment variable=] of that name
+exists scoped to that rule.
+If not,
+its parent rule is checked,
+recursively,
+until finally the stylesheet itself is checked.
+If that fails,
+the global [=environment variables=] are finally checked.
+
+Note: Custom global [=environment variables=] can be defined by the <code>CSS.customEnv</code> API.
+(To be defined.)
+
+Issue: Need some analogue to ''inherit'',
+but for the parent lexical scopes.
+Probably can't use ''inherit'' itself,
+as that's a meaningful value that an ''env()'' could resolve to,
+I guess?
+
+
+<h4 id='dependent-envs'>
+Element-Dependent Values</h4>
+
+A [=scoped environment variable=] can be defined
+(both explicitly, and implicitly via [=mixin=] parameters)
+that require knowledge about the element the style is being applied to,
+but ''env()'' can be used in locations that don't have an element context.
+
+<div class=example>
+	For example, in this trivial example
+	an ''em'' value is passed to a mixin,
+	but the argument is then used in the ''@media'' rule inside the mixin.
+
+	<xmp highlight=css>
+	@mixin --smaller(--size <length>: 800px, @contents) {
+		@media (width <= env(--size)) {
+			@contents;
+		}
+	}
+	h1 {
+		@apply --smaller(50em) {
+			margin: 1em 0;
+		}
+	}
+	</xmp>
+</div>
+
+When this situation occurs,
+if the value of the ''env()'' can be evaluated in its subsitution context at all,
+it evaluates according to the normal rules for that context.
+(For example, in a ''@media'', ''em'' values resolve against the initial font size,
+rather than the font size of any particular element.)
+
+If the value would be invalid in its substitution context,
+it's instead replaced with the [=guaranteed-invalid value=].
+(For example, ''var()'' isn't allowed in a ''@media''.)
+
+
+
+
+
 <!-- Big Text: cssom
 
  ███▌   ███▌   ███▌   ███▌  █     █
@@ -534,17 +1524,64 @@ or acting as if nothing exists at that location otherwise.
 CSSOM {#cssom}
 ==============
 
+The {{CSSFunctionRule}} Interface {#the-function-interface}
+-----------------------------------------------------------
+
 The {{CSSFunctionRule}} interface represents a ''@function'' rule.
 
 <pre class='idl' export>
 [Exposed=Window]
-interface CSSFunctionRule : CSSGroupingRule { };
+interface CSSFunctionRule : CSSGroupingRule {
+	readonly attribute CSSOMString name;
+	sequence&lt;FunctionParameter&gt; getParameters();
+	readonly attribute CSSOMString returnType;
+};
 </pre>
+
+<dl dfn-for=CSSFunctionRule dfn-type=attribute>
+	<dt><dfn>name</dfn>
+	<dd>
+		The name of the [=custom function=].
+
+	<dt><dfn>returnType</dfn>
+	<dd>
+		The [=custom function/return type=] of the [=custom function=],
+		represented as a [[css-properties-values-api-1#syntax-strings|syntax string]].
+		If the [=custom function=] has no return type,
+		returns <code>"*"</code>.
+</dl>
+
+
+<pre class='idl' export>
+dictionary FunctionParameter {
+	required CSSOMString name;
+	required CSSOMString type;
+	CSSOMString? defaultValue;
+};
+</pre>
+
+<dl dfn-for=FunctionParameter>
+	<dt>name
+	<dd>
+		The name of the [=function parameter=].
+
+	<dt>type
+	<dd>
+		The [=parameter type|type=] of the [=function parameter=],
+		represented as a [[css-properties-values-api-1#syntax-strings|syntax string]],
+		or <code>"*"</code> if the [=function parameter|parameter=] has no type.
+
+	<dt>defaultValue
+	<dd>
+		The [=default value=] of the [=function parameter=],
+		or `null` if the argument does not have a default.
+</dl>
+
 
 While declarations may be specified directly within a ''@function'' rule,
 they are not represented as such in the CSSOM.
 Instead, consecutive segments of declarations
-appear as if wrapped in {{CSSNestedDeclarations}} rules.
+appear as if wrapped in {{CSSFunctionDeclarations}} rules.
 
 Note: This also applies to the "leading" declarations in the ''@function'' rule,
 	i.e those that do not follow another nested rule.
@@ -565,110 +1602,140 @@ Note: This also applies to the "leading" declarations in the ''@function'' rule,
 
 	<pre class='lang-css'>
 	@function --bar() {
-	  /* CSSNestedDeclarations { */
+	  /* CSSFunctionDeclarations { */
 	    --x: 42;
 	    result: var(--y);
 	  /* } */
 	  @media (width > 1000px) {
 	    /* ... */
 	  }
-	  /* CSSNestedDeclarations { */
+	  /* CSSFunctionDeclarations { */
 	    --y: var(--x);
 	  /* } */
 	}
 	</pre>
 </div>
 
-Issue: Should we indeed use {{CSSNestedDeclarations}} for this purpose?
-	The <code>style</code> attribute of the {{CSSNestedDeclarations}} rule
-	should probably not be a regular {{CSSStyleDeclaration}},
-	since only custom properties
-	and the '@function/result' descriptor
-	are relevant.
+<div algorithm>
+To <dfn export>serialize a CSSFunctionRule</dfn>,
+return the concatenation of the following:
 
-<!-- Big Text: appendix
+	1. The string <code>"@function"</code> followed by a single SPACE (U+0020).
+	2. The result of performing <a>serialize an identifier</a>
+		on the name of the [=custom function=],
+		followed by a single LEFT PARENTHESIS (U+0028).
+	4. The result of [=serialize a function parameter=]
+		on each of the [=custom function's=] [=function parameter|parameters=],
+		all joined by <code>", "</code>
+		(COMMA U+002C, followed by a single SPACE U+0020).
+	5. A single RIGHT PARENTHESIS (U+0029).
+	6. If the [=custom function=] has [=custom function/return type=],
+		and that [=custom function/return type=]
+		is not the [=universal syntax definition=] ("*"):
+		* A single SPACE (U+0020),
+			followed by the string <code>"returns"</code>,
+			followed by a single SPACE (U+0020).
+		* The result of performing [=serialize a CSS type=]
+			on that [=custom function/return type|type=],
+			followed by a single SPACE (U+0020).
 
- ███▌  ████▌  ████▌  █████▌ █    █▌ ████▌  ████ █     █
-▐█ ▐█  █▌  █▌ █▌  █▌ █▌     █▌   █▌ █▌  █▌  ▐▌   █   █ 
-█▌  █▌ █▌  █▌ █▌  █▌ █▌     ██▌  █▌ █▌  █▌  ▐▌    █ █  
-█▌  █▌ ████▌  ████▌  ████   █▌▐█ █▌ █▌  █▌  ▐▌     █   
-█████▌ █▌     █▌     █▌     █▌  ██▌ █▌  █▌  ▐▌    █ █  
-█▌  █▌ █▌     █▌     █▌     █▌   █▌ █▌  █▌  ▐▌   █   █ 
-█▌  █▌ █▌     █▌     █████▌ █▌   ▐▌ ████▌  ████ █     █
--->
+	7. A single LEFT CURLY BRACKET (U+007B),
+		followed by a SPACE (U+0020).
 
-Appendix: The <<syntax>> Production {#syntax}
-=============================================
+	8. The result of performing [=serialize a CSS rule=]
+		on each rule in cssRules,
+		filtering out empty strings,
+		all joined by a single SPACE (U+0020).
 
-The <<syntax>> production represents a [=syntax definition=],
-which may be used to impose a type
-on [=function parameters=],
-[=function dependencies=],
-or [=custom function=] return values.
+		Note: [=Serialize a CSS rule=] can return an empty string
+			when serializing an empty {{CSSFunctionDeclarations}} rule.
 
-<pre class="prod def" nohighlight>
-
-<dfn><<type-name>></dfn> = angle | color | custom-ident | image | integer |
-	length | length-percentage | number |
-	percentage | resolution | string | time |
-	url | transform-function
-<dfn><<combinator>></dfn> = '|'
-<dfn><<multiplier>></dfn> = [ '#' | '+' ]
-<dfn><<syntax-component-name>></dfn> = '<' <<type-name>> '>' | <<custom-ident>>
-<dfn><<syntax-component>></dfn> = <<syntax-component-name>> <<multiplier>>? |
-	'<' transform-list '>'
-<dfn><<syntax>></dfn> = '*' | <<syntax-component>> [ <<combinator>> <<syntax-component>> ]+
-
-</pre>
-
-A <<syntax-component>> consists of either a <<type-name>>,
-which maps to one of the [=supported syntax component names=];
-or a <<custom-ident>>, which represents any [=keyword=].
-Additionally,
-a <<syntax-component>> may contain a [[css-properties-values-api-1#multipliers|multiplier]],
-which indicates a [=list=] of values.
-
-Note: This means that <code>&lt;length&gt;</code>
-	and <code>length</code> are two different types:
-	the former describes a <<length>>,
-	whereas the latter describes a [=keyword=] <code>length</code>.
-
-Multiple <<syntax-component>>s may be [[css-properties-values-api-1#combinator|combined]]
-with a <code>|</code> <<delim-token>>,
-causing the syntax components to be matched
-against a value
-in the specified order.
-
-<div class='example'>
-	<pre class='lang-css'>
-	&lt;percentage&gt; | &lt;number&gt; | auto
-	</pre>
-	The above, when parsed as a <<syntax>>,
-	would accept <<percentage>> values,
-	<<number>> values,
-	as well as the keyword <code>auto</code>.
+	9. A single SPACE (U+0020),
+		followed by a single RIGHT CURLY BRACKET (U+007D).
 </div>
 
-<div class='example'>
-	<pre class='lang-css'>
-	red | &lt;color&gt;
-	</pre>
-	The [=syntax definition=] resulting from the above <<syntax>>,
-	when used as a grammar for [=parse|parsing=],
-	would match an input <code>red</code> as an [=identifier=],
-	but would match an input <code>blue</code> as a <<color>>.
+<div algorithm>
+To <dfn export>serialize a function parameter</dfn>,
+return the concatenation of the following:
+
+	1. The result of performing <a>serialize an identifier</a>
+		on the name of the [=function parameter=].
+	2. If the [=function parameter=] has a [=parameter type|type=],
+		and that [=parameter type|type=]
+		is not the [=universal syntax definition=]:
+		* A single SPACE (U+0020),
+			followed by the result of performing [=serialize a CSS type=]
+			on that [=parameter type|type=].
+	3. If the [=function parameter=] has a [=default value=]:
+		* A single COLON (U+003A),
+			followed by a single SPACE (U+0020),
+			followed by the result of performing [=serialize a CSS value=]
+			on that value.
 </div>
 
-The <code>*</code> <<delim-token>> represents the [=universal syntax definition=].
+<div algorithm>
+To <dfn export>serialize a CSS type</dfn>,
+return the concatenation of the following:
+	1. If the <<css-type>> consists of a single <<syntax-component>>,
+		return the corresponding [[css-properties-values-api-1#syntax-strings|syntax string]].
+	2. Otherwise,
+		return the concatenation of the following:
+			* The string <code>"type("</code>,
+				i.e. <code>"type"</code>
+				followed by a single LEFT PARENTHESIS (U+0028).
+			* The corresponding [[css-properties-values-api-1#syntax-strings|syntax string]].
+			* The string <code>")"</code>,
+				i.e. a single RIGHT PARENTHESIS (U+0029).
+</div>
 
-The <code>&lt;transform-list&gt;</code> production
-is a convenience form equivalent to <code>&lt;transform-function&gt;+</code>.
-<span class=note>Note that <code>&lt;transform-list&gt;</code> may not
-	be followed by a <<multiplier>>.</span>
+The {{CSSFunctionDeclarations}} Interface {#the-function-declarations-interface}
+--------------------------------------------------------------------------------
 
-[=Whitespace=] is not allowed
-between the angle bracket <<delim-token>>s (<code>&lt;</code> <code>&gt;</code>)
-and the <<type-name>> they enclose,
-nor is [=whitespace=] allowed to precede a <<multiplier>>.
+The {{CSSFunctionDeclarations}} interface represents a run
+of consecutive [=declarations=] within a ''@function'' rule.
 
-Note: The [=whitespace=] restrictions also apply to <code>&lt;transform-list&gt;</code>.
+<xmp class=idl>
+[Exposed=Window]
+interface CSSFunctionDescriptors : CSSStyleDeclaration {
+	attribute [LegacyNullToEmptyString] CSSOMString result;
+};
+
+[Exposed=Window]
+interface CSSFunctionDeclarations : CSSRule {
+	[SameObject, PutForwards=cssText] readonly attribute CSSFunctionDescriptors style;
+};
+</xmp>
+
+<div algorithm>
+	The <dfn attribute for=CSSFunctionDeclarations>style</dfn> attribute
+	must return a {{CSSFunctionDescriptors}} object for the rule,
+	with the following properties:
+
+	: [=CSSStyleDeclaration/computed flag=]
+	:: Unset
+	: [=CSSStyleDeclaration/readonly flag=]
+	:: Unset
+	: [=CSSStyleDeclaration/declarations=]
+	:: The declared declarations in the rule, in [=specified order=].
+		<span class=note>This includes any [=local variables=].</span>
+	: [=CSSStyleDeclaration/parent CSS rule=]
+	:: [=this=]
+	: [=CSSStyleDeclaration/owner node=]
+	:: Null
+</div>
+
+The {{CSSFunctionDeclarations}} rule, like {{CSSNestedDeclarations}},
+[=serialize a CSS rule|serializes=] as if its [=CSS declaration block|declaration block=]
+had been [=serialize a CSS declaration block|serialized=] directly.
+
+Privacy Considerations {#privacy}
+===============================================
+
+The constructs defined by this specification
+are defined and used entirely within CSS;
+they expose no new information.
+
+Security Considerations {#security}
+===============================================
+
+No issues have been opened against this specification.
