@@ -234,41 +234,26 @@ function XYZ_to_lin_a98rgb(XYZ) {
 function lin_2020(RGB) {
 	// convert an array of rec2020 RGB values in the range 0.0 - 1.0
 	// to linear light (un-companded) form.
-	// ITU-R BT.2020-2 p.4
-
-	const α = 1.09929682680944 ;
-	const β = 0.018053968510807;
+	// ITU-R BT.1886 Annex 1
 
 	return RGB.map(function (val) {
 		let sign = val < 0? -1 : 1;
 		let abs = Math.abs(val);
 
-		if (abs < β * 4.5 ) {
-			return val / 4.5;
-		}
-
-		return sign * (Math.pow((abs + α -1 ) / α, 1/0.45));
+		return sign * Math.pow(abs, 2.40);
 	});
 }
 
 function gam_2020(RGB) {
 	// convert an array of linear-light rec2020 RGB  in the range 0.0-1.0
 	// to gamma corrected form
-	// ITU-R BT.2020-2 p.4
-
-	const α = 1.09929682680944 ;
-	const β = 0.018053968510807;
-
+	// ITU-R BT.1886 Annex 1
 
 	return RGB.map(function (val) {
 		let sign = val < 0? -1 : 1;
 		let abs = Math.abs(val);
 
-		if (abs > β ) {
-			return sign * (α * Math.pow(abs, 0.45) - (α - 1));
-		}
-
-		return 4.5 * val;
+		return sign * Math.pow(abs, 1/2.40);
 	});
 }
 
