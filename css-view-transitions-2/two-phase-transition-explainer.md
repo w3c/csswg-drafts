@@ -1,7 +1,7 @@
 # Two-phase view transition
 Making cross-document view-transitions feel instant and seamless.
 
-See w3c/csswg-drafts#10616
+See whatwg/html#10616
 
 # Current state
 View-transitions don’t start immediately - rendering is paused until the new state is ready. 
