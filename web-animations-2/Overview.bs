@@ -144,6 +144,7 @@ urlPrefix: http://www.ecma-international.org/ecma-262/6.0/#sec-; type: dfn; spec
     text: execution contexts
 urlPrefix: https://drafts.csswg.org/scroll-animations-1/; type: dfn; spec: scroll-animations-1
     text: html-processing-model-event-loops
+#interface-event
 </pre>
 
 <pre class=link-defaults>
@@ -2325,7 +2326,7 @@ Some alternatives under consideration:
 Since <a>custom effects</a>, unlike <a
 lt="animation effect">animation effects</a>, are not limited to
 a single <a>target property</a>, the steps for assessing their
-order of execution differs from <a>animation effects</a>.f
+order of execution differs from <a>animation effects</a>.
 
 <a>Custom effects</a> are executed after all
 <a>animation effects</a> have completed and
@@ -2351,14 +2352,70 @@ Animation Triggers {#triggers}
 
 An <dfn export>animation trigger</dfn> is used to control the playback
 of its associated [=animation=] for time-driven animations.
-Like animations, [=animation triggers=] are associated with a [=timeline=]
-and are attached to an [=animation attachment range|attachment range=].
+An [=animation trigger=] has a {{AnimationTrigger/behavior}} attribute
+which determines the [=animation trigger|trigger=]'s effect on its
+associated [=animation=]'s playback.
 
 Issue: Should there be any effect of triggers on scroll-driven animations?
 
-### Animation Trigger Internal State ### {#trigger-state}
+There are two types of [=animation triggers=]:
+<dfn export lt='timeline-based animation trigger'>timeline-based</dfn> and
+<dfn export lt='event-based animation trigger'>event-based</dfn>. The
+type of an animation trigger is deduced from its attributes: a
+timeline-based animation trigger will have a non-empty {{AnimationTrigger/timeline}}
+attribute, while an event-based animation trigger will have non-empty
+{{AnimationTrigger/eventTarget}} and {{AnimationTrigger/eventType}} attributes.
 
-An [=animation trigger=] |trigger|
+### Event-Based Animation Triggers ### {#event-based-trigger}
+
+An [=event-based animation trigger=] executes its {{AnimationTrigger/behavior}}
+when a [=qualifying event=] is dispatched.
+A <dfn for="animation trigger" export>qualifying event</dfn> is
+an {{Event!!interface}} with {{Event/type}} matching the trigger's {{AnimationTrigger/eventType}}
+and {{Event/target}} matching the trigger's {{AnimationTrigger/eventTarget}}.
+
+#### Event-Based Animation Trigger Behavior #### {#event-trigger-behavior}
+
+When a [=animation trigger/qualifying event=] is dispatched, the associated
+animation's playback is modified as follows,
+based on the trigger's {{AnimationTrigger/behavior}}
+and the current [=play state=] of the animation:
+
+<dl>
+  <dt>''animation-trigger-type/once''</dt>
+  <dd>If [=play state=] is [=play state/finished=], do nothing.
+      Otherwise, perform the actions specified for the {{Animation/play}} function.
+  </dd>
+
+  <dt>''animation-trigger-type/repeat''</dt>
+  <dd>First, if [=play state=] is [=play state/running=] or [=play state/paused=]
+      perform the actions specified for the {{Animation/cancel}} function.
+      Then, in all cases, perform the actions specified for the {{Animation/play}} function.
+  </dd>
+
+  <dt>''animation-trigger-type/alternate''</dt>
+  <dd>If [=play state=] is [=play state/idle=],
+      perform the actions specified for the {{Animation/play}} function.
+      Otherwise, perform the actions specified for the {{Animation/reverse}} function.
+  </dd>
+
+  <dt>''animation-trigger-type/state''</dt>
+  <dd>If the [=play state=] is [=play state/running=],
+      perform the actions specified for the {{Animation/pause}} function.
+      Otherwise, perform the actions specified for the {{Animation/play}} function.
+  </dd>
+</dl>
+
+### Timeline-Based Animation Triggers ### {#timeline-based-trigger}
+
+Like animations, [=timeline-based animation triggers=] are associated with a [=timeline=]
+and are attached to an [=animation attachment range|attachment range=].
+Changes to animation playback occur when the associated [=timeline=] transitions
+between inside and outside the [=animation attachment range|attachment range=].
+
+#### Timeline-Based Animation Trigger Internal State #### {#trigger-state}
+
+A [=timeline-based animation trigger=] |trigger|
 has an internal boolean <dfn export>did trigger</dfn> flag, which is initially false,
 and an internal <dfn export lt="animation trigger state">state</dfn> with
 these possible values:
@@ -2374,12 +2431,11 @@ updated by the [=updating animation trigger state=] procedure, described below.
 
 Issue: Do we need a formal resolution on the spec of the idle state?
 
-### Animation Trigger Behavior ### {#trigger-behaviors}
+#### Timeline-Based Animation Trigger Behavior #### {#timeline-trigger-behaviors}
 
-An [=animation trigger=] has an associated <dfn export>animation trigger behavior</dfn>
-which, along with [=did trigger=] and [=animation trigger state|state=],
-determines the [=animation trigger|trigger=]'s effect on its
-associated [=animation=]'s playback.
+For [=timeline-based animation triggers=], the {{AnimationTrigger/behavior}} attribute
+combines with [=did trigger=] and [=animation trigger state|state=] to determine
+the effect on playback.
 
 The [=animation effect=] associated with an [=animation trigger=]
 in the [=animation trigger state/idle=] state
@@ -2444,13 +2500,14 @@ given values of <var ignore=''>behavior</var>:
 
 Issue: Do we need a proper definition for "behavior types primary/inverse"?
 
-### Animation Trigger Active Interval ### {#trigger-active-interval}
+#### Timeline-Based Animation Trigger Active Interval #### {#trigger-active-interval}
 
-Each [=animation trigger=] defines an <dfn for="animation trigger">active interval</dfn>
+Each [=timeline-based animation trigger=] defines an
+<dfn for="animation trigger">active interval</dfn>
 and only one such interval. This interval is the segment of the timeline’s progress
 during which the trigger’s [=animation trigger state|state=] is set to [=animation trigger state/primary=].
 
-### Animation Trigger Ranges ### {#trigger-ranges}
+#### Timeline-Based Animation Trigger Ranges #### {#trigger-ranges}
 
 An [=animation trigger=] has two [=animation attachment range|ranges=],
 the <dfn>default range</dfn> and the <dfn>exit range</dfn>.
@@ -2460,58 +2517,28 @@ the [=animation trigger/active interval|active interval=].
 Issue: Should we specify that that exit range’s edges can only be equal to or greater than the default range’s edges?
 
 Depending on its most recent [=animation trigger state|state=] |state|, the
-[=animation trigger/active interval|active interval=] is defined as follows:
+[=animation trigger/active interval=] is defined as follows:
 
 <dl class=switch>
   : If |state| is [=animation trigger state/primary=],
   ::
-    Then |interval| is set to [=exit range=].
+    Then the [=active interval=] is [=exit range=].
 
   : Otherwise,
   ::
-    |interval| is [=default range=].
+    The [=active interval=] is [=default range=].
 
 </dl>
 
-### Setting a Trigger of an Animation ### {#setting-animation-trigger}
-
-  <div algorithm="Setting a Trigger of an Animation">
-    The procedure of <dfn>setting a trigger of an animation</dfn> |animation|,
-    to |new trigger|, is as follows:
-
-    1. Let |old trigger| be the current [=animation trigger=] of |animation|, if any.
-
-    1. If |new trigger| is the same object as |old trigger|, abort this procedure.
-
-    1. Let the [=animation trigger|trigger=] of |animation| be |new trigger|.
-
-    1. Run the procedure to [=updating animation trigger state=] for |new trigger|.
-  </div>
-
-### Setting the timeline of an Animation Trigger ### {#setting-trigger-timeline}
-
-  <div algorithm="setting timeline of animation trigger">
-    The procedure of <dfn>setting timeline of animation trigger</dfn> |trigger|,
-    to |new timeline| which may be <code>null</code>, is as follows:
-
-    1. Let |old timeline| be the current value of |trigger|.{{AnimationTrigger/timeline}}, if any.
-
-    1. If |new timeline| is the same object as |old timeline|, abort this procedure.
-
-    1. Set |trigger|.{{AnimationTrigger/timeline}} to |new timeline|.
-
-    1. Run the [=updating animation trigger state=] procedure for |trigger|.
-  </div>
-
-### Updating Animation Trigger State ### {#updating-trigger-state}
+#### Updating Timeline-Based Animation Trigger State #### {#updating-trigger-state}
 
 <div algorithm="updating animation trigger state">
   The procedure of <dfn>updating animation trigger state</dfn>
-  of an [=animation trigger=] |trigger| is as follows:
+  of a [=timeline-based animation trigger=] |trigger| is as follows:
 
   1. Let |did trigger| be the current value of |trigger|'s [=did trigger=] flag.
 
-  1. Let |behavior| be |trigger|'s associated [=animation trigger behavior=].
+  1. Let |behavior| be |trigger|'s {{AnimationTrigger/behavior}} attribute.
 
   1. Set |trigger|.[=animation trigger state|state=] as follows:
     <dl class=switch>
@@ -2555,6 +2582,40 @@ Depending on its most recent [=animation trigger state|state=] |state|, the
 </div>
 
 Issue: Should it be the correct/expected behavior for the "did trigger" flag to reset to false if the timeline becomes idle again?
+
+### Setting a Trigger of an Animation ### {#setting-animation-trigger}
+
+  <div algorithm="Setting a Trigger of an Animation">
+    The procedure of <dfn>setting a trigger of an animation</dfn> |animation|,
+    to |new trigger|, is as follows:
+
+    1. Let |old trigger| be the current [=animation trigger=] of |animation|, if any.
+
+    1. If |new trigger| is the same object as |old trigger|, abort this procedure.
+
+    1. Let the [=animation trigger|trigger=] of |animation| be |new trigger|.
+
+    1. If |new trigger| is a [=timeline-based animation trigger=],
+         run the [=updating animation trigger state=] procedure for |new trigger|.
+  </div>
+
+### Setting the timeline of a Timeline-Based Animation Trigger ### {#setting-trigger-timeline}
+
+  <div algorithm="setting timeline of animation trigger">
+    The procedure of <dfn>setting timeline of animation trigger</dfn> |trigger|,
+    to |new timeline| which may be <code>null</code>, is as follows:
+
+    1. If |trigger| is not a [=timeline-based animation trigger=]
+         <a>throw</a> a <span class="exceptionname">TypeError</span>.
+
+    1. Let |old timeline| be the current value of |trigger|.{{AnimationTrigger/timeline}}, if any.
+
+    1. If |new timeline| is the same object as |old timeline|, abort this procedure.
+
+    1. Set |trigger|.{{AnimationTrigger/timeline}} to |new timeline|.
+
+    1. Run the [=updating animation trigger state=] procedure for |trigger|.
+  </div>
 
 <!-- End of animation model -->
 
@@ -3606,8 +3667,10 @@ Update the type for the AnimationPlaybackEventInit members.
 [Exposed=Window]
 interface AnimationTrigger {
   constructor(optional AnimationTriggerOptions options = {});
-  attribute AnimationTimeline timeline;
   attribute AnimationTriggerBehavior behavior;
+  attribute EventTarget? eventTarget;
+  attribute DOMString? eventType;
+  attribute AnimationTimeline? timeline;
   attribute any rangeStart;
   attribute any rangeEnd;
   attribute any exitRangeStart;
@@ -3615,31 +3678,51 @@ interface AnimationTrigger {
 };
 </pre>
 
+Issue: Should not use type `any` for the range attributes.
+
 <div dfn-type=constructor class=constructors dfn-for="AnimationTrigger">
   : <dfn lt="AnimationTrigger(options)">AnimationTrigger(|options|)</dfn>
   ::
       Creates a new {{AnimationTrigger}} object using the following procedure:
 
+      1. If |options| contains a {{AnimationTriggerOptions/timeline}} entry
+         and also contains either or both of
+         {{AnimationTriggerOptions/eventTarget}} and {{AnimationTriggerOptions/eventType}}
+         <a>throw</a> a <span class="exceptionname">TypeError</span>.
+
+      1. If |options| contains only one of
+         {{AnimationTriggerOptions/eventTarget}} and {{AnimationTriggerOptions/eventType}}
+         <a>throw</a> a <span class="exceptionname">TypeError</span>.
+
       1. Create a new {{AnimationTrigger}} object, |trigger|.
-
-      1. Set |trigger|.[=did trigger=] to false.
-
-      1. Set |trigger|.[=animation trigger state|state=] to [=animation trigger state/idle=].
 
       1. Set |trigger|.{{AnimationTrigger/behavior}} to |options|.{{AnimationTriggerOptions/behavior}}.
 
-      1. Set [=default range=] of |trigger| using |options|.{{AnimationTriggerOptions/rangeStart}} and |options|.{{AnimationTriggerOptions/rangeEnd}},
-          following the same rules as the KeyframeAnimationOption
-          <a href="#dom-keyframeanimationoptions-rangestart">rangeStart</a> and
-          <a href="#dom-keyframeanimationoptions-rangeend">rangeEnd</a> respectively.
+      1. If |options| contains a {{AnimationTriggerOptions/timeline}} entry
+         1. Set |trigger|.[=did trigger=] to false.
 
-      1. Set [=exit range=] of |trigger| using |options|.{{AnimationTriggerOptions/exitRangeStart}} and |options|.{{AnimationTriggerOptions/exitRangeEnd}},
-          following the same rules above for [=default range=], unless they are set to
-          "auto", in which case they are set to their corresponding side
-          of the [=default range=].
+         1. Set |trigger|.[=animation trigger state|state=] to [=animation trigger state/idle=].
 
-      1. Run the procedure for [=setting timeline of animation trigger=]
-          on |trigger| passing |options|.{{AnimationTriggerOptions/timeline}} as the <var ignore>new timeline</var>.
+         1. Set [=default range=] of |trigger| using
+            |options|.{{AnimationTriggerOptions/rangeStart}} and |options|.{{AnimationTriggerOptions/rangeEnd}}
+            following the same rules as the KeyframeAnimationOption
+            <a href="#dom-keyframeanimationoptions-rangestart">rangeStart</a> and
+            <a href="#dom-keyframeanimationoptions-rangeend">rangeEnd</a> respectively.
+
+         1. Set [=exit range=] of |trigger| using |options|.{{AnimationTriggerOptions/exitRangeStart}} and |options|.{{AnimationTriggerOptions/exitRangeEnd}},
+             following the same rules above for [=default range=], unless they are set to
+             "auto", in which case they are set to their corresponding side
+             of the [=default range=].
+
+         1. Run the procedure for [=setting timeline of animation trigger=]
+             on |trigger| passing |options|.{{AnimationTriggerOptions/timeline}}
+             as the <var ignore>new timeline</var>.
+
+      1. If |options| contains {{AnimationTriggerOptions/eventTarget}} and
+         {{AnimationTriggerOptions/eventType}} entries
+         1. Set |trigger|.{{AnimationTrigger/eventTarget}} to |options|.{{AnimationTriggerOptions/eventTarget}}.
+
+         1. Set |trigger|.{{AnimationTrigger/eventType}} to |options|.{{AnimationTriggerOptions/eventType}}.
 
       <div dfn-type=argument class=parameters
            dfn-for="AnimationTrigger/AnimationTrigger(options)">
@@ -3654,14 +3737,25 @@ interface AnimationTrigger {
 <div dfn-type=attribute class=attributes
        dfn-for="AnimationTrigger">
 
+  : <dfn>behavior</dfn>
+  ::
+
+  : <dfn>eventTarget</dfn>
+  ::
+      For an [=event-based animation trigger=], this is
+      matched against a dispatched event's {{Event/target}}
+      to determine whether it's a [=animation trigger/qualifying event=].
+
+  : <dfn>eventType</dfn>
+  ::
+      For an [=event-based animation trigger=], this is
+      matched against a dispatched event's {{Event/type}}
+      to determine whether it's a [=animation trigger/qualifying event=].
+
   : <dfn>timeline</dfn>
   ::
       Returns the [=timeline=] for this trigger
       or `null` if this timeline is [=inactive timeline|inactive=].
-
-  : <dfn>behavior</dfn>
-  ::
-      Returns the [=animation trigger behavior|behavior=] of this trigger.
 
   : <dfn>rangeStart</dfn>
   ::
@@ -3679,14 +3773,18 @@ interface AnimationTrigger {
   ::
       Returns the [=exit range=]’s end of this trigger.
 
+Issue: Need to specify the behavior of setters.
+
 </div>
 
 <h3 id="the-animationtriggeroptions-dictionary">The <code>AnimationTriggerOptions</code> dictionary</h3>
 
 <pre class='idl'>
 dictionary AnimationTriggerOptions {
+  AnimationTriggerBehavior behavior = "once";
+  EventTarget? eventTarget;
+  DOMString? eventType;
   AnimationTimeline? timeline;
-  AnimationTriggerBehavior? behavior = "once";
   (TimelineRangeOffset or CSSNumericValue or CSSKeywordValue or DOMString) rangeStart = "normal";
   (TimelineRangeOffset or CSSNumericValue or CSSKeywordValue or DOMString) rangeEnd = "normal";
   (TimelineRangeOffset or CSSNumericValue or CSSKeywordValue or DOMString) exitRangeStart = "auto";
@@ -3697,15 +3795,23 @@ dictionary AnimationTriggerOptions {
 <div dfn-type=dict-member class=members
        dfn-for="AnimationTriggerOptions">
 
-  : <dfn>timeline</dfn>
-  ::
-      The timeline to which the trigger is associated.
-      If not specified, the trigger is associated with [=default document timeline=].
-
   : <dfn>behavior</dfn>
   ::
       The behavior of the trigger.
       If not specified, the trigger's behavior is ''animation-trigger-type/once''.
+
+  : <dfn>eventTarget</dfn>
+  ::
+      The {{EventTarget!!interface}} for an [=event-based animation trigger=].
+
+  : <dfn>eventType</dfn>
+  ::
+      The {{Event/type}} for an [=event-based animation trigger=].
+
+  : <dfn>timeline</dfn>
+  ::
+      The timeline to which a [=timeline-based animation trigger=] is associated.
+      If not specified, the trigger is associated with [=default document timeline=].
 
   : <dfn>rangeStart</dfn>
   ::
