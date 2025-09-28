@@ -1,4 +1,5 @@
-### [CSS Working Group](https://www.w3.org/Style/CSS/) Specifications
+### [CSS Working Group](https://www.w3.org/Style/CSS/)
+Specifications
 
 This is the official CSSWG repository for editor's drafts of CSS specifications.
 
