@@ -152,13 +152,13 @@ a carousel.
 Query whether a container has [scrollable overflow](https://drafts.csswg.org/css-overflow-3/#scrollable-overflow-region).
 Can be used to indicate there is content to scroll to in a given direction.
 
-### Direction
+### Scrolled
 
-Query the most recent direction of [scrolling](https://drafts.csswg.org/cssom-view/#scrolling).
+Query the direction of [the most recent relative scroll](https://drafts.csswg.org/css-scroll-snap-1/#scroll-types).
 For instance:
 
 ```css
-@container scroll-state(direction: top) {
+@container scroll-state(scrolled: top) {
   .scrolling-up {
     translate: 0 0;
   }
@@ -167,8 +167,8 @@ For instance:
 
 #### Workaround
 
-A workaround solution to create queries based on scrolling direction is
-described in [Solved by CSS Scroll-Driven Animations: hide a header when
+A workaround solution to create queries based on scrolling direction
+is described in [Solved by CSS Scroll-Driven Animations: hide a header when
 scrolling down, show it again when scrolling up](https://www.bram.us/2024/09/29/solved-by-css-scroll-driven-animations-hide-a-header-when-scrolling-up-show-it-again-when-scrolling-down/),
 uses a `transition-delay` trick to get the active scroll direction.
 
@@ -181,10 +181,11 @@ scrolling.
 
 #### Active scroll direction
 
-The proposed `direction` feature matches the state of the most recent
-scroll direction. Web authors might also want to create queries based on the
-current scroll direction, not only the most recent one, similar to [scrollend
-event](https://drafts.csswg.org/cssom-view/#eventdef-document-scrollend).
+The proposed `scrolled` feature
+matches the state of the most recent relative scroll direction.
+Web authors might also want to create queries
+based on the active scroll direction, not only the most recent one,
+similar to [scrollend event](https://drafts.csswg.org/cssom-view/#eventdef-document-scrollend).
 
 This needs further discussion with the working group.
 
