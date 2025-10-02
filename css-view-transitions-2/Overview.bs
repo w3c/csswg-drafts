@@ -123,12 +123,12 @@ spec:css2; type:dfn; text:viewport
 	Level 2 defines the following,
 	extending the model in [[CSS-VIEW-TRANSITIONS-1]]:
 
-		* <a href="#cross-document-view-transitions">Cross-document view transitions</a>, including the ''@view-transition'' rule and the algorithms
+		* [[#cross-document-view-transitions|Cross-document view transitions]], including the ''@view-transition'' rule and the algorithms
 			that enable the cross-document view transition lifecycle.
-		* <a href="#selective-vt">Selective view transitions</a>, a way to match styles based on the existence of an [=active view transition=],
+		* [[#selective-vt|Selective view transitions]], a way to match styles based on the existence of an [=active view transition=],
 			and more specifically based on the active view transition being of a certain type.
-		* <a href="#shared-style-with-vt-classes">Sharing styles between view transition pseudo-elements</a>, a way to declare a style once,
-			and use it for multiple view transition pseudo-elements. This includes the 'view-transition-class' property, and <a href="#pseudo-element-class-additions">additions to named pseudo-elements</a>
+		* [[#shared-style-with-vt-classes|Sharing styles between view transition pseudo-elements]], a way to declare a style once,
+			and use it for multiple view transition pseudo-elements. This includes the 'view-transition-class' property, and [[#pseudo-element-class-additions|additions to named pseudo-elements]]
 
 ## Separating Visual Transitions from DOM Updates ## {#separating-transitions}
 
@@ -365,6 +365,10 @@ spec:css2; type:dfn; text:viewport
 
 	<div class=example>
 		Building on the previous example,
+		the simple "whole document" transition displayed a visible judder in the purple heading bar,
+		and had the heading text always slide to the left
+		even when it was "moving" to the right in the 1->2 transition.
+		To fix these issues,
 		the header and text within the header can be given their own ''::view-transition-group()''s for the transition:
 
 		```css
@@ -540,8 +544,6 @@ spec:css2; type:dfn; text:viewport
 
 			Each [=view transition name=] is a [=tree-scoped name=].
 
-			Note: Since currently only document-scoped view transitions are supported, only view transition names that are associated with the document are respected.
-
 			The values <css>none</css>, <css>auto</css>, and <css>match-element</css> are excluded from <<custom-ident>> here.
 
 			Note: If this name is not unique
@@ -552,7 +554,7 @@ spec:css2; type:dfn; text:viewport
 	Note:  For the purposes of this API,
 	if one element has [=view transition name=] ''foo'' in the old state,
 	and another element has [=view transition name=] ''foo'' in the new state,
-	they are treated as representing different visual state of the same element,
+	they are treated as representing different visual states of the same element,
 	and will be paired in the [=view transition tree=].
 	This may be confusing, since the elements themselves are not necessarily referring to the same object,
 	but it is a useful model to consider them to be visual states of the same conceptual page entity.
@@ -580,6 +582,27 @@ spec:css2; type:dfn; text:viewport
 	- Form a [=stacking context=].
 	- Are [[css-transforms-2#grouping-property-values|flattened in 3D transforms]].
 	- Form a [=backdrop root=].
+
+## Isolating Scoped View Transition Names: the ''contain/view-transition'' containment value ## {#contain-view-transition}
+
+	<pre class="propdef partial">
+	Name: contain
+	New Values: view-transition
+	</pre>
+
+	The ''contain: view-transition'' value establishes <dfn export>view transition name containment</dfn> on an element.
+	This causes any [=document-scoped view transition names=] to only be visible
+	for [=view transitions=] scoped to this element or its descendants.
+
+	Note: Most elements running a [=scoped view transition=]
+	should use [=view transition name containment=],
+	to ensure that their [=document-scoped view transition names=]
+	don't accidentally interfere with other [=scoped view transitions=].
+	Otherwise, two similar elements running the same [=scoped view transition=],
+	expecting the same-named descendants,
+	will see each other's names and abort
+	(since [=view transitions=] don't allow multiple elements to have the same 'view-transition-name').
+
 
 # Pseudo-elements # {#pseudo}
 
@@ -609,17 +632,24 @@ spec:css2; type:dfn; text:viewport
 	composed of the <dfn>view transition pseudo-elements</dfn> defined below.
 	This tree is built during the [=setup transition pseudo-elements=] step,
 	and is rooted under a ''::view-transition'' pseudo-element
-	[=originating element|originating=] from the [=root element=].
+	[=originating element|originating=] from the {{ViewTransition}}'s [=ViewTransition/root element=].
 	All of the [=view transition pseudo-elements=] are selected
-	from their [=ultimate originating element=], the [=document element=].
+	from their [=ultimate originating element=],
+	the {{ViewTransition}}'s [=ViewTransition/root element=].
 
 	The [=view transition tree=] is not exposed to the accessibility tree.
 
 	<div class="example">
 		For example,
-		the ''::view-transition-group()'' pseudo-element is attached to the root element selector directly,
-		as in '':root::view-transition-group()'';
-		it is not attached to its parent, the ''::view-transition'' pseudo-element.
+		even though a ''::view-transition-group()'' pseudo-element
+		is nested underneath its parent ''::view-transition'' pseudo-element
+		for styling and layout purposes,
+		it's selected directly on the element hosting the {{ViewTransition}}:
+		if you'd use ''.foo::view-transition'',
+		you'll also use ''.foo::view-transition-group()''.
+
+		Doing ''.foo::view-transition::view-transition-group()'' is incorrect,
+		and won't select anything.
 	</div>
 
 	<div class=note>
@@ -771,11 +801,34 @@ spec:css2; type:dfn; text:viewport
 	Note: The content and [=natural dimensions=] of the image are captured in [=capture the image=],
 	then set and updated in [=setup transition pseudo-elements=] and [=update pseudo-element styles=].
 
+
+# Scoped View Transitions # {#scoped-vt}
+
+	In addition to [=view transitions=] triggered on the [=document=] itself
+	(<dfn export>global view transitions</dfn>),
+	individual [=elements=] can host their own <dfn export>scoped view transitions</dfn>.
+	This enables multiple [=view transitions=] to run on a page at the same time,
+	with each animating a different subtree of the document.
+	It also enables a [=view transition=] to be affected by the layout and rendering of its subtree,
+	being affected by scrolling, filters, 'z-index', etc.
+	("Global" [=view transitions=] are always rendered on a separate, higher rendering layer
+	than the rest of the document.)
+
+	In order to host a [=scoped view transition=],
+	an element must have [=layout containment=],
+	so its painted output can be captured as an atomic unit.
+
+	[=View transitions=] whose [=ViewTransition/root element=] is the [=document element=]
+	are <em>not</em> [=scoped view transitions=].
+	They're [=global view transitions=].
+
+
 # View Transition Layout # {#view-transition-rendering}
 
-	The [=view transition pseudo-elements=] are styled, laid out, and rendered like normal elements,
-	except that they originate in the [=snapshot containing block=] rather than the [=initial containing block=]
-	and are painted in the [=view transition layer=] above the rest of the document.
+	The [=view transition pseudo-elements=] are styled, laid out, and rendered like normal elements.
+	[=Global view transitions=] originate in the [=snapshot containing block=] rather than the [=initial containing block=]
+	and are painted in the [=view transition layer=] above the rest of the document;
+	[=scoped view transitions=] are simply rendered after and above all other children of their [=ViewTransition/root element=].
 
 ## The Snapshot Containing Block ## {#snapshot-containing-block-concept}
 
@@ -819,7 +872,11 @@ spec:css2; type:dfn; text:viewport
 	to the end of the painting order established in
 	<a href="https://www.w3.org/TR/CSS22/zindex.html">CSS2&sect;E Elaborate Description of Stacking Contexts</a>. [[!CSS2]]
 
-	The ''::view-transition'' pseudo-element generates a new stacking context,
+	Issue: Fold this into [[CSS-POSITION-4]],
+	as the interaction with [=top layers=] needs to be specified.
+
+	For a [=global view transition=],
+	the ''::view-transition'' pseudo-element generates a new stacking context,
 	called the <dfn>view transition layer</dfn>,
 	which paints after all other content of the document
 	(including any content rendered in the [=Document/top layer=]),
@@ -922,7 +979,7 @@ spec:css2; type:dfn; text:viewport
 		This UA style sheet does several things:
 		* Lay out ''::view-transition'' to cover the entire [=snapshot containing block=]
 			so that each '':view-transition-group()'' child can lay out relative to it.
-		* Give the [=root element=] a default [=view transition name=],
+		* Give the [=/root element=] a default [=view transition name=],
 			to allow it to be independently selected.
 		* Reduce layout interference from the ''::view-transition-image-pair()'' pseudo-element
 			so that authors can essentially treat ''::view-transition-old()'' and ''::view-transition-new()''
@@ -1527,7 +1584,7 @@ div.box {
 	</xmp>
 
 	<dl class="domintro non-normative">
-		: <code>{{ViewTransition|viewTransition}} = {{Document|document}}.{{startViewTransition}}({{ViewTransitionUpdateCallback|updateCallback}})</code>
+		: <code>{{ViewTransition|viewTransition}} = {{Document|document}}.{{Document/startViewTransition}}({{ViewTransitionUpdateCallback|updateCallback}})</code>
 		:: Starts a new [=view transition=]
 			(canceling the {{Document|document}}’s existing [=active view transition=], if any).
 
@@ -1550,30 +1607,10 @@ div.box {
 	<div algorithm="start-vt-with-options">
 		The [=method steps=] for <dfn method for=Document>startViewTransition(|callbackOptions|)</dfn> are as follows:
 
-		1. Let |updateCallback| be null.
-
-		1. If |callbackOptions| is a {{ViewTransitionUpdateCallback}}, set |updateCallback| to |callbackOptions|.
-
-		1. Otherwise, if |callbackOptions| is a {{StartViewTransitionOptions}}, then set |updateCallback| to |callbackOptions|'s {{StartViewTransitionOptions/update}}.
-
-		1. If |this|'s [=active view transition=] is not null and its [=outbound post-capture steps=] is not null,
-			then:
-
-			1. Let |preSkippedTransition| be a new {{ViewTransition}} in |this|'s [=relevant realm=] whose [=ViewTransition/update callback=] is |updateCallback|.
-
-				Note: The |preSkippedTransition|'s {{ViewTransition/types}} are ignored here because the transition is never activated.
-
-			1. [=Skip the view transition|Skip=] |preSkippedTransition| with an "{{InvalidStateError}}" {{DOMException}}.
-
-			1. Return |preSkippedTransition|.
-
-			Note: This ensures that a same-document transition that started after firing {{Window/pageswap}} is skipped.
-
-		1. Let |viewTransition| be the result of running the [=method steps=] for {{Document/startViewTransition(updateCallback)}} given |updateCallback|.
-
-		1. If |callbackOptions| is a {{StartViewTransitionOptions}}, set |viewTransition|'s [=ViewTransition/active types=] to a [=list/clone=] of {{StartViewTransitionOptions/types}} as a [=/set=].
-
-		1. Return |viewTransition|.
+		1. Perform the {{Element}} {{Element/startViewTransition()}} [=method steps=]
+			given |callbackOptions|,
+			but for the [=/root element=],
+			and return the result.
 	</div>
 
 ### {{Document/activeViewTransition}} Property ### {#doc-activeviewtransition}
@@ -1587,6 +1624,88 @@ the [=active view transition=] is exposed to script via a document property.
 		or null if there is no active view transition.
 </dl>
 
+Issue: Is this updated by a <code>rootEl.startViewTransition()</code> call, too?
+
+## Additions to {{Element}} ## {#additions-to-element-api}
+
+	<xmp class=idl>
+		partial interface Element {
+			ViewTransition startViewTransition(
+				optional (ViewTransitionUpdateCallback or StartViewTransitionOptions) callbackOptions = {}
+			);
+			readonly attribute ViewTransition? activeViewTransition;
+		};
+	</xmp>
+
+	<dl class="domintro non-normative">
+		: <code>{{ViewTransition|viewTransition}} = {{Element|el}}.{{Element/startViewTransition}}({{ViewTransitionUpdateCallback|updateCallback}})</code>
+		:: Starts a new [=view transition=]
+			(potentially canceling a conflicting [=view transition=]).
+
+			{{ViewTransitionUpdateCallback|updateCallback}}, if provided, is called asynchronously, once the current state of the element and its subtree is captured.
+			Then, when the promise returned by {{ViewTransitionUpdateCallback|updateCallback}} fulfills,
+			the new state of the element and its subtree is captured
+			and the transition is initiated.
+
+			Note that {{ViewTransitionUpdateCallback|updateCallback}}, if provided, is *always* called,
+			even if the transition cannot happen
+			(e.g. due to duplicate `view-transition-name` values).
+			The transition is an enhancement around the state change, so a failure to create a transition never prevents the state change.
+			See [[#transitions-as-enhancements]] for more details on this principle.
+
+			If the promise returned by {{ViewTransitionUpdateCallback|updateCallback}} rejects, the transition is skipped.
+	</dl>
+
+### {{Element/startViewTransition()}} Method Steps ### {#Element-ViewTransition-prepare}
+
+	<div algorithm="start-el-vt-with-options">
+		The [=method steps=] for <dfn method for=Element>startViewTransition(|callbackOptions|)</dfn> are as follows:
+
+		1. Let |document| be [=this's=] [=relevant global object's=] [=associated document=].
+
+		1. Let |viewTransition| be a new {{ViewTransition}} object in |document|'s [=relevant Realm=],
+			with [=ViewTransition/root element=] set to [=this=].
+
+		1. If |callbackOptions| is a {{ViewTransitionUpdateCallback}},
+			set |viewTransition|'s [=update callback=] to |callbackOptions|.
+
+			Otherwise, if |callbackOptions| is a {{StartViewTransitionOptions}}, then set |viewTransition|'s [=update callback=]
+			to |callbackOptions|'s {{StartViewTransitionOptions/update}}.
+
+		1. If [=this=] doesn't have [=layout containment=],
+			[=Skip the view transition|skip=] |viewTransition| with an "{{InvalidStateError}}" {{DOMException}}, and return |viewTransition|.
+
+		1. If |document|'s [=active view transition=] is not null and its [=outbound post-capture steps=] is not null,
+			then:
+
+			1. [=Skip the view transition|Skip=] |viewTransition| with an "{{InvalidStateError}}" {{DOMException}}.
+
+				Note: The |viewTransition|'s {{ViewTransition/types}} are ignored here because the transition is never activated.
+
+			1. Return |viewTransition|.
+
+			Note: This ensures that a same-document transition that started after firing {{Window/pageswap}} is skipped.
+
+		1. If [=this=]'s [=active view transition=] is not null,
+			then [=skip the view transition|skip that view transition=]
+			with an "{{AbortError}}" {{DOMException}} in [=this's=] [=relevant Realm=].
+
+			Note: This can result in two asynchronous [=ViewTransition/update callbacks=] running concurrently
+			(and therefore possibly out of sequence):
+			one for the [=this=]'s current [=active view transition=], and another for this |viewTransition|.
+			As per the [design of this feature](#transitions-as-enhancements),
+			it's assumed that the developer is using another feature or framework to correctly schedule these DOM changes.
+
+		1. Set [=this=]'s [=active view transition=] to |viewTransition|.
+
+			Note: The [=view transition=] process continues in [=setup view transition=],
+			via [=perform pending transition operations=].
+
+		1. If |callbackOptions| is a {{StartViewTransitionOptions}}, set |viewTransition|'s [=ViewTransition/active types=] to a [=list/clone=] of {{StartViewTransitionOptions/types}} as a [=/set=].
+
+		1. Return |viewTransition|.
+	</div>
+
 ## The {{ViewTransition}} interface ## {#the-domtransition-interface}
 
 	<xmp class=idl>
@@ -1597,6 +1716,7 @@ the [=active view transition=] is exposed to script via a document property.
 			readonly attribute Promise<undefined> finished;
 			undefined skipTransition();
 			attribute ViewTransitionTypeSet types;
+			readonly attribute Element transitionRoot;
 		};
 	</xmp>
 
@@ -1646,6 +1766,12 @@ the [=active view transition=] is exposed to script via a document property.
 			If this is called before {{ViewTransition/ready}} resolves, {{ViewTransition/ready}} will reject.
 
 			If {{ViewTransition/finished}} hasn't resolved, it will fulfill or reject along with {{ViewTransition/updateCallbackDone}}.
+
+		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/transitionRoot}}</code>
+		:: The {{ViewTransition}}'s [=ViewTransition/root element=].
+
+			For [=view transitions=] started on the {{Document}},
+			this is the [=document element=].
 	</dl>
 
 	A {{ViewTransition}} has the following:
@@ -1708,6 +1834,10 @@ the [=active view transition=] is exposed to script via a document property.
 
 		: <dfn>outbound post-capture steps</dfn>
 		:: Null or a set of steps, initially null.
+
+		: <dfn>root element</dfn>
+		:: An {{Element}},
+			indicating which element is hosting the {{ViewTransition}}.
 	</dl>
 
 	The {{ViewTransition/finished}} [=getter steps=] are to return [=this's=] [=ViewTransition/finished promise=].
@@ -1717,6 +1847,8 @@ the [=active view transition=] is exposed to script via a document property.
 	The {{ViewTransition/updateCallbackDone}} [=getter steps=] are to return [=this's=] [=ViewTransition/update callback done promise=].
 
 	The {{ViewTransition/types}} [=getter steps=] are to return [=this=]'s [=ViewTransition/active types=].
+
+	The {{ViewTransition/transitionRoot}} [=getter steps=] are to return [=this=]'s [=ViewTransition/root element=].
 
 ### The {{ViewTransitionTypeSet}} Interface ### {#the-viewtransitiontypeset-interface}
 
@@ -2189,10 +2321,15 @@ It has the following [=struct/items=]:
 			and has a [=node document=] equal to |document|,
 			in [paint order](https://drafts.csswg.org/css2/#painting-order):
 
-			<div class=note>We iterate in paint order to ensure that this order is cached in |namedElements|.
-			This defines the DOM order for ::view-transition-group pseudo-elements, such that the element at the bottom of the paint stack generates the first pseudo child of ::view-transition.</div>
+			Note: We iterate in paint order to ensure that this order is cached in |namedElements|.
+			This defines the DOM order for ::view-transition-group pseudo-elements, such that the element at the bottom of the paint stack generates the first pseudo child of ::view-transition.
 
 			1. If any [=flat tree=] ancestor of this |element| [=skips its contents=], then [=continue=].
+
+			1. If any [=flat tree=] [=inclusive ancestor=] of this |element|,
+				up to but not including |transition|'s [=ViewTransition/root element=],
+				has ''contain: view-transition'',
+				[=continue=].
 
 			1. If |element| has more than one [=box fragment=], then [=continue=].
 
@@ -2214,7 +2351,13 @@ It has the following [=struct/items=]:
 
 					1. Set |element|'s [=captured in a view transition=] to false.
 
-				1. return failure.
+				1. Return failure.
+
+			1. If <em>any other</em> [=active view transition=] contains |element|
+				in its [=captured elements=],
+				then for each such [=active view transition=],
+				in [=tree order=] of their corresponding [=ViewTransition/root elements=],
+				[=skip the view transition|skip=] that view transition with an "{{AbortError}}" {{DOMException}} in |document|’s [=relevant Realm=].
 
 			1. [=set/Append=] |transitionName| to |usedTransitionNames|.
 
