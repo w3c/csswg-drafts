@@ -1717,6 +1717,7 @@ Issue: Is this updated by a <code>rootEl.startViewTransition()</code> call, too?
 			undefined skipTransition();
 			attribute ViewTransitionTypeSet types;
 			readonly attribute Element transitionRoot;
+			undefined waitUntil(Promise<any> promise);
 		};
 	</xmp>
 
@@ -1772,6 +1773,11 @@ Issue: Is this updated by a <code>rootEl.startViewTransition()</code> call, too?
 
 			For [=view transitions=] started on the {{Document}},
 			this is the [=document element=].
+
+		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/waitUntil}}()</code>
+		:: Delays view transition finish until the given promise is settled
+
+			When invoked with Promise |p|, run [=delay finish for promise=] steps with |p|.
 	</dl>
 
 	A {{ViewTransition}} has the following:
@@ -2090,6 +2096,12 @@ and by applying ''view-transition-group'' to the internal element referencing th
 			Initially false.
 
 			Note: this value can be read [=in parallel=] while navigating.
+
+		: <dfn>waitUntilPromiseCount</dfn>
+		:: an integer, initially 0.
+
+			Represents the count of promises that have been added via {{ViewTransition/waitUntil}} function
+			and have not settled.
 	</dl>
 
 ### Additions to Elements ### {#elements-concept}
@@ -3115,6 +3127,25 @@ To <dfn>adjust nested view transition group transform</dfn> given a |transform| 
 			Note: This is necessary since the descendant will generate its own snapshot which will be displayed and animated independently.
 	</div>
 
+	<div algorithm="delay finish for promise">
+		To <dfn>delay finish for promise</dfn>, given promise |p|:
+
+		1. If |p| is settled, abort the remainder of the steps and return.
+
+		1. Increment [=waitUntilPromiseCount=]
+
+		1. Add monitoring to |p| to detect when it is settled.
+				Upon settling, perform the following steps:
+
+				1. Decrement [=waitUntilPromiseCount=]
+
+				1. If [=waitUntilPromiseCount=] is 0,
+						then schedule an animation frame which ensures
+						that <a href="https://html.spec.whatwg.org/#event-loop-processing-model:perform-pending-transition-operations">update the rendering steps</a>
+						will [=perform pending transition operations=].
+
+				Note: Since we may have removed the last condition that is preventing the view transition from ending, we need to make sure that the check for this occurs. This happens in [=perform pending transition operations=].
+
 ## [=Handle transition frame=] ## {#handle-transition-frame-algorithm}
 
 	<div algorithm>
@@ -3133,7 +3164,7 @@ To <dfn>adjust nested view transition group transform</dfn> given a |transform| 
 
 				- |document|'s [=pending animation event queue=] has any events associated with |animation|.
 
-		1. If |hasActiveAnimations| is false:
+		1. If |hasActiveAnimations| is false and [=waitUntilPromiseCount=] is 0:
 
 			1. Set |transition|'s [=ViewTransition/phase=] to "`done`".
 
