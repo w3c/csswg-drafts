@@ -441,22 +441,26 @@ an associated element or [=pseudo-element=] <var>element</var> and optionally a 
 (which is "<code>auto</code>" if omitted),
 the following steps must be run:
 
-<ol>
- <li><a lt="smooth scroll aborted">Abort</a> any ongoing <a>smooth scroll</a> for <var>box</var>.
- <li>If the user agent honors the 'scroll-behavior' property and one of the following are true:
+1. <a lt="smooth scroll aborted">Abort</a> any ongoing <a>smooth scroll</a> for <var>box</var>.
+1. Resolve all pending scroll {{Promise}}s whose scroll container is <var>box</var>.
+1. Let <var>scrollPromise</var> be a new {{Promise}}.
+1. Return <var>scrollPromise</var>, and run the remaining steps <a>in parallel</a>.
+1. If the user agent honors the 'scroll-behavior' property and one of the following is true:
   <ul>
    <li><var>behavior</var> is "<code>auto</code>" and <var>element</var> is not null and its computed value of the
-   'scroll-behavior' property is ''scroll-behavior/smooth''
+   'scroll-behavior' property is ''scroll-behavior/smooth'', or
    <li><var>behavior</var> is <code>smooth</code>
   </ul>
-  ...then perform a <a>smooth scroll</a> of <var>box</var> to <var>position</var>. Once the position has finished updating, emit the <a event>scrollend</a> event.
-  Otherwise, perform an <a>instant scroll</a> of <var>box</var> to <var>position</var>. After an <a>instant scroll</a> emit the <a event>scrollend</a> event.
+  then perform a <a>smooth scroll</a> of <var>box</var> to <var>position</var>;
+  otherwise, perform an <a>instant scroll</a> of <var>box</var> to <var>position</var>.
+1. Wait until either the position has finished updating, or <var>scrollPromise</var> has been resolved.
+1. If <var>scrollPromise</var> is still in the pending state:
+    1. If the scroll position changed as a result of this call, emit the <a event>scrollend</a> event.
+    1. Resolve <var>scrollPromise</var>.
 
   Note: <code>behavior: "instant"</code> always performs an <a>instant scroll</a> by this algorithm.
 
   Note: If the scroll position did not change as a result of the user interaction or programmatic invocation, where no translations were applied as a result, then no <a event>scrollend</a> event fires because no scrolling occurred.
-</ol>
-
 </div>
 
 <div algorithm="perform a scroll of a viewport">
@@ -481,8 +485,13 @@ When a user agent is to <dfn for="viewport" export>perform a scroll</dfn> of a <
 1. Let <var>element</var> be <var>doc</var>'s root element if there is one, null otherwise.
 1. <a for="/">Perform a scroll</a> of the <a>viewport</a>'s <a>scrolling box</a> to its current scroll position + (<var>layout dx</var>, <var>layout dy</var>) with <var>element</var> as the
     associated element, and <var>behavior</var> as the scroll behavior.
+    Let <var>scrollPromise1</var> be the {{Promise}} returned from this step.
 1. <a for="/">Perform a scroll</a> of <var>vv</var>'s <a>scrolling box</a> to its current scroll position + (<var>visual dx</var>, <var>visual dy</var>) with <var>element</var> as the associated
     element, and <var>behavior</var> as the scroll behavior.
+    Let <var>scrollPromise2</var> be the {{Promise}} returned from this step.
+1. Let <var>scrollPromise</var> be a new {{Promise}}.
+1. Return <var>scrollPromise</var>, and run the remaining steps <a>in parallel</a>.
+1. Resolve <var>scrollPromise</var> when both <var>scrollPromise1</var> and <var>scrollPromise2</var> have settled.
 
 Note: Conceptually, the visual viewport is scrolled until it "bumps up" against the layout viewport
 edge and then "pushes" the layout viewport by applying the scroll delta to the layout viewport.
@@ -581,12 +590,12 @@ partial interface Window {
     [Replaceable] readonly attribute double pageXOffset;
     [Replaceable] readonly attribute double scrollY;
     [Replaceable] readonly attribute double pageYOffset;
-    undefined scroll(optional ScrollToOptions options = {});
-    undefined scroll(unrestricted double x, unrestricted double y);
-    undefined scrollTo(optional ScrollToOptions options = {});
-    undefined scrollTo(unrestricted double x, unrestricted double y);
-    undefined scrollBy(optional ScrollToOptions options = {});
-    undefined scrollBy(unrestricted double x, unrestricted double y);
+    Promise<undefined> scroll(optional ScrollToOptions options = {});
+    Promise<undefined> scroll(unrestricted double x, unrestricted double y);
+    Promise<undefined> scrollTo(optional ScrollToOptions options = {});
+    Promise<undefined> scrollTo(unrestricted double x, unrestricted double y);
+    Promise<undefined> scrollBy(optional ScrollToOptions options = {});
+    Promise<undefined> scrollBy(unrestricted double x, unrestricted double y);
 
     // client
     [Replaceable] readonly attribute long screenX;
@@ -598,6 +607,8 @@ partial interface Window {
     [Replaceable] readonly attribute double devicePixelRatio;
 };
 </pre>
+
+Issue: Should the scroll methods above return a result object and if so what information should they provide? #12495
 
 When the <dfn method for=Window caniuse=matchmedia>matchMedia(<var>query</var>)</dfn> method is invoked these steps must be run:
 <ol>
@@ -715,7 +726,7 @@ steps must be run:
     1. Let <var>options</var> be null <a lt="converted to an IDL value">converted</a> to a {{ScrollToOptions}} dictionary. [[!WEBIDL]]
     1. Let <var>x</var> and <var>y</var> be the arguments, respectively.
 1. <a>Normalize non-finite values</a> for <var>x</var> and <var>y</var>.
-1. If there is no <a>viewport</a>, abort these steps.
+1. If there is no <a>viewport</a>, return a resolved {{Promise}} and abort the remaining steps.
 1. Let <var>viewport width</var> be the width of the <a>viewport</a> excluding the width of the scroll bar, if any.
 1. Let <var>viewport height</var> be the height of the <a>viewport</a> excluding the height of the scroll bar, if any.
 1.
@@ -740,11 +751,13 @@ steps must be run:
     and aligning the y-coordinate <var>y</var> of the <a>viewport</a> <a>scrolling area</a>
     with the top of the <a>viewport</a>.
 1. If <var>position</var> is the same as the <a>viewport’s</a> current scroll position,
-    and the <a>viewport</a> does not have an ongoing <a>smooth scroll</a>, abort these steps.
+    and the <a>viewport</a> does not have an ongoing <a>smooth scroll</a>, return a resolved {{Promise}} and abort the remaining steps.
 1. Let <var>document</var> be the <a>viewport’s</a> associated {{Document}}.
 1. <a for="viewport">Perform a scroll</a> of the <a>viewport</a> to <var>position</var>,
     <var>document</var>'s [=root element=] as the associated element, if there is one, or null otherwise,
     and the scroll behavior being the value of the {{ScrollOptions/behavior}} dictionary member of <var>options</var>.
+    Let <var>scrollPromise</var> be the {{Promise}} returned from this step.
+1. Return <var>scrollPromise</var>.
 
     Issue: User agents do not agree whether this uses the (coordinated) <a>viewport</a> <a for="viewport">perform a scroll</a> or the
     <a>scrolling box</a> <a for="/">perform a scroll</a> on the layout viewport's scrolling box.
@@ -774,7 +787,7 @@ user agent must run these steps:
 1. <a>Normalize non-finite values</a> for the {{ScrollToOptions/left}} and {{ScrollToOptions/top}} dictionary members of <var>options</var>.
 1. Add the value of {{scrollX}} to the {{ScrollToOptions/left}} dictionary member.
 1. Add the value of {{scrollY}} to the {{ScrollToOptions/top}} dictionary member.
-1. Act as if the {{Window/scroll()}} method was invoked with <var>options</var> as the only argument.
+1. Return the {{Promise}} returned from {{Window/scroll()}} after the method is invoked with <var>options</var> as the only argument.
 
 The <dfn attribute for=Window>screenX</dfn> and <dfn attribute for=Window>screenLeft</dfn> attributes must return the x-coordinate,
 relative to the origin of the <a>Web-exposed screen area</a>, of the left of
@@ -1307,13 +1320,13 @@ partial interface Element {
 
   boolean checkVisibility(optional CheckVisibilityOptions options = {});
 
-  undefined scrollIntoView(optional (boolean or ScrollIntoViewOptions) arg = {});
-  undefined scroll(optional ScrollToOptions options = {});
-  undefined scroll(unrestricted double x, unrestricted double y);
-  undefined scrollTo(optional ScrollToOptions options = {});
-  undefined scrollTo(unrestricted double x, unrestricted double y);
-  undefined scrollBy(optional ScrollToOptions options = {});
-  undefined scrollBy(unrestricted double x, unrestricted double y);
+  Promise<undefined> scrollIntoView(optional (boolean or ScrollIntoViewOptions) arg = {});
+  Promise<undefined> scroll(optional ScrollToOptions options = {});
+  Promise<undefined> scroll(unrestricted double x, unrestricted double y);
+  Promise<undefined> scrollTo(optional ScrollToOptions options = {});
+  Promise<undefined> scrollTo(unrestricted double x, unrestricted double y);
+  Promise<undefined> scrollBy(optional ScrollToOptions options = {});
+  Promise<undefined> scrollBy(unrestricted double x, unrestricted double y);
   attribute unrestricted double scrollTop;
   attribute unrestricted double scrollLeft;
   readonly attribute long scrollWidth;
@@ -1325,6 +1338,8 @@ partial interface Element {
   readonly attribute double currentCSSZoom;
 };
 </pre>
+
+Issue: Should the scroll methods above return a result object and if so what information should they provide? #12495
 
 Note: The {{CheckVisibilityOptions/checkOpacity}} and {{CheckVisibilityOptions/checkVisibilityCSS}} properties are historical names.
 These properties have aliases that match the new naming scheme,
@@ -1462,10 +1477,12 @@ The <dfn method for=Element caniuse=scrollintoview>scrollIntoView(<var>arg</var>
 1. Otherwise, if <var>arg</var> is false, then set <var>block</var> to "<code>end</code>".
 1. If the element does not have any associated [=CSS/box=],
     or is not available to user-agent features,
-    then return.
+    then return a resolved {{Promise}} and abort the remaining steps.
 1. <a lt='scroll a target into view'>Scroll the element into view</a>
     with <var>behavior</var>, <var>block</var>, <var>inline</var>, and <var>container</var>.
+    Let <var>scrollPromise</var> be the {{Promise}} returned from this step
 1. Optionally perform some other action that brings the element to the user's attention.
+1. Return <var>scrollPromise</var>.
 
 <div class='example'>
     A component can use scrollIntoView to scroll content of interest into the specified alignment:
@@ -1553,23 +1570,24 @@ The <dfn method for=Element lt="scroll(options)|scroll(x, y)">scroll()</dfn> met
     1. Let the {{ScrollToOptions/left}} dictionary member of <var>options</var> have the value <var>x</var>.
     1. Let the {{ScrollToOptions/top}} dictionary member of <var>options</var> have the value <var>y</var>.
 1. Let <var>document</var> be the element's <a>node document</a>.
-1. If <var>document</var> is not the <a>active document</a>, terminate these steps.
+1. If <var>document</var> is not the <a>active document</a>, return a resolved {{Promise}} and abort the remaining steps.
 1. Let <var>window</var> be the value of <var>document</var>'s {{Document/defaultView}} attribute.
-1. If <var>window</var> is null, terminate these steps.
-1. If the element is the [=root element=] and <var>document</var> is in <a>quirks mode</a>, terminate these steps.
-1. If the element is the [=root element=] invoke {{Window/scroll()}} on <var>window</var> with {{Window/scrollX}} on <var>window</var> as first argument and <var>y</var> as second argument,
-    and terminate these steps.
+1. If <var>window</var> is null, return a resolved {{Promise}} and abort the remaining steps.
+1. If the element is the [=root element=] and <var>document</var> is in <a>quirks mode</a>, return a resolved {{Promise}} and abort the remaining steps.
+1. If the element is the [=root element=], return the {{Promise}} returned by {{Window/scroll()}} on <var>window</var> after the method is invoked with
+    {{Window/scrollX}} on <var>window</var> as first argument and <var>y</var> as second argument, and abort the remaining steps.
 1. If the element is <a>the <code>body</code> element</a>,
     <var>document</var> is in <a>quirks mode</a>,
     and the element is not <a>potentially scrollable</a>,
-    invoke {{Window/scroll()}} on <var>window</var> with <var>options</var> as the only argument,
-    and terminate these steps.
+    return the {{Promise}} returned by {{Window/scroll()}} on <var>window</var> after the method is invoked with
+    <var>options</var> as the only argument, and abort the remaining steps.
 1. If the element does not have any associated [=CSS/box=],
     the element has no associated <a>scrolling box</a>,
     or the element has no overflow,
-    terminate these steps.
+    return a resolved {{Promise}} and abort the remaining steps.
 1. <a lt='scroll an element'>Scroll the element</a> to <var>x</var>,<var>y</var>,
-    with the scroll behavior being the value of the {{ScrollOptions/behavior}} dictionary member of <var>options</var>.
+    with the scroll behavior being the value of the {{ScrollOptions/behavior}} dictionary member of <var>options</var>.  Let <var>scrollPromise</var> be the {{Promise}} returned from this step.
+1. Return <var>scrollPromise</var>.
 
 When the <dfn method for=Element lt="scrollTo(options)|scrollTo(x, y)">scrollTo()</dfn> method is invoked, the
 user agent must act as if the {{Element/scroll()}} method was invoked with the same arguments.
@@ -1588,7 +1606,7 @@ user agent must run these steps:
     1. Let the {{ScrollToOptions/top}} dictionary member of <var>options</var> have the value <var>y</var>.
 1. Add the value of {{Element/scrollLeft}} to the {{ScrollToOptions/left}} dictionary member.
 1. Add the value of {{Element/scrollTop}} to the {{ScrollToOptions/top}} dictionary member.
-1. Act as if the {{Element/scroll()}} method was invoked with <var>options</var> as the only argument.
+1. Return the {{Promise}} returned by {{Element/scroll()}} after the method is invoked with <var>options</var> as the only argument.
 
 <wpt>
     window-scrollBy-display-change.html
@@ -1804,9 +1822,11 @@ an inline base direction position <var>inline</var>,
 and an optional containing <a>Element</a> to stop scrolling after reaching <var>container</var>,
 means to run these steps:
 
+1. Let <var>ancestorPromises</var> be an empty set of {{Promise}}s.
 1. For each ancestor element or <a>viewport</a> that establishes a <a>scrolling box</a> <var>scrolling box</var>,
     in order of innermost to outermost <a>scrolling box</a>, run these substeps:
-    1. If the {{Document}} associated with <var>target</var> is not <a>same origin</a> with the {{Document}} associated with the element or <a>viewport</a> associated with <var>scrolling box</var>, terminate these steps.
+    1. If the {{Document}} associated with <var>target</var> is not <a>same origin</a> with the {{Document}} associated with the element or <a>viewport</a> associated with <var>scrolling box</var>, 
+        abort any remaining iteration of this loop.
     1. Let <var>position</var> be the scroll position resulting from running the steps to <a>determine the scroll-into-view position</a> of <var>target</var> with <var>behavior</var> as the |scroll behavior|,
         <var>block</var> as the |block flow position|, <var>inline</var> as the |inline base direction position| and <var>scrolling box</var> as the |scrolling box|.
     1. If <var>position</var> is not the same as <var>scrolling box</var>'s current scroll position, or <var>scrolling box</var> has an ongoing <a>smooth scroll</a>,
@@ -1815,18 +1835,22 @@ means to run these steps:
                 <dd>
                     <a for="/">Perform a scroll</a> of the element's <var>scrolling box</var> to <var>position</var>, with the element as the associated element and
                     <var>behavior</var> as the scroll behavior.
+                    Add the {{Promise}} retured from this step to the set <var>ancestorPromises</var>.
                 <dt>If <var>scrolling box</var> is associated with a <a>viewport</a>
                 <dd>
                     1. Let <var>document</var> be the <a>viewport’s</a> associated {{Document}}.
                     1. Let <var>root element</var> be <var>document</var>'s [=root element=], if there is one, or null otherwise.
                     1. <a for="viewport">Perform a scroll</a> of the <a>viewport</a> to <var>position</var>, with <var>root element</var> as the associated element and <var>behavior</var>
                         as the scroll behavior.
+                        Add the {{Promise}} retured from this step in the set <var>ancestorPromises</var>.
             </dl>
     1. If <var>container</var> is not null and either <var>scrolling box</var>
         is a [=shadow-including inclusive ancestor=] of <var>container</var> or
         is a <a>viewport</a> whose <a for="/">document</a> is a [=shadow-including inclusive ancestor=] of <var>container</var>,
-        abort the rest of these steps.
-
+        abort any remaining iteration of this loop.
+1. Let <var>scrollPromise</var> be a new {{Promise}}.
+1. Return <var>scrollPromise</var>, and run the remaining steps <a>in parallel</a>.
+1. Resolve <var>scrollPromise</var> when all {{Promise}}s in <var>ancestorPromises</var> have settled.
 </div>
 
 <div algorithm>
@@ -1849,8 +1873,10 @@ To <dfn>scroll an element</dfn> (or [=pseudo-element=]) <var>element</var> to <v
         <dd>Let <var>y</var> be min(0, max(<var>y</var>, <var>element</var> <a>padding edge</a> height - <var>element</var> <a>scrolling area</a> height)).
     </dl>
 1. Let <var>position</var> be the scroll position <var>box</var> would have by aligning <a>scrolling area</a> x-coordinate <var>x</var> with the left of <var>box</var> and aligning <a>scrolling area</a> y-coordinate <var>y</var> with the top of <var>box</var>.
-1. If <var>position</var> is the same as <var>box</var>'s current scroll position, and <var>box</var> does not have an ongoing <a>smooth scroll</a>, abort these steps.
+1. If <var>position</var> is the same as <var>box</var>'s current scroll position, and <var>box</var> does not have an ongoing <a>smooth scroll</a>, return a resolved {{Promise}} and abort the remaining steps.
 1. <a for="/">Perform a scroll</a> of <var>box</var> to <var>position</var>, <var>element</var> as the associated element and <var>behavior</var> as the scroll behavior.
+    Let <var>scrollPromise</var> be the {{Promise}} returned from this step.
+1. Return <var>scrollPromise</var>.
 
 </div>
 
