@@ -47,7 +47,6 @@
 - [Alternatives considered](#alternatives-considered)
   - [New meta viewport key for changing text-scale](#new-meta-viewport-key-for-changing-text-scale)
   - [Fold OS-level font scale into initial font size](#fold-os-level-font-scale-into-initial-font-size)
-- [Footnotes](#footnotes)
 
 <!-- TOC end -->
 
@@ -384,7 +383,11 @@ If an author didn’t want headings – for example – to scale up at the same 
 
 By default, [Android Webview scales the text size by the system font scale factor](https://crsrc.org/c/android_webview/java/src/org/chromium/android_webview/AwSettings.java;l=382-385;drc=fbd39d07c1deaf2ec4a8ea32260503369d10bdbb). App developers may override this default by invoking [setTextZoom()](<https://developer.android.com/reference/android/webkit/WebSettings#setTextZoom(int)>).
 
+**Update 2025-Jul-08:** The interaction between WebView and env() is in flux. See the [discussion on blink-dev.](https://groups.google.com/a/chromium.org/g/blink-dev/c/bZuQAcwcEig/m/6F5w5S97AQAJ)
+
+<del>
 We recommend that apps embedding pages that use `env(preferred-text-scale)` override Android Webview’s default scaling with `setTextZoom(100)`. But `text-size-adjust` doesn’t work in Android Webview yet. See [https://crbug.com/419469463](https://crbug.com/419469463)
+</del>
 
 ### Example use cases
 
@@ -435,6 +438,9 @@ The minimum font size setting is not involved in the derivation of `env(preferre
 
 ### New meta viewport key for changing text-scale
 
+**Update 2025-Jul-08:** The `<meta>` approach has evolved since this document was written.
+See the [Meta tag for text scaling behavior Explainer](https://github.com/w3c/csswg-drafts/blob/main/css-env-1/explainers/meta-text-scale.md)
+
 ```html
 <meta
   name="viewport"
@@ -474,8 +480,6 @@ Cons
 
 - Sites are NOT built correctly and things that used to just look small would now be clipped
 - You can simulate the effect of this alternative in Chrome by setting the UA-level font at chrome://settings/fonts. Set "font-size" to the maximum. old.reddit.com, gmail, etc, all break. Sites today ineffectively mix `px` and `em` because there is no safeguard against doing so – few authors change the UA-level font-size at chrome://settings/fonts.
-
-## Footnotes
 
 [^1]: Note: It is not the same as increasing the display pixel density (i.e. the `devicePixelRatio`).
 [^2]: According to research by Appt. [https://appt.org/en/stats/font-size](https://appt.org/en/stats/font-size)

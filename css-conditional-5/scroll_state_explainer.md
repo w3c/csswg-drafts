@@ -147,12 +147,52 @@ a carousel.
 
 - [Author request on github](https://github.com/w3c/csswg-drafts/issues/7430)
 
-### Overflowing
+### Scrollable
 
-Query whether a container has scrollable overflow. Can be used to indicate
-there is content to scroll to in a given direction.
+Query whether a container has [scrollable overflow](https://drafts.csswg.org/css-overflow-3/#scrollable-overflow-region).
+Can be used to indicate there is content to scroll to in a given direction.
 
-Needs further exploration.
+### Scrolled
+
+Query the direction of [the most recent relative scroll](https://drafts.csswg.org/css-scroll-snap-1/#scroll-types).
+For instance:
+
+```css
+@container scroll-state(scrolled: top) {
+  .scrolling-up {
+    translate: 0 0;
+  }
+}
+```
+
+#### Workaround
+
+A workaround solution to create queries based on scrolling direction
+is described in [Solved by CSS Scroll-Driven Animations: hide a header when
+scrolling down, show it again when scrolling up](https://www.bram.us/2024/09/29/solved-by-css-scroll-driven-animations-hide-a-header-when-scrolling-up-show-it-again-when-scrolling-down/),
+uses a `transition-delay` trick to get the active scroll direction.
+
+#### Use Cases and Author Requests
+
+To hide/show or partially collapse some content based on the direction of
+scrolling.
+
+- [Author request on github](https://github.com/w3c/csswg-drafts/issues/6400)
+
+#### Active scroll direction
+
+The proposed `scrolled` feature
+matches the state of the most recent relative scroll direction.
+Web authors might also want to create queries
+based on the active scroll direction, not only the most recent one,
+similar to [scrollend event](https://drafts.csswg.org/cssom-view/#eventdef-document-scrollend).
+
+This needs further discussion with the working group.
+
+#### Programmatic scrolling
+
+The question about which programmatic scrolls should affect scroll direction
+feature is discussed in [the issue](https://github.com/w3c/csswg-drafts/issues/12394).
 
 ### Anchor position fallback
 
@@ -192,6 +232,42 @@ Query values for `stuck`:
 Query values for `snapped`:
 
 - `none`
+- `x`
+- `y`
+- `block`
+- `inline`
+- `both`
+
+Query values for `scrollable`:
+
+- `none`
+- `top`
+- `right`
+- `bottom`
+- `left`
+- `block-start`
+- `inline-start`
+- `block-end`
+- `inline-end`
+- `x`
+- `y` 
+- `block`
+- `inline`
+
+
+Query values for `direction`:
+
+- `none`
+- `top`
+- `right`
+- `bottom`
+- `left`
+- `block-start`
+- `inline-start`
+- `block-end`
+- `inline-end`
+- `x`
+- `y` 
 - `block`
 - `inline`
 

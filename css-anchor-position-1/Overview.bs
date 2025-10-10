@@ -110,6 +110,23 @@ to find the “best” one that avoids overlap/overflow.
 		max-inline-size: 20em;
 	}
 	</pre>
+
+	Note that using the [[HTML#the-popover-attribute|Popover API]]
+	will automatically set 'position' and create the anchoring relationship
+	without setting 'anchor-name' or 'position-anchor' value
+	(by defining an [=implicit anchor=]),
+	so those properties wouldn't need to be explicitly set again.
+	So with the correct markup, this example can be simplified to:
+
+	<pre class=lang-css>
+	.tooltip {
+		/* Using the popover + popovertarget attributes sets 'position: fixed'
+		   and creates the necessary position-anchor relationship already. */
+		position-area: block-start;
+		position-try: flip-block;
+		max-inline-size: 20em;
+	}
+	</pre>
 </div>
 
 <h3 id="values">
@@ -156,7 +173,7 @@ Animation Type: discrete
 
 The 'anchor-name' property declares
 that an element is an <dfn>anchor element</dfn>,
-whose [=principal box=] is an <dfn local-lt=anchor>anchor box</dfn>,
+whose [=principal box=] is an [=anchor box=],
 and gives it a list of <dfn lt="anchor name">anchor names</dfn> to be targeted by.
 Values are defined as follows:
 
@@ -168,7 +185,7 @@ Values are defined as follows:
 	:: If the element generates a [=principal box=],
 		the element is an [=anchor element=],
 		with a list of [=anchor names=] as specified.
-		Each [=anchor name=] is a [=tree-scoped name=].
+		Each [=anchor name=] is a [=tree-scoped name/loosely matched=] [=tree-scoped name=].
 
 		Otherwise, the property has no effect.
 </dl>
@@ -195,6 +212,11 @@ Note: While an element is in the [=skipped contents=] of another element
 it's not an [=acceptable anchor element=],
 effectively acting as if it had no names.
 
+Note: Positioned elements in [=shadow trees=]
+can reference [=anchor names=] defined in “higher” trees.
+Currently, they cannot reference [=anchor names=]
+defined in “lower” shadow trees, though.
+
 ### Implicit Anchor Elements ### {#implicit}
 
 Some specifications can define that,
@@ -214,20 +236,37 @@ The [=implicit anchor element=] of a [=pseudo-element=]
 is its [=originating element=],
 unless otherwise specified.
 
-### The Anchor's Position ### {#determining-position}
+### The Anchor Box ### {#anchor-position-size}
 
-Several features of this specification refer to the position and size of an [=anchor box=].
-The [=anchor box=]'s position and size is determined after layout,
-and for these purposes
-includes 'position'-based adjustments
-(such as ''position: relative'' or ''position: sticky'').
+Several features of this specification refer to the position and size of an <dfn local-lt=anchor>anchor box</dfn>.
+Unless otherwise specified,
+this refers to the [=border box=] edge of the [=principal box=] of the [=anchor element=].
+The [=anchor box=]'s position and size is determined after layout.
 
-Post-layout effects, such as 'transform',
+This position and size includes 'zoom' and 'position'-based adjustments
+(such as ''position: relative'' or ''position: sticky'')
+as well as transforms (such as 'transform' or 'offset-path').
+In these cases, the axis-aligned bounding rectangle of the [=anchor box=]
+in the coordinate space of the [=absolutely positioned=] element's [=containing block=]
+is used instead.
+Transforms are often optimized onto a different thread,
+so transform-based updates to an [=anchor box’s=] position
+may be delayed by a few frames.
+Authors can avoid this delay by using absolute or relative positioning instead where practical.
+
+If the [=anchor box=] is [=fragmented=],
+and the [=containing block=] of the [=absolutely positioned=] box
+referring to that [=anchor box=] is outside the relevant [=fragmentation context=],
+the axis-aligned bounding rectangle of its [=box fragments=] is used instead.
+(If the [=absolutely positioned=] box is inside the [=fragmentation context=],
+it sees the [=anchor box=] as unfragmented--
+and can be itself fragmented by the [=fragmentation context=].)
+
+For performance reasons,
+scrolling is handled specially, see [[#scroll]].
+Other post-layout effects, such as filters,
 do not affect the [=anchor box's=] position.
 
-Note: Allowing an anchor to opt into including the effects of 'transform'
-or similar properties
-might be allowed in the future.
 
 <!-- Big Text: a-scope
 
@@ -274,7 +313,7 @@ Values have the following meanings:
 		to [=anchor elements=] within this subtree.
 
 		This value only affects [=anchor names=] in the same tree scope,
-		as if it were a [=tree-scoped name=].
+		as if it were a [=tree-scoped name/strictly matched=] [=tree-scoped name=].
 		(That is, ''anchor-scope: all'' acts identically
 		to ''anchor-scope: --foo, --bar, ...'',
 		listing all relevant [=anchor names=].)
@@ -286,11 +325,9 @@ Values have the following meanings:
 		to be in scope only for this element's descendants;
 		and limits descendants to only match these [=anchor names=]
 		to [=anchor elements=] within this subtree.
-		The <<dashed-ident>> is a [=tree-scoped name=].
 
-		Note: Per [[css-scoping-1]],
-		when two [=tree-scoped names=] are compared,
-		they only match if they're from the same tree.
+		The <<dashed-ident>> represents a [=tree-scoped name/strictly matched=] [=tree-scoped name=],
+		i.e. it can only match against [=anchor names=] in the same shadow tree.[[!CSS-SCOPING-1]]
 </dl>
 
 This property has no effect on [=implicit anchor elements=].
@@ -368,8 +405,8 @@ in anchor positioning.
 		otherwise return nothing.
 
 	2. If |anchor spec| is ''position-anchor/auto'':
-		1. If the Popover API defines an [=implicit anchor element=] for |query el|
-			which is an [=acceptable anchor element=] for |query el|,
+		1. If |query el| has an [=implicit anchor element=]
+			that is an [=acceptable anchor element=],
 			return that element.
 
 		2. Otherwise, return nothing.
@@ -420,42 +457,20 @@ in anchor positioning.
 		or a fully styleable [=tree-abiding pseudo-element=].
 
 	* |possible anchor| is in scope for |positioned el|,
-		per the effects of 'anchor-scope' on |positioned el|
+		per the effects of 'anchor-scope' on |possible anchor|
 		or its ancestors.
 
 	* |possible anchor| is laid out strictly before |positioned el|,
 		aka one of the following is true:
-		* |positioned el| is [=in a higher top layer=] than |possible anchor|
-		* Both elements are [=in the same top layer=]
-			but have different [=containing blocks=], 
-			and |positioned el|'s [=containing block=]
-			is an ancestor of |possible anchor|'s [=containing block=]
-			in the [=containing block chain=],
-			aka one of the following:
-			* |positioned el|'s [=containing block=] is the viewport,
-				and |possible anchor|'s [=containing block=] isn't.
-			* |positioned el|'s [=containing block=] is the [=initial containing block=],
-				and |possible anchor|'s [=containing block=] is generated by an element,
-				and the last [=containing block=] in |possible anchor|'s [=containing block chain=]
-				before reaching the [=initial containing block=]
-				is either not [=absolutely positioned=]
-				or precedes |positioned el| in the tree order.
-			* both elements' [=containing blocks=] are generated by elements,
-				and |positioned el|'s containing block
-				is an ancestor in the [=flat tree=]
-				to that of |possible anchor|'s [=containing block=],
-				and the last [=containing block=] in |possible anchor|'s [=containing block chain=]
-				before reaching |positioned el|'s [=containing block=]
-				is either not [=absolutely positioned=]
-				or precedes |positioned el| in the tree order.
-		* Both elements are [=in the same top layer=]
-			and have the same [=containing block=],
-			and are both [=absolutely positioned=],
-			and |possible anchor| is earlier in [=flat tree=] order
-			than |positioned el|.
-		* Both elements are [=in the same top layer=]
-			and have the same [=containing block=],
-			but |possible anchor| isn't [=absolutely positioned=].
+		* |possible anchor| and |positioned el| have the same [=original containing block=]
+			and either
+			* |possible anchor| is [=in a lower top layer=] than |positioned el|, or
+			* they both exist in the same [=top layer=],
+				but |possible anchor| is either not [=absolutely positioned=]
+				or occurs earlier in the [=flat tree=] order than |positioned el|
+		* The element generating |possible anchor|'s [=containing block=]
+			(if one exists)
+			is an [=acceptable anchor element=] for |positioned el|
 
 	* If |possible anchor| is in the [=skipped contents=] of another element,
 		then |positioned el| is in the [=skipped contents=] of that same element.
@@ -632,11 +647,13 @@ what area of this [=position-area grid=] to lay out the positioned box in.
 
 Values other than ''position-area/none'' have the following additional effects:
 
+* The [=scrollable containing block=] is used in place of the [=local containing block=]
+	where applicable,
+	so that the entire [=scrollable overflow area=] (typically) is available
+	for positioning.
+* Any ''top/auto'' [=inset properties=] resolve to ''0''.
 * The ''align-self/normal'' value for the [=self-alignment properties=]
 	resolves to a corresponding value, see [[#position-area-alignment]].
-* Any ''top/auto'' [=inset properties=] resolve to ''0''.
-* The box is not considered to be in a [=legacy alignment mode=]
-	in either axis.
 
 <h4 id="position-area-grid-resolution">
 Resolving the Position Area Grid</h4>
@@ -669,12 +686,12 @@ The allowed syntax of a <<position-area>> value is:
 <dfn>&lt;position-area></dfn> = [
 	[ left | center | right | span-left | span-right
 	| x-start | x-end | span-x-start | span-x-end
-	| x-self-start | x-self-end | span-x-self-start | span-x-self-end
+	| self-x-start | self-x-end | span-self-x-start | span-self-x-end
 	| span-all ]
 	||
 	[ top | center | bottom | span-top | span-bottom
 	| y-start | y-end | span-y-start | span-y-end
-	| y-self-start | y-self-end | span-y-self-start | span-y-self-end
+	| self-y-start | self-y-end | span-self-y-start | span-self-y-end
 	| span-all ]
 |
 	[ block-start | center | block-end | span-block-start | span-block-end | span-all ]
@@ -700,8 +717,8 @@ by specifying the rows and columns the region occupies as follows:
 <dl dfn-type=value dfn-for="position-area, <position-area>">
 	: <dfn>start</dfn>, <dfn>end</dfn>, <dfn>self-start</dfn>, <dfn>self-end</dfn>
 	: <dfn>top</dfn>, <dfn>bottom</dfn>, <dfn>left</dfn>, <dfn>right</dfn>
-	: <dfn>y-start</dfn>, <dfn>y-end</dfn>, <dfn>y-self-start</dfn>, <dfn>y-self-end</dfn>
-	: <dfn>x-start</dfn>, <dfn>x-end</dfn>, <dfn>x-self-start</dfn>, <dfn>x-self-end</dfn>
+	: <dfn>y-start</dfn>, <dfn>y-end</dfn>, <dfn>self-x-start</dfn>, <dfn>self-y-end</dfn>
+	: <dfn>x-start</dfn>, <dfn>x-end</dfn>, <dfn>self-x-start</dfn>, <dfn>self-x-end</dfn>
 	: <dfn>block-start</dfn>, <dfn>block-end</dfn>, <dfn>self-block-start</dfn>, <dfn>self-block-end</dfn>
 	: <dfn>inline-start</dfn>, <dfn>inline-end</dfn>, <dfn>self-inline-start</dfn>, <dfn>self-inline-end</dfn>
 	: <dfn>center</dfn>
@@ -716,14 +733,14 @@ by specifying the rows and columns the region occupies as follows:
 		but in the specified physical axis.
 
 		The ''self-*'' logical keywords
-		(''position-area/self-start'', ''position-area/x-self-end'', etc)
+		(''position-area/self-start'', ''position-area/self-x-end'', etc)
 		are identical,
 		but refer to the box's own [=writing mode=].
 
 	: <dfn>span-start</dfn>, <dfn>span-end</dfn>, <dfn>span-self-start</dfn>, <dfn>span-self-end</dfn>
-	: <dfn>span-top</dfn>, <dfn>span-bottom</dfn>
-	: <dfn>span-y-start</dfn>, <dfn>span-y-end</dfn>, <dfn>span-y-self-start</dfn>, <dfn>span-y-self-end</dfn>
-	: <dfn>span-x-start</dfn>, <dfn>span-x-end</dfn>, <dfn>span-x-self-start</dfn>, <dfn>span-x-self-end</dfn>
+	: <dfn>span-top</dfn>, <dfn>span-bottom</dfn>, <dfn>span-left</dfn>, <dfn>span-right</dfn>
+	: <dfn>span-y-start</dfn>, <dfn>span-y-end</dfn>, <dfn>span-self-y-start</dfn>, <dfn>span-self-y-end</dfn>
+	: <dfn>span-x-start</dfn>, <dfn>span-x-end</dfn>, <dfn>span-self-x-start</dfn>, <dfn>span-self-x-end</dfn>
 	: <dfn>span-block-start</dfn>, <dfn>span-block-end</dfn>, <dfn>span-self-block-start</dfn>, <dfn>span-self-block-end</dfn>
 	: <dfn>span-inline-start</dfn>, <dfn>span-inline-end</dfn>, <dfn>span-self-inline-start</dfn>, <dfn>span-self-inline-end</dfn>
 	:: Two adjacent rows or columns,
@@ -769,107 +786,6 @@ treated as equivalent.
 It serializes in the order given in the grammar (above),
 with the logical keywords serialized in their short forms
 (e.g. ''start start'' instead of ''block-start inline-start'').
-
-<h4 id=position-area-alignment>
-Area-specific Default Alignment</h4>
-
-Each <<position-area>> also implies a default [=self-alignment=],
-which will be used if the [=self-alignment property=] on the box
-is ''align-self/normal'':
-
-* If the only the center track in an axis is selected,
-	the default alignment in that axis is ''align-self/center''.
-* If all three tracks are selected,
-	the default alignment in that axis is ''align-self/anchor-center''.
-* Otherwise, the default alignment in that axis
-	is toward the non-specified side track:
-	if it's specifying the “start” track of its axis,
-	the default alignment in that axis is ''align-self/end''; etc.
-
-<div class=example>
-	For example, assuming an English-equivalent writing mode (horizontal-tb, ltr),
-	then the value ''span-x-start top'' resolves to
-	the ''position-area/start'' region of the vertical axis,
-	and the ''position-area/start'' and ''position-area/center'' regions of the horizontal axis,
-	so the default alignments will be ''align-self: end''
-	(making the box's bottom [=margin edge=] flush with the bottom of the ''position-area/top'' region)
-	and ''justify-self: end''
-	(making the box's end-side [=margin edge=] flush with the end side of the ''position-area/span-start'' region).
-</div>
-
-<div class=note>
-	If the box overflows its [=inset-modified containing block=],
-	but would still fit within its [=original containing block=],
-	by default it will “shift” to stay within its [=original containing block=],
-	even if that violates its normal alignment.
-	See [[css-align-3#overflow-values]] for details.
-
-	This behavior makes it more likely
-	that positioned boxes remain visible
-	and within their intended bounds,
-	even when their [=containing block=]
-	ends up smaller than anticipated.
-
-	For example, a ''position-area: bottom span-right'' value
-	lets the positioned box stretch
-	from its anchor's left edge
-	to its containing block's right edge,
-	and left-aligns it in that space by default.
-	But if the positioned box is larger than that space
-	(such as if the anchor is very close to the right edge of the screen),
-	it will shift leftwards to stay visible.
-</div>
-
-
-<!-- Big Text: a-center
-
- ███▌         ███▌  █████▌ █    █▌ █████▌ █████▌ ████▌
-▐█ ▐█        █▌  █▌ █▌     █▌   █▌   █▌   █▌     █▌  █▌
-█▌  █▌       █▌     █▌     ██▌  █▌   █▌   █▌     █▌  █▌
-█▌  █▌ ████▌ █▌     ████   █▌▐█ █▌   █▌   ████   ████▌
-█████▌       █▌     █▌     █▌  ██▌   █▌   █▌     █▌▐█
-█▌  █▌       █▌  █▌ █▌     █▌   █▌   █▌   █▌     █▌ ▐█
-█▌  █▌        ███▌  █████▌ █▌   ▐▌   █▌   █████▌ █▌  █▌
--->
-
-Centering on the Anchor: the ''anchor-center'' alignment value {#anchor-center}
---------------------------------------------------------------
-
-<pre class=propdef>
-Name: justify-self, align-self, justify-items, align-items
-New Values: anchor-center
-</pre>
-
-The [=self-alignment properties=] allow an [=absolutely positioned box=]
-to align itself within the [=inset-modified containing block=].
-The existing values,
-plus carefully chosen [=inset properties=],
-are usually enough for useful alignment,
-but a common case for anchored positioning--
-centering over the [=anchor box=]--
-requires careful and somewhat complex set-up to achieve.
-
-The new <dfn value for="justify-self, align-self, justify-items, align-items">anchor-center</dfn> value
-makes this case extremely simple:
-if the positioned box has a [=default anchor box=],
-then it is centered (insofar as possible)
-over the [=default anchor box=]
-in the relevant axis.
-
-Additionally,
-any ''top/auto'' [=inset properties=] resolve to ''0''.
-
-If the box is not [=absolutely positioned=],
-or does not have a [=default anchor box=],
-this value behaves as ''<self-position>/center''
-and has no additional effect on how [=inset properties=] resolve.
-
-Note: When using ''anchor-center'', by default
-if the anchor is too close to the edge of the box's
-[=original containing block=],
-it will “shift” from being purely centered,
-in order to remain within the [=original containing block=].
-See [[css-align-3#overflow-values]] for more details.
 
 <!-- Big Text: anchor()
 
@@ -983,12 +899,8 @@ resolves at [=computed value=] time
 to the <<length>> that would align the edge
 of the positioned boxes' [=inset-modified containing block=]
 corresponding to the property the function appears in
-with the specified border edge of the [=target anchor element=],
-assuming that all [=scroll containers=]
-between the [=target anchor element=]
-and the positioned box's [=containing block=]
-are scrolled to their initial scroll position
-(but see [[#scroll]]).
+with the specified edge
+of the [=target anchor element's=] [=anchor box=].
 
 Note: This means that [=transitions=] or [=animations=]
 of a property using an [=anchor function=]
@@ -997,10 +909,6 @@ the [=anchor box=] moving,
 [=anchor elements=] being added or removed from the document,
 the 'anchor-name' property being changed on anchors,
 etc.
-
-If the [=target anchor element=] is [=fragmented=],
-the axis-aligned bounding rectangle
-of the [=box fragment|fragments=]' [=border boxes=] is used instead.
 
 <div class=example>
 	For example,
@@ -1024,6 +932,8 @@ of the [=box fragment|fragments=]' [=border boxes=] is used instead.
 <div class=example>
 	Because the ''anchor()'' function resolves to a <<length>>,
 	it can be used in [=math functions=] like any other length.
+
+	ISSUE(10776): Add a better example; this one can be accomplished easily with ''align-self/anchor-center''.
 
 	For example, the following will set up the element
 	so that its [=inset-modified containing block=]
@@ -1294,98 +1204,161 @@ specifically, the [=default anchor element=]:
 </div>
 
 
-<!-- Big Text: visibility
+<!-- Big Text: Alignment
 
-█▌   █▌ ████  ███▌  ████ ████▌  ████ █▌    ████ █████▌ █   ▐▌
-█▌   █▌  ▐▌  █▌  █▌  ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌   ▐▌  █ 
-█▌   █▌  ▐▌  █▌      ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌    █ ▐▌ 
-▐▌   █   ▐▌   ███▌   ▐▌  █████   ▐▌  █▌     ▐▌    █▌    ▐▌█  
- █  ▐▌   ▐▌      █▌  ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌     █▌  
- ▐▌ █    ▐▌  █▌  █▌  ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌     █▌  
-  ▐█    ████  ███▌  ████ ████▌  ████ █████ ████   █▌     █▌  
+ ███▌  █▌    ████  ███▌  █    █▌ █     █ █████▌ █    █▌ █████▌
+▐█ ▐█  █▌     ▐▌  █▌  █▌ █▌   █▌ ██   ██ █▌     █▌   █▌   █▌
+█▌  █▌ █▌     ▐▌  █▌     ██▌  █▌ █▌█ █▐█ █▌     ██▌  █▌   █▌
+█▌  █▌ █▌     ▐▌  █▌ ██▌ █▌▐█ █▌ █▌ █ ▐█ ████   █▌▐█ █▌   █▌
+█████▌ █▌     ▐▌  █▌  █▌ █▌  ██▌ █▌   ▐█ █▌     █▌  ██▌   █▌
+█▌  █▌ █▌     ▐▌  █▌  █▌ █▌   █▌ █▌   ▐█ █▌     █▌   █▌   █▌
+█▌  █▌ █████ ████  ███▌  █▌   ▐▌ █▌   ▐█ █████▌ █▌   ▐▌   █▌
 -->
 
-Conditional Hiding: the 'position-visibility' property {#position-visibility}
-------------------------------------------------------
+Anchor-Based Alignment {#alignment}
+======================
+
+<h3 id=position-area-alignment>
+Area-specific Default Alignment</h3>
+
+When 'position-area' is not ''position-area/none'',
+the behavior of the ''align-self/normal'' [=self-alignment=] value
+changes depending on the <<position-area>> value,
+to align the box towards the anchor:
+
+* If the only the center track in an axis is selected,
+	the default alignment in that axis is ''align-self/center''.
+* If all three tracks are selected,
+	the default alignment in that axis is ''align-self/anchor-center''.
+* Otherwise, the default alignment in that axis
+	is toward the non-specified side track:
+	if it's specifying the “start” track of its axis,
+	the default alignment in that axis is ''align-self/end''; etc.
+
+However, if only one [=inset property=] in the relevant axis is ''inset/auto'',
+the default alignment is instead
+towards the edge with the non-''inset/auto'' inset;
+and this is an ''align-self/unsafe'' alignment.
+
+Note: This single-''inset/auto'' behavior preserves the way
+a single specified inset controls the position of an [=absolutely positioned=] box.
+
+<div class=example>
+	For example, assuming an English-equivalent writing mode (horizontal-tb, ltr),
+	then the value ''span-x-start top'' resolves to
+	the ''position-area/start'' region of the vertical axis,
+	and the ''position-area/start'' and ''position-area/center'' regions of the horizontal axis,
+	so the default alignments will be ''align-self: end''
+	(making the box's bottom [=margin edge=] flush with the bottom of the ''position-area/top'' region)
+	and ''justify-self: end''
+	(making the box's end-side [=margin edge=] flush with the end side of the ''position-area/span-start'' region).
+</div>
+
+<div class=note>
+	If the box overflows its [=inset-modified containing block=],
+	but would still fit within its [=original containing block=],
+	by default it will “shift” to stay within its [=original containing block=],
+	even if that violates its normal alignment.
+	See [[css-align-3#overflow-values]] for details.
+
+	This behavior makes it more likely
+	that positioned boxes remain visible
+	and within their intended bounds,
+	even when their [=containing block=]
+	ends up smaller than anticipated.
+
+	For example, a ''position-area: bottom span-right'' value
+	lets the positioned box stretch
+	from its anchor's left edge
+	to its containing block's right edge,
+	and left-aligns it in that space by default.
+	But if the positioned box is larger than that space
+	(such as if the anchor is very close to the right edge of the screen),
+	it will shift leftwards to stay visible.
+</div>
+
+
+<!-- Big Text: a-center
+
+ ███▌         ███▌  █████▌ █    █▌ █████▌ █████▌ ████▌
+▐█ ▐█        █▌  █▌ █▌     █▌   █▌   █▌   █▌     █▌  █▌
+█▌  █▌       █▌     █▌     ██▌  █▌   █▌   █▌     █▌  █▌
+█▌  █▌ ████▌ █▌     ████   █▌▐█ █▌   █▌   ████   ████▌
+█████▌       █▌     █▌     █▌  ██▌   █▌   █▌     █▌▐█
+█▌  █▌       █▌  █▌ █▌     █▌   █▌   █▌   █▌     █▌ ▐█
+█▌  █▌        ███▌  █████▌ █▌   ▐▌   █▌   █████▌ █▌  █▌
+-->
+
+Centering on the Anchor: the ''anchor-center'' alignment value {#anchor-center}
+--------------------------------------------------------------
 
 <pre class=propdef>
-Name: position-visibility
-Value: always | [ anchors-valid || anchors-visible || no-overflow ]
-Initial: anchors-visible
-Applies to: [=absolutely positioned boxes=]
-Percentages: n/a
-Inherited: no
-Animation type: discrete
+Name: justify-self, align-self, justify-items, align-items
+New Values: anchor-center
 </pre>
 
-There are some conditions in which it might not make sense
-to display an [=absolutely positioned box=].
-This property allows such boxes to be made conditionally visible,
-depending on some commonly needed layout conditions.
+The [=self-alignment properties=] allow an [=absolutely positioned box=]
+to align itself within the [=inset-modified containing block=].
+The existing values,
+plus carefully chosen [=inset properties=],
+are usually enough for useful alignment,
+but a common case for anchored positioning--
+centering over the [=anchor box=]--
+requires careful and somewhat complex set-up to achieve.
 
-<dl dfn-type=value dfn-for=position-visibility>
-	: <dfn>always</dfn>
-	::
-		This property has no effect.
-		(The box is displayed without regard for its anchors
-		or its overflowing status.)
+The new <dfn value for="justify-self, align-self, justify-items, align-items">anchor-center</dfn> value
+makes this case extremely simple:
+if the positioned box has a [=default anchor box=],
+then it is centered (insofar as possible)
+over the [=default anchor box=]
+in the relevant axis.
 
-	: <dfn>anchors-valid</dfn>
-	::
-		If any of the box's [=required anchor references=]
-		do not resolve to a [=target anchor element=],
-		the box's 'visibility' property computes to ''force-hidden''.
+Additionally,
+any ''top/auto'' [=inset properties=] resolve to ''0''.
 
-		Issue: What is a <dfn dfn for>required anchor reference</dfn>?
-		''anchor()'' functions that don't have a fallback value;
-		the default anchor *sometimes*?
-		Need more detail here.
+If the box is not [=absolutely positioned=],
+or does not have a [=default anchor box=],
+this value behaves as ''<self-position>/center''
+and has no additional effect on how [=inset properties=] resolve.
 
-		Issue: <em>Any</em> anchors are missing,
-		or <em>all</em> anchors are missing?
-		I can see use-cases for either, potentially.
-		Do we want to make a decision here, or make it controllable somehow?
+Note: When using ''anchor-center'', by default
+if the anchor is too close to the edge of the box's
+[=original containing block=],
+it will “shift” from being purely centered,
+in order to remain within the [=original containing block=].
+See [[css-align-3#overflow-values]] for more details.
 
-	: <dfn>anchors-visible</dfn>
-	::
-		If the box has a [=default anchor box=]
-		but that [=anchor box=] is [=invisible=] or [=clipped by intervening boxes=],
-		the box's 'visibility' property computes to ''force-hidden''.
+<!-- Big Text: dialog
 
-	: <dfn>no-overflow</dfn>
-	::
-		If the box overflows its [=inset-modified containing block=]
-		even after applying 'position-try',
-		the box's 'visibility' property computes to ''force-hidden''.
-</dl>
+████▌  ████  ███▌  █▌     ███▌   ███▌
+█▌  █▌  ▐▌  ▐█ ▐█  █▌    █▌  █▌ █▌  █▌
+█▌  █▌  ▐▌  █▌  █▌ █▌    █▌  █▌ █▌
+█▌  █▌  ▐▌  █▌  █▌ █▌    █▌  █▌ █▌ ██▌
+█▌  █▌  ▐▌  █████▌ █▌    █▌  █▌ █▌  █▌
+█▌  █▌  ▐▌  █▌  █▌ █▌    █▌  █▌ █▌  █▌
+████▌  ████ █▌  █▌ █████  ███▌   ███▌
+-->
 
-<div algorithm>
-	An anchor box |anchor|
-	is <dfn noexport>clipped by intervening boxes</dfn>
-	relative to a positioned box |abspos| relying on it
-	if |anchor|'s [=ink overflow rectangle=]
-	is fully clipped by a box
-	which is an ancestor of |anchor|
-	but a descendant of |abspos|'s containing block.
-	Clipping in this case refers only to clipping due to 'overflow',
-	or other effects (such as [=paint containment=])
-	that clip to the [=overflow clip edge=].
+Conditional Centering: the ''dialog'' alignment value {#conditional-centering}
+-----------------------------------------------------
 
-	Note: This means that if an abspos is next to its anchor in the DOM,
-	for example,
-	it'll remain visible even if its default anchor is scrolled off,
-	since it's clipped by the same scroller anyway.
+<pre class=propdef>
+Name: justify-self, align-self, justify-items, align-items
+New Values: dialog
+</pre>
 
-	Issue: Make sure this definition of clipped
-	is consistent with View Transitions,
-	which wants a similar concept.
+Dialog boxes are often displayed centered on the screen,
+unless they are anchored to some other element.
 
-	Note: This ensures that in a “chained anchor” situation,
-	if the first abspos is hidden due to this property
-	(due to its anchor being scrolled off),
-	then another abspos using it as an anchor will also be hidden,
-	rather than <em>also</em> floating in a nonsensical location.
-</div>
+The new <dfn value for="justify-self, align-self, justify-items, align-items">dialog</dfn> value
+allows this behavior to be specified:
+if the box is [=absolutely positioned=]
+and its 'position-area' value is not ''position-area/none'',
+it is aligned as per ''align-self/normal''
+(see [[#position-area-alignment]]);
+otherwise,
+it is aligned as per ''align-self/center''.
+
 
 <!-- Big Text: a-size()
 
@@ -1456,10 +1429,10 @@ is equivalent to ''width: anchor-size(width)''.)
 An ''anchor-size()'' function representing a [=resolvable anchor-size function=]
 resolves at [=computed value=] time
 (via [=style & layout interleaving=])
-to the <<length>> separating the relevant border edges
+to the <<length>> separating the relevant edges
 (either left and right, or top and bottom,
 whichever is in the specified axis)
-of the [=target anchor element=].
+of the [=target anchor element's=] [=anchor box=].
 
 
 <h4 id=anchor-size-resolution oldids=anchor-size-valid>
@@ -1524,7 +1497,7 @@ Giving Fallback Options: the 'position-try-fallbacks' property {#position-try-fa
 
 <pre class=propdef>
 Name: position-try-fallbacks
-Value: none | [ [<<dashed-ident>> || <<try-tactic>>] | <<'position-area'>> ]#
+Value: none | [ [<<dashed-ident>> || <<try-tactic>>] | <<position-area>> ]#
 Initial: none
 Inherited: no
 Applies to: [=absolutely positioned boxes=]
@@ -1610,7 +1583,7 @@ Values have the following meanings:
 
 		Otherwise, does nothing.
 
-	: <dfn><<'position-area'>></dfn>
+	: <dfn><<position-area>></dfn>
 	::
 		Automatically creates a [=position option=]
 		composed solely of a 'position-area' property
@@ -1923,7 +1896,7 @@ The syntax of the ''@position-try'' rule is:
 The <<dashed-ident>> specified in the prelude
 is the rule's name.
 If multiple ''@position-try'' rules are declared with the same name,
-the last one in document order "wins".
+they [=cascade=] the same as ''@keyframe'' rules do.
 
 The ''@position-try'' rule only <dfn export lt="accepted @position-try properties">accepts</dfn>
 the following [=properties=]:
@@ -2008,6 +1981,10 @@ These modified styles are applied to the element via [=interleaving=],
 so they affect [=computed values=]
 (and can trigger transitions/etc)
 even though they depend on layout and [=used values=].
+
+ISSUE: Rewrite this section to be less confusing and more correct.
+See <a href="https://github.com/w3c/csswg-drafts/issues/12818">Issue 12818</a>,
+<a href="https://github.com/w3c/csswg-drafts/issues/12890">Issue 12890</a>.
 
 <div algorithm>
 	To <dfn>apply a position option</dfn> to a box's element |el|,
@@ -2096,24 +2073,27 @@ laying out later boxes cannot change this decision.
 <div algorithm="remember or forget the last successful position option">
 	At the time that {{ResizeObserver}} events are determined and delivered:
 
-	* If a box |el| is [=absolutely positioned=],
-		set its <dfn export>last successful position option</dfn>
-		to the set of [=accepted @position-try properties=] (and values)
-		that it's currently using.
+	* If |el| has a [=last successful position option=]
+		remove its [=last successful position option=]
+		if any of the following are true:
 
-	* Otherwise, if |el| has a [=last successful position option=]
-		and if any of the following are true of it,
-		remove its [=last successful position option=]:
-
-		* |el| is not [=absolutely positioned=]
-		* |el|'s computed value for 'position-try-fallbacks' has changed
-		* Any of the ''@position-try'' rules referenced by |el|'s 'position-try-fallbacks'
+		* Its computed 'position' value has changed,
+			its [=containing block=] association has changed,
+			or it no longer generates a box.
+		* Its computed value for any [=longhand property|longhand=] of 'position-try' has changed.
+		* Its computed value for any [=accepted @position-try property=] has changed.
+		* Any of the ''@position-try'' rules referenced by it
 			have been added, removed, or mutated.
 
 		Then, [=determine position fallback styles=] for |el|
 		and set its [=last successful position option=]
 		to the set of [=accepted @position-try properties=] (and values)
 		that it's now using.
+
+	* Otherwise, if a box |el| is [=absolutely positioned=],
+		set its <dfn export>last successful position option</dfn>
+		to the set of [=accepted @position-try properties=] (and values)
+		that it's currently using.
 
 	Note: The timing of this recording/removal
 	is intentionally identical to the treatment of [=last remembered sizes=].
@@ -2148,6 +2128,106 @@ This limit must be <em>at least</em> five.
 	</pre>
 </div>
 
+
+
+<!-- Big Text: visibility
+
+█▌   █▌ ████  ███▌  ████ ████▌  ████ █▌    ████ █████▌ █   ▐▌
+█▌   █▌  ▐▌  █▌  █▌  ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌   ▐▌  █
+█▌   █▌  ▐▌  █▌      ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌    █ ▐▌
+▐▌   █   ▐▌   ███▌   ▐▌  █████   ▐▌  █▌     ▐▌    █▌    ▐▌█
+ █  ▐▌   ▐▌      █▌  ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌     █▌
+ ▐▌ █    ▐▌  █▌  █▌  ▐▌  █▌  █▌  ▐▌  █▌     ▐▌    █▌     █▌
+  ▐█    ████  ███▌  ████ ████▌  ████ █████ ████   █▌     █▌
+-->
+
+Conditional Hiding: the 'position-visibility' property {#position-visibility}
+------------------------------------------------------
+
+<pre class=propdef>
+Name: position-visibility
+Value: always | [ anchors-valid || anchors-visible || no-overflow ]
+Initial: anchors-visible
+Applies to: [=absolutely positioned boxes=]
+Percentages: n/a
+Inherited: no
+Animation type: discrete
+</pre>
+
+There are some conditions in which it might not make sense
+to display an [=absolutely positioned box=].
+This property allows such boxes to be made conditionally visible,
+depending on some commonly needed layout conditions.
+
+<dl dfn-type=value dfn-for=position-visibility>
+	: <dfn>always</dfn>
+	::
+		This property has no effect.
+		(The box is displayed without regard for its anchors
+		or its overflowing status.)
+
+	: <dfn>anchors-valid</dfn>
+	::
+		If any of the box's [=required anchor references=]
+		do not resolve to a [=target anchor element=],
+		the box's 'visibility' property computes to ''force-hidden''.
+
+		Issue: What is a <dfn dfn for>required anchor reference</dfn>?
+		''anchor()'' functions that don't have a fallback value;
+		the default anchor *sometimes*?
+		Need more detail here.
+
+		Issue: <em>Any</em> anchors are missing,
+		or <em>all</em> anchors are missing?
+		I can see use-cases for either, potentially.
+		Do we want to make a decision here, or make it controllable somehow?
+
+	: <dfn>anchors-visible</dfn>
+	::
+		If the box has a [=default anchor box=]
+		but that [=anchor box=] is [=invisible=] or [=clipped by intervening boxes=],
+		the box's 'visibility' property computes to ''force-hidden''.
+
+	: <dfn>no-overflow</dfn>
+	::
+		If the box overflows its [=inset-modified containing block=]
+		even after applying 'position-try',
+		the box's 'visibility' property computes to ''force-hidden''.
+</dl>
+
+<div algorithm>
+	An anchor box |anchor|
+	is <dfn noexport>clipped by intervening boxes</dfn>
+	relative to a positioned box |abspos| relying on it
+	if |anchor|'s [=ink overflow rectangle=]
+	is fully clipped by a box
+	which is an ancestor of |anchor|
+	but a descendant of |abspos|'s containing block.
+	Clipping in this case refers only to clipping due to 'overflow',
+	or other effects (such as [=paint containment=])
+	that clip to the [=overflow clip edge=].
+
+	ISSUE(12732): Define timing of visibility checks.
+	<!--
+	Whether or not |anchor| is [=clipped by intervening boxes=]
+	is determined immediately prior to triggering {{ResizeObserver}}s.
+	-->
+
+	Note: This means that if an abspos is next to its anchor in the DOM,
+	for example,
+	it'll remain visible even if its default anchor is scrolled off,
+	since it's clipped by the same scroller anyway.
+
+	Issue: Make sure this definition of clipped
+	is consistent with View Transitions,
+	which wants a similar concept.
+
+	Note: This ensures that in a “chained anchor” situation,
+	if the first abspos is hidden due to this property
+	(due to its anchor being scrolled off),
+	then another abspos using it as an anchor will also be hidden,
+	rather than <em>also</em> floating in a nonsensical location.
+</div>
 
 <!-- Big Text: anim
 
@@ -2335,13 +2415,15 @@ both existing and upcoming,
 allow establishing such connections explicitly,
 so that non-visual user agents can also benefit.
 
-For example, the Popover API in HTML
+For example, the [[HTML#the-popover-attribute|Popover API in HTML]]
 automatically links the invoker button
 to the popover element,
 including automatically adjusting tabbing order;
 it <em>also</em> establishes the invoker button
 as the [=implicit anchor element=] for the popover,
 making it easy to use Anchor Positioning as well.
+
+Issue: Add a popover example.
 
 In more general cases,
 ARIA features such as
@@ -2523,32 +2605,38 @@ No Privacy issues have been raised against this document.
 Changes {#changes}
 =======
 
-Significant changes since the <a href="https://www.w3.org/TR/2024/WD-css-anchor-position-1-20241004/">4 March October 2024 Working Draft</a>:
-* Switched the center track for 'position-area' to default to ''align-self/center'' alignment.
-	(<a href="https://github.com/w3c/csswg-drafts/issues/11803">Issue 11803</a>)
-* Defined the [=implicit anchor element=] of [=pseudo-elements=] to be their [=originating element=].
-	(<a href="https://github.com/w3c/csswg-drafts/issues/11792">Issue 11792</a>)
-* Rewrote how scrolling is handled and responded to ([[#scroll]]),
-	so that the positioned element can respond to its anchors being scrolled <em>when possible</em>
-	(when the positioned element is first rendered, or changes fallbacks).
-	(<a href="https://github.com/w3c/csswg-drafts/issues/10999">Issue 10999</a>)
-* Rebased 'position-visibility' to use the newly defined ''visibility: force-hidden'' value
-	instead of creating a custom concept,
-	in order to better enable transitions.
-	(<a href="https://github.com/w3c/csswg-drafts/issues/10182">Issue 10182</a>)
-* Fixed some errors in the anchor resolution algorithm.
-	(<a href="https://github.com/w3c/csswg-drafts/issues/11030">Issue 11030</a>,
-	<a href="https://github.com/w3c/csswg-drafts/issues/11170">Issue 11170</a>)
-* Fixed some errors in the list of <<position-area>> keywords.
-	(<a href="https://github.com/w3c/csswg-drafts/issues/11372">Issue 11372</a>,
-	<a href="https://github.com/w3c/csswg-drafts/issues/11371">Issue 11371</a>)
-* Defined that 'anchor-scope' idents are [=tree-scoped names=] (and thus compare specially with [=anchor names=]).
-	(<a href="https://github.com/w3c/csswg-drafts/issues/10525">Issue 10525</a>,
-	<a href="https://github.com/w3c/csswg-drafts/issues/10526">Issue 10526</a>)
-* Clarified that the [=computed value=] of 'position-area' does not distinguish long and short forms of logical keywords.
-	(<a href="https://github.com/w3c/csswg-drafts/issues/11828">Issue 11828</a>)
-* Clarified that certain ''anchor()'' resolaveability checks are at [=computed value=] time, not parse time.
-	(<a href="https://github.com/w3c/csswg-drafts/issues/10955">Issue 10955</a>)
-* Editorial reorganization of sections, particularly [[#position-area]].
+Significant changes since the <a href="https://www.w3.org/TR/2025/WD-css-anchor-position-1-20250509/">9 May 2025 Working Draft</a>:
 
-See also <a href="https://www.w3.org/TR/2024/WD-css-anchor-position-1-20241004/#changes">Previous Changes</a>.
+* Rename <css>x/y-self-start/end</css> keywords to <css>self-x/y-start/end</css> for 'position-area'
+	due to persistent confusion about the ordering.
+	(<a href="https://github.com/w3c/csswg-drafts/issues/12749">Issue 12749</a>)
+* Make 'position-area' use the (newly defined) [=scrollable containing block=]
+	when the box's [=containing block=] is a [=scroll container=].
+	(<a href="https://github.com/w3c/csswg-drafts/issues/10861">Issue 10861</a>)
+* Make default 'position-area' alignment for single-''inset/auto'' 'inset' axes align to the non-''inset/auto'' side.
+	(<a href="https://github.com/w3c/csswg-drafts/issues/12512">Issue 12512</a>)
+* Make transforms affect the [=anchor box=] geometry.
+	(<a href="https://github.com/w3c/csswg-drafts/issues/8584">Issue 8584</a>)
+* Add the ''place-self/dialog'' value to 'align-self' and 'justify-self'
+	to solve regrettable default UA stylesheet rules for HTML popovers.
+	(<a href="https://github.com/w3c/csswg-drafts/issues/10258">Issue 10258</a>)
+* Clarify how fragmentation affects the [=anchor box=] geometry.
+	(<a href="https://github.com/w3c/csswg-drafts/issues/12287">Issue 12287</a>)
+* Clarify whe the [=last successful position option=] is cleared.
+	(<a href="https://github.com/w3c/csswg-drafts/issues/12577">Issue 12577</a>)
+* Clarify how tree-scoped names anchor are matched for 'anchor-scope' vs 'position-anchor'.
+	(Issues <a href="https://github.com/w3c/csswg-drafts/issues/7916">7916</a>, <a href="https://github.com/w3c/csswg-drafts/issues/9408">9408</a>, and <a href="https://github.com/w3c/csswg-drafts/issues/5984">5984</a>)
+* Clarify how top layer interacts with finding the [=acceptable anchor element=]
+	and rewrite the rules for valid anchors to be easier to understand.
+	(<a href="https://github.com/w3c/csswg-drafts/issues/11602">Issue 11602</a>)
+* Fix grammar of 'position-try-fallbacks' to exclude lists of ''position-area/none'' keywords.
+	(<a href="https://github.com/w3c/csswg-drafts/issues/12838">Issue 12838</a>)
+* Various small fixes and clarifications.
+	(<a href="https://github.com/w3c/csswg-drafts/issues/11028">Issue 11028</a>,
+	 <a href="https://github.com/w3c/csswg-drafts/issues/11080">Issue 11080</a>,
+	 <a href="https://github.com/w3c/csswg-drafts/issues/12058">Issue 12058</a>,
+	 <a href="https://github.com/w3c/csswg-drafts/issues/12636">Issue 12636</a>,
+	 <a href="https://github.com/w3c/csswg-drafts/issues/12653">Issue 12653</a>,
+	 <a href="https://github.com/w3c/csswg-drafts/issues/12751">Issue 12732</a>)
+
+See also <a href="https://www.w3.org/TR/2025/WD-css-anchor-position-1-20250509/#changes">Previous Changes</a>.
