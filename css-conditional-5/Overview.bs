@@ -13,6 +13,7 @@ Editor: L. David Baron, Google https://www.google.com/, https://dbaron.org/, w3c
 Editor: Elika J. Etemad / fantasai, Apple, http://fantasai.inkedblade.net/contact, w3cid 35400
 Editor: Chris Lilley, W3C, https://svgees.us/, w3cid 1438
 Editor: Miriam E. Suzanne, Invited Expert, https://www.miriamsuzanne.com/who/, w3cid 117151
+Editor: Lea Verou, Invited Expert, https://lea.verou.me/about, w3cid 52258
 Abstract: This module contains the features of CSS
 	for conditional processing of parts of style sheets,
 	based on capabilities of the processor or the environment
@@ -78,7 +79,7 @@ Introduction</h2>
 
 	CSS Conditional Level 5 extends
 	the ''@supports'' rule and [=supports query=] syntax
-	to allow testing for supported font technologies.
+	to allow testing for custom support conditions as well as supported [=at-rules=] and font technologies.
 
 	It also adds an ''@when'' rule,
 	which generalizes the concept of a conditional rule.
@@ -117,11 +118,19 @@ Extensions to the ''@supports'' rule</h2>
 		<dfn>&lt;supports-feature></dfn> = <<supports-selector-fn>>
 		                   | <<supports-font-tech-fn>> | <<supports-font-format-fn>>
 		                   | <<supports-at-rule-fn>>
-		                   | <<supports-decl>>
+						   | <<supports-decl>>
+		<dfn>&lt;supports-decl></dfn> = ( [ <<declaration>> | <<supports-condition-name>> ] )
 		<dfn>&lt;supports-font-tech-fn></dfn> = font-tech( <<font-tech>> )
 		<dfn>&lt;supports-font-format-fn></dfn> = font-format( <<font-format>> )
 		<dfn>&lt;supports-at-rule-fn></dfn> = at-rule( <<at-keyword-token>> )
 	</pre>
+
+	: <<supports-condition-name>>
+	::
+		The result is true if the UA
+		<a href="#dfn-supports-condition-name">supports the named condition</a>.
+		If the name is not recognized,
+		the result is false.
 
 	: <<supports-font-tech-fn>>
 	::
@@ -148,8 +157,6 @@ Extensions to the definition of support</h3>
 Font techs and formats</h4>
 
 	<wpt>
-		at-supports-font-format-001.html
-		at-supports-font-tech-001.html
 		js/CSS-supports-L5.html
 	</wpt>
 
@@ -178,6 +185,13 @@ At-rules</h4>
 
 	Note: Because ''@charset'' is not a valid [=at-rule=],
 	it is not considered to be supported under this definition.
+
+<h4 id="support-definition-supports-condition-name">
+Named conditions</h4>
+
+	A CSS processor is considered to
+	<dfn export for=CSS id="dfn-supports-condition-name">support a named condition</dfn>
+	when the related [=named supports condition=] returns true.
 
 <h2 id="when-rule">
 Generalized Conditional Rules: the ''@when'' rule</h2>
@@ -1743,13 +1757,86 @@ Container Relative Lengths: the ''cqw'', ''cqh'', ''cqi'', ''cqb'', ''cqmin'', '
 	</div>
 
 
+<h2 id="supports-condition-rule">
+Defining Custom Support Queries: the ''@supports-condition'' rule</h2>
+
+The <dfn at-rule id="at-ruledef-supports-condition">@supports-condition</dfn> [=at-rule=] is a [=conditional group rule=] that allows authors to define and name a [=supports query=] for later reuse,
+creating a <dfn export>named supports condition</dfn>.
+This enables complex or frequently-used feature queries to be referenced by name,
+improving maintainability and readability.
+
+	<pre class="prod def">
+	@supports-condition <<supports-condition-name>> {
+	  <<block-contents>>
+	}
+	</pre>
+
+	Where <dfn><<supports-condition-name>></dfn> is an <<extension-name>> that defines the name of the supports query.
+
+	Anything inside the block is evaluated to test whether the user agent supports the features used.
+	The contents do not have any effect on the document's rendering.
+
+	Once defined, the named supports condition can be used in subsequent ''@supports'' or ''@when'' conditions.
+
+	Multiple ''@supports-condition'' rules with the same name in a style sheet are invalid and must be ignored.
+
+	<div class="example">
+		For example, we can define a supports query checking multiple properties at once:
+		<pre class="lang-css">
+		@supports-condition --thicker-underlines {
+		  text-decoration-thickness: 0.2em;
+		  text-underline-offset: 0.3em;
+		}
+
+		/* Equivalent to (text-decoration-thickness: 0.2em) and (text-underline-offset: 0.3em) */
+		@supports (--thicker-underlines) {
+		  a {
+		    text-decoration: underline;
+		    text-decoration-thickness: 0.2em;
+		    text-underline-offset: 0.3em;
+		  }
+		}
+		</pre>
+	</div>
+
+	''@supports-condition'' rules are allowed before ''@import'' and ''@namespace'' rules (after the ''@charset'' rule, if any).
+
+	<div class="example">
+		As support queries can contain arbitrary declarations,
+		they can be used to detect support for complex features such as nesting:
+		<pre class="lang-css">
+		@supports-condition --nesting {
+		  & { }
+		}
+
+		@import url("nested-styles.css") supports(--nesting);
+		</pre>
+	</div>
+
+	<div class="example">
+		Support queries can also be used to detect support for at-rules:
+		<pre class="lang-css">
+		@supports-condition --stuck-container-feature {
+		  @container scroll-state(stuck: top) { }
+		}
+
+		@supports (--stuck-container-feature) {
+		  div { border-color: navy; }
+		}
+		</pre>
+	</div>
+
+	Issue: The name of the at-rule is under discussion.
+	Alternatives include ''@supports-query'', ''@supports-test'', and ''@custom-supports''.
+	The name should be consistent with the one chosen for custom media queries.
+
 <h2 id="apis">APIs</h2>
 
 
 <h3 id="the-csscontainerrule-interface">
 The <code>CSSContainerRule</code> interface</h3>
 
-	The {{CSSContainerRule}} interface represents a ''@container'' rule.
+	The {{CSSContainerRule}} interface represents an ''@container'' rule.
 
 	<pre class='idl'>
 	[Exposed=Window]
@@ -1805,6 +1892,23 @@ The <code>CSSContainerRule</code> interface</h3>
 	When measuring layout sizes, it behaves Similar to <code>resizeObserver</code>,
 	but it provides the additional Container Query syntax and features.
 
+<h3 id="the-csssupportscondition-interface">
+The <code>CSSSupportsConditionRule</code> interface</h3>
+
+	The {{CSSSupportsConditionRule}} interface represents an ''@supports-condition'' rule.
+
+	<pre class='idl'>
+	[Exposed=Window]
+	interface CSSSupportsConditionRule : CSSGroupingRule {
+		readonly attribute CSSOMString name;
+	};
+	</pre>
+
+	<dl class='idl-attributes'>
+		<dt><code>name</code> of type <code>CSSOMString</code>
+		<dd>This attribute is the name of the [=named supports condition=].
+	</dl>
+
 <h2 class=no-num id="security">Security Considerations</h2>
 
 	No security issues have been raised against this document
@@ -1835,18 +1939,17 @@ Changes since the <a href="https://www.w3.org/TR/2024/WD-css-conditional-5-20241
 </h3>
 
 <ul>
-	<li>
-		Dimensional query containers no longer apply layout containment
-		(<a href="https://github.com/w3c/csswg-drafts/pull/10544">#10544</a>)
-	</li>
+	<li>Dimensional query containers no longer apply layout containment
+		(<a href="https://github.com/w3c/csswg-drafts/pull/10544">#10544</a>)</li>
 	<li>
 		Extended [=supports queries=] to express [=at-rule=] capabilities
 		via ''at-rule()''.
 		(<a href="https://github.com/w3c/csswg-drafts/issues/2463">#2463</a>,
 		<a href="https://github.com/w3c/csswg-drafts/issues/6966">#6966</a>,
 		<a href="https://github.com/w3c/csswg-drafts/issues/11116">#11116</a>,
-		<a href="https://github.com/w3c/csswg-drafts/issues/11117">#11117</a>)
-	</li>
+		<a href="https://github.com/w3c/csswg-drafts/issues/11117">#11117</a>)</li>
+	<li>Added ''@supports-condition'' at-rule and related {{CSSSupportsConditionRule}} interface.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/12622">#12622</a>)</li>
 </ul>
 
 <h3 id="changes-20240723"  class="no-num">
@@ -1855,7 +1958,7 @@ Changes since the <a href="https://www.w3.org/TR/2024/WD-css-conditional-5-20240
 
 <ul>
 	<!-- To 31 Oct 2024 -->
-	<li>Add ''@container/stuck/none''-keywords to scroll-state() features (<a href="https://github.com/w3c/csswg-drafts/pull/10874">#10874</a>)</li>
+	<li>Added ''@container/stuck/none''-keywords to scroll-state() features (<a href="https://github.com/w3c/csswg-drafts/pull/10874">#10874</a>)</li>
 	<li>Added container-type:scroll-state, and scroll-state() queries for stuck, snapped, and scrollable features
 		(<a href="https://github.com/w3c/csswg-drafts/issues/6402#issuecomment-1812973013">#6402</a>,
 		<a href="https://github.com/w3c/csswg-drafts/issues/10784#issuecomment-2379901508">#10784</a>,
@@ -1874,7 +1977,7 @@ Changes since the <a href="https://www.w3.org/TR/2021/WD-css-conditional-5-20211
 		<li>Imported the definitions of &lt;font-format> and &lt;font-tech> from CSS Fonts 4, rather than duplicating them in this specification (<a href="https://github.com/w3c/csswg-drafts/issues/8110">#8110</a>)</li>
 		<li> Updated to use the new parsing algorithm names and block production names</li>
 		<li>Corrected a typo in the grammar of &lt;font-format></li>
-		<li>Corrected extra spaces in the font-tech and font-format productions (<a href="https://github.com/w3c/csswg-drafts/issues/7369">#7369</a> )</li>
+		<li>Corrected extra spaces in the font-tech and font-format productions (<a href="https://github.com/w3c/csswg-drafts/issues/7369">#7369</a>)</li>
 	</ul>
 
 <h3 id="changes-from-L4" class="no-num">
@@ -1889,6 +1992,7 @@ Additions since Level 4</h3>
 		<li>Moved Container Queries from [[CSS-CONTAIN-3]] to this specification.
 			(See also the [[CSS-CONTAIN-3#changes]] for more information
 			on the evolution of this feature.)
+		<li>Added ''@supports-condition'' at-rule and related {{CSSSupportsConditionRule}} interface.
 	</ul>
 
 <h2 class="no-num" id="acknowledgments">Acknowledgments</h2>
@@ -2045,7 +2149,6 @@ Additions since Level 4</h3>
 	js/CSS-supports-CSSStyleDeclaration.html
 	js/CSS-supports-L3.html
 	js/CSS-supports-L4.html
-	js/CSS-supports-L5.html
 	js/CSS-supports-selector-detecting-invalid-in-logical-combinations.html
 	js/conditional-CSSGroupingRule.html
 	js/supports-conditionText.html
