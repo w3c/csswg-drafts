@@ -189,7 +189,7 @@ is <code>elem</code>. <code>animation</code> is disassociated from
 <pre class="example lang-javascript">
 elem.style.animation = 'spin 1s';
 let animation = elem.getAnimations()[0]; // animation's owning element is elem
-elem.style.animation = ''; // animation no longer has an owning element
+elem.style.animation = ""; // animation no longer has an owning element
 </pre>
 
 Note that although the <a>owning element</a> is often equal to the
@@ -704,6 +704,81 @@ When multiple 'animation-*' properties are set simultaneously,
 so e.g. a change to 'animation-play-state' applies
 to the simultaneously-applied timeline specified in 'animation-timeline'.
 
+
+<h3 id="animation-trigger-prop">
+The 'animation-trigger' property</h3>
+
+<pre class=propdef>
+Name: animation-trigger
+Value: [ none | [ <<dashed-ident>> <<animation-action>>+ ]+ ]#
+Initial: none
+Applies to: all elements
+Inherited: no
+Percentages: N/A
+Computed value: as specified
+Animation type: not animatable
+Canonical order: per grammar
+</pre>
+
+The 'animation-trigger' property
+specifies whether the animation is a [=triggered animation=],
+and if it is,
+what trigger it responds to
+and what actions it takes in response.
+'animation-trigger' is a [=reset-only sub-property=] of the 'animation' shorthand.
+Its values are:
+
+<dl dfn-type=value dfn-for=animation-trigger>
+    : <dfn>none</dfn>
+    ::
+        The corresponding animation is not a [=triggered animation=].
+
+    : <dfn>[ <<dashed-ident>> <<animation-action>>+ ]+</dfn>
+    ::
+        The corresponding animation is a [=triggered animation=],
+        responding to the triggers named by each <<dashed-ident>>,
+        and responding by taking the action named by the corresponding <<animation-action>>.
+        (See [[#trigger-scope]] for how <<dashed-ident>>s are resolved to [=triggers=].)
+
+        How many <<animation-action>>s a trigger accepts,
+        and what exactly activates them,
+        is determined by the type of the trigger.
+        <span class=note>([=Event triggers=] only take a single <<animation-action>>,
+        while [=timeline triggers=] can take one or two.)</span>
+        Specifying the wrong number of actions
+        (too many or too few)
+        is valid syntactically,
+        but causes the trigger to have no effect.
+
+        If multiple triggers occur simultaneously,
+        they take effect in the order specified.
+
+        If the same <<dashed-ident>> is specified multiple times,
+        all but the last have no effect.
+</dl>
+
+The possible <dfn><<animation-action>></dfn> values,
+and what effect they have in each animation state:
+
+<table class=data dfn-type=value dfn-for="<animation-action>" link-for-hint="Animation">
+    <thead>
+        <tr><th>Keyword<th>Extra Effect<th>initial<th>playing<th>paused<th>finished
+    </thead>
+    <tr><td><dfn>none</dfn><td>—<td>—<td>—<td>—<td>—
+    <tr><td><dfn>play</dfn><td>—<td>{{play()}}<td>—<td>{{play()}}<td>{{play()}}
+    <tr><td><dfn>play-forwards</dfn><td>set playback rate to positive<td>{{play()}}<td>—<td>{{play()}}<td>{{play()}}
+    <tr><td><dfn>play-backwards</dfn><td>set playback rate to negative<td>{{play()}}<td>—<td>{{play()}}<td>{{play()}}
+    <tr><td><dfn>pause</dfn><td>—<td>—<td>{{pause()}}<td>—<td>—
+    <tr><td><dfn>reset</dfn><td>set progress to 0<td>—<td>{{pause()}}<td>{{pause()}}<td>{{pause()}}
+    <tr><td><dfn>replay</dfn><td>set progress to 0<td>{{play()}}<td>—<td>{{play()}}<td>{{play()}}
+    <caption>
+        If there is an "effect",
+        it happens regardless of the current state,
+        before the state-specific action
+    </caption>
+</table>
+
+
 ## The 'animation' shorthand property ## {#animation-shorthand}
 
 The 'animation' shorthand property syntax is as follows:
@@ -711,72 +786,159 @@ The 'animation' shorthand property syntax is as follows:
 <span class=prod><dfn>&lt;single-animation></dfn> = <<'animation-duration'>> || <<easing-function>> || <<'animation-delay'>> || <<single-animation-iteration-count>> || <<single-animation-direction>> || <<single-animation-fill-mode>> || <<single-animation-play-state>> || [ none | <<keyframes-name>> ] || <<single-animation-timeline>></span>
 
 <h2 id="animation-triggers">
-Declaring Animation Triggers</h2>
+Triggers</h2>
 
-    Animation Triggers are defined using the 'animation-trigger-*' properties.
-    These list-valued properties,
-    which are all [=longhands=] of the 'animation-trigger' [=shorthand=],
-    form a [=coordinating list property group=]
-    with 'animation-name' as the [=coordinating list base property=]
-    and each item in the [=coordinated value list=]
-    defining the properties of a single animation trigger.
+While CSS animations are, by default,
+automatically run as soon as the appropriate 'animation' values have been set on an element,
+the 'animation-trigger' property allows the animation's start to be delayed
+until an appropriate trigger occurs,
+and even paused, restarted, or reset by triggers
+(making it a <dfn export>triggered animation</dfn>).
 
-    The 'animation-trigger' properties
-    are [=reset-only sub-properties=] of the 'animation' [=shorthand=].
+This is a simplified and streamlined version
+of what can be achieved with the Web Animations API in Javascript,
+allowing simple, common interaction patterns
+to be created and managed purely in CSS.
 
-## The 'animation-trigger-behavior' property ## {#animation-trigger-behavior}
+Currently, two types of <dfn export for=CSS>triggers</dfn> are defined:
 
-The 'animation-trigger-behavior' property specifies the [=animation trigger behavior=]
-of the [=animation trigger=].
+* [=timeline triggers=], managed by the 'timeline-trigger' properties,
+    which allow animations to be triggered by entering or leaving certain timeline ranges.
+    (Usually, [=view progress timelines=],
+    so an animation can be started when an element comes on-screen,
+    without actually <em>driving</em> the animation with the scroll progress.)
 
-<pre class='propdef'>
-Name: animation-trigger-behavior
-Value: <<single-animation-trigger-behavior>>#
-Initial: once
+* [=event triggers=], managed by the 'event-trigger' properties,
+    which allow animations to be triggered by certain user-interaction events,
+    such as clicking an element or pressing certain keys.
+
+A [=trigger=] is <em>defined</em> on some specific triggering element.
+All triggers have a name,
+and the specific type of trigger dictates how and when it's activated.
+A trigger can define multiple "types" of activation.
+(For example, [=timeline triggers=] can do different things on entry and exit.)
+
+A [=trigger=] is <em>used</em> on potentially any element,
+for some specific purpose
+(currently, just 'animation-trigger').
+A trigger-using element specifies what trigger(s) it's listening to,
+and what actions
+(currently, just <<animation-action>>s)
+to do in response to that activation.
+
+Note: This design for [=triggers=],
+and the way they're associated with [=triggered animations=] and <<animation-action>>s,
+is intentionally somewhat generic,
+intended to support using [=triggers=] for <em>other</em> purposes in the future.
+For now, though, [=triggered animations=] are the only user of this feature.
+
+
+<h3 id="trigger-scope">
+Trigger Scope/Resolution</h3>
+
+All [=triggers=] are document-global by default,
+similar to <l spec="css-anchor-position-1">[=anchor names=]</l>.
+
+If a single element attempts to define multiple [=triggers=] of different types
+with the same name,
+it only exposes one of them,
+with [=event triggers=] winning over [=timeline triggers=].
+
+Note: This order is completely arbitrary
+(based on alphabetic order of the concept name),
+as this is just an error case.
+
+If multiple elements define [=triggers=] with the same name,
+the [=trigger=] defined by the later element in [=tree order=] is used.
+
+Note: This behavior will be improved by a <css>trigger-scope</css> property,
+not yet defined,
+letting you define triggers that are only visible to subtrees
+and references that only search in that subtree
+(just like 'anchor-scope').
+
+<h3 id="timeline-triggers">
+Timeline Triggers</h3>
+
+A <dfn export>timeline trigger</dfn> is a [=trigger=]
+which is activated when some [=timeline=]
+enters the trigger's <dfn export for="timeline trigger">enter range</dfn>,
+or leaves the trigger's <dfn export for="timeline trigger">exit range</dfn>.
+It is defined on an element with the 'timeline-trigger' shorthand property,
+or its longhands.
+
+A [=timeline trigger=] has a binary <dfn export for="timeline trigger">trigger state</dfn> associated with it;
+it is initially "untriggered".
+While it's "untriggered",
+the associated [=timeline=] entering (or starting in) the trigger's [=enter range=]
+performs an associated <dfn export for="timeline trigger">enter action</dfn>
+and switches the [=trigger state=] to "triggered";
+while it's "triggered",
+the associated timeline <em>leaving</em> the trigger's [=exit range=]
+performs an associated <dfn export for="timeline trigger">exit action</dfn>
+and switches the [=trigger state=] to "untriggered".
+
+Note: By default, the [=exit range=] is the same as the [=enter range=];
+even when manually specified,
+the [=exit range=] is always a <em>superset</em> of the [=enter range=].
+The two ranges allow, for example,
+an 'animation-trigger' to start an animation
+when an element is scrolled close the center of the screen
+(using a [=view progress timeline=] with a relatively small window as the [=enter range=]),
+but not stop it until the element is fully off-screen
+(using <l spec="scroll-animations-1">''animation-timeline-range/cover''</l> as the [=exit range=]).
+
+Issue: I think it's WebAnim2 that needs to define
+that exit ranges are interpreted
+as the bounding range of the [=enter range=]
+and what's specified for the [=exit range=].
+
+A [=timeline trigger=] can have one or two actions associated with it
+when used as a trigger on an element
+(such as by 'animation-trigger').
+If two are specified, the first is the trigger's [=enter action=]
+and the second is the trigger's [=exit action=];
+if only one is specified, the first is the trigger's [=enter action=]
+and its [=exit action=] is to do nothing.
+
+An element can define multiple [=timeline triggers=],
+using the same [=timeline=] (potentially with different ranges)
+or different ones.
+The set of 'timeline-trigger' longhands
+form a [=coordinating list property group=],
+with 'timeline-trigger-name' as the [=coordinating list base property=],
+and each item in the [=coordinated value list=]
+defining the properties of a single [=timeline trigger=].
+
+
+<h4 id="timeline-trigger-name">
+Naming the Trigger: the 'timeline-trigger-name' property</h4>
+
+<pre class=propdef>
+Name: timeline-trigger-name
+Value: none | <<dashed-ident>>#
+Initial: none
 Applies to: all elements
 Inherited: no
 Percentages: N/A
-Computed value: list, each item a keyword as specified
-Animation type: not animatable
+Computed value: as specified
 Canonical order: per grammar
+Animation type: not animatable
 </pre>
 
-<span class=prod><dfn>&lt;single-animation-trigger-behavior></dfn> = once | repeat | alternate | state</span>
+If ''timeline-trigger-name/none'' is specified,
+the element does not define any [=timeline triggers=].
 
-The values of 'animation-trigger-behavior' have the following meaning
-for an [=animation trigger=] that enters its [=animation trigger/active interval|active interval=]:
+If the same <<dashed-ident>> appears multiple times in the list,
+only the last one defines a [=timeline trigger=];
+the preceding ones have no effect.
 
-<dl dfn-type=value dfn-for=animation-trigger-behavior>
-        <dt><dfn>once</dfn>
-        <dd>
-                The animation is triggered and played once and only once.
 
-        <dt><dfn>repeat</dfn>
-        <dd>
-                The animation is played from the beginning each time it is triggered.
-                When the trigger’s [=animation trigger/active interval=] is exited the animation is reset.
-
-        <dt><dfn>alternate</dfn>
-        <dd>
-                The animation is played forwards, according to its [=playback direction=], each time it is triggered.
-                When the trigger’s [=animation trigger/active interval=] is exited the animation is reversed.
-
-        <dt><dfn>state</dfn>
-        <dd>
-                The animation is triggered and played once.
-                When the trigger’s [=animation trigger/active interval=] is exited the animation is paused.
-                When the trigger’s [=animation trigger/active interval=] is re-entered the animation is resumed.
-</dl>
-
-The behavior of each value is defined in [[web-animations-2#trigger-behaviors]].
-
-## The 'animation-trigger-timeline' property ## {#animation-trigger-timeline}
-
-The 'animation-trigger-timeline' property specifies the <a>timeline</a>
-of the animation’s associated [=animation trigger=].
+<h4 id="timeline-trigger-source">
+Linking a Timeline: the 'timeline-trigger-source' property</h4>
 
 <pre class='propdef'>
-Name: animation-trigger-timeline
+Name: timeline-trigger-source
 Value: <<single-animation-timeline>>#
 Initial: auto
 Applies to: all elements
@@ -793,199 +955,211 @@ Canonical order: per grammar
 Animation Type: not animatable
 </pre>
 
-The values of 'animation-trigger-timeline' have the same meaning as those of 'animation-timeline'.
+The 'timeline-trigger-source' property
+specifies the [=timeline trigger's=] associated [=timeline=].
+Values have the same meaning as those of 'animation-timeline',
+except that ''timeline-trigger-source/none''
+instead causes the corresponding entry in the [=coordinated value list=]
+to not define a [=timeline trigger=].
 
-Issue: Probably a trigger with timeline "none" is under-specified here. Need to clarify what it means.
-
-## The 'animation-trigger-range' property ## {#animation-trigger-range}
+<h4 id="timeline-trigger-range-prop">
+The Enter Range: the 'timeline-trigger-range' property</h4>
 
 <pre class="propdef shorthand">
-  Name: animation-trigger-range
-  Value: [ <<'animation-trigger-range-start'>> <<'animation-trigger-range-end'>>? ]#
+Name: timeline-trigger-range
+Value: [ <<'animation-trigger-range-start'>> <<'animation-trigger-range-end'>>? ]#
 </pre>
 
-The 'animation-trigger-range' property is a [=shorthand property|shorthand=]
-that sets 'animation-trigger-range-start' and 'animation-trigger-range-end'
-together in a single declaration,
-specifying the [=animation trigger=]’s associated [=default range=].
+The 'timeline-trigger-range' property is a [=shorthand property=]
+that sets 'timeline-trigger-range-start' and 'timeline-trigger-range-end'
+together in a single declaration.
 It has the same syntax as the 'animation-range' property.
 
-The behavior of 'animation-trigger-range' is defined in [[web-animations-2#trigger-ranges]].
+The behavior of 'timeline-trigger-range' is defined in [[web-animations-2#trigger-ranges]].
 
-## The 'animation-trigger-range-start' property ## {#animation-trigger-range-start}
-
-<pre class="propdef">
-  Name: animation-trigger-range-start
-  Value: [ normal | <<length-percentage>> | <<timeline-range-name>> <<length-percentage>>? ]#
-  Initial: normal
-  Applies to: all elements
-  Inherited: no
-  Percentages: relative to the specified [=named timeline range=] if one was specified, else to the entire timeline
-  Computed value: list, each item either the keyword ''animation-trigger-range-start/normal'' or a timeline range and progress percentage
-  Animation type: not animatable
-</pre>
-
-The 'animation-trigger-range-start' property specifies the start of the [=animation trigger=]’s
-associated [=default range=].
-
-The values of 'animation-trigger-range-start' have the same meaning as those of 'animation-range-start'.
-
-## The 'animation-trigger-range-end' property ## {#animation-trigger-range-end}
+Issue: Need to rewrite WebAnim2 to use the term "enter range".
 
 <pre class="propdef">
-  Name: animation-trigger-range-end
-  Value: [ normal | <<length-percentage>> | <<timeline-range-name>> <<length-percentage>>? ]#
-  Initial: normal
-  Applies to: all elements
-  Inherited: no
-  Percentages: relative to the specified [=named timeline range=] if one was specified, else to the entire timeline
-  Computed value: list, each item either the keyword ''animation-trigger-range-end/normal'' or a timeline range and progress percentage
-  Animation type: not animatable
+Name: timeline-trigger-range-start, timeline-trigger-range-end
+Value: [ normal | <<length-percentage>> | <<timeline-range-name>> <<length-percentage>>? ]#
+Initial: normal
+Applies to: all elements
+Inherited: no
+Percentages: relative to the specified [=named timeline range=] if one was specified, else to the entire timeline
+Computed value: list, each item either the keyword ''animation-trigger-range-start/normal'' or a timeline range and progress percentage
+Animation type: not animatable
 </pre>
 
-The 'animation-trigger-range-end' property specifies the end of the [=animation trigger=]’s
-associated [=default range=].
+The 'timeline-trigger-range-start' and 'timeline-trigger-range-end' properties
+specify the [=timeline trigger=]’s associated [=timeline trigger/enter range=].
+Values have the same meaning as 'animation-range-start' and 'animation-range-end'.
 
-The values of 'animation-trigger-range-end' have the same meaning as those of 'animation-range-end'.
 
-## The 'animation-trigger-exit-range' property ## {#animation-trigger-exit-range}
+<h4 id="timeline-trigger-exit-range-prop">
+The Exit Range: the 'timeline-trigger-exit-range' property</h4>
 
 <pre class="propdef shorthand">
-  Name: animation-trigger-exit-range
-  Value: [ <<'animation-trigger-exit-range-start'>> <<'animation-trigger-exit-range-end'>>? ]#
+Name: timeline-trigger-exit-range
+Value: [ <<'animation-trigger-exit-range-start'>> <<'animation-trigger-exit-range-end'>>? ]#
 </pre>
 
-The 'animation-trigger-exit-range' property is a [=shorthand property|shorthand=]
-that sets 'animation-trigger-exit-range-start' and 'animation-trigger-exit-range-end'
-together in a single declaration,
-specifying the [=animation trigger=]’s associated [=exit range=].
-It has the same syntax as the 'animation-range' property, with the addition of the ''animation-trigger-exit-range-start/auto'' keyword.
+The 'timeline-trigger-exit-range' property is a [=shorthand property=]
+that sets 'timeline-trigger-exit-range-start' and 'timeline-trigger-exit-range-end'
+together in a single declaration.
+It has the same syntax as the 'animation-range' property.
 
-The [=exit range=] replaces the [=default range=] once the [=animation trigger=]’s
-[=animation trigger/active interval|active interval=] is entered,
-and redefines the extent of the [=animation trigger=]’s [=animation trigger/active interval|active interval=].
-It is used to extend the [=default range=], for example,
-in cases where exiting the [=animation trigger/active interval|active interval=]
-may create a visual jump that needs to be avoided.
+The behavior of 'timeline-trigger-exit-range' is defined in [[web-animations-2#trigger-ranges]].
 
-The behavior of 'animation-trigger-exit-range' is further defined in [[web-animations-2#trigger-ranges]].
-
-## The 'animation-trigger-exit-range-start' property ## {#animation-trigger-exit-range-start}
 
 <pre class="propdef">
-  Name: animation-trigger-exit-range-start
-  Value: [ auto | normal | <<length-percentage>> | <<timeline-range-name>> <<length-percentage>>? ]#
-  Initial: auto
-  Applies to: all elements
-  Inherited: no
-  Percentages: relative to the specified [=named timeline range=] if one was specified, else to the entire timeline
-  Computed value: list, each item either the keyword ''animation-trigger-exit-range-start/normal'' or a timeline range and progress percentage
-  Animation type: not animatable
+Name: timeline-trigger-exit-range-start, timeline-trigger-exit-range-end
+Value: [ auto | normal | <<length-percentage>> | <<timeline-range-name>> <<length-percentage>>? ]#
+Initial: normal
+Applies to: all elements
+Inherited: no
+Percentages: relative to the specified [=named timeline range=] if one was specified, else to the entire timeline
+Computed value: list, each item either the keyword ''animation-trigger-range-start/normal'' or a timeline range and progress percentage
+Animation type: not animatable
 </pre>
 
-The 'animation-trigger-exit-range-start' property specifies the start of the [=animation trigger=]’s
-associated [=exit range=].
+The 'timeline-trigger-exit-range-start' and 'timeline-trigger-exit-range-end' properties
+specify the [=timeline trigger=]’s associated [=timeline trigger/exit range=].
+Values have the same meaning as 'animation-range-start' and 'animation-range-end',
+with the following addition:
 
-The values of 'animation-trigger-exit-range-start' have the following meaning:
-
-<dl dfn-for="animation-trigger-exit-range-start" dfn-type=value>
-        <dt><dfn>auto</dfn>
-        <dd>
-                The start of the trigger’s [=exit range=]
-                is equal to the start of its [=default range=].
-
-        <dt><dfn>normal</dfn>
-        <dd>
-                The start of the trigger’s [=exit range=]
-                is the start of its associated [=timeline=];
-                the start of the trigger’s [=animation trigger/active interval|active interval=]
-                is determined as normal.
-
-        <dt><dfn><<length-percentage>></dfn>
-        <dd>
-                The [=exit range=] starts
-                at the specified point on the [=timeline=]
-                measuring from the start of the timeline.
-
-        <dt><dfn><<timeline-range-name>> <<length-percentage>>?</dfn>
-        <dd>
-                The [=exit range=] starts
-                at the specified point on the [=timeline=]
-                measuring from the start of the specified [=named timeline range=].
-                If the <<length-percentage>> is omitted,
-                it defaults to 0%.
+<dl dfn-type=value dfn-for="timeline-trigger-exit-range, timeline-trigger-exit-range-start, timeline-trigger-exit-range-end">
+    : <dfn>auto</dfn>
+    ::
+        The start (for 'timeline-trigger-exit-range-start')
+        or end (for 'timeline-trigger-exit-range-end')
+        is equal to the start/end of the [=timeline trigger's=] [=enter range=].
 </dl>
 
-## The 'animation-trigger-exit-range-end' property ## {#animation-trigger-exit-range-end}
+<h4 id="timeline-trigger-shorthand">
+The 'timeline-trigger' Shorthand</h4>
 
-<pre class="propdef">
-  Name: animation-trigger-exit-range-end
-  Value: [ auto | normal | <<length-percentage>> | <<timeline-range-name>> <<length-percentage>>? ]#
-  Initial: auto
-  Applies to: all elements
-  Inherited: no
-  Percentages: relative to the specified [=named timeline range=] if one was specified, else to the entire timeline
-  Computed value: list, each item either the keyword ''animation-trigger-exit-range-end/normal'' or a timeline range and progress percentage
-  Animation type: not animatable
+<pre class="propdef shorthand">
+Name: timeline-trigger
+Value: none | [ <<'timeline-trigger-name'>> <<'timeline-trigger-source'>> <<'timeline-trigger-range'>> [ '/' <<'timeline-trigger-exit-range'>> ]? ]#
 </pre>
 
-The 'animation-trigger-exit-range-end' property specifies the end of the [=animation trigger=]’s
-associated [=exit range=].
+The 'timeline-trigger' [=shorthand property=]
+sets all of 'timeline-trigger-name',
+'timeline-trigger-source',
+'timeline-trigger-range',
+and optionally 'timeline-trigger-exit-range'
+at once.
 
-The values of 'animation-trigger-exit-range-start' have the following meaning:
+A value of <dfn value for=timeline-trigger>none</dfn>
+is equivalent to ''none none normal''.
 
-<dl dfn-for="animation-trigger-exit-range-end" dfn-type=value>
-        <dt><dfn>auto</dfn>
-        <dd>
-                The end of the trigger’s [=exit range=]
-                is equal to the end of its [=default range=].
+Note: Due to significant potentially ambiguities in the syntax
+('timeline-trigger-name' vs [=timeline=] names in 'timeline-trigger-source';
+[=enter ranges=] vs [=exit ranges=]),
+this shorthand's values must be given in the specified order,
+rather than being settable in any order as is more common.
 
-        <dt><dfn>normal</dfn>
-                <dd>
-                        The end of the trigger’s [=exit range=]
-                        is the end of its associated [=timeline=];
-                        the end of the trigger’s [=animation trigger/active interval|active interval=]
-                        is determined as normal.
+Issue: I think we need the ''/'' to disambiguate the two ranges?
 
-                <dt><dfn><<length-percentage>></dfn>
-                <dd>
-                        The [=exit range=] ends
-                        at the specified point on the [=timeline=]
-                        measuring from the start of the timeline.
 
-                <dt><dfn><<timeline-range-name>> <<length-percentage>>?</dfn>
-                <dd>
-                        The [=exit range=] ends
-                        at the specified point on the [=timeline=]
-                        measuring from the start of the specified [=named timeline range=].
-                        If the <<length-percentage>> is omitted,
-                        it defaults to 100%.
-</dl>
 
-## The 'animation-trigger' property ## {#animation-trigger}
+<h3 id="event-triggers">
+Event Triggers</h3>
 
-The 'animation-trigger' property is a [=shorthand property|shorthand=]
-that sets 'animation-trigger-behavior', 'animation-trigger-timeline',
-'animation-trigger-range-start', 'animation-trigger-range-end',
-'animation-trigger-exit-range-start', and 'animation-trigger-exit-range-end'
-together in a single declaration,
-specifying the [=animation trigger=] for an animation.
+An <dfn export>event trigger</dfn> is a [=trigger=]
+which is activated when certain {{Event}}s are fired at the element.
+It is defined on an element with the 'event-trigger' shorthand property,
+or its longhands.
 
-<pre class='propdef'>
-Name: animation-trigger
-Value: <<single-animation-trigger>>#
-Initial: see individual properties
+An [=event trigger=] only has a single action associated with it,
+which it performs every time the trigger is activated.
+
+An element can define multiple [=event triggers=],
+using the same {{Event}}s or different ones.
+The set of 'event-trigger' longhands
+form a [=coordinating list property group=],
+with 'event-trigger-name' as the [=coordinating list base property=],
+and each item in the [=coordinated value list=]
+defining the properties of a single [=event trigger=].
+
+
+<h4 id="event-trigger-name">
+Naming the Trigger: the 'event-trigger-name' property</h4>
+
+<pre class=propdef>
+Name: event-trigger-name
+Value: none | <<dashed-ident>>#
+Initial: none
 Applies to: all elements
 Inherited: no
 Percentages: N/A
-Computed value: see individual properties
+Computed value: as specified
 Canonical order: per grammar
-Animation Type: not animatable
+Animation type: not animatable
 </pre>
 
-<pre class=prod>
-<dfn>&lt;single-animation-trigger></dfn> = <<single-animation-trigger-behavior>> || [ none | auto | [ [ <<dashed-ident>> | <<scroll()>> | <<view()>> ] [ normal | <<length-percentage>> | <<timeline-range-name>> <<length-percentage>>? ]{0,4} ] ]
+If ''event-trigger-name/none'' is specified,
+the element does not define any [=event triggers=].
+
+If the same <<dashed-ident>> appears multiple times in the list,
+only the last one defines a [=event trigger=];
+the preceding ones have no effect.
+
+<h4 id="event-trigger-source">
+Linking an Event: the 'event-trigger-source' property</h4>
+
+<pre class=propdef>
+Name: event-trigger-source
+Value: [ none | <<event-trigger-event>>+ ]#
+Initial: none
+Applies to: all elements
+Inherited: no
+Percentages: N/A
+Computed value: as specified
+Animation type: not animatable
 </pre>
+
+The 'event-trigger-source' property
+specifies what event or events activate the [=event trigger=].
+
+<pre class=prod>
+<dfn><<event-trigger-event>></dfn> = activate | click | touch | dblclick | keypress(<<string>>) | ...
+</pre>
+
+Whenever any of the specified {{Event}}s are fired
+with this element as its {{Event/target}},
+the [=event target=] activates.
+
+Issue: Figure out the full set of events we want to handle.
+
+Issue: The proposal I drew this text from
+specified that it only cares if the element is the *target* of the event.
+We probably want to allow for bubbling and/or capturing,
+possibly as an opt in/out.
+
+
+<h4 id="event-trigger-shorthand">
+The 'event-trigger' Shorthand</h4>
+
+<pre class='propdef'>
+Name: event-trigger
+Value: none | [ <<'event-trigger-name'>> <<'event-trigger-source'>> ]#
+Initial: none
+Applies to: all elements
+Inherited: no
+Percentages: N/A
+Computed value: as specified
+Animation type: not animatable
+</pre>
+
+The 'event-trigger' [=shorthand property=]
+sets both 'event-trigger-name' and 'event-trigger-source' at once.
+
+A value of <dfn value for="event-trigger">none</dfn>
+is equivalent to ''none none''.
+
+
+
 
 # Animation Events # {#events}
 
