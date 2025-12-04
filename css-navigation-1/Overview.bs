@@ -198,10 +198,15 @@ with <<navigation-condition>> defined as:
                      | <<navigation-in-parens>> [ and <<navigation-in-parens>> ]*
                      | <<navigation-in-parens>> [ or <<navigation-in-parens>> ]*
 <dfn><<navigation-in-parens>></dfn> = ( <<navigation-condition>> ) | ( <<navigation-test>> ) | <<general-enclosed>>
-<dfn><<navigation-test>></dfn> = <<navigation-location>> | <<navigation-keyword>> : <<navigation-location>>
-<dfn><<navigation-keyword>></dfn> = at | from | to
+<dfn><<navigation-test>></dfn> = <<navigation-location-test>> | <<navigation-type-test>>
+
+<dfn><<navigation-location-test>></dfn> = <<navigation-location-keyword>> : <<navigation-location>>
+<dfn><<navigation-location-keyword>></dfn> = at | from | to
 <dfn><<navigation-location>></dfn> = <<route-name>> | <<url-pattern()>>
 <dfn><<route-name>></dfn> = <<dashed-ident>>
+
+<dfn><<navigation-type-test>></dfn> = history : <<navigation-type-keyword>>
+<dfn><<navigation-type-keyword>></dfn> = traverse | back | forward | reload
 </pre>
 
 The above grammar is purposely very loose for forwards-compatibility reasons,
@@ -234,9 +239,8 @@ as follows:
 : <<navigation-in-parens>>
 :: The result is the result of the child subexpression.
 
-: <<navigation-test>>
-::	: <<navigation-location>>
-	: at: <<navigation-location>>
+: <<navigation-location-test>>
+::	: at: <<navigation-location>>
 	:: The result is whether the result of
 		[=URL pattern/match|match a URL pattern=] is non-null
 		given <var>urlPattern</var> as
@@ -258,6 +262,18 @@ as follows:
 		given <var>urlPattern</var> as
 		the [=navigation location URL pattern=] of <<navigation-location>>
 		and <var>input</var> as <var>to</var>.
+
+: <<navigation-type-test>>
+::	: history: traverse
+	:: True if the [=current navigation type=] is {{NavigationType/traverse}}.
+	: history: back
+	:: True if the [=current navigation type=] is {{NavigationType/traverse}} and
+		the [=current navigation delta=] is less than 0.
+	: history: forward
+	:: True if the [=current navigation type=] is {{NavigationType/traverse}} and
+		the [=current navigation delta=] is greater than 0.
+	: history: reload
+	:: True if the [=current navigation type=] is {{NavigationType/reload}}.
 
 : <<general-enclosed>>
 ::
@@ -492,7 +508,7 @@ if the following steps return true:
 NOTE: Some of the design discussion for this feature has been in
 <a href="https://github.com/w3c/csswg-drafts/issues/13163">w3c/csswg-drafts#13163</a>.
 
-<h2 id="current-nav-urls">Current navigation URLs</h2>
+<h2 id="current-nav-urls">Definitions of current navigation state</h2>
 
 Both the ''@navigation'' rule and the '':link-to()'' pseudo-class
 rely on the following definitions of
@@ -508,8 +524,9 @@ It is defined as follows:
 	NOTE: This part is for when the old document in the navigation
 	is still the current document.
 
-1. If the [=document's navigation API=] of the document is non-null and
+1. If the [=document's navigation API=] of the document is non-null,
 	its [=activation=] is non-null,
+	the activation's {{NavigationActivation/from}} is non-null, and
 	the document's [=has been revealed=] is false or
 	was false at the start of the current [=task=],
 	the activation's {{NavigationActivation/from}}'s
@@ -574,6 +591,10 @@ It is defined as follows:
 	NOTE: This part is for when the new document in the navigation
 	has become the current document.
 
+	ISSUE: Does it make sense to expose this when
+	the activation's {{NavigationActivation/from}} is null,
+	and thus there is no [=current from URL=]?
+
 1. Otherwise, null.
 
 	NOTE: The previous two branches can also produce null results.
@@ -582,11 +603,69 @@ ISSUE: The above definitions of from and to apparently don't work right
 if you start a same-document navigation (e.g., with {{History/pushState}})
 in the middle of a cross-document navigation.
 
+The <dfn>current navigation type</dfn> of a [=/document=] is a {{NavigationType}} or null.
+It is defined as follows:
+
+1. If the [=document's navigation API=] of the document is non-null and
+	its [=transition=] is non-null,
+	the transition's {{NavigationTransition/navigationType}}.
+
+	NOTE: This part is for when the old document in the navigation
+	is still the current document.
+
+1. If the [=document's navigation API=] of the document is non-null and
+	its [=activation=] is non-null,
+	the document's [=has been revealed=] is false or
+	was false at the start of the current [=task=],
+	the activation's {{NavigationActivation/navigationType}}.
+
+	NOTE: This part is for when the new document in the navigation
+	has become the current document.
+
+1. Otherwise, null.
+
+The <dfn>current navigation delta</dfn> of a [=/document=] is a {{NavigationType}} or null.
+It is defined as follows:
+
+1. If the [=document's navigation API=] of the document is non-null and
+	its [=transition=] is non-null,
+
+	1. If the transition's {{NavigationTransition/navigationType}} is not {{NavigationType/traverse}}, null.
+
+	1. Otherwise,
+		the transition's {{NavigationTransition/to}}'s {{NavigationDestination/index}}
+		minus
+		the transition's {{NavigationTransition/from}}'s {{NavigationHistoryEntry/index}}.
+
+	NOTE: This part is for when the old document in the navigation
+	is still the current document.
+
+1. If the [=document's navigation API=] of the document is non-null,
+	its [=activation=] is non-null,
+	the activation's {{NavigationActivation/from}} is non-null, and
+	the document's [=has been revealed=] is false or
+	was false at the start of the current [=task=],
+
+	1. If the activation's {{NavigationActivation/navigationType}} is not {{NavigationType/traverse}}, null.
+
+	1. Otherwise,
+		the activation's {{NavigationActivation/entry}}'s {{NavigationHistoryEntry/index}}
+		minus
+		the activation's {{NavigationActivation/from}}'s {{NavigationHistoryEntry/index}}.
+
+	NOTE: This part is for when the new document in the navigation
+	has become the current document.
+
+1. Otherwise, null.
+
 ISSUE: Generally improve integration with the HTML spec for these definitions,
 instead of monkeypatching.
 This includes the interaction with [=has been revealed=]
 and the interaction with the {{pageswap}} event,
 and other things where this section links to non-exported definitions.
+
+ISSUE: Generally figure out if these definitions should care about
+the [=ongoing navigate event=] or the [=transition=].
 
 <h2 id="url-pattern-function">The ''url-pattern()'' function</h2>
 
