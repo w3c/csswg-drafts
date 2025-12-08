@@ -1,0 +1,1782 @@
+<pre class='metadata'>
+Title: Motion Path Module Level 1
+Shortname: motion
+Level: 1
+Status: ED
+Prepare for TR: no
+Issue Tracking: GitHub https://github.com/w3c/fxtf-drafts/labels/motion-1
+Work Status: Refining
+ED: https://drafts.fxtf.org/motion-1/
+TR: https://www.w3.org/TR/motion-1/
+Group: fxtf
+Editor: Dirk Schulze, Adobe Inc., dschulze@adobe.com, w3cid 51803
+Editor: Jihye Hong, Igalia, jihye@igalia.com, w3cid 79168
+Editor: Tab Atkins-Bittner, Google, http://xanthir.com/contact/, w3cid 42199
+Former Editor: Shane Stephens, Google, shanestephens@google.com, w3cid 47691
+Former Editor: Eric Willigers, then Google, ericwilligers@google.com, w3cid 67534
+Test Suite: https://github.com/web-platform-tests/wpt/tree/master/css/motion
+Abstract: Motion path allows authors to position any graphical object and animate it along an author specified path.
+WPT Path Prefix: css/motion/
+WPT Display: closed
+</pre>
+
+<pre class=link-defaults>
+spec:css-transforms-1; type:dfn;
+    text:local coordinate system
+spec:svg2; type:dfn;
+    text: segment-completing close path
+spec: css-backgrounds-3;  type:property;
+    text: border-radius
+spec:motion-1; type:value;
+    text:path()
+spec:css-shapes-1; type:dfn;
+    text:shape()
+</pre>
+
+
+Introduction {#intro}
+=====================
+
+<em>This section is not normative.</em>
+
+The 'transform' property and its related properties
+allow a [=box=] to be arbitrarily repositioned
+(and rotated, scaled, etc)
+relative to its laid out position,
+without disrupting the layout of any other elements on the page.
+These positions can be animated or transitioned with CSS,
+but only in relatively simple ways:
+moving a box in a straight line from its starting position to its ending position.
+
+This specification introduces the 'offset' shorthand,
+and its suite of associated longhand properties,
+which define an <dfn export>offset transform</dfn>:
+a transform which aligns a particular point on an element
+('offset-anchor')
+to an <dfn export>offset position</dfn> on a <em>path</em>
+('offset-path' and 'offset-distance'),
+and optionally rotates it to follow the path direction
+('offset-rotate').
+
+This allows a number of powerful new transform possibilities,
+such as positioning using polar coordinates
+(with the ''ray()'' function)
+rather than the standard rectangular coordinates
+used by the ''translate()'' function,
+or animating an element <em>along a defined path</em>,
+making it easy to define complex and beautiful 2d spatial transitions.
+
+<div class=example>
+    For example,
+    the following picture shows a curving path
+    (indicated with dotted lines),
+    and an airplane graphic positioned
+    at various points along the path.
+    The plane faces in the direction of the path at each position on the path.
+
+    <figure>
+        <img src="images/motion-path.svg" width="470" height="120" alt="Example Path">
+        <p class=caption>The plane is shown at different 'offset-distance' values: ''0%'', ''50%'', and ''100%''.</p>
+    </figure>
+</div>
+
+
+Module interactions {#placement}
+--------------------------------
+
+This specification defines additional types of transforms
+(see [[css-transforms-1]])
+that can be applied to an element.
+
+As described in [[css-transforms-2#ctm]],
+the transforms defined by this document are layered
+after the individual transform properties
+('translate'/'rotate'/'scale', defined in [[css-transforms-2]])
+and before the 'transform' property
+(defined in [[css-transforms-1]]).
+
+
+Values {#values}
+----------------
+
+This specification follows the <a href="https://www.w3.org/TR/CSS21/about.html#property-defs">CSS property definition conventions</a> from [[!CSS21]].
+The <<basic-shape>> type is defined in CSS Shapes Module Level 1 [[!CSS-SHAPES]].
+The <<coord-box>> type is defined in CSS Box Model Module Level 3 [[!CSS-BOX-3]].
+Value types not defined in these specifications are defined in CSS Values and Units Module Level 3 [[!CSS3VAL]].
+
+In addition to the property-specific values listed in their definitions, all properties defined in this specification also accept CSS-wide keywords such as <a href="https://drafts.csswg.org/css-cascade-4/#valdef-all-initial">initial</a> and <a href="https://drafts.csswg.org/css-cascade-4/#valdef-all-inherit">inherit</a> as their property value [[!CSS3VAL]]. For readability it has not been repeated explicitly.
+
+
+Motion Paths {#motion-paths-overview}
+=====================================
+
+<!--
+        ████████     ███    ████████ ██     ██
+        ██     ██   ██ ██      ██    ██     ██
+        ██     ██  ██   ██     ██    ██     ██
+███████ ████████  ██     ██    ██    █████████
+        ██        █████████    ██    ██     ██
+        ██        ██     ██    ██    ██     ██
+        ██        ██     ██    ██    ██     ██
+-->
+
+Defining A Path: the 'offset-path' property {#offset-path-property}
+-----------------------------------------------------------------
+
+<pre class=propdef>
+Name: offset-path
+Value: none | <<offset-path>> || <<coord-box>>
+Initial: none
+Applies to: [=transformable elements=]
+Inherited: no
+Percentages: n/a
+Computed value: as specified
+Media: visual
+Animation type: by computed value
+</pre>
+
+Specifies the <dfn export>offset path</dfn>,
+a geometrical path the box gets positioned on.
+
+<pre class=prod>
+<dfn>&lt;offset-path></dfn> = <<ray()>> | <<url>> | <<basic-shape>>
+</pre>
+
+Values have the following meanings:
+
+<dl dfn-for=offset-path dfn-type=value>
+    : <dfn>none</dfn>
+    :: The element does not have an [=offset transform=].
+
+    : <dfn><<offset-path>> || <<coord-box>></dfn>
+    ::
+        The element has an [=offset transform=],
+        defined by some [=offset path=].
+        See [[#transform]] for details
+        on how to calculate the [=offset transform=].
+
+        All the usual effects of having a 'transform' apply
+        (such as creating a [=stacking context=], etc.)
+        See [[css-transforms-1#transform-rendering]] for details.
+
+        If <<offset-path>> is omitted,
+        it defaults to <css>inset(0 round <var>X</var>)</css>,
+        where <var>X</var> is the value of 'border-radius'
+        on the element that establishes the [=containing block=]
+        for this element.
+        If <<coord-box>> is omitted,
+        it defaults to ''&lt;coord-box>/border-box''.
+
+        See the specific values (below)
+        for the interpretation of each component.
+
+    : <dfn><<ray()>></dfn>
+    ::
+        The [=offset path=] is a line
+        extending from the [=ray()/origin=]
+        at some angle.
+        See [[#ray-function]] for details.
+
+        The <<coord-box>> provides the [=&lt;basic-shape>/reference box=]
+        for the ray.
+
+    : <dfn><<url>></dfn>
+    ::
+        A URL reference to an SVG [=shape element=].
+        The [=offset path=] is the referenced element's <l spec=svg2>[=equivalent path=]</l>.
+        [[!SVG2]]
+
+        If the URL does not reference a [=shape element=]
+        (because it references a different element,
+        or resolves to a non-SVG document,
+        or doesn't resolve at all,
+        etc)
+        this behaves as ''path("m 0 0")''
+        (a <<basic-shape>>)
+        instead.
+
+        The <<coord-box>> defines the viewport and user coordinate system
+        for the [=shape element=],
+        with the origin (the 0,0 point) at the top left corner,
+        and units being ''1px'' in size.
+
+    : <dfn><<basic-shape>></dfn>
+    ::
+        The [=offset path=] is the [=&lt;basic-shape>/equivalent path=]
+        of the <<basic-shape>> function.
+
+        For all <<basic-shape>>s,
+        if they accept an ''at <<position>>'' argument
+        but that argument is omitted,
+        and the element defines an [=offset starting position=]
+        via 'offset-position',
+        it uses the specified [=offset starting position=]
+        for that argument.
+        Otherwise it defaults as specified for each function.
+
+        The <<coord-box>> provides the [=<basic-shape>/reference box=]
+        for the <<basic-shape>>.
+
+    : <dfn><<coord-box>></dfn>
+    ::
+        Defines the box that the <<offset-path>> sizes into.
+
+        In CSS contexts,
+        the boxes being referenced
+        are from the element that establishes the [=containing block=]
+        for this element.
+
+        In SVG contexts,
+        all values behave as ''&lt;coord-box>/view-box''.
+</dl>
+
+<wpt>
+animation/offset-path-composition.html
+animation/offset-path-interpolation-001.html
+animation/offset-path-interpolation-002.html
+animation/offset-path-interpolation-003.html
+animation/offset-path-interpolation-004.html
+animation/offset-path-interpolation-005.html
+animation/offset-path-interpolation-006.html
+animation/offset-path-interpolation-007.html
+animation/offset-path-interpolation-008.html
+animation/reftests/offset-path-path-interpolation-001.html
+animation/reftests/offset-path-with-transforms-001.html
+change-offset-path.html
+offset-path-coord-box-001.html
+offset-path-coord-box-002.html
+offset-path-coord-box-003.html
+offset-path-coord-box-004.html
+offset-path-huge-angle-deg-001-crash.html
+offset-path-huge-angle-grad-001-crash.html
+offset-path-huge-angle-turn-001-crash.html
+offset-path-ray-001.html
+offset-path-ray-002.html
+offset-path-ray-003.html
+offset-path-ray-004.html
+offset-path-ray-005.html
+offset-path-ray-006.html
+offset-path-ray-007.html
+offset-path-ray-008.html
+offset-path-ray-009.html
+offset-path-ray-010.html
+offset-path-ray-011.html
+offset-path-ray-012.html
+offset-path-ray-013.html
+offset-path-ray-014.html
+offset-path-ray-015.html
+offset-path-ray-016.html
+offset-path-ray-017.html
+offset-path-ray-018.html
+offset-path-ray-019.html
+offset-path-ray-020.html
+offset-path-ray-021.html
+offset-path-ray-022.html
+offset-path-ray-contain-001.html
+offset-path-ray-contain-002.html
+offset-path-ray-contain-003.html
+offset-path-ray-contain-004.html
+offset-path-ray-contain-005.html
+offset-path-shape-circle-001.html
+offset-path-shape-circle-002.html
+offset-path-shape-circle-003.html
+offset-path-shape-circle-004.html
+offset-path-shape-circle-005.html
+offset-path-shape-circle-006.html
+offset-path-shape-circle-007.html
+offset-path-shape-circle-008.html
+offset-path-shape-ellipse-001.html
+offset-path-shape-ellipse-002.html
+offset-path-shape-ellipse-003.html
+offset-path-shape-ellipse-004.html
+offset-path-shape-ellipse-005.html
+offset-path-shape-ellipse-006.html
+offset-path-shape-ellipse-007.html
+offset-path-shape-inset-001.html
+offset-path-shape-inset-002.html
+offset-path-shape-polygon-001.html
+offset-path-shape-polygon-002.html
+offset-path-shape-polygon-003.html
+offset-path-shape-rect-001.html
+offset-path-shape-rect-002.html
+offset-path-shape-rect-003.html
+offset-path-shape-shape-001.html
+offset-path-shape-shape-002.html
+offset-path-shape-shape-003.html
+offset-path-shape-xywh-001.html
+offset-path-shape-xywh-002.html
+offset-path-shape-xywh-003.html
+offset-path-string-001.html
+offset-path-string-002.html
+offset-path-string-003.html
+offset-path-url-001.html
+offset-path-url-002.html
+offset-path-url-003.html
+offset-path-url-004.html
+offset-path-url-005.html
+offset-path-url-006.html
+offset-path-url-007.html
+offset-path-url-008.html
+offset-path-url-009.html
+offset-path-url-010.html
+offset-path-url-011.html
+offset-path-url-crash.html
+parsing/offset-path-computed.html
+parsing/offset-path-parsing-invalid.html
+parsing/offset-path-parsing-valid.html
+parsing/offset-path-shape-computed.html
+parsing/offset-path-shape-parsing.html
+</wpt>
+
+
+<!--
+████████     ███    ██    ██   ███ ███
+██     ██   ██ ██    ██  ██   ██     ██
+██     ██  ██   ██    ████   ██       ██
+████████  ██     ██    ██    ██       ██
+██   ██   █████████    ██    ██       ██
+██    ██  ██     ██    ██     ██     ██
+██     ██ ██     ██    ██      ███ ███
+-->
+
+<h4 id=ray-function>
+The ''ray()'' Function</h4>
+
+The ''ray()'' function defines an [=offset path=]
+as a straight line emerging from a point at some defined angle:
+
+<pre class=prod>
+<dfn>ray()</dfn> = ray( <<angle>> && <<ray-size>>? && contain? && [at <<position>>]? )
+
+<dfn>&lt;ray-size></dfn> = closest-side | closest-corner | farthest-side | farthest-corner | sides
+</pre>
+
+Its arguments are:
+
+<dl dfn-type=value dfn-for="ray()">
+    : <dfn><<angle>></dfn>
+    ::
+        The <a>offset path</a> is a single line segment
+        that starts from the [=offset starting position=]
+        and proceeds in the direction defined by the specified <<angle>>.
+        (Its length is determined by the other arguments.)
+        As with [=gradient functions=],
+        <<angle>> values are interpreted as bearing angles,
+        with ''0deg'' pointing up
+        and positive angles representing clockwise rotation.
+
+    : <dfn>&lt;ray-size></dfn>
+    ::
+        Specifies the length of the [=offset path=]
+        (the distance between the ''offset-distance: 0%''
+        and ''offset-distance: 100%'' points)
+        relative to the containing box.
+
+        If no <<ray-size>> is specified it defaults to ''closest-side''.
+
+        Note: For ''sides'',
+        the distance depends on the <<angle>> specified;
+        for all other values,
+        the distance is constant regardless of the <<angle>>.
+
+        Individual keywords are:
+
+        <dl dfn-for="<ray-size>">
+            : <dfn id=size-closest-side>closest-side</dfn>
+            :: The distance from the ray's starting point
+                to whichever side of the [=containing block=]
+                is closest.
+            : <dfn id=size-closest-corner>closest-corner</dfn>
+            :: The distance from the ray's starting point
+                to whichever corner of the [=containing block=]
+                is closest.
+            : <dfn id=size-farthest-side>farthest-side</dfn>
+            :: The distance from the ray's starting point
+                to whichever side of the [=containing block=]
+                is farthest.
+            : <dfn id=size-farthest-corner>farthest-corner</dfn>
+            :: The distance from the ray's starting point
+                to whichever corner of the [=containing block=]
+                is farthest.
+            : <dfn id=size-sides>sides</dfn>
+            :: The distance from the ray's starting point
+                to the point where the [=offset path=]
+                intersects the [=containing block's=] boundary.
+
+                If the ray's starting point
+                is on the [=containing block's=] boundary,
+                or outside its bounds entirely,
+                the distance is zero.
+        </dl>
+
+        Note: For ''closest-side'' and ''closest-corner'',
+        if the ray's starting point is <em>on</em> an edge/corner,
+        that's the closest one.
+        (In other words, the distance is zero.)
+
+        Note: For ''closest-side'' and ''farthest-side'',
+        if the ray's starting point is outside the [=containing block=] entirely,
+        the edges of the [=containing block=]
+        are considered to extend out to infinity.
+
+    : <dfn>contain</dfn>
+    ::
+        The length of the [=offset path=] is reduced
+        so that the element stays within the [=containing block=]
+        even at ''offset-distance: 100%''.
+
+        Specifically, the path's length is reduced
+        by half the width or half the height of the element's border box,
+        whichever is larger,
+        and floored at zero.
+
+        <div class=note>
+            This behavior is optimized for a particular case--
+            the element's width and height are equal or nearly so;
+            the element is either completely rounded by 'border-radius'
+            or the corners aren't relevant to its appearance;
+            the ''ray()'' uses ''closest-side'' positioning;
+            and 'offset-anchor' is set to ''offset-anchor/center''.
+
+            Under these conditions,
+            which are common for situations
+            like positioning elements around the edge of a round clock face,
+            this ensures that each element is positioned
+            fairly snugly against the inner edge of the clock face
+            at ''offset-distance: 100%''.
+
+            In other conditions this will act <em>similarly</em>
+            but might not give quite as optimal a result.
+        </div>
+
+    : <dfn>at <<position>></dfn>
+    ::
+        Specifies the <dfn dfn>origin</dfn> of the ray,
+        where the ray's line begins
+        (the 0% position).
+        It's resolved by using the <<position>>
+        to position a 0x0 object area
+        within the box's [=containing block=].
+
+        If omitted, it uses the [=offset starting position=]
+        of the element,
+        given by 'offset-position'.
+
+        If the element doesn't have an [=offset starting position=] either,
+        it behaves as ''at center''.
+
+        Note: ''ray()'' is currently only usable as an [=offset path=].
+        If it ever gets extended to other uses,
+        its usage of 'offset-position'
+        will be limited solely to when it's an [=offset path=],
+        similar to other <<basic-shape>> functions.
+</dl>
+
+<wpt>
+animation/ray-angle-interpolation-math-functions.html
+offset-path-ray-001.html
+offset-path-ray-002.html
+offset-path-ray-003.html
+offset-path-ray-004.html
+offset-path-ray-005.html
+offset-path-ray-006.html
+offset-path-ray-007.html
+offset-path-ray-008.html
+offset-path-ray-009.html
+offset-path-ray-010.html
+offset-path-ray-011.html
+offset-path-ray-012.html
+offset-path-ray-013.html
+offset-path-ray-014.html
+offset-path-ray-015.html
+offset-path-ray-016.html
+offset-path-ray-017.html
+offset-path-ray-018.html
+offset-path-ray-019.html
+offset-path-ray-020.html
+offset-path-ray-021.html
+offset-path-ray-022.html
+offset-path-ray-contain-001.html
+offset-path-ray-contain-002.html
+offset-path-ray-contain-003.html
+offset-path-ray-contain-004.html
+offset-path-ray-contain-005.html
+</wpt>
+
+Issue: all of these examples need to be rewritten.
+
+<div class=example>
+    Here are some examples. The first example shows that some parts of boxes are outside of the <a>offset path</a>.
+    <pre><code highlight=html>
+    &lt;style>
+        body {
+            transform-style: preserve-3d;
+            width: 200px;
+            height: 200px;
+        }
+        .box {
+            width: 50px;
+            height: 50px;
+            offset-position: 50% 50%;
+            offset-distance: 100%;
+            offset-rotate: 0deg;
+        }
+        #redBox {
+            background-color: red;
+            offset-path: ray(45deg closest-side);
+        }
+        #blueBox {
+            background-color: blue;
+            offset-path: ray(180deg closest-side);
+        }
+    &lt;/style>
+    &lt;body>
+        &lt;div class="box" id="redBox">&lt;/div>
+        &lt;div class="box" id="blueBox">&lt;/div>
+    &lt;/body>
+    </code></pre>
+    <figure>
+        <img alt="An image of boxes positioned without contain" src="images/offset_distance_without_contain.png" style="width: 200px;">
+        <figcaption>'offset-path' without 'contain'</figcaption>
+    </figure>
+
+    In the second example, 'contain' is given to the 'offset-path' value of each box
+    to avoid overflowing.
+    <pre><code highlight=html>
+    &lt;style>
+        body {
+            transform-style: preserve-3d;
+            width: 200px;
+            height: 200px;
+        }
+        .box {
+            width: 50px;
+            height: 50px;
+            offset-position: 50% 50%;
+            offset-distance: 100%;
+            offset-rotate: 0deg;
+        }
+        #redBox {
+            background-color: red;
+            offset-path: ray(45deg closest-side contain);
+        }
+        #blueBox {
+            background-color: blue;
+            offset-path: ray(180deg closest-side contain);
+        }
+    &lt;/style>
+    &lt;body>
+        &lt;div class="box" id="redBox">&lt;/div>
+        &lt;div class="box" id="blueBox">&lt;/div>
+    &lt;/body>
+    </code></pre>
+    <figure>
+        <img alt="An image of boxes positioned with contain" src="images/offset_distance_with_contain.png" width=200 height=220>
+        <figcaption>'offset-path' with 'contain'</figcaption>
+    </figure>
+
+    In the third example, the path size is increased so that the box can be contained. The <a>used offset distance</a> is negative.
+    <pre><code highlight=html>
+    &lt;style>
+        body {
+            transform-style: preserve-3d;
+            width: 250px;
+            height: 250px;
+        }
+        .box {
+            width: 60%;
+            height: 10%;
+
+            offset-position: 20% 20%;
+            offset-distance: 0%;
+            offset-rotate: 0deg;
+            offset-anchor: 200% -300%;
+        }
+        #blueBox {
+            background-color: blue;
+            offset-path: ray(-90deg closest-side contain);
+        }
+    &lt;/style>
+    &lt;body>
+        &lt;div class="box" id="blueBox">&lt;/div>
+    &lt;/body>
+    </code></pre>
+    <figure>
+        <img alt="An image of an increased path size" src="images/increase-size.svg" width="400" height="335" >
+        <figcaption>'offset-path' with path size increased</figcaption>
+    </figure>
+
+    In the fourth example, the initial position is outside the containing block.
+    <pre><code highlight=html>
+    &lt;style>
+        #container {
+            transform-style: preserve-3d;
+            width: 200px;
+            height: 200px;
+        }
+        .box {
+            width: 20%;
+            height: 20%;
+            offset-position: 140% 70%;
+            offset-distance: 100%;
+        }
+        #redBox {
+            background-color: red;
+            offset-path: ray(-90deg sides);
+        }
+        #blueBox {
+            background-color: blue;
+            offset-path: ray(180deg closest-side);
+        }
+    &lt;/style>
+    &lt;div id="container">
+        &lt;div class="box" id="redBox">&lt;/div>
+        &lt;div class="box" id="blueBox">&lt;/div>
+    &lt;/div>
+    </code></pre>
+    <figure>
+        <img alt="An image with initial position outside the containing block" src="images/initial-outside.svg" width=700 height=460 >
+        <figcaption>Initial position outside the containing block</figcaption>
+    </figure>
+</div>
+
+### Examples Of <<basic-shape>> Positioning ### {#example-shape}
+
+<div class=example>
+    This example uses a circle with implicit center position.
+    <pre><code highlight=html>
+    &lt;style>
+        body {
+            width: 323px;
+            height: 131px;
+            margin: 0px;
+            border: 2px solid black;
+            padding: 8px;
+            transform-style: preserve-3d;
+        }
+        .item {
+            width:  90px;
+            height: 40px;
+            background-color: violet;
+        }
+        #middle {
+            offset-position: auto;
+            offset-path: circle(60%) margin-box;
+            offset-distance: 25%;
+            offset-anchor: left top;
+        }
+    &lt;/style>
+    &lt;body>
+        &lt;div class="item">&lt;/div>
+        &lt;div class="item" id="middle">&lt;/div>
+        &lt;div class="item">&lt;/div>
+    &lt;/body>
+    </code></pre>
+    <figure>
+        <img src="images/normal-flow.svg" width="505" height="324" alt="Normal flow determining circle center">
+        <figcaption>The circle center is determined by normal flow.</figcaption>
+    </figure>
+</div>
+
+### Examples of <<coord-box>> Positioning ### {#example-coord}
+
+<div class=example>
+    This example shows how <<coord-box>> <a>offset path</a> works in combination with 'border-radius'.
+
+    <pre><code highlight=html>
+    &lt;style>
+        body {
+            width: 500px;
+            height: 300px;
+            border-radius: 80px;
+            border: dashed aqua;
+            margin: 0;
+        }
+        #blueBox {
+            width: 40px;
+            height: 20px;
+            background-color: blue;
+            offset-path: margin-box;
+        }
+    &lt;/style>
+    &lt;body>
+        &lt;div id="blueBox">&lt;/div>
+    &lt;/body>
+    </code></pre>
+    <figure>
+        <img alt="An image of example for geometry-box with border-radius" src="images/geometry-box.svg" width=470 height=270 >
+        <figcaption>The initial position is the left end of the top horizontal line.</figcaption>
+    </figure>
+</div>
+
+
+
+<!--
+        ████████  ████  ██████  ████████    ███    ██    ██  ██████  ████████
+        ██     ██  ██  ██    ██    ██      ██ ██   ███   ██ ██    ██ ██
+        ██     ██  ██  ██          ██     ██   ██  ████  ██ ██       ██
+███████ ██     ██  ██   ██████     ██    ██     ██ ██ ██ ██ ██       ██████
+        ██     ██  ██        ██    ██    █████████ ██  ████ ██       ██
+        ██     ██  ██  ██    ██    ██    ██     ██ ██   ███ ██    ██ ██
+        ████████  ████  ██████     ██    ██     ██ ██    ██  ██████  ████████
+-->
+
+Position On The Path: the 'offset-distance' property {#offset-distance-property}
+--------------------------------------------------------------------------------
+
+<pre class=propdef>
+Name: offset-distance
+Value: <<length-percentage>>
+Initial: 0
+Applies to: [=transformable elements=]
+Inherited: no
+Percentages: relative to the [=offset path=] length
+Computed value: a computed <<length-percentage>> value
+Media: visual
+Animation type: by computed value
+</pre>
+
+Specifies where along the [=offset path=]
+the [=offset position=] is.
+
+<dl dfn-for="offset-distance" dfn-type="value">
+    : <<length-percentage>>
+    ::
+        The [=offset position=] is the point
+        that is the specified distance
+        along the element's [=offset path=].
+        See [[#path-distance]] for details
+        about how to calculate distances along a path.
+
+        Percentages are relative to the total length of the [=offset path=].
+
+</dl>
+
+<wpt>
+animation/offset-distance-composition.html
+animation/offset-distance-interpolation.html
+animation/reftests/offset-distance-interpolation-001.html
+offset-distance-001.html
+offset-distance-002.html
+offset-distance-003.html
+offset-distance-004.html
+offset-distance-005.html
+offset-distance-006.html
+offset-distance-007.html
+offset-distance-008.html
+offset-distance-009.html
+parsing/offset-distance-computed.html
+parsing/offset-distance-parsing-invalid.html
+parsing/offset-distance-parsing-valid.html
+</wpt>
+
+Note: By animating the 'offset-distance',
+an element can easily trace out a complex path.
+
+If the element does not have an [=offset path=],
+this property does nothing.
+
+### Calculating the computed distance along a path ### {#path-distance}
+
+Processing the distance along an <a>offset path</a> operates differently depending upon the nature of the <a>offset path</a>:
+
+* References to <<angle>> <a>offset path</a>s with contain are unclosed intervals.
+* References to <<angle>> <a>offset path</a>s without contain are unbounded rays.
+* All basic CSS shapes are closed loops.
+* <a>Offset path</a>s (including references to SVG Paths) are closed loops only if the final command in the path list is a closepath command ("z" or "Z"), otherwise they are unclosed intervals.
+* References to SVG circles, ellipses, images, polygons and rects are closed loops.
+* References to SVG lines and polylines are unclosed intervals.
+
+To determine the <dfn>used offset distance</dfn> for a given <a>offset path</a> and <dfn>offset distance</dfn>:
+
+1. Let the <dfn>total length</dfn> be the total length of <a>offset path</a> with all sub-paths.
+2. Convert <a>offset distance</a> to pixels, with 100% being converted to <a>total length</a>.
+3. <dl class=switch>
+        : If <a>offset path</a> is an unbounded ray:
+        :: Let <a>used offset distance</a> be equal to <a>offset distance</a>.
+        : Otherwise if <a>offset path</a> is an <<angle>> path with contain:
+        :: Let <a>used offset distance</a> be equal to <a>offset distance</a>, clamped so that the box lies entirely within the path.
+        : If <a>offset path</a> is any other unclosed interval:
+        :: Let <a>used offset distance</a> be equal to <a>offset distance</a> clamped by 0 and the total length of the path.
+        : Otherwise <a>offset path</a> is a closed loop:
+        :: Let <a>used offset distance</a> be equal to <a>offset distance</a> modulo the total length of the path. If the total length of the path is 0, <a>used offset distance</a> is also 0.
+
+            Note: “Modulo” here uses the traditional mathematical definition,
+            where the output is always non-negative.
+    </dl>
+
+
+
+<div class=example>
+This example shows boxes placed along an unclosed interval.
+
+<pre><code highlight=html>
+&lt;style>
+    .item {
+        width: 100px;
+        height: 40px;
+        offset-position: 0% 0%;
+        offset-path: path('m 0 0 h 200 v 150');
+    }
+    #box1 {
+        background-color: red;
+        offset-distance: -280%;
+    }
+    #box2 {
+        background-color: green;
+        offset-distance: 190%;
+    }
+&lt;/style>
+&lt;body>
+    &lt;div class="item" id="box1">&lt;/div>
+    &lt;div class="item" id="box2">&lt;/div>
+&lt;/body>
+</code></pre>
+<figure>
+    <img src="images/offset-distance-unclosed.svg" width=700 height=270
+         alt="An example of boxes placed along an unclosed interval">
+    <figcaption>An example of boxes placed along an unclosed interval</figcaption>
+</figure>
+</div>
+
+<div class=example>
+This example shows boxes placed along a closed interval.
+
+<pre><code highlight=html>
+&lt;style>
+    .item {
+        width: 100px;
+        height: 40px;
+        offset-position: 0% 0%;
+        offset-path: path('m 0 0 h 200 v 150 z');
+    }
+    #box1 {
+        background-color: red;
+        offset-distance: -280%;
+    }
+    #box2 {
+        background-color: green;
+        offset-distance: 190%;
+    }
+&lt;/style>
+&lt;body>
+    &lt;div class="item" id="box1">&lt;/div>
+    &lt;div class="item" id="box2">&lt;/div>
+&lt;/body>
+</code></pre>
+<figure>
+    <img src="images/offset-distance-closed.svg" width=700 height=270
+         alt="An example of boxes placed along a closed interval">
+    <figcaption>An example of boxes placed along a closed interval</figcaption>
+</figure>
+</div>
+
+<div class=example>
+    This example shows a way to align boxes within the polar coordinate system using 'offset-path', 'offset-distance'.
+
+    <pre><code highlight=html>
+    &lt;style>
+        body {
+            transform-style: preserve-3d;
+            width: 300px;
+            height: 300px;
+            border: dashed gray;
+            border-radius: 50%;
+        }
+        .circleBox {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 40px;
+            height: 40px;
+            background-color: red;
+            border-radius: 50%;
+        }
+        #circle1 {
+            offset-path: ray(0deg farthest-side);
+            offset-distance: 50%;
+        }
+        #circle2 {
+            offset-path: ray(90deg farthest-side);
+            offset-distance: 20%;
+        }
+        #circle3 {
+            offset-path: ray(225deg farthest-side);
+            offset-distance: 100%;
+        }
+    &lt;/style>
+    &lt;body>
+        &lt;div class="circleBox" id="circle1">&lt;/div>
+        &lt;div class="circleBox" id="circle2">&lt;/div>
+        &lt;div class="circleBox" id="circle3">&lt;/div>
+    &lt;/body>
+    </code></pre>
+    <figure>
+        <img alt="An image of three boxes positioned to polar coordinates" src="images/simple_offset_position.png" style="width: 300px;">
+        <figcaption>An example of positioning box in polar coordinates</figcaption>
+    </figure>
+</div>
+
+
+<!--
+        ████████   ███████   ██████  ████ ████████ ████  ███████  ██    ██
+        ██     ██ ██     ██ ██    ██  ██     ██     ██  ██     ██ ███   ██
+        ██     ██ ██     ██ ██        ██     ██     ██  ██     ██ ████  ██
+███████ ████████  ██     ██  ██████   ██     ██     ██  ██     ██ ██ ██ ██
+        ██        ██     ██       ██  ██     ██     ██  ██     ██ ██  ████
+        ██        ██     ██ ██    ██  ██     ██     ██  ██     ██ ██   ███
+        ██         ███████   ██████  ████    ██    ████  ███████  ██    ██
+-->
+
+Starting Point Of The Path: the 'offset-position' property {#offset-position-property}
+-------------------------------------------------------------------------------------------------
+
+<pre class=propdef>
+Name: offset-position
+Value: normal | auto | <<position>>
+Initial: normal
+Media: visual
+Inherited: no
+Applies to: [=transformable elements=]
+Percentages: Refer to the size of containing block
+Computed value: The ''offset-position/normal'' or ''offset-position/auto'' keywords, or a computed <<position>>
+Animation type: by computed value
+</pre>
+
+Specifies the <dfn export>offset starting position</dfn>
+that is used by the <<offset-path>> functions
+if they don't specify their own starting position.
+
+Values are defined as follows:
+
+<dl dfn-for="offset-position" dfn-type="value">
+    : <dfn>normal</dfn>
+    ::
+        The element does not have an [=offset starting position=].
+
+    : <dfn>auto</dfn>
+    ::
+        The [=offset starting position=] is the top-left corner of the box.
+
+        Note: This is the top-left corner of the element's <em>own box</em>,
+        not that of its [=containing block=]!
+        It's completely different from specifiying ''top left''.
+        It's meant, for example,
+        to allow a ''path()'' to start relative
+        to the element's own position.
+
+    : <dfn><<position>></dfn>
+    ::
+        The [=offset starting position=] is the result of using the <<position>>
+        to position a 0x0 object area
+        within the box's [=containing block=].
+</dl>
+
+<wpt>
+parsing/offset-position-computed.html
+parsing/offset-position-parsing-invalid.html
+parsing/offset-position-parsing-valid.html
+
+</wpt>
+
+<div class=example>
+    This example shows positioning a box with 'offset-position'.
+
+    <pre><code highlight=html>
+    &lt;style>
+        #wrap {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            border: 1px solid black;
+        }
+
+        #box {
+            width: 100px;
+            height: 100px;
+            background-color: green;
+            position: absolute;
+            top: 100px;
+            left: 80px;
+            offset-position: auto;
+            offset-anchor: center;
+            offset-path: ray(45deg);
+        }
+    &lt;/style>
+    &lt;body>
+        &lt;div id="wrap">
+            &lt;div id="box">&lt;/div>
+        &lt;/div>
+    &lt;/body>
+    </code></pre>
+    <figure>
+        <img alt="An image of offset-position: auto" src="images/offset_position_auto.png" width="300">
+        <figcaption>An example when ''offset-position/auto'' is given to 'offset-position'</figcaption>
+    </figure>
+</div>
+
+<div class=example>
+This example shows the interaction with the 'transform' property, and with an individual transform property ('rotate'). The motion path transform is a vertical translation moving ('left', 'top') to 'offset-position'.
+
+<pre><code highlight=html>
+&lt;style>
+    #wrap {
+        transform-style: preserve-3d;
+        width: 400px;
+        height: 350px;
+    }
+    .item {
+        position: absolute;
+        left: 200px;
+        top: 0px;
+        offset-position: 200px 100px; /* translates by 0px,100px */
+        offset-anchor: left top;
+        transform-origin: left top;
+        width: 130px;
+        height: 80px;
+        border-top-right-radius: 23px;
+    }
+    #box1 {
+        background-color: tomato;
+        offset-position: auto;
+    }
+    #box2 {
+        background-color: green;
+    }
+    #box3 {
+        background-color: navy;
+        rotate: 90deg; /* applied before motion path transform */
+    }
+    #box4 {
+        background-color: gold;
+        transform: rotate(90deg); /* applied after motion path transform */
+    }
+&lt;/style>
+&lt;body>
+    &lt;div id="wrap">
+        &lt;div class="item" id="box1">&lt;/div>
+        &lt;div class="item" id="box2">&lt;/div>
+        &lt;div class="item" id="box3">&lt;/div>
+        &lt;div class="item" id="box4">&lt;/div>
+    &lt;/div>
+&lt;/body>
+</code></pre>
+<figure>
+    <img alt="An example when motion path and other transforms interact" src="images/position-transform.svg" width="400" height="350">
+    <figcaption>An example when motion path and other transforms interact</figcaption>
+</figure>
+</div>
+
+<div class=example>
+This example uses 'position' ''static'', so 'offset-position' generates translations from the normal flow positions. By amplifying these translations using 'scale', the normal flow is rotated 180 degrees around the 'offset-position', and the boxes are exploded away from each other.
+
+<pre><code highlight=html>
+&lt;style>
+    #wrap {
+        transform-style: preserve-3d;
+        width: 500px;
+        height: 250px;
+        line-height: 0px;
+    }
+    span {
+        position: static;
+        display: inline-block;
+        width: 100px;
+        height: 50px;
+        border-top-right-radius: 23px;
+        scale: 2.5 2.5; /* applied before motion path transform */
+        offset-position: center;
+        transform: scale(0.4); /* applied after motion path transform */
+    }
+    #box1 {
+        background-color: tomato;
+    }
+    #box2 {
+        background-color: green;
+    }
+    #box3 {
+        background-color: navy;
+    }
+    #box4 {
+        background-color: gold;
+    }
+&lt;/style>
+&lt;body>
+    &lt;div id="wrap">
+        &lt;div>
+            &lt;span id="box1">&lt;/span>&lt;span id="box2">&lt;/span>
+        &lt;/div>
+        &lt;div>
+            &lt;span id="box3">&lt;/span>&lt;span id="box4">&lt;/span>
+        &lt;/div>
+    &lt;/div>
+&lt;/body>
+</code></pre>
+<figure>
+    <img alt="An example when motion path and scale interact" src="images/position-scale.svg" width="604" height="304">
+    <figcaption>An example when motion path and scale interact</figcaption>
+</figure>
+</div>
+
+<div class=example>
+In this example, each 'offset-position' value is ignored as 'offset-path' is a <<geometry-box>>, but the other offset properties combine to have an effect equivalent to that for 'offset-position' 'right bottom'.
+
+<pre><code highlight=html>
+&lt;style>
+    #wrap {
+        transform-style: preserve-3d;
+        width: 540px;
+        height: 420px;
+    }
+    .item {
+        position: absolute;
+        width: 90px;
+        height: 70px;
+        border-top-right-radius: 23px;
+        scale: 0.8 0.8; /* applied before motion path transform */
+        offset-path: padding-box;
+        offset-distance: 50%;
+        offset-rotate: 0deg;
+        offset-anchor: right bottom;
+        transform: scale(1.25); /* applied after motion path transform */
+    }
+    #box1 {
+        background-color: tomato;
+        position: static;
+        offset-position: auto; /* ignored */
+    }
+    #box2 {
+        background-color: green;
+        right: 0px;
+        top: 0px;
+        offset-position: 23% 45%; /* ignored */
+    }
+    #box3 {
+        background-color: navy;
+        left: 0px;
+        bottom: 0px;
+        offset-position: 34% 56px; /* ignored */
+    }
+    #box4 {
+        background-color: gold;
+        right: 0px;
+        bottom: 0px;
+        offset-position: 45px 67px; /* ignored */
+    }
+&lt;/style>
+&lt;body>
+    &lt;div id="wrap">
+        &lt;div class="item" id="box1">&lt;/div>
+        &lt;div class="item" id="box2">&lt;/div>
+        &lt;div class="item" id="box3">&lt;/div>
+        &lt;div class="item" id="box4">&lt;/div>
+    &lt;/div>
+&lt;/body>
+</code></pre>
+<figure>
+    <img alt="An example when offset-position is ignored" src="images/position-absolute.svg" width="550" height="430">
+    <figcaption>An example when offset-position is ignored</figcaption>
+</figure>
+</div>
+
+
+<!--
+           ███    ██    ██  ██████  ██     ██  ███████  ████████
+          ██ ██   ███   ██ ██    ██ ██     ██ ██     ██ ██     ██
+         ██   ██  ████  ██ ██       ██     ██ ██     ██ ██     ██
+███████ ██     ██ ██ ██ ██ ██       █████████ ██     ██ ████████
+        █████████ ██  ████ ██       ██     ██ ██     ██ ██   ██
+        ██     ██ ██   ███ ██    ██ ██     ██ ██     ██ ██    ██
+        ██     ██ ██    ██  ██████  ██     ██  ███████  ██     ██
+-->
+
+The Element's Anchor Point: the 'offset-anchor' property {#offset-anchor-property}
+------------------------------------------------------------------------------
+
+<pre class=propdef>
+Name: offset-anchor
+Applies to: [=transformable elements=]
+Value: auto | <<position>>
+Initial: auto
+Media: visual
+Inherited: no
+Percentages: relative to the width and the height of the element's [=reference box=]
+Computed value: the ''offset-anchor/auto'' keyword or a computed <<position>>
+Animation type: by computed value
+</pre>
+
+Defines the element's <dfn export local-lt="anchor point">offset anchor point</dfn>--
+the point that is aligned with the [=offset position=]
+along the [=offset path=].
+
+Values have the following meanings:
+<dl dfn-for="offset-anchor" dfn-type="value">
+    : <dfn>auto</dfn>
+    :: The [=anchor point=] is the same as
+        the point indicated by 'transform-origin'.
+
+        Specifically, the [=computed value=] of 'transform-origin'
+        is resolved as a <<position>>
+        against the element's [=reference box=].
+
+    : <dfn><<position>></dfn>
+    ::
+        The [=anchor point=] is the result of resolving the <<position>>
+        against the element's [=reference box=].
+</dl>
+
+<wpt>
+animation/offset-anchor-composition.html
+animation/offset-anchor-interpolation.html
+offset-anchor-transform-box-fill-box-001.html
+offset-anchor-transform-box-fill-box-002.html
+offset-anchor-transform-box-fill-box-003.html
+parsing/offset-anchor-computed.html
+parsing/offset-anchor-parsing-invalid.html
+parsing/offset-anchor-parsing-valid.html
+</wpt>
+
+Issue: Which box this is resolved against is being discussed in
+<a href="https://github.com/w3c/fxtf-drafts/issues/503">Issue 503</a>.
+
+<div class=example>
+The following explains how to set the <a>anchor point</a> of the box.
+
+<pre><code highlight=html>
+#plane {
+    offset-anchor: center;
+}
+</code></pre>
+
+The red dot in the middle of the shape indicates the <a>anchor point</a> of the shape.
+<figure>
+    <img src="images/plane.svg" width="160" height="140" alt="Shape with its anchor point">
+    <figcaption>A red dot in the middle of a plane shape indicates the shape's <a>anchor point</a>.</figcaption>
+</figure>
+</div>
+
+<div class=example>
+This example shows an alignment of four boxes with different <a>anchor point</a>s.
+
+<pre><code highlight=html>
+&lt;style>
+    body {
+        transform-style: preserve-3d;
+        width: 300px;
+        height: 300px;
+        border: 2px solid gray;
+        border-radius: 50%;
+    }
+    .box {
+        width: 50px;
+        height: 50px;
+        background-color: orange;
+        offset-position: 50% 50%;
+        offset-distance: 100%;
+        offset-rotate: 0deg;
+    }
+    #item1 {
+        offset-path: ray(45deg closest-side);
+        offset-anchor: right top;
+    }
+    #item2 {
+        offset-path: ray(135deg closest-side);
+        offset-anchor: right bottom;
+    }
+    #item3 {
+        offset-path: ray(225deg closest-side);
+        offset-anchor: left bottom;
+    }
+    #item4 {
+        offset-path: ray(315deg closest-side);
+        offset-anchor: left top;
+    }
+&lt;/style>
+&lt;body>
+    &lt;div class="box" id="item1">&lt;/div>
+    &lt;div class="box" id="item2">&lt;/div>
+    &lt;div class="box" id="item3">&lt;/div>
+    &lt;div class="box" id="item4">&lt;/div>
+&lt;/body>
+</code></pre>
+<figure>
+    <img src="images/offset_anchor.png" alt="An example of offset-anchor" style="width: 300px;">
+    <figcaption>An example of 'offset-anchor'</figcaption>
+</figure>
+</div>
+
+<div class=example>
+This example shows boxes centered at their offset-position.
+
+<pre><code highlight=html>
+&lt;style>
+    body {
+        width: 500px;
+        height: 500px;
+    }
+    .box {
+        background-color: mediumpurple;
+        offset-path: none;
+        offset-anchor: center;
+    }
+    #item1 {
+        offset-position: 90% 20%;
+        width: 60%;
+        height: 20%;
+    }
+    #item2 {
+        offset-position: 100% 100%;
+        width: 30%;
+        height: 10%;
+    }
+    #item3 {
+        offset-position: 50% 100%;
+        width: 20%;
+        height: 60%;
+    }
+    #item4 {
+        offset-position: 0% 100%;
+        width: 30%;
+        height: 90%;
+    }
+&lt;/style>
+&lt;body>
+    &lt;div class="box" id="item1">&lt;/div>
+    &lt;div class="box" id="item2">&lt;/div>
+    &lt;div class="box" id="item3">&lt;/div>
+    &lt;div class="box" id="item4">&lt;/div>
+&lt;/body>
+</code></pre>
+<figure>
+    <img src="images/offset_anchor_center.svg" width=700 height=790 alt="An example of offset-anchor: center">
+    <figcaption>An example of 'offset-anchor: center'</figcaption>
+</figure>
+</div>
+
+<div class=example>
+This example shows how offset-anchor computes to their offset-position.
+
+<pre><code highlight=html>
+&lt;style>
+    body {
+        width: 500px;
+        height: 500px;
+    }
+    .box {
+        background-color: mediumpurple;
+        offset-path: none;
+        offset-anchor: auto;
+    }
+    #item1 {
+        offset-position: 90% 20%;
+        width: 60%;
+        height: 20%;
+    }
+    #item2 {
+        offset-position: 100% 100%;
+        width: 30%;
+        height: 10%;
+    }
+    #item3 {
+        offset-position: 50% 100%;
+        width: 20%;
+        height: 60%;
+    }
+    #item4 {
+        offset-position: 0% 100%;
+        width: 30%;
+        height: 90%;
+    }
+&lt;/style>
+&lt;body>
+    &lt;div class="box" id="item1">&lt;/div>
+    &lt;div class="box" id="item2">&lt;/div>
+    &lt;div class="box" id="item3">&lt;/div>
+    &lt;div class="box" id="item4">&lt;/div>
+&lt;/body>
+</code></pre>
+<figure>
+    <img src="images/offset_anchor_auto.svg" width=700 height=570 alt="An example of offset-anchor: auto">
+    <figcaption>An example of 'offset-anchor: auto'</figcaption>
+</figure>
+</div>
+
+
+<!--
+        ████████   ███████  ████████    ███    ████████ ████████
+        ██     ██ ██     ██    ██      ██ ██      ██    ██
+        ██     ██ ██     ██    ██     ██   ██     ██    ██
+███████ ████████  ██     ██    ██    ██     ██    ██    ██████
+        ██   ██   ██     ██    ██    █████████    ██    ██
+        ██    ██  ██     ██    ██    ██     ██    ██    ██
+        ██     ██  ███████     ██    ██     ██    ██    ████████
+-->
+
+Rotating To Match The Path: the 'offset-rotate' property {#offset-rotate-property}
+-------------------------------------------------------------------------
+
+<pre class=propdef>
+Name: offset-rotate
+Value: [ auto | reverse ] || <<angle>>
+Initial: auto
+Applies to: <a href="https://drafts.csswg.org/css-transforms-1/#transformable-element">transformable elements</a>
+Inherited: no
+Percentages: n/a
+Computed value: computed <<angle>> value, optionally preceded by auto
+Media: visual
+Animation type: by computed value
+</pre>
+
+Defines a rotation component of the [=offset transform=],
+possibly based on the direction of the [=offset path=]
+at the [=offset position=].
+Values have the following meanings:
+
+<dl dfn-for="offset-rotate" dfn-type="value">
+    : <dfn lt=auto>auto <<angle>>?</dfn>
+    ::
+        The [=offset transform=] will have a rotation component
+        equal to the difference between the [=offset path's=]
+        direction at the [=offset position=]
+        and the direction of the positive X axis
+        (that is, a line going toward the right).
+        See SVG's <l spec=svg2>[=direction of a path=]</l>
+        for details on how to calculate this.
+
+        If specified with an <<angle>>,
+        the angle is added to the rotation component.
+
+        Note: In other words,
+        if the [=offset path=] is moving to the right,
+        ''offset-rotate/auto'' doesn't add any rotation.
+        As it diverges from straight rightward,
+        the rotation matches.
+        By combining ''offset-rotate/auto'' with an <<angle>>,
+        you can adjust the "starting" rotation.
+
+    : <dfn lt=reverse>reverse <<angle>>?</dfn>
+    ::
+        Identical to ''offset-rotate/auto'',
+        but adds an additional ''180deg'' to the rotation.
+
+    : <dfn><<angle>></dfn>
+    ::
+        When specified on its own,
+        adds a rotation component to the [=offset transform=]
+        of the specified angle.
+        (That is, ''offset-rotate: 45deg;''
+        is similar to ''transform: rotate(45deg)'';
+        it's just ordered to be part of the [=offset transform=].)
+</dl>
+
+<wpt>
+animation/offset-rotate-composition.html
+animation/offset-rotate-interpolation-math-functions.html
+animation/offset-rotate-interpolation.html
+animation/reftests/offset-rotate-interpolation-001.html
+offset-rotate-001.html
+offset-rotate-002.html
+offset-rotate-003.html
+offset-rotate-004.html
+offset-rotate-005.html
+parsing/offset-rotate-computed.html
+parsing/offset-rotate-parsing-invalid.html
+parsing/offset-rotate-parsing-valid.html
+</wpt>
+
+<div class=example>
+    The following examples use the shape of a plane. The red dot in the middle of the shape indicates the <a>anchor point</a> of the shape. When no offset properties are set, the shape is not translated or rotated along the path.
+
+    <figure>
+        <img src="images/offset-initial.svg" width="470" height="120" alt="Path without offset">
+        <figcaption>A black plane at the beginning of the path, with no offset properties set.</figcaption>
+    </figure>
+
+    When the shape's <a>anchor point</a> is placed at different positions along the path and 'offset-rotate' is ''0deg'', the shape is not rotated.
+
+    <figure>
+        <img src="images/offset-rotate-none.svg" width="470" height="120" alt="Path without rotation">
+        <figcaption>A black plane at different positions on a blue dotted path without
+        rotation transforms.</figcaption>
+    </figure>
+
+    If the 'offset-rotate' property is set to ''offset-rotate/auto'', and the shape's <a>anchor point</a> is placed at different positions along the path, the shape is rotated based on the gradient at the current position and faces the direction of the path at this position.
+
+    <figure>
+        <img src="images/offset-rotate-auto.svg" width="470" height="120" alt="Path with auto rotation">
+        <figcaption>A black plane at different positions on a blue dotted path,
+        rotated in the direction of the path.</figcaption>
+    </figure>
+
+    In this example, the 'offset-rotate' property is set to ''reverse''. The plane faces the opposite direction of the path at each position on the path.
+
+    <figure>
+        <img src="images/offset-rotate-reverse.svg" width="470" height="120" alt="Path with reverse auto rotation">
+        <figcaption>A black plane at different positions on a blue dotted path,
+        rotated in the opposite direction of the path.</figcaption>
+    </figure>
+
+    The last example sets the 'offset-rotate' property to ''-45deg''. The shape is rotated anticlockwise by 45 degree once and keeps the rotation at each position on the path.
+
+    <figure>
+        <img src="images/offset-rotate-45.svg" width="470" height="120" alt="Path with fixed rotation">
+        <figcaption>A black plane at different positions on a blue dotted path,
+        rotated by a fixed amount of degree.</figcaption>
+    </figure>
+</div>
+
+<div class=example>
+    This example shows how ''offset-rotate/auto'' or ''offset-rotate/reverse'' work when specified in combination
+    with <<angle>>.
+    The computed value of <<angle>> is added to the computed value of ''offset-rotate/auto'' or ''offset-rotate/reverse''.
+
+    <pre><code highlight=html>
+    &lt;style>
+        body {
+            width: 300px;
+            height: 300px;
+            margin: 0px;
+            border: solid gray;
+            border-radius: 50%;
+        }
+        .circle {
+            offset-position: 150px 150px;
+            offset-distance: 86%;
+            width: 42px;
+            height: 42px;
+            background-color: mediumpurple;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #item1 {
+            offset-path: ray(0deg closest-side);
+            offset-rotate: auto 90deg;
+        }
+        #item2 {
+            offset-path: ray(45deg closest-side);
+            offset-rotate: auto 90deg;
+        }
+        #item3 {
+            offset-path: ray(135deg closest-side);
+            offset-rotate: auto -90deg;
+        }
+        #item4 {
+            offset-path: ray(180deg closest-side);
+            offset-rotate: auto -90deg;
+        }
+        #item5 {
+            offset-path: ray(225deg closest-side);
+            offset-rotate: reverse 90deg;
+        }
+        #item6 {
+            offset-path: ray(-45deg closest-side);
+            offset-rotate: reverse -90deg;
+        }
+    &lt;/style>
+    &lt;body>
+        &lt;div class="circle" id="item1">1&lt;/div>
+        &lt;div class="circle" id="item2">2&lt;/div>
+        &lt;div class="circle" id="item3">3&lt;/div>
+        &lt;div class="circle" id="item4">4&lt;/div>
+        &lt;div class="circle" id="item5">5&lt;/div>
+        &lt;div class="circle" id="item6">6&lt;/div>
+    &lt;/body>
+    </code></pre>
+    <figure>
+        <img alt="An image of example for offset-rotate" src="images/rotate_by_angle_with_auto.png" style="width: 250px; text-align: center">
+        <figcaption>The boxes are rotated by the value of ''offset-rotate/auto'' with a fixed amount of degree.</figcaption>
+    </figure>
+</div>
+
+
+<!--
+ ███████  ████████ ████████  ██████  ████████ ████████
+██     ██ ██       ██       ██    ██ ██          ██
+██     ██ ██       ██       ██       ██          ██
+██     ██ ██████   ██████    ██████  ██████      ██
+██     ██ ██       ██             ██ ██          ██
+██     ██ ██       ██       ██    ██ ██          ██
+ ███████  ██       ██        ██████  ████████    ██
+-->
+
+The 'offset' Shorthand {#offset-shorthand}
+------------------------------------------
+
+<pre class="propdef shorthand">
+Name: offset
+Value: [ <<'offset-position'>>? [ <<'offset-path'>> [ <<'offset-distance'>> || <<'offset-rotate'>> ]? ]? ]! <nobr>[ / <<'offset-anchor'>> ]?</nobr>
+Applies to: <a href="https://drafts.csswg.org/css-transforms-1/#transformable-element">transformable elements</a>
+</pre>
+
+<wpt>
+animation/offset-interpolation.html
+animation/offset-position-composition.html
+animation/offset-position-interpolation.html
+parsing/offset-parsing-invalid.html
+parsing/offset-parsing-valid.html
+parsing/offset-shorthand.html
+inheritance.html
+offset-supports-calc.html
+</wpt>
+
+This is a shorthand property for setting 'offset-position', 'offset-path', 'offset-distance', 'offset-rotate' and 'offset-anchor'. Omitted values are set to their initial values.
+
+
+Calculating The Offset Transform {#transform}
+----------------------------------------------------
+
+The [=offset transform=] is a 2d transform,
+a translation followed by a rotation:
+
+* Translate the element by the (X, Y)
+    that aligns its [=anchor point=]
+    with its [=offset position=].
+* Rotate the element by the angle specified by 'offset-rotate'.
+
+
+<!--
+████████     ███    ████████ ██     ██  ██████
+██     ██   ██ ██      ██    ██     ██ ██    ██
+██     ██  ██   ██     ██    ██     ██ ██
+████████  ██     ██    ██    █████████  ██████
+██        █████████    ██    ██     ██       ██
+██        ██     ██    ██    ██     ██ ██    ██
+██        ██     ██    ██    ██     ██  ██████
+-->
+
+Equivalent Paths For <<basic-shape>> {#paths}
+====================================
+
+The <<basic-shape>> definition given by [[css-shapes]]
+defines each function as producing a <em>shape</em>--
+a 2-dimensional figure with an outline, an inside, and an outside.
+
+This specification instead uses <<basic-shape>> as producing a <em>path</em>--
+a line with a starting point, ending point, and direction,
+that happens to trace out a particular shape's outline.
+The details of what makes up a path are defined by SVG.
+[[SVG2]]
+
+The <dfn export for="<basic-shape>">equivalent path</dfn>
+for all the <<basic-shape>> values are:
+
+<dl dfn-type=dfn export>
+    : <dfn for=path() lt="equivalent path"><<path()>></dfn>
+    : <dfn for=shape() lt="equivalent path"><<shape()>></dfn>
+    ::
+        The path is the defined path.
+        [[!SVG11]]
+
+    : <dfn for=circle() lt="equivalent path"><<circle()>></dfn>
+    : <dfn for=ellipse() lt="equivalent path"><<ellipse()>></dfn>
+    ::
+        The path is the outline of the circle/ellipse.
+        It starts at the rightmost point of the circle/ellipse,
+        and then is composed of four circular arcs,
+        each comprising a quarter of the circle/ellipse,
+        proceeding clockwise,
+        ending with a [=segment-completing close path=] operation.
+
+    : <dfn for=rect() lt="equivalent path">rect()</dfn>
+    : <dfn for=inset() lt="equivalent path">inset()</dfn>
+    : <dfn for=xywh() lt="equivalent path">xywh()</dfn>
+    ::
+        The path is the outline of the (possibly-rounded) rectangle,
+        composed of four or eight segments
+        (depending on whether rounded corners are specified or not),
+        and ending with a [=segment-completing close path=] operation.
+        It starts at the left end of the top straight edge,
+        immediately to the right of any rounded corners,
+        and continues to the right (clockwise).
+
+    : <dfn for=polygon() lt="equivalent path"><<polygon()>></dfn>
+    ::
+        The path is the outline of the polygon,
+        composed of straight line segments
+        connecting each coordinate pair to the following coordinate pair,
+        and finally connecting the last back to the first,
+        with a [=segment-completing close path=] operation.
+</dl>
+
+For all of these,
+the direction at any point along the path
+is defined by SVG;
+see [[svg2#PathDirectionality]].
+
+Note: All of these are meant to match the "equivalent paths"
+defined for the similar SVG [=shape elements=].
+
+Note: This list should be in sync with the full set of <<basic-shape>> functions
+defined in [[css-shapes]].
+If anything is missing,
+this should be considered a specification bug.
+This list might move to Shapes in the future,
+but for now is kept here
+as this spec is the only consumer of this information.
+
+
+Privacy Considerations {#privacy}
+=================================
+
+This specification introduces no new privacy considerations.
+
+Security Considerations {#security}
+===================================
+
+This specification introduces no new security considerations.
+
+<h2 class=no-num id=changes>Changes</h2>
+
+<em>This section is non-normative.</em>
+
+<h3 class=no-num id="changes-20181218">Changes since the <a href="https://www.w3.org/TR/2018/WD-motion-1-20181218/">18 December 2018</a> Working Draft</h3>
+
+<!-- to Aug 1, 2023 -->
+
+* Added offset-position:normal that doesn't override the normal position defaulting, and add an "at &lt;position>"" to ray() <a href="https://github.com/w3c/fxtf-drafts/issues/504">#504</a>.
+* Corrected offset-path to use &lt;url> instead of &lt;url()> <a href="https://github.com/w3c/fxtf-drafts/issues/508">#508</a>
+* Reworded the calculation of the offset transform, using terminology from CSS Transforms 1
+* Clarified "offset-distance" and "offset-rotate"
+* Simplified and clarified the behavior of the "contain" keyword <a href="https://github.com/w3c/fxtf-drafts/issues/363">#363</a>.
+* Changed the equivalent path of a circle()/ellipse() to match SVG <a href="https://github.com/w3c/fxtf-drafts/issues/506">#506</a>.
+* The element being referenced by coord-box is the element establishing the containing block for the transformed element, and in an SVG context coord-box is treated as view-box <a href="https://github.com/w3c/fxtf-drafts/issues/369#issuecomment-1457239856">#369</a>
+* Moved the definition of &lt;basic-shape> paths to an appendix.
+* Allowed &lt;coord-box> to be combined with any of the path functions <a href="https://github.com/w3c/fxtf-drafts/issues/369#issuecomment-577787797">#369</a>
+* Added inline links to some issues: <a href="https://github.com/w3c/fxtf-drafts/issues/503">#503</a>, <a href="https://github.com/w3c/fxtf-drafts/issues/504">#504</a>
+* Clarified initial position
+* Moved path() to the &lt;basic-shape> section.
+* Made &lt;ray-size> optional, defaulting to "closest-side".
+* Rewrote introduction.
+* Moved ray() definition to its own subsection
+* Clarified definition of offset path <a href="https://github.com/w3c/fxtf-drafts/issues/66">#66</a>
+* Clarified that the &lt;coord-box> tpe is defined in CSS Box 3.
+* Corrected &lt;ray()> and &lt;path()> type syntax.
+* Clarified that "modulo" has its mathematical, not C/JS definition <a href="https://github.com/w3c/fxtf-drafts/issues/339">#339</a>.
+* Fixed directionality at sharp path boundaries to match SVG. <a href="https://github.com/w3c/fxtf-drafts/issues/209">#209</a>.
+* Reorganized offset-path section for better readability.
+* Removed note describing the concept of polar angles.
+* Changed computed value of offset-distance to a computed <length-percentage> value.
+* Replaced animatable by Animation type.
+
+<h3 class=no-num id="changes-20150409">Changes since the <a href="https://www.w3.org/TR/2015/WD-motion-1-20150409/">9 April 2015</a> First Public Working Draft</h3>
+
+* Renamed <a href="https://www.w3.org/TR/2015/WD-motion-1-20150409/#motion-path-property">motion-path</a> to 'offset-path' for integrating with <a href="https://www.w3.org/TR/2016/WD-css-round-display-1-20160301/#polar-angle-property">polar-angle</a>.
+    * Added the ''ray()'' to define an <a>offset path</a> as a line segment which direction is specified by <<angle>>.
+    * Added <<size>> and 'contain' value for the ''ray()''.
+* Renamed <a href="https://www.w3.org/TR/2015/WD-motion-1-20150409/#propdef-motion-offset">motion-offset</a> to 'offset-distance' for integrating with <a href="https://www.w3.org/TR/2016/WD-css-round-display-1-20160301/#polar-distance-property">polar-distance</a>.
+* Renamed <a href="https://www.w3.org/TR/2015/WD-motion-1-20150409/#propdef-motion-rotation">motion-rotation</a> to 'offset-rotate'.
+* Added 'offset-position' to specify the [=offset starting position=] of the path by merging <a href="https://www.w3.org/TR/2016/WD-css-round-display-1-20160301/#polar-origin-property">polar-origin</a> from [[CSS-ROUND-DISPLAY-1]].
+* Added 'offset-anchor' to specify the origin point of the element by merging <a href="https://www.w3.org/TR/2016/WD-css-round-display-1-20160301/#polar-anchor-property">polar-anchor</a> from [[CSS-ROUND-DISPLAY-1]].
+* Renamed the shorthand property <a href="https://www.w3.org/TR/2015/WD-motion-1-20150409/#propdef-motion">motion</a> to 'offset'.
+* Made 'offset-rotate' specify the rotation transformation by ''offset-rotate/auto'' or ''offset-rotate/reverse'' in combination with <<angle>>.
+
+<h2 class=no-num id=acknowledgments>Acknowledgments</h2>
+
+Thanks to
+fantasai,
+Hyojin Song,
+and
+all the rest of the CSS WG members
+for their reviews, comments, and corrections.
