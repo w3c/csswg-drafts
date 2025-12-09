@@ -42,19 +42,44 @@ To achieve that, proposing two provide the following:
 
 ```js
 // Returns a boolean if the page is prerendered/BFCached and not render-blocked.
-navigateEvent.nextDocumentReadyToRender
+navigateEvent.destination.ready
 
-// Allows delaying the commit *without* intercepting as a same-document navigation.
-navigateEvent.deferCommit(promise)
-```
+// Allows delaying the cross-document commit (aka page-swap) *without* intercepting this as a same-document navigation.
+navigateEvent.deferPageSwap({
+  // "immediate", which is also the default, means that the history is swapped immediately, like a `pushState`,
+  // and the navigation becomes a `replace`.
+  historyChange: "immediate" | "after-transition",
+
+  // When the returned promise resovles, the navigation can proceed.
+  // The handler can register a "restore" callback, to be called if the navigation is aborted
+  // or if the page is restored from BFCache.
+  handler: (controller) => Promise
+});```
 
 Possible usage:
 ```js
-if (!navigateEvent.nextDocumentReadyToRender) {
-  const transition = document.startViewTransition(show_preview);
-  navigateEvent.deferCommit(transition.finished);
-}
+navigation.addEventListener("navigate", event => {
+  if (!event.destination.ready) {
+    event.deferPageSwap({
+      // This means that the history is swapped immediately, like a `pushState`,
+      // and the navigation becomes a `replace`.
+      historyChange: "immediate",
+      async handler(controller) {
+         const transition = document.startViewTransition(() => show_preview());
+    
+         // The restore callback will be called if the navigation is aborted, or if this document is restored from BFCache.
+         controller.addRestoreCallback(() => hide_preview());
+         return transition.finished;
+      }
+    });
+  }
+});
 ```
+
+### Some more details for deferred commit/page-swap
+- By default, the new history entry applies immediately, like a `pushState` or `replaceState`.
+  This makes it so that a quick press on "back" or so doesn't go too far back. The `historyChange` option can opt out of this behavior.
+- Only same-origin navigations without cross-origin redirects are deferrable.
 
 
 ## Allowing animations to defer commit for a short period
