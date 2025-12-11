@@ -405,85 +405,60 @@ Declaring Masonry Track Templates: the 'grid-template-*' properties</h3>
 <h4 id=masonry-intrinsic-repeat>
 Intrinsic Tracks and repeat()</h4>
 
-	ISSUE(10915): Should we allow auto-repeated content-based tracks?
-	Is this a reasonable definition for them?
-	Should they work also in Grid Layout somehow?
+	Level 3 extends the ''repeat()'' notation to allow repetitions where
+	neither the [=min track sizing function=] nor the [=max tack sizing function=] is [=definite=];
+	in other words, the syntax for <<auto-repeat>> is relaxed to the following:
 
-	In Grid Layout,
-	all [=grid items=] are placed in the grid
-	<em>before</em> the grid tracks are sized.
-	This implies that ''repeat()/auto-fill''/''repeat()/auto-fit'' repetition
-	can't include intrinsically sized tracks such as ''grid-template-rows/auto''
-	(either in the ''repeat()'' function <em>or</em> alongside it
-	in the fixed portion of the track list),
-	as that would require the layout algorithm
-	to have already determined which items would go in those tracks,
-	to determine how large the tracks are,
-	to determine how many repetitions fit in the available space.
+	<pre class=prod>
+	<dfn><<auto-repeat>></dfn> = repeat(  [ auto-fill | auto-fit ] , [ <<line-names>>? <<track-size>> ]+ <<line-names>>? )
+	</pre>
 
-	In Masonry Layout,
-	as [=masonry item=] placement and layout are intertwined and somewhat simplified,
-	this restriction is no longer strictly required.
-	It requires a slightly heuristic definition of sizing,
-	but auto repetition <em>can</em> include intrinsically-sized tracks
-	in a [=masonry container=].
+	In order to resolve the number of repetitions,
+	a hypothetical size is calculated for such tracks
+	by initializing the track sizes (per [[css-grid-2#algo-init]])
+	and resolving intrinsic track sizes (per [[css-grid-2#algo-content]])
+	in accordance with [[#track-sizing]]
+	with the following assumptions:
 
-	<div algorithm="determine intrinsic repetitions">
-		To determine the number of repetitions
-		that a ''repeat()'' function resolves to,
-		resolve the repeated track sizing functions to definite sizes
-		by initializing the track sizes (per [[css-grid-2#algo-init]])
-		and resolving intrinsic track sizes (per [[css-grid-2#algo-content]])
-		in accordance with [[#track-sizing]]
-		with the following assumptions:
+	* Ignore explicit item placement.
+		(That is, assume all items have an [=automatic position=].)
+	* Do not [=collapsed grid track|collapse=] any tracks.
+	* Expand the repeated track listing to capture all possible automatic placements of each item,
+		i.e. repeat the track listing <code>2 + (<var ignore>largest span</var> - 2)/(<var ignore>number of tracks in repeat()</var>)</code> times,
+		rounded <em>down</em> to a whole number.
 
-		* Expand ''repeat()/auto-fill''/''repeat()/auto-fit'' repeat functions once.
-		* Ignore explicit item placement.
-			(That is, assume all items have an [=automatic position=].)
-		* Do not [=collapsed grid track|collapse=] any tracks.
-		* If a [=masonry item=] has a span larger than 1,
-			then for each of its intrinsic size contributions,
-			first subtract the combined size of the gaps it would span,
-			and divide by its span.
-			Then treat it as an item that has a span of 1
-			and these modified intrinsic size contributions.
+	The hypothetical size of each track in the ''repeat()'' listing
+	is given by the largest track corresponding to that entry (by index) in the listing.
 
-		All tracks are then treated as having the size
-		calculated by this simplified layout
-		(including those in ''repeat()'' arguments,
-		taking from their corresponding single repetition)
-		for the purpose of determining how many repetitions
-		the ''repeat()'' functions resolve to.
+	<div class=example>
+		For example,
+		given a template of ''repeat(auto-fill, 50px auto auto)''
+		and a largest spanner of 2,
+		you need to repeat the track listing twice,
+		giving ''50px auto auto 50px auto auto''.
+		After doing the hypothetical layout,
+		the 2nd and 5th tracks are maxed together to provide a hypothetical size for the first <css>auto</css>
+		and the 3rd and 6th tracks are maxed together to provide a hypothetical size for the second <css>auto</css>.
+		Those concrete sizes are then used to determine how many repetitions will fill the container.
 	</div>
 
-	<details class=note>
-		<summary>Motivation</summary>
+	ISSUE(10915): Should this work also in Grid Layout somehow, or fall back to a single repetition? If so, how?
 
-		This simplified layout heuristic is defined to be "good enough",
-		while remaining fast and consistent.
+	Note: This simplified layout heuristic is defined to be "good enough",
+	while remaining fast and consistent.
+	Ignoring placement is required just to make the concept coherent;
+	before you know how many repetitions you need,
+	you can't tell what track an item
+	(even one with a definite placement)
+	will end up in.
 
-		Ignoring placement is required just to make the concept coherent;
-		before you know how many repetitions you need,
-		you can't tell what track an item with a definite placement
-		will end up in.
-
-		By chopping spanning items into span-1 items,
-		this avoids the possible need to expand a repeat() multiple times,
-		and the incoherent possibility of getting different sizes
-		for the same keyword across the repetitions.
-
-		It also makes the layout as a whole significantly cheaper,
-		as you only need to consider each unique track size;
-		you don't even <em>really</em> need to do any repeat() expansion.
-		That is, in ''auto repeat(auto-fill, min-content auto)'',
-		both of the ''grid-template-rows/auto'' keywords
-		will resolve to the same size under this heuristic layout;
-		you can just figure out what
-		a ''grid-template-columns/auto''
-		and ''grid-template-columns/min-content'' track sizes
-		would each result in,
-		and use those sizes.
-	</details>
+	ISSUE: Technically, if your explicit placement does not enter or cross over the repetition,
+	we can know its placement prior to resolving the reptition.
+	Do we want to adjust the algorithm above to account for this?
+	That is, given ''auto repeat(auto-fill, ...) auto'',
+	if you explicitly place an item against line 1 or -1,
+	we could let it only affect that track
+	(rather than pretending it'll go in every track).
 
 <h3 id="subgrids">
 Subgrids</h3>
@@ -1540,6 +1515,9 @@ Additions Since Level 2</h3>
 
 	<ul>
 		<li>Added [=masonry layout=].
+		<li>Expanded ''repeat(auto-fill)'' and ''repeat(auto-fit)'' to accept indefinite track sizing functions.
+			(<a href="https://github.com/w3c/csswg-drafts/issues/9321">Issue 9321</a>,
+			 <a href="https://github.com/w3c/csswg-drafts/issues/12899">Issue 12899</a>)
 		<li>Added the 'item-flow' property and its longhands,
 			as generic controls for item ordering and placement.
 			See [[#flow-control]].
@@ -1556,6 +1534,9 @@ Recent Changes</h3>
 		(<a href="https://github.com/w3c/csswg-drafts/issues/12022">Issue 12022</a>)
 	* Dropped the unnecessary <css>auto-areas</css> value from ''repeat()''.
 		(<a href="https://github.com/w3c/csswg-drafts/issues/10854">Issue 10854</a>)
+	* Adjusted heuristic for ''repeat(auto-fill)'' and ''repeat(auto-fit)'' with indefinite track sizing functions.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/12899">Issue 12899</a>)
+
 
 	See also <a href="https://www.w3.org/TR/2025/WD-css-grid-3-20250917/#recent-changes">earlier changes</a>.
 
