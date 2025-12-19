@@ -1461,19 +1461,52 @@ or being positioned partially off screen.
 
 To ameliorate this, an [=absolutely positioned=] box
 can use the 'position-try-fallbacks' property
-to refer to several variant sets of positioning/alignment properties
-(generated from the box's existing styles,
+to specify additional [=position options=]
+(variant sets of positioning/alignment properties
+generated from the box's existing styles,
 or specified in ''@position-try'' rules)
 that the UA can try if the box overflows its initial position.
-Each is applied to the box, one by one,
+Each is applied to the box,
+one by one in the order specified by 'position-try-order',
 and the first that doesn't cause the box
 to overflow its [=containing block=]
 is taken as the winner.
 
-'position-try-order' allows these options
-to additionally be sorted by the available space they define,
-if it's more important for the box to have as much space as possible
-rather than strictly follow some declared order.
+Once an option has been chosen,
+the element keeps those styles until it overflows again,
+even if an earlier (and presumably more desirable)
+option again becomes available without causing overflow.
+(See [=remember or forget the last successful position option=].)
+
+<div class=example>
+	For example,
+	the following CSS will first attempt to position a "popover"
+	below the element,
+	but if it doesn't fit on-screen will switch to being above.
+	It defaults to start-aligning with the anchor,
+	but will switch to end-aligning if that doesn't fit.
+	If it doesn't fit on <em>either</em> side,
+	it will take the whole horizontal space,
+	while centering on the anchor as much as possible
+	(thanks to [[#position-area-alignment]]).
+
+	<pre highlight=css>
+	#myPopover {
+		position: fixed;
+		position-anchor: --button;
+		position-area: bottom span-x-end;
+		position-try-fallbacks: flip-x, flip-y, flip-x flip-y, bottom, top;
+
+		/* The popover is at least as wide as the button */
+		min-width: anchor-size(width);
+
+		/* The popover is at least as tall as 2 menu items */
+		min-height: 6em;
+	}
+	</pre>
+
+	Issue: Add a picture!
+</div>
 
 Giving Fallback Options: the 'position-try-fallbacks' property {#position-try-fallbacks}
 --------------------------------
@@ -1492,7 +1525,8 @@ to try when the [=absolutely positioned box=]
 overflows its [=inset-modified containing block=].
 This <dfn export>position options list</dfn>
 initially contains a single [=position option=]
-generated from the element's base styles.
+generated from the element's <dfn export local-lt="base style">fallback base styles</dfn>,
+i.e. the [=computed values|computed styles=] without applying 'position-try-fallbacks'.
 
 Each comma-separated entry in the list is a separate option:
 either the name of a ''@position-try'' block,
@@ -1519,12 +1553,10 @@ Values have the following meanings:
 	: <dfn><<try-tactic>></dfn>
 	::
 		Automatically creates a [=position option=]
-		from the box's computed style,
-		by [=swapping due to a try-tactic=]
-		according to the specified keyword,
-		and adding the constructed [=position option=]
+		by [=applying a try-tactic|applying the specified try tactic=]
+		to the box's [=base styles=],
+		then adding the constructed [=position option=]
 		to the box's [=position options list=].
-		and adds it to the [=position options list=].
 
 		<pre class=prod>
 		<dfn type><<try-tactic>></dfn> = flip-block || flip-inline || flip-start || flip-x || flip-y
@@ -1587,122 +1619,6 @@ Values have the following meanings:
 		with the given value.
 </dl>
 
-<div algorithm>
-	To <dfn>swap due to a try-tactic</dfn>
-	the styles of a box's element |el|
-	between two directions |directions|,
-	returning a set of styles:
-
-	0. If |directions| are opposites along the same axis,
-		they are “opposing”.
-		Otherwise (when they are specifying different axises),
-		they are “perpendicular”.
-
-	1. Determine the specified values of the [=accepted @position-try properties=]
-		on |el|,
-		and let |styles| be the result.
-
-	2. [=substitute a var()|Substitute variables=],
-		''env()'' functions,
-		and similar [=arbitrary substitution functions=]
-		in |styles|.
-
-		For ''env()'' functions, 
-		if the referenced [=CSS/environment variable=] is associated with a direction or axis
-		(such as ''env()/safe-area-inset-top''),
-		switch the referenced [=CSS/environment variable=] corresponding to |directions|.
-
-		<div class=example>
-			For example, if ''top: env(safe-area-inset-top);'' is specified,
-			and |directions| are up and left,
-			the ''env()'' will resolve as if ''env(safe-area-inset-left)'' had been specified instead.
-			(And then, in the next step, will actually swap into the 'left' property.)
-		</div>
-
-	3. Swap the values of the |styles| between
-		the associated properties
-		corresponding to |directions|.
-
-		<div class=example>
-			For example, if "top" and "left" are being swapped,
-			then the values of 'margin-top' and 'margin-left' are swapped,
-			'width' and 'height' are swapped,
-			etc.
-		</div>
-
-		Note: If the directions are opposites along the same axis,
-		some properties (like 'width' or 'align-self')
-		wont' swap,
-		since they're associated with themselves across the two directions,
-		but their values might be changed by the next step.
-
-	4. Modify the values of the properties
-		as they swap to match the new directions,
-		as follows:
-
-		* For [=inset properties=],
-			change the specified side in ''anchor()'' functions
-			to maintain the same relative relationship to the new direction
-			that they had to the old.
-
-			If a <<percentage>> is used,
-			and |directions| are opposing,
-			change it to ''100%'' minus the original percentage.
-
-			<div class=example>
-				For example, if "top" and "left" are being swapped,
-				then ''margin-top: anchor(bottom)''
-				will become ''margin-left: anchor(right)''.
-
-				If "top" and "bottom" are being swapped,
-				then ''margin-top: anchor(20%)''
-				will become ''margin-bottom: anchor(80%)''.
-			</div>
-		* For [=sizing properties=],
-			change the specified axis in ''anchor-size()'' functions
-			to maintain the same relative relationship to the new direction
-			that they had to the old.
-
-			<div class=example>
-				For example, if "top" and "left" are being swapped,
-				then ''width: anchor-size(width)''
-				will become ''height: anchor-size(height)''.
-			</div>
-		* For the [=self-alignment properties=],
-			if |directions| are opposing,
-			change the specified <<self-position>>
-			(or ''align-self/left''/''align-self/right'' keywords),
-			if any,
-			to maintain the same relative relationship to the new direction
-			that they had to the old.
-
-			<div class=example>
-				For example, if "top" and "bottom" are being swapped,
-				then ''align-self: start''
-				will become ''align-self: end''.
-
-				However, ''align-self: center'' will remain unchanged,
-				as it has the same relationship to both directions.
-
-				Similarly, ''align-self: first baseline'' will remain unchanged,
-				as it's a <<baseline-position>>
-				rather than a <<self-position>>.
-			</div>
-		* For 'position-area',
-			change the value
-			so that the selected rows/columns of the [=position-area grid=]
-			maintain the same relative relationship to the new direction
-			that they had to the old.
-
-			<div class=example>
-				For example, if "top" and "left" are being swapped,
-				then ''position-area: left span-bottom''
-				will become ''position-area: top span-right''.
-			</div>
-
-	5. Return |styles|.
-</div>
-
 <!-- Big Text: *-order
 
                ███▌  ████▌  ████▌  █████▌ ████▌ 
@@ -1726,8 +1642,10 @@ Inherited: no
 Animation Type: discrete
 </pre>
 
-This property specifies the order in which
-the [=position options list=] will be tried.
+This property allows an element to sort its [=position options=]
+by the available space they define,
+if it's more important for the box to have as much space as possible
+rather than strictly following the order declared in 'position-try-fallbacks'.
 
 <pre class=prod>
 <dfn type><<try-size>></dfn> = most-width | most-height | most-block-size | most-inline-size
@@ -1746,7 +1664,7 @@ the [=position options list=] will be tried.
 	::
 		For each entry in the [=position options list=],
 		[=apply a position option|apply that position option=] to the box,
-		and find the specified [=inset-modified containing block=] size
+		and find the [=inset-modified containing block=] size
 		that results from those styles.
 		Stably sort the [=position options list=]
 		according to this size,
@@ -1758,10 +1676,8 @@ the [=position options list=] will be tried.
 
 <div class=example>
 	For example, the following styles
-	will initially position the popup list below its anchoring button,
-	but if that overflows,
-	will decide whether to keep the popup list below the anchor
-	or move it above,
+	will initially position the popup list
+	either above or below its anchoring button,
 	depending on which option gives it the most space.
 
 	<pre highlight=css>
@@ -1770,7 +1686,6 @@ the [=position options list=] will be tried.
 		position: fixed;
 		position-anchor: --foo;
 		position-area: block-end span-inline-end;
-		align-self: start;
 		position-try-fallbacks: --bottom-scrollable, flip-block, --top-scrollable;
 		position-try-order: most-height;
 	}
@@ -1783,17 +1698,25 @@ the [=position options list=] will be tried.
 	}
 	</pre>
 
-	The ''flip-block'' auto-generated option and the ''--top-scrollable'' option
-	will always find the same available height,
-	since both of them stretch vertically from the top edge of the containing block
-	to the top of the anchor,
-	so they'll retain their specified order.
+	The [=base styles=] and the ''--bottom-scrollable'' option
+	have the same available height,
+	since in both cases the [=inset-modified containing block=] stretches
+	from the anchor to the edge of the containing block.
+	Likewise the ''flip-block'' option and the ''--top-scrollable'' options
+	have the same available height.
+	Because 'position-try-order' uses a stable sort,
+	these pairs will each retain their relative positions in the list,
+	with the ''*-scrollable'' option coming later;
+	and the pair that has the most space available will come first.
+
 	This causes the box to first try to align against the anchor
-	at its natural height
-	(using ''align-self: end'', auto-reversed from the base styles),
-	but if that also causes overflow,
-	it'll fall back to just filling the space
-	and being scrollable instead.
+	at its natural height on whichever side is larger
+	(using the [=base styles=] or ''flip-block'' styles)
+	but if that causes overflow,
+	it'll fall back to just filling the same space
+	and being scrollable instead
+	(using the matching ''*-scrollable'' styles),
+	thus never overflowing and trying to move to the smaller space.
 </div>
 
 <!--
@@ -1941,9 +1864,8 @@ based on the position fallback it's using,
 enabling the sort of conditional styling
 not allowed by this restricted list.
 
-Note: If multiple boxes using different anchors
-want to use the same fallback positioning,
-just relative to their own anchor elements,
+Note: If multiple elements want to use the same ''@position-try'' rules,
+but relative to their own anchor elements,
 omit the <<anchor-name>> in ''anchor()''
 and specify each box's anchor in 'position-anchor' instead.
 
@@ -1971,36 +1893,20 @@ Applying Position Fallback {#fallback-apply}
 --------------------------
 
 When a positioned box
-(shifted by its [=default scroll shift=])
+(after applying any [=default scroll shift=])
 overflows its [=inset-modified containing block=],
 and has more than one [=position option=] in its [=position options list=],
 it [=determines position fallback styles=]
 to attempt to find an option that avoids overflow.
-
-These modified styles are applied to the element via [=interleaving=],
+The resulting styles are applied to the element via [=interleaving=],
 so they affect [=computed values=]
 (and can trigger transitions/etc)
 even though they depend on layout and [=used values=].
 
-ISSUE: Rewrite this section to be less confusing and more correct.
-See <a href="https://github.com/w3c/csswg-drafts/issues/12818">Issue 12818</a>,
-<a href="https://github.com/w3c/csswg-drafts/issues/12890">Issue 12890</a>.
-
-<div algorithm>
-	To <dfn>apply a position option</dfn> to a box's element |el|,
-	given a [=position option=] |new styles|:
-
-	1. With |new styles| inserted into the cascade
-		in the [=position fallback origin=],
-		resolve the cascade,
-		and perform enough layout to determine |el|'s [=used value|used styles=].
-
-		For the purpose of calculating these styles,
-		a <em>hypothetical</em> [=anchor recalculation point=] is calculated,
-		and the resulting hypothetical [=remembered scroll offsets=] are used to determine |el|'s styles.
-
-	2. Return |el|'s [=used value|used styles=].
-</div>
+Implementations may choose to impose an implementation-defined limit
+on the length of [=position options lists=],
+to limit the amount of excess layout work that may be required.
+This limit must be <em>at least</em> five.
 
 <div algorithm="determine position fallback styles">
 	To <dfn>determine position fallback styles</dfn> for an element |abspos|:
@@ -2051,27 +1957,25 @@ See <a href="https://github.com/w3c/csswg-drafts/issues/12818">Issue 12818</a>,
 	all the [=remembered scroll offsets=] stay the same.
 </div>
 
-During a full layout pass,
-once a box has determined its fallback styles
-(or determined it's not using any),
-laying out later boxes cannot change this decision.
+<div algorithm>
+	To <dfn>apply a position option</dfn> to a box's element |el|,
+	given a [=position option=] |new styles|:
 
-<div class=example>
-	For example, say you have two positioned boxes,
-	A and B,
-	with A laid out before B.
-	If B overflows and causes A's containing block to gain scrollbars,
-	this <em>does not</em> cause A
-	to go back and re-determine its fallback styles
-	in an attempt to avoid overflowing.
-	(At best, this can result in exponential layout costs;
-	at worst, it's cyclic and will never settle.)
+	1. With |new styles| inserted into the cascade
+		in the [=position fallback origin=],
+		resolve the cascade,
+		and perform enough layout to determine |el|'s [=used value|used styles=].
 
-	Layout does not "go backward", in other words.
+		For the purpose of calculating these styles,
+		a <em>hypothetical</em> [=anchor recalculation point=] is calculated,
+		and the resulting hypothetical [=remembered scroll offsets=] are used to determine |el|'s styles.
+
+	2. Return |el|'s [=used value|used styles=].
 </div>
 
 <div algorithm="remember or forget the last successful position option">
-	At the time that {{ResizeObserver}} events are determined and delivered:
+	At the time that {{ResizeObserver}} events are determined and delivered,
+	the box can <dfn export>remember or forget the last successful position option</dfn>:
 
 	* If |el| has a [=last successful position option=]
 		remove its [=last successful position option=]
@@ -2099,33 +2003,140 @@ laying out later boxes cannot change this decision.
 	is intentionally identical to the treatment of [=last remembered sizes=].
 </div>
 
-Implementations may choose to impose an implementation-defined limit
-on the length of [=position options lists=],
-to limit the amount of excess layout work that may be required.
-This limit must be <em>at least</em> five.
+<div algorithm>
+	To <dfn>apply a try-tactic</dfn>
+	to a set of |styles|
+	of a box's element |el|,
+	between two directions |directions|,
+	returning a set of transformed styles:
+
+	0. If |directions| are opposites along the same axis,
+		they are “opposing”.
+		Otherwise (when they are specifying different axises),
+		they are “perpendicular”.
+
+	1. Determine the specified values of the [=accepted @position-try properties=]
+		on |el|,
+		and let |styles| be the result.
+
+	2. [=substitute a var()|Substitute variables=],
+		''env()'' functions,
+		and similar [=arbitrary substitution functions=]
+		in |styles|.
+
+		For ''env()'' functions,
+		if the referenced [=CSS/environment variable=] is associated with a direction or axis
+		(such as ''env()/safe-area-inset-top''),
+		switch the referenced [=CSS/environment variable=] corresponding to |directions|.
+
+		<div class=example>
+			For example, if ''top: env(safe-area-inset-top);'' is specified,
+			and |directions| are up and left,
+			the ''env()'' will resolve as if ''env(safe-area-inset-left)'' had been specified instead.
+			(And then, in the next step, will actually swap into the 'left' property.)
+		</div>
+
+	3. Swap the values of the |styles| between
+		the associated properties
+		corresponding to |directions|.
+
+		<div class=example>
+			For example, if "top" and "left" are being swapped,
+			then the values of 'margin-top' and 'margin-left' are swapped,
+			'width' and 'height' are swapped,
+			etc.
+		</div>
+
+		Note: If the directions are opposites along the same axis,
+		some properties (like 'width' or 'align-self')
+		wont' swap,
+		since they're associated with themselves across the two directions,
+		but their values might be changed by the next step.
+
+	4. Modify the values of the properties
+		as they swap to match the new directions,
+		as follows:
+
+		* For [=inset properties=],
+			change the specified side in ''anchor()'' functions
+			to maintain the same relative relationship to the new direction
+			that they had to the old.
+
+			If a <<percentage>> is used,
+			and |directions| are opposing,
+			change it to ''100%'' minus the original percentage.
+
+			<div class=example>
+				For example, if "top" and "left" are being swapped,
+				then ''margin-top: anchor(bottom)''
+				will become ''margin-left: anchor(right)''.
+
+				If "top" and "bottom" are being swapped,
+				then ''margin-top: anchor(20%)''
+				will become ''margin-bottom: anchor(80%)''.
+			</div>
+		* For [=sizing properties=],
+			change the specified axis in ''anchor-size()'' functions
+			to maintain the same relative relationship to the new direction
+			that they had to the old.
+
+			<div class=example>
+				For example, if "top" and "left" are being swapped,
+				then ''width: anchor-size(width)''
+				will become ''height: anchor-size(height)''.
+			</div>
+		* For the [=self-alignment properties=],
+			if |directions| are opposing,
+			change the specified <<self-position>>
+			(or ''align-self/left''/''align-self/right'' keywords),
+			if any,
+			to maintain the same relative relationship to the new direction
+			that they had to the old.
+
+			<div class=example>
+				For example, if "top" and "bottom" are being swapped,
+				then ''align-self: start''
+				will become ''align-self: end''.
+
+				However, ''align-self: center'' will remain unchanged,
+				as it has the same relationship to both directions.
+
+				Similarly, ''align-self: first baseline'' will remain unchanged,
+				as it's a <<baseline-position>>
+				rather than a <<self-position>>.
+			</div>
+		* For 'position-area',
+			change the value
+			so that the selected rows/columns of the [=position-area grid=]
+			maintain the same relative relationship to the new direction
+			that they had to the old.
+
+			<div class=example>
+				For example, if "top" and "left" are being swapped,
+				then ''position-area: left span-bottom''
+				will become ''position-area: top span-right''.
+			</div>
+
+	5. Return |styles|.
+</div>
+
+During a full layout pass,
+once a box has determined its fallback styles
+(or determined it's not using any),
+laying out later boxes cannot change this decision.
 
 <div class=example>
-	For example,
-	the following CSS will first attempt to position a "popover"
-	below the element,
-	but if it doesn't fit on-screen will switch to being above;
-	it defaults to left-aligning,
-	but will switch to right-aligning if that doesn't fit.
+	For example, say you have two positioned boxes,
+	A and B,
+	with A laid out before B.
+	If B overflows and causes A's containing block to gain scrollbars,
+	this <em>does not</em> cause A
+	to go back and re-determine its fallback styles
+	in an attempt to avoid overflowing.
+	(At best, this can result in exponential layout costs;
+	at worst, it's cyclic and will never settle.)
 
-	<pre highlight=css>
-	#myPopover {
-		position: fixed;
-		top: anchor(--button bottom);
-		left: anchor(--button left);
-		position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline;
-
-		/* The popover is at least as wide as the button */
-		min-width: anchor-size(--button width);
-
-		/* The popover is at least as tall as 2 menu items */
-		min-height: 6em;
-	}
-	</pre>
+	Layout does not "go backward", in other words.
 </div>
 
 
