@@ -172,6 +172,14 @@ We expect `scale` to become best practice for authors to use on all new website 
 
 ### Comparison of `legacy` and `scale`
 
+<img width="693" height="374" alt="" src="https://github.com/user-attachments/assets/d5d69eec-c7ec-4df7-b326-5fb6141782ba" />
+
+_With the meta tag set to <code>legacy</code>, when the user increases their OS text scale, nothing happens to a web page._
+
+<img width="693" height="374" alt="meta-scale-comparison-after" src="https://github.com/user-attachments/assets/e7879389-f2d7-4845-bf23-ec08aa74f717" />
+
+_With the meta tag set to <code>scale</code>, when the user increases their OS text scale, the text scales up._
+
 This comparison table summarises our proposal. **`legacy`** describes current behavior. **`scale`** represents a simple way for sites to obey the OS-level text settings.
 
 <table>
