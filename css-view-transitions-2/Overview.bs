@@ -131,6 +131,8 @@ spec:css2; type:dfn; text:viewport
 			and more specifically based on the active view transition being of a certain type.
 		* [[#shared-style-with-vt-classes|Sharing styles between view transition pseudo-elements]], a way to declare a style once,
 			and use it for multiple view transition pseudo-elements. This includes the 'view-transition-class' property, and [[#pseudo-element-class-additions|additions to named pseudo-elements]]
+		* [[#nested-vt|Nested view transition groups]], a way to construct deeper hierarchies of view transition pseudo-elements,
+			which in turn allows relative transforms and clipping of participating elements.
 		* [[#scoped-vt|Scoped view transitions]], a way to perform view transitions within the scope of a DOM subtree.
 
 ## Separating Visual Transitions from DOM Updates ## {#separating-transitions}
@@ -180,21 +182,21 @@ spec:css2; type:dfn; text:viewport
 		or <code>element.{{Element/startViewTransition}}({{ViewTransitionUpdateCallback|updateCallback}})</code>,
 		which returns a {{ViewTransition}}, <var>viewTransition</var>.
 
-	1. Current state captured as the “old” state.
+	1. Current state is captured as the “old” state.
 
-	1. Rendering paused within the [=ViewTransition/root element=].
+	1. Rendering is paused within the view transition [=ViewTransition/root element=].
 
 	1. Developer's {{ViewTransitionUpdateCallback|updateCallback}} function, if provided, is called,
 		which updates the document state.
 
 	1. <code><var>viewTransition</var>.{{ViewTransition/updateCallbackDone}}</code> fulfills.
 
-	1. Current state captured as the “new” state.
+	1. Current state is captured as the “new” state.
 
-	1. Transition pseudo-elements created.
+	1. Transition pseudo-elements are created.
 		See [[#view-transition-pseudos]] for an overview of this structure.
 
-	1. Rendering unpaused, revealing the transition pseudo-elements.
+	1. Rendering is unpaused, revealing the transition pseudo-elements.
 
 	1. <code><var>viewTransition</var>.{{ViewTransition/ready}}</code> fulfills.
 
@@ -204,7 +206,10 @@ spec:css2; type:dfn; text:viewport
 
 	1. <code><var>viewTransition</var>.{{ViewTransition/finished}}</code> fulfills.
 
+
 	<div id="phases-diagram">
+		The following set of diagrams demonstrate the transition phases that a view transition goes through while performing the above steps:
+
 		<spec-scaler canvaswidth="1920" canvasheight="1080" style="aspect-ratio: 1920/1080">
 			<iframe class="spec-slides" src="diagrams/phases/phases.html"></iframe>
 		</spec-scaler>
@@ -262,8 +267,9 @@ spec:css2; type:dfn; text:viewport
 	the API is not responsible for queuing or otherwise scheduling DOM changes
 	beyond any scheduling needed for the transition itself.
 	Some asynchronous DOM changes can happen concurrently (e.g if they're happening within independent components),
-	whereas others need to queue, or abort an earlier change.
-	This is best left to a feature or framework that has a more holistic view of the application.
+	whereas others need to queue, or abort an earlier change. The callback execution order is only specified for
+	callbacks that result from view transitions on the same root element, or on elements related by DOM ancestors.
+	In general, the scheduling order is best left to a feature or framework that has a more holistic view of the application.
 
 ## Rendering Model ## {#rendering-model}
 
@@ -375,7 +381,8 @@ spec:css2; type:dfn; text:viewport
 		and had the heading text always slide to the left
 		even when it was "moving" to the right in the 1->2 transition.
 		To fix these issues,
-		the header and text within the header can be given their own ''::view-transition-group()''s for the transition:
+		the header and text within the header can be given their own ''view-transition-name'' for the transition,
+		which creates a separate ''::view-transition-group()'':
 
 		```css
 		.main-header {
@@ -514,6 +521,343 @@ spec:css2; type:dfn; text:viewport
 		</figure>
 	</div>
 
+# API # {#api}
+
+## Additions to {{Document}} ## {#additions-to-document-api}
+
+	<xmp class=idl>
+		partial interface Document {
+			ViewTransition startViewTransition(
+				optional (ViewTransitionUpdateCallback or StartViewTransitionOptions) callbackOptions = {}
+			);
+			readonly attribute ViewTransition? activeViewTransition;
+		};
+
+		callback ViewTransitionUpdateCallback = Promise<any> ();
+
+		dictionary StartViewTransitionOptions {
+			ViewTransitionUpdateCallback? update = null;
+			sequence<DOMString>? types = null;
+		};
+
+	</xmp>
+
+	<dl class="domintro non-normative">
+		: <code>{{ViewTransition|viewTransition}} = {{Document|document}}.{{Document/startViewTransition}}({{ViewTransitionUpdateCallback|updateCallback}})</code>
+		:: Starts a new [=view transition=]
+			(canceling the {{Document|document}}’s existing [=active view transition=], if any).
+
+			{{ViewTransitionUpdateCallback|updateCallback}}, if provided, is called asynchronously, once the current state of the document is captured.
+			Then, when the promise returned by {{ViewTransitionUpdateCallback|updateCallback}} fulfills,
+			the new state of the document is captured
+			and the transition is initiated.
+
+			Note that {{ViewTransitionUpdateCallback|updateCallback}}, if provided, is *always* called,
+			even if the transition cannot happen
+			(e.g. due to duplicate `view-transition-name` values).
+			The transition is an enhancement around the state change, so a failure to create a transition never prevents the state change.
+			See [[#transitions-as-enhancements]] for more details on this principle.
+
+			If the promise returned by {{ViewTransitionUpdateCallback|updateCallback}} rejects, the transition is skipped.
+	</dl>
+
+### {{Document/startViewTransition()}} Method Steps ### {#ViewTransition-prepare}
+
+	<div algorithm="start-vt-with-options">
+		The [=method steps=] for <dfn method for=Document>startViewTransition(|callbackOptions|)</dfn> are as follows:
+
+		1. Perform the {{Element}} {{Element/startViewTransition()}} [=method steps=]
+			given |callbackOptions|,
+			but for the [=/root element|document root element=],
+			and return the result.
+	</div>
+
+### {{Document/activeViewTransition}} Property ### {#doc-activeviewtransition}
+
+In order to provide ergonomic behavior,
+the [=active view transition=] is exposed to script via a document property.
+
+<dl dfn-type=attribute dfn-for=Document>
+	: <dfn>activeViewTransition</dfn>
+	:: Returns the [=active view transition=] for the [=document=],
+		or null if there is no active view transition.
+</dl>
+
+Note: An <code>element.startViewTransition()</code> call does not update
+<code>document.activeViewTransition</code>, but will update
+{{Element/activeViewTransition}} on the <code>element</code>.
+
+## Additions to {{Element}} ## {#additions-to-element-api}
+
+	<xmp class=idl>
+		partial interface Element {
+			ViewTransition startViewTransition(
+				optional (ViewTransitionUpdateCallback or StartViewTransitionOptions) callbackOptions = {}
+			);
+			readonly attribute ViewTransition? activeViewTransition;
+		};
+	</xmp>
+
+	<dl class="domintro non-normative">
+		: <code>{{ViewTransition|viewTransition}} = {{Element|el}}.{{Element/startViewTransition}}({{ViewTransitionUpdateCallback|updateCallback}})</code>
+		:: Starts a new [=view transition=]
+			(potentially canceling a conflicting [=view transition=]).
+
+			{{ViewTransitionUpdateCallback|updateCallback}}, if provided, is called asynchronously, once the current state of the element and its subtree is captured.
+			Then, when the promise returned by {{ViewTransitionUpdateCallback|updateCallback}} fulfills,
+			the new state of the element and its subtree is captured
+			and the transition is initiated.
+
+			Note that {{ViewTransitionUpdateCallback|updateCallback}}, if provided, is *always* called,
+			even if the transition cannot happen
+			(e.g. due to duplicate `view-transition-name` values).
+			The transition is an enhancement around the state change, so a failure to create a transition never prevents the state change.
+			See [[#transitions-as-enhancements]] for more details on this principle.
+
+			If the promise returned by {{ViewTransitionUpdateCallback|updateCallback}} rejects, the transition is skipped.
+	</dl>
+
+### {{Element/startViewTransition()}} Method Steps ### {#Element-ViewTransition-prepare}
+
+	<div algorithm="start-el-vt-with-options">
+		The [=method steps=] for <dfn method for=Element>startViewTransition(|callbackOptions|)</dfn> are as follows:
+
+		1. Let |document| be [=this's=] [=relevant global object's=] [=associated document=].
+
+		1. Let |viewTransition| be a new {{ViewTransition}} object in |document|'s [=relevant Realm=],
+			with [=ViewTransition/root element=] set to [=this=].
+
+		1. If |callbackOptions| is a {{ViewTransitionUpdateCallback}},
+			set |viewTransition|'s [=update callback=] to |callbackOptions|.
+
+			Otherwise, if |callbackOptions| is a {{StartViewTransitionOptions}}, then set |viewTransition|'s [=update callback=]
+			to |callbackOptions|'s {{StartViewTransitionOptions/update}}.
+
+		1. If [=this=]'s [=principal box=] is [=element-not-rendered|not rendered=],
+			or is an <a spec="css-display-3">internal ruby box</a>
+			or a <a spec="css-display-3" lt="atomic inline">non-atomic</a> <a spec="css-display-3">inline-level</a> box,
+			[=Skip the view transition|skip=] |viewTransition| with an "{{InvalidStateError}}" {{DOMException}}.
+
+		1. If [=this=] is not the [=/root element|document root element=],
+			force [=this=] to have [=layout containment=] for the duration of the transition.
+
+		1. If |document|'s [=active view transition=] is not null and its [=outbound post-capture steps=] is not null,
+			then:
+
+			1. [=Skip the view transition|Skip=] |viewTransition| with an "{{InvalidStateError}}" {{DOMException}}.
+
+				Note: The |viewTransition|'s {{ViewTransition/types}} are ignored here because the transition is never activated.
+
+			1. Return |viewTransition|.
+
+			Note: This ensures that a same-document transition that started after firing {{Window/pageswap}} is skipped.
+
+		1. If [=this=]'s [=active view transition=] is not null,
+			then [=skip the view transition|skip that view transition=]
+			with an "{{AbortError}}" {{DOMException}} in [=this's=] [=relevant Realm=].
+
+			Note: This can result in two asynchronous [=ViewTransition/update callbacks=] running concurrently
+			(and therefore possibly out of sequence):
+			one for the [=this=]'s current [=active view transition=], and another for this |viewTransition|.
+			As per the [design of this feature](#transitions-as-enhancements),
+			it's assumed that the developer is using another feature or framework to correctly schedule these DOM changes.
+
+		1. Set [=this=]'s [=active view transition=] to |viewTransition|.
+
+			Note: The [=view transition=] process continues in [=setup view transition=],
+			via [=perform pending transition operations=].
+
+		1. If |callbackOptions| is a {{StartViewTransitionOptions}}, set |viewTransition|'s [=ViewTransition/active types=] to a [=list/clone=] of {{StartViewTransitionOptions/types}} as a [=/set=].
+
+		1. Return |viewTransition|.
+	</div>
+
+### {{Element/activeViewTransition}} Property ### {#element-activeviewtransition}
+
+Similar to [Document.activeViewTransition](#doc-activeviewtransition),
+the active view transition of an element is exposed to script via a property on the element.
+
+<dl dfn-type=attribute dfn-for=Element>
+	: <dfn>activeViewTransition</dfn>
+	:: Returns the [=active view transition=] for the [=element=],
+		or null if there is no active view transition.
+</dl>
+
+## The {{ViewTransition}} interface ## {#the-domtransition-interface}
+
+	<xmp class=idl>
+		[Exposed=Window]
+		interface ViewTransition {
+			readonly attribute Promise<undefined> updateCallbackDone;
+			readonly attribute Promise<undefined> ready;
+			readonly attribute Promise<undefined> finished;
+			undefined skipTransition();
+			[SameObject] attribute ViewTransitionTypeSet types;
+			readonly attribute Element transitionRoot;
+			undefined waitUntil(Promise<any> promise);
+		};
+	</xmp>
+
+	The {{ViewTransition}} interface represents and controls a single same-document [=view transition=],
+	i.e. a transition where the starting and ending document are the same,
+	possibly with changes to the document's DOM structure.
+
+	<dl class="domintro non-normative">
+		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/updateCallbackDone}}</code>
+		:: A promise that fulfills when the promise returned by {{ViewTransitionUpdateCallback|updateCallback}} fulfills, or rejects when it rejects.
+
+			Note: The View Transition API wraps a DOM change and creates a visual transition.
+			However, sometimes you don't care about the success/failure of the transition animation,
+			you just want to know if and when the DOM change happens.
+			{{ViewTransition/updateCallbackDone}} is for that use-case.)
+
+		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/ready}}</code>
+		:: A promise that fulfills once the pseudo-elements for the transition are created,
+			and the animation is about to start.
+
+			It rejects if the transition cannot begin.
+			This can be due to misconfiguration, such as duplicate 'view-transition-name's,
+			or if {{ViewTransition/updateCallbackDone}} returns a rejected promise.
+
+			The point that {{ViewTransition/ready}} fulfills
+			is the ideal opportunity to animate the [=view transition pseudo-elements=]
+			with the [[web-animations-1#extensions-to-the-element-interface|Web Animation API]].
+
+		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/finished}}</code>
+		:: A promise that fulfills once the end state is fully visible and interactive to the user.
+
+			It only rejects if {{ViewTransitionUpdateCallback|updateCallback}} returns a rejected promise,
+			as this indicates the end state wasn't created.
+
+			Otherwise, if a transition fails to begin,
+			or is skipped (by {{ViewTransition/skipTransition()}}),
+			the end state is still reached,
+			so {{ViewTransition/finished}} fulfills.
+
+		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/skipTransition}}()</code>
+		:: Immediately finish the transition, or prevent it starting.
+
+			This never prevents {{ViewTransitionUpdateCallback|updateCallback}} being called,
+			as the DOM change is independent of the transition.
+			See [[#transitions-as-enhancements]] for more details on this principle.
+
+			If this is called before {{ViewTransition/ready}} resolves, {{ViewTransition/ready}} will reject.
+
+			If {{ViewTransition/finished}} hasn't resolved, it will fulfill or reject along with {{ViewTransition/updateCallbackDone}}.
+
+		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/transitionRoot}}</code>
+		:: The {{ViewTransition}}'s [=ViewTransition/root element=].
+
+			For [=view transitions=] started on the {{Document}},
+			this is the [=document element=].
+
+		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/waitUntil}}()</code>
+		:: Delays view transition finish until the given promise is settled
+
+			When invoked with Promise |p|, run [=delay finish for promise=] steps with |p|.
+	</dl>
+
+	A {{ViewTransition}} has the following:
+
+	<dl dfn-for="ViewTransition">
+		: <dfn>named elements</dfn>
+		:: a [=/map=], whose keys are [=view transition names=] and whose values are [=captured elements=].
+			Initially a new [=map=].
+			Note: Since this is associated to the {{ViewTransition}}, it will be cleaned up when [=Clear view transition=] is called.
+
+		: <dfn>phase</dfn>
+		:: One of the following ordered phases, initially "`pending-capture`":
+
+			1. "`pending-capture`".
+			1. "`update-callback-called`".
+			1. "`animating`".
+			1. "`done`".
+
+			Note: For the most part, a developer using this API does not need to worry about the different phases, since they progress automatically.
+			It is, however, important to understand what steps happen in each of the phases: when the snapshots are captured, when pseudo-element DOM is created, etc.
+			The description of the phases below tries to be as precise as possible, with an intent to provide an unambiguous set of steps for implementors to follow in order to produce a spec-compliant implementation.
+
+		: <dfn>update callback</dfn>
+		:: a {{ViewTransitionUpdateCallback}} or null. Initially null.
+
+		: <dfn>ready promise</dfn>
+		:: a {{Promise}}.
+			Initially [=a new promise=] in [=this's=] [=relevant Realm=].
+
+		: <dfn>update callback done promise</dfn>
+		:: a {{Promise}}.
+			Initially [=a new promise=] in [=this's=] [=relevant Realm=].
+
+			Note: The [=ready promise=] and [=update callback done promise=] are immediately created,
+			so rejections will cause {{unhandledrejection}}s unless they're [=mark as handled|handled=],
+			even if the getters such as {{updateCallbackDone}} are not accessed.
+
+		: <dfn>finished promise</dfn>
+		:: a {{Promise}}.
+			Initially [=a new promise=] in [=this's=] [=relevant Realm=],
+				[=marked as handled=].
+
+			Note: This is [=marked as handled=] to prevent duplicate {{unhandledrejection}}s,
+			as this promise only ever rejects along with the [=update callback done promise=].
+
+		: <dfn>transition root pseudo-element</dfn>
+		:: a ''::view-transition''.
+			Initially a new ''::view-transition''.
+
+		: <dfn>initial snapshot containing block size</dfn>
+		:: a [=tuple=] of two numbers (width and height), or null.
+			Initially null.
+
+			Note: This is used to detect changes in the [=snapshot containing block size=],
+			which causes the transition to [=skip the view transition|skip=].
+			[Discussion of this behavior](https://github.com/w3c/csswg-drafts/issues/8045).
+
+		: <dfn>active types</dfn>
+		:: A {{ViewTransitionTypeSet}}, initially empty.
+
+		: <dfn>outbound post-capture steps</dfn>
+		:: Null or a set of steps, initially null.
+
+		: <dfn>root element</dfn>
+		:: An {{Element}},
+			indicating which element is hosting the {{ViewTransition}}.
+	</dl>
+
+	The {{ViewTransition/finished}} [=getter steps=] are to return [=this's=] [=ViewTransition/finished promise=].
+
+	The {{ViewTransition/ready}} [=getter steps=] are to return [=this's=] [=ViewTransition/ready promise=].
+
+	The {{ViewTransition/updateCallbackDone}} [=getter steps=] are to return [=this's=] [=ViewTransition/update callback done promise=].
+
+	The {{ViewTransition/types}} [=getter steps=] are to return [=this=]'s [=ViewTransition/active types=].
+
+	The {{ViewTransition/transitionRoot}} [=getter steps=] are to return [=this=]'s [=ViewTransition/root element=].
+
+### The {{ViewTransitionTypeSet}} Interface ### {#the-viewtransitiontypeset-interface}
+
+	<xmp class=idl>
+		[Exposed=Window]
+		interface ViewTransitionTypeSet {
+			setlike<DOMString>;
+		};
+	</xmp>
+
+	The {{ViewTransitionTypeSet}} object represents a [=/set=] of strings, without special semantics.
+
+	Note: a {{ViewTransitionTypeSet}} can contain strings that are invalid for '':active-view-transition-type'', e.g.
+	strings that are not a <<custom-ident>>.
+
+### {{ViewTransition/skipTransition()}} Method Steps ### {#ViewTransition-skipTransition}
+
+	<div algorithm="dom-viewtransition-skipTransition">
+		The [=method steps=] for <dfn method for="ViewTransition">skipTransition()</dfn> are:
+
+		1. If [=this=]'s [=ViewTransition/phase=] is not "`done`",
+			then [=skip the view transition=] for [=this=]
+			with an "{{AbortError}}" {{DOMException}}.
+	</div>
+
+
 # CSS properties # {#css-properties}
 
 ## Tagging Individually Transitioning Subtrees: the 'view-transition-name' property ## {#view-transition-name-prop}
@@ -552,9 +896,11 @@ spec:css2; type:dfn; text:viewport
 
 			The values <css>none</css>, <css>auto</css>, and <css>match-element</css> are excluded from <<custom-ident>> here.
 
-			Note: If this name is not unique
+			Note: If this name is not unique within a single transition
 			(i.e. if two elements simultaneously specify the same [=view transition name=])
-			then the [=view transition=] will abort.
+			then the [=view transition=] will abort. It is, however, possible to have non-unique
+			[=view transition name=]s as long as the elements with these names are never part
+			of the same transition.
 	</dl>
 
 	Note:  For the purposes of this API,
@@ -591,6 +937,9 @@ spec:css2; type:dfn; text:viewport
 
 ## Isolating Scoped View Transition Names: the ''contain/view-transition'' containment value ## {#contain-view-transition}
 
+	ISSUE: This property is subject to change, see https://github.com/w3c/csswg-drafts/issues/13123.
+		The behavior described here is likely to remain, but the property is likely to change.
+
 	<pre class="propdef partial">
 	Name: contain
 	New Values: view-transition
@@ -609,6 +958,30 @@ spec:css2; type:dfn; text:viewport
 	will see each other's names and abort
 	(since [=view transitions=] don't allow multiple elements to have the same 'view-transition-name').
 
+
+# Nested View Transition Groups # {#nested-vt}
+
+	ISSUE: This needs to be explained / specified.
+
+# Scoped View Transitions # {#scoped-vt}
+
+	In addition to [=view transitions=] triggered on the [=document=] itself
+	(<dfn export>global view transitions</dfn>),
+	individual [=elements=] can host their own <dfn export>scoped view transitions</dfn>.
+	This enables multiple [=view transitions=] to run on a page at the same time,
+	with each animating a different subtree of the document.
+	It also enables a [=view transition=] to be affected by the layout and rendering of its subtree,
+	being affected by scrolling, filters, 'z-index', etc.
+	("Global" [=view transitions=] are always rendered on a separate, higher rendering layer
+	than the rest of the document.)
+
+	In order to host a [=scoped view transition=],
+	an element must have [=layout containment=],
+	so its painted output can be captured as an atomic unit.
+
+	[=View transitions=] whose [=ViewTransition/root element=] is the [=document element=]
+	are <em>not</em> [=scoped view transitions=].
+	They're [=global view transitions=].
 
 # Pseudo-elements # {#pseudo}
 
@@ -682,6 +1055,8 @@ spec:css2; type:dfn; text:viewport
 		behavior and/or add animations.
 		This enables full customization of the transition.
 	</div>
+
+	ISSUE: We need an example of view transition nested groups as well.
 
 ### Named View Transition Pseudo-elements ### {#named-view-transition-pseudo}
 
@@ -807,27 +1182,7 @@ spec:css2; type:dfn; text:viewport
 	Note: The content and [=natural dimensions=] of the image are captured in [=capture the image=],
 	then set and updated in [=setup transition pseudo-elements=] and [=update pseudo-element styles=].
 
-
-# Scoped View Transitions # {#scoped-vt}
-
-	In addition to [=view transitions=] triggered on the [=document=] itself
-	(<dfn export>global view transitions</dfn>),
-	individual [=elements=] can host their own <dfn export>scoped view transitions</dfn>.
-	This enables multiple [=view transitions=] to run on a page at the same time,
-	with each animating a different subtree of the document.
-	It also enables a [=view transition=] to be affected by the layout and rendering of its subtree,
-	being affected by scrolling, filters, 'z-index', etc.
-	("Global" [=view transitions=] are always rendered on a separate, higher rendering layer
-	than the rest of the document.)
-
-	In order to host a [=scoped view transition=],
-	an element must have [=layout containment=],
-	so its painted output can be captured as an atomic unit.
-
-	[=View transitions=] whose [=ViewTransition/root element=] is the [=document element=]
-	are <em>not</em> [=scoped view transitions=].
-	They're [=global view transitions=].
-
+ISSUE: `::view-transition-group-children()` needs to be specified here.
 
 # View Transition Layout # {#view-transition-rendering}
 
@@ -979,6 +1334,8 @@ spec:css2; type:dfn; text:viewport
 		to { mix-blend-mode: plus-lighter }
 	}
 	```
+
+	ISSUE: This needs to include scoped view transition styles as well.
 
 	<details class="note">
 		<summary>Explanatory Summary</summary>
@@ -1568,337 +1925,6 @@ div.box {
 
 
 
-# API # {#api}
-
-## Additions to {{Document}} ## {#additions-to-document-api}
-
-	<xmp class=idl>
-		partial interface Document {
-			ViewTransition startViewTransition(
-				optional (ViewTransitionUpdateCallback or StartViewTransitionOptions) callbackOptions = {}
-			);
-			readonly attribute ViewTransition? activeViewTransition;
-		};
-
-		callback ViewTransitionUpdateCallback = Promise<any> ();
-
-		dictionary StartViewTransitionOptions {
-			ViewTransitionUpdateCallback? update = null;
-			sequence<DOMString>? types = null;
-		};
-
-	</xmp>
-
-	<dl class="domintro non-normative">
-		: <code>{{ViewTransition|viewTransition}} = {{Document|document}}.{{Document/startViewTransition}}({{ViewTransitionUpdateCallback|updateCallback}})</code>
-		:: Starts a new [=view transition=]
-			(canceling the {{Document|document}}’s existing [=active view transition=], if any).
-
-			{{ViewTransitionUpdateCallback|updateCallback}}, if provided, is called asynchronously, once the current state of the document is captured.
-			Then, when the promise returned by {{ViewTransitionUpdateCallback|updateCallback}} fulfills,
-			the new state of the document is captured
-			and the transition is initiated.
-
-			Note that {{ViewTransitionUpdateCallback|updateCallback}}, if provided, is *always* called,
-			even if the transition cannot happen
-			(e.g. due to duplicate `view-transition-name` values).
-			The transition is an enhancement around the state change, so a failure to create a transition never prevents the state change.
-			See [[#transitions-as-enhancements]] for more details on this principle.
-
-			If the promise returned by {{ViewTransitionUpdateCallback|updateCallback}} rejects, the transition is skipped.
-	</dl>
-
-### {{Document/startViewTransition()}} Method Steps ### {#ViewTransition-prepare}
-
-	<div algorithm="start-vt-with-options">
-		The [=method steps=] for <dfn method for=Document>startViewTransition(|callbackOptions|)</dfn> are as follows:
-
-		1. Perform the {{Element}} {{Element/startViewTransition()}} [=method steps=]
-			given |callbackOptions|,
-			but for the [=/root element=],
-			and return the result.
-	</div>
-
-### {{Document/activeViewTransition}} Property ### {#doc-activeviewtransition}
-
-In order to provide ergonomic behavior,
-the [=active view transition=] is exposed to script via a document property.
-
-<dl dfn-type=attribute dfn-for=Document>
-	: <dfn>activeViewTransition</dfn>
-	:: Returns the [=active view transition=] for the [=document=],
-		or null if there is no active view transition.
-</dl>
-
-Note: An <code>element.startViewTransition()</code> call does not update
-<code>document.activeViewTransition</code>, but will update
-{{Element/activeViewTransition}} on the <code>element</code>.
-
-## Additions to {{Element}} ## {#additions-to-element-api}
-
-	<xmp class=idl>
-		partial interface Element {
-			ViewTransition startViewTransition(
-				optional (ViewTransitionUpdateCallback or StartViewTransitionOptions) callbackOptions = {}
-			);
-			readonly attribute ViewTransition? activeViewTransition;
-		};
-	</xmp>
-
-	<dl class="domintro non-normative">
-		: <code>{{ViewTransition|viewTransition}} = {{Element|el}}.{{Element/startViewTransition}}({{ViewTransitionUpdateCallback|updateCallback}})</code>
-		:: Starts a new [=view transition=]
-			(potentially canceling a conflicting [=view transition=]).
-
-			{{ViewTransitionUpdateCallback|updateCallback}}, if provided, is called asynchronously, once the current state of the element and its subtree is captured.
-			Then, when the promise returned by {{ViewTransitionUpdateCallback|updateCallback}} fulfills,
-			the new state of the element and its subtree is captured
-			and the transition is initiated.
-
-			Note that {{ViewTransitionUpdateCallback|updateCallback}}, if provided, is *always* called,
-			even if the transition cannot happen
-			(e.g. due to duplicate `view-transition-name` values).
-			The transition is an enhancement around the state change, so a failure to create a transition never prevents the state change.
-			See [[#transitions-as-enhancements]] for more details on this principle.
-
-			If the promise returned by {{ViewTransitionUpdateCallback|updateCallback}} rejects, the transition is skipped.
-	</dl>
-
-### {{Element/startViewTransition()}} Method Steps ### {#Element-ViewTransition-prepare}
-
-	<div algorithm="start-el-vt-with-options">
-		The [=method steps=] for <dfn method for=Element>startViewTransition(|callbackOptions|)</dfn> are as follows:
-
-		1. Let |document| be [=this's=] [=relevant global object's=] [=associated document=].
-
-		1. Let |viewTransition| be a new {{ViewTransition}} object in |document|'s [=relevant Realm=],
-			with [=ViewTransition/root element=] set to [=this=].
-
-		1. If |callbackOptions| is a {{ViewTransitionUpdateCallback}},
-			set |viewTransition|'s [=update callback=] to |callbackOptions|.
-
-			Otherwise, if |callbackOptions| is a {{StartViewTransitionOptions}}, then set |viewTransition|'s [=update callback=]
-			to |callbackOptions|'s {{StartViewTransitionOptions/update}}.
-
-		1. If [=this=] doesn't have [=layout containment=],
-			[=Skip the view transition|skip=] |viewTransition| with an "{{InvalidStateError}}" {{DOMException}}, and return |viewTransition|.
-
-		1. If |document|'s [=active view transition=] is not null and its [=outbound post-capture steps=] is not null,
-			then:
-
-			1. [=Skip the view transition|Skip=] |viewTransition| with an "{{InvalidStateError}}" {{DOMException}}.
-
-				Note: The |viewTransition|'s {{ViewTransition/types}} are ignored here because the transition is never activated.
-
-			1. Return |viewTransition|.
-
-			Note: This ensures that a same-document transition that started after firing {{Window/pageswap}} is skipped.
-
-		1. If [=this=]'s [=active view transition=] is not null,
-			then [=skip the view transition|skip that view transition=]
-			with an "{{AbortError}}" {{DOMException}} in [=this's=] [=relevant Realm=].
-
-			Note: This can result in two asynchronous [=ViewTransition/update callbacks=] running concurrently
-			(and therefore possibly out of sequence):
-			one for the [=this=]'s current [=active view transition=], and another for this |viewTransition|.
-			As per the [design of this feature](#transitions-as-enhancements),
-			it's assumed that the developer is using another feature or framework to correctly schedule these DOM changes.
-
-		1. Set [=this=]'s [=active view transition=] to |viewTransition|.
-
-			Note: The [=view transition=] process continues in [=setup view transition=],
-			via [=perform pending transition operations=].
-
-		1. If |callbackOptions| is a {{StartViewTransitionOptions}}, set |viewTransition|'s [=ViewTransition/active types=] to a [=list/clone=] of {{StartViewTransitionOptions/types}} as a [=/set=].
-
-		1. Return |viewTransition|.
-	</div>
-
-### {{Element/activeViewTransition}} Property ### {#element-activeviewtransition}
-
-Similar to [Document.activeViewTransition](#doc-activeviewtransition),
-the active view transition of an element is exposed to script via a property on the element.
-
-<dl dfn-type=attribute dfn-for=Element>
-	: <dfn>activeViewTransition</dfn>
-	:: Returns the [=active view transition=] for the [=element=],
-		or null if there is no active view transition.
-</dl>
-
-## The {{ViewTransition}} interface ## {#the-domtransition-interface}
-
-	<xmp class=idl>
-		[Exposed=Window]
-		interface ViewTransition {
-			readonly attribute Promise<undefined> updateCallbackDone;
-			readonly attribute Promise<undefined> ready;
-			readonly attribute Promise<undefined> finished;
-			undefined skipTransition();
-			[SameObject] attribute ViewTransitionTypeSet types;
-			readonly attribute Element transitionRoot;
-			undefined waitUntil(Promise<any> promise);
-		};
-	</xmp>
-
-	The {{ViewTransition}} interface represents and controls a single same-document [=view transition=],
-	i.e. a transition where the starting and ending document are the same,
-	possibly with changes to the document's DOM structure.
-
-	<dl class="domintro non-normative">
-		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/updateCallbackDone}}</code>
-		:: A promise that fulfills when the promise returned by {{ViewTransitionUpdateCallback|updateCallback}} fulfills, or rejects when it rejects.
-
-			Note: The View Transition API wraps a DOM change and creates a visual transition.
-			However, sometimes you don't care about the success/failure of the transition animation,
-			you just want to know if and when the DOM change happens.
-			{{ViewTransition/updateCallbackDone}} is for that use-case.)
-
-		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/ready}}</code>
-		:: A promise that fulfills once the pseudo-elements for the transition are created,
-			and the animation is about to start.
-
-			It rejects if the transition cannot begin.
-			This can be due to misconfiguration, such as duplicate 'view-transition-name's,
-			or if {{ViewTransition/updateCallbackDone}} returns a rejected promise.
-
-			The point that {{ViewTransition/ready}} fulfills
-			is the ideal opportunity to animate the [=view transition pseudo-elements=]
-			with the [[web-animations-1#extensions-to-the-element-interface|Web Animation API]].
-
-		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/finished}}</code>
-		:: A promise that fulfills once the end state is fully visible and interactive to the user.
-
-			It only rejects if {{ViewTransitionUpdateCallback|updateCallback}} returns a rejected promise,
-			as this indicates the end state wasn't created.
-
-			Otherwise, if a transition fails to begin,
-			or is skipped (by {{ViewTransition/skipTransition()}}),
-			the end state is still reached,
-			so {{ViewTransition/finished}} fulfills.
-
-		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/skipTransition}}()</code>
-		:: Immediately finish the transition, or prevent it starting.
-
-			This never prevents {{ViewTransitionUpdateCallback|updateCallback}} being called,
-			as the DOM change is independent of the transition.
-			See [[#transitions-as-enhancements]] for more details on this principle.
-
-			If this is called before {{ViewTransition/ready}} resolves, {{ViewTransition/ready}} will reject.
-
-			If {{ViewTransition/finished}} hasn't resolved, it will fulfill or reject along with {{ViewTransition/updateCallbackDone}}.
-
-		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/transitionRoot}}</code>
-		:: The {{ViewTransition}}'s [=ViewTransition/root element=].
-
-			For [=view transitions=] started on the {{Document}},
-			this is the [=document element=].
-
-		: <code>{{ViewTransition|viewTransition}}.{{ViewTransition/waitUntil}}()</code>
-		:: Delays view transition finish until the given promise is settled
-
-			When invoked with Promise |p|, run [=delay finish for promise=] steps with |p|.
-	</dl>
-
-	A {{ViewTransition}} has the following:
-
-	<dl dfn-for="ViewTransition">
-		: <dfn>named elements</dfn>
-		:: a [=/map=], whose keys are [=view transition names=] and whose values are [=captured elements=].
-			Initially a new [=map=].
-			Note: Since this is associated to the {{ViewTransition}}, it will be cleaned up when [=Clear view transition=] is called.
-
-		: <dfn>phase</dfn>
-		:: One of the following ordered phases, initially "`pending-capture`":
-
-			1. "`pending-capture`".
-			1. "`update-callback-called`".
-			1. "`animating`".
-			1. "`done`".
-
-			Note: For the most part, a developer using this API does not need to worry about the different phases, since they progress automatically.
-			It is, however, important to understand what steps happen in each of the phases: when the snapshots are captured, when pseudo-element DOM is created, etc.
-			The description of the phases below tries to be as precise as possible, with an intent to provide an unambiguous set of steps for implementors to follow in order to produce a spec-compliant implementation.
-
-		: <dfn>update callback</dfn>
-		:: a {{ViewTransitionUpdateCallback}} or null. Initially null.
-
-		: <dfn>ready promise</dfn>
-		:: a {{Promise}}.
-			Initially [=a new promise=] in [=this's=] [=relevant Realm=].
-
-		: <dfn>update callback done promise</dfn>
-		:: a {{Promise}}.
-			Initially [=a new promise=] in [=this's=] [=relevant Realm=].
-
-			Note: The [=ready promise=] and [=update callback done promise=] are immediately created,
-			so rejections will cause {{unhandledrejection}}s unless they're [=mark as handled|handled=],
-			even if the getters such as {{updateCallbackDone}} are not accessed.
-
-		: <dfn>finished promise</dfn>
-		:: a {{Promise}}.
-			Initially [=a new promise=] in [=this's=] [=relevant Realm=],
-				[=marked as handled=].
-
-			Note: This is [=marked as handled=] to prevent duplicate {{unhandledrejection}}s,
-			as this promise only ever rejects along with the [=update callback done promise=].
-
-		: <dfn>transition root pseudo-element</dfn>
-		:: a ''::view-transition''.
-			Initially a new ''::view-transition''.
-
-		: <dfn>initial snapshot containing block size</dfn>
-		:: a [=tuple=] of two numbers (width and height), or null.
-			Initially null.
-
-			Note: This is used to detect changes in the [=snapshot containing block size=],
-			which causes the transition to [=skip the view transition|skip=].
-			[Discussion of this behavior](https://github.com/w3c/csswg-drafts/issues/8045).
-
-		: <dfn>active types</dfn>
-		:: A {{ViewTransitionTypeSet}}, initially empty.
-
-		: <dfn>outbound post-capture steps</dfn>
-		:: Null or a set of steps, initially null.
-
-		: <dfn>root element</dfn>
-		:: An {{Element}},
-			indicating which element is hosting the {{ViewTransition}}.
-	</dl>
-
-	The {{ViewTransition/finished}} [=getter steps=] are to return [=this's=] [=ViewTransition/finished promise=].
-
-	The {{ViewTransition/ready}} [=getter steps=] are to return [=this's=] [=ViewTransition/ready promise=].
-
-	The {{ViewTransition/updateCallbackDone}} [=getter steps=] are to return [=this's=] [=ViewTransition/update callback done promise=].
-
-	The {{ViewTransition/types}} [=getter steps=] are to return [=this=]'s [=ViewTransition/active types=].
-
-	The {{ViewTransition/transitionRoot}} [=getter steps=] are to return [=this=]'s [=ViewTransition/root element=].
-
-### The {{ViewTransitionTypeSet}} Interface ### {#the-viewtransitiontypeset-interface}
-
-	<xmp class=idl>
-		[Exposed=Window]
-		interface ViewTransitionTypeSet {
-			setlike<DOMString>;
-		};
-	</xmp>
-
-	The {{ViewTransitionTypeSet}} object represents a [=/set=] of strings, without special semantics.
-
-	Note: a {{ViewTransitionTypeSet}} can contain strings that are invalid for '':active-view-transition-type'', e.g.
-	strings that are not a <<custom-ident>>.
-
-### {{ViewTransition/skipTransition()}} Method Steps ### {#ViewTransition-skipTransition}
-
-	<div algorithm="dom-viewtransition-skipTransition">
-		The [=method steps=] for <dfn method for="ViewTransition">skipTransition()</dfn> are:
-
-		1. If [=this=]'s [=ViewTransition/phase=] is not "`done`",
-			then [=skip the view transition=] for [=this=]
-			with an "{{AbortError}}" {{DOMException}}.
-	</div>
-
 
 
 # Determining 'view-transition-name' automatically # {#auto-vt-name}
@@ -2034,7 +2060,7 @@ The pseudo-element tree for this would be as follows:
 
 By applying the ''clip-path'' to both the containing element and its generated ''::view-transition-group-children()'' pseudo-element, we preserve the clip during the transition,
 and by applying ''view-transition-group'' to the internal element referencing the container, we make the tree "nested" in a way that would apply this clipping.
-</main>
+</div>
 
 ## The 'view-transition-group' property ## {#view-transition-group-prop}
 
@@ -3371,6 +3397,7 @@ This appendix is <em>informative</em>.
 Changes from <a href="https://www.w3.org/TR/2024/WD-css-view-transitions-2-20240516/">2024-05-16 Working Draft</a>
 </h3>
 
+* Reorder sections, editorial changes, added several issues, updated scoped view transition wording.
 * Add waitUntil() (<a href="https://github.com/w3c/csswg-drafts/issues/9901">#9901</a>)
 * First pass at layered capture (<a href="https://github.com/w3c/csswg-drafts/issues/10585">#10585</a>)
 * Allow transitions when traversing into a document that was created using cross-origin redirects (<a href="https://github.com/w3c/csswg-drafts/issues/11063">#11063</a>#11063)
