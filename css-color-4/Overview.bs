@@ -114,6 +114,18 @@ spec: css-ui-4; type: property; text: accent-color
 			"title": "ITU-R BT.1886 Reference electro-optical transfer function for flat panel displays used in HDTV studio production",
 			"publisher": "ITU",
 			"date": "2011-03"
+		},
+		"Coloraide-Ray-Trace": {
+			"title": "Ray Tracing Chroma Reduction",
+			"date": "2024",
+			"authors": ["Isaac Muse"],
+			"href": "https://facelessuser.github.io/coloraide/gamut/#ray-tracing-chroma-reduction"
+		},
+		"colorjs-EdgeSeeker": {
+			"title": "EdgeSeeker Gamut Mapping algorithm",
+			"date": "2023",
+			"authors": ["James Stuckey Weber"],
+			"href": "https://github.com/color-js/apps/tree/main/gamut-mapping/edge-seeker"
 		}
 	}
 </pre>
@@ -5755,20 +5767,31 @@ CSS Gamut Mapping to an RGB Destination</h3>
 
 <wpt title="Actual values of color are not exposed to script, making this hard to test in an automated manner."></wpt>
 
-	The <dfn export>CSS gamut mapping algorithm</dfn>
-	applies to individual,
+	The three <dfn export>CSS gamut mapping algorithms</dfn>
+	apply to individual,
 	Standard Dynamic Range (SDR) CSS colors
 	which are out of gamut
 	of an RGB display
 	and thus require to be <dfn export>css gamut mapped</dfn>.
+
+	Implementations my choose any of the three algorithms
+	based on their quality and runtime efficiency tradeoffs,
+	and must use their chosen algorithm
+	wherever CSS mandates that gamut mapping be performed.
+
+	<ul>
+		<li><a href="#GMA-Binary-local-MINDE">Binary Search Gamut Mapping with Local MINDE</a></li>
+		<li><a href="#GMA-EdgeSeeker">EdgeSeeker Gamut Mapping</a></li>
+		<li><a href="#GMA-Raytrace">Ray Trace Gamut Mapping</a></li>
+	</ul>
 
 	<!-- unbounded hsl
 	It also applies to colors being converted
 	to HSL or HWB, which cannot express
 	colors outside the sRGB gamut. -->
 
-	It implements a relative colorimetric intent,
-	and colors inside the destination gamut are unchanged.
+	They all implement a relative colorimetric intent,
+	thus colors inside the destination gamut are unchanged.
 
 	Note: other situations,
 	in particular mapping to printer gamuts
@@ -5779,7 +5802,7 @@ CSS Gamut Mapping to an RGB Destination</h3>
 	for very light and very dark colors
 	as chroma is reduced..
 
-	Note: this algorithm is for individual, distinct colors;
+	Note: these algorithms are for individual, distinct colors;
 	for color images,
 	where relationships between neighboring pixels are important
 	and the aim is to preserve detail and texture,
@@ -5788,9 +5811,7 @@ CSS Gamut Mapping to an RGB Destination</h3>
 	colors inside the destination gamut
 	could be changed.
 
-	CSS gamut mapping occurs in the <a href="#ok-lab">OkLCh color space</a>,
-	and the color difference formula used is <a href="#color-difference-OK">deltaEOK</a>.
-	The <a href="#GM-chroma-local-MINDE">local-MINDE</a> improvement is used.
+	CSS gamut mapping occurs in the <a href="#ok-lab">OkLCh color space</a>.
 
 	For colors which are out of range on the Lightness axis,
 	white is returned in the destination color space
@@ -5798,16 +5819,26 @@ CSS Gamut Mapping to an RGB Destination</h3>
 	while black is returned in the destination color space
 	if the Lightness is less than or equal to 0.0.
 
-	For the binary search implementation,
-	at each step in the search,
+<h4 id="GMA-Binary-local-MINDE">
+	Binary Search Gamut Mapping with Local MINDE
+</h4>
+
+	For this binary search algorithm,
+	the color difference formula used is <a href="#color-difference-OK">deltaEOK</a>.
+	The <a href="#GM-chroma-local-MINDE">local-MINDE</a> improvement is used.
+	At each step in the search,
 	the deltaEOK is computed between the current mapped color
 	and a clipped version of that color.
+
 	If the current color is <em>outside</em> the gamut boundary,
 	but the deltaEOK between it and the clipped version
 	is below a threshold for a <em>just noticeable difference</em> (JND),
 	the clipped version of the color is returned as the mapped result.
+	This gives good results with non-notivceable hue shifts,
+	and avoids excessive chroma reduction near concave gamut surfaces,
+	but can be computationally intensive.
 
-
+<!-- 
 	For the geometric implementation,
 	having found the exact intersection,
 	project outwards (towards higher chroma) along the line of constant lightness
@@ -5821,6 +5852,8 @@ CSS Gamut Mapping to an RGB Destination</h3>
 
 	Then return the clipped version of the color as the mapped result.
 
+-->
+
 	For the OkLCh color space,
 	one JND is is an OkLCh difference of 0.02.
 
@@ -5833,11 +5866,10 @@ CSS Gamut Mapping to an RGB Destination</h3>
 	using deltaEOK,
 	one JND is 100 times smaller.
 
+<h4 id="pseudo-binsearch">
+Sample Pseudocode for the Binary Search Gamut Mapping with Local MINDE</h4>
 
-<h4 id="binsearch">
-Sample Pseudocode for the Binary Search Gamut Mapping Algorithm with Local MINDE</h4>
-
-<div algorithm="to CSS gamut map a color">
+<div algorithm="to gamut map a color by binary search with local MINDE">
 	To <dfn export>CSS gamut map</dfn> a color |origin|
 	in color space |origin color space|
 	to be in gamut of a destination color space |destination|:
@@ -5909,6 +5941,97 @@ Sample Pseudocode for the Binary Search Gamut Mapping Algorithm with Local MINDE
 	</li>
 	<li>return |clipped| as the gamut mapped color</li>
 </ol>
+
+<h4 id="GMA-EdgeSeeker">
+	The EdgeSeeker Gamut Mapping
+</h4>
+
+	The EdgeSeeker algorithm is a geometric and lookup-table-based approach,
+	originally developed by James Stuckey Weber
+	for the color.js library [[colorjs-EdgeSeeker]].
+
+	For any given hue, the gamut boundary slice
+	is represented as a curved top section
+	and a linear bottom section,
+	joning at the highest chroma point for that hue.
+
+	To initialize this algorithm, 
+	for a given target RGB space,
+	a lookup table (LUT) is constructed
+	containing the highest-chroma Oklch color on each hue slice.
+	Linear interpolation between closest LUT values
+	is used to then estimate the highest-chroma color
+	for the exact hue of each color to be gamut mapped.
+
+	Intersection of the constant-lightness ray
+	with the gamut boundary is then calculated,
+	which is fast for the lower (linear) part of the boundary
+	and still fairly fast for the upper (curved) portion.
+
+	This gives good results, at the expense of memory for the LUT.
+
+<h4 id="pseudo-edgeseeker">
+Sample Pseudocode for the EdgeSeeker Gamut Mapping</h4>
+
+Issue: add pseudocode for EdgeSeeker GMA
+
+<h4 id="GMA-Raytrace">
+	The Ray Trace Gamut Mapping 
+</h4>
+
+	The Ray Trace algorithm is a geometric approach
+	to RGB gamut mapping,
+	for fast chroma reduction with constant lightness.
+	It was originally developed by Isaac Muse
+	for the Coloraide Python Library [[Coloraide-Ray-Trace]].
+
+	The color to be mapped is first converted to Oklch,
+	and then the achromatic version of that color is generated,
+	which will be the neutrax axis anchor.
+	These two colors are then converted to 
+	the linear-light version of the target RGB space.
+
+	A ray is cast from the inside of the RGB cube, 
+	from the anchor point to the current color. 
+	The intersection along this path 
+	with the RGB gamut surface is then found;
+	this is the first approximation to the gamut mapped color.
+
+	As RGB spaces are not perceptually uniform,
+	a constant hue, constant lightness ray
+	is actually a curved path in RGB space.
+
+	The first approximation is converted back to Oklch
+	to correct the color in the perceptual color space 
+	by projecting the point back onto the chroma reduction path, 
+	correcting the color's hue and lightness. 
+	The corrected color becomes the new current color 
+	and should be a much closer color on the reduced chroma line. 
+	
+	This process a maximum of three times, 
+	each time finding a better, closer color on the path. 
+	Finally, simple clipping is used to account for floating point math errors.
+
+	The results are comparable to binary search with local MINDE 
+	using a low JND, 
+	but resolves much faster 
+	and within more predictable, consistent time.
+
+	<figure>
+		<img src="./images/raytrace-gma.png" alt="">
+		<figcaption>Ray Trace gamut mpping to the sRGB gamut,
+			showing the curved path of chroma reduction
+			as approximated over a maximum
+			of four iterations.<br>
+			Image copyright Isaac Muse.
+		</figcaption>
+	</figure>
+
+
+<h4 id="pseudo-raytrace">
+Sample Pseudocode for the Ray Trace Gamut Mapping</h4>
+
+Issue: add pseudocode for Ray Trace GMA
 
 </div>
 
