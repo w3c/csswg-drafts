@@ -124,8 +124,14 @@ spec: css-ui-4; type: property; text: accent-color
 		"colorjs-EdgeSeeker": {
 			"title": "EdgeSeeker Gamut Mapping algorithm",
 			"date": "2023",
-			"authors": ["James Stuckey Weber"],
+			"authors": ["Alexey Ardov"],
 			"href": "https://github.com/color-js/apps/tree/main/gamut-mapping/edge-seeker"
+		},
+		"colorjs-RayTrace": {
+			"title": "Ray Trace Gamut Mapping",
+			"date": "2023",
+			"authors": ["Isaac Muse"],
+			"href": "https://github.com/color-js/apps/blob/2c7346dd00855f7b82eb4c7527355a09b84beeb3/gamut-mapping/methods.js#L273"
 		}
 	}
 </pre>
@@ -6030,11 +6036,179 @@ Issue: add pseudocode for EdgeSeeker GMA
 		</figcaption>
 	</figure>
 
+	Note: for the purposes of experimentation, 
+	and comparing implementations,
+	implementations of the Ray Trace are available
+	in the Coloriade library (in Python) [[Coloraide-Ray-Trace]]
+	and the color.js library (in JavaScript) [[colorjs-RayTrace]].
 
 <h4 id="pseudo-raytrace">
 Sample Pseudocode for the Ray Trace Gamut Mapping</h4>
 
-Issue: add pseudocode for Ray Trace GMA
+<div algorithm="to gamut map a color by Ray Tracing">
+	To <dfn export>Ray Trace Gamut Map</dfn> a color |origin|
+	in color space |origin color space|
+	to be in gamut of an RGB destination color space |destination|:
+
+	<ol>
+		<!-- check if we need gamut mapping at all -->
+		<li>if |origin| is in gamut for |destination|, 
+			convert |origin| to |destination| and return it as the gamut mapped color
+		</li>
+		<!-- we do, so convert to OkLCh -->
+		<li>let |origin_OkLCh| be |origin| converted from |origin color space|
+			to the OkLCh color space</li>
+		!-- constrain to SDR lightness range, which gamut maps to black or white -->
+		<li>if the Lightness of |origin_OkLCh| is greater than or equal to 100%,
+			convert `oklab(1 0 0 / origin.alpha)` to |destination| and return it as the gamut mapped color</li>
+		<li>if the Lightness of |origin_OkLCh| is less than than or equal to 0%,
+			convert `oklab(0 0 0 / origin.alpha)` to |destination| and return it as the gamut mapped color</li>
+		<li>let |l_origin| be the OkLCh lightness component of |origin_OkLCh| and h_origin.</li>
+		<li>let |h_origin| be the OkLCh hue component of |origin_OkLCh|</li>
+		<li>let |anchor| be an achromatic OkLCh color formed with 
+			|l_origin| as lightness, 0 as chroma and |h_origin| as hue,
+			converted to the <em>linear-light</em> form of |destination|
+		</li>
+		<li>let |origin_rgb| be |origin_OkLCh|
+			converted to the <em>linear-light</em> form of |destination|</li>
+		<li>let |low| be 1E-6 <a href="#raytrace-footnote-1"><sup>1</sup></a></li>
+		<li>let |high| be 1.0 - |low| <a href="#raytrace-footnote-2"><sup>2</sup></a></li>
+		<li>let |last| be |origin_rgb|</li>
+		<li>for (i=0; i&lt;4; i++)
+			<ul>
+				<li>if (i > 0)
+					<ul>
+						<li>let |current_OkLCh| be |origin_rgb| converted to OkLCh</li>
+						<li>let the lightness of |current_OkLCh| be |l_origin|</li>
+						<li>let the hue of |current_OkLCh| be |h_origin|
+							<a href="#raytrace-footnote-3"><sup>3</sup></a></li>
+						<li>let |origin_rgb| be |current_OkLCh|
+							converted to the <em>linear-light</em> form of |destination|
+						</li>
+					</ul>
+				</li>
+				<li><b>Cast a ray</b> from |anchor| to |origin_rgb|
+					and let |intersection| be 
+					the intersection of this ray 
+					with the gamut boundary
+				</li>
+				<li>if an intersection was not found,
+					let |origin_rgb| be |last| and exit the loop
+					<a href="#raytrace-footnote-5"><sup>5</sup></a>
+				</li>
+				<li>if (i >0) AND (each component of |origin_rgb| is between |low| and |high|) then
+					let |anchor| be |origin_rgb|
+					<a href="#raytrace-footnote-4"><sup>4</sup></a>
+				</li>
+				<li>let |origin_rgb| be |intersection|</li>
+				<li>let |last| be |intersection|</li>
+			</ul>
+		</li>
+		<!-- final tidying up -->
+		<li>let |clipped| be |origin_rgb| clipped to gamut (components in range 0 to 1),
+			thus trimming off any noise due to floating point inaccuracy
+		</li>
+		<li>return |clipped|, converted to |destination| as the gamut mapped color</li>
+		<!-- should those two be in the reverse order, convert to destination then clip? -->
+	</ol>
+
+	
+	<div algorithm="to cast a ray">
+		To <dfn export>cast a ray</dfn> through a linear-light RGB space
+		from |start| to |end| 
+		(in gamut mapping,
+		|start| is an anchor within the RGB gamut 
+		and |end| is the gamut mapped color, on the cubical gamut surface):
+
+	<ol>
+		<li>let |bmin| and |bmax| be 3-element arrays
+			with the gamut's lower and upper bounds, respectively
+			<a href="#raytrace-footnote-6"><sup>6</sup></a>
+		</li>
+		<li>let |tfar| be infinity (or some very large number)</li>
+		<li>let |tnear| be -infinity (or some very large, negative number)</li>
+		<li>let |direction| be a 3-element array</li>
+		<li>for (i = 0; i < 3; i++): 
+			<ul>
+				<li>let |a| be |start|[i]</li>
+				<li>let |b| be |end|[i]</li>
+				<li>let |d| be |b| - |a|</li>
+				<li>let |direction|[i] be |d|</li>
+				<!--  Non parallel cases -->
+				<li>if (d != 0):
+					<ul>
+						<li>let |inv_d| be 1 / |d|</li>
+						<li>let |t1| be (|bmin|[i] - |a|) * |inv_d|</li>
+						<li>let |t2| be (|bmax|[i] - |a|) * |inv_d|</li>
+						<li>let |tnear| be max(min(|t1|, |t2|), |tnear|)</li>
+						<li>let |tfar| be min(max(|t1|, |t2|), |tfar|)</li>
+					</ul>
+				</li>
+				<!-- Impossible parallel case -->
+				<li>else if (|a| &lt; |bmin|[i] or |a| > |bmax|[i])
+					<ul>
+						<li>return INTERSECTION NOT FOUND</li>
+					</ul>
+				</li>
+			</ul>
+		</li>
+		<!-- No hit -->
+		<li>if (|tnear| > |tfar| or |tfar| &lt; 0
+			<ul>
+				<li>return INTERSECTION NOT FOUND</li>
+			</ul>
+		</li>
+		<li>if |tnear| &lt; 0
+			<ul>
+				<li>let |tnear| be |tfar|
+					<a href="#raytrace-footnote-7"><sup>7</sup></a>
+				</li>
+			</ul>
+		</li>
+		<li>if |tnear| is infinite (or matches the initial very large value)
+			<ul>
+				<li>return INTERSECTION NOT FOUND</li>
+			</ul>
+		</li>
+		<li>for (i =0; i lt; 3; i++):
+			<ul>
+				<li>let |end|[i] be |start|[i] + |direction|[i] * |tnear|</li>
+			</ul>
+		</li>
+		<li>return |end|</li>
+	</ol>
+	</div>
+
+	<h5 id="raytrace-footnotes">Footnotes for Ray Trace aggorithm</h5>
+	<ol>
+		<li id="raytrace-footnote-1"><sup>1</sup> 
+			It is assumed the minimum value is 0
+			and that all channels have the same minimum. 
+			The value should be small relative to the unit type. 
+			64 bit could easily be as small as 1e-14, but 1e-6 is fine in practice.</li>
+		<li id="raytrace-footnote-2"><sup>2</sup> 
+			1.0 represents the maximum in-gamut channel value,
+			and it is assumed all channels have the same maximum.</li>
+		<li id="raytrace-footnote-3"><sup>3</sup>
+			This places the current color back on the chroma reduction curve,
+			if it has deviated.</li>
+		<li id="raytrace-footnote-4"><sup>4</sup>
+			This means |origin_rgb| is below the gamut surface, 
+			so we use it as an anchor closer to the gamut surface.</li>
+		<li id="raytrace-footnote-5"><sup>5</sup>
+			This is provided for catastrophic failures 
+			where a specific, perceptual mapping space 
+			completely breaks down 
+			due to ridiculously wide colors (outside the visible spectrum).
+			It is expected that non-imaginary colors in CSS should never trigger this.
+		<li id="raytrace-footnote-6"><sup>6</sup>
+			For typical RGB spaces 
+			where the gamut bounds are 0 and 1 for each component
+			this simplifies to a single constant
+			rather than a 3-element array.</li>
+		<li id="raytrace-footnote-7"><sup>7</sup>
+			favoring the first intersection in the direction |start| -> |end|.
+	</ol>
 
 </div>
 
