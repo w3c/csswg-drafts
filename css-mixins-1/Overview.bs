@@ -1286,15 +1286,15 @@ The syntax of a ''@contents'' at-rule is:
 </wpt>
 
 That is, it is either an <em>empty</em> statement ended immediately by a semicolon,
-or a block treated as a [=nested declarations rule=].
+or a <dfn>fallback block</dfn> treated as a [=nested declarations rule=].
 The empty statement form behaves identically to passing an empty block.
 
 * If the ''@apply'' rule invoking the [=mixin=] passed a [=contents block=],
 	the ''@contents'' is replaced with the [=contents block=],
 	treating it as a [=nested declarations rule=].
 * Otherwise (if the ''@apply'' rule did not pass a [=contents block=]),
-	the ''@contents'' rule is replaced with its own <<declaration-list>>,
-	treated as a [=nested declarations rule=].
+	the ''@contents'' rule is replaced with its [=fallback block=],
+	treating it as a [=nested declarations rule=].
 
 Outside of an ''@result'' rule,
 the ''@contents'' rule is invalid and ignored.
@@ -1601,7 +1601,7 @@ appear as if wrapped in {{CSSFunctionDeclarations}} rules.
 Note: This also applies to the "leading" declarations in the ''@function'' rule,
 	i.e those that do not follow another nested rule.
 
-<div class='example'>
+<div class='example' id=function-declarations-example>
 	<pre class='lang-css'>
 	@function --bar() {
 	  --x: 42;
@@ -1742,6 +1742,258 @@ interface CSSFunctionDeclarations : CSSRule {
 The {{CSSFunctionDeclarations}} rule, like {{CSSNestedDeclarations}},
 [=serialize a CSS rule|serializes=] as if its [=CSS declaration block|declaration block=]
 had been [=serialize a CSS declaration block|serialized=] directly.
+
+The {{CSSMixinRule}} Interface {#the-mixin-interface}
+-----------------------------------------------------
+
+The {{CSSMixinRule}} interface represents a ''@mixin'' rule.
+
+<pre class='idl' export>
+[Exposed=Window]
+interface CSSMixinRule : CSSGroupingRule {
+	readonly attribute CSSOMString name;
+	sequence&lt;FunctionParameter&gt; getParameters();
+	readonly attribute boolean contents;
+};
+</pre>
+
+<dl dfn-for=CSSMixinRule>
+	<dt><dfn dfn-type=attribute>name</dfn>
+	<dd>
+		The result of [=serialize an identifier=]
+		on the [=mixin=]'s name.
+	<dt><dfn dfn-type=method>getParameters()</dfn>
+	<dd>
+		Returns [=function parameters=] associated with the [=mixin=],
+		excluding any '@contents' parameter.
+	</dd>
+	<dt><dfn dfn-type=attribute>contents</dfn>
+	<dd>
+		True if the [=mixin=] accepts a [=contents block=],
+		and false otherwise.
+</dl>
+
+While declarations may be specified directly within a ''@mixin'' rule,
+they are not represented as such in the CSSOM.
+Instead, consecutive segments of declarations
+appear as if wrapped in {{CSSNestedDeclarations}} rules.
+<div class=note>
+This is similar to
+<a href="#function-declarations-example">how segments of bare declarations
+within '@function' are wrapped</a>,
+except with {{CSSNestedDeclarations}} as the wrapper
+rather than {{CSSFunctionDeclarations}}.
+</div>
+
+<div algorithm>
+To <dfn export>serialize a CSSMixinRule</dfn>,
+return the concatenation of the following:
+
+	1. The string <code>"@mixin"</code> followed by a single SPACE (U+0020).
+	2. The result of performing <a>serialize an identifier</a>
+		on the name of the [=mixin=],
+		followed by a single LEFT PARENTHESIS (U+0028).
+	3. The result of [=serialize a function parameter=]
+		on each of the [=mixin's=] [=function parameter|parameters=],
+		all joined by <code>", "</code>
+		(COMMA U+002C, followed by a single SPACE U+0020).
+	4. A single RIGHT PARENTHESIS (U+0029).
+	5. A single LEFT CURLY BRACKET (U+007B),
+		followed by a SPACE (U+0020).
+	6. The result of performing [=serialize a CSS rule=]
+		on each rule in cssRules,
+		filtering out empty strings,
+		all joined by a single SPACE (U+0020).
+	7. A single SPACE (U+0020),
+		followed by a single RIGHT CURLY BRACKET (U+007D).
+</div>
+
+The {{CSSApplyBlockRule}} Interface {#the-apply-block-interface}
+----------------------------------------------------------------
+
+The {{CSSApplyBlockRule}} interface represents
+an ''@apply'' rule with a [=contents block=].
+
+<pre class='idl' export>
+[Exposed=Window]
+interface CSSApplyBlockRule : CSSGroupingRule {
+	readonly attribute CSSOMString name;
+	sequence&lt;CSSOMString&gt; getArguments();
+};
+</pre>
+
+<dl dfn-for=CSSApplyBlockRule>
+	<dt><dfn dfn-type=attribute>name</dfn>
+	<dd>
+		If the ''@apply'' rule has an associated <<dashed-ident>>,
+		the result of [=serialize an identifier=] on that [=ident=].
+		Otherwise,
+		the result of [=serialize an identifier=] on the name
+		of the associated <<dashed-function>>.
+	</dd>
+	<dt><dfn dfn-type=method>getArguments()</dfn>
+	<dd>
+		Returns a sequence of arguments as strings,
+		each item [[css-variables-1#serializing-custom-props|serialized]]
+		as if it had been the specified value of a [=custom property=].
+	</dd>
+</dl>
+
+The [=CSSRule/child CSS rules=] of a {{CSSApplyBlockRule}}
+represent the [=contents block=]
+of the ''@apply'' rule.
+
+As for {{CSSMixinRule}},
+consecutive segments of declarations
+specified directly within the [=contents block=] of an ''@apply'' rule
+are represented as {{CSSNestedDeclarations}}.
+
+<div algorithm>
+To <dfn export>serialize a CSSApplyBlockRule</dfn>,
+return the concatenation of the following:
+
+	1. The string <code>"@apply"</code> followed by a single SPACE (U+0020).
+	2. The result of performing [=serialize an @apply prelude=]
+		on the ''@apply'' rule.
+	3. A single SPACE (U+0020).
+	4. A single LEFT CURLY BRACKET (U+007B),
+		followed by a SPACE (U+0020).
+	5. 	The result of performing [=serialize a CSS rule=]
+		on each rule in cssRules,
+		filtering out empty strings,
+		all joined by a single SPACE (U+0020).
+	6. A single SPACE (U+0020),
+				followed by a RIGHT CURLY BRACKET (U+007D).
+</div>
+
+<div algorithm>
+To <dfn export>serialize an @apply prelude</dfn>,
+given an ''@apply'' rule,
+return the concatenation of the following:
+
+	1. The {{CSSApplyBlockRule/name}} of the ''@apply'' rule.
+	2. If the ''@apply'' rule has at least one argument,
+		the concatenation of:
+		* A single LEFT PARENTHESIS (U+0028).
+		* The result of performing [=serialize a function argument=]
+			on each argument,
+			all joined by <code>", "</code>.
+		* A single RIGHT PARENTHESIS (U+0029).
+</div>
+
+<div algorithm>
+To <dfn export>serialize a function argument</dfn>,
+given a <<declaration-value>> |argument|:
+
+	1. [[css-variables-1#serializing-custom-props|Serialize]] |argument|
+			as if it had been the specified value of a [=custom property=],
+			and let |serialized argument| be the result.
+			<div class=note>
+			This means that an argument serializes exactly as written,
+			except with leading and trailing whitespace removed.
+			</div>
+	2. If |serialized argument| does not contain any top-level <<comma-token>>s,
+		nor any top-level <<{-token>>s,
+		return |serialized argument|.
+	3. Otherwise, return the concatenation of the following:
+		* A single LEFT CURLY BRACKET (U+007B),
+				followed by a SPACE (U+0020).
+		* The value of |serialized argument|.
+		* A single SPACE (U+0020),
+				followed by a RIGHT CURLY BRACKET (U+007D).
+
+		<div class=note>
+		See [[css-values-5#component-function-commas]] for more information
+		on [=comma-containing productions=].
+		</div>
+</div>
+
+The {{CSSApplyStatementRule}} Interface {#the-apply-statement-interface}
+------------------------------------------------------------------------
+
+The {{CSSApplyStatementRule}} interface represents
+an ''@apply'' rule without a [=contents block=].
+
+<pre class='idl' export>
+[Exposed=Window]
+interface CSSApplyStatementRule : CSSRule { 
+	readonly attribute CSSOMString name;
+	sequence&lt;CSSOMString&gt; getArguments();
+};
+</pre>
+
+<dl dfn-for=CSSApplyStatementRule dfn-type=attribute>
+	<dt><dfn>name</dfn>
+	<dd>
+		The same as {{CSSApplyBlockRule/name|CSSApplyBlockRule.name}}.
+	</dd>
+	<dt><dfn dfn-type=method>getArguments()</dfn>
+	<dd>
+		The same as {{CSSApplyBlockRule/getArguments()|CSSApplyBlockRule.getArguments()}}.
+	</dd>
+</dl>
+
+<div algorithm>
+To <dfn export>serialize a CSSApplyStatementRule</dfn>,
+return the concatenation of the following:
+
+	1. The string <code>"@apply"</code> followed by a single SPACE (U+0020).
+	2. The result of performing [=serialize an @apply prelude=]
+		on the ''@apply'' rule.
+	3. A single SEMICOLON (U+003B).
+</div>
+
+The {{CSSContentsBlockRule}} Interface {#the-contents-block-interface}
+---------------------------------------------------------------------
+
+The {{CSSContentsBlockRule}} interface represents
+a ''@contents'' rule with a [=fallback block=].
+
+<pre class='idl' export>
+[Exposed=Window]
+interface CSSContentsBlockRule : CSSGroupingRule { };
+</pre>
+
+The [=CSSRule/child CSS rules=] of a {{CSSContentsBlockRule}}
+represent the [=fallback block=]
+of the ''@contents'' rule.
+
+As for {{CSSMixinRule}} and {{CSSApplyBlockRule}},
+consecutive segments of declarations
+specified directly within the [=fallback block=] of a ''@contents'' rule
+are represented as {{CSSNestedDeclarations}}.
+
+<div algorithm>
+To <dfn export>serialize a CSSContentsBlockRule</dfn>,
+return the concatenation of the following:
+
+	1. The string <code>"@contents"</code> followed by a single SPACE (U+0020).
+	2. A single LEFT CURLY BRACKET (U+007B),
+		followed by a SPACE (U+0020).
+	3. 	The result of performing [=serialize a CSS rule=]
+		on each rule in cssRules,
+		filtering out empty strings,
+		all joined by a single SPACE (U+0020).
+	4. A single SPACE (U+0020),
+				followed by a RIGHT CURLY BRACKET (U+007D).
+</div>
+
+The {{CSSContentsStatementRule}} Interface {#the-contents-statement-interface}
+------------------------------------------------------------------------------
+
+The {{CSSContentsStatementRule}} interface represents
+a ''@contents'' rule without a [=fallback block=].
+
+<pre class='idl' export>
+[Exposed=Window]
+interface CSSContentsStatementRule : CSSRule { };
+</pre>
+
+<div algorithm>
+To <dfn export>serialize a CSSContentsStatementRule</dfn>,
+return the string <code>"@contents"</code>,
+followed by a single SEMICOLON (U+003B).
+</div>
 
 Privacy Considerations {#privacy}
 ===============================================
