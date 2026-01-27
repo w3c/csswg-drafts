@@ -14,5 +14,4 @@ To read the specifications in this repository, see them at the
 
 
 Also see the related repositories:
-* [fxtf-drafts github repository](https://github.com/w3c/fxtf-drafts/) - [FX Task Force generated specification index](https://drafts.fxtf.org/)
 * [css-houdini-drafts github repository](https://github.com/w3c/css-houdini-drafts/) - [CSS-TAG Houdini Task Force generated specification index](https://drafts.css-houdini.org/)
