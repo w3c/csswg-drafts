@@ -27,14 +27,19 @@ spec:css-cascade-5; type:dfn;
 spec:css-properties-values-api; type:dfn;
 	text:supported syntax component name
 	text:syntax component
+spec:css-cascade-6; type:dfn;
+	text:scoping limit
 spec:css-syntax-3; type:dfn;
 	text:declaration; for:CSS
 	text:descriptor;
 spec:css-values-4; type:dfn;
 	text:keyword;
 	text:identifier;
-spec:css-values-5; type:dfn; 
-	text:invalid at computed-value time
+spec:css-values-5;
+	type:dfn;
+		text:invalid at computed-value time
+	type:function;
+		text:if()
 spec:cssom-1; type:dfn; 
 	text:specified order;
 spec:css-conditional-5; type:at-rule;
@@ -880,18 +885,20 @@ making them reusable and customizable with arguments.
 
 	<pre highlight=css>
 		@mixin --gradient-text(
-			--from type(<<color>>): mediumvioletred,
-			--to type(<<color>>): teal,
+			--from <<color>>: mediumvioletred,
+			--to <<color>>: teal,
 			--angle: to bottom right,
 		) {
-			color: env(--from, env(--to));
+			--gradient: linear-gradient(var(--angle), var(--from), var(--to));
+			@result {
+				color: var(--from, var(--to));
 
-			@supports (background-clip: text) or (-webkit-background-clip: text) {
-				@env --gradient: linear-gradient(env(--angle), env(--from), env(--to));
-				background: env(--gradient, env(--from));
-				color: transparent;
-				-webkit-background-clip: text;
-				background-clip: text;
+				@supports (background-clip: text) or (-webkit-background-clip: text) {
+					background: var(--gradient, var(--from));
+					color: transparent;
+					-webkit-background-clip: text;
+					background-clip: text;
+				}
 			}
 		}
 
@@ -900,36 +907,31 @@ making them reusable and customizable with arguments.
 		}
 	</pre>
 
-	Note that this example also uses a [=scoped environment variable=]
-	(along with the arguments, which implicitly define [=scoped environment variables=])
-	which is scoped to <em>the rule itself</em>
-	(rather than being applied to the element, like a [=custom property=] would be)
-	to hold a temporary value to aid in readability of the [=mixin=],
-	without polluting the element's styles with unwanted [=custom properties=].
+	Note that this example also uses a [=local variable=] ''--gradient'',
+	which is accessible inside the mixin
+	to aid in readability,
+	but won't pollute the element's actual styles.
 
-	This is exactly equivalent to writing a [=nested style rule=] literally into the `h1` styles:
+	This is roughly equivalent to writing a [=nested style rule=] literally into the `h1` styles:
 
 	<pre highlight=css>
 		h1 {
-			@nest {
-				@env --from: pink;
-				@env --to: powderblue;
-				@env --angle: to bottom right;
-				color: env(--from, env(--to));
+			--from: pink;
+			--to: powderblue;
+			--angle: to bottom right;
+			color: var(--from, var(--to));
 
-				@supports (background-clip: text) or (-webkit-background-clip: text) {
-					@env --gradient: linear-gradient(env(--angle), env(--from), env(--to));
-					background: env(--gradient, env(--from));
-					color: transparent;
-					-webkit-background-clip: text;
-					background-clip: text;
-				}
+			@supports (background-clip: text) or (-webkit-background-clip: text) {
+				--gradient: linear-gradient(var(--angle), var(--from), var(--to));
+				background: var(--gradient, var(--from));
+				color: transparent;
+				-webkit-background-clip: text;
+				background-clip: text;
 			}
 		}
 	</pre>
 
-	(Where <css>@nest</css> is a fictitious rule
-	representing a [=nested declarations rule=].)
+	(except that none of those custom properties actually show up in the element's styles)
 </div>
 
 Issue: The entire ''@mixin'' feature is experimental and under active development,
@@ -948,7 +950,7 @@ and a [=mixin body=].
 save that it lacks a [=custom function/return type=].)
 
 <pre class="prod def">
-	<<@mixin>> = @mixin <<function-token>> <<function-parameter>>#? , @contents? )
+	<<@mixin>> = @mixin <<function-token>> <<function-parameter>>#? )
 	{
 		<<declaration-rule-list>>
 	}
@@ -958,11 +960,6 @@ save that it lacks a [=custom function/return type=].)
 	mixin-media-query-invalidation-2.html
 	mixin-media-query-invalidation.html
 </wpt>
-
-Differing from the ''@function'' rule,
-the final item in the parameters list
-can be the <<at-keyword-token>> ''@contents'',
-indicating that this [=mixin=] accepts a ''@contents'' block.
 
 If a [=default value=] and a [=parameter type=] are both provided,
 then the default value must parse successfully according to that parameter type’s syntax.
@@ -996,13 +993,17 @@ then the ''@mixin'' rule is invalid.
 <h4 id=mixin-body dfn lt="mixin body" export>
 The Mixin Body</h4>
 
-The body of a ''@mixin'' rule acts as a [=nested declarations rule=],
-and accepts the same properties and rules
-that a normal [=nested declarations rule=] would.
+The body of a [=mixin=] accepts [=conditional group rules=],
+such as ''@media'',
+and [=custom properties=],
+providing [=local variables=].
 
-In particular, further [=mixins=] can be invoked
-(via the ''@apply'' rule)
-within a [=mixin body=].
+Note: This is identical to a [=function body=],
+except for the lack of a 'result!!descriptor' descriptor.
+
+Additionally, the [=mixin body=] must contain a ''@result'' rule,
+giving the [=mixin's=] substitution result.
+A ''@mixin'' without a ''@result'' is invalid.
 
 Unknown properties and rules are invalid and ignored,
 but do not make the ''@mixin'' rule itself invalid.
@@ -1011,217 +1012,239 @@ but do not make the ''@mixin'' rule itself invalid.
 	mixin-layers.html
 </wpt>
 
-<!-- Big Text: params 
+<h3 id=result-rule at-rule lt="@result" export>
+The ''@result'' Rule</h3>
 
-████▌   ███▌  ████▌   ███▌  █     █  ███▌ 
+Within a ''@mixin'' rule,
+the ''@result'' rule specifies the <dfn export>mixin result</dfn>,
+a [=nested declarations rule=]
+similar to the 'result!!descriptor' descriptor in [=custom functions=].
+It's what the ''@apply'' rule will be substituted with.
+
+<pre class="prod def">
+	<<@result>> = @result {
+		<<declaration-rule-list>>
+	}
+</pre>
+
+The body of a ''@result'' rule acts as a [=nested declarations rule=],
+and accepts the same properties and rules
+that a normal [=nested declarations rule=] would.
+In particular, further [=mixins=] can be invoked
+(via the ''@apply'' rule)
+within a ''@result''.
+
+Note: [=Custom properties=] inside of a ''@result''
+actually define properties that will be emitted by the [=mixin=];
+they are <em>not</em> [=local variables=].
+They <em>can</em> still be accessed by ''var()'',
+but as element styles,
+which are a lower priority than [=local variables=] or [=mixin parameters=];
+see [[#mixin-args]] for details.
+
+The ''@result'' body can also contain the ''@contents'' rule,
+allowing a [=contents block=] passed to the [=mixin=] to be substituted in.
+
+A [=mixin=] can contain multiple ''@result'' rules,
+and all of them are concatenated, in order,
+to form the [=mixin result=].
+''@result'' rules inside of false [=conditional group rules=]
+are not included in the [=mixin result=].
+
+Note: It's possible for a [=mixin=] to end up with an empty [=mixin result=],
+because all of its ''@result'' rules
+are inside of false conditionals.
+This will simply mean the [=mixin=] substitutes with nothing,
+making it a no-op;
+weird, but not invalid.
+
+The [=mixin result=] is a [=scoped style rule=],
+with the [=scoping root=] being the element the [=mixin's=] styles are being applied to.
+(Unlike a traditional ''@scope'' rule,
+the [=scoping root=] here can be a [=pseudo-element=],
+if the [=mixin=] is being applied to one.)
+There are no [=scoping limits=].
+
+<!-- Big Text: params
+
+████▌   ███▌  ████▌   ███▌  █     █  ███▌
 █▌  █▌ ▐█ ▐█  █▌  █▌ ▐█ ▐█  ██   ██ █▌  █▌
-█▌  █▌ █▌  █▌ █▌  █▌ █▌  █▌ █▌█ █▐█ █▌    
-████▌  █▌  █▌ ████▌  █▌  █▌ █▌ █ ▐█  ███▌ 
+█▌  █▌ █▌  █▌ █▌  █▌ █▌  █▌ █▌█ █▐█ █▌
+████▌  █▌  █▌ ████▌  █▌  █▌ █▌ █ ▐█  ███▌
 █▌     █████▌ █▌▐█   █████▌ █▌   ▐█     █▌
 █▌     █▌  █▌ █▌ ▐█  █▌  █▌ █▌   ▐█ █▌  █▌
-█▌     █▌  █▌ █▌  █▌ █▌  █▌ █▌   ▐█  ███▌ 
+█▌     █▌  █▌ █▌  █▌ █▌  █▌ █▌   ▐█  ███▌
 -->
 
 <h3 id=mixin-args dfn lt="mixin parameter" export>
-Mixin Parameters</h3>
+Arguments and Local Variables</h3>
 
-Within a [=mixin body=],
-the ''env()'' function can access [=scoped environment variables=]
-defined within the [=mixin body=],
-defined by the mixin's arguments,
-or those defined at the <em>call site</em>
-(a style rule, or another [=mixin=]).
+Identical to [=function bodies=],
+within a [=mixin body=]
+the ''var()'' function can access [=local variables=]
+(the [=custom properties=] defined in the [=mixin body=],
+outside the ''@result'' rule),
+[=mixin parameters=]
+(the values passed to the [=mixin=],
+	or set to default values),
+and custom properties defined at the [=call site=]
+(the element recieving the mixin styles,
+or another [=mixin=] calling this [=mixin=]).
 
-In that list, earlier things "win" over later things of the same name,
-exactly as if the [=mixin body=] was a [=nested declarations rule=]
-placed at its call site.
-Specifically, it desugars to <em>two</em> [=nested declarations rules=],
-to correctly reproduce the argument scope.
+Just like in [=custom functions=],
+earlier things in that list "win" over later things;
+a [=local variable=] named ''--foo''
+will be seen by ''var(--foo)''
+instead of a [=mixin parameter=] or [=custom property=] on the element
+of the same name.
+See [[#evaluating-mixins]] for details on this behavior.
 
 <div class=example>
 	For example, the following mixin use:
 
 	<xmp highlight=css>
-	@mixin --nested(--color2: green) {
-		@env --color3: blue;
-		background: linear-gradient(env(--color1), env(--color2), env(--color3));
+	@mixin --shadowed-values(--color2: green, --color3: green) {
+		--color3: blue;
+		@result {
+			background: linear-gradient(var(--color1), var(--color2), var(--color3));
+		}
 	}
-	p.nested {
-		@env --color1: red;
-		@apply --nested();
+	p {
+		--color1: red;
+		--color2: red;
+		--color3: red;
+		@apply --shadowed-values();
 	}
 	</xmp>
 
-	is exactly equivalent to:
+	will produce a ''linear-gradient(red, green, blue)'' value,
+	taking ''--color-1'' from the outside
+	(since nothing overrides it),
+	''--color2'' from the [=mixin parameter=]
+	(overriding the value from the element),
+	and ''--color3'' from the [=local variable=] in the [=mixin body=]
+	(overriding both the value from the element and the [=mixin parameter=] of that name).
+</div>
+
+<h4 id=var-hygiene>
+Variable "Hygiene"</h4>
+
+Because [=mixins=] can apply styles to multiple elements at once,
+care must be taken to ensure that [=local variables=] and [=mixin parameters=]
+work "as expected" across the mixin's styles,
+even if [=custom properties=] on the element define clashing names.
+Similarly, care must be taken to ensure that variables passed into a mixin,
+such as by ''@apply --mix(var(--foo))'',
+resolve "as expected" to the custom property on the element,
+even if the [=mixin=] defines a [=local variable=] or [=mixin parameter=]
+with the same name.
+
+To achieve this,
+[=local variables=] and [=mixin parameters=] in a [=mixin=]
+(both in the [=mixin body=] and the [=mixin result=])
+are <dfn export lt="hygienic rename|hygienically rename">hygienically renamed</dfn>,
+to ensure that references to them work correctly across elements and inheritance.
+
+[=Hygienic renaming=] changes the names
+of [=local variables=] and [=mixin parameters=]
+to an unobservable, guaranteed non-clashing name,
+its <dfn>hygienic name</dfn>.
+
+If a ''var()'' references a [=custom property=]
+whose name matches a [=hygienically renamed=] [=local variable=] or [=mixin parameter=],
+it is instead interpreted as referencing the [=hygienic name=].
+The same applies to [=variable unit references=]
+and ''style()'' references in an ''if()'' test.
+
+Note: This list is not necessarily exhaustive.
+If future features allow referencing the value of a custom property on an element,
+they will also be interpreted as referencing the [=hygienic name=]
+when used inside a [=mixin=].
+
+The ''inherit()'' function is an exception to this;
+as it intrinsically reaches "outside" of an element
+(and thus the mixin scope),
+it cannot be referring to a [=local variable=] or [=mixin parameter=]
+and is not reinterpreted.
+However, if the outer context is another [=mixin=],
+[=hygienic renaming=] might still apply in <em>that</em> context.
+
+<div class=example>
+	For example, given the following styles and mixin:
 
 	<xmp highlight=css>
-	p.nested {
-		@env --color1: red;
-		@nest {
-			@env --color2: green;
-			@nest {
-				@env --color3: blue;
-				background: linear-gradient(env(--color1), env(--color2), env(--color3));
+	@mixin --triple-border(--size <length>) {
+		@result {
+			&, & > h1, & > h1 > small {
+				border-width: var(--size);
 			}
 		}
 	}
-	</xmp>
-
-	(Where <css>@nest</css> here is a fictitous rule
-	representing a [=nested declarations rule=].)
-</div>
-
-<div class=example>
-	[=Scoped environment variables=] defined in mixins can "shadow" ones defined higher up,
-	just like they can in [=nested style rules=] normally
-	(and like how variables can be shadowed in [=custom functions=]):
-
-	<xmp class='lang-css'>
-	@mixin --z-index-a-b-c(--b, --c) {
-		@env --c: 300;
-		z-index: calc(env(--a) + env(--b) + env(--c));
-		/* uses the --a from the call site's envs,
-		   the --b from the mixin parameter,
-		   and the --c from the local env */
-	}
-	div {
-		@env --a: 1;
-		@env --b: 2;
-		@env --c: 3;
-		@apply --add-a-b-c(20, 30); /* 321 */
-	}
-	</xmp>
-</div>
-
-Note that [=mixin parameters=] are [=scoped environment variables=]
-rather than [=custom properties=],
-which means they exist in a separate namespace
-and don't interfere with [=custom properties=].
-
-The two generally act very similarly,
-except for the slightly different definition syntax
-(a [=custom property=] versus an ''@env'' rule)
-and substitution functions
-(''var()'' versus ''env()''),
-but using [=custom properties=] actually writes those properties
-into the invoking style rule
-(potentially interacting with other definitions and uses of that [=custom property=],
-which can be good or bad),
-while ''@env'' rules in a [=mixin=]
-aren't visible to anything outside of the [=mixin body=].
-
-<div class=example>
-	For example, this code shows a [=mixin=]
-	setting [=custom properties=] for other properties to use:
-
-	<xmp highlight=css>
-	@mixin --tint-shade(--hue <angle>) {
-		--light-tint: lch(90% 20% env(--hue));
-		--dark-shade: lch(10% 80% env(--hue));
-	}
-	.warning {
-		@apply --tint-shade(0deg);
-		background: var(--light-tint);
-		color: var(--dark-shade);
-		padding: .5em;
-		border: thick solid currentcolor;
-	}
-	</xmp>
-
-	If the [=mixin=] had instead declared them as ''@env --light-tint: ...;''/etc,
-	then those would only be available <em>within</em> the [=mixin body=],
-	and the ''.warning'' rule would not be able to use them.
-</div>
-
-Note as well that [=scoped environment variables=] do not have an element context,
-so they can't fully resolve values that require an element context,
-like ''em'' lengths or ''var()'' functions,
-at definition time.
-Instead, they'll be resolved at each point they're used,
-similar to an unregistered [=custom property=].
-
-<div class=example>
-	For example, this mixin applies a size to an element, its parent, and its children.
-	If an ''em'' length is used, all of these might be different values:
-
-	<xmp highlight=css>
-	@mixin --triple-border(--size <length>) {
-		&, :has(&), & > * {
-			border-width: env(--size);
-		}
-	}
 	section {
-		font-size: 16px;
+		@apply --triple-border(5px);
 	}
 	section > h1 {
-		font-size: 30px;
-		@apply --triple-border(.5em);
+		--size: 10px;
 	}
 	section > h1 > small {
-		font-size: 20px;
+		--size: 20px;
 	}
 	</xmp>
 
-	In this example,
-	despite them all being set with the same ''env(--size)'' value,
-	the `section` element has a border of ''8px'',
-	the `h1` element has a border of ''15px'',
-	and the `small` element has a border of ''10px''.
-
-	There are some ways to work around this, if desired.
-	For example, the value can be stored in a [=registered custom property=]
-	with the appropriate type,
-	so it resolves on one element and then inherits as the absolute value,
-	or passed through a [=custom function=] with a typed argument.
+	The [=mixin parameter=] ''--size'' is [=hygienically renamed=],
+	resulting in the applied styles being equivalent to something like:
 
 	<xmp highlight=css>
-	@function --as-length(--arg <length>) { result: var(--arg); }
-	@mixin --triple-border(--size <length>) {
-		:has(&) {
-			--triple-border-size: --as-length(env(--size));
-		}
-		&, :has(&), & > * {
-			border-width: var(--triple-border-size);
-		}
-	}
 	section {
-		font-size: 16px;
+		--f7bd60b7: 5px;
+		border-width: var(--f7bd60b7);
 	}
 	section > h1 {
-		font-size: 30px;
-		@apply --triple-border(.5em);
+		--size: 10px;
+		border-width: var(--f7bd60b7);
 	}
 	section > h1 > small {
-		font-size: 20px;
+		--size: 20px;
+		border-width: var(--f7bd60b7);
 	}
 	</xmp>
 
-	In the above code, the [=mixin parameter=]
-	is used to set a [=custom property=] on the parent element,
-	where it's forced to resolve as a length
-	due to being passed through the [=custom function=].
-	All the styles then use that [=custom property=]
-	(via ''var()'')
-	rather than the [=mixin parameter=]
-	(via ''env()''),
-	so they all share the same already-resolved value.
-
-	(Note that this value is resolved on the parent element
-	the [=custom property=] is defined on,
-	becoming ''8px'',
-	rather than resolving against the element the [=mixin=] is called on,
-	which would give ''15px''.
-	That's an unavoidable limitation of this situation.)
+	Even though the child and grandchild elements set the same [=custom property=] as the [=mixin result=],
+	they don't influence the result.
+	Instead, the [=mixin result=] is changed to reference an un-clashable variable name,
+	allowing inheritance to safely transmit the original value to the descendants,
+	ensuring that all three borders are the same size,
+	as the author intended.
 </div>
 
-Issue: Do we want to try and figure out a way to have a mixin parameter
-"remember" what element it was called on,
-so it can resolve against that element consistently,
-rather than require these workarounds?
-I think that's inherently cyclic, tho--
-imagine an ''em'' length used to set 'font-size' on a parent element.
+<div class=issue>
 
+	Do we need hygienic renaming for other element references, like ''em''?
+	Presumably, if ''@apply --foo(var(--bar))'' is potentially confusing,
+	then ''@apply --foo(1em)'' would be too,
+	if the [=mixin parameter=] ends up being used on a child element in the [=mixin result=].
+	But you can also want ''1em'' inside the [=mixin result=]
+	to apply to the element it's actually set on,
+	not necessarily the parent context receiving the ''@apply''.
+	This might need some additional syntax support,
+	to ensure that all use-cases are adequately addressed.
+	For now, no additional renaming is done;
+	''em''/etc values are resolved "normally",
+	based on the element their styles are actually used on.
 
+	While theoretically an author could also want to reference the element's value of a [=custom property=],
+	ignoring a [=local variable=],
+	[=custom functions=] already shadow in this fashion.
+	You can escape <em>one</em> level of the shadowing in functions via ''inherit()'',
+	and that feature is preserved in mixins,
+	but ultimately the functin/mixin stack has control
+	over what custom properties are visible in their bodies.
+	Note that if a custom property name isn't a [=local variable=] or [=mixin parameter=],
+	it won't be [=hygienically renamed=] within this mixin,
+	so an author <em>can</em> refer to an element's own style
+	as long as the mixin isn't invoked inside of another mixin
+	that shadows it intentionally.
+</div>
 
 
 <!-- Big Text: @contents
@@ -1240,8 +1263,8 @@ The <dfn>@contents</dfn> Rule</h3>
 
 In addition to accepting arguments passed by the <<dashed-function>> in the ''@apply'' rule,
 a [=mixin=] can accept a <dfn>contents block</dfn>.
-This is indicated by the mixin using a final ''@contents'' <<at-keyword-token>> in its parameter list,
-and is passed by giving the ''@apply'' rule invoking the mixin
+Any mixin can be passed a [=contents block=],
+by giving the ''@apply'' rule invoking the mixin
 a block.
 
 This allows the invoker of the [=mixin=] to pass an entire style block,
@@ -1263,23 +1286,21 @@ The syntax of a ''@contents'' at-rule is:
 </wpt>
 
 That is, it is either an <em>empty</em> statement ended immediately by a semicolon,
-or a block treated as a [=nested declarations rule=].
+or a <dfn>fallback block</dfn> treated as a [=nested declarations rule=].
 The empty statement form behaves identically to passing an empty block.
 
-* If the [=mixin=] did not declare a ''@contents'' parameter,
-	the ''@contents'' rule is ignored,
-	substituting with nothing.
-	<span class=note>(And if the ''@apply'' rule tries to pass a [=contents blocks=],
-	it's an invalid invocation and has no effect.)</span>
-* Otherwise, if the ''@apply'' rule invoking the [=mixin=] passed a [=contents block=],
+* If the ''@apply'' rule invoking the [=mixin=] passed a [=contents block=],
 	the ''@contents'' is replaced with the [=contents block=],
 	treating it as a [=nested declarations rule=].
-* Otherwise, if the ''@apply'' rule did not pass a [=contents block=],
-	the ''@contents'' rule is replaced with its own <<declaration-list>>,
-	treated as a [=nested declarations rule=].
+* Otherwise (if the ''@apply'' rule did not pass a [=contents block=]),
+	the ''@contents'' rule is replaced with its [=fallback block=],
+	treating it as a [=nested declarations rule=].
 
-Outside of a [=mixin body=],
+Outside of an ''@result'' rule,
 the ''@contents'' rule is invalid and ignored.
+
+Note: It's valid for an ''@apply'' rule to pass a [=contents block=],
+but the mixin not use it.
 
 <div class=example>
 	For example, the following mixins
@@ -1289,14 +1310,18 @@ the ''@contents'' rule is invalid and ignored.
 	so the conditions can be adjusted in the future if necessary:
 
 	<pre highlight=css>
-	@mixin --one-column(@contents) {
-		@media (width <= 800px) {
-			@contents;
+	@mixin --one-column() {
+		@result {
+			@media (width <= 800px) {
+				@contents;
+			}
 		}
 	}
-	@mixin --two-column(@contents) {
-		@media (width > 800px) {
-			@contents;
+	@mixin --two-column() {
+		@result {
+			@media (width > 800px) {
+				@contents;
+			}
 		}
 	}
 	body {
@@ -1404,12 +1429,8 @@ the missing arguments take their default values instead.)
 A <<dashed-ident>> passes no arguments.
 (That is, ''@apply --foo;'' is identical to ''@apply --foo();''.)
 
-If the [=mixin=] declares a ''@contents'' parameter,
-and the ''@apply'' rule has a <<declaration-list>> block,
-that block is passed as its [=contents block=].
-If the [=mixin=] did not declare a ''@contents'' parameter,
-having a <<declaration-list>> block makes the ''@apply'' rule invalid
-(similar to passing too many arguments).
+If the ''@apply'' rule has a <<declaration-list>> block,
+that block is passed as the mixin's [=contents block=].
 
 <div class=example>
 	Applying a mixin without arguments, or with an empty argument list,
@@ -1426,17 +1447,20 @@ having a <<declaration-list>> block makes the ''@apply'' rule invalid
 	</pre>
 
 	Passing a [=contents block=] is <em>not</em> the same;
-	omitting the block entirely triggers fallback,
+	omitting the block entirely triggers ''@contents'' fallback,
 	while passing an empty block will substitute the empty block:
 
 	<pre highlight=css>
-	@mixin --just-contents(@contents) {
-		@contents { color: red; }
+	@mixin --just-contents() {
+		@result {
+			@contents { color: red; }
+			/* `color: red` is the fallback content */
+		}
 	}
 
 	.foo {
 		@apply --just-contents;
-		/* substitutes with `color: red;` */
+		/* fallback, substitutes with `color: red;` */
 	}
 	.bar {
 		@apply --just-contents {};
@@ -1446,141 +1470,120 @@ having a <<declaration-list>> block makes the ''@apply'' rule invalid
 </div>
 
 
-<!-- Big Text: @env
+<!-- Big Text: Eval
 
- ████▌  █████▌ █    █▌ █▌   █▌
-█▌   █▌ █▌     █▌   █▌ █▌   █▌
-█▌▐█ █▌ █▌     ██▌  █▌ █▌   █▌
-█▌▐█ █▌ ████   █▌▐█ █▌ ▐▌   █ 
-█▌ ██▌  █▌     █▌  ██▌  █  ▐▌ 
-█▌      █▌     █▌   █▌  ▐▌ █  
- ████▌  █████▌ █▌   ▐▌   ▐█   
+█████▌ █▌   █▌  ███▌  █▌
+█▌     █▌   █▌ ▐█ ▐█  █▌
+█▌     █▌   █▌ █▌  █▌ █▌
+████   ▐▌   █  █▌  █▌ █▌
+█▌      █  ▐▌  █████▌ █▌
+█▌      ▐▌ █   █▌  █▌ █▌
+█████▌   ▐█    █▌  █▌ █████
 -->
 
-Scoped Environment Variables {#scoped-env}
-============================
+Evaluating Mixins {#evaluating-mixins}
+-----------------
 
-Issue: This section should move to [[css-env-1]]
-(or level 2, whatever).
+At a high level, [=mixins=] are applied
+by substituting their contents
+at the location they're ''@apply''&apos;d.
 
-The ''env()'' function,
-defined in [[css-env-1]],
-allows substituting the value of [=environment variables=]
-into a stylesheet.
-These are "global" variables,
-defined by the <l spec=infra>[=user agent=]</l>,
-rather than [=custom properties=]
-defined by the page author on individual elements (and their descendants).
+Unfortunately, the exact mechanics of mixin substitution
+are somewhat more complicated,
+to ensure that local references, variables, and other concepts
+work in a "natural" way.
 
-The ''@env'' rule allows defining <dfn export>scoped environment variables</dfn>,
-which are <em>lexically scoped</em> to a single rule in a stylesheet
-(and any [=nested style rules=] within it).
+When a [=mixin=] is applied,
+the ''@apply'' rule referencing it
+is replaced with the [=mixin result=],
+with each property value in the [=mixin result=]
+having its value replaced by an anonymous [=custom function=]
+with the following properties:
 
-Issue: A top-level ''@env'' probably needs to still be lexically scoped to just the stylesheet itself.
-(After all, you can use `media=""` to link in a stylesheet
-*effectively* auto-wrapped in an ''@media'',
-and it would be weird to have that act differently
-from actually using a wrapping ''@media''.)
-That means only JS-defined custom envs are available cross-stylesheet.
+* The [=function parameters=] are identical to the [=mixin parameters=].
+	(The function's invocation has some adjustments; see below.)
+* The [=function body=] is identical to the [=mixin body=],
+	minus any ''@result'' rules,
+	plus a 'result' descriptor
+	containing the original value of the property this anonymous function is replacing.
 
+Additionally, the arguments passed to the mixin
+are evaluated and stored on the ''@apply''@apos;d element,
+to ensure they obtain the "expected" value from that element,
+rather than unexpectedly evaluating in a descendant element's context:
 
-<h3 id=env-rule>
-The <dfn>@env</dfn> Rule</h3>
+* For every [=mixin parameter=],
+	a custom property is added to the top level of the [=mixin result=],
+	with a [=hygienic rename|hygienic name=]
+	and a value of the corresponding ''@apply()'' argument.
+	This custom property is <em>unobservable</em> to the page;
+	it only exists for UA purposes.
 
-The ''@env'' rule defines a [=scoped environment variable=],
-scoped to its parent rule
-(and any other nested rule within its parent rule).
-It's only valid within a [=nested style rule=]
-or [=nested group rule=],
-or at the "top level" of a stylesheet not nested in anything;
-in any other context it's invalid and ignored.
-Its grammar is:
-
-<pre class=prod>
-	<<@env>> = @env <<custom-property-name>> <<css-type>>? : <<declaration-value>>? ;
-</pre>
-
-This defines a [=scoped environment variable=]
-with a name given by the <<custom-property-name>>,
-optionally a type given by <<css-type>>,
-and a value given by the <css><<declaration-value>>?</css>.
-Its scope is the rule it's nested in,
-or the stylesheet it's defined in
-if it's not nested.
-
-If a <<css-type>> is given,
-then when an ''env()'' referencing this [=scoped environment variable=]
-is [=replace an arbitrary substitution function|replaced=],
-the value must [=CSS/parse=] according to the <<css-type>>,
-or else the ''env()'' is replaced by the [=guaranteed-invalid value=].
-If it successfully parses,
-the value has the specified type.
-
-
-<h4 id=using-scoped-env>
-Using Scoped Environment Variables</h4>
-
-When an ''env()'' function is used
-with a <<dashed-ident>> as the name of the environment variable,
-it's potentially accessing a [=scoped environment variable=].
-
-First the parent rule
-of the property or rule the ''env()'' is used in
-is checked to see if a [=scoped environment variable=] of that name
-exists scoped to that rule.
-If not,
-its parent rule is checked,
-recursively,
-until finally the stylesheet itself is checked.
-If that fails,
-the global [=environment variables=] are finally checked.
-
-Note: Custom global [=environment variables=] can be defined by the <code>CSS.customEnv</code> API.
-(To be defined.)
-
-Issue: Need some analogue to ''inherit'',
-but for the parent lexical scopes.
-Probably can't use ''inherit'' itself,
-as that's a meaningful value that an ''env()'' could resolve to,
-I guess?
-
-
-<h4 id='dependent-envs'>
-Element-Dependent Values</h4>
-
-A [=scoped environment variable=] can be defined
-(both explicitly, and implicitly via [=mixin=] parameters)
-that require knowledge about the element the style is being applied to,
-but ''env()'' can be used in locations that don't have an element context.
+	Also, a [=custom property registration=]
+	with that name,
+	a syntax of the [=parameter type=],
+	an inherit flag of "true",
+	and no initial value,
+	is added to the tree of that element.
+* Each anonymous function invocation
+	has its arguments set to ''var()'' functions
+	referring to the corresponding custom property name
+	created in the previous bullet point.
 
 <div class=example>
-	For example, in this trivial example
-	an ''em'' value is passed to a mixin,
-	but the argument is then used in the ''@media'' rule inside the mixin.
+	For example, given the following mixin:
 
 	<xmp highlight=css>
-	@mixin --smaller(--size <length>: 800px, @contents) {
-		@media (width <= env(--size)) {
-			@contents;
+	@mixin --same-size(--size <length>) {
+		@result {
+			&, & > * {
+				width: calc(10 * var(--size));
+			}
 		}
 	}
-	h1 {
-		@apply --smaller(50em) {
-			margin: 1em 0;
-		}
+	.parent {
+		font-size: 10px;
+		@apply --same-size(1em);
+	}
+	.parent > .child {
+		font-size: 20px;
+	}
+	</xmp>
+
+	This will desugar into approximately:
+
+	<xmp>
+	@property --magic-arg1 {
+		syntax: "<length>";
+		inherits: true;
+		/* initial-value: don't worry about it; */
+	}
+	@function --anonfunc1(--arg1) {
+		result: calc(10 * var(--arg1));
+	}
+	@function --anonfunc2(--arg1) {
+		result: calc(10 * var(--arg1));
+	}
+	.parent {
+		font-size: 10px;
+		--magic-arg1: 1em; /* resolves based on font-size here */
+		width: --anonfunc1(var(--magic-arg1));
+	}
+	.parent > .child {
+		font-size: 20px;
+		width: --anonfunc2(var(--magic-arg1));
+		/* --magic-arg1 is 10px, since it was resolved on the parent */
 	}
 	</xmp>
 </div>
 
-When this situation occurs,
-if the value of the ''env()'' can be evaluated in its subsitution context at all,
-it evaluates according to the normal rules for that context.
-(For example, in a ''@media'', ''em'' values resolve against the initial font size,
-rather than the font size of any particular element.)
+Note: In practice, this anonymous [=custom function=]
+can usually be completely hypothetical,
+and a direct substitution used instead.
+It's required only to make variables
+and other element-relative values resolve correctly.
 
-If the value would be invalid in its substitution context,
-it's instead replaced with the [=guaranteed-invalid value=].
-(For example, ''var()'' isn't allowed in a ''@media''.)
+Issue: TODO add a few examples derived from <a href="https://github.com/w3c/csswg-drafts/issues/12927">issue 12927</a>.
 
 
 
@@ -1599,6 +1602,8 @@ it's instead replaced with the [=guaranteed-invalid value=].
 
 CSSOM {#cssom}
 ==============
+
+Issue: TODO Supply the OM for ''@mixin''/etc.
 
 <wpt>
 	at-function-cssom.html
@@ -1667,7 +1672,7 @@ appear as if wrapped in {{CSSFunctionDeclarations}} rules.
 Note: This also applies to the "leading" declarations in the ''@function'' rule,
 	i.e those that do not follow another nested rule.
 
-<div class='example'>
+<div class='example' id=function-declarations-example>
 	<pre class='lang-css'>
 	@function --bar() {
 	  --x: 42;
@@ -1808,6 +1813,258 @@ interface CSSFunctionDeclarations : CSSRule {
 The {{CSSFunctionDeclarations}} rule, like {{CSSNestedDeclarations}},
 [=serialize a CSS rule|serializes=] as if its [=CSS declaration block|declaration block=]
 had been [=serialize a CSS declaration block|serialized=] directly.
+
+The {{CSSMixinRule}} Interface {#the-mixin-interface}
+-----------------------------------------------------
+
+The {{CSSMixinRule}} interface represents a ''@mixin'' rule.
+
+<pre class='idl' export>
+[Exposed=Window]
+interface CSSMixinRule : CSSGroupingRule {
+	readonly attribute CSSOMString name;
+	sequence&lt;FunctionParameter&gt; getParameters();
+	readonly attribute boolean contents;
+};
+</pre>
+
+<dl dfn-for=CSSMixinRule>
+	<dt><dfn dfn-type=attribute>name</dfn>
+	<dd>
+		The result of [=serialize an identifier=]
+		on the [=mixin=]'s name.
+	<dt><dfn dfn-type=method>getParameters()</dfn>
+	<dd>
+		Returns [=function parameters=] associated with the [=mixin=],
+		excluding any '@contents' parameter.
+	</dd>
+	<dt><dfn dfn-type=attribute>contents</dfn>
+	<dd>
+		True if the [=mixin=] accepts a [=contents block=],
+		and false otherwise.
+</dl>
+
+While declarations may be specified directly within a ''@mixin'' rule,
+they are not represented as such in the CSSOM.
+Instead, consecutive segments of declarations
+appear as if wrapped in {{CSSNestedDeclarations}} rules.
+<div class=note>
+This is similar to
+<a href="#function-declarations-example">how segments of bare declarations
+within '@function' are wrapped</a>,
+except with {{CSSNestedDeclarations}} as the wrapper
+rather than {{CSSFunctionDeclarations}}.
+</div>
+
+<div algorithm>
+To <dfn export>serialize a CSSMixinRule</dfn>,
+return the concatenation of the following:
+
+	1. The string <code>"@mixin"</code> followed by a single SPACE (U+0020).
+	2. The result of performing <a>serialize an identifier</a>
+		on the name of the [=mixin=],
+		followed by a single LEFT PARENTHESIS (U+0028).
+	3. The result of [=serialize a function parameter=]
+		on each of the [=mixin's=] [=function parameter|parameters=],
+		all joined by <code>", "</code>
+		(COMMA U+002C, followed by a single SPACE U+0020).
+	4. A single RIGHT PARENTHESIS (U+0029).
+	5. A single LEFT CURLY BRACKET (U+007B),
+		followed by a SPACE (U+0020).
+	6. The result of performing [=serialize a CSS rule=]
+		on each rule in cssRules,
+		filtering out empty strings,
+		all joined by a single SPACE (U+0020).
+	7. A single SPACE (U+0020),
+		followed by a single RIGHT CURLY BRACKET (U+007D).
+</div>
+
+The {{CSSApplyBlockRule}} Interface {#the-apply-block-interface}
+----------------------------------------------------------------
+
+The {{CSSApplyBlockRule}} interface represents
+an ''@apply'' rule with a [=contents block=].
+
+<pre class='idl' export>
+[Exposed=Window]
+interface CSSApplyBlockRule : CSSGroupingRule {
+	readonly attribute CSSOMString name;
+	sequence&lt;CSSOMString&gt; getArguments();
+};
+</pre>
+
+<dl dfn-for=CSSApplyBlockRule>
+	<dt><dfn dfn-type=attribute>name</dfn>
+	<dd>
+		If the ''@apply'' rule has an associated <<dashed-ident>>,
+		the result of [=serialize an identifier=] on that [=ident=].
+		Otherwise,
+		the result of [=serialize an identifier=] on the name
+		of the associated <<dashed-function>>.
+	</dd>
+	<dt><dfn dfn-type=method>getArguments()</dfn>
+	<dd>
+		Returns a sequence of arguments as strings,
+		each item [[css-variables-1#serializing-custom-props|serialized]]
+		as if it had been the specified value of a [=custom property=].
+	</dd>
+</dl>
+
+The [=CSSRule/child CSS rules=] of a {{CSSApplyBlockRule}}
+represent the [=contents block=]
+of the ''@apply'' rule.
+
+As for {{CSSMixinRule}},
+consecutive segments of declarations
+specified directly within the [=contents block=] of an ''@apply'' rule
+are represented as {{CSSNestedDeclarations}}.
+
+<div algorithm>
+To <dfn export>serialize a CSSApplyBlockRule</dfn>,
+return the concatenation of the following:
+
+	1. The string <code>"@apply"</code> followed by a single SPACE (U+0020).
+	2. The result of performing [=serialize an @apply prelude=]
+		on the ''@apply'' rule.
+	3. A single SPACE (U+0020).
+	4. A single LEFT CURLY BRACKET (U+007B),
+		followed by a SPACE (U+0020).
+	5. 	The result of performing [=serialize a CSS rule=]
+		on each rule in cssRules,
+		filtering out empty strings,
+		all joined by a single SPACE (U+0020).
+	6. A single SPACE (U+0020),
+				followed by a RIGHT CURLY BRACKET (U+007D).
+</div>
+
+<div algorithm>
+To <dfn export>serialize an @apply prelude</dfn>,
+given an ''@apply'' rule,
+return the concatenation of the following:
+
+	1. The {{CSSApplyBlockRule/name}} of the ''@apply'' rule.
+	2. If the ''@apply'' rule has at least one argument,
+		the concatenation of:
+		* A single LEFT PARENTHESIS (U+0028).
+		* The result of performing [=serialize a function argument=]
+			on each argument,
+			all joined by <code>", "</code>.
+		* A single RIGHT PARENTHESIS (U+0029).
+</div>
+
+<div algorithm>
+To <dfn export>serialize a function argument</dfn>,
+given a <<declaration-value>> |argument|:
+
+	1. [[css-variables-1#serializing-custom-props|Serialize]] |argument|
+			as if it had been the specified value of a [=custom property=],
+			and let |serialized argument| be the result.
+			<div class=note>
+			This means that an argument serializes exactly as written,
+			except with leading and trailing whitespace removed.
+			</div>
+	2. If |serialized argument| does not contain any top-level <<comma-token>>s,
+		nor any top-level <<{-token>>s,
+		return |serialized argument|.
+	3. Otherwise, return the concatenation of the following:
+		* A single LEFT CURLY BRACKET (U+007B),
+				followed by a SPACE (U+0020).
+		* The value of |serialized argument|.
+		* A single SPACE (U+0020),
+				followed by a RIGHT CURLY BRACKET (U+007D).
+
+		<div class=note>
+		See [[css-values-5#component-function-commas]] for more information
+		on [=comma-containing productions=].
+		</div>
+</div>
+
+The {{CSSApplyStatementRule}} Interface {#the-apply-statement-interface}
+------------------------------------------------------------------------
+
+The {{CSSApplyStatementRule}} interface represents
+an ''@apply'' rule without a [=contents block=].
+
+<pre class='idl' export>
+[Exposed=Window]
+interface CSSApplyStatementRule : CSSRule { 
+	readonly attribute CSSOMString name;
+	sequence&lt;CSSOMString&gt; getArguments();
+};
+</pre>
+
+<dl dfn-for=CSSApplyStatementRule dfn-type=attribute>
+	<dt><dfn>name</dfn>
+	<dd>
+		The same as {{CSSApplyBlockRule/name|CSSApplyBlockRule.name}}.
+	</dd>
+	<dt><dfn dfn-type=method>getArguments()</dfn>
+	<dd>
+		The same as {{CSSApplyBlockRule/getArguments()|CSSApplyBlockRule.getArguments()}}.
+	</dd>
+</dl>
+
+<div algorithm>
+To <dfn export>serialize a CSSApplyStatementRule</dfn>,
+return the concatenation of the following:
+
+	1. The string <code>"@apply"</code> followed by a single SPACE (U+0020).
+	2. The result of performing [=serialize an @apply prelude=]
+		on the ''@apply'' rule.
+	3. A single SEMICOLON (U+003B).
+</div>
+
+The {{CSSContentsBlockRule}} Interface {#the-contents-block-interface}
+---------------------------------------------------------------------
+
+The {{CSSContentsBlockRule}} interface represents
+a ''@contents'' rule with a [=fallback block=].
+
+<pre class='idl' export>
+[Exposed=Window]
+interface CSSContentsBlockRule : CSSGroupingRule { };
+</pre>
+
+The [=CSSRule/child CSS rules=] of a {{CSSContentsBlockRule}}
+represent the [=fallback block=]
+of the ''@contents'' rule.
+
+As for {{CSSMixinRule}} and {{CSSApplyBlockRule}},
+consecutive segments of declarations
+specified directly within the [=fallback block=] of a ''@contents'' rule
+are represented as {{CSSNestedDeclarations}}.
+
+<div algorithm>
+To <dfn export>serialize a CSSContentsBlockRule</dfn>,
+return the concatenation of the following:
+
+	1. The string <code>"@contents"</code> followed by a single SPACE (U+0020).
+	2. A single LEFT CURLY BRACKET (U+007B),
+		followed by a SPACE (U+0020).
+	3. 	The result of performing [=serialize a CSS rule=]
+		on each rule in cssRules,
+		filtering out empty strings,
+		all joined by a single SPACE (U+0020).
+	4. A single SPACE (U+0020),
+				followed by a RIGHT CURLY BRACKET (U+007D).
+</div>
+
+The {{CSSContentsStatementRule}} Interface {#the-contents-statement-interface}
+------------------------------------------------------------------------------
+
+The {{CSSContentsStatementRule}} interface represents
+a ''@contents'' rule without a [=fallback block=].
+
+<pre class='idl' export>
+[Exposed=Window]
+interface CSSContentsStatementRule : CSSRule { };
+</pre>
+
+<div algorithm>
+To <dfn export>serialize a CSSContentsStatementRule</dfn>,
+return the string <code>"@contents"</code>,
+followed by a single SEMICOLON (U+003B).
+</div>
 
 Privacy Considerations {#privacy}
 ===============================================
