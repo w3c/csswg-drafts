@@ -1087,7 +1087,7 @@ outside the ''@result'' rule),
 [=mixin parameters=]
 (the values passed to the [=mixin=],
 	or set to default values),
-and custom properties defined at the [=call site=]
+and custom properties defined at the call site
 (the element recieving the mixin styles,
 or another [=mixin=] calling this [=mixin=]).
 
@@ -1504,7 +1504,7 @@ with the following properties:
 	(The function's invocation has some adjustments; see below.)
 * The [=function body=] is identical to the [=mixin body=],
 	minus any ''@result'' rules,
-	plus a 'result' descriptor
+	plus a 'result!!descriptor' descriptor
 	containing the original value of the property this anonymous function is replacing.
 
 Additionally, the arguments passed to the mixin
@@ -1552,7 +1552,7 @@ rather than unexpectedly evaluating in a descendant element's context:
 
 	This will desugar into approximately:
 
-	<xmp>
+	<xmp highight=css>
 	@property --magic-arg1 {
 		syntax: "<length>";
 		inherits: true;
@@ -1583,9 +1583,307 @@ and a direct substitution used instead.
 It's required only to make variables
 and other element-relative values resolve correctly.
 
-Issue: TODO add a few examples derived from <a href="https://github.com/w3c/csswg-drafts/issues/12927">issue 12927</a>.
+<div class=example>
+	When [=mixins=] are nested
+	(one invoked via ''@apply'' inside the ''@result'' of another),
+	the desugaring nests as well,
+	in the obvious way.
+	For example:
+
+	<xmp highlight=css>
+	div {
+		@apply --colorized-squish(tomato);
+	}
+
+	/* "wraps" an element in colored arrows */
+	@mixin --squish(--left-color <color>,
+	                --right-color <color>: var(--left-color)) {
+		@result {
+			&::before {
+				content: "🡆";
+				background-color: var(--left-color);
+			}
+			&::after {
+				content: "🡄";
+				background-color: var(--right-color);
+			}
+		}
+	}
+
+	/* colors the element, and auto-generates a border color
+	   and the "squish" colors from it */
+	@mixin --colorized-squish(--color <color>) {
+		@result {
+			background-color: var(--color);
+			border: 2px solid oklch(from var(--color) calc(l - 0.1) c h);
+			@apply --squish(oklch(from var(--color) calc(l - 0.3) c h),
+			                oklch(from var(--color) calc(l - 0.2) c h));
+		}
+	}
+	</xmp>
+
+	This desugars in two steps, inside-out.
+	First, the ''--squish()'' is unfolded
+	into the ''--colorized-squish()'' mixin:
+
+	<xmp highlight=css>
+	div {
+		@apply --colorized-squish(tomato);
+	}
+
+	@mixin --colorized-squish(--color <color>) {
+		/* Lift the `@apply squish();` arguments out into local vars */
+		--s-arg1: oklch(from var(--color) calc(l - 0.3) c h);
+		--s-arg2: oklch(from var(--color) calc(l - 0.2) c h);
+		@result {
+			background-color: var(--color);
+			border: 2px solid oklch(from var(--color) calc(l - 0.1) c h);
+			/* Replace the `@apply --squish();` with its @result,
+			   transformed to wrap the property values in
+			   anonymous functions. */
+			&::before {
+				content: --s1(var(--s-arg1), var(--s-arg2));
+				background-color: --s2(var(--s-arg1), var(--s-arg2));
+			}
+			&::after {
+				content: --s3(var(--s-arg1), var(--s-arg2));
+				background-color: --s4(var(--s-arg1), var(--s-arg2));
+			}
+		}
+	}
+	@function --s1(--left-color <color>,
+	               --right-color <color>: var(--left-color)) {
+		result: "🡆";
+	}
+	@function --s2(--left-color <color>,
+	               --right-color <color>: var(--left-color)) {
+		result: var(--left-color);
+	}
+	@function --s3(--left-color <color>,
+	               --right-color <color>: var(--left-color)) {
+		result: "🡄";
+	}
+	@function --s4(--left-color <color>,
+	               --right-color <color>: var(--left-color)) {
+		result: var(--right-color);
+	}
+	</xmp>
+
+	Then the ''--colorized-squish()'' mixin is unfolded into the ''div'' rule:
+
+	<xmp highlight=css>
+	div {
+		/* Lift the `@apply --colorized-squish();` argument out into a var */
+		--cs-arg1: tomato;
+		/* Replace the `@apply --colorized-squish();` with (part of)
+		   its @result, again with values wrapped in anonymous functions. */
+		background-color: --cs1(var(--cs-arg1));
+		border: --cs2(var(--cs-arg1));
+		&::before {
+			/* Note that --cs-arg1 is inherited here from div */
+			content: --cs3(var(--cs-arg1));
+			background-color: --cs4(var(--cs-arg1));
+		}
+		&::after {
+			content: --cs5(var(--cs-arg1));
+			background-color: --cs6(var(--cs-arg1));
+		}
+	}
+	@function --cs1(--color <color>) {
+	  result: var(--color);
+	}
+	@function --cs2(--color <color>) {
+	  result: 2px solid oklch(from var(--color) calc(l - 0.1) c h);
+	}
+
+	/* These four generated functions all look identical, they
+	   just call into the correct generated function from
+	   --squish()'s unfolding. */
+	@function --cs3(--color <color>) {
+		/* The --colorized-squish() local vars (created by the
+			first desugaring) are turned into function local vars. */
+		--s-arg1: oklch(from var(--color) calc(l - 0.3) c h);
+		--s-arg2: oklch(from var(--color) calc(l - 0.2) c h);
+		result: --s1(var(--s-arg1), var(--s-arg2));
+	}
+	@function --cs4(--color <color>) {
+		--s-arg1: oklch(from var(--color) calc(l - 0.3) c h);
+		--s-arg2: oklch(from var(--color) calc(l - 0.2) c h);
+		result: --s2(var(--s-arg1), var(--s-arg2));
+	}
+	@function --cs5(--color <color>) {
+		--s-arg1: oklch(from var(--color) calc(l - 0.3) c h);
+		--s-arg2: oklch(from var(--color) calc(l - 0.2) c h);
+		result: --s3(var(--s-arg1), var(--s-arg2));
+	}
+	@function --cs6(--color <color>) {
+		--s-arg1: oklch(from var(--color) calc(l - 0.3) c h);
+		--s-arg2: oklch(from var(--color) calc(l - 0.2) c h);
+		result: --s4(var(--s-arg1), var(--s-arg2));
+	}
+
+	/* These are copied from the previous desugaring */
+	@function --s1(--left-color <color>,
+	               --right-color <color>: var(--left-color)) {
+		result: "🡆";
+	}
+	@function --s2(--left-color <color>,
+	               --right-color <color>: var(--left-color)) {
+		result: var(--left-color);
+	}
+	@function --s3(--left-color <color>,
+	               --right-color <color>: var(--left-color)) {
+		result: "🡄";
+	}
+	@function --s4(--left-color <color>,
+	               --right-color <color>: var(--left-color)) {
+		result: var(--right-color);
+	}
+	</xmp>
+
+	Note that all the custom property and function names
+	are given short, somewhat meaningful names here, for readability,
+	but actually are [=hygienically renamed=]
+	and guaranteed to be unreferencable by author code.
+	Only the user agent ever sees or can use them,
+	to do this desugaring.
+
+	<details>
+		<summary>Desugaring outside-in</summary>
+
+		Equivalently, the mixins can be desugared outside-in,
+		for the same result:
+
+		<xmp highlight=css>
+		/* Initial Code, same as main example */
+		div {
+			@apply --colorized-squish(tomato);
+		}
+
+		/* "wraps" an element in colored arrows */
+		@mixin --squish(--left-color <color>,
+		                --right-color <color>: var(--left-color)) {
+			@result {
+				&::before {
+					content: "🡆";
+					background-color: var(--left-color);
+				}
+				&::after {
+					content: "🡄";
+					background-color: var(--right-color);
+				}
+			}
+		}
+
+		/* colors the element, and auto-generates a border color
+		   and the "squish" colors from it */
+		@mixin --colorized-squish(--color <color>) {
+			@result {
+				background-color: var(--color);
+				border: 2px solid oklch(from var(--color) calc(l - 0.1) c h);
+				@apply --squish(oklch(from var(--color) calc(l - 0.3) c h),
+				                oklch(from var(--color) calc(l - 0.2) c h));
+			}
+		}
 
 
+		/* First desugar, unfolding --colorized-squish()*/
+
+		div {
+			/* Pull out the --colorized-squish() argument */
+			--cs-arg1: tomato;
+			/* Swap the @apply with the --colorized-squish() @result,
+			   with values wrapped in anonymous functions. */
+			background-color: --cs1(var(--cs-arg1));
+			border: --cs2(var(--cs-arg1));
+			/* The equivalent transform here is wrapping the
+			   @apply args in anonymous functions. */
+			@apply --squish(--cs3(--cs-arg1),
+				            --cs4(--cs-arg1));
+		}
+		@function --cs1(--color <color>) {
+			result: var(--color);
+		}
+		@function --cs2(--color <color>) {
+			result: 2px solid oklch(from var(--color) calc(l - 0.1) c h);
+		}
+		@function --cs3(--color <color>) {
+			result: oklch(from var(--color) calc(l - 0.3) c h);
+		}
+		@function --cs4(--color <color>) {
+			result: oklch(from var(--color) calc(l - 0.2) c h);
+		}
+		@mixin --squish(--left-color <color>,
+		                --right-color <color>: var(--left-color)) {
+			@result {
+				&::before {
+					content: "🡆";
+					background-color: var(--left-color);
+				}
+				&::after {
+					content: "🡄";
+					background-color: var(--right-color);
+				}
+			}
+		}
+
+
+		/* Second desugar, unfolding --squish() */
+		div {
+			--cs-arg1: tomato;
+			background-color: --cs1(var(--cs-arg1));
+			border: --cs1(var(--cs-arg1));
+			/* Pull out the --squish() args now. */
+			--s-arg1: --cs3(--cs-arg1);
+			--s-arg2: --cs4(--cs-arg1);
+			/* And swap the @apply with the --squish() @result,
+			   with values wrapped in anonymous functions. */
+			&::before {
+				content: --s1(var(--s-arg1), var(--s-arg2));
+				background-color: --s2(var(--s-arg1), var(--s-arg2));
+			}
+			&::after {
+				content: --s3(var(--s-arg1), var(--s-arg2));
+				background-color: --s4(var(--s-arg1), var(--s-arg2));
+			}
+		}
+		@function --cs1(--color <color>) {
+			result: var(--color);
+		}
+		@function --cs2(--color <color>) {
+			result: 2px solid oklch(from var(--color) calc(l - 0.1) c h);
+		}
+		@function --cs3(--color <color>) {
+			result: oklch(from var(--color) calc(l - 0.3) c h);
+		}
+		@function --cs4(--color <color>) {
+			result: oklch(from var(--color) calc(l - 0.2) c h);
+		}
+		@function --s1(--left-color <color>,
+		               --right-color <color>: var(--left-color)) {
+			result: "🡆";
+		}
+		@function --s2(--left-color <color>,
+		               --right-color <color>: var(--left-color)) {
+			result: var(--left-color);
+		}
+		@function --s3(--left-color <color>,
+		               --right-color <color>: var(--left-color)) {
+			result: "🡄";
+		}
+		@function --s4(--left-color <color>,
+		               --right-color <color>: var(--left-color)) {
+			result: var(--right-color);
+		}
+		</xmp>
+
+		The desugaring is slightly different in details,
+		like the --s-arg1/2 custom properties are stored on ''div''
+		rather than inside of the functions,
+		but because they're unobservable and [=hygienically renamed=],
+		the behavior is identical.
+	</details>
+</div>
 
 
 
