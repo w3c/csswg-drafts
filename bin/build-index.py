@@ -123,6 +123,7 @@ def create_symlink(shortname, spec_folder):
 
 
 CURRENT_WORK_EXCEPTIONS = {
+    "compositing": 2,
     "css-conditional": 5,
     "css-easing": 2,
     "css-grid": 2,
