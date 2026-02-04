@@ -249,7 +249,7 @@ all_specs.sort(key=lambda s: s["ts"], reverse=True)
 REPO = "https://github.com/w3c/csswg-drafts"
 spec_items = []
 for spec in all_specs:
-    t = escape_html(spec["title"])
+    t = escape_html(spec["title"]).replace("Level ", "Level\u00a0")
     d = spec["dir"]
     sn = spec["shortname"]
     ts = spec["ts"]
@@ -272,13 +272,16 @@ for spec in all_specs:
     spec_items.append(
         f'    <div class="spec" data-ts="{ts}" data-shortname="{escape_html(sn)}"'
         f' data-dir="{escape_html(d)}" data-level="{lv}" data-group-size="{gs}">\n'
-        f'      <div class="spec-main">\n'
+        f'      <div class="spec-header">\n'
         f'        <span class="activity-dot" data-ts="{ts}"></span>\n'
         f'        <a class="spec-title" href="./{d}/">{t}</a>{cw}\n'
         f'        <code class="spec-shortname">{escape_html(d)}</code>\n'
         f'        <time class="spec-date" datetime="{iso_date}" data-ts="{ts}">{date_str}</time>\n'
+        f'        <span class="chevron" aria-hidden="true">›</span>\n'
         f'      </div>\n'
-        f'      <div class="spec-links">{links_html}</div>\n'
+        f'      <div class="spec-details">\n'
+        f'        <div class="spec-links">{links_html}</div>\n'
+        f'      </div>\n'
         f'    </div>'
     )
 
@@ -289,148 +292,175 @@ HTML_START = """\
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CSS Working Group Editor Drafts</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 1.5em 1em;
-      color: #1f2328;
-      background: #fff;
+      max-width: 960px; margin: 0 auto; padding: 1.5em 1em;
+      color: #1f2328; background: #fff; line-height: 1.5;
     }
-    h1 {
-      font-size: 1.5em;
-      font-weight: 600;
-      margin: 0 0 1em;
-    }
+    h1 { font-size: 1.5em; font-weight: 600; margin: 0 0 0.75em; }
+    a { color: #0366d6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
     .search-bar {
-      position: sticky;
-      top: 0;
-      background: #fff;
-      padding: 0.5em 0 0.75em;
-      z-index: 10;
+      position: sticky; top: 0; background: #fff;
+      padding: 0.5em 0 0.75em; z-index: 10;
     }
     .search-bar input {
-      width: 100%;
-      padding: 0.6em 1em;
-      font-size: 1em;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      outline: none;
-      background: #f6f8fa;
+      width: 100%; padding: 0.6em 1em; font-size: 1em;
+      border: 1px solid #d1d5db; border-radius: 6px;
+      outline: none; background: #f6f8fa; color: inherit;
     }
     .search-bar input:focus {
-      background: #fff;
-      border-color: #0366d6;
-      box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.15);
+      background: #fff; border-color: #0366d6;
+      box-shadow: 0 0 0 3px rgba(3,102,214,0.15);
     }
+
     .controls {
-      display: flex;
-      gap: 0.5em;
-      align-items: center;
-      margin-bottom: 0.75em;
-      font-size: 0.85em;
-      color: #666;
+      display: flex; gap: 0.5em; align-items: center;
+      margin-bottom: 0.75em; font-size: 0.85em; color: #666;
     }
     .controls button {
-      background: none;
-      border: 1px solid #d1d5db;
-      padding: 0.25em 0.75em;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: inherit;
-      color: #444;
+      background: none; border: 1px solid #d1d5db;
+      padding: 0.25em 0.75em; border-radius: 4px;
+      cursor: pointer; font-size: inherit; color: #444;
     }
     .controls button:hover { background: #f6f8fa; }
-    .controls button.active {
-      background: #0366d6;
-      color: #fff;
-      border-color: #0366d6;
-    }
+    .controls button:focus-visible { outline: 2px solid #0366d6; outline-offset: 1px; }
+    .controls button.active { background: #0366d6; color: #fff; border-color: #0366d6; }
     .spec-count { margin-left: auto; }
+
     #spec-list { margin-top: 0.25em; }
-    .spec {
-      padding: 0.6em 0;
-      border-bottom: 1px solid #eee;
-    }
+    .spec { padding: 0.6em 0; border-bottom: 1px solid #eee; }
     .spec:last-child { border-bottom: none; }
     .spec.hidden { display: none; }
-    .spec-main {
-      display: flex;
-      align-items: baseline;
-      gap: 0.5em;
-      flex-wrap: wrap;
+    .spec-header {
+      display: flex; align-items: baseline; gap: 0.5em; flex-wrap: wrap;
     }
     .activity-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      position: relative;
-      top: -1px;
+      display: inline-block; width: 8px; height: 8px;
+      border-radius: 50%; flex-shrink: 0; position: relative; top: -1px;
     }
     .activity-dot.recent { background: #1a7f37; }
     .activity-dot.moderate { background: #bf8700; }
     .activity-dot.stale { background: #ccc; }
-    .spec-title {
-      color: #0366d6;
-      text-decoration: none;
-      font-weight: 500;
-    }
+    .spec-title { color: #0366d6; text-decoration: none; font-weight: 500; }
     .spec-title:hover { text-decoration: underline; }
     .badge {
-      font-size: 0.75em;
-      padding: 0.15em 0.5em;
-      border-radius: 3px;
-      font-weight: 500;
-      white-space: nowrap;
+      font-size: 0.75em; padding: 0.15em 0.5em; border-radius: 3px;
+      font-weight: 500; white-space: nowrap;
     }
-    .current-work {
-      background: #dafbe1;
-      color: #1a7f37;
-    }
+    .current-work { background: #dafbe1; color: #1a7f37; }
     .spec-shortname {
-      font-size: 0.8em;
-      color: #656d76;
-      background: #f6f8fa;
-      padding: 0.1em 0.4em;
-      border-radius: 3px;
+      font-size: 0.8em; color: #656d76; background: #f6f8fa;
+      padding: 0.1em 0.4em; border-radius: 3px;
     }
     .spec-date {
-      margin-left: auto;
-      font-size: 0.85em;
-      color: #656d76;
-      white-space: nowrap;
+      margin-left: auto; font-size: 0.85em; color: #656d76; white-space: nowrap;
     }
-    .spec-links {
-      margin-top: 0.2em;
-      padding-left: 1.5em;
-      font-size: 0.8em;
-    }
-    .spec-links a {
-      color: #656d76;
-      text-decoration: none;
-    }
+    .chevron { display: none; }
+    .spec-links { margin-top: 0.2em; padding-left: 1.5em; font-size: 0.8em; }
+    .spec-links a { color: #656d76; text-decoration: none; }
     .spec-links a:hover { color: #0366d6; text-decoration: underline; }
     .sep { color: #ccc; margin: 0 0.15em; }
-    a { color: #0366d6; text-decoration: none; }
-    a:hover { text-decoration: underline; }
     .group-header {
-      font-weight: 600;
-      font-size: 0.9em;
-      padding: 1em 0 0.3em;
-      color: #1f2328;
-      border-bottom: 1px solid #d1d5db;
+      font-weight: 600; font-size: 0.9em; padding: 1em 0 0.3em;
+      color: #1f2328; border-bottom: 1px solid #d1d5db;
     }
     .grouped-spec { padding-left: 1.5em; }
-    .no-results {
-      padding: 2em;
-      text-align: center;
-      color: #666;
-      display: none;
+    .no-results { padding: 2em; text-align: center; color: #666; display: none; }
+
+    /* ---- Mobile ---- */
+    @media (max-width: 640px) {
+      body { padding: 1em 0.75em; }
+      h1 { font-size: 1.25em; }
+      .search-bar input { font-size: 16px; }
+
+      .spec {
+        padding: 0.75em 0;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .spec-header {
+        display: grid;
+        grid-template-columns: auto 1fr auto auto;
+        gap: 0.15em 0.4em;
+        align-items: baseline;
+        cursor: pointer;
+      }
+      .activity-dot { grid-row: 1; grid-column: 1; }
+      .spec-title { grid-row: 1; grid-column: 2; }
+      .spec-date { grid-row: 1; grid-column: 3; margin-left: 0; }
+      .chevron {
+        grid-row: 1; grid-column: 4;
+        display: inline-block; color: #8b949e; font-size: 0.75em;
+        transition: transform 0.2s ease; user-select: none;
+      }
+      .spec.expanded .chevron { transform: rotate(90deg); }
+      .badge { grid-row: 2; grid-column: 2 / -1; justify-self: start; }
+      .spec-shortname { display: none; }
+
+      .spec-details { display: none; }
+      .spec.expanded .spec-details { display: block; }
+
+      .spec-links {
+        display: flex; flex-wrap: wrap; gap: 0.4em;
+        padding: 0.4em 0 0.1em 1.25em; margin-top: 0;
+      }
+      .spec-links .sep { display: none; }
+      .spec-links a {
+        display: inline-flex; align-items: center;
+        background: #f6f8fa; color: #444;
+        padding: 0.35em 0.7em; border-radius: 999px;
+        font-size: 0.85em; min-height: 28px;
+      }
+      .spec-links a:hover { text-decoration: none; background: #e8ecf0; }
+
+      .controls button { padding: 0.4em 0.85em; }
+      .grouped-spec { padding-left: 0.75em; }
+    }
+
+    /* ---- Dark mode ---- */
+    @media (prefers-color-scheme: dark) {
+      body { background: #0d1117; color: #e6edf3; }
+      .search-bar { background: #0d1117; }
+      .search-bar input {
+        background: #161b22; border-color: #30363d; color: #e6edf3;
+      }
+      .search-bar input::placeholder { color: #484f58; }
+      .search-bar input:focus {
+        background: #0d1117; border-color: #58a6ff;
+        box-shadow: 0 0 0 3px rgba(88,166,255,0.15);
+      }
+      .spec { border-bottom-color: #21262d; }
+      .spec-title { color: #58a6ff; }
+      .spec-shortname { background: #161b22; color: #8b949e; }
+      .spec-date { color: #8b949e; }
+      .spec-links a { color: #8b949e; }
+      .spec-links a:hover { color: #58a6ff; }
+      .sep { color: #484f58; }
+      .controls { color: #8b949e; }
+      .controls button { color: #8b949e; border-color: #30363d; }
+      .controls button:hover { background: #161b22; }
+      .controls button.active {
+        background: #1f6feb; color: #fff; border-color: #1f6feb;
+      }
+      .current-work { background: #0d2818; color: #3fb950; }
+      .activity-dot.recent { background: #3fb950; }
+      .activity-dot.moderate { background: #d29922; }
+      .activity-dot.stale { background: #484f58; }
+      .group-header { color: #e6edf3; border-bottom-color: #30363d; }
+      .no-results { color: #8b949e; }
+      .chevron { color: #484f58; }
+      a { color: #58a6ff; }
+    }
+
+    @media (max-width: 640px) and (prefers-color-scheme: dark) {
+      .spec-links a { background: #21262d; color: #8b949e; }
+      .spec-links a:hover { background: #30363d; color: #58a6ff; }
     }
   </style>
 </head>
@@ -460,8 +490,8 @@ HTML_END = """\
     var countEl = document.getElementById('spec-count');
     var noResults = document.getElementById('no-results');
     var totalCount = specs.length;
+    var mobileQuery = window.matchMedia('(max-width: 640px)');
 
-    // Relative dates and activity dots
     var now = Date.now() / 1000;
     var DAY = 86400;
     specs.forEach(function(el) {
@@ -471,9 +501,16 @@ HTML_END = """\
       var dot = el.querySelector('.activity-dot');
       var timeEl = el.querySelector('.spec-date');
 
-      if (age < 30 * DAY) dot.className = 'activity-dot recent';
-      else if (age < 180 * DAY) dot.className = 'activity-dot moderate';
-      else dot.className = 'activity-dot stale';
+      if (age < 30 * DAY) {
+        dot.className = 'activity-dot recent';
+        dot.title = 'Updated recently';
+      } else if (age < 180 * DAY) {
+        dot.className = 'activity-dot moderate';
+        dot.title = 'Updated in the last 6 months';
+      } else {
+        dot.className = 'activity-dot stale';
+        dot.title = 'Not updated in 6+ months';
+      }
 
       var rel;
       if (age < DAY) rel = 'today';
@@ -494,13 +531,15 @@ HTML_END = """\
     });
 
     function updateCount() {
-      var visible = specs.filter(function(s) { return !s.classList.contains('hidden'); }).length;
-      countEl.textContent = visible === totalCount ? totalCount + ' specs' : visible + ' of ' + totalCount;
+      var visible = specs.filter(function(s) {
+        return !s.classList.contains('hidden');
+      }).length;
+      countEl.textContent = visible === totalCount
+        ? totalCount + ' specs' : visible + ' of ' + totalCount;
       noResults.style.display = visible === 0 ? 'block' : 'none';
     }
     updateCount();
 
-    // Search
     searchInput.addEventListener('input', function() {
       var q = searchInput.value.toLowerCase();
       specs.forEach(function(el) {
@@ -516,13 +555,15 @@ HTML_END = """\
         });
         h.style.display = any ? '' : 'none';
       });
+      specs.forEach(function(s) { s.classList.remove('expanded'); });
       updateCount();
     });
 
-    // Sort: Recent
     function sortRecent() {
       specList.querySelectorAll('.group-header').forEach(function(h) { h.remove(); });
-      specs.sort(function(a, b) { return parseInt(b.dataset.ts) - parseInt(a.dataset.ts); });
+      specs.sort(function(a, b) {
+        return parseInt(b.dataset.ts) - parseInt(a.dataset.ts);
+      });
       specs.forEach(function(el) {
         el.classList.remove('grouped-spec');
         specList.appendChild(el);
@@ -531,7 +572,6 @@ HTML_END = """\
       btnGrouped.classList.remove('active');
     }
 
-    // Sort: Grouped
     function sortGrouped() {
       specList.querySelectorAll('.group-header').forEach(function(h) { h.remove(); });
       specs.sort(function(a, b) {
@@ -561,6 +601,23 @@ HTML_END = """\
 
     btnRecent.addEventListener('click', sortRecent);
     btnGrouped.addEventListener('click', sortGrouped);
+
+    // Mobile: tap spec header to expand/collapse (accordion)
+    specs.forEach(function(el) {
+      var header = el.querySelector('.spec-header');
+      header.addEventListener('click', function(e) {
+        if (e.target.closest('a')) return;
+        if (!mobileQuery.matches) return;
+        var wasExpanded = el.classList.contains('expanded');
+        specs.forEach(function(s) { s.classList.remove('expanded'); });
+        if (!wasExpanded) el.classList.add('expanded');
+      });
+    });
+
+    // Auto-expand first spec on mobile to demonstrate the pattern
+    if (mobileQuery.matches && specs.length > 0) {
+      specs[0].classList.add('expanded');
+    }
   })();
   </script>
 </body>
