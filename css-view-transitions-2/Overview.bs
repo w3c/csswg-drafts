@@ -131,7 +131,7 @@ spec:css2; type:dfn; text:viewport
 			and more specifically based on the active view transition being of a certain type.
 		* [[#shared-style-with-vt-classes|Sharing styles between view transition pseudo-elements]], a way to declare a style once,
 			and use it for multiple view transition pseudo-elements. This includes the 'view-transition-class' property, and [[#pseudo-element-class-additions|additions to named pseudo-elements]]
-		* [[#nested-vt|Nested view transition groups]], a way to construct deeper hierarchies of view transition pseudo-elements,
+		* [[#view-transition-group-prop|Nested view transition groups]], a way to construct deeper hierarchies of view transition pseudo-elements,
 			which in turn allows relative transforms and clipping of participating elements.
 		* [[#scoped-vt|Scoped view transitions]], a way to perform view transitions within the scope of a DOM subtree.
 
@@ -639,7 +639,7 @@ Note: An <code>element.startViewTransition()</code> call does not update
 			[=Skip the view transition|skip=] |viewTransition| with an "{{InvalidStateError}}" {{DOMException}}.
 
 		1. If [=this=] is not the [=/root element|document root element=],
-			force [=this=] to have [=layout containment=] for the duration of the transition.
+			force [=this=] to have both [=layout containment=] and [=view transition scoping=] for the duration of the transition.
 
 		1. If |document|'s [=active view transition=] is not null and its [=outbound post-capture steps=] is not null,
 			then:
@@ -935,33 +935,216 @@ the active view transition of an element is exposed to script via a property on 
 	- Are [[css-transforms-2#grouping-property-values|flattened in 3D transforms]].
 	- Form a [=backdrop root=].
 
-## Isolating Scoped View Transition Names: the ''contain/view-transition'' containment value ## {#contain-view-transition}
+## Isolating Scoped View Transition Names: the 'view-transition-scope' property ## {#view-transition-scope-prop}
 
-	ISSUE: This property is subject to change, see https://github.com/w3c/csswg-drafts/issues/13123.
-		The behavior described here is likely to remain, but the property is likely to change.
-
-	<pre class="propdef partial">
-	Name: contain
-	New Values: view-transition
+	<pre class="propdef">
+	Name: view-transition-scope
+	Value: none | auto
+	Initial: none
+	Inherited: no
+	Percentages: n/a
+	Computed Value: as specified
+	Animation type: discrete
 	</pre>
 
-	The ''contain: view-transition'' value establishes <dfn export>view transition name containment</dfn> on an element.
-	This causes any [=document-scoped view transition names=] to only be visible
-	for [=view transitions=] scoped to this element or its descendants.
+	Note: Although 'view-transition-scope' is [=discrete|discretely animatable=],
+	it only has an effect during 'view-transition-name' discovery
 
-	Note: Most elements running a [=scoped view transition=]
-	should use [=view transition name containment=],
-	to ensure that their [=document-scoped view transition names=]
-	don't accidentally interfere with other [=scoped view transitions=].
-	Otherwise, two similar elements running the same [=scoped view transition=],
-	expecting the same-named descendants,
-	will see each other's names and abort
-	(since [=view transitions=] don't allow multiple elements to have the same 'view-transition-name').
+	<dl dfn=type=value dfn-for=view-transition-scope>
+		: <dfn>none</dfn>
+		:: This property has no effect on 'view-transition-name' discoverability.
 
+		: <dfn>auto</dfn>
+		:: Discoverability of 'view-transition-name' is limited to the subtree of this element.
+			This is done by applying <dfn>view transition scoping</dfn>.
+			Such scoping means that any transitions that originate outside of the element
+			will not discover a non-none 'view-transition-name' either on this element
+			or in its flat-tree descedants.
 
-# Nested View Transition Groups # {#nested-vt}
+			<div class=example>
+				```html
+				<style>
+				.scope { view-transition-scope: auto; }
+				#a { view-transition-name: a; }
+				#b { view-transition-name: b; }
+				#c { view-transition-name: c; }
+				#d { view-transition-name: d; }
+				</style>
 
-	ISSUE: This needs to be explained / specified.
+				<div id=a>
+					<div id=b class=scope>
+						<div id=c></div>
+					</div>
+					<div id=d></div>
+				</div>
+
+				<script>
+				...
+				a.startViewTransition(); // Will discover "a" and "d" view-transition-names
+				b.startViewTransition(); // Will discover "b" and "c" view-transition-names
+				...
+				</script>
+				```
+			</div>
+
+			Note: Starting a transition implies that [=this=] element has ''view-transition-scope: auto''
+			for the duration of the transition.
+
+			<div class=example>
+				```html
+				<style>
+				#a { view-transition-name: a; }
+				#b { view-transition-name: b; }
+				#c { view-transition-name: c; }
+				#d { view-transition-name: d; }
+				</style>
+
+				<div id=a>
+					<div id=b>
+						<div id=c></div>
+					</div>
+					<div id=d></div>
+				</div>
+
+				<script>
+				...
+				b.startViewTransition(); // Will discover "b" and "d" view-transition-names
+
+				// While b's transition is active and running, the following will only discover
+				// "a" and "d" view transition names, since b has a forced view-transition-scope: auto.
+				b.startViewTransition()
+				...
+				</script>
+				```
+			</div>
+	</dl>
+
+	Note: Most elements running or planning to run a [=scoped view transition=]
+	should use ''view-transition-scope: auto'', to ensure that their
+	[=document-scoped view transition names=] don't accidentally interfere with
+	other [=scoped view transitions=] in the ancestor chain.
+
+## Nested View Transition Groups: The 'view-transition-group' property ## {#view-transition-group-prop}
+
+	<pre class=propdef>
+	Name: view-transition-group
+	Value: normal | contain | nearest | <<custom-ident>>
+	Initial: normal
+	Inherited: no
+	Percentages: n/a
+	Computed Value: as specified
+	Animation type: discrete
+	</pre>
+
+	The 'view-transition-group' property can be used in conjuction with 'view-transition-name' to generate a hierarchy of [=named view transition pseudo-element=].
+	This property has no effect if 'view-transition-name' is ''view-transition-name/none''.
+
+	<dl dfn-type=value dfn-for=view-transition-group>
+		: <dfn>normal</dfn>
+		:: The ''view-transition-group()'' [=pseudo-element=]
+			generated by this element
+			is a child of the ''view-transition-group-children()'' [=pseudo-element=]
+			generated by this element's nearest ''view-transition-group()'' generating
+			[=flat tree=] ancestor element
+			with a non-''view-transition-group/normal'' 'view-transition-group' value,
+			if any.
+			If no such element is present, the ''view-transition-group()'' [=pseudo-element=]
+			generated by this element
+			is a direct child of the ''::view-transition'' [=pseudo-element=]
+			associated with this view transition.
+		: <dfn>contain</dfn>
+		:: The ''view-transition-group-children()'' [=pseudo-element=]
+			generated by this element acts as a container for its descendants.
+			See ''view-transition-group/normal'' for the effect it has on other elements.
+		: <dfn>nearest</dfn>
+		:: The ''view-transition-group()'' [=pseudo-element=]
+			generated by this element
+			is a child of the ''view-transition-group-children()'' [=pseudo-element=]
+			generated by this element's nearest ''view-transition-group()'' generating
+			[=flat tree=] ancestor element,
+			if any.
+			If no such element is present, the ''view-transition-group()'' [=pseudo-element=]
+			generated by this element
+			is a direct child of the ''::view-transition'' [=pseudo-element=]
+			associated with this view transition.
+		: <dfn><<custom-ident>></dfn>
+		:: The ''view-transition-group()'' [=pseudo-element=]
+			generated by this element
+			is a child of the ''view-transition-group()'' [=pseudo-element=]
+			generated by this element's [=flat tree=] ancestor element
+			with a ''view-transition-name'' value that matches '<<custom-ident>>', if any.
+			If no such element is present, the ''view-transition-group()'' [=pseudo-element=]
+			generated by this element
+			is a direct child of the ''::view-transition'' [=pseudo-element=]
+			associated with this view transition.
+	</dl>
+
+	The ''view-transition-group-children()'' [=pseudo-element=] is generated
+	if and only if there is a ''view-transition-group()'' [=pseudo-element=] attached to it.
+
+	The [=used value=] for 'view-transition-group' resolves to a 'view-transition-name' in its ancestor chain, or to ''view-transition-name/none''. When generating the [=named view transition pseudo-element=], the ''::view-transition-group()'' with that name
+	would create a ''::view-transition-group-children()'' pseudo-element, which would be the parent of the ''::view-transition-group()'' generated for this element's 'view-transition-name'.
+
+### Nested View Transition Group Explanation ### {#nested-overview}
+
+*This section is non-normative.*
+
+By default, setting `view-transition-name` on multiple elements generates a flat [=view transition tree=], where all the ''::view-transition-group()'' pseudo-elements are children of the ''::view-transition'' pseudo-element.
+This is sufficient for many simple use-cases, but there are some styling use-cases that cannot be achieved with a flat tree.
+The most prominent use-case is clipping: with a flat tree, all pseudo-elements are clipped to the [=snapshot containing block=], so clipping elements in the normal tree would lose their clipping during the view-transition, resulting in a broken visual effect.
+The effects that have can have an unexpected visual effect in a flat tree:
+* Clipping ('overflow', 'clip-path', 'border-radius'): clipping affects the children of the element.
+* 'opacity', 'mask-image' and 'filter': These effects that are designed to work on a fully rasterized image of a tree, rather than on each item individually.
+* 3D transforms ('transform-style', 'transform', 'perspective'): to display the full range of 3D transform animations, some hierarchy needs to be kept.
+
+To enable these use cases, this specification introduces the concept of nesting view-transition pseudo-elements. By using the 'view-transition-group' CSS property,
+the author can assign a "parent group" for a generated ''::view-transition-group()'' pseudo-element, creating a hierarchy in the [=view transition tree=].
+
+### Examples ### {#nested-vt-example}
+
+<div class="example">
+This example creates a transition where the [=view transition tree=] is nested instead of flat:
+
+```html
+<section class="container">
+	<article>Content</article>
+</section>
+```
+
+```css
+.container {
+	view-transition-name: container;
+}
+
+.container,
+::view-transition-group-children(container) {
+	clip-path: circle();
+}
+
+article {
+	view-transition-name: article;
+	view-transition-group: container;
+}
+```
+
+The pseudo-element tree for this would be as follows:
+```
+	::view-transition
+	├─ ::view-transition-group(container)
+	│  ├─ ::view-transition-image-pair(container)
+	│  │  ├─ ::view-transition-old(container)
+	│  │  └─ ::view-transition-new(container)
+	│  └─ ::view-transition-group-children(container)
+	│     ├─ ::view-transition-group(article)
+	│     │  ├─ ::view-transition-old(article)
+	│     │  └─ ::view-transition-new(article)
+	│     └─ ...other nested groups...
+	└─ …other groups…
+```
+
+By applying the ''clip-path'' to both the containing element and its generated ''::view-transition-group-children()'' pseudo-element, we preserve the clip during the transition,
+and by applying ''view-transition-group'' to the internal element referencing the container, we make the tree "nested" in a way that would apply this clipping.
+</div>
 
 # Scoped View Transitions # {#scoped-vt}
 
@@ -1056,7 +1239,26 @@ the active view transition of an element is exposed to script via a property on 
 		This enables full customization of the transition.
 	</div>
 
-	ISSUE: We need an example of view transition nested groups as well.
+	<div class=note>
+		When using ''view-transition-group'' property,
+		an additional ''::view-transition-group-children()'' pseudo is created
+		that allows for clipping of descendants and specifying relative transforms.
+
+		```
+		::view-transition
+		├─ ::view-transition-group(name)
+		│  ├─ ::view-transition-image-pair(name)
+		│  │  ├─ ::view-transition-old(name)
+		│  │  └─ ::view-transition-new(name)
+		│  └─ ::view-transition-group-children(name)
+		│			└─ …groups nested under 'name'…
+		└─ …other groups…
+		```
+
+		''view-transition-group-children()'' element can now be customized to add, for example, clipping with
+		'overflow: clip'. This would clip any ''view-transition-group()'' pseudo-elements along with their
+		descendants.
+	</div>
 
 ### Named View Transition Pseudo-elements ### {#named-view-transition-pseudo}
 
@@ -1182,7 +1384,20 @@ the active view transition of an element is exposed to script via a property on 
 	Note: The content and [=natural dimensions=] of the image are captured in [=capture the image=],
 	then set and updated in [=setup transition pseudo-elements=] and [=update pseudo-element styles=].
 
-ISSUE: `::view-transition-group-children()` needs to be specified here.
+### View Transition Group Children: the ''::view-transition-group-children()'' pseudo-element ### {#::view-transition-group-children}
+
+	The <dfn>::view-transition-group-children()</dfn> [=pseudo-element=]
+	is created when mandated by the ''view-transition-group'' property
+	on either the element itself or on its contained element.
+	It serves as a container for descendant ''view-transition-group()'' pseudo-elements.
+	By default, it is sized to the same size as the corresponding ''view-transition-group()'' pseudo element.
+	By default, it has a transparent border that matches the size and shape of the border on the element that caused this structure to be created.
+
+	Note: The size and border setting on this pseudo element allow the developer
+	to enable clipping of the descedant pseudo elements with a simple ''overflow:
+	clip'' property. The developer needs to take care if the original element has
+	non-overscroll scrollbars, since these scrollbars change the clipping area
+	from the default provided by this element.
 
 # View Transition Layout # {#view-transition-rendering}
 
@@ -1255,13 +1470,36 @@ ISSUE: `::view-transition-group-children()` needs to be specified here.
 	the boxes generated by any element in that {{Document}} with [=captured in a view transition=]
 	and its [=element contents=],
 	except [=ViewTransition/transition root pseudo-element=]'s [=tree/inclusive descendants=],
-	are not painted (as if they had ''visibility: hidden'') and
+	are not painted (as if they had ''opacity: 0'') and
 	do not respond to hit-testing (as if they had ''pointer-events: none'').
 
 	Note: Elements participating in a transition need to skip painting in their DOM location because
 		their image is painted in the corresponding ''::view-transition-new()'' pseudo-element instead.
 		Similarly, hit-testing is skipped because the element's DOM location does not correspond to where its contents are rendered.
 		However, there is no change in how these elements are accessed by assistive technologies or the accessibility tree.
+
+## Scoped View Transition Layout ## {#scoped-view-transition-layout}
+
+For a [=scoped view transition=], the ''::view-transition'' pseudo-element
+is a child of the [=ViewTransition/root element=] in the [=box tree=], but
+with some behaviors that are different from ordinary children:
+
+* The ''::view-transition'' pseudo-element generates a stacking context
+	which paints separately from, and on top of, the painting of the
+	[=ViewTransition/root element=] and its other children.
+
+	Note: A consequence of painting separately is that properties on the root element
+	that affect the way the root element is painted, such as 'opacity', do not apply
+	to the ''::view-transition'' pseudo-element. However, if the root element is captured
+	in a ''::view-transition-group'' for its own transition, such properties
+	will be reflected in the captured image.
+
+* If the [=ViewTransition/root element=] has a [=scrolling box=], the
+	''::view-transition'' pseudo-element is not translated by the scroll position
+	of the [=ViewTransition/root element=].
+
+* If the [=ViewTransition/root element=] clips its [=overflow=], the
+	''::view-transition'' pseudo-element is exempted from that clip.
 
 
 # User Agent Stylesheet # {#ua-styles}
@@ -1274,12 +1512,12 @@ ISSUE: `::view-transition-group-children()` needs to be specified here.
 		view-transition-name: root;
 	}
 
-	:root::view-transition {
-		position: fixed;
+	::view-transition {
+		position: absolute;
 		inset: 0;
 	}
 
-	:root::view-transition-group(*) {
+	::view-transition-group(*) {
 		position: absolute;
 		top: 0;
 		left: 0;
@@ -1288,22 +1526,23 @@ ISSUE: `::view-transition-group-children()` needs to be specified here.
 		animation-fill-mode: both;
 	}
 
-	:root::view-transition-image-pair(*) {
+	::view-transition-image-pair(*) {
 		position: absolute;
 		inset: 0;
 	}
 
-	:root::view-transition-old(*),
-	:root::view-transition-new(*) {
+	::view-transition-old(*),
+	::view-transition-new(*) {
 		position: absolute;
+		display: block;
 		inset-block-start: 0;
 		inline-size: 100%;
 		block-size: auto;
 	}
 
-	:root::view-transition-image-pair(*),
-	:root::view-transition-old(*),
-	:root::view-transition-new(*) {
+	::view-transition-image-pair(*),
+	::view-transition-old(*),
+	::view-transition-new(*) {
 		animation-duration: inherit;
 		animation-fill-mode: inherit;
 		animation-delay: inherit;
@@ -1313,7 +1552,7 @@ ISSUE: `::view-transition-group-children()` needs to be specified here.
 		animation-play-state: inherit;
 	}
 
-	:root::view-transition-group-children(*) {
+	::view-transition-group-children(*) {
 		position: absolute;
 		inset: 0;
 		border-style: solid;
@@ -1335,13 +1574,15 @@ ISSUE: `::view-transition-group-children()` needs to be specified here.
 	}
 	```
 
-	ISSUE: This needs to include scoped view transition styles as well.
-
 	<details class="note">
 		<summary>Explanatory Summary</summary>
 		This UA style sheet does several things:
-		* Lay out ''::view-transition'' to cover the entire [=snapshot containing block=]
+		* Lay out '':root::view-transition'' to cover the entire [=snapshot containing block=]
 			so that each '':view-transition-group()'' child can lay out relative to it.
+			Note: the placement of the [=snapshot containing block=] is similar to
+			`position: fixed`.
+		* For a [=scoped view transition=], lay out ''::view-transition'' to cover the
+			view transition [=ViewTransition/root element=].
 		* Give the [=/root element=] a default [=view transition name=],
 			to allow it to be independently selected.
 		* Reduce layout interference from the ''::view-transition-image-pair()'' pseudo-element
@@ -1998,101 +2239,6 @@ To resolve the [=used value=] of 'view-transition-name' for |element|:
 		Note: When used in a cross-document view transition, generated <css>auto</css> values never match, resulting in separate ''::view-transition-group()'' pseudo-elements, one exiting and one entering.
 
 A 'view-transition-name' generated by <css>auto</css> is a [=tree-scoped name=].
-
-# Nested view-transition groups # {#nested-view-transition-groups}
-
-## Overview ## {#nested-overview}
-
-*This section is non-normative.*
-
-By default, setting `view-transition-name` on multiple elements generates a flat [=view transition tree=], where all the ''::view-transition-group()'' pseudo-elements are children of the ''::view-transition'' pseudo-element.
-This is sufficient for many simple use-cases, but there are some styling use-cases that cannot be achieved with a flat tree.
-The most prominent use-case is clipping: with a flat tree, all pseudo-elements are clipped to the [=snapshot containing block=], so clipping elements in the normal tree would lose their clipping during the view-transition, resulting in a broken visual effect.
-The effects that have can have an unexpected visual effect in a flat tree:
-* Clipping ('overflow', 'clip-path', 'border-radius'): clipping affects the children of the element.
-* 'opacity', 'mask-image' and 'filter': These effects that are designed to work on a fully rasterized image of a tree, rather than on each item individually.
-* 3D transforms ('transform-style', 'transform', 'perspective'): to display the full range of 3D transform animations, some hierarchy needs to be kept.
-
-To enable these use cases, this specification introduces the concept of nesting view-transition pseudo-elements. By using the 'view-transition-group' CSS property,
-the author can assign a "parent group" for a generated ''::view-transition-group()'' pseudo-element, creating a hierarchy in the [=view transition tree=].
-
-## Examples ## {#nested-vt-example}
-
-<div class="example">
-This example creates a transition where the [=view transition tree=] is nested instead of flat:
-
-```html
-<section class="container">
-	<article>Content</article>
-</section>
-```
-
-```css
-.container {
-	view-transition-name: container;
-}
-
-.container,
-::view-transition-group-children(container) {
-	clip-path: circle();
-}
-
-article {
-	view-transition-name: article;
-	view-transition-group: container;
-}
-```
-
-The pseudo-element tree for this would be as follows:
-```
-	::view-transition
-	├─ ::view-transition-group(container)
-	│  ├─ ::view-transition-image-pair(container)
-	│  |  ├─ ::view-transition-old(container)
-	│  |  └─ ::view-transition-new(container)
-	│  └─ ::view-transition-group-children(container)
-	│     ├─ ::view-transition-group(article)
-	│     |  ├─ ::view-transition-old(article)
-	│     |  └─ ::view-transition-new(article)
-	│     └─ ...other nested groups...
-	└─ …other groups…
-```
-
-By applying the ''clip-path'' to both the containing element and its generated ''::view-transition-group-children()'' pseudo-element, we preserve the clip during the transition,
-and by applying ''view-transition-group'' to the internal element referencing the container, we make the tree "nested" in a way that would apply this clipping.
-</div>
-
-## The 'view-transition-group' property ## {#view-transition-group-prop}
-
-	<pre class=propdef>
-	Name: view-transition-group
-	Value: normal | contain | nearest | <<custom-ident>>
-	Initial: normal
-	Inherited: no
-	Percentages: n/a
-	Computed Value: as specified
-	Animation type: discrete
-	</pre>
-
-	The 'view-transition-group' property can be used in conjuction with 'view-transition-name' to generate a hierarchy of [=named view transition pseudo-element=].
-
-	The [=used value=] for 'view-transition-group' resolves to a 'view-transition-name' in its ancestor chain, or to ''view-transition-name/none''. When generating the [=named view transition pseudo-element=], the ''::view-transition-group()'' with that name
-	would create a ''::view-transition-group-children()'' pseudo-element, which would be the parent of the ''::view-transition-group()'' generated for this element's 'view-transition-name'.
-
-### View Transition Tree Root: the ''::view-transition-group-children'' pseudo-element ### {#view-transition-group-children-pseudo}
-
-	The <dfn>::view-transition-group-children()</dfn> [=pseudo-element=]
-	is a [=named view transition pseudo-element=]
-	that represents a matching named [=view transition=] capture.
-	A ''::view-transition-group-children()'' [=pseudo-element=]
-	is generated based on the 'view-transition-group' property,
-	as a [=tree/child=] of the corresponding ''::view-transition-group()'' [=pseudo-element=],
-	and contains one or more ''::view-transition-group()'' elements, corresponding to the nested groups.
-	See the [=used group name=] and related algorithms.
-
-	The ''::view-transition-group-children()'' [=pseudo-element=] is positioned after its sibling ''view-transition-image-pair()''.
-	It is used to control effects like clipping or masking of nested children.
-
 
 # Algorithms # {#algorithms}
 
@@ -2874,19 +3020,10 @@ To resolve the <dfn>used group name</dfn> of an {{Element}} |element|, perform t
 	1. Let |containingGroupName| be |element|'s [=nearest containing group name=] given |transition|.
 	1. Return the first matching statement, switching on |group|:
 
-	<dl dfn-type=value dfn-for=view-transition-group>
-		: <dfn>normal</dfn>
-		: <dfn>contain</dfn>
-		:: |containingGroupName|.
-
+		* ''view-transition-group/normal'', ''view-transition-group/contain'': |containingGroupName|.
 			Note: an element with ''view-transition-group/contain'' becomes the [=nearest containing group name=] for its descendants.
-
-		: <dfn>nearest</dfn>
-		:: The [=document-scoped view transition name=] of the element's nearest [=flat tree=] ancestor which participates in the |transition|.
-
-		: <dfn><<custom-ident>></dfn>
-		:: |group| if the element has a [=flat tree=] [=tree/ancestor=] whose [=document-scoped view transition name=] is |group| and participates in |transition|; Otherwise |containingGroupName|.
-	</dl>
+		* ''view-transition-group/nearest'': The [=document-scoped view transition name=] of the element's nearest [=flat tree=] ancestor which participates in the |transition|.
+		* ''view-transition-group/<custom-ident>'': |group| if the element has a [=flat tree=] [=tree/ancestor=] whose [=document-scoped view transition name=] is |group| and participates in |transition|; Otherwise |containingGroupName|.
 </div>
 
 #### Compute the old 'view-transition-group' #### {#vt-group-capture-old}
@@ -3184,6 +3321,7 @@ To <dfn>adjust nested view transition group transform</dfn> given a |transform| 
 				1. Decrement [=this=]'s [=wait until promise count=].
 
 				Note: If [=this=]'s [=wait until promise count=] is 0, the transition will finish at the next [=rendering opportunity=].
+	</div>
 
 ## [=Handle transition frame=] ## {#handle-transition-frame-algorithm}
 
@@ -3397,6 +3535,9 @@ This appendix is <em>informative</em>.
 Changes from <a href="https://www.w3.org/TR/2024/WD-css-view-transitions-2-20240516/">2024-05-16 Working Draft</a>
 </h3>
 
+* Add description of nested view transition groups, which was partially missing.
+* Update wording to use `opacity: 0` instead of `visibility: hidden`. See <a href="https://github.com/w3c/csswg-drafts/issues/12629">issue 12629</a>.
+* Replace `contain: view-transition` with `view-transition-scope` property (<a href="https://github.com/w3c/csswg-drafts/issues/13123">pending #13123</a>)
 * Reorder sections, editorial changes, added several issues, updated scoped view transition wording.
 * Add waitUntil() (<a href="https://github.com/w3c/csswg-drafts/issues/9901">#9901</a>)
 * First pass at layered capture (<a href="https://github.com/w3c/csswg-drafts/issues/10585">#10585</a>)
