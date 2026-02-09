@@ -20,6 +20,8 @@ WPT Display: open
 <pre class=link-defaults>
 spec:infra; type:dfn; text:list
 spec:infra; type:dfn; for:list; text:append
+spec:css-borders-4; type:property;
+	text:border-width;
 spec:css-cascade-5; type:dfn;
 	text:inherit
 	text:computed value
@@ -230,19 +232,20 @@ then the [=default value=] must [=CSS/parse=] successfully
 according to that [=parameter type=]'s syntax.
 Otherwise, the ''@function'' rule is invalid.
 
-<h4 id=function-preamble>
-The Function Preamble</h4>
+<h4 id=function-prelude>
+The Function Prelude</h4>
 
 The <<function-token>> production
 must start with two dashes (U+002D HYPHEN-MINUS),
 similar to <<dashed-ident>>,
 or else the definition is invalid.
 
-The name of the resulting [=custom function=] is given by the name of the <<function-token>>,
-the optional [=function parameters=]
+The name of the resulting [=custom function=] is given by the name of the <<function-token>>.
+The optional [=function parameters=]
 are given by the <<function-parameter>> values
 (defaulting to an empty set),
-and the optional [=custom function/return type=] is given by the <<css-type>> following the <css>returns</css> keyword
+and the optional [=custom function/return type=]
+is given by the <<css-type>> following the <css>returns</css> keyword
 (defaulting to ''type(*)'').
 
 <div class='example'>
@@ -968,16 +971,16 @@ Otherwise, the ''@mixin'' rule is invalid.
 A ''@mixin'' rule cannot be a [=nested group rule=];
 it is invalid within the body of a [=style rule=].
 
-<h4 id=mixin-preamble>
-The Mixin Preamble</h4>
+<h4 id=mixin-prelude>
+The Mixin Prelude</h4>
 
 The <<function-token>> production
 must start with two dashes (U+002D HYPHEN-MINUS),
 similar to <<dashed-ident>>,
 or else the definition is invalid.
 
-The name of the resulting [=mixin=] is given by the name of the <<function-token>>,
-the optional [=mixin parameters=]
+The name of the resulting [=mixin=] is given by the name of the <<function-token>>.
+The optional [=mixin parameters=]
 are given by the <<function-parameter>> values
 (defaulting to an empty set).
 
@@ -1148,11 +1151,13 @@ to ensure that references to them work correctly across elements and inheritance
 [=Hygienic renaming=] changes the names
 of [=local variables=] and [=mixin parameters=]
 to an unobservable, guaranteed non-clashing name,
-its <dfn>hygienic name</dfn>.
+its <dfn noexport>hygienic name</dfn>.
+(They remember their <dfn noexport>original name</dfn>, however.)
 
-If a ''var()'' references a [=custom property=]
-whose name matches a [=hygienically renamed=] [=local variable=] or [=mixin parameter=],
-it is instead interpreted as referencing the [=hygienic name=].
+If a ''var()'' in the [=mixin body=]
+would reference a [=local variable=] or [=mixin parameter=]
+with its [=original name=],
+the reference is rewritten to use the [=hygienic name=] instead.
 The same applies to [=variable unit references=]
 and ''style()'' references in an ''if()'' test.
 
@@ -1161,13 +1166,22 @@ If future features allow referencing the value of a custom property on an elemen
 they will also be interpreted as referencing the [=hygienic name=]
 when used inside a [=mixin=].
 
-The ''inherit()'' function is an exception to this;
-as it intrinsically reaches "outside" of an element
-(and thus the mixin scope),
-it cannot be referring to a [=local variable=] or [=mixin parameter=]
-and is not reinterpreted.
-However, if the outer context is another [=mixin=],
-[=hygienic renaming=] might still apply in <em>that</em> context.
+[=Hygienic renaming=] extends to nested [=mixins=] and to invoked [=custom functions=],
+if they contain "unbound" variable references
+that would match a [=hygienically renamed=] [=local variable=] or [=mixin parameter=].
+(This preserves the ability of mixins to "override" custom properties
+implicitly used by nested mixins or functions,
+the same way that nested function calls can.)
+
+Otherwise, such "unbound" references are left undisturbed,
+so they'll still match the appropriate [=custom property=] in the element context.
+
+Note: For example, the ''inherit()'' function intrinsically reaches outside of the current context,
+referencing the value one "level" up.
+Even if a [=local variable=] with the same name exists in the current [=mixin=],
+it won't cause the ''inherit()''&apos;s reference to be rewritten.
+(But if it ends up referencing a [=local variable=] higher in the "call stack",
+it'll be rewritten to coordinate with that one.)
 
 <div class=example>
 	For example, given the following styles and mixin:
@@ -1175,7 +1189,7 @@ However, if the outer context is another [=mixin=],
 	<xmp highlight=css>
 	@mixin --triple-border(--size <length>) {
 		@result {
-			&, & > h1, & > h1 > small {
+			&, & > *, & > * > * {
 				border-width: var(--size);
 			}
 		}
@@ -1217,33 +1231,94 @@ However, if the outer context is another [=mixin=],
 	as the author intended.
 </div>
 
+Note: While [=hygienic renaming=] ensures that descendants won't accidentally pick up the wrong variable value,
+and [[#evaluating-mixins]] ensures that element-dependent arguments passed to the mixin
+(like ''@apply --foo(1em);'')
+will resolve against the applying element too,
+using <em>any other</em> element-dependent reference in the [=mixin result=]
+will evaluate as normal for their placement in the styles.
+
+<div class=example>
+	For example, in the following variant of the previous example:
+
+	<xmp highlight=css>
+	@mixin --triple-border() {
+		@result {
+			&, & > *, & > * > * {
+				border-width: .2em;
+			}
+		}
+	}
+	section {
+		font-size: 10px;
+		@apply --triple-border;
+	}
+	section > h1 {
+		font-size: 20px;
+	}
+	section > h1 > small {
+		font-size: 15px;
+	}
+	</xmp>
+
+	The applied mixin will be equivalent to:
+
+	<xmp highlight=css>
+	section {
+		font-size: 10px;
+		border-width: .2em;
+	}
+	section > h1 {
+		font-size: 20px
+		border-width: .2em;
+	}
+	section > h1 > small {
+		font-size: 15px;
+		border-width: .2em;
+	}
+	</xmp>
+
+	Which will give three different 'border-width' values: ''2px'', ''4px'', and ''3px''.
+</div>
+
 <div class=issue>
 
-	Do we need hygienic renaming for other element references, like ''em''?
-	Presumably, if ''@apply --foo(var(--bar))'' is potentially confusing,
-	then ''@apply --foo(1em)'' would be too,
-	if the [=mixin parameter=] ends up being used on a child element in the [=mixin result=].
-	But you can also want ''1em'' inside the [=mixin result=]
-	to apply to the element it's actually set on,
-	not necessarily the parent context receiving the ''@apply''.
-	This might need some additional syntax support,
-	to ensure that all use-cases are adequately addressed.
-	For now, no additional renaming is done;
-	''em''/etc values are resolved "normally",
-	based on the element their styles are actually used on.
+	This is likely often a desirable behavior,
+	but if it's not,
+	we should have a workaround.
+	The following *doesn't* work,
+	due to the mixin body becoming the function body of an anonymous function,
+	which is evaluated on each element
+	and thus inherits that element's ''em'' length.
 
-	While theoretically an author could also want to reference the element's value of a [=custom property=],
-	ignoring a [=local variable=],
-	[=custom functions=] already shadow in this fashion.
-	You can escape <em>one</em> level of the shadowing in functions via ''inherit()'',
-	and that feature is preserved in mixins,
-	but ultimately the functin/mixin stack has control
-	over what custom properties are visible in their bodies.
-	Note that if a custom property name isn't a [=local variable=] or [=mixin parameter=],
-	it won't be [=hygienically renamed=] within this mixin,
-	so an author <em>can</em> refer to an element's own style
-	as long as the mixin isn't invoked inside of another mixin
-	that shadows it intentionally.
+	<xmp highlight=css>
+	@function --as-length(--x <length>) returns <length> { result: var(--x); }
+	@mixin --triple-border() {
+		--em: --as-length(1em);
+		@result {
+			&, & > *, & > * > * {
+				border-width: calc(0.2 * var(--em));
+			}
+		}
+	}
+	</xmp>
+
+	I think the only way that works is to have an extra argument
+	that you don't expect the user to pass,
+	since arguments get lifted onto the applying element
+	and hygienically renamed:
+
+	<xmp highlight=css>
+	@mixin --triple-border(--em <length>: 1em) {
+		@result {
+			&, & > *, & > * > * {
+				border-width: calc(0.2 * var(--em));
+			}
+		}
+	}
+	</xmp>
+
+	But this is clumsy. :(
 </div>
 
 
