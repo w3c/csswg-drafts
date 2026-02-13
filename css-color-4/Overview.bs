@@ -6072,9 +6072,7 @@ Sample Pseudocode for the Ray Trace Gamut Mapping</h4>
 
 	<ol>
 		<!-- check if we need gamut mapping at all -->
-		<li>if |origin| is in gamut for |destination|, 
-			convert |origin| to |destination| and return it as the gamut mapped color
-		</li>
+		<li>if |destination| has no gamut limits (XYZ-D65, XYZ-D50, Lab, LCH, Oklab, OkLCh) convert |origin| to |destination| and return it as the gamut mapped color
 		<!-- we do, so convert to OkLCh -->
 		<li>let |origin_OkLCh| be |origin| converted from |origin color space|
 			to the OkLCh color space</li>
@@ -6091,45 +6089,51 @@ Sample Pseudocode for the Ray Trace Gamut Mapping</h4>
 		</li>
 		<li>let |origin_rgb| be |origin_OkLCh|
 			converted to the <em>linear-light</em> form of |destination|</li>
-		<li>let |low| be 1E-6 <a href="#raytrace-footnote-1"><sup>1</sup></a></li>
-		<li>let |high| be 1.0 - |low| <a href="#raytrace-footnote-2"><sup>2</sup></a></li>
-		<li>let |last| be |origin_rgb|</li>
-		<li>for (i=0; i&lt;4; i++)
+		<!-- check if we need gamut mapping at all -->
+		<li>if |origin_rgb| is not in gamut
 			<ul>
-				<li>if (i > 0)
+				<!-- we do, so perform chroma reduction -->
+				<li>let |low| be 0.0 + 1E-6 <a href="#raytrace-footnote-1"><sup>1</sup></a></li>
+				<li>let |high| be 1.0 - 1E-6 <a href="#raytrace-footnote-2"><sup>2</sup></a></li>
+				<li>let |last| be |origin_rgb|</li>
+				<li>for (i=0; i&lt;4; i++)
 					<ul>
-						<li>let |current_OkLCh| be |origin_rgb| converted to OkLCh</li>
-						<li>let the lightness of |current_OkLCh| be |l_origin|</li>
-						<li>let the hue of |current_OkLCh| be |h_origin|
-							<a href="#raytrace-footnote-3"><sup>3</sup></a></li>
-						<li>let |origin_rgb| be |current_OkLCh|
-							converted to the <em>linear-light</em> form of |destination|
+						<li>if (i > 0)
+							<ul>
+								<li>let |current_OkLCh| be |origin_rgb| converted to OkLCh</li>
+								<li>let the lightness of |current_OkLCh| be |l_origin|</li>
+								<li>let the hue of |current_OkLCh| be |h_origin|
+									<a href="#raytrace-footnote-3"><sup>3</sup></a></li>
+								<li>let |origin_rgb| be |current_OkLCh|
+									converted to the <em>linear-light</em> form of |destination|
+								</li>
+							</ul>
 						</li>
+						<li><b>Cast a ray</b> from |anchor| to |origin_rgb|
+							and let |intersection| be 
+							the intersection of this ray 
+							with the gamut boundary
+						</li>
+						<li>if an intersection was not found,
+							let |origin_rgb| be |last| and exit the loop
+							<a href="#raytrace-footnote-5"><sup>5</sup></a>
+						</li>
+						<li>if (i >0) AND (each component of |origin_rgb| is between |low| and |high|) then
+							let |anchor| be |origin_rgb|
+							<a href="#raytrace-footnote-4"><sup>4</sup></a>
+						</li>
+						<li>let |origin_rgb| be |intersection|</li>
+						<li>let |last| be |intersection|</li>
 					</ul>
 				</li>
-				<li><b>Cast a ray</b> from |anchor| to |origin_rgb|
-					and let |intersection| be 
-					the intersection of this ray 
-					with the gamut boundary
-				</li>
-				<li>if an intersection was not found,
-					let |origin_rgb| be |last| and exit the loop
-					<a href="#raytrace-footnote-5"><sup>5</sup></a>
-				</li>
-				<li>if (i >0) AND (each component of |origin_rgb| is between |low| and |high|) then
-					let |anchor| be |origin_rgb|
-					<a href="#raytrace-footnote-4"><sup>4</sup></a>
-				</li>
-				<li>let |origin_rgb| be |intersection|</li>
-				<li>let |last| be |intersection|</li>
 			</ul>
 		</li>
-		<!-- final tidying up -->
-		<li>let |clipped| be |origin_rgb| clipped to gamut (components in range 0 to 1),
-			thus trimming off any noise due to floating point inaccuracy
-		</li>
-		<li>return |clipped|, converted to |destination| as the gamut mapped color</li>
-		<!-- should those two be in the reverse order, convert to destination then clip? -->
+		<!-- we already excluded spaces with no gamut limits in the first step, so this is fine -->
+		<li>let clip(|color|) be a function which converts |color| to |destination|,
+		clamps each component to the bounds of the reference range for that component
+		and returns the result</li>
+		<li>set |clipped| to clip(|current|)</li>
+		<li>return |clipped| as the gamut mapped color</li>
 	</ol>
 
 	
@@ -6155,7 +6159,7 @@ Sample Pseudocode for the Ray Trace Gamut Mapping</h4>
 				<li>let |d| be |b| - |a|</li>
 				<li>let |direction|<i>[i]</i> be |d|</li>
 				<!--  Non parallel cases -->
-				<li>if (d != 0):
+				<li>if abs(|d|) < 1E-12
 					<ul>
 						<li>let |inv_d| be 1 / |d|</li>
 						<li>let |t1| be (|bmin|<i>[i]</i> - |a|) * |inv_d|</li>
@@ -6185,7 +6189,7 @@ Sample Pseudocode for the Ray Trace Gamut Mapping</h4>
 				</li>
 			</ul>
 		</li>
-		<li>if (|tnear| > 10)
+		<li>if |tnear| is infinite (or matches the initial very large value)
 			<ul>
 				<li>return INTERSECTION NOT FOUND</li>
 			</ul>
