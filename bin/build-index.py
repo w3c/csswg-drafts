@@ -215,6 +215,90 @@ for shortname, specgroup in specgroups.items():
 with open('./timestamps.json', 'w') as f:
     json.dump(timestamps, f, indent = 2, sort_keys=True)
 
+# Legacy path redirects
+# These handle old URLs that were previously served by Apache RewriteRule redirects.
+# For local targets, we use symlinks. For cross-origin targets (css-houdini.org),
+# we create HTML files with meta refresh.
+
+LEGACY_REDIRECTS = {
+    # Old name -> new name (local redirects via symlink)
+    "css-anchor-1": "css-anchor-position-1",
+    "css3-grid-align": "css-grid-1",
+    "css3-text-layout": "css-writing-modes-3",
+    "css3-2d-transforms": "css-transforms",
+    "css3-3d-transforms": "css-transforms",
+    "mediaqueries3": "mediaqueries-3",
+    "mediaqueries4": "mediaqueries-4",
+    "css-namespaces-1": "css-namespaces",
+    "css-snappoints-1": "css-scroll-snap-1",
+    "css-snappoints": "css-scroll-snap",
+    "css-snap-size-1": "css-rhythm-1",
+    "css-snap-size": "css-rhythm",
+    "css-step-sizing": "css-rhythm",
+    "css-containment": "css-contain",
+    "css-logical-props": "css-logical",
+    "css-device-adapt-1": "css-viewport-1",
+    "css-device-adapt": "css-viewport",
+    "css-overscroll-behavior-1": "css-overscroll-1",
+    "css-overscroll-behavior": "css-overscroll",
+    "css-shared-element-transitions-1": "css-view-transitions-1",
+    "css-shared-element-transitions": "css-view-transitions",
+    "css-timing-1": "css-easing-1",
+    "css-timing": "css-easing",
+    "css-scoping-2": "css-cascade-6",
+}
+
+# Cross-origin redirects need HTML meta refresh files
+CROSS_ORIGIN_REDIRECTS = {
+    "cssom-values-1": "https://drafts.css-houdini.org/css-typed-om-1/",
+    "cssom-values": "https://drafts.css-houdini.org/css-typed-om/",
+}
+
+REDIRECT_HTML_TEMPLATE = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Redirecting…</title>
+<meta http-equiv="refresh" content="0; url={url}">
+<link rel="canonical" href="{url}">
+</head>
+<body>
+<p>This page has moved to <a href="{url}">{url}</a>.</p>
+</body>
+</html>
+"""
+
+for old_path, new_path in LEGACY_REDIRECTS.items():
+    if os.path.exists(new_path) and not os.path.exists(old_path):
+        try:
+            os.symlink(new_path, old_path)
+        except OSError:
+            pass
+
+for old_path, url in CROSS_ORIGIN_REDIRECTS.items():
+    if not os.path.exists(old_path):
+        os.makedirs(old_path, exist_ok=True)
+    index_file = os.path.join(old_path, "index.html")
+    if not os.path.exists(index_file):
+        with open(index_file, "w", encoding="utf-8") as f:
+            f.write(REDIRECT_HTML_TEMPLATE.format(url=url))
+
+# css2 subpage redirects: old CSS 2.1 chapter URLs redirect to the spec root
+CSS2_SUBPAGES = [
+    "about.html", "aural.html", "box.html", "cascade.html", "changes.html",
+    "colors.html", "conform.html", "cover.html", "fonts.html", "generate.html",
+    "grammar.html", "indexlist.html", "intro.html", "leftblank.html", "media.html",
+    "page.html", "propidx.html", "refs.html", "sample.html", "selector.html",
+    "syndata.html", "tables.html", "text.html", "ui.html", "visudet.html",
+    "visufx.html", "visuren.html", "zindex.html",
+]
+
+for subpage in CSS2_SUBPAGES:
+    subpage_path = os.path.join("css2", subpage)
+    if not os.path.exists(subpage_path):
+        with open(subpage_path, "w", encoding="utf-8") as f:
+            f.write(REDIRECT_HTML_TEMPLATE.format(url="./"))
+
 # Build the index page
 
 # Flatten all specs into a single list with full metadata
