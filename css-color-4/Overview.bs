@@ -13,7 +13,7 @@ Implementation Report: https://wpt.fyi/results/css/css-color
 Editor: Tab Atkins Jr., Google, http://xanthir.com/contact, w3cid 42199
 Editor: Chris Lilley, W3C, https://svgees.us/, w3cid 1438
 Editor: Lea Verou, Invited Expert, http://lea.verou.me/, w3cid 52258
-Former Editor: L. David Baron, Mozilla https://www.mozilla.org/, https://dbaron.org/, w3cid 15393
+Former Editor: L. David Baron, Google https://www.google.com/, https://dbaron.org/, w3cid 15393
 Abstract: This specification describes CSS <<color>> values, and properties for foreground color and group opacity.
 Repository: w3c/csswg-drafts
 Ignored Terms: double, octet
@@ -114,6 +114,36 @@ spec: css-ui-4; type: property; text: accent-color
 			"title": "ITU-R BT.1886 Reference electro-optical transfer function for flat panel displays used in HDTV studio production",
 			"publisher": "ITU",
 			"date": "2011-03"
+		},
+		"Coloraide-Ray-Trace": {
+			"title": "Ray Tracing Chroma Reduction",
+			"date": "2024",
+			"authors": ["Isaac Muse"],
+			"href": "https://facelessuser.github.io/coloraide/gamut/#ray-tracing-chroma-reduction"
+		},
+		"Coloraide-MINDE": {
+			"title": "OkLCh Chroma",
+			"date": "2024",
+			"authors": ["Isaac Muse"],
+			"href": "https://facelessuser.github.io/coloraide/gamut/#oklch-chroma"
+		},
+		"colorjs-EdgeSeeker": {
+			"title": "EdgeSeeker Gamut Mapping algorithm",
+			"date": "2023",
+			"authors": ["Alexey Ardov"],
+			"href": "https://github.com/color-js/apps/tree/main/gamut-mapping/edge-seeker"
+		},
+		"colorjs-RayTrace": {
+			"title": "Ray Trace Gamut Mapping",
+			"date": "2023",
+			"authors": ["Isaac Muse"],
+			"href": "https://github.com/color-js/apps/blob/2c7346dd00855f7b82eb4c7527355a09b84beeb3/gamut-mapping/methods.js#L273"
+		},
+		"colorjs-MINDE": {
+			"title": "Gamut mapping",
+			"authors": ["Chris Lilley"],
+			"date": "2022",
+			"href": "https://colorjs.io/docs/gamut-mapping"
 		}
 	}
 </pre>
@@ -1274,7 +1304,7 @@ Parsing a <<color>> Value</h3>
 	4. Return |used color|.
 </div>
 
-Note: This algorithm is not intented 
+Note: This algorithm is not intented
 to parse a CSS <<color>> value 
 specified in a CSS stylesheet
 or with a CSSOM interface,
@@ -2058,7 +2088,7 @@ System Colors</h3>
 
 	Note: The <<system-color>>s incur some privacy and security risk, as detailed in [[#privacy]] and [[#security]].
 
-	User Agents may,
+	User agents may,
 	to mitigate privacy and security risks such as fingerprinting,
 	elect to return fixed values for the used value of system colors
 	which do not reflect customisation or theming choices
@@ -4645,7 +4675,9 @@ with white point |dest-white|:
 	<li id="convert-polrect">If |src| is in a <a>cylindrical polar color</a> representation,
 	first convert |col1|
 	to the corresponding <a>rectangular orthogonal color</a> representation
-	and let this be the new |col1|. Replace any [=missing component=] with zero.
+	and let this be the new |col1|. 
+	
+	<li id="convert-missing">Replace any [=missing component=] with zero.</li>
 
 	<li id="convert-tolinear">If |src| is not a linear-light representation,
 	convert it to linear light (undo gamma-encoding)
@@ -5392,12 +5424,46 @@ Note: This section provides important context for the specific requirements desc
 	Gamut mapping is the process of finding an in-gamut color
 	with the least objectionable change in visual appearance.
 
+	Some out of gamut colors correspond to real-world colors
+	(they could be physically reproduced)
+	while others are imaginary colors
+	(they lie outside the spectral locus
+	and thus would need more than 100% of a single wavelength)
+	and could never be physically realized.
+	Those colors tend to come from calculations
+	such as "make this color 100x as saturated".
+
+	<div class="example" id="ex-lab-corners">
+		For example, while theoretically unbounded,
+		the CIE Lab <em>(a,b)</em> plane is often implemented
+		such that <em>a</em> and <em>b</em> are constrained
+		to the range ±127.
+
+		Three of those four corners are outside the spectral locus
+		and thus correspond to imaginary colors.
+
+		<figure id="fig-lab-corners">
+			<object data="./images/UCS-rec2020-labcorners.svg"></object>
+			<figcaption>The four corners of the ±127 (a,b) plane, 
+				on a UCS chromaticity diagram. 
+				The outer shape is the spectral locus.
+				The larger triangle is the rec2020 gamut,
+				while the smaller is sRGB.
+			</figcaption>
+		</figure>
+	</div>
+
 <h4 id="GM-clip">
 Clipping</h4>
 
 	The simplest and least acceptable method
 	is simply to clip the component values
 	to the displayable range.
+
+	Since the motivation for this method is speed,
+	clipping is commonly done on gamma-encoded values
+	rather than converting them to linear-light.
+
 	This changes the proportions of
 	the three primary colors (for an RGB display),
 	resulting in a hue shift.
@@ -5419,6 +5485,64 @@ Clipping</h4>
 		The amount of blue light is the same as green.
 		In OkLCh, this color has a hue angle of 196.1°,
 		a substantial change of 69°.
+	</div>
+
+	When colors are not too far out of gamut,
+	clipping can give acceptable results.
+	This is particularly true for darker (or negative) 
+	component values.
+
+	<div class="example" id="ex-gamut-clip-good">
+		For example,
+		consider the color <code>color(rec2020 0.54 0.9 0)</code>
+		which is <code>oklch(80.72% 0.3296 141.6)</code>.
+
+		Converting to p3 colorspace, the negative blue value shows
+		the color is out of gamut:
+		<code>color(display-p3 0.3265 0.9165 -0.1262)</code>
+		which in linear-light is 
+		<code>color(display-p3-linear 0.0871 0.8205 -0.0146)</code>.
+
+		Clipping the gamma-encoded p3 color to the p3 gamut gives
+		<code>color(display-p3 0.3265 0.9165 0)</code>
+		which in linear-light is 
+		<code>color(display-p3-linear 0.0871 0.8205 0)</code>
+		which, for comparison, is 
+		<code>oklch(80.79% 0.3221 142.3)</code>.
+
+		This is a good result; 
+		the hue angle and lightness have barely changed
+		but the chroma is somewhat reduced, as expected.
+
+		In terms of percentages of linear-light red green and blue,
+		the red and green are identical 
+		while the blue is -1.46% higher.
+	</div>
+
+	<div class="example" id="ex-gamut-clip-acceptable">
+		For example,
+		consider the color <code>color(prophoto-rgb 0.2 1.0 0.1)</code>
+		which is <code>oklch(85.07% 0.4873 151.4)</code>
+
+		Converting to p3 colorspace, the color is significantly
+		out of gamut:
+		<code>color(display-p3 -0.5782 1.067 -0.2363)</code>
+		which in linear-light is 
+		<code>color(display-p3-linear -0.2937 1.158 -0.0456)</code>.
+
+		Clipping the gamma-encoded p3 color to the p3 gamut gives
+		<code>color(display-p3 0 1 0)</code>
+		which in linear-light is, again, 
+		<code>color(display-p3-linear 0 1 0)</code>
+		(component values of exactly 0 or 1 are unaffected by gamma encoding)
+		which, for comparison, is 
+		<code>oklch(84.88% 0.3685 145.6)</code>.
+
+		A less good but still visually acceptable result. 
+		Here the hue is more affected, a 5.8° change.
+
+		In terms of percentages of linear-light red green and blue,
+		red is 57% higher, green is 6.7% lower and blue is 23% higher.
 	</div>
 
 <h4 id="GM-closest">
@@ -5446,10 +5570,20 @@ Closest Color (MINDE)</h4>
 <h4 id="GM-chroma">
 Chroma Reduction</h4>
 
-	To improve on MINDE algorithms,
+	To implement MINDE,
 	colors are mapped in a perceptually uniform, <em>polar</em> color space
 	by holding the hue constant,
 	and reducing the chroma until the color falls in gamut.
+
+	This could be done <em>algorithmically</em>
+	by finding the geometric intersection 
+	of a constant-lightness, constant-hue ray
+	with the gamut boundary;
+	or <em>iteratively</em>,
+	reducing the chroma until it falls in gamut.
+	
+	Note: For performance reasons,
+	iteration is typically performed by binary search.
 
 <div class="example" id="ex-gamutmap-p3-yellow-to-srgb">
 	In this example, Display P3 primary yellow
@@ -5491,15 +5625,10 @@ Chroma Reduction</h4>
 	</figure>
 </div>
 
-	A practical implementation will converge more quickly than a linear reduction;
-	either by binary search,
-	or by computing the geometric intersection
-	of the line of constant hue and lightness with the gamut boundary.
-
 <h4 id="GM-excessive-reduction">
 Excessive Chroma Reduction</h4>
 
-	Also, this simple approach will give sub-optimal results
+	Also, this simple MINDE approach will give sub-optimal results
 	for certain colors, principally very light colors
 	like yellow and cyan,
 	if the upper edge of the gamut boundary is shallow,
@@ -5610,8 +5739,8 @@ Chroma Reduction with Local Clipping</h4>
 <h4 id="GM-hue-curvature">
 Deviations from Perceptual Uniformity: Hue Curvature</h4>
 
-	Using the CIE LCH color space
-	and deltaE2000 distance metric,
+	Performing gamut mapping in the CIE LCH color space
+	even with the deltaE2000 distance metric,
 	is known to give suboptimal results
 	with significant hue shifts,
 	for colors in the hue range
@@ -5632,7 +5761,7 @@ Deviations from Perceptual Uniformity: Hue Curvature</h4>
 	</figure>
 
 	Using OkLCh color space
-	and deltaEOK distance metric
+	and the deltaEOK distance metric
 	avoids this issue
 	at all hue angles.
 
@@ -5656,20 +5785,31 @@ CSS Gamut Mapping to an RGB Destination</h3>
 
 <wpt title="Actual values of color are not exposed to script, making this hard to test in an automated manner."></wpt>
 
-	The <dfn export>CSS gamut mapping algorithm</dfn>
-	applies to individual,
+	The three <dfn export>CSS gamut mapping algorithms</dfn>
+	apply to individual,
 	Standard Dynamic Range (SDR) CSS colors
 	which are out of gamut
 	of an RGB display
 	and thus require to be <dfn export>css gamut mapped</dfn>.
+
+	Implementations my choose any of the three algorithms
+	based on their quality and runtime efficiency tradeoffs,
+	and must use their chosen algorithm
+	wherever CSS mandates that gamut mapping be performed.
+
+	<ul>
+		<li><a href="#GMA-Binary-local-MINDE">Binary Search Gamut Mapping with Local MINDE</a></li>
+		<li><a href="#GMA-EdgeSeeker">EdgeSeeker Gamut Mapping</a></li>
+		<li><a href="#GMA-Raytrace">Ray Trace Gamut Mapping</a></li>
+	</ul>
 
 	<!-- unbounded hsl
 	It also applies to colors being converted
 	to HSL or HWB, which cannot express
 	colors outside the sRGB gamut. -->
 
-	It implements a relative colorimetric intent,
-	and colors inside the destination gamut are unchanged.
+	They all implement a relative colorimetric intent,
+	thus colors inside the destination gamut are unchanged.
 
 	Note: other situations,
 	in particular mapping to printer gamuts
@@ -5680,7 +5820,7 @@ CSS Gamut Mapping to an RGB Destination</h3>
 	for very light and very dark colors
 	as chroma is reduced..
 
-	Note: this algorithm is for individual, distinct colors;
+	Note: these algorithms are for individual, distinct colors;
 	for color images,
 	where relationships between neighboring pixels are important
 	and the aim is to preserve detail and texture,
@@ -5689,9 +5829,9 @@ CSS Gamut Mapping to an RGB Destination</h3>
 	colors inside the destination gamut
 	could be changed.
 
-	CSS gamut mapping occurs in the <a href="#ok-lab">OkLCh color space</a>,
-	and the color difference formula used is <a href="#color-difference-OK">deltaEOK</a>.
-	The <a href="#GM-chroma-local-MINDE">local-MINDE</a> improvement is used.
+	All three CSS gamut mapping algorithms aim at 
+	constant-lightness, constant-hue chroma reduction 
+	in the <a href="#ok-lab">OkLCh color space</a>.
 
 	For colors which are out of range on the Lightness axis,
 	white is returned in the destination color space
@@ -5699,16 +5839,26 @@ CSS Gamut Mapping to an RGB Destination</h3>
 	while black is returned in the destination color space
 	if the Lightness is less than or equal to 0.0.
 
-	For the binary search implementation,
-	at each step in the search,
+<h4 id="GMA-Binary-local-MINDE">
+	Binary Search Gamut Mapping with Local MINDE
+</h4>
+
+	For this binary search algorithm,
+	the color difference formula used is <a href="#color-difference-OK">deltaEOK</a>.
+	The <a href="#GM-chroma-local-MINDE">local-MINDE</a> improvement is used.
+	At each step in the search,
 	the deltaEOK is computed between the current mapped color
 	and a clipped version of that color.
+
 	If the current color is <em>outside</em> the gamut boundary,
 	but the deltaEOK between it and the clipped version
 	is below a threshold for a <em>just noticeable difference</em> (JND),
 	the clipped version of the color is returned as the mapped result.
+	This gives good results with non-notivceable hue shifts,
+	and avoids excessive chroma reduction near concave gamut surfaces,
+	but can be computationally intensive.
 
-
+<!-- 
 	For the geometric implementation,
 	having found the exact intersection,
 	project outwards (towards higher chroma) along the line of constant lightness
@@ -5722,6 +5872,8 @@ CSS Gamut Mapping to an RGB Destination</h3>
 
 	Then return the clipped version of the color as the mapped result.
 
+-->
+
 	For the OkLCh color space,
 	one JND is is an OkLCh difference of 0.02.
 
@@ -5734,12 +5886,17 @@ CSS Gamut Mapping to an RGB Destination</h3>
 	using deltaEOK,
 	one JND is 100 times smaller.
 
+	Note: for the purposes of experimentation, 
+	and comparing implementations,
+	implementations of the  Binary Search with Local MINDE algorithm are available
+	in the Coloriade library (in Python) [[Coloraide-MINDE]]
+	and the color.js library (in JavaScript) [[colorjs-MINDE]].
 
-<h4 id="binsearch">
-Sample Pseudocode for the Binary Search Gamut Mapping Algorithm with Local MINDE</h4>
+<h4 id="pseudo-binsearch">
+Sample Pseudocode for the Binary Search Gamut Mapping with Local MINDE</h4>
 
-<div algorithm="to CSS gamut map a color">
-	To <dfn export>CSS gamut map</dfn> a color |origin|
+<div algorithm="to gamut map a color by binary search with local MINDE">
+	To <dfn export>Binary Search Gamut Map with Local MINDE</dfn> a color |origin|
 	in color space |origin color space|
 	to be in gamut of a destination color space |destination|:
 
@@ -5810,6 +5967,272 @@ Sample Pseudocode for the Binary Search Gamut Mapping Algorithm with Local MINDE
 	</li>
 	<li>return |clipped| as the gamut mapped color</li>
 </ol>
+
+<h4 id="GMA-EdgeSeeker">
+	The EdgeSeeker Gamut Mapping
+</h4>
+
+	The EdgeSeeker algorithm is a geometric and lookup-table-based approach,
+	originally developed by Alexey Ardov 
+	for the color.js library [[colorjs-EdgeSeeker]].
+
+	For any given hue, the gamut boundary slice
+	is represented as a curved top section
+	and a linear bottom section,
+	joning at the highest chroma point for that hue.
+
+	To initialize this algorithm, 
+	for a given target RGB space,
+	a lookup table (LUT) is constructed
+	containing the highest-chroma Oklch color on each hue slice.
+	Linear interpolation between closest LUT values
+	is used to then estimate the highest-chroma color
+	for the exact hue of each color to be gamut mapped.
+
+	Intersection of the constant-lightness ray
+	with the gamut boundary is then calculated,
+	which is fast for the lower (linear) part of the boundary
+	and still fairly fast for the upper (curved) portion.
+
+	This gives good results, at the expense of memory for the LUT.
+
+<h4 id="pseudo-edgeseeker">
+Sample Pseudocode for the EdgeSeeker Gamut Mapping</h4>
+
+Issue: add pseudocode for EdgeSeeker GMA
+
+<h4 id="GMA-Raytrace">
+	The Ray Trace Gamut Mapping 
+</h4>
+
+	The Ray Trace algorithm is a geometric approach
+	to RGB gamut mapping,
+	for fast chroma reduction with constant lightness.
+	It was originally developed by Isaac Muse
+	for the Coloraide Python Library [[Coloraide-Ray-Trace]].
+
+	The color to be mapped is first converted to Oklch,
+	and then the achromatic version of that color is generated,
+	which will be the neutral axis anchor.
+	These two colors are then converted to 
+	the linear-light version of the target RGB space.
+
+	Because the gamut boundary is now an axis-aligned cube,
+	finding the intersection is faster.
+
+	A ray is cast from the inside of the RGB cube, 
+	from the anchor point to the current color. 
+	The intersection along this path 
+	with the RGB gamut surface is then found;
+	this is the first approximation to the gamut mapped color.
+
+	As RGB spaces are not perceptually uniform,
+	a constant hue, constant lightness ray
+	is actually a curved path in RGB space.
+
+	The first approximation is converted back to Oklch
+	to correct the color in the perceptual color space 
+	by projecting the point back onto the chroma reduction path, 
+	correcting the color's hue and lightness. 
+	The corrected color becomes the new current color 
+	and should be a much closer color on the reduced chroma line. 
+	
+	This process is repeated (a maximum of three more times), 
+	each time finding a better, closer color on the path. 
+	Finally, simple clipping is used to account for floating point math errors.
+
+	The results are comparable to binary search with local MINDE 
+	using a low JND, 
+	but resolves much faster 
+	and within more predictable, consistent time.
+
+	<figure>
+		<img src="./images/raytrace-gma.png" alt="">
+		<figcaption>Ray Trace gamut mpping to the sRGB gamut,
+			showing the curved path of chroma reduction
+			as approximated over a maximum
+			of four iterations.<br>
+			Image copyright Isaac Muse.
+		</figcaption>
+	</figure>
+
+	Note: for the purposes of experimentation, 
+	and comparing implementations,
+	implementations of the Ray Trace are available
+	in the Coloriade library (in Python) [[Coloraide-Ray-Trace]]
+	and the color.js library (in JavaScript) [[colorjs-RayTrace]].
+
+<h4 id="pseudo-raytrace">
+Sample Pseudocode for the Ray Trace Gamut Mapping</h4>
+
+<div algorithm="to gamut map a color by Ray Tracing">
+	To <dfn export>Ray Trace Gamut Map</dfn> a color |origin|
+	in color space |origin color space|
+	to be in gamut of an RGB destination color space |destination|:
+
+	<ol>
+		<!-- check if we need gamut mapping at all -->
+		<li>if |destination| has no gamut limits (XYZ-D65, XYZ-D50, Lab, LCH, Oklab, OkLCh) convert |origin| to |destination| and return it as the gamut mapped color
+		<!-- we do, so convert to OkLCh -->
+		<li>let |origin_OkLCh| be |origin| converted from |origin color space|
+			to the OkLCh color space</li>
+		<!-- constrain to SDR lightness range, which gamut maps to black or white -->
+		<li>if the Lightness of |origin_OkLCh| is greater than or equal to 100%,
+			convert `oklab(1 0 0 / origin.alpha)` to |destination| and return it as the gamut mapped color</li>
+		<li>if the Lightness of |origin_OkLCh| is less than than or equal to 0%,
+			convert `oklab(0 0 0 / origin.alpha)` to |destination| and return it as the gamut mapped color</li>
+		<li>let |l_origin| be the OkLCh lightness component of |origin_OkLCh|</li>
+		<li>let |h_origin| be the OkLCh hue component of |origin_OkLCh|</li>
+		<li>let |anchor| be an achromatic OkLCh color formed with 
+			|l_origin| as lightness, 0 as chroma and |h_origin| as hue,
+			converted to the <em>linear-light</em> form of |destination|
+		</li>
+		<li>let |origin_rgb| be |origin_OkLCh|
+			converted to the <em>linear-light</em> form of |destination|</li>
+		<!-- check if we need gamut mapping at all -->
+		<li>if |origin_rgb| is not in gamut
+			<ul>
+				<!-- we do, so perform chroma reduction -->
+				<li>let |low| be 0.0 + 1E-6 <a href="#raytrace-footnote-1"><sup>1</sup></a></li>
+				<li>let |high| be 1.0 - 1E-6 <a href="#raytrace-footnote-2"><sup>2</sup></a></li>
+				<li>let |last| be |origin_rgb|</li>
+				<li>for (i=0; i&lt;4; i++)
+					<ul>
+						<li>if (i > 0)
+							<ul>
+								<li>let |current_OkLCh| be |origin_rgb| converted to OkLCh</li>
+								<li>let the lightness of |current_OkLCh| be |l_origin|</li>
+								<li>let the hue of |current_OkLCh| be |h_origin|
+									<a href="#raytrace-footnote-3"><sup>3</sup></a></li>
+								<li>let |origin_rgb| be |current_OkLCh|
+									converted to the <em>linear-light</em> form of |destination|
+								</li>
+							</ul>
+						</li>
+						<li><b>Cast a ray</b> from |anchor| to |origin_rgb|
+							and let |intersection| be 
+							the intersection of this ray 
+							with the gamut boundary
+						</li>
+						<li>if an intersection was not found,
+							let |origin_rgb| be |last| and exit the loop
+							<a href="#raytrace-footnote-5"><sup>5</sup></a>
+						</li>
+						<li>if (i >0) AND (each component of |origin_rgb| is between |low| and |high|) then
+							let |anchor| be |origin_rgb|
+							<a href="#raytrace-footnote-4"><sup>4</sup></a>
+						</li>
+						<li>let |origin_rgb| be |intersection|</li>
+						<li>let |last| be |intersection|</li>
+					</ul>
+				</li>
+			</ul>
+		</li>
+		<!-- we already excluded spaces with no gamut limits in the first step, so this is fine -->
+		<li>let clip(|color|) be a function which converts |color| to |destination|,
+		clamps each component to the bounds of the reference range for that component
+		and returns the result</li>
+		<li>set |clipped| to clip(|current|)</li>
+		<li>return |clipped| as the gamut mapped color</li>
+	</ol>
+
+	
+	<div algorithm="to cast a ray">
+		To <dfn export>cast a ray</dfn> through a linear-light RGB space
+		from |start| to |end| 
+		(in gamut mapping,
+		|start| is an anchor within the RGB gamut 
+		and |end| is the gamut mapped color, on the cubical gamut surface):
+
+	<ol>
+		<li>let |bmin| and |bmax| be 3-element arrays
+			with the gamut's lower and upper bounds, respectively
+			<a href="#raytrace-footnote-6"><sup>6</sup></a>
+		</li>
+		<li>let |tfar| be infinity (or some very large number)</li>
+		<li>let |tnear| be -infinity (or some very large, negative number)</li>
+		<li>let |direction| be a 3-element array</li>
+		<li>for (i = 0; i < 3; i++): 
+			<ul>
+				<li>let |a| be |start|<i>[i]</i></li>
+				<li>let |b| be |end|<i>[i]</i></li>
+				<li>let |d| be |b| - |a|</li>
+				<li>let |direction|<i>[i]</i> be |d|</li>
+				<!--  Non parallel cases -->
+				<li>if abs(|d|) < 1E-12
+					<ul>
+						<li>let |inv_d| be 1 / |d|</li>
+						<li>let |t1| be (|bmin|<i>[i]</i> - |a|) * |inv_d|</li>
+						<li>let |t2| be (|bmax|<i>[i]</i> - |a|) * |inv_d|</li>
+						<li>let |tnear| be max(min(|t1|, |t2|), |tnear|)</li>
+						<li>let |tfar| be min(max(|t1|, |t2|), |tfar|)</li>
+					</ul>
+				</li>
+				<!-- Impossible parallel case -->
+				<li>else if (|a| &lt; |bmin|<i>[i]</i> or |a| > |bmax|<i>[i]</i>)
+					<ul>
+						<li>return INTERSECTION NOT FOUND</li>
+					</ul>
+				</li>
+			</ul>
+		</li>
+		<!-- No hit -->
+		<li>if (|tnear| > |tfar| or |tfar| &lt; 0)
+			<ul>
+				<li>return INTERSECTION NOT FOUND</li>
+			</ul>
+		</li>
+		<li>if |tnear| &lt; 0
+			<ul>
+				<li>let |tnear| be |tfar|
+					<a href="#raytrace-footnote-7"><sup>7</sup></a>
+				</li>
+			</ul>
+		</li>
+		<li>if |tnear| is infinite (or matches the initial very large value)
+			<ul>
+				<li>return INTERSECTION NOT FOUND</li>
+			</ul>
+		</li>
+		<li>for (i =0; i &lt; 3; i++):
+			<ul>
+				<li>let |result|<i>[i]</i> be |start|<i>[i]</i> + |direction|<i>[i]</i> * |tnear|</li>
+			</ul>
+		</li>
+		<li>return |result|</li>
+	</ol>
+	</div>
+
+	<h5 id="raytrace-footnotes">Footnotes for Ray Trace algorithm</h5>
+	<ol>
+		<li id="raytrace-footnote-1">
+			It is assumed the minimum value is 0
+			and that all channels have the same minimum. 
+			The value should be small relative to the unit type. 
+			64 bit could easily be as small as 1e-14, but 1e-6 is fine in practice.</li>
+		<li id="raytrace-footnote-2">
+			1.0 represents the maximum in-gamut channel value,
+			and it is assumed all channels have the same maximum.</li>
+		<li id="raytrace-footnote-3">
+			This places the current color back on the chroma reduction curve,
+			if it has deviated.</li>
+		<li id="raytrace-footnote-4">
+			This means |origin_rgb| is below the gamut surface, 
+			so we use it as an anchor closer to the gamut surface.</li>
+		<li id="raytrace-footnote-5">
+			This is provided for catastrophic failures 
+			where a specific, perceptual mapping space 
+			completely breaks down 
+			due to ridiculously wide colors (outside the visible spectrum).
+			It is expected that non-imaginary colors in CSS should never trigger this.
+		<li id="raytrace-footnote-6">
+			For typical RGB spaces 
+			where the gamut bounds are 0 and 1 for each component
+			this simplifies to a single constant
+			rather than a 3-element array.</li>
+		<li id="raytrace-footnote-7">
+			favoring the first intersection in the direction |start| -> |end|.
+	</ol>
 
 </div>
 
@@ -7343,6 +7766,8 @@ parsing/color-valid-color-layers-function.html
 parsing/color-computed-contrast-color-function.html
 parsing/color-invalid-contrast-color-function.html
 parsing/color-valid-contrast-color-function.html
+contrast-color-001.html
+contrast-color-currentcolor-inherited.html
 </wpt>
 
 <!--
@@ -7361,7 +7786,7 @@ Changes</h2>
 <h3 id="changes-from-20250424">Changes since the 
 	<a href="https://www.w3.org/TR/2025/CRD-css-color-4-20250424/">Candidate Recommendation Draft of 24 April 2025</a></h3>
 <ul>
-	<!-- to 9 Sep 2025 -->
+	<!-- to 11 Jan 2026 -->
 	<li>Updated ''AccentColor'' to take its value from 'accent-color', unless in [=Forced Colors Mode=]
 		(<a href="https://github.com/w3c/csswg-drafts/issues/5900">Issue 5900</a>)
 	</li>

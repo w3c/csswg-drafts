@@ -12,7 +12,7 @@ function hdrColor(col1, H1, col2, H2, H) {
     let eps = 0.001;
     let cxyz = Array(3);
     for (let i=0; i<3; i++) {
-        cxyz[i] = Math.pow(c1xyz[i] + eps, w1) * Math.pow(c2xyz[i] + eps, w2) - eps;
+        cxyz[i] = Math.pow(col1[i] + eps, w1) * Math.pow(col2[i] + eps, w2) - eps;
     }
     return cxyz;
 }
