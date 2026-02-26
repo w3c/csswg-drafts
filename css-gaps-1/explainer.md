@@ -546,6 +546,10 @@ Examples:
 
   <image src="images/csswg-drafts-issues-2748-issuecomment-621983931-first-example.png">
 
+* https://github.com/MicrosoftEdge/MSEdgeExplainers/issues/1161
+
+  <image src="images/explainer-issue-1161.png">
+
 However, unlike `border-image`, gap decoration images need to cover
 significantly more cases, such as T intersections and cross intersections. More
 detail and examination of this issue:
