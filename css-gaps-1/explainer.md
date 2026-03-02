@@ -6,7 +6,8 @@
 
 ## Participate
 
-- [Issue tracker](https://github.com/MicrosoftEdge/MSEdgeExplainers/labels/CSSGapDecorations)
+- [Issue tracker](https://github.com/w3c/csswg-drafts/issues?q=is%3Aissue%20state%3Aopen%20label%3Acss-gaps-1)
+- [Open a new issue](https://github.com/w3c/csswg-drafts/issues/new?labels=css-gaps-1&title=[css-gaps-1]%20)
 
 ## Status of this Document
 
@@ -18,7 +19,7 @@ to keep the community up-to-date with the most current standards venue and
 content location of future work and discussions.
 
 * This document status: **Active**
-* Expected venue: [CSS Working Group](https://www.w3.org/Style/CSS/)
+* Current venue: [CSS Working Group](https://www.w3.org/Style/CSS/)
 * Current version: this document
 
 ## Table of Contents
