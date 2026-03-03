@@ -30,6 +30,10 @@ SPECS = [
         "publicationStatus": "WD",
     },
     {
+        "shortname": "css-fonts-4",
+        "publicationStatus": "WD",
+    },
+    {
         "shortname": "css-fonts-5",
         "publicationStatus": "WD",
     },
