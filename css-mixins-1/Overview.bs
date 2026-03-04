@@ -1413,11 +1413,148 @@ but the mixin not use it.
 </div>
 
 
+<!-- Big Text: @macro -->
 
-Using Mixins {#using-mixins}
-============================
+Defining Macros {#macros}
+===============
 
-The result of a [=mixin=] application
+A <dfn for=css>macro</dfn> is a simplified variant of a [=mixin=],
+that very directly substitutes its body into its ''@apply''-ing rule.
+
+It does not take any arguments
+(besides possibly a ''@contents'' block)
+or define local variables
+(and thus doesn't use a ''@result'' rule to separate its result from its (nonexistent) body)
+and does not impose a "scoping" semantic on its result rules.
+Otherwise, it is identical to a [=mixin=].
+
+<div class=example>
+	For simple mixins that are just meant
+	to make it easier to include a commonly-repeated block of styles,
+	[=macros=] can be slightly shorter/easier to use:
+
+	<xmp highlight=css>
+	@macro reset-list {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.foo {
+		@apply reset-list;
+	}
+	</xmp>
+
+	In cases like this, the *result* of defining this as a [=mixin=] or [=macro=] are identical.
+	That is, one could equally write this slightly more verbose definition:
+
+	<xmp highlight=css>
+	@mixin reset-list() {
+		@result {
+			margin: 0;
+			padding: 0;
+			list-style: none;
+		}
+	}
+	</xmp>
+
+	In more complex cases, though, their behaviors can differ;
+	see [[#mixin-macro-diff]].
+</div>
+
+
+<h3 id=macro-rule at-rule lt="@macro" export>
+The ''@macro'' rule</h3>
+
+The ''@macro'' rule defines a [=macro=],
+and consists of a name
+and a [=macro body=].
+(Similar to a [=mixin result=] block.)
+
+<pre class="prod def">
+	<<@mixin>> = @mixin <<dashed-ident>>
+	{
+		<<declaration-rule-list>>
+	}
+</pre>
+
+A ''@macro'' rule cannot be a [=nested group rule=];
+it is invalid within the body of a [=style rule=].
+
+<h4 id=macro-prelude>
+The Macro Prelude</h4>
+
+The name of the resulting [=macro=] is given by the <<dashed-ident>> in its prelude.
+
+The name of a ''@macro'' rule is a [=tree-scoped name=],
+and functions identically to a ''@mixin'' name.
+[=Macros=] and [=mixins=] share the same namespace;
+if two are defined with the same name,
+the last one wins
+(just like having two [=mixins=] with the same name).
+
+
+<h4 id=macro-body dfn lt="macro body" export>
+The Macro Body</h4>
+
+The body of a ''@macro'' rule
+acts as a [=nested declarations rule=],
+and accepts the same properties and rules that a normal [=nested declarations rule=] would.
+In particular, further [=mixins=] and [=macros=] can be invoked
+(via the ''@apply'' rule)
+within a ''@macro''.
+
+Note: This is identical to the body of a [=mixin's=] ''@result'' rule.
+As [=macros=] don't <em>have</em> any arguments or local variables,
+they don't need to mark their result separately
+to distinguish [=local variables=] from [=custom properties=]
+that will get added to the element's style.
+
+Unknown properties and rules are invalid and ignored,
+but do not make the ''@macro'' rule itself invalid.
+
+Identically to [=mixins=],
+the body of a ''@macro'' rule
+can contain a ''@contents'' rule,
+which will substitute itself with a passed [=contents block=],
+or potentially a fallback block.
+
+<div class=example>
+	The ''@contents'' example provided in [[#contents-rule]]
+	used ''@mixin'',
+	but it could equally be written with ''@macro'',
+	as it does not use any arguments:
+
+	<pre highlight=css>
+	@macro --one-column {
+		@media (width <= 800px) {
+			@contents;
+		}
+	}
+	@macro --two-column {
+		@media (width > 800px) {
+			@contents;
+		}
+	}
+	body {
+		@apply --one-column {
+			display: flex;
+			flex-flow: column;
+		}
+		@apply --two-column {
+			display: grid;
+			grid-template-columns: ;
+		}
+	}
+	</pre>
+</div>
+
+
+
+
+Using Mixins and Macros {#using-mixins}
+=======================
+
+The result of a [=mixin=] or [=macro=] application
 is substituted into the body of another [=style rule=]
 as a [=nested declarations rule=]
 via the ''@apply'' rule.
@@ -1443,7 +1580,7 @@ via the ''@apply'' rule.
 <h3 id=apply-rule>
 The <dfn>@apply</dfn> Rule</h3>
 
-The ''@apply'' rule applies a [=mixin=],
+The ''@apply'' rule applies a [=mixin=] or [=macro=],
 causing it to substitute into the rule
 in place of the ''@apply'' rule itself.
 
@@ -1489,9 +1626,9 @@ as they effectively modify the stylesheet itself.
 adjust which properties and rules are active in a stylesheet
 before styles are applied.)
 
-The ''@apply'' rule applies the [=mixin=]
+The ''@apply'' rule applies the [=mixin=] or [=macro=]
 named by the <<dashed-ident>> or the <<dashed-function>>'s name.
-If no such [=mixin=] exists,
+If no such [=mixin=] or [=macro=] exists,
 the ''@apply'' does nothing.
 
 If passed a <<dashed-function>>,
@@ -1503,9 +1640,11 @@ the ''@apply'' application does nothing.
 the missing arguments take their default values instead.)
 A <<dashed-ident>> passes no arguments.
 (That is, ''@apply --foo;'' is identical to ''@apply --foo();''.)
+For these purposes, a [=macro=] is treated as having a zero-length argument list;
+''@apply --my-macro();'' is valid.
 
 If the ''@apply'' rule has a <<declaration-list>> block,
-that block is passed as the mixin's [=contents block=].
+that block is passed as the [=mixin=] or [=macro=]'s [=contents block=].
 
 <div class=example>
 	Applying a mixin without arguments, or with an empty argument list,
@@ -1960,6 +2099,128 @@ and other element-relative values resolve correctly.
 	</details>
 </div>
 
+Evaluating Macros {#eval-macro}
+-----------------
+
+[=Macros=] work similarly to [=mixins=],
+in that they substitute their [=macro body=]
+at the location they're ''@apply''@apos;d.
+Contrary to [=mixins=],
+[=macros=] are substituted simply and literally,
+with no transforms performed on their content.
+
+
+Mixin/Macro Differences {#mixin-macro-diff}
+-----------------------
+
+The basic differences between [=mixins=] and [=macros=] are obvious:
+
+* [=Mixins=] can take arguments; [=macros=] can't.
+* [=Mixins=] can have local variables, and wrap their result in ''@result'';
+	[=macros=] don't, and just use their contents directly as their result.
+
+The subtler difference is that,
+<em>because</em> [=mixins=] have arguments and local variables
+which they don't want to "leak" into the page's general styles,
+and which they want to resolve on the applying element
+(so ''var()'' functions, ''em'' values, etc passed as arguments or set as locals
+all work "as expected"),
+they treat their results as [=scoped style rules=].
+[=Macros=] don't impose this restriction,
+which makes them useful in some cases where [=mixins=] can't be used,
+but which also limits their abilities in some other cases.
+
+<div class=example>
+	For example, the following mixin and macro are identical:
+
+	<xmp highlight=css>
+	@mixin --mix1() {
+		@result {
+			width: 20em;
+			> .bar {
+				width: 10em;
+			}
+		}
+	}
+	@macro --mac1() {
+		width: 20em;
+		> .bar {
+			width: 10em;
+		}
+	}
+	.foo {
+		@apply --mix1; /* or --mac1 */
+		font-size: 20px;
+		/* width is 20em, so 400px */
+
+		> .bar {
+			font-size: 10px;
+			/* width is 10em, so 100px;
+		}
+	}
+	</xmp>
+
+	Despite the mixin/macro *appearing* to set the ''.bar'' child
+	to half the ''.foo'' parent's width,
+	because they use ''em'' units and the elements have different 'font-size' values,
+	the child ends up 1/4 the width of the parent instead.
+
+	The mixin could be rewritten like this:
+
+	<xmp highlight=css>
+	@function --as-length(--x <length>) { result: var(--x); }
+	@mixin --mix2() {
+		--em: --as-length(1em);
+		@result {
+			width: 20--em; /* using custom units */
+			> .bar {
+				width: 10--em;
+			}
+		}
+	}
+	.foo {
+		@apply --mix2;
+		font-size: 20px;
+		/* width is 20--em and --em is 20px, so 400px */
+
+		> .bar {
+			font-size: 10px;
+			/* width is 10--em and --em is still 20px, so 200px;
+		}
+	}
+	</xmp>
+
+	...which resolves the ''--em'' local variable on ''.foo''
+	(to a length of ''20px''),
+	and then uses that in both places.
+	A [=macro=] cannot reproduce this,
+	unless you actually emit a ''--em'' [=custom property=] onto the element,
+	where styles <em>outside of</em> the macro could see it.
+
+	On the other hand, the following can be done with a [=macro=]:
+
+	<xmp highlight=css>
+	@macro --mac2() {
+		width: 20em;
+		+ .bar { /* sibling, not child! */
+			width: 10em;
+		}
+	}
+	.foo {
+		@apply --mac2;
+		font-size: 20px;
+		/* width is 20em, so 400px */
+		+ .bar { /* again, sibling! */
+			font-size: 10px;
+			/* width is 10em, so 100px;
+		}
+	}
+	</xmp>
+
+	A [=mixin=] can't reproduce this,
+	unless you lift it up to applying on a parent element,
+	with the mixin styling its two children.
+</div>
 
 
 <!-- Big Text: cssom
