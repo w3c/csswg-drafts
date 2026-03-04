@@ -338,7 +338,7 @@ function XYZ_to_Lab(XYZ) {
 
 function Lab_to_XYZ(Lab) {
 	// Convert Lab to D50-adapted XYZ
-	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
+	// http://www.brucelindbloom.com/index.html?Eqn_Lab_to_XYZ.html
 	var κ = 24389/27;   // 29^3/3^3
 	var ε = 216/24389;  // 6^3/29^3
 	var f = [];
