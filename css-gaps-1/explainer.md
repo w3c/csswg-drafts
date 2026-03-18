@@ -154,7 +154,7 @@ Shorthands are also available to combine the width, style, and color properties.
   row-rule-color: red, blue;
 }
 ```
-<image src="images/example-red-blue.png">
+![](images/example-red-blue.png)
 
 ```css
 .alternate-heavy-light {
@@ -165,7 +165,7 @@ Shorthands are also available to combine the width, style, and color properties.
   row-rule: 2px solid black, 1px solid lightgray;
 }
 ```
-<image src="images/example-heavy-light.png">
+![](images/example-heavy-light.png)
 
 Like column rules in multi-column layout, gap decorations in other layout
 containers do not take up space and do not affect the layout of items in the
@@ -192,7 +192,7 @@ simpler for gap decorations as there are fewer unknowns to consider.
 }
 ```
 
-<image src="images/example-width-style-color.png">
+![](images/example-width-style-color.png)
 
 ### Interaction with intersection types
 
@@ -206,21 +206,21 @@ behind the item.
   rule-break: normal;
 }
 ```
-<image src="images/example-break-normal.png">
+![](images/example-break-normal.png)
 
 ```css
 .all-intersections {
   rule-break: intersection;
 }
 ```
-<image src="images/example-break-intersection.png">
+![](images/example-break-intersection.png)
 
 ```css
 .no-intersections {
   rule-break: none;
 }
 ```
-<image src="images/example-break-none.png">
+![](images/example-break-none.png)
 
 ### Extending or shortening gap decoration segments
 
@@ -239,7 +239,7 @@ with each endpoint at the innermost edge of the intersection.
 }
 ```
 
-<image src="images/example-grid-with-spans.png">
+![](images/example-grid-with-spans.png)
 
 ```css
 .flex {
@@ -251,7 +251,7 @@ with each endpoint at the innermost edge of the intersection.
   column-rule: 6px solid blue;
 }
 ```
-<image src="images/example-flex.png">
+![](images/example-flex.png)
 
 Authors may adjust the positions of endpoints relative to gap intersections,
 either as a fixed distance or as a percentage of the width of the intersection.
@@ -264,7 +264,7 @@ into the intersection and positive values receding from it.
   column-rule-inset: 0px;
 }
 ```
-<image src="images/example-column-inset-0px.png">
+![](images/example-column-inset-0px.png)
 
 ```css
 .inset-5px {
@@ -272,7 +272,7 @@ into the intersection and positive values receding from it.
   column-rule-inset: 5px;
 }
 ```
-<image src="images/example-column-inset-5px.png">
+![](images/example-column-inset-5px.png)
 
 ```css
 .inset-negative-5px {
@@ -280,7 +280,7 @@ into the intersection and positive values receding from it.
   column-rule-inset: -5px;
 }
 ```
-<image src="images/example-column-inset-minus-5px.png">
+![](images/example-column-inset-minus-5px.png)
 
 Authors may also adjust endpoints more granularly, making a distinction between "edge"
 endpoints (which fall on the edge of the container),
@@ -294,7 +294,7 @@ and "interior" endpoints (any endpoint that is not an "edge").
 }
 ```
 
-<image src="images/example-column-interior-inset-5px.png">
+![](images/example-column-interior-inset-5px.png)
 
 Similarly, authors can have even more granular control to adjust the positions of endpoints,
 making a distinction between "start" and "end" endpoints, in addition to the "edge" and "interior" distinction.
@@ -310,7 +310,7 @@ making a distinction between "start" and "end" endpoints, in addition to the "ed
 }
 ```
 
-<image src="images/example-column-start-end-edge-interior-insets.png">
+![](images/example-column-start-end-edge-interior-insets.png)
 
 ### Paint order
 
@@ -328,7 +328,7 @@ rule-overlap: [ row-over-column | column-over-row ]
   rule-overlap: row-over-column;
 }
 ```
-<image src="images/example-row-over-column.png">
+![](images/example-row-over-column.png)
 
 ```css
 .column-over-row {
@@ -337,7 +337,7 @@ rule-overlap: [ row-over-column | column-over-row ]
   rule-overlap: column-over-row;
 }
 ```
-<image src="images/example-column-over-row.png">
+![](images/example-column-over-row.png)
 
 ### Decorations next to empty areas
 
@@ -367,7 +367,7 @@ The `*-rule-visibility-items` properties allow control over this.
 </div>
 ```
 
-<image src="images/example-rule-visibility-items-all.png">
+![](images/example-rule-visibility-items-all.png)
 
 ```css
 .container {
@@ -391,7 +391,7 @@ The `*-rule-visibility-items` properties allow control over this.
 </div>
 ```
 
-<image src="images/example-rule-visibility-items-around.png">
+![](images/example-rule-visibility-items-around.png)
 
 ```css
 .container {
@@ -415,7 +415,7 @@ The `*-rule-visibility-items` properties allow control over this.
 </div>
 ```
 
-<image src="images/example-rule-visibility-items-between.png">
+![](images/example-rule-visibility-items-between.png)
 
 Note that `rule-visibility-items` in the examples above is a shorthand
 for `column-rule-visibility-items` and `row-rule-visibility-items`,
@@ -444,7 +444,7 @@ which can also be set independently:
 </div>
 ```
 
-<image src="images/example-rule-visibility-items-independent.png">
+![](images/example-rule-visibility-items-independent.png)
 
 ## Key scenarios
 
@@ -465,7 +465,7 @@ links to: https://codepen.io/urlyman/pen/yGNOya
 }
 ```
 
-<image src="images/csswg-drafts-issues-2748-issuecomment-446379068.png">
+![](images/csswg-drafts-issues-2748-issuecomment-446379068.png)
 
 ### Scenario 2: Lines dividing items in both directions of a grid
 
@@ -477,7 +477,7 @@ https://github.com/w3c/csswg-drafts/issues/2748#issuecomment-595663212
 }
 ```
 
-<image src="images/csswg-drafts-issues-2748-issuecomment-595663212.png">
+![](images/csswg-drafts-issues-2748-issuecomment-595663212.png)
 
 ### Scenario 3: Segmented gap decorations
 
@@ -491,8 +491,7 @@ example
 }
 ```
 
-<image
-src="images/csswg-drafts-issues-2748-issuecomment-446781218-last-example.png">
+![](images/csswg-drafts-issues-2748-issuecomment-446781218-last-example.png)
 
 ### Scenario 4: Grid layout with white space in leading columns
 
@@ -511,7 +510,7 @@ https://github.com/MicrosoftEdge/MSEdgeExplainers/issues/1099
 }
 ```
 
-<image src="images/explainer-issue-1099.png">
+![](images/explainer-issue-1099.png)
 
 ### Scenario 5: Column decorations only between items
 
@@ -528,7 +527,7 @@ https://github.com/MicrosoftEdge/MSEdgeExplainers/issues/1100
 }
 ```
 
-<image src="images/explainer-issue-1100.png">
+![](images/explainer-issue-1100.png)
 
 ## Future ideas
 
@@ -541,15 +540,15 @@ Examples:
 
 * https://github.com/w3c/csswg-drafts/issues/2748#issuecomment-446781218 - third example
 
-  <image src="images/csswg-drafts-issues-2748-issuecomment-446781218-third-example.png">
+  ![](images/csswg-drafts-issues-2748-issuecomment-446781218-third-example.png)
 
 * https://github.com/w3c/csswg-drafts/issues/2748#issuecomment-621983931
 
-  <image src="images/csswg-drafts-issues-2748-issuecomment-621983931-first-example.png">
+  ![](images/csswg-drafts-issues-2748-issuecomment-621983931-first-example.png)
 
 * https://github.com/MicrosoftEdge/MSEdgeExplainers/issues/1161
 
-  <image src="images/explainer-issue-1161.png">
+  ![](images/explainer-issue-1161.png)
 
 However, unlike `border-image`, gap decoration images need to cover
 significantly more cases, such as T intersections and cross intersections. More
@@ -644,7 +643,7 @@ override gaps in the first column with 1px solid blue rules.
 }
 ```
 
-<image src="images/example-multiple-areas.png">
+![](images/example-multiple-areas.png)
 
 #### Scenario: Different lines for different gaps, applied to a sub-area of a grid
 
@@ -660,7 +659,7 @@ https://github.com/w3c/csswg-drafts/issues/2748#issuecomment-595889781
 }
 ```
 
-<image src="images/csswg-drafts-issues-2748-issuecomment-595889781.png">
+![](images/csswg-drafts-issues-2748-issuecomment-595889781.png)
 
 #### Scenario: Periodic Table omitting decorations from certain areas
 
@@ -676,7 +675,7 @@ https://github.com/w3c/csswg-drafts/issues/12024#issuecomment-3086244002
 }
 ```
 
-<image src="images/csswg-drafts-issue-12024-issuecomment-3086244002-first-example.png">
+![](images/csswg-drafts-issue-12024-issuecomment-3086244002-first-example.png)
 
 ## Dropped ideas
 
