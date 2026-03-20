@@ -53,6 +53,8 @@ spec:dom; type:dfn; text:element
 spec:dom; type:dfn; for:Attr; text:element
 spec:css-borders-4; type:property; text:border-top-width
 spec:css-borders-4; type:property; text:border-left-width
+spec:css-borders-4; type:property; text:border-right-width
+spec:css-borders-4; type:property; text:border-bottom-width
 spec:cssom-view-1; type:dictionary; text:MouseEventInit
 spec:cssom-view-1; type:dfn; for:MediaQueryList; text:media
 spec:webdriver-bidi; type:dfn;
@@ -2196,7 +2198,7 @@ The <dfn attribute for=MouseEvent>offsetY</dfn> attribute must follow these step
 enum CSSBoxType { "margin", "border", "padding", "content" };
 dictionary BoxQuadOptions {
   CSSBoxType box = "border";
-  GeometryNode relativeTo; // XXX default document (i.e. viewport)
+  GeometryNode relativeTo;
 };
 
 dictionary ConvertCoordinateOptions {
@@ -2208,7 +2210,7 @@ interface mixin GeometryUtils {
   sequence&lt;DOMQuad> getBoxQuads(optional BoxQuadOptions options = {});
   DOMQuad convertQuadFromNode(DOMQuadInit quad, GeometryNode from, optional ConvertCoordinateOptions options = {});
   DOMQuad convertRectFromNode(DOMRectReadOnly rect, GeometryNode from, optional ConvertCoordinateOptions options = {});
-  DOMPoint convertPointFromNode(DOMPointInit point, GeometryNode from, optional ConvertCoordinateOptions options = {}); // XXX z,w turns into 0
+  DOMPoint convertPointFromNode(DOMPointInit point, GeometryNode from, optional ConvertCoordinateOptions options = {});
 };
 
 Text includes GeometryUtils; // like Range
@@ -2219,26 +2221,158 @@ Document includes GeometryUtils;
 typedef (Text or Element or CSSPseudoElement or Document) GeometryNode;
 </pre>
 
+The {{GeometryUtils}} methods operate on a node's local box geometry.
+The {{GeometryUtils/getBoxQuads()}} method returns one {{DOMQuad}} per relevant
+box fragment, in <a>flat tree</a> order.
+Unless {{BoxQuadOptions/relativeTo}} is specified,
+the returned coordinates are expressed relative to the <a>layout viewport</a>.
+
+<div algorithm="get the complete transform">
+    To <dfn export>get the complete transform</dfn> of a {{GeometryNode}} <var>node</var>
+    relative to a {{GeometryNode}} <var>ancestor</var>,
+    run the following steps:
+
+    1. Let <var>current</var> be <var>node</var>.
+    1. Let <var>transformationMatrix</var> be a new {{DOMMatrix}}.
+    1. While <var>current</var> is not null:
+        1. If <var>current</var> is <var>ancestor</var>, return <var>transformationMatrix</var>.
+        1. Let <var>nextAncestor</var> be null.
+        1. If <var>current</var> is an {{Element}}, then:
+            1. Let <var>currentTransformationMatrix</var> be a new {{DOMMatrix}}
+                representing the [=current transformation matrix=] of <var>current</var>. [[!CSS-TRANSFORMS-1]]
+            1. Set <var>transformationMatrix</var> to the result of multiplying
+                <var>currentTransformationMatrix</var> by <var>transformationMatrix</var>.
+            1. If there is an element that establishes the [=containing block=] of <var>current</var>,
+                let <var>nextAncestor</var> be that element.
+                Otherwise, let <var>nextAncestor</var> be <var>current</var>'s <a>node document</a>.
+            1. If <var>nextAncestor</var> is a {{Document}},
+                let <var>offsetX</var> be the horizontal offset and <var>offsetY</var>
+                be the vertical offset from the <a>border edge</a> of <var>current</var>
+                to the origin of the <a>initial containing block</a>,
+                ignoring any <a>transforms</a> that apply to <var>current</var> and its ancestors.
+                Otherwise, let <var>offsetX</var> be the horizontal offset and <var>offsetY</var>
+                be the vertical offset from the <a>border edge</a> of <var>current</var>
+                to the <a>border edge</a> of <var>nextAncestor</var>,
+                ignoring any <a>transforms</a> that apply to <var>current</var> and its ancestors.
+            1. Let <var>translationMatrix</var> be a new {{DOMMatrix}} representing a
+                translation by <var>offsetX</var> and <var>offsetY</var>.
+            1. Set <var>transformationMatrix</var> to the result of multiplying
+                <var>translationMatrix</var> by <var>transformationMatrix</var>.
+        1. Otherwise, if <var>current</var> is a {{Text}}, set <var>nextAncestor</var> to <var>current</var>'s <a>parent element</a>.
+        1. Otherwise, if <var>current</var> is a {{CSSPseudoElement}}, set <var>nextAncestor</var> to <var>current</var>'s <a>originating element</a>.
+        1. Set <var>current</var> to <var>nextAncestor</var>.
+    1. Return <var>transformationMatrix</var>.
+</div>
+
+<div algorithm="adjust a point to the border box">
+    To <dfn export>adjust a point to the border box</dfn> given a {{DOMPoint}} <var>point</var>,
+    a {{GeometryNode}} <var>node</var>, and a {{CSSBoxType}} <var>box</var>,
+    run the following steps:
+
+    1. Let <var>adjustedPoint</var> be a new {{DOMPoint}} with the same
+        {{DOMPoint/x}} and {{DOMPoint/y}} as <var>point</var>.
+    1. If <var>node</var> is a {{Document}} or a {{Text}}, return <var>adjustedPoint</var>.
+    1. If <var>box</var> is {{CSSBoxType/"margin"}},
+        adjust <var>adjustedPoint</var> so that it refers to the same physical point
+        in <var>node</var>'s local coordinate space,
+        but with coordinates measured from the top-left corner of <var>node</var>'s
+        [=border box=] rather than the top-left corner of its [=margin box=].
+    1. If <var>box</var> is {{CSSBoxType/"padding"}},
+        adjust <var>adjustedPoint</var> so that it refers to the same physical point
+        in <var>node</var>'s local coordinate space,
+        but with coordinates measured from the top-left corner of <var>node</var>'s
+        [=border box=] rather than the top-left corner of its [=padding box=].
+    1. If <var>box</var> is {{CSSBoxType/"content"}},
+        adjust <var>adjustedPoint</var> so that it refers to the same physical point
+        in <var>node</var>'s local coordinate space,
+        but with coordinates measured from the top-left corner of <var>node</var>'s
+        [=border box=] rather than the top-left corner of its [=content box=].
+    1. Return <var>adjustedPoint</var>.
+</div>
+
+<div algorithm="adjust a point from the border box">
+    To <dfn export>adjust a point from the border box</dfn> given a {{DOMPoint}} <var>point</var>,
+    a {{GeometryNode}} <var>node</var>, and a {{CSSBoxType}} <var>box</var>,
+    run the following steps:
+
+    1. Let <var>adjustedPoint</var> be a new {{DOMPoint}} with the same
+        {{DOMPoint/x}} and {{DOMPoint/y}} as <var>point</var>.
+    1. If <var>node</var> is a {{Document}} or a {{Text}}, return <var>adjustedPoint</var>.
+    1. If <var>box</var> is {{CSSBoxType/"margin"}},
+        adjust <var>adjustedPoint</var> so that it refers to the same physical point
+        in <var>node</var>'s local coordinate space,
+        but with coordinates measured from the top-left corner of <var>node</var>'s
+        [=margin box=] rather than the top-left corner of its [=border box=].
+    1. If <var>box</var> is {{CSSBoxType/"padding"}},
+        adjust <var>adjustedPoint</var> so that it refers to the same physical point
+        in <var>node</var>'s local coordinate space,
+        but with coordinates measured from the top-left corner of <var>node</var>'s
+        [=padding box=] rather than the top-left corner of its [=border box=].
+    1. If <var>box</var> is {{CSSBoxType/"content"}},
+        adjust <var>adjustedPoint</var> so that it refers to the same physical point
+        in <var>node</var>'s local coordinate space,
+        but with coordinates measured from the top-left corner of <var>node</var>'s
+        [=content box=] rather than the top-left corner of its [=border box=].
+    1. Return <var>adjustedPoint</var>.
+</div>
+
 The <dfn method for=GeometryUtils lt="getBoxQuads(options)|getBoxQuads()">getBoxQuads(<var>options</var>)</dfn> method must run the following steps:
 
-<ol>
- <li class=issue>
-  DOM order
+1. Let <var>node</var> be [=this=].
+1. If <var>node</var> is a {{Document}}, let <var>document</var> be <var>node</var>.
+1. Otherwise, if <var>node</var> is a {{CSSPseudoElement}}, let <var>document</var> be <var>node</var>'s <a>originating element</a>'s <a>node document</a>.
+1. Otherwise, let <var>document</var> be <var>node</var>'s <a>node document</a>.
+1. If <var>options</var>.{{BoxQuadOptions/relativeTo}} is specified,
+    let <var>relativeTo</var> be <var>options</var>.{{BoxQuadOptions/relativeTo}}.
+    Otherwise, let <var>relativeTo</var> be <var>document</var>.
+1. Let <var>result</var> be an empty [=list=] of {{DOMQuad}} objects.
+1. If <var>node</var> is a {{Document}}, then:
+    1. Let <var>rect</var> be a {{DOMRect}} whose {{DOMRect/x}} and {{DOMRect/y}} are 0,
+        and whose {{DOMRect/width}} and {{DOMRect/height}} are the width and height
+        of the <a>layout viewport</a>.
+    1. Let <var>quad</var> be the result of invoking {{DOMQuad/fromRect()}} with <var>rect</var>.
+    1. [=list/Append=] the result of invoking the {{GeometryUtils/convertQuadFromNode()}} method on <var>relativeTo</var>
+        with <var>quad</var> and <var>document</var> to <var>result</var>.
+1. Otherwise, if <var>node</var> is a {{Text}}, then:
+    1. For each {{DOMRect}} <var>rect</var> returned by invoking the {{Range/getClientRects()}} method
+        on a {{Range}} whose boundary-points select exactly <var>node</var>, in content order:
+        1. Let <var>quad</var> be the result of invoking {{DOMQuad/fromRect()}} with <var>rect</var>.
+        1. [=list/Append=] the result of invoking the {{GeometryUtils/convertQuadFromNode()}} method on <var>relativeTo</var>
+            with <var>quad</var> and <var>document</var> to <var>result</var>.
+1. Otherwise, for each <a spec=css-break>box fragment</a> of <var>node</var>,
+    in content order, run the following steps:
+    1. Let <var>rect</var> be a {{DOMRect}} describing the <a>border area</a> of
+        the <a spec=css-break>box fragment</a>, positioned in the fragment's local coordinate space
+        with its <a>border edge</a> at {{DOMRect/x}} = 0 and {{DOMRect/y}} = 0.
+    1. If <var>options</var>.{{BoxQuadOptions/box}} is
+        {{CSSBoxType/"margin"}},
+        let <var>rect</var> instead be a {{DOMRect}} describing the fragment's <a>margin area</a>
+        in the same local coordinate space,
+        with the fragment's <a>border edge</a> still at {{DOMRect/x}} = 0 and {{DOMRect/y}} = 0.
+    1. If <var>options</var>.{{BoxQuadOptions/box}} is
+        {{CSSBoxType/"padding"}},
+        let <var>rect</var> instead be a {{DOMRect}} describing the fragment's <a>padding area</a>
+        in the same local coordinate space,
+        with the fragment's <a>border edge</a> still at {{DOMRect/x}} = 0 and {{DOMRect/y}} = 0.
+    1. If <var>options</var>.{{BoxQuadOptions/box}} is
+        {{CSSBoxType/"content"}},
+        let <var>rect</var> instead be a {{DOMRect}} describing the fragment's <a>content area</a>
+        in the same local coordinate space,
+        with the fragment's <a>border edge</a> still at {{DOMRect/x}} = 0 and {{DOMRect/y}} = 0.
+    1. Let <var>quad</var> be the result of invoking {{DOMQuad/fromRect()}} with <var>rect</var>.
+    1. [=list/Append=] the result of invoking the {{GeometryUtils/convertQuadFromNode()}} method on <var>relativeTo</var>
+        with <var>quad</var> and <var>node</var> to <var>result</var>.
+1. Return <var>result</var>.
 
-  p1 = top left even in RTL
-
-  scale to 0 means divide by zero, return 0x0
-
-  cross-frames not allowed, throw WrongDocumentError?
-
-  points are flattened (3d transform), z=0. like getClientRect
-
-  test block in inline
-
-  pseudo-elements before/after are children of the element
-
-  viewport boxes are all the same
-</ol>
+    Note: The points are flattened (3D transforms project to z=0),
+    similar to {{Element/getClientRects()}}.
+    {{DOMQuad/p1}} is always the physical top-left corner of the box,
+    even in right-to-left writing modes.
+    For {{Document}} and {{Text}} nodes,
+    all four values of {{BoxQuadOptions/box}} return the same geometry.
+    If a transformation matrix is not invertible
+    (e.g. due to a ''transform/scale()'' of 0),
+    the resulting coordinates are implementation-defined.
 
 <wpt>
     cssom-getBoxQuads-001.html
@@ -2249,22 +2383,37 @@ The <dfn method for=GeometryUtils lt="convertQuadFromNode(quad, from, options)|c
 must run the following steps:
 
 <ol>
- <li><p class=issue>...
+ 1. transform each point of the DOMQuad via convertPointFromNode
 </ol>
 
 The <dfn method for=GeometryUtils lt="convertRectFromNode(rect, from, options)|convertRectFromNode(rect, from)">convertRectFromNode(<var>rect</var>, <var>from</var>, <var>options</var>)</dfn> method
 must run the following steps:
 
 <ol>
- <li><p class=issue>...
+ 1. create a DOMQuad from the rect via DOMQuad.fromRect
+ 2. transform each point of the DOMQuad from 1. via convertPointFromNode
 </ol>
 
 The <dfn method for=GeometryUtils lt="convertPointFromNode(point, from, options)|convertPointFromNode(point, from)">convertPointFromNode(<var>point</var>, <var>from</var>, <var>options</var>)</dfn>
-method must run the following steps:
+method returns a point flattened to 2D and must run the following steps:
 
-<ol>
- <li><p class=issue>...
-</ol>
+1. Let <var>node</var> be [=this=].
+1. Let <var>thisTransformToViewport</var> be the result of
+    <a>getting the complete transform</a> of <var>node</var>
+    relative to null.
+1. Let <var>fromTransformToViewport</var> be the result of
+    <a>getting the complete transform</a> of <var>from</var>
+    relative to null.
+1. Let <var>adjustedPoint</var> be the result of
+    <a>adjusting a point to the border box</a> given <var>point</var>,
+    <var>from</var>, and <var>options</var>.{{ConvertCoordinateOptions/fromBox}}.
+1. Set <var>adjustedPoint</var> to the result of transforming
+    <var>adjustedPoint</var> by <var>fromTransformToViewport</var>.
+1. Set <var>adjustedPoint</var> to the result of transforming
+    <var>adjustedPoint</var> by the inverse of <var>thisTransformToViewport</var>.
+1. Return the result of <a>adjusting a point from the border box</a>
+    given <var>adjustedPoint</var>, <var>node</var>,
+    and <var>options</var>.{{ConvertCoordinateOptions/toBox}}.
 
 <h2 id=visualViewport>VisualViewport</h2>
 
