@@ -94,7 +94,7 @@ def main():
 
         # Write workflow file
         filename = workflows_dir / f"{spec['shortname']}.yml"
-        filename.write_text(content, encoding="utf-8")
+        filename.write_text(content, encoding="utf-8", newline="\n")
         print(f"Generated {filename}")
 
 
