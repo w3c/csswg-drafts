@@ -41,6 +41,14 @@ SPECS = [
         "shortname": "css-fonts-5",
         "publicationStatus": "WD",
     },
+    {
+        "shortname": "css-2026",
+        "publicationStatus": "NOTE",
+    },
+    {
+        "shortname": "css-2027",
+        "publicationStatus": "NOTE",
+    },
 ]
 
 # -----------------------------------------------------------------------------
