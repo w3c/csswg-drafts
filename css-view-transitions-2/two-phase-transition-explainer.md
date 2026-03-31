@@ -91,20 +91,9 @@ Specifically, the `addRestoreCallback` mechanism can be easily overlooked by dev
 As an alternative, proposing a declarative CSS-based solution, based on view-transition at rules and `@navigation` conditionals:
 
 ```css
-@navigation(preview: active) {
+@navigation(preview) {
   #skeleton {
     display: block;
-  }
-
-  ::view-transition-group(*) {
-    animation-iteration-count: infinite;
-  }
-}
-
-@navigation(preview: exiting) {
-  ::view-transition-group(*) {
-    /* this would stop the infinite animation, letting it complete */
-    animation-iteration-count: 1;    
   }
 }
 
@@ -115,7 +104,7 @@ As an alternative, proposing a declarative CSS-based solution, based on view-tra
 ```
 
 The "preview" animation with its attached types would start when the navigation is initiated (but not intercepted), and would defer the commit until
-it is finished. The "new" state of the animation would be controlled by style only, using the `@navigation(preview: active)` conditional (which can be mixed and matches with other conditionals).
+it is finished. The "new" state of the animation would be controlled by style only, using the `@navigation(preview)` conditional (which can be mixed and matches with other conditionals).
 
 ## Pros and cons of the different solutions
 
