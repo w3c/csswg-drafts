@@ -83,17 +83,28 @@ navigation.addEventListener("navigate", event => {
 - Only same-origin navigations without cross-origin redirects are deferrable.
 
 
-## Solution 2: Allowing animations to defer commit for a short period
+## Solution 2: Declarative "preview" view transitions & navigation preview state
 
 The above knobs can be very effective, but might also require expertise to get right.
+Specifically, the `addRestoreCallback` mechanism can be easily overlooked by developers and cause bad UX when BFCache is enable and the state is not cleaned up properly.
 
-The likely use case to let an animation continue till the end, so we can perhaps enable this declaratively:
+As an alternative, proposing a declarative CSS-based solution, based on view-transition at rules and `@navigation` conditionals:
 
 ```css
-::view-transition-group {
-  animation-navigation-behavior: smooth;
+@navigation(preview) {
+  #skeleton {
+    display: block;
+  }
+}
+
+@view-transition {
+  navigation: preview;
+  types: some-preview-types;
 }
 ```
+
+The "preview" animation with its attached types would start when the navigation is initiated (but not intercepted), and would defer the commit until
+it is finished. The "new" state of the animation would be controlled by style only, using the `@navigation(preview)` conditional (which can be mixed and matches with other conditionals).
 
 ## Pros and cons of the different solutions
 
