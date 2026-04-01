@@ -54,7 +54,8 @@ navigateEvent.deferPageSwap({
   // The handler can register a "restore" callback, to be called if the navigation is aborted
   // or if the page is restored from BFCache.
   handler: (controller) => Promise
-});```
+});
+```
 
 Possible usage:
 ```js
