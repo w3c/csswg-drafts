@@ -15,6 +15,12 @@ So, in the cases where the navigation is not instant, providing some instant ani
 
 This "uncanny valley" where the old page is no longer active but the new page is not rendering any frames is far from being an optimal user experience, and the knobs given for developers to control it are crude and implicit.
 
+# User experience
+
+The kind of UI authors commonly try to do with this approach is often referred to as "skeleton" - quickly transitioning to a UI that looks like the final state, but doesn't include any content, and then transitioning from the skeleton to the "real" UI that includes this content.
+
+Other UIs include loading spinners, greying out the old page as it is unloading, or showing some directional swipe-like animation without displaying the target content.
+
 # Current knobs
 
 ## Cross-document view transitions
