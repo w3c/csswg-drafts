@@ -50,14 +50,13 @@ content location of future work and discussions.
     - [Scenario 3: Segmented gap decorations](#scenario-3-segmented-gap-decorations)
     - [Scenario 4: Grid layout with white space in leading columns](#scenario-4-grid-layout-with-white-space-in-leading-columns)
     - [Scenario 5: Column decorations only between items](#scenario-5-column-decorations-only-between-items)
+    - [Scenario 6: Calendar layout with alternating line styles](#scenario-6-calendar-layout-with-alternating-line-styles)
   - [Future ideas](#future-ideas)
     - [Images](#images)
     - [Corner joins](#corner-joins)
     - [Propagation of gap decorations into subgrids](#propagation-of-gap-decorations-into-subgrids)
     - [Extensions to decoration visibility controls](#extensions-to-decoration-visibility-controls)
     - [Placement of gap decorations](#placement-of-gap-decorations)
-      - [Scenario: Calendar grid with header column](#scenario-calendar-grid-with-header-column)
-      - [Scenario: Different lines for different gaps, applied to a sub-area of a grid](#scenario-different-lines-for-different-gaps-applied-to-a-sub-area-of-a-grid)
       - [Scenario: Periodic Table omitting decorations from certain areas](#scenario-periodic-table-omitting-decorations-from-certain-areas)
   - [Dropped ideas](#dropped-ideas)
     - [Logical properties](#logical-properties)
@@ -179,20 +178,17 @@ simpler for gap decorations as there are fewer unknowns to consider.
 
 ```css
 .varying-widths {
-  dispay: grid;
+  display: grid;
   grid-template-columns: repeat(3, 100px);
-  grid-auto-rows: 30px;
-  row-gap: 9px;
-  row-rule: 5px solid black, repeat(auto, 1px solid black), 3px solid black;
-}
-.item {
-  height: 30px;
-  padding: 5px;
-  border: 1px dotted lightgray;
+  grid-template-rows: 50px repeat(auto-fill, 50px) 50px;
+  row-gap: 10px;
+  row-rule: 5px solid black, repeat(auto, 1px dashed gray), 3px solid black;
+  column-rule: 1px dashed gray;
+  rule-inset: 5px;
 }
 ```
 
-![](images/example-width-style-color.png)
+![](images/example-varying-widths.png)
 
 ### Interaction with intersection types
 
@@ -529,6 +525,31 @@ https://github.com/MicrosoftEdge/MSEdgeExplainers/issues/1100
 
 ![](images/explainer-issue-1100.png)
 
+### Scenario 6: Calendar layout with alternating line styles
+
+https://codepen.io/samdomekara/pen/NPROrgQ, inspired by 
+https://github.com/w3c/csswg-drafts/issues/2748#issuecomment-595889781
+
+It might appear initially that `<table>` would be a better fit for this use case. But the comment author
+[pointed out](https://github.com/w3c/csswg-drafts/issues/2748#issuecomment-596040343)
+that once you populate the calendar with events, using a CSS grid makes things much simpler.
+
+```css
+.calendar {
+  display: grid;
+  grid-template-columns: 80px repeat(7, 1fr);
+  grid-template-rows: auto repeat(18, minmax(30px, 1fr));
+  column-gap: 2px;
+  column-rule: 2px solid #ddd;
+  column-rule-edge-inset-start: 30px;
+  row-gap: 1px;
+  row-rule: 1px dotted #ddd, 1px solid #ddd;
+  row-rule-edge-inset-start: 80px;
+}
+```
+
+![](images/calendar-codepen.png)
+
 ## Future ideas
 
 ### Images
@@ -628,38 +649,6 @@ will "win". Thus, the value above would apply alternating 1px solid black and
 1px solid gray rules to the grid in general, then override gaps in the first row
 with alternating 3px solid black and 5px solid black rules, then on top of that
 override gaps in the first column with 1px solid blue rules.
-
-#### Scenario: Calendar grid with header column
-
-```css
-.grid-multiple-decoration-areas {
-  display: grid;
-  grid-template-rows: [top] 30px [main-top] repeat(6, 30px) [bottom];
-  grid-template-columns: [left] 100px [main-left] repeat(3, 100px) [right];
-  gap: 10px;
-  rule-areas: --month-column left / top / main-left / bottom;
-  row-rule: 1px solid black [--month-column] 1px solid lightblue;
-  column-rule: [--month-column] 1px solid lightblue;
-}
-```
-
-![](images/example-multiple-areas.png)
-
-#### Scenario: Different lines for different gaps, applied to a sub-area of a grid
-
-https://github.com/w3c/csswg-drafts/issues/2748#issuecomment-595889781
-
-```css
-.container {
-  rule-style: solid:
-  rule-color: lightgray;
-  rule-areas: --main 2 / 2 / -1 / -1;
-  column-rule-width: [--main] 1px repeat(auto, 2px) 1px;
-  row-rule-width: [--main] 0px repeat(auto, 2px 1px);
-}
-```
-
-![](images/csswg-drafts-issues-2748-issuecomment-595889781.png)
 
 #### Scenario: Periodic Table omitting decorations from certain areas
 
