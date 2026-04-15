@@ -2289,7 +2289,9 @@ Generating a Random Numeric Value: the ''random()'' function</h3>
 	&lt;random()> = random( <<random-cache-key>>? , <<calc-sum>>, <<calc-sum>>, <<calc-sum>>? )
 
 	<dfn><<random-cache-key>></dfn> = auto | <<random-name>> | fixed <<number [0,1]>>
-	<dfn><<random-name>></dfn> =  <<dashed-ident>> [ element | property index? ]?
+	<dfn><<random-name>></dfn> =  <<dashed-ident>> || element-scoped
+	                       || [ property-scoped | property-index-scoped | <<random-ua-ident>> ]
+	<dfn><<random-ua-ident>></dfn> = <<custom-ident>>
 	</pre>
 
 	See [[#random-evaluation]] and [[#random-caching]]
@@ -2305,8 +2307,7 @@ Generating a Random Numeric Value: the ''random()'' function</h3>
 			If <<random-cache-key>> is omitted,
 			it behaves as ''random()/auto''.
 
-			See below for details on the <<random-cache-key>> options,
-			and see [[#random-caching]] for a precise description of their behavior.
+			See [[#random-caching]] for a full description of this value.
 
 		: <css><<calc-sum>>, <<calc-sum>></css>
 		:: The two required [=calculations=]
@@ -2390,37 +2391,73 @@ Generating a Random Numeric Value: the ''random()'' function</h3>
 		as lengths and angles are not the same type.
 	</div>
 
-	A ''random()'' function can be [=simplify a calculation tree|simplified=]
-	as soon as its argument [=calculations=]
-	can be simplified to numeric values.
-	See [[#random-caching]] for details on how it's resolved.
 
-	If a ''random()'' function can't be [=simplify a calculation tree|simplified=]
-	by [=computed value=] time,
-	then it computes to its maximally-simplified form,
-	but with its <<random-cache-key>> set to its [=random base value=].
+<h4 id=random-simplify>
+Simplification</h4>
+
+	At parse time,
+	certain transformations are performed on the <<random-cache-key>> of a [=random function=]:
+
+	* If the <<random-cache-key>> is ''auto'' (or omitted),
+		it's turned into ''element-scoped property-index-scoped''.
+		(And then subject to the below transformations.)
+	* If the <<random-cache-key>> contains ''property-scoped'' or ''property-index-scoped'',
+		that keyword is replaced by a <<random-ua-ident>>:
+		either <css>ua-PROPERTY</css> with PROPERTY being the property the value was parsed as,
+		or <css>ua-PROPERTY-INDEX</css> with PROPERTY as the previous
+		and INDEX being the 1-indexed integer index of this [=random function=]
+		among all [=random functions=] being used in the property.
+
+		The INDEX value is based on the ordering in the parsed value,
+		before any canonicalization/reordering might occur
+		that could shuffle the values around.
 
 	<div class=example>
-		For example, given the declaration ''width: random(50%, 100%)'',
-		the calculations can't be simplified at [=computed value=] time
-		because the percentages depend on [=used value=] information
-		(the size of the element's [=containing block=]).
+		For example,
+		specifying ''margin: random(10px, 20px) random(10px, 20px)''
+		will cause the top and bottom margins to be one random value,
+		and the left and right margins to be another random value.
+		The omitted <<random-cache-key>>s get rewritten at parse-time
+		to ''element-scoped ua-margin-1'' and ''element-scoped ua-margin-2'',
+		respectively,
+		before they expand into the 'margin' longhands.
 
-		So, the [=computed value=] of the property
-		is ''width: random(fixed .1234, 50%, 100%)''
-		(or some other random value instead of ''.1234''),
-		meaning it will eventually resolve to ''56.17%''
-		(or similar for the actual random value).
+		This way, the 'margin-top' and 'margin-bottom' longhands
+		will both contain the key ''element-scoped ua-margin-1'',
+		ensuring that the two values remain linked
+		even if you read and then set the value back.
 	</div>
 
-	Issue: At least in theory it should be fine to use ''random()''
-	in non-property contexts,
-	it would just set the "element id" of the caching key to null,
-	and, if necessary, compute an appropriate descriptor/etc-based caching key.
-	Like, <code>@media (max-width: random(100px, 500px)) {...}</code>
-	could be well-defined;
-	the caching key is just "@media max-width 1" or something.
-	I suspect we want to disallow it, tho?
+	The [=random base value=] of a [=random function=] is known at [=specified value=] time,
+	at the latest,
+	once it's known which element the function is being applied to.
+	As a [=math function=], a ''random()'' function can be [=simplify a calculation tree|simplified=]
+	as soon as its argument [=calculations=]
+	can be simplified to compatible numeric values.
+	If a ''random()'' function can't be fully [=simplify a calculation tree|simplified=]
+	by [=computed value=] time,
+	then its arguments are maximally simplified,
+	and its <<random-cache-key>>
+	is replaced with ''fixed BASE'',
+	where <css>BASE</css> is the function's [=random base value=].
+
+	Note: As an [=arbitrary substitution function=],
+	''random-item()'' is always replaced at [=computed value=] time.
+
+	<div class=example>
+		For example, given the declaration ''width: random(100px, 100%)'',
+		the calculations can't be simplified at [=computed value=] time
+		because the percentage depend on [=used value=] information
+		(the size of the element's [=containing block=],
+		to resolve the ''100%'' against).
+
+		So, the [=computed value=] of the property
+		becomes something like ''width: random(fixed .1234, 100px, 100%)''.
+		Once the ''100%'' is resolved to a length
+		(say, ''500px''),
+		the function will be able to fully simplify
+		(to ''149.36px'').
+	</div>
 
 
 <h4 id=random-infinities>
@@ -2619,7 +2656,7 @@ Sharing (Or Not) Random Values: the <<random-cache-key>> value</h3>
 	which are inherently <em>stateful</em> and care about
 	when, how often, and in what order they're executed.
 
-	To fix this, the [=random functions=] are associated with a [=random cache key=],
+	To fix this, the [=random functions=] are associated with a [=random cache name=],
 	ensuring that any time the random function is evaluated with the same cache key,
 	it will return the same [=random base value=];
 	and also that [=random functions=] with <em>different</em> caching keys
@@ -2634,32 +2671,56 @@ Sharing (Or Not) Random Values: the <<random-cache-key>> value</h3>
 			every usage in a property,
 			between different properties,
 			and between different elements
-			will get a different [=random cache key=].
-			(See below for exact details.)
+			will get a different [=random cache name=].
+			This is equivalent to specifying ''element-scoped property-index-scoped'',
+			and simplifies in exactly the same way.
 
 			If the <<random-cache-key>> is omitted,
 			it behaves as ''random()/auto''.
 
 		: <dfn><<random-name>></dfn>
-		:: The <<random-name>> specifies the [=random cache key=] directly.
-			It always contains a <<dashed-ident>>,
-			specifying the name,
-			and can optionally contain additional <em>dynamic</em> information:
+		:: The <<random-name>> specifies the [=random cache name=] directly,
+			<em>naming</em> the random value and allowing it to be explicitly shared (or not)
+			with other uses of [=random functions=].
+			Every [=random function=] using the same [=random cache name=]
+			will get the same random value;
+			every one using a <em>different</em> [=random cache name=]
+			will get unrelated random values.
 
-			* <dfn>element</dfn> adds an element identifier to the [=random cache key=],
-				so different elements will get different random values
-			* <dfn>property</dfn> adds the property name the [=random function=] is being used on to the [=random cache key=],
-				so different properties will get different random values
-			* <dfn lt="index | property index">property index</dfn>
+			The [=random cache name=] is made of several possible parts,
+			which are all optional
+			and can be specified in any order:
+
+			* The <<dashed-ident>>, giving the value an explicit name.
+				If omitted, this part of the name is null.
+			* <dfn>element-scoped</dfn> adds an element-specific identifier
+				to the [=random cache name=],
+				so different elements will get different random values.
+			* <dfn>property-scoped</dfn> adds the property name the [=random function=] is being used on
+				to the [=random cache name=],
+				so different properties will get different random values.
+			* <dfn>property-index-scoped</dfn>
 				adds the property name <em>and</em> the index of the random function
 				among all the random functions used in the same property value
-				to the [=random cache key=],
+				to the [=random cache name=],
 				so multiple uses of a [=random function=] in the same property
 				will get different random values.
 
-		: <dfn lt="fixed|<number>">fixed <<number>></dfn>
+			''property-scoped'' and ''property-index-scoped''
+			are mutually exclusive with each other,
+			and also with the <dfn><<random-ua-ident>></dfn> value.
+			This value, like ''fixed'' below, isn't intended to be specified by authors,
+			but can show up in [=computed values=].
+			It is a <<custom-ident>> that must start with the prefix <css>ua-</css>.
+			When generated automatically by the user agent,
+			it will always be <css>ua-PROPERTY</css> or <css>ua-PROPERTY-INDEX</css>,
+			with the <css>PROPERTY</css> and <css>INDEX</css> parts
+			replaced with a property name or integer index,
+			like <css>ua-margin-3</css>.
+
+		: <dfn lt="fixed|<number>">fixed <<number [0, 1]>></dfn>
 		:: If ''fixed <<number>>'' is specified,
-			the [=random function=] bypasses the [=random cache key=] entirely,
+			the [=random function=] bypasses the [=random cache name=] entirely,
 			and just uses the <<number>> as its [=random base value=] directly.
 
 			While ''1'' is technically allowed as a valid value
@@ -2678,7 +2739,7 @@ Sharing (Or Not) Random Values: the <<random-cache-key>> value</h3>
 	</dl>
 
 	<div class=example>
-		Imagine you have 100 ''.box'' elements,
+		Imagine you have several ''.box'' elements,
 		all styled with the following CSS:
 
 		<pre highlight=css>
@@ -2693,29 +2754,65 @@ Sharing (Or Not) Random Values: the <<random-cache-key>> value</h3>
 		in place of the ''???'',
 		you'll get significantly different behavior for the elements:
 
-		* ''auto''/omitted, <b>maximum random</b>:
-			each property gets a different value,
+		: ''auto''/omitted, <b>maximum random</b>: <span class="box-example auto"><b></b><b></b><b></b><b></b></span>
+		::
+			Each property gets a different value,
 			and it's different per element too,
 			so you get a bunch of <strong>different</strong> random <strong>rectangles</strong>.
 
-		* ''--foo'', <b>shared by name</b>:
-			both properties use the same value,
+		: ''--foo'', <b>shared by name</b>: <span class="box-example name"><b></b><b></b><b></b><b></b></span>
+		::
+			Both properties use the same value,
 			and every element shares that value,
 			so you get a bunch of <strong>identical</strong> random <strong>squares</strong>.
 
-		* ''--foo element'', <b>shared by name, per element</b>:
-			both properties use the same value,
+		: ''element-scoped'', <b>scoped per element</b>: <span class="box-example element-scoped"><b></b><b></b><b></b><b></b></span>
+		::
+			Both properties use the same value,
 			but each element gets a different value,
 			so you get a bunch of <strong>different</strong> random <strong>squares</strong>.
 
-		* ''--foo property'', <b>shared by name, per property</b>:
-			each property gets a different value,
+		: ''property-scoped'', <b>scoped per property</b>: <span class="box-example property-scoped"><b></b><b></b><b></b><b></b></span>
+		::
+			Each property gets a different value,
 			but each element shares that value,
-			so you get a bunch of <strong>identical</strong> random <strong>rectangles</strong>
+			so you get a bunch of <strong>identical</strong> random <strong>rectangles</strong>.
+
+		<style>
+		.box-example {
+		 white-space: pre;
+		 > b {
+		  border: 2px solid;
+		  display: inline-block;
+		  margin: 0 .2em;
+		 }
+		 &.name > b {
+		  aspect-ratio: 1/1;
+		  width: .5em;
+		 }
+		 &.auto > b {
+		  &:nth-child(1) { aspect-ratio: 3/1; height: .5em;}
+		  &:nth-child(2) { aspect-ratio: 1/2; width: .5em;}
+		  &:nth-child(3) { aspect-ratio: 3/2; height: .5em;}
+		  &:nth-child(4) { aspect-ratio: 1/3; width: .5em;}
+		 }
+		 &.element-scoped > b {
+		  aspect-ratio: 1;
+		  &:nth-child(1) { width: .5em;}
+		  &:nth-child(2) { width: .2em;}
+		  &:nth-child(3) { width: .8em;}
+		  &:nth-child(4) { width: .4em;}
+		 }
+		 &.property-scoped > b {
+		  aspect-ratio: 2/1;
+		  height: .5em;
+		 }
+		}
+		</style>
 	</div>
 
 	<div class=example>
-		Note that only the [=random cache key=]
+		Note that only the [=random cache name=]
 		controls whether two [=random functions=] have the same value or not;
 		their <em>other</em> arguments don't contribute in any way.
 
@@ -2729,15 +2826,15 @@ Sharing (Or Not) Random Values: the <<random-cache-key>> value</h3>
 		</pre>
 
 		will actually share a [=random base value=]
-		because their [=random cache keys=] are identical.
-		If this [=random cache key=] is linked to a [=random base value=] of 0.25,
+		because their [=random cache names=] are identical.
+		If this [=random cache name=] is linked to a [=random base value=] of 0.25,
 		for example,
 		this will give the element a width of ''125px''
 		and an animation-duration of ''1.25s''.
 
 		If you want the values to be completely uncorrelated,
 		give them distinct names (''--foo'' vs ''--bar'')
-		or mix in additional information that will uniquify their [=random cache keys=]
+		or mix in additional information that will uniquify their [=random cache names=]
 		(specifying ''--foo property'', or omitting the <<random-cache-key>> argument entirely)
 	</div>
 
@@ -2749,7 +2846,7 @@ Sharing (Or Not) Random Values: the <<random-cache-key>> value</h3>
 
 		<em>Usually</em>, this ensures that every instance of a [=random function=],
 		on every element,
-		gets a different [=random cache key=] and thus a different [=random base value=].
+		gets a different [=random cache name=] and thus a different [=random base value=].
 		However, this can fail in some corner cases,
 		causing random values to be shared when it's unexpected.
 		For example, in the following:
@@ -2763,7 +2860,7 @@ Sharing (Or Not) Random Values: the <<random-cache-key>> value</h3>
 		}
 		</pre>
 
-		The two ''random()'' functions have the same [=random cache key=]
+		The two ''random()'' functions have the same [=random cache name=]
 		on a given element
 		(both are the first [=random function=] used in 'animation'),
 		so they'll share [=random base values=] on a single element
@@ -2792,17 +2889,6 @@ Sharing (Or Not) Random Values: the <<random-cache-key>> value</h3>
 		or ''random(--flicker, ...)'' and ''random(--glow, ...)'' on the different rules.
 	</details>
 
-	<figure class=example>
-		<img src="images/random-sharing.png">
-		<figcaption>
-			Providing a custom ident (''--foo'') allows multiple properties to share a value;<br>
-			providing ''element-shared'' allows multiple elements to share a value;<br>
-			providing both allow multiple properties across multiple elemnents to share.
-		</figcaption>
-	</figure>
-
-	Issue: This diagram is out of date; fix it.
-
 	More specifically,
 	the ''random()'' and ''random-item()'' functions are defined to generate random values
 	under the following caching semantics:
@@ -2817,23 +2903,23 @@ Sharing (Or Not) Random Values: the <<random-cache-key>> value</h3>
 		in the range `[0, 1)`
 		(greater than or equal to 0 and less than 1),
 		generated from a uniform distribution,
-		and influenced by the function's [=random cache key=].
+		and influenced by the function's [=random cache name=].
 
-	* Each [=random function=] also specifies a <dfn>random cache key</dfn>.
-		Two [=random functions=] with the same [=random cache key=]
+	* Each [=random function=] also specifies a <dfn>random cache name</dfn>.
+		Two [=random functions=] with the same [=random cache name=]
 		must also have the same [=random base value=];
-		two functions with different [=random cache keys=]
+		two functions with different [=random cache names=]
 		must have distinct [=random base values=].
 		(That is, generated by a fresh random operation;
 		randomness might of course produce the same actual value.)
 
-		It is intentionally unspecified <em>how</em> the [=random cache key=]
+		It is intentionally unspecified <em>how</em> the [=random cache name=]
 		is used to achieve this.
 		It can literally cache a generated random value,
 		or be used as a seed for a PRNG,
 		etc.
 
-	* A [=random cache key=] is a [=tuple=] of:
+	* A [=random cache name=] is a [=tuple=] of:
 		1. A nullable [=string=] name:
 			the value of the <<dashed-ident>>, if specified;
 			otherwise <code>"auto"</code> if ''random()/auto'' is specified
@@ -2859,7 +2945,7 @@ Sharing (Or Not) Random Values: the <<random-cache-key>> value</h3>
 		The "element ID" and "document ID" must have the same lifetimes and equivalence
 		as a JavaScript reference to the {{Element}} or {{Document}}.
 
-	* The [=random cache key=] and [=random base value=]
+	* The [=random cache name=] and [=random base value=]
 		must be determined at [=computed value=] time,
 		before [=inheritance=],
 		so that a random function which is unresolved by inheritance time
@@ -2869,7 +2955,7 @@ Sharing (Or Not) Random Values: the <<random-cache-key>> value</h3>
 
 	<div class=example>
 
-		Shorthands are recorded as part of the [=random cache key=],
+		Shorthands are recorded as part of the [=random cache name=],
 		rather than the longhand the value gets expanded to.
 		For example:
 
@@ -2879,7 +2965,7 @@ Sharing (Or Not) Random Values: the <<random-cache-key>> value</h3>
 		}
 		</pre>
 
-		Here, the "property name" and "index"  in the [=random cache keys=]
+		Here, the "property name" and "index"  in the [=random cache names=]
 		is <code>"margin"</code> and <code>0</code> for the first instance
 		and <code>"margin"</code> and <code>1</code> for the second.
 		After expansion, then,
@@ -2895,7 +2981,7 @@ Sharing (Or Not) Random Values: the <<random-cache-key>> value</h3>
 		}
 		</pre>
 
-		The 'margin-bottom' value has a [=random cache key=] "property name"
+		The 'margin-bottom' value has a [=random cache name=] "property name"
 		of <code>"margin-bottom"</code>,
 		which is different from the 'margin-top' key of <code>"margin"</code>,
 		so the top and bottom margins will be different random values.
@@ -2926,7 +3012,7 @@ Sharing (Or Not) Random Values: the <<random-cache-key>> value</h3>
 		so the default rules for an omitted <<dashed-ident>>
 		in the <<random-cache-key>> isn't applied.
 		Instead, it's evaluated when it's substituted into 'width' and 'height',
-		so each gets a distinct [=random cache key=],
+		so each gets a distinct [=random cache name=],
 		and this ends up defining a random <em>rectangle</em>,
 		rather than a square.
 
