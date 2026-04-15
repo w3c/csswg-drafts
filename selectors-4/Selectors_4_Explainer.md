@@ -111,7 +111,7 @@ for ease of reference_
     again providing functionality that previously needed JavaScript
 - Added the [`:fullscreen`](https://www.w3.org/TR/selectors-4/#fullscreen-state) 
     and [`:picture-in-picture`](https://www.w3.org/TR/selectors-4/#pip-state) pseudo-classes
-- Added the `:muted` and `volume-locked` pseudo-classes
+- Added the [`:muted` and `:volume-locked`](https://www.w3.org/TR/selectors-4/#sound-state) pseudo-classes
     for **sound-producing elements**
 
 ### Internationalization Improvements
