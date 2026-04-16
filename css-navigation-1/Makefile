@@ -1,5 +1,3 @@
-# FIXME: New documentation needed.
-#
 # Use "make REMOTE=1" to use remote bikeshed
 
 SOURCEFILE=Overview.bs
