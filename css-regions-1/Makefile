@@ -1,16 +1,24 @@
-# use this command line now, or a local bikeshed
+# Use this command with local bikeshed:
+# bikeshed spec Overview.bs Overview.html
 
-# curl http://api.csswg.org/bikeshed/ -F file=@Overview.src.html > Overview.html
+# spec-generator can be used, but sending only Overview.bs will lose img width/height generation
+# curl https://www.w3.org/publications/spec-generator/ -F type=bikeshed-spec -F file=@Overview.bs > Overview.html
 
-%.html: %.src.html
-	curl -s -L -F file=@$< -F time=$(cdate) -F output=html \
-	-F paragraph=$(markup) $(opts) -o $@ http://api.csswg.org/bikeshed/
-%.err: %.src.html
-	curl -s -L -F file=@$< -F time=$(cdate) -F output=err \
-	-F paragraph=$(markup) $(opts) http://api.csswg.org/bikeshed/ >$@
+target ?= Overview
+
+%.html: %.bs
+	curl -s -L -F file=@$< -F md-date=$(cdate) -F output=html \
+	-F type=bikeshed-spec $(opts) -o $@ https://www.w3.org/publications/spec-generator/
+%.err: %.bs
+	curl -s -L -F file=@$< -F md-date=$(cdate) -F output=messages \
+	-F type=bikeshed-spec $(opts) https://www.w3.org/publications/spec-generator/ >$@
 
 all: check Overview.html
 
-check: Overview.err
-	@if test -s $<; then false; else true; fi
+check: $(target).err
 	@cat $<
+	@if fgrep -q '"messageType":"success"' $<;\
+	 then true; else false; fi
+
+clean:
+	rm -f $(target).html $(target).err

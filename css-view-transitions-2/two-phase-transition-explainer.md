@@ -15,6 +15,12 @@ So, in the cases where the navigation is not instant, providing some instant ani
 
 This "uncanny valley" where the old page is no longer active but the new page is not rendering any frames is far from being an optimal user experience, and the knobs given for developers to control it are crude and implicit.
 
+# User experience
+
+The kind of UI authors commonly try to do with this approach is often referred to as "skeleton" - quickly transitioning to a UI that looks like the final state, but doesn't include any content, and then transitioning from the skeleton to the "real" UI that includes this content.
+
+Other UIs include loading spinners, greying out the old page as it is unloading, or showing some directional swipe-like animation without displaying the target content.
+
 # Current knobs
 
 ## Cross-document view transitions
@@ -38,7 +44,7 @@ The instant part of the transition can only use information knows to the old pag
 
 To achieve that, proposing two provide the following:
 
-## Allowing the author to control the commit scheduling
+## Solution 1: Allowing the author to control the commit scheduling
 
 ```js
 // Returns a boolean if the page is prerendered/BFCached and not render-blocked.
@@ -54,7 +60,8 @@ navigateEvent.deferPageSwap({
   // The handler can register a "restore" callback, to be called if the navigation is aborted
   // or if the page is restored from BFCache.
   handler: (controller) => Promise
-});```
+});
+```
 
 Possible usage:
 ```js
@@ -76,25 +83,42 @@ navigation.addEventListener("navigate", event => {
 });
 ```
 
-### Some more details for deferred commit/page-swap
+### Some more details for deferred commit/page-swap
+
 - By default, the new history entry applies immediately, like a `pushState` or `replaceState`.
   This makes it so that a quick press on "back" or so doesn't go too far back. The `historyChange` option can opt out of this behavior.
 - Only same-origin navigations without cross-origin redirects are deferrable.
 
 
-## Allowing animations to defer commit for a short period
+## Solution 2: Declarative "preview" view transitions & navigation preview state
 
 The above knobs can be very effective, but might also require expertise to get right.
+Specifically, the `addRestoreCallback` mechanism can be easily overlooked by developers and cause bad UX when BFCache is enable and the state is not cleaned up properly.
 
-The likely use case to let an animation continue till the end, so we can perhaps enable this declaratively:
+As an alternative, proposing a declarative CSS-based solution, based on view-transition at rules and `@navigation` conditionals:
 
 ```css
-::view-transition-group {
-  animation-navigation-behavior: smooth;
+@navigation(preview) {
+  #skeleton {
+    display: block;
+  }
+}
+
+@view-transition {
+  navigation: preview;
+  types: some-preview-types;
 }
 ```
 
-## Security & Privacy Questionnaire
+The "preview" animation with its attached types would start when the navigation is initiated (but not intercepted), and would defer the commit until
+it is finished. The "new" state of the animation would be controlled by style only, using the `@navigation(preview)` conditional (which can be mixed and matches with other conditionals).
+
+## Pros and cons of the different solutions
+
+While deferring page swap provides full flexibility, it also needs care to avoid some footguns that can cause unwanted navigation delays.
+However, the current plan is to enable that first for power users, and take learnings from that experience into the higher level CSS-based solution.
+
+# Security & Privacy
 
 01.  What information does this feature expose,
      and for what purposes?

@@ -65,6 +65,24 @@ spec:infra; type:dfn; text:user agent
 spec:selectors-4; type:dfn; text:selector
 </pre>
 
+<style>
+/* Put nice boxes around each algorithm. */
+[data-algorithm]:not(.heading) {
+	padding: .5em;
+	border: thin solid #ddd; border-radius: .5em;
+	margin: .5em calc(-0.5em - 1px);
+}
+[data-algorithm]:not(.heading) > :first-child {
+	margin-top: 0;
+}
+[data-algorithm]:not(.heading) > :last-child {
+	margin-bottom: 0;
+}
+[data-algorithm] [data-algorithm] {
+	margin: 1em 0;
+}
+</style>
+
 # Introduction # {#intro}
 
 	This specification defines mechanisms for
@@ -527,7 +545,7 @@ spec:selectors-4; type:dfn; text:selector
 	Initial: none
 	Applies to: all elements
 	Inherited: no
-	Computed value: the keyword ''scroll-timeline-name/none'' or a list of [=CSS identifiers=]
+	Computed value: list, each item either a [=CSS identifier=] or the keyword ''scroll-timeline-name/none''
 	Animation type: not animatable
 	</pre>
 
@@ -682,6 +700,15 @@ spec:selectors-4; type:dfn; text:selector
 			* 100% progress represents the earliest position at which
 				the [=end=] [=border edge=] of the element’s [=principal box=]
 				coincides with the [=start=] edge of its [=view progress visibility range=].
+
+		<dt><dfn>scroll</dfn>
+		<dd>
+			Represents the full range of the [=scroll container=] on which the [=view progress timeline=]
+			is defined.
+			* 0% progress represents the startmost scroll position of the [=scroll container=]
+				underlying the [=view progress timeline=].
+			* 100% progress represents the endmost scroll position of the [=scroll container=]
+				underlying the [=view progress timeline=].
 	</dl>
 
 	ISSUE: Insert diagrams.
@@ -964,7 +991,7 @@ spec:selectors-4; type:dfn; text:selector
 	Initial: none
 	Applies to: all elements
 	Inherited: no
-	Computed value: the keyword ''view-timeline-name/none'' or a list of [=CSS identifiers=]
+	Computed value: list, each item either a [=CSS identifier=] or the keyword ''view-timeline-name/none''
 	Animation type: not animatable
 	</pre>
 
@@ -1088,27 +1115,55 @@ spec:selectors-4; type:dfn; text:selector
 
 ## Named Timeline Scoping and Lookup ## {#timeline-scoping}
 
-	A named [=scroll progress timeline=] or [=view progress timeline=]
-	is referenceable by:
-	* the name-declaring element itself
-	* that element’s descendants
+	Timeline names are global by default:
+	An element referring to a named [=scroll progress timeline=] or [=view progress timeline=]
+	can find a [=target timeline=] defined on itself,
+	defined on an element *before* itself in tree order,
+	or defined on an element *after* itself in tree order.
 
-	Note: The 'timeline-scope' property can be used
-	to declare the name of a timeline on an ancestor of its defining element,
-	effectively expanding its scope beyond that element’s subtree.
+	<div algorithm>
+		The <dfn>target timeline</dfn>
+		for a given element |element|
+		referencing a timeline name |name| is:
 
-	If multiple elements have declared the same timeline name,
-	the matching timeline is the one declared
-	on the nearest element in tree order.
-	In case of a name conflict on the same element,
+		<dl>
+			:  If |element| defines a timeline matching |name|,
+			:: That timeline.
+
+			:  Otherwise,
+				if |name| is [[#timeline-scope|scoped]] by |element|,
+				or if |element| is the [=document element=],
+			:: The last defined timeline matching |name|
+				among |element|'s [=flat tree=] descendants
+				in [=flat tree=] order,
+				or, if no such timeline exists, an [=inactive timeline=].
+
+			:  Otherwise,
+			:: The [=target timeline=]
+				for |element|'s [=flat tree=] parent referencing |name|.
+		</dl>
+	</div>
+
+	An element may only define one timeline per name:
+	In case of a name conflict,
 	names declared later in the naming property
 	('scroll-timeline-name', 'view-timeline-name')
 	take precedence, and
 	[=scroll progress timelines=] take precedence over [=view progress timelines=].
+	<div class=example>
+		The element `#foo` defines a single [=scroll progress timeline=]
+		in the block direction named `--t`,
+		and no [=view progress timeline=] at all.
+		```css
+			#foo {
+				scroll-timeline: --t inline, --t block;
+				view-timeline: --t;
+			}
+		```
+	</div>
 
 	<div class=example>
-		Using ''timeline-scope'',
-		an element can refer to timelines
+		An element can refer to timelines
 		bound to elements that are siblings, cousins, or even descendants.
 		For example, the following creates an animation on an element
 		that is linked to a [=scroll progress timeline=]
@@ -1657,29 +1712,17 @@ spec:selectors-4; type:dfn; text:selector
 	of the timeline’s defining element.
 
 ## Declaring a Named Timeline’s Scope: the 'timeline-scope' property ## {#timeline-scope}
-
 	<pre class="propdef">
 		Name: timeline-scope
 		Value: none | all | <<dashed-ident>>#
 		Initial: none
 		Applies to: all elements
 		Inherited: no
-		Computed value: the keyword ''timeline-scope/none'' or a list of [=CSS identifiers=]
+		Computed value: the keyword ''timeline-scope/none'',
+			the keyword ''timeline-scope/all'',
+			or a list of [=CSS identifiers=]
 		Animation type: not animatable
 	</pre>
-
-	This property declares the scope of the specified timeline names
-	to extend across this element’s subtree.
-	This allows a named timeline
-	(such as a [=named scroll progress timeline=] or [=named view progress timeline=])
-	to be referenced by elements outside the timeline-defining element’s subtree--
-	for example, by siblings, cousins, or ancestors.
-	It also blocks descendant timelines with the specified names
-	from being referenced from outside this subtree,
-	and ancestor timelines with the specified names from being referenced
-	within this subtree.
-
-	ISSUE(8915): There's some open discussion about these blocking effects.
 
 	Values have the following meanings:
 
@@ -1690,24 +1733,65 @@ spec:selectors-4; type:dfn; text:selector
 
 		<dt><dfn>all</dfn>
 		<dd>
-			Declares the names of all timelines defined by descendants--
-			whose scope is not already explicitly declared by a descendant using 'timeline-scope'--
-			to be in scope for this element and its descendants.
+			Specifies that all timeline names defined
+			by this element or its [=flat tree=] descendants--
+			whose scope is not already limited by a descendant using 'timeline-scope'--
+			to be in scope only for this element's [=flat tree=] descendants;
+			and limits descendants to only match timeline names
+			to elements within this subtree.
 
 		<dt><dfn><<dashed-ident>></dfn>
 		<dd>
-			Declares the name of a matching named timeline defined by a descendant--
-			whose scope is not already explicitly declared by a descendant using 'timeline-scope'--
-			to be in scope for this element and its descendants.
-
-			If no such timeline exists,
-			or if more than one such timeline exists,
-			instead declares an [=inactive timeline=] with the specified name.
+			Specifies that a matching timeline name defined
+			by this element or its [=flat tree=] descendants--
+			whose scope is not already limited by a descendant using 'timeline-scope'--
+			to be in scope only for this element's [=flat tree=] descendants;
+			and limits descendants to only match timeline names
+			to elements within this subtree.
 	</dl>
 
 	Note: This property cannot affect or invalidate any timeline name lookups
 	within the subtree of a descendant element that declares the same name.
 	See [[#timeline-scope]].
+
+	<div class=example>
+		Say you have multiple instances of a component,
+		each defining a timeline
+		and some element using that timeline:
+
+		```html
+		<div>
+		  <div class="component">
+		    <div style="view-timeline: --t /*...*/;"></div>
+		    <div style="animation-timeline: --t;"></div>
+		  </div>
+		  <div class="component">
+		    <div style="view-timeline: --t /*...*/;"></div>
+		    <div style="animation-timeline: --t;"></div>
+		  </div>
+		</div>
+		```
+
+		Both instances of `animation-timeline:--t`
+		will [=target timeline|target=] the *same* timeline,
+		i.e. the last one seen in [=flat tree=] order, globally.
+
+		If we instead want each instance of `animation-timeline:--t`
+		to [=target timeline|target=] the "locally defined" `--t`,
+		we can do the following:
+
+		```html
+		<style>
+		  .component {
+		    timeline-scope: --t;
+		  }
+		</style>
+		```
+
+		Now, any lookup of `--t` taking place within a component
+		will only see timelines defined inside that component.
+
+	</div>
 
 # Changes # {#changes}
 
@@ -1715,6 +1799,9 @@ spec:selectors-4; type:dfn; text:selector
 	(<a href="https://www.w3.org/TR/2023/WD-scroll-animations-1-20230428/">28 April 2023</a>)
 	Working Draft include:
 
+	* Changed named timeline lookup to nearest-ancestor/last-in-tree-order.
+		(<a href="https://github.com/w3c/csswg-drafts/issues/12581">Issue 12581</a>),
+		(<a href="https://github.com/w3c/csswg-drafts/issues/13364">Issue 13364</a>)
 	* Allow ''all'' as a value for 'timeline-scope'.
 		(<a href="https://github.com/w3c/csswg-drafts/issues/9158">Issue 9158</a>)
 	* Removed <css>scroll-timeline-attachment</css> and <css>view-timeline-attachment</css> in favor of 'timeline-scope'.

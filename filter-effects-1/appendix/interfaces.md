@@ -95,7 +95,7 @@ interface SVGFEBlendElement : SVGElement {
 SVGFEBlendElement includes SVGFilterPrimitiveStandardAttributes;
 </pre>
 
-<div dfn-type=const dfn-for=SVGFEBlendElement>
+<div dfn-type=const dfn-for=SVGFEBlendElement link-for-hint="<blend-mode>">
     : Constants in group “Blend Mode Types”:
     ::
         : <dfn>SVG_FEBLEND_MODE_UNKNOWN</dfn>
@@ -603,13 +603,13 @@ SVGFEDisplacementMapElement includes SVGFilterPrimitiveStandardAttributes;
         : <dfn>SVG_CHANNEL_UNKNOWN</dfn>
         :: The type is not one of predefined types. It is invalid to attempt to define a new value of this type or to attempt to switch an existing value to this type.
         : <dfn>SVG_CHANNEL_R</dfn>
-        :: Corresponds to value ''R''.
+        :: Corresponds to value 1 (mapping to the "R" channel).
         : <dfn>SVG_CHANNEL_G</dfn>
-        :: Corresponds to value ''G''.
+        :: Corresponds to value 2 (mapping to the "G" channel).
         : <dfn>SVG_CHANNEL_B</dfn>
-        :: Corresponds to value ''B''.
+        :: Corresponds to value 3 (mapping to the "B" channel).
         : <dfn>SVG_CHANNEL_A</dfn>
-        :: Corresponds to value ''A''.
+        :: Corresponds to value 4 (mapping to the "A" channel).
 </div>
 
 <div dfn-type=attribute dfn-for=SVGFEDisplacementMapElement>

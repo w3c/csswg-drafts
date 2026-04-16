@@ -5,7 +5,7 @@
   </tr>
   <tr>
     <th>Categories:</th>
-    <td>[CATAGORIES]</td>
+    <td>[CATEGORIES]</td>
   </tr>
   <tr>
     <th>Content model:</th>
