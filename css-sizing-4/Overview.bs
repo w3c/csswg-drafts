@@ -32,7 +32,9 @@ spec:css2; type:property
 	text:min-height
 	text:max-width
 	text:max-height
-spec:html; type:element; text:meta
+spec:html; type:element;
+	text:meta
+	text:head
 spec:css2; type:dfn; text:document language
 </pre>
 
@@ -1188,9 +1190,9 @@ Responsively-sized iframes: the 'frame-sizing' property</h3>
 	Name: frame-sizing
 	Value: auto | content-width | content-height | content-block-size | content-inline-size
 	Initial: auto
-	Applies to: <{iframe}> elements
+	Applies to: replaced elements (but see below for details)
 	Inherited: no
-	Computed value: specified keyword
+	Computed value: as specified
 	Animation type: discrete
 	</pre>
 
@@ -1205,33 +1207,39 @@ Responsively-sized iframes: the 'frame-sizing' property</h3>
 	The 'frame-sizing' property
 	allows these elements to opt into exposing their actual content size,
 	known as their <dfn export>internal layout intrinsic size</dfn>.
+	Values have the following meaning:
 
-	Which elements have an [=internal layout intrinsic size=],
+	<dl dfn-type=value dfn-for=frame-sizing>
+		: <dfn>auto</dfn>
+		::
+			The element's [=internal layout intrinsic size=],
+			if any,
+			is ignored.
+
+		: <dfn>content-width</dfn>
+		: <dfn>content-height</dfn>
+		: <dfn>content-block-size</dfn>
+		: <dfn>content-inline-size</dfn>
+		::
+			If the element has an [=internal layout intrinsic size=],
+			its [=intrinsic size=]
+			takes the corresponding dimension
+			(either width or height)
+			from the [=internal layout intrinsic size=].
+			(The other dimension is determined normally.)
+
+			Logical directions resolve based on the [=writing mode=] of the element.
+			(Not the embedded document.)
+	</dl>
+
+	Which elements can have an [=internal layout intrinsic size=],
 	and how it's determined,
 	are decided by the [=document language=].
 	In HTML, only <{iframe}> elements can have an [=internal layout intrinsic size=],
 	and further,
 	only when the contained document has also opted in
-	via a <code>&lt;meta name=responsive-embedded-sizing></code> element.
-
-	The first instance of this meta tag added by the parser can make it opt in.
-	If the parser encounters multiple such tags, only the first one is used.
-	If the parser closes the <code>&lt;head&gt;</code> without seeing the tag,
-	it is frozen as not-set.
-
-	An <{iframe}> initially doesn't have an [=internal layout intrinsic size=].
-	When an <{iframe}>'s internal document is loaded,
-	if the required <{meta}> element is present,
-	the <{iframe}>'s [=internal layout intrinsic size=]'s height or width
-	is set to the [=natural size=] of the embedded document as specified by 'frame-sizing'.
-	Resizing occurs at the <code>DOMContentLoaded</code> and <code>load</code> events.
-	Subsequent changes to content, styling or layout of the embedded document
-	do not affect the [=internal layout intrinsic size=].
-
-	When laying out the <{iframe}>'s internal document,
-	its initial containing block size is locked to
-	the size at the time of its first layout,
-	to mitigate the risks of layout loops and information leaks.
+	via a <code highlight=html>&lt;meta name=responsive-embedded-sizing></code> element.
+	(See [[#iframe-frame-sizing]].)
 
 	<div class='example'>
 		When the embedded document has the following HTML:
@@ -1254,14 +1262,104 @@ Responsively-sized iframes: the 'frame-sizing' property</h3>
 	</div>
 
 	In addition,
-	the internal document can call {{window/requestResize()|window.requestResize()}};
-	if the document has the required <{meta}> element
-	at the time of parsing as described above,
-	its [=internal layout intrinsic size=]
-	is updated to its new current [=natural size=].
+	the internal document can call {{Window/requestResize()|window.requestResize()}}
+	to update its [=internal layout intrinsic size=] later.
 
-	Note: If the required <{meta}> element is not present,
-	the call throws a {{NotAllowedError}} {{DOMException}} instead.
+
+<h4 id=iframe-frame-sizing>
+HTML <{iframe}> Details</h4>
+
+	In HTML, only the <{iframe}> element can have an [=internal layout intrinsic size=],
+	and only when the <{iframe}>'s embedded document has opted in appropriately.
+
+	An HTML {{Document}} object
+	has an <dfn for=Document>responsive embedded sizing flag</dfn> associated with it,
+	which is initially unset.
+	It is set to true or false
+	during the initial document parse,
+	depending on which of the following first occurs:
+
+	* If a <code highlight=html>&lt;meta name=responsive-embedded-sizing></code> element is encountered,
+		it is set to true.
+	* If the <{head}> element is closed (explicitly or implicitly),
+		it is set to false.
+
+	Once set to either true or false,
+	the flag will not change its value again for the lifetime of the {{Document}}.
+
+	Note: Currently, the HTML <{meta}> element appearing in the <{head}> of an HTML document
+	is the only way for an embedded document to opt into this feature in HTML.
+	This means that SVG documents in <{iframe}> cannot do so.
+
+	The [=internal layout intrinsic size=] is first set
+	by the results of the embedded document's first layout
+	after it fires its {{DOMContentLoaded}} event,
+	and again when the {{Window/load}} event is fired at the {{Window}}.
+	Subsequent changes to content, styling or layout of the embedded document
+	do not automatically affect the [=internal layout intrinsic size=],
+	but see {{Window/requestResize()}}.
+
+	An embedded document can additionally have a <dfn>locked embedded ICB size</dfn>,
+	which is initially null.
+	If the document's [=responsive embedded sizing flag=] is true
+	when it performs a layout,
+	and its [=locked embedded ICB size=] is null,
+	it records its current [=initial containing block=] size as its [=locked embedded ICB size=].
+	On subsequent layouts,
+	it uses its [=locked embedded ICB size=]
+	instead of calculating its [=initial containing block=] size normally.
+
+	Note: This freezing of the ICB
+	reduces the chance of layout loops
+	(an iframe document sizing to slightly larger than its ICB,
+	then the parent iframe changing size to match,
+	and the next layout again making it slightly larger than the ICB,
+	etc to infinity).
+
+	Issue: Do we want to have a way to force an iframe to forget its [=locked embedded ICB size=]?
+	Maybe turning 'frame-sizing' off and on again?
+
+	Navigating the iframe's document
+	causes it to forget its [=locked embedded ICB size=].
+	It <strong>does not</strong> forget its [=internal layout intrinsic size=]
+	as long as the new document's [=responsive embedded sizing flag=] is unset.
+	Once the flag is set (to true <em>or</em> false),
+	the [=internal layout intrinsic size=] is forgotten;
+	if the flag is set to true,
+	both are then freshly computed as normal.
+
+
+<h4 id=window-requestresize>
+Extensions to the {{Window}} Interface</h4>
+
+	<xmp class=idl>
+	partial interface Window {
+		undefined requestResize();
+	};
+	</xmp>
+
+	<div algorithm>
+		When <dfn for=Window method>requestResize()</dfn> is invoked:
+
+		1. Let |navigable| be the [=/navigable=] that has [=this=] as its <l spec=html>[=content window=]</l>.
+			If |navigable| is not a [=child navigable=],
+			[=throw=] a {{NotAllowedError}} {{DOMException}}.
+
+		1. Let |host element| be the [=navigable container=] whose [=content navigable=] is |navigable|.
+			If |host element| is not an HTML <{iframe}> element,
+			[=throw=] a {{NotAllowedError}} {{DOMException}}.
+
+		1. Let |document| be [=this's=] [=active document=].
+			If |document|'s [=Document/responsive embedded sizing flag=]
+			is unset or false,
+			[=throw=] a {{NotAllowedError}} {{DOMException}}.
+
+		1. If |document| has pending style or layout changes,
+			perform them.
+
+		1. Set the [=internal layout intrinsic size=] of |host element|
+			to the width and height of the <l spec=cssom-view>[=scrolling area=]</l> of [=this=].
+	</div>
 
 
 <h3 id="intrinsic-contribution">
