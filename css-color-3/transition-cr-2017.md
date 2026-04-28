@@ -8,7 +8,7 @@ CSS Color Module Level 3
 
 https://drafts.csswg.org/css-color-3/
 
-First Tuesday or Thursday after a sucessful transition decision.
+First Tuesday or Thursday after a successful transition decision.
 
 ## The document Abstract and Status sections
 
@@ -53,7 +53,7 @@ None
 
 [Test suite](https://test.csswg.org/harness/suite/css-color-3_dev/)
 
-The [implementatin report](https://test.csswg.org/harness/results/css-color-3_dev/grouped/) shows that
+The [implementation report](https://test.csswg.org/harness/results/css-color-3_dev/grouped/) shows that
 75 of 75 required tests meet CR exit criteria.
 
 More relevantly for this transition, there is [one test](https://test.csswg.org/harness/test/css-color-3_dev/single/t44-currentcolor-inherited-c/) for the substantive change, which is [passed by two implementations](https://test.csswg.org/harness/results/css-color-3_dev/grouped/t44-currentcolor-inherited-c/).

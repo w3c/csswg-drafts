@@ -8,7 +8,7 @@ FULL TITLE
 
 https://drafts.csswg.org/DIRECTORY/
 
-First Tuesday or Thursday after a sucessful transition decision.
+First Tuesday or Thursday after a successful transition decision.
 
 ## The document Abstract and Status sections
 
@@ -67,7 +67,7 @@ None
 
 ## Implementation
 
-[Test reults](https://test.csswg.org/suites/TEST_DIR/nightly-unstable/)
+[Test results](https://test.csswg.org/suites/TEST_DIR/nightly-unstable/)
 
 The [testsuite](https://test.csswg.org/harness/results/TEST_DIR/grouped/) shows that
 NUMBER of TOTAL required tests meet CR exit criteria.

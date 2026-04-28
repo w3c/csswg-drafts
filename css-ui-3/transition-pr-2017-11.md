@@ -9,7 +9,7 @@ CSS Basic User Interface Module Level 3 (CSS3 UI)
 
 https://drafts.csswg.org/css-ui-3/
 
-First Tuesday or Thursday after a sucessful transition decision.
+First Tuesday or Thursday after a successful transition decision.
 
 ## The document Abstract and Status sections
 
@@ -36,7 +36,7 @@ There are 4 normative changes, all based on feedback from actual implementations
 * Allow, but stop requiring support for SVG images without intrinsic sizes for cursors (corresponding test update).
 * Align the spec with implementations, and make cursor: auto look like text over selectable text, and over editable elements (corresponding tests).
 
-The first 3 changes are are small tweaks and cannot make an implementation that conformed to the spec prior to the changes become non-conformant.
+The first 3 changes are small tweaks and cannot make an implementation that conformed to the spec prior to the changes become non-conformant.
 
 The 4th change could theoretically impact conformance, but in practice does not.
 Zero known implementations (Gecko/Edge/Webkit/Blink/Presto) conformed with the previous wording (the [issue 1598 was openly reviewed and discussed](https://github.com/w3c/csswg-drafts/issues/1598) for several months),
@@ -56,7 +56,7 @@ is within the scope defined in the CSS WG's charter,
 
 The following normative reference to W3C documents is not yet at CR:
 
-* [CSS-COLOR-4](https://www.w3.org/TR/css-color-4/), in order to refer to a precise definition of a concept that exists implicitely since CSS21.
+* [CSS-COLOR-4](https://www.w3.org/TR/css-color-4/), in order to refer to a precise definition of a concept that exists implicitly since CSS21.
 
 Additionally, the following normative references to W3C documents are at CR but not yet at PR:
 

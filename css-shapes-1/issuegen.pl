@@ -89,7 +89,7 @@ sub header {
   }
   die "Error: missing document URL or title.\n" unless ($url && $title);
 
-  # Process URL to get status, date, shorname
+  # Process URL to get status, date, shortname
   die "Error: Draft URL wrong format.\n" unless
     ($url =~ /([A-Z]{2})-([a-z0-9-]+)-(\d{8})/);
   ($status, $shortname, $date) = ($1, $2, $3);
