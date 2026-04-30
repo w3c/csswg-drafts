@@ -9,18 +9,14 @@
 # http://www.w3.org/TR/[YEAR]/CR-[SHORTNAME]-[CDATE]/
 # Or set that URL to [VERSION] and call Make as: make status=CR
 #
-#
-# Possible other options to add to the curl command below:
-# -F ids=on
-# -F omitdchtml=on
-# e.g., like this: make opts="-F ids=on -F omitdchtml=on"
+# Additional options may be specified via opts, e.g.:
+# make opts='-F md-prepare-for-tr=yes'
 
 date ?=
 status ?= ED
 group ?= CSS
 opts ?=
 target ?= Overview
-markup ?= html
 cdate ?= $(date)
 
 
@@ -37,14 +33,13 @@ cdate ?= $(date)
 %.html: %.bs
 	@echo "- Calling Bikeshed to generate $@..."
 	@curl -o $@ -s -L -F file=@$< -F md-date=$(cdate) -F md-status=$(status) \
-	 -F output=html -F paragraph=$(markup) $(opts) http://api.csswg.org/bikeshed/
+	 -F type=bikeshed-spec -F output=html $(opts) https://www.w3.org/publications/spec-generator/
 %.err: %.bs
 	@echo "- Calling Bikeshed to check $<..."
 	@rm -f $@
 	@touch $@
 	@curl -o $@ -s -L -F file=@$< -F md-date=$(cdate) -F md-status=$(status) \
-	 -F output=err -F paragraph=$(markup) $(opts) http://api.csswg.org/bikeshed/
-	@sed -i 's/\\033\[[0-9;]*m//g' $@
+	  -F type=bikeshed-spec -F output=messages $(opts) https://www.w3.org/publications/spec-generator/
 
 # For Dispositions of Comments in css3-background:
 %.html: %.txt; awk -f issues-txt-to-html.awk $< >$@
@@ -61,13 +56,12 @@ cdate ?= $(date)
 
 all: check $(target).html
 
-# egrep will exit with a zero exit code if there is anything left
+# fgrep will exit with a zero exit code if there is anything left
 check: $(target).err
 	@cat $<
 	@echo
-	@if egrep -qv '^(Warning:|\(Processed in .* seconds\)|No errors)' $< &&\
-	  ! egrep -q '[^A-Z]* Successfully generated' $<;\
-	 then false; else true; fi
+	@if fgrep -q '"messageType":"success"' $<;\
+	 then true; else false; fi
 
 
 # A handy shortcut:

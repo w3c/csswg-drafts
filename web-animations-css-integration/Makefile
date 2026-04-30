@@ -7,13 +7,15 @@
 SOURCEFILE=Overview.src.html
 OUTPUTFILE=Overview.html
 PREPROCESSOR=bikeshed.py
-REMOTE_PREPROCESSOR_URL=https://api.csswg.org/bikeshed/
+REMOTE_PREPROCESSOR_URL=https://www.w3.org/publications/spec-generator/
 
 all: $(OUTPUTFILE)
 
-$(OUTPUTFILE): $(SOURCEFILE)
+$(OUTPUTFILE): $(SOURCEFILE) Makefile
 ifneq (,$(REMOTE))
-	curl $(REMOTE_PREPROCESSOR_URL) -F file=@$(SOURCEFILE) > "$@"
+	curl $(REMOTE_PREPROCESSOR_URL) -F file=@$(SOURCEFILE) -F output=messages -F type=bikeshed-spec
+	@echo
+	curl $(REMOTE_PREPROCESSOR_URL) -F file=@$(SOURCEFILE) -F type=bikeshed-spec > "$@"
 else
 	$(PREPROCESSOR) -f spec "$<" "$@"
 endif
