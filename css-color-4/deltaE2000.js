@@ -100,8 +100,8 @@ function deltaE2000 (reference, sample) {
 	// Four possibilities for hue weighting factor,
 	// depending on the angles, to get the correct sign
 	let hdash;
-	if (Cdash1 == 0 && Cdash2 == 0) {
-		hdash = hsum;   // which should be zero
+	if (Cdash1 * Cdash2 === 0) {
+		hdash = hsum;
 	}
 	else if (habs <= 180) {
 		hdash = hsum / 2;

@@ -234,48 +234,34 @@ function XYZ_to_lin_a98rgb(XYZ) {
 function lin_2020(RGB) {
 	// convert an array of rec2020 RGB values in the range 0.0 - 1.0
 	// to linear light (un-companded) form.
-	// ITU-R BT.2020-2 p.4
-
-	const α = 1.09929682680944 ;
-	const β = 0.018053968510807;
+	//  Reference electro-optical transfer function from Rec. ITU-R BT.1886 Annex 1
+	//  with b (black lift) = 0 and a (user gain) = 1
+	//  defined over the extended range, not clamped
 
 	return RGB.map(function (val) {
 		let sign = val < 0? -1 : 1;
 		let abs = Math.abs(val);
-
-		if (abs < β * 4.5 ) {
-			return val / 4.5;
-		}
-
-		return sign * (Math.pow((abs + α -1 ) / α, 1/0.45));
+		return sign * Math.pow(abs, 2.4);
 	});
 }
 
 function gam_2020(RGB) {
 	// convert an array of linear-light rec2020 RGB  in the range 0.0-1.0
 	// to gamma corrected form
-	// ITU-R BT.2020-2 p.4
-
-	const α = 1.09929682680944 ;
-	const β = 0.018053968510807;
-
+	//  Reference electro-optical transfer function from Rec. ITU-R BT.1886 Annex 1
+	//  with b (black lift) = 0 and a (user gain) = 1
+	//  defined over the extended range, not clamped
 
 	return RGB.map(function (val) {
 		let sign = val < 0? -1 : 1;
 		let abs = Math.abs(val);
-
-		if (abs > β ) {
-			return sign * (α * Math.pow(abs, 0.45) - (α - 1));
-		}
-
-		return 4.5 * val;
+		return sign * Math.pow(abs, 1 / 2.4);
 	});
 }
 
 function lin_2020_to_XYZ(rgb) {
 	// convert an array of linear-light rec2020 values to CIE XYZ
 	// using  D65 (no chromatic adaptation)
-	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	var M = [
 		[ 63426534 / 99577255,  20160776 / 139408157,  47086771 / 278816314 ],
 		[ 26158966 / 99577255, 472592308 / 697040785,   8267143 / 139408157 ],
@@ -352,7 +338,7 @@ function XYZ_to_Lab(XYZ) {
 
 function Lab_to_XYZ(Lab) {
 	// Convert Lab to D50-adapted XYZ
-	// http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
+	// http://www.brucelindbloom.com/index.html?Eqn_Lab_to_XYZ.html
 	var κ = 24389/27;   // 29^3/3^3
 	var ε = 216/24389;  // 6^3/29^3
 	var f = [];
@@ -374,12 +360,19 @@ function Lab_to_XYZ(Lab) {
 }
 
 function Lab_to_LCH(Lab) {
-	// Convert to polar form
+	var epsilon = 0.0015;
+	var chroma = Math.sqrt(Math.pow(Lab[1], 2) + Math.pow(Lab[2], 2)); // Chroma
 	var hue = Math.atan2(Lab[2], Lab[1]) * 180 / Math.PI;
+	if (hue < 0) {
+		hue = hue + 360;
+	}
+	if (chroma <= epsilon) {
+		hue = NaN;
+	}
 	return [
 		Lab[0], // L is still L
-		Math.sqrt(Math.pow(Lab[1], 2) + Math.pow(Lab[2], 2)), // Chroma
-		hue >= 0 ? hue : hue + 360 // Hue, in degrees [0 to 360)
+		chroma, // Chroma
+		hue // Hue, in degrees [0 to 360)
 	];
 }
 
@@ -439,11 +432,19 @@ function OKLab_to_XYZ(OKLab) {
 }
 
 function OKLab_to_OKLCH(OKLab) {
+	var epsilon = 0.000004;
 	var hue = Math.atan2(OKLab[2], OKLab[1]) * 180 / Math.PI;
+	var chroma = Math.sqrt(OKLab[1] ** 2 + OKLab[2] ** 2);
+	if (hue < 0) {
+		hue = hue + 360;
+	}
+	if (chroma <= epsilon) {
+		hue = NaN;
+	}
 	return [
 		OKLab[0], // L is still L
-		Math.sqrt(OKLab[1] ** 2 + OKLab[2] ** 2), // Chroma
-		hue >= 0 ? hue : hue + 360 // Hue, in degrees [0 to 360)
+		chroma,
+		hue
 	];
 }
 

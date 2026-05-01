@@ -7,11 +7,8 @@
 # http://www.w3.org/TR/[YEAR]/CR-[SHORTNAME]-[CDATE]/
 # Or set that URL to [VERSION] and call Make as: make status=CR
 #
-#
-# Possible other options to add to the curl command below:
-# -F ids=on
-# -F omitdchtml=on
-# e.g., like this: make opts="-F ids=on -F omitdchtml=on"
+# Additional options may be specified via opts, e.g.:
+# make opts='-F md-prepare-for-tr=yes'
 
 cdate =
 status =
@@ -43,11 +40,11 @@ opts =
 
 all: check Overview.html
 
-# egrep will exit with a zero exit code if there is anything left
+# fgrep will exit with a zero exit code if there is anything left
 check: Overview.err
 	@cat $<
-	@if egrep -v '^(Warning:|\(Processed in .* seconds\)|No errors)' $<;\
-	 then false; else true; fi
+	@if fgrep -q '"messageType":"success"' $<;\
+	 then true; else false; fi
 
 
 # A handy shortcut:
