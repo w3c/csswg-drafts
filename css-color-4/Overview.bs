@@ -1158,7 +1158,7 @@ will have a [=powerless=] hue component.
 
 	In certain cases,
 	a color can have one or more
-	<dfn export lt="missing color component" local-lt="missing|missing component">missing color components</dfn>.
+	<dfn export lt="missing color component | missing | missing component">missing color components</dfn>.
 
 	In this specification,
 	this happens automatically due to [[#hue-interpolation|hue-based interpolation]]
@@ -5088,6 +5088,12 @@ Interpolating with Missing Components</h3>
 	in the corresponding [=analogous set=]
 	of the [=interpolation color space=].
 
+	Alpha is its own analogous component
+	(alpha is analogous to alpha),
+	so a [=missing component|missing=] alpha
+	is [=carried forward=] in exactly the same way
+	as any other [=missing component=].
+
 	The <dfn export>analogous components</dfn>  are as follows:
 
 	<table>
@@ -6969,7 +6975,18 @@ Serializing sRGB values</h3>
 
 	During serialization,
 	any [=missing=] values
-	are converted to 0.
+	are converted to 0
+	if the chosen serialization form
+	(such as the <a>legacy color syntax</a> with comma separators,
+	or the
+	<a href="#HTML-compatible-serialization-of-srgb">HTML-compatible serialization</a>
+	of sRGB values)
+	cannot represent the ''none'' keyword.
+	When at least one component is [=missing=]
+	and the value can be serialized in a form which supports ''none'',
+	the form is chosen as described in
+	[[#css-serialization-of-srgb]]
+	so that [=missing color components=] are preserved as ''none''.
 
 	<h4 id="HTML-compatible-serialization-of-srgb">HTML-compatible serialization of sRGB values</h4>
 
@@ -7040,7 +7057,8 @@ Serializing sRGB values</h3>
 
 	<h4 id="css-serialization-of-srgb">CSS serialization of sRGB values</h4>
 
-	Corresponding sRGB values use either the ''rgb()'' or ''rgba()'' form
+	If the value has no [=missing color components=],
+	corresponding sRGB values use either the ''rgb()'' or ''rgba()'' form
 	(depending on whether the (clamped) alpha is exactly 1, or not),
 	with all <a href="https://infra.spec.whatwg.org/#ascii-lowercase">ASCII lowercase</a>
 	letters for the function name.
@@ -7067,7 +7085,77 @@ Serializing sRGB values</h3>
 	to separate the blue component of ''rgba()''
 	from the alpha value.
 
+	However, the <a>legacy color syntax</a> with comma separators
+	cannot represent ''none''.
+	If the value has at least one [=missing color component=],
+	the serialization form is chosen
+	to preserve those components as the ''none'' keyword,
+	based on the color function of the [=declared value=]:
 
+	* For ''rgb()'' and ''rgba()'' values
+		(the only sRGB form in this list whose syntax accepts ''none'';
+		[=hex colors=], [=named colors=], [=system colors=],
+		<a href="#deprecated-system-colors">deprecated-colors</a>,
+		and ''transparent'' have no parametric syntax
+		and so never have [=missing color components=]),
+		the value is serialized as a ''color()'' function
+		in the ''srgb'' [=color space=]
+		rather than as the modern space-separated form of ''rgb()'',
+		even though that form would also accept ''none'':
+		"color(srgb"
+		followed by a single space,
+		followed by a space-separated list of the three
+		non-alpha components serialized as <<number>>s
+		in the [0, 1] reference range
+		(or as ''none'' if [=missing=]),
+		followed (only if the alpha is non-unity or [=missing=])
+		by " / "
+		and the alpha component
+		(serialized per the
+		<a href="#serializing-alpha-values">alpha rules</a>,
+		or as ''none'' if [=missing=]),
+		followed by ")".
+
+	* For ''hsl()'' and ''hsla()'' values,
+		the value is serialized using the
+		modern (whitespace-separated) ''hsl()'' syntax,
+		with a slash before the alpha component when present.
+		The function name is "hsl" (in
+		<a href="https://infra.spec.whatwg.org/#ascii-lowercase">ASCII lowercase</a>)
+		regardless of whether the value was authored
+		using the ''hsla()'' alias.
+		The hue is serialized as a canonicalized <<number>> in degrees,
+		the saturation and lightness as <<percentage>>s,
+		and the alpha
+		(included only if non-unity or [=missing=])
+		per the <a href="#serializing-alpha-values">alpha rules</a>;
+		any [=missing component=] is serialized as the ''none'' keyword.
+
+	* For ''hwb()'' values,
+		the value is serialized using the
+		modern (whitespace-separated) ''hwb()'' syntax,
+		with a slash before the alpha component when present.
+		The function name is "hwb"
+		in <a href="https://infra.spec.whatwg.org/#ascii-lowercase">ASCII lowercase</a>.
+		The hue is serialized as a canonicalized <<number>> in degrees,
+		the whiteness and blackness as <<percentage>>s,
+		and the alpha
+		(included only if non-unity or [=missing=])
+		per the <a href="#serializing-alpha-values">alpha rules</a>;
+		any [=missing component=] is serialized as the ''none'' keyword.
+
+	Note: this means that an ''hsl()'' or ''hwb()'' value
+	containing ''none'' round-trips through serialization
+	in its own color function,
+	rather than degrading to ''rgba()'' (whose legacy form cannot represent ''none''),
+	while an ''rgb()'' value containing ''none''
+	is serialized via ''color(srgb …)''.
+	The modern space-separated form of ''rgb()'' could itself represent ''none'',
+	but the [[#serializing-color-values|sRGB CSS serialization]] uses ''color(srgb …)'' instead
+	for consistency with how all other [=color spaces=] are serialized
+	in their non-legacy form.
+	This parallels the behavior of relative color syntax
+	defined in [[css-color-5#serial-origin-color]].
 
 	<div class="example" id="ex-rgb-ser-int-rgba">
 		<p>For example, the serialized value of</p>
@@ -7097,6 +7185,34 @@ Serializing sRGB values</h3>
 		The precision of the returned result
 		is <a href="#sRGB-precision">described below</a>.
 
+	</div>
+
+	<div class="example" id="ex-hwb-serial-none">
+		For example, the author-supplied value
+
+		<pre class="lang-css">hwb(20 none 30% / none)</pre>
+
+		contains [=missing color components=]
+		(both the whiteness and the alpha are ''none''),
+		so it is <em>not</em> serialized through ''rgba()''.
+		Instead, it is serialized using the modern ''hwb()'' syntax as
+
+		<pre class="lang-css">hwb(20 none 30% / none)</pre>
+
+		preserving each ''none'' value.
+	</div>
+
+	<div class="example" id="ex-rgb-serial-none">
+		Similarly, the author-supplied value
+
+		<pre class="lang-css">rgb(none 0 0)</pre>
+
+		is serialized as
+
+		<pre class="lang-css">color(srgb none 0 0)</pre>
+
+		because ''rgb()'' (in its serialized legacy comma form)
+		cannot represent ''none''.
 	</div>
 
 	Note: contrary to CSS Color 3,
