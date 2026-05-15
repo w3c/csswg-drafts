@@ -55,6 +55,9 @@ spec:dom; type:dfn; for:Element; text:shadow root
 spec:dom; type:dfn; text:event
 spec:css2; type:dfn; text:viewport
 spec:cssom-view; type:dfn; text:transforms
+spec:dom; type:interface; text:OpaqueRange
+spec:dom; type:dfn; for:OpaqueRange; text:associated element
+spec:dom; type:dfn; text:supports opaque ranges
 </pre>
 
 <style>
@@ -165,7 +168,7 @@ Creating Custom Highlights</h3>
 	to manipulate its [=set entries=].
 
 	Note: As the [=ranges=] in a [=custom highlight=] are {{AbstractRange}} objects,
-	authors can chose between using {{Range}} objects and {{StaticRange}} objects.
+	authors can choose between using {{Range}} objects, {{StaticRange}} objects, and {{OpaqueRange}} objects.
 	See [[#range-invalidation]] for more details about this choice and its implications.
 
 	Note: When creating {{Range}} objects for use in [=custom highlights=], it is
@@ -533,7 +536,8 @@ Repaints</h3>
 	The user agent must also repaint highlights as needed
 	in response to changes by the author
 	to the {{Highlight/priority}},
-	or to the [=boundary points=] of {{Range}}s
+	or to the [=boundary points=] of {{Range}}s,
+	or to the offsets of an {{OpaqueRange}}
 	of a [=registered=] [=custom highlight=].
 
 	This repaint is asynchronous, and the APIs mentioned above must not block while waiting for the
@@ -542,7 +546,7 @@ Repaints</h3>
 <h3 id=range-invalidation>
 Range Updating and Invalidation</h3>
 
-	Authors can build [=custom highlights=] using either {{Range}}s or {{StaticRange}}s.
+	Authors can build [=custom highlights=] using {{Range}}s, {{StaticRange}}s, or {{OpaqueRange}}s.
 
 	The resulting [=custom highlight=] represents the same parts of the document,
 	and can be styled identically.
@@ -577,14 +581,24 @@ Range Updating and Invalidation</h3>
 		and recreating new ones.
 	</div>
 
+	{{OpaqueRange}}s are also [=live ranges=].
+	The user agent will adjust the offsets of {{OpaqueRange}}s
+	in response to changes to the value of their [=OpaqueRange/associated element=],
+	and [[#repaint|repaint]] as needed.
+	However, the offsets cannot be changed directly by the author.
+
 	When computing how to render a document,
-	if [=start node=] or [=end node=] of any [=range=]
-	in the [=highlight registry=] associated with that document's window
-	refer to a {{Node}} whose [=shadow-including root=] is not that document,
-	the user agent must ignore that [=range=].
-	If any {{StaticRange}} in the [=highlight registry=] associated with that document's window
-	is not <a spec=dom for="StaticRange">valid</a>,
-	the user agent must ignore that [=range=].
+	the user agent must ignore any [=range=]
+	in the [=highlight registry=] associated with that document's window if:
+
+	* it is a {{Range}} or {{StaticRange}},
+		and its [=start node=] or [=end node=]
+		refer to a {{Node}} whose [=shadow-including root=] is not that document.
+	* it is a {{StaticRange}}
+		that is not <a spec=dom for="StaticRange">valid</a>
+	* it is an {{OpaqueRange}}
+		whose [=OpaqueRange/associated element=] is null,
+		or whose [=OpaqueRange/associated element=]'s [=node document=] is not that document
 
 <h2 id="interactions">
 Interacting with Custom Highlights</h2>
@@ -656,6 +670,39 @@ objects. [=custom highlights|Highlights=] contained within a [=shadow tree=] pro
 			* <code>[ HighlightHitResult {highlight: <var>h1</var>, ranges: [<var ignore=''>r3</var>]} ]</code>, if the user clicks on character "d".
 	</div>
 
+	<div class=example id=highlights-from-point-opaque-ex>
+		The following example shows how {{highlightsFromPoint}} interacts with an {{OpaqueRange}}
+		inside a <{textarea}>, including when the <{textarea}> is placed in an author [=shadow tree=].
+
+		<xmp highlight=html>
+			<style>
+				:root::highlight(value-highlight) { background-color: yellow; }
+			</style>
+			<body>
+				<textarea id="ta">Hello</textarea>
+				<div id="host"></div>
+			<script>
+				let ta1 = document.getElementById("ta");
+				let r1 = ta1.createValueRange(0, 5);
+
+				let shadow = document.getElementById("host").attachShadow({ mode: "open" });
+				shadow.innerHTML = "<textarea>World</textarea>";
+				let ta2 = shadow.querySelector("textarea");
+				let r2 = ta2.createValueRange(0, 5);
+
+				CSS.highlights.set("value-highlight", new Highlight(r1, r2));
+			</script>
+		</xmp>
+
+		A click inside the rendered text of:
+			* <code>ta1</code> returns a {{HighlightHitResult}} containing <var>r1</var>,
+				since <code>ta1</code> is in the main document.
+			* <code>ta2</code> returns the empty [=sequence=],
+				since <code>ta2</code> is in a [=shadow tree=] and no <var>shadowRoots</var> option is passed.
+			* <code>ta2</code>, called with <code highlight=javascript>{ shadowRoots: [shadow] }</code>,
+				returns a {{HighlightHitResult}} containing <var>r2</var>.
+	</div>
+
 The method {{highlightsFromPoint}} is defined as part of the {{HighlightRegistry}} interface as follows:
 
 <pre class=idl>
@@ -676,30 +723,38 @@ dictionary <dfn dictionary>HighlightsFromPointOptions</dfn> {
 The <dfn method for="HighlightRegistry">highlightsFromPoint(<var>x</var>, <var>y</var>, <var>options</var>)</dfn>
 method must return the result of running these steps:
 
-1. If any of the following are true, return the empty [=sequence=]:
+1. If any of the following are true, return an empty [=sequence=]:
 	* <var>x</var> is negative
 	* <var>y</var> is negative
 	* <var>x</var> is greater than the [=viewport=] width excluding the size of a rendered scroll bar (if any)
 	* <var>y</var> is greater than the [=viewport=] height excluding the size of a rendered scroll bar (if any)
-	* The topmost [=box=] in the [=viewport=] in paint order that would be a target for hit testing at coordinates <var>x</var>,<var>y</var> when applying
-		the [=transforms=] that apply to the descendants of the viewport, has an element associated to it that's in a [=shadow tree=] whose
-		[=shadow root=] is not [=list/contains|contained by=] <var>options</var>.<var>shadowRoots</var>.
-1. Otherwise, let <var>results</var> be an empty [=sequence=].
+1. Let <var>hitElement</var> be the element associated with
+		the topmost [=box=] in the [=viewport=] in paint order that would be a target for hit testing at coordinates <var>x</var>,<var>y</var> when applying
+		the [=transforms=] that apply to the descendants of the viewport.
+
+	Note: The specifics of hit testing are out of scope of this specification
+	and therefore the exact details of {{highlightsFromPoint()}} are too.
+	Hit testing will hopefully be defined in a future revision of CSS or HTML.
+
+1. If <var>hitElement</var> is part of the internal implementation of
+		another element <var>host</var> that [=supports opaque ranges=],
+		set <var>hitElement</var> to <var>host</var>.
+1. If <var>hitElement</var> is in a [=shadow tree=] whose
+		[=shadow root=] is not [=list/contains|contained by=] <var>options</var>.<var>shadowRoots</var>,
+		return an empty [=sequence=].
+1. Let <var>results</var> be an empty [=sequence=].
 1. For each {{Highlight}} <var>highlight</var> in this {{HighlightRegistry}}:
 	1. Let <var>result</var> be a new {{HighlightHitResult}} with {{HighlightHitResult/highlight}} set to <var>highlight</var>.
 	1. For each {{AbstractRange}} <var>abstractRange</var> in <var>highlight</var>:
-		1. If <var>abstractRange</var> is an [=StaticRange/valid|invalid=] {{StaticRange}}, then [=iteration/continue=].
-		1. Let <var>range</var> be a new {{Range}} whose [=start node=] and [=end node=] are set to <var>abstractRange</var>'s
-			[=start node=] and [=end node=] respectively, and [=start offset=] and [=end offset=] are set to <var>abstractRange</var>'s 
-			[=start offset=] and [=end offset=] respectively.
-		1. If the coordinates <var>x</var>,<var>y</var> fall inside at least one of the {{DOMRect}}s returned by calling {{Range/getClientRects()}}
-			on <var>range</var>, then append <var>abstractRange</var> to <var>result</var>.{{HighlightHitResult/ranges}}.
-
-			Note: The specifics of hit testing are out of scope of this
-			specification and therefore the exact details of
-			{{highlightsFromPoint()}} are too. Hit testing will
-			hopefully be defined in a future revision of CSS or HTML.
-	
+		1. If <var>abstractRange</var> is one that the user agent would [[#range-invalidation|ignore when rendering]]
+			this {{HighlightRegistry}}'s [=associated Document=], [=iteration/continue=].
+		1. Let <var>rects</var> be:
+			* if <var>abstractRange</var> is an {{OpaqueRange}},
+				the result of calling {{OpaqueRange/getClientRects()}} on <var>abstractRange</var>;
+			* otherwise, the result of calling {{Range/getClientRects()}}
+				on a new {{Range}} with the same [=boundary points=] as <var>abstractRange</var>.
+		1. If the coordinates <var>x</var>, <var>y</var> fall inside at least one of the {{DOMRect}}s in <var>rects</var>,
+			then append <var>abstractRange</var> to <var>result</var>.{{HighlightHitResult/ranges}}.
 	1. If <var>result</var>.{{HighlightHitResult/ranges}} is not empty, append <var>result</var> to <var>results</var>.
 1. Sort <var>results</var> by descending order of [=priority=] of its {{HighlightHitResult}}s' {{HighlightHitResult/highlight}} attributes.
 1. Return <var>results</var>.
@@ -754,6 +809,9 @@ Changes since the <a href="https://www.w3.org/TR/2020/WD-css-highlight-api-1-202
 	In addition to various editorial improvements and minor tweaks,
 	the main changes are:
 
+	* Integrate {{OpaqueRange}} into {{Highlight}} and {{highlightsFromPoint()}},
+		enabling custom highlighting inside {{HTMLInputElement}} and {{HTMLTextAreaElement}}.
+		(See <a href="TBD">Issue TBD</a>)
 	* Added a {{HighlightRegistry/highlightsFromPoint}} method to
 	    {{HighlightRegistry}}.
 		(See <a href="https://github.com/w3c/csswg-drafts/pull/7513">Issue 7513</a>)
