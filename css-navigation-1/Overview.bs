@@ -44,26 +44,36 @@ is an at-rule that associates a name with a [=URL pattern=].
 This name can be referenced in ''@navigation'' rules
 and in '':active-navigation()'' pseudo-classes.
 
-The syntax of the ''@route'' rule is:
+The syntax of the ''@route'' rule is described by the <<route-rule>> production in:
 
 <pre class="prod def" nohighlight>
-@route <<dashed-ident>> {
-  [ <<pattern-descriptors>> | <<init-descriptors>> ]
-}
+<dfn><<route-rule>></dfn> = @route <<dashed-ident>> { <<declaration-list>> }
 </pre>
 
-based on the following definitions:
+This means that the rule accepts a sequence of descriptors
+that have the syntax of declarations.
+However, in valid style sheets the only descriptors must match
+the <<route-descriptor>> production below.
+Any other descriptors are ignored.
 
-<pre class="prod def" dfn-type="type" nohighlight>
-<dfn><<pattern-descriptors>></dfn> = ;* <<pattern-descriptor>> ;*
+<pre class="prod def" nohighlight>
+<dfn><<route-descriptor>></dfn> = <<pattern-descriptor>> |
+                     <<init-descriptor>> |
+                     <<base-descriptor>>
 <dfn><<pattern-descriptor>></dfn> = pattern : <<url-pattern()>>
-<dfn><<init-descriptors>></dfn> = ;* <<init-descriptor>> [ ;+ <<init-descriptor>> ]* ;*
 <dfn><<init-descriptor>></dfn> = <<init-descriptor-name>> : <<string>>
 <dfn><<init-descriptor-name>></dfn> = protocol | hostname | port | pathname |
-                         search | hash | base-url
+                         search | hash
+<dfn><<base-descriptor>></dfn> = base-url : stylesheet | document | <<url>>
 </pre>
 
-This associates an author-defined keyword with a URL pattern,
+If two valid descriptors in a single rule have the same name,
+the last one is used and the others are ignored.
+If a rule has both a valid <<pattern-descriptor>>
+and a valid <<init-descriptor>>
+then it is ignored.
+
+This rule associates an author-defined keyword with a URL pattern,
 so that any URL that matches one of the URL patterns
 matches the route named by the keyword.
 
@@ -71,8 +81,11 @@ The ''@route'' rule can be defined in one of two ways:
 
 : with the <code>pattern</code> descriptor
 :: in this case the URL pattern represented is
-    the one represented by the <<url-pattern()>> function
-    given as the descriptor's value.
+    the result of invoking
+    [=create a URL pattern for url-pattern()=] given
+    <var>arg</var> as the argument to the ''url-pattern()'' function
+    and <var>baseURLSpecifier</var> as
+    the (optional) value of the rule's <<base-descriptor>>.
 : with the other descriptors named by <<init-descriptor-name>>
 :: In this case the URL pattern represented is the result of invoking
     [=URL pattern/create|create a URL pattern=] given
@@ -80,16 +93,15 @@ The ''@route'' rule can be defined in one of two ways:
     constructed from the descriptors and their values.
     Each dictionary member is given the value of
     the descriptor with the same name,
-    except the <code>baseURL</code> member is given the value of
-    the <code>base-url</code> descriptor.
-    If a <code>base-url</code> descriptor is not given then one is created from
-    the [=style resource base URL=] of the rule.
+    except the <code>baseURL</code> member is given the result of
+    [=create a URL for a base descriptor=]
+    given <var>baseURLSpecifier</var> as
+    the (optional) value of the rule's <<base-descriptor>>.
 
 ISSUE: Should this use <<dashed-ident>>, <<custom-ident>>, or <<ident>>
 for the route names?
 
-ISSUE: Is there value in being able to provide a list of <<url-pattern()>>
-rather than just one?
+ISSUE: Should we use <code>base-url</code> or just <code>base</code> as the descriptor name?
 
 NOTE: The list of allowed init descriptors does not include <code>username</code>
 or <code>password</code> since they seem unlikely to be useful.
@@ -147,33 +159,16 @@ which can be used to match URLs.
 <<url-pattern()>> = url-pattern( <<string>> )
 </pre>
 
-This function represents a [=URL pattern=] that can be created
-using the steps of the <dfn>create a URL pattern for url-pattern()</dfn> algorithm:
+This function represents the [=URL pattern=] resulting from
+invoking [=create a URL pattern for url-pattern()=] with its string argument.
 
-1. Let <var>arg</var> be the <<string>> argument to the ''url-pattern()'' function.
+The steps of the <dfn>create a URL pattern for url-pattern()</dfn> algorithm,
+given a string <var>arg</var> and
+an optional <var>baseURLSpecifier</var>
+which can be ''document'', ''stylesheet'', or a URL, are:
 
-1. Let <var>baseURL</var> be the [=style resource base URL=] of
-    the rule or declaration block containing the ''url-pattern()'' function.
-
-    <div class="issue">
-    Do we want this to be the base URL all the time?
-    For use of ''url-pattern()'' in ''@navigation'',
-    it's likely more useful for the base URL
-    to be the document URL rather than the style sheet URL.
-    However, it would be very awkward for ''url-pattern()''
-    to be inconsistent with ''url()''.
-
-    Should we allow the base URL of ''url-pattern()''
-    to be defined by the consumer?
-    Should we introduce <code>document-url-pattern()</code>?
-    Should we do something similar to
-    [[css-images-3#ambiguous-urls]]
-    (see <w3c/csswg-drafts#383>)?
-
-    Also see other proposed uses of {{URLPattern}} in CSS
-    in <w3c/csswg-drafts#10975>,
-    for '':local-link''.
-    </div>
+1. Let <var>baseURL</var> be the result of
+    [=create a URL for a base descriptor=] given <var>baseURLSpecifier</var>.
 
 1. Return the result of [=URL pattern/create|create a URL pattern=] given
     <var>arg</var>, <var>baseURL</var>, and an empty [=map=].
@@ -181,6 +176,38 @@ using the steps of the <dfn>create a URL pattern for url-pattern()</dfn> algorit
 NOTE: This function requires that its argument is quoted.
 This differs from the ''url()'' function,
 which allows its argument to be quoted or unquoted.
+
+The <dfn>create a URL for a base descriptor</dfn> algorithm, given
+an optional <var>baseURLSpecifier</var>
+which can be ''document'', ''stylesheet'', or a URL, is:
+
+<dl class=switch>
+
+: if <var>baseURLSpecifier</var> is not present or is ''stylesheet''
+:: the [=style resource base URL=] of
+    the rule or declaration block containing the ''url-pattern()'' function.
+
+: if <var>baseURLSpecifier</var> is ''document''
+:: the [=document base URL=] of the document
+
+: if <var>baseURLSpecifier</var> is a URL
+:: <var>baseURLSpecifier</var>
+
+</dl>
+
+<div class="issue">
+Should the default always be ''stylesheet''?
+For use of ''url-pattern()'' in ''@navigation'',
+it's likely more useful for the base URL
+to be the document URL rather than the style sheet URL.
+However, it would be very awkward for ''url-pattern()''
+to be inconsistent with ''url()''.
+
+Also see other proposed uses of {{URLPattern}} in CSS
+in <w3c/csswg-drafts#10975>,
+for '':local-link''.
+</div>
+
 
 To <dfn export>serialize a ''url-pattern()'' function</dfn> <var>f</var>,
 [=serialize a function=] <var>f</var>,
