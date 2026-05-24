@@ -1,6 +1,6 @@
-# Scoped View Transitions
+# Element-Scoped View Transitions
 
-Scoped View Transitions is an extension to the
+Element-Scoped View Transitions is an extension to the
 [View Transition API][VT-api] to help developers perform transitions within the
 scope of a DOM subtree.
 
@@ -22,7 +22,7 @@ tree, and act as a container for the transition animations.
 
 ## Motivation
 
-Scoped View Transitions delivers four benefits to the developer that were not achievable before:
+Element-Scoped View Transitions delivers four benefits to the developer that were not achievable before:
 
 * _Concurrent transitions:_  Two or more elements can run view transitions at the same
   time without being aware of each other.  For example, different component libraries
@@ -37,14 +37,14 @@ Scoped View Transitions delivers four benefits to the developer that were not ac
   rendering][render-suppression] while the DOM callback is running, but now we can
   pause rendering in only part of the page.
 
-* _Transitions respect z-index:_  Non-transitioning content outside the scoped
-  transition root can now paint on top of the transitioning content.  This is
+* _Transitions respect z-index:_  Non-transitioning content outside the scope
+  can now paint on top of the transitioning content.  This is
   useful for overlays such as menus and notification bars, which previously
   could not stack in front of the pseudo-element tree.
 
 ## Current status
 
-Scoped View Transitions has been proposed to the CSS Working Group
+Element-Scoped View Transitions has been proposed to the CSS Working Group
 ([#9890](https://github.com/w3c/csswg-drafts/issues/9890)) as a change to the
 [CSS View Transitions Module Level 2][css-view-transitions-2] specification,
 and [passed review](https://github.com/w3ctag/design-reviews/issues/1188)
@@ -52,12 +52,12 @@ by the W3C Technical Architecture Group (TAG).
 
 Chrome 147 has
 [shipped](https://groups.google.com/a/chromium.org/g/blink-dev/c/n1-oZUKaXHY/m/LqwtfSBWBQAJ)
-Scoped View Transitions.
+Element-Scoped View Transitions.
 See also [Chrome Platform Status](https://chromestatus.com/feature/5109852273377280)
 and the [implementation tracking bug](https://crbug.com/394052227).
 Older Chrome versions require the `--enable-features=ScopedViewTransitions` command-line flag.
 
-Here is a [**DEMO**](https://output.jsbin.com/runezug/quiet) of Scoped View Transitions,
+Here is a [**DEMO**](https://output.jsbin.com/runezug/quiet) of Element-Scoped View Transitions,
 showing concurrent transitions, transitioning inside a scroller, nested scoped transitions,
 and transitioning behind a higher z-index overlay.
 
@@ -69,7 +69,7 @@ and transitioning behind a higher z-index overlay.
 
 ## How to use
 
-You can play with Scoped View Transitions in Google Chrome today.
+You can play with Element-Scoped View Transitions in Google Chrome today.
 
 * Use Chrome 147 or newer.
 
@@ -99,7 +99,7 @@ You can play with Scoped View Transitions in Google Chrome today.
 ## Feedback wanted
 
 We're interested in feedback from the web developer community about
-the shape of the Scoped View Transitions API, and
+the shape of the Element-Scoped View Transitions API, and
 use cases where the feature works well or didn't work as expected.
 
 You can share your feedback by commenting on
@@ -137,7 +137,7 @@ between the scope and its pseudo tree.
 
 ### Algorithm
 
-The steps for a scoped view transition are based on the
+The steps for an element-scoped view transition are based on the
 [steps for a document view transition](https://drafts.csswg.org/css-view-transitions-1/#lifecycle)
 with appropriate modifications.  At a high level:
 
@@ -190,7 +190,7 @@ This is important for independent web components to be composable.
 
 ### Tag containment
 
-Because scoped view transitions are intended to enable composition (nesting of
+Because element-scoped view transitions are intended to enable composition (nesting of
 unrelated components that both use transitions), developers need a way to avoid
 tag collisions when choosing their `view-transition-name` values.
 
@@ -200,7 +200,7 @@ A new style value, `view-transition-scope: all`, serves this purpose.
 > Chrome 147.0.7717.0 and `contain: view-transition` before Chrome 146.0.7652.0.
 > See [CSS WG issue #13123](https://github.com/w3c/csswg-drafts/issues/13123).
 
-A scoped view transition looks for tagged participants, starting with the scope
+A element-scoped view transition looks for tagged participants, starting with the scope
 itself. If this tag search encounters a descendant with `view-transition-scope: all`,
 it ignores that element and everything inside it, on the assumption that those tags
 belong to a different scope.
@@ -217,18 +217,18 @@ callback (which may return a Promise). To avoid presenting intermediate states
 to the user, we must pause the rendering of the DOM being transitioned.
 
 Document view transitions pause the rendering of the entire document while the
-callback is running, but Scoped View Transitions will only pause the rendering
+callback is running, but Element-Scoped View Transitions will only pause the rendering
 of the DOM subtree rooted at the scope.
 
 When the callback is finished and the transition animations are running, the
 rendering is no longer paused, but each tagged element participating in the
 transition has its rendering hoisted into the corresponding
-`::view-transition-new` pseudo-element. (This is the same for scoped and
-document view transitions.)
+`::view-transition-new` pseudo-element. (This is the same for element-scoped and
+document-scoped view transitions.)
 
 ### Transition root
 
-Now that view transitions are scoped, we want to make it easy for the developer
+Now that view transitions are element-scoped, we want to make it easy for the developer
 to determine which scope a `ViewTransition` object is associated with.
 So we're adding a `transitionRoot` property:
 
@@ -334,8 +334,8 @@ use `scrollbar-gutter` to incorporate this logic into the user-agent style sheet
 
 ## Alternatives Considered
 
-Here are things we could have done instead of scoped view transitions, and things
-we could have done differently within scoped view transitions.
+Here are things we could have done instead of element-scoped view transitions, and things
+we could have done differently within element-scoped view transitions.
 
 ### Nothing (status quo)
 
@@ -364,7 +364,7 @@ want to run a view transition.
 
 Similarly, we could have tied view transitions to
 [shadow trees](https://developer.mozilla.org/en-US/docs/Glossary/Shadow_tree) to
-enable scoped view transitions for
+enable element-scoped view transitions for
 [Web Components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components).
 But shadow DOM comes with its own limitations (Web Components are
 [okay](https://nolanlawson.com/2024/09/28/web-components-are-okay/) but far from universally
@@ -379,7 +379,7 @@ The `startViewTransition` method accepts an
 [options](https://developer.mozilla.org/en-US/docs/Web/API/Document/startViewTransition#options)
 object, which we could have extended to produce something like
 `document.startViewTransition({ scope: element, ... })`.
-But if scoped view transitions are logically independent and isolated from each other,
+But if element-scoped view transitions are logically independent and isolated from each other,
 it seems more intuitive for the scope element to be the target of the method.
 
 The [tag containment](#Tag-containment) API could have been something other than
@@ -412,6 +412,6 @@ See [Web Platform Design Principles, "Priority of Constituencies"](https://www.w
 [Jake Archibald, "Shadow DOM or not - shared element transitions" (Sep 2022)](https://docs.google.com/document/d/1kW4maYe-Zqi8MIkuzvXraIkfx3XF-9hkKDXYWoxzQFA/edit?usp=sharing)
 considers an alternate Shadow DOM implementation.
 
-Presentation on Scoped View Transitions at the BlinkOn 20 conference in April 2025:
+Presentation on Element-Scoped View Transitions at the BlinkOn 20 conference in April 2025:
 [slides](https://bit.ly/svt-blinkon),
 [recording](https://bit.ly/svt-blinkon-video).
