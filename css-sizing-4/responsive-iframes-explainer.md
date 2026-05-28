@@ -29,9 +29,9 @@ In general, there is a lot of demand for this feature, as evidenced by:
 
 ## Solution
 
-The embedding document opts in via the `contain-intrinsic-size: from-element` CSS property on the `<iframe>` element, and the embedded document opts in via a new `<meta name="responsive-embedded-sizing">` tag.
+The embedding document opts in via the `frame-sizing` CSS property on the `<iframe>` element, and the embedded document opts in via a new `<meta name="responsive-embedded-sizing">` tag.
 
-When the meta tag is present at the time the `load` event on the embedded document fires, the embedding document is notified with the new [natural height](https://drafts.csswg.org/css-images-3/#natural-height) of the embedded (iframe) document. If `contain-intrinsic-size` is set on the `<iframe>` element, it takes this heigh into consideration in the same way as any other replaced element's layout, along with other constraints specified by the HTML and CSS of the embedding document. Subsequent changes to content, styling or layout fo the embedded document do not affect the `<iframe>` sizing.
+When the meta tag is present at the time the `load` event on the embedded document fires, the embedding document is notified with the new [natural height](https://drafts.csswg.org/css-images-3/#natural-height) of the embedded (iframe) document. If `frame-sizing` is set on the `<iframe>` element, it takes this heigh into consideration in the same way as any other replaced element's layout, along with other constraints specified by the HTML and CSS of the embedding document. Subsequent changes to content, styling or layout fo the embedded document do not affect the `<iframe>` sizing.
 
 The double opt-in preserves:
  * Backward compatibility for existing content
@@ -52,7 +52,7 @@ Embedding document:
 <!doctype HTML>
 <style>
   iframe {
-    contain-intrinsic-size: from-element;
+    frame-sizing: content-height;
     border: 1px solid black;
   }
 </style>
@@ -79,6 +79,11 @@ A JavaScript API could be added in the future that would allow embedded document
 
 ## Privacy and security
 
-Information about the contents of a cross-origin iframe can be exfiltrated by embedding it in a malicious document that observes the laid-out size of the iframe. This can be mitigated through use of the the `X-Frame-Options` HTTP header to allow embedding into only trusted embedding documents, plus the `responsive-embedded-sizing` `<meta>` tag to further opt into responsive layout. Additional restrictions could be put in place through contents of the `<meta>` tag that would restrict to only explicitly allowed origins.
+Information about the contents of a cross-origin iframe can be exfiltrated by embedding it in a malicious document that observes the laid-out size of the iframe.
+This can be mitigated through use of the `Content-Security-Policy` HTTP header's [`frame-ancestors` value] to allow embedding into only trusted embedding documents,
+plus the `responsive-embedded-sizing` `<meta>` tag to further opt into responsive layout.
+Additional restrictions could be put in place through contents of the `<meta>` tag that would restrict to only explicitly allowed origins.
 
 [Fenced frames](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/fencedframe) are excluded from this feature.
+
+[`frame-ancestors` value]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/frame-ancestors
