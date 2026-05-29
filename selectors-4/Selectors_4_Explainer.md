@@ -103,7 +103,7 @@ for ease of reference_
 
 ### Media State
 
-- Added the `:playing`, `:paused` and `:seeking`  [media playback state](https://www.w3.org/TR/selectors-4/#video-state) pseudo classes,
+- Added the `:playing`, `:paused` and `:seeking` [media playback state](https://www.w3.org/TR/selectors-4/#video-state) pseudo classes,
     to enable selecting on the **dynamic state of video elements**,
     functionality which previously required JavaScript
 - Added the `:buffered` and `:stalled`
@@ -121,7 +121,7 @@ for ease of reference_
     to accept **wildcard matching**, and comma-separated **lists of language codes**
     for greater flexibility styling related languages
 - Added the content language writing direction
-    [`dir()`](https://www.w3.org/TR/selectors-4/#the-dir-pseudo) pseudo-class
+    [`:dir()`](https://www.w3.org/TR/selectors-4/#the-dir-pseudo) pseudo-class
     for convenient styling of **left-to-right** and **right-to-left** content
 - Clarified **case-insensitive** string matching
 - General improvements to closely align with **BCP 47**
