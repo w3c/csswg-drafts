@@ -26,6 +26,10 @@ Markup Shorthands: markdown yes
 <pre class=link-defaults>
 spec:infra; type:dfn; text:user agent
 spec:dom; type:dfn; for:/; text:shadow root
+spec:web-animations-1; type:dfn;
+	text:pause an animation
+	text:animation effect
+	text:fill mode
 </pre>
 
 <pre class=anchors>
@@ -111,223 +115,121 @@ urlPrefix: https://www.w3.org/TR/web-animations-1/; type: dfn
 
 ## Overview ## {#triggers-overview}
 
-An <dfn export>animation trigger</dfn> is used to control the playback
-of its associated [=animation=] for time-driven animations.
-Like animations, [=animation triggers=] are associated with a [=timeline=]
-and are attached to an [=animation attachment range|attachment range=].
+An <dfn export>animation trigger</dfn> can be used to control the playback
+of [=animations=] associated with the trigger.
+
+Each [=animation trigger=] maintains the following fields internally:
+
+1. an <dfn lt="animation trigger active" export>active</dfn> flag, which is initially false,
+
+1. a <dfn lt="animation trigger invokes deactivation" export>invokes deactivation</dfn> flag,
+	which is initially false, and,
+
+1. a set of [=animations=], <dfn lt="animation trigger animation set" export>animations set</dfn>,
+	which is initially empty.
+
+Each [=animation trigger=] associates each [=animation=] in its
+[=animation trigger animation set|animations set=] with two <<animation-action>>s. One action is
+associated with [=invoke activation|activation=] and the other is associated with
+[=invoke deactivation|deactivation=].
+
+## Invoking Activation & Deactivation ## {#animation-trigger-activation-deactivation}
+
+When asked to <dfn lt="invoke activation">invoke activation</dfn> given a [=trigger=] <var>trigger</var>,
+the user agent should perfrom the following steps:
+
+	1. If |trigger|'s [=animation trigger active|active=] flag is true, abort these steps.
+
+	1. Set |trigger|'s [=animation trigger active|active=] flag to true.
+
+	1. For each [=animation=] <var>animation</var> in |trigger|'s [=animation trigger animation set|animations set=],
+		1. Run the steps to <a>perform activation</a> with |trigger| as trigger and |animation| as animation.
+
+	1. If |trigger|'s [=animation trigger invokes deactivation|invokes deactivation=] flag is false,
+		set |trigger|'s [=animation trigger active|active=] flag to false.
+
+When asked to <dfn perform activation on an animation export>perform activation</dfn> given a
+[=animation trigger|trigger=] <var>trigger</var> and an [=animation=] <var>animation</var>, the user
+agent should perform these steps:
+
+	1. Let <var>action</var> be the <<animation-action>> which |trigger| associates with
+			[=invoke activation|activation=] for |animation|.
+
+		1. Perform the steps corresponding to |action| in the <<animation-action>> table on |animation|.
+
+When asked to <dfn lt="invoke deactivation">invoke deactivation</dfn> given a [=trigger=] <var>trigger</var>,
+the user agent should perfrom the following steps:
+
+	1. If |trigger|'s [=animation trigger active|active=] flag is false, abort these steps.
+
+	1.  Set |trigger|'s [=animation trigger active|active=] flag to false.
+
+	1.  For each [=animation=] <var>animation</var> in |trigger|'s [=animation trigger animation set|animations set=],
+		1. Run the steps to <a>perform deactivation</a> with |trigger| as trigger and |animation| as animation.
+
+When asked to <dfn perform deactivation on an animation export>perform deactivation</dfn> given a
+[=animation trigger|trigger=] <var>trigger</var> and an [=animation=] <var>animation</var>, the user
+agent should perform these steps:
+
+	1. Let <var>action</var> be the <<animation-action>> which |trigger| associates with
+			[=invoke deactivation|deactivation=] for |animation|.
+
+		1. Perform the steps corresponding to |action| in the <<animation-action>> table on |animation|.
 
 Issue: Should there be any effect of triggers on scroll-driven animations?
 
-## Animation Trigger Internal State ### {#trigger-state}
+## Attaching an Animation to an AnimationTrigger ## {#animation-trigger-attach-animation}
 
-An [=animation trigger=] |trigger|
-has an internal boolean <dfn export>did trigger</dfn> flag, which is initially false,
-and an internal <dfn export lt="animation trigger state">state</dfn> with
-these possible values:
+When asked to <dfn lt="attach an animation to a trigger" export>attach an animation to a trigger</dfn> given an [=animation trigger=]
+<var>trigger</var>, an [=animation=] <var>animation</var>, an {{AnimationTriggerAction}} <var>activateAction</var>
+and an {{AnimationTriggerAction}} <var>deactivateAction</var>, run the following steps:
 
-<dl dfn-for="animation trigger state">
-	<dt><dfn>idle</dfn>
-		<dd>
-		The [=animation effect=] associated |animation| remains in
-		its [=animation effect/before phase=] and stays at zero [=animation/current time=].
+	1. If |animation| is currently attached to another [=animation trigger=],
+		<a>throw</a> a <span class=exceptionname>NotSupportedError</span>.
 
-	<dt><dfn>primary</dfn>
-		<dd>
-		When switched to this value the [=animation trigger state/primary=] behavior type defined by |type| is applied to |animation|.
+	1. If |deactivateAction| is not given, set |deactivateAction| to {{AnimationTriggerAction/none}}.
 
-	<dt><dfn>inverse</dfn>
-		<dd>
-		When switched to this value the [=animation trigger state/inverse=] behavior type defined by |type| is applied to |animation|.
-</dl>
+	1. Let <var>activationAction</var> be the <<animation-action>> that corresponds to |activateAction|.
 
-The values of [=animation trigger state|state=] and [=did trigger=] are
-updated by the [=updating animation trigger state=] procedure, described below.
+	1. Let <var>deactivationAction</var> be the <<animation-action>> that corresponds to |deactivateAction|.
 
-Issue: Do we need a formal resolution on the spec of the idle state?
+	1. If the [=animation/play state=] of |animation| is [=play state/idle=],
+		1. Run the steps to [=pause an animation=] on |animation|.
 
-## Animation Trigger Behavior ## {#trigger-behaviors}
+	1. Let <var>currentActivationAction</var> be the <<animation-action>> which |trigger| associates
+			with [=invoke activation|activation=] for |animation|
+			or ''<animation-action>/none'' if |animation| was not previously in |trigger|'s
+			[=animation trigger animation set|animations set=].
 
-An [=animation trigger=] has an associated <dfn export>animation trigger behavior</dfn>
-which, along with [=did trigger=] and [=animation trigger state|state=],
-determines the [=animation trigger|trigger=]'s effect on its
-associated [=animation=]'s playback.
+	1. Add |animation| to |trigger|'s [=animation trigger animation set|animations set=].
 
-The [=animation effect=] associated with an [=animation trigger=]
-in the [=animation trigger state/idle=] state
-remains in its [=animation effect/before phase=] and
-stays at zero [=animation/current time=],
-regardless of the trigger's [=did trigger=] flag or [=animation trigger state|state=].
-Otherwise, the effect on playback is as follows for
-given values of <var ignore=''>behavior</var>:
+	1. Set the <<animation-action>> which |trigger| associates with its [=invoke activation|activation=] for |animation| to |activationAction|.
 
-<dl>
-	<dt>''animation-trigger-behavior/once''</dt>
-	<dd>
-	<dl class=switch>
-		: If [=animation trigger state|state=] is [=animation trigger state/primary=],
-		:: the effect is to [=play an animation|trigger=] the associated animation.
+	1. Set the <<animation-action>> which |trigger| associates with its [=invoke deactivation|deactivation=] for |animation| to |deactivationAction|.
 
-		: Otherwise,
-		:: the trigger has no effect.
-	</dl>
-	</dd>
+	1. If |trigger|'s [=animation trigger active|active=] flag is true,
 
-	<dt>''animation-trigger-behavior/repeat''</dt>
-	<dd>
-	<dl class=switch>
-		: If [=animation trigger state|state=] is [=animation trigger state/primary=],
-		:: the effect is to [=play an animation|trigger=] the associated animation.
+		1. If |currentActivationAction| is not the same as |activationAction|,
+			1. Run the steps to <a>perform activation</a> with |trigger| as trigger and |animation| as animation.
 
-		: If [=animation trigger state|state=] is [=animation trigger state/inverse=],
-		:: the effect is to reset the associated [=animation effect=] back to
-			its [=animation effect/before phase=] and its associated [=animation=]’s
-			[=animation/start time=] to zero.
-	</dl>
-	</dd>
+	NOTE: Attaching multiple triggers to an animation is not supported currently but will eventually be
+	supported.
 
-	<dt>''animation-trigger-behavior/alternate''
-	<dd>
-	<dl class=switch>
-		: If [=animation trigger state|state=] is [=animation trigger state/primary=]
-			and [=did trigger=] is false,
-		:: the effect is to [=play an animation|trigger=] the associated animation.
+	NOTE: When pausing the animation in step 5, the user agent should also set a boundary-exclusive flag
+	on |animation| and its [=animation effect=]. However, that flag is not yet implemented. Setting the
+	boundary-exclusive flag allows authors control over the "pre-triggered" visual state of a triggered
+	animation by making its visual state depend on its [=/fill mode=].
 
-		: If [=animation trigger state|state=] is [=animation trigger state/primary=]
-			and [=did trigger=] is true,
-		:: the effect is to [=reverse an animation|reverse=] the associated animation.
+	ISSUE: We react to post-activation attachment, but not post-deactivation. Perhaps we should react to
+	both or neither.
 
-		: If [=animation trigger state|state=] is [=animation trigger state/inverse=]
-		:: the effect is to [=reverse an animation|reverse=] the associated animation.
-	</dl>
-	</dd>
+When asked to <dfn lt="detach an animation from a trigger" export>detach an animation from a trigger</dfn>
+given an [=animation trigger=] <var>trigger</var>, an [=animation=] <var>animation</var>,
+run the following steps:
 
-	<dt>''animation-trigger-behavior/state''
-	<dd>
-	<dl class=switch>
-		: If [=animation trigger state|state=] is [=animation trigger state/primary=]
-		:: the effect is to [=play an animation|trigger or resume=] the associated animation.
+	1. Remove |animation| from |trigger|'s [=animation trigger animation set|animation set=].
 
-		: If [=animation trigger state|state=] is [=animation trigger state/inverse=]
-		:: the effect is to [=pause an animation|pause=] the associated animation.
-	</dl>
-	</dd>
-</dl>
-
-Issue: Do we need a proper definition for "behavior types primary/inverse"?
-
-## Animation Trigger Active Interval ## {#trigger-active-interval}
-
-Each [=animation trigger=] defines an <dfn for="animation trigger">active interval</dfn>
-and only one such interval. This interval is the segment of the timeline’s progress
-during which the trigger’s [=animation trigger state|state=] is set to [=animation trigger state/primary=].
-
-## Animation Trigger Ranges ### {#trigger-ranges}
-
-An [=animation trigger=] has two [=animation attachment range|ranges=],
-the <dfn>default range</dfn> and the <dfn>exit range</dfn>.
-The [=exit range=] is used to replace [=default range=] and extend
-the [=animation trigger/active interval|active interval=].
-
-Issue: Should we specify that that exit range’s edges can only be equal to or greater than the default range’s edges?
-
-Depending on its most recent [=animation trigger state|state=] |state|, the
-[=animation trigger/active interval|active interval=] is defined as follows:
-
-<dl class=switch>
-	: If |state| is [=animation trigger state/primary=],
-	::
-		Then |interval| is set to [=exit range=].
-
-	: Otherwise,
-	::
-		|interval| is [=default range=].
-
-</dl>
-
-## Setting a Trigger of an Animation ## {#setting-animation-trigger}
-
-	<div algorithm="Setting a Trigger of an Animation">
-		The procedure of <dfn>setting a trigger of an animation</dfn> |animation|,
-		to |new trigger|, is as follows:
-
-		1. Let |old trigger| be the current [=animation trigger=] of |animation|, if any.
-
-		1. If |new trigger| is the same object as |old trigger|, abort this procedure.
-
-		1. Let the [=animation trigger|trigger=] of |animation| be |new trigger|.
-
-		1. Run the procedure to [=updating animation trigger state=] for |new trigger|.
-	</div>
-
-## Setting the timeline of an Animation Trigger ## {#setting-trigger-timeline}
-
-	<div algorithm="setting timeline of animation trigger">
-		The procedure of <dfn>setting timeline of animation trigger</dfn> |trigger|,
-		to |new timeline| which may be <code>null</code>, is as follows:
-
-		1. Let |old timeline| be the current value of |trigger|.{{AnimationTrigger/timeline}}, if any.
-
-		1. If |new timeline| is the same object as |old timeline|, abort this procedure.
-
-		1. Set |trigger|.{{AnimationTrigger/timeline}} to |new timeline|.
-
-		1. Run the [=updating animation trigger state=] procedure for |trigger|.
-	</div>
-
-## Updating Animation Trigger State ## {#updating-trigger-state}
-
-<div algorithm="updating animation trigger state">
-	The procedure of <dfn>updating animation trigger state</dfn>
-	of an [=animation trigger=] |trigger| is as follows:
-
-	1. Let |did trigger| be the current value of |trigger|'s [=did trigger=] flag.
-
-	1. Let |behavior| be |trigger|'s associated [=animation trigger behavior=].
-
-	1. Set |trigger|.[=animation trigger state|state=] as follows:
-		<dl class=switch>
-		: If |trigger|’s [=local time=] is [=unresolved=],
-		::
-			Then abort this procedure.
-
-		: Otherwise,
-		::
-
-		<dl class=switch>
-			: If |behavior| is ''animation-trigger-behavior/once'' and |did trigger| is true,
-			::
-				Then abort this procedure.
-
-			: Otherwise,
-			::
-
-			<dl class=switch>
-				: If |trigger| is inside its [=animation trigger/active interval|active interval=],
-				::
-					1. Set |trigger|.[=animation trigger state|state=] to [=animation trigger state/primary=].
-					1. Set |trigger|.[=did trigger=] to true.
-
-					: Otherwise,
-					::
-
-				<dl class=switch>
-					: If |did trigger| is true,
-					::
-						Set |trigger|.[=animation trigger state|state=] to [=animation trigger state/inverse=].
-
-				</dl>
-
-			</dl>
-
-		</dl>
-
-	</dl>
-
-</div>
-
-Issue: Should it be the correct/expected behavior for the "did trigger" flag to reset to false if the timeline becomes idle again?
-
-## Triggers Declared By CSS ##
+## Triggers Declared By CSS ## {#css-animation-triggers}
 
 	While CSS animations are, by default,
 	automatically run as soon as the appropriate 'animation' values have been set on an element,
@@ -851,166 +753,106 @@ Issue: Should it be the correct/expected behavior for the "did trigger" flag to 
 
 <h2 id="programming-interface">Programming interface</h2>
 
-
 <h3 id="the-animationtrigger-interface">The <code>AnimationTrigger</code> interface</h3>
 
-<pre class='idl'>
+<xmp class=idl>
 [Exposed=Window]
 interface AnimationTrigger {
-  constructor(optional AnimationTriggerOptions options = {});
-  attribute AnimationTimeline timeline;
-  attribute AnimationTriggerBehavior behavior;
-  attribute any rangeStart;
-  attribute any rangeEnd;
-  attribute any exitRangeStart;
-  attribute any exitRangeEnd;
+	undefined addAnimation(Animation animation, AnimationTriggerAction activateAction, optional AnimationTriggerAction deactivateAction);
+	undefined removeAnimation(Animation animation);
+	sequence<Animation> getAnimations();
 };
-</pre>
+</xmp>
 
 <wpt>
 	interfaces/TimelineTrigger/constructor.html
 </wpt>
 
-<div dfn-type=constructor class=constructors dfn-for="AnimationTrigger">
-	: <dfn lt="AnimationTrigger(options)">AnimationTrigger(|options|)</dfn>
-	::
-		Creates a new {{AnimationTrigger}} object using the following procedure:
+### The {{AnimationTriggerAction}} enumeration ### {#the-animationtriggeraction-enumeration}
 
-		1. Create a new {{AnimationTrigger}} object, |trigger|.
+<xmp class=idl>
+enum AnimationTriggerAction {
+	"play",
+	"pause",
+	"reset",
+	"play-once",
+	"play-forwards",
+	"play-backwards",
+	"replay",
+	"none"
+};
+</xmp>
 
-		1. Set |trigger|.[=did trigger=] to false.
+<dl dfn-type=enum-value dfn-for="AnimationTriggerAction">
+	: <dfn>play</dfn>
+	::  Corresponds to ''<animation-action>/play''.
+	: <dfn>pause</dfn>
+	::  Corresponds to ''<animation-action>/pause''.
+	: <dfn>reset</dfn>
+	::  Corresponds to ''<animation-action>/reset''.
+	: <dfn>play-once</dfn>
+	::  Corresponds to ''<animation-action>/play-once''.
+	: <dfn>play-forwards</dfn>
+	::  Corresponds to ''<animation-action>/play-forwards''.
+	: <dfn>play-backwards</dfn>
+	::  Corresponds to ''<animation-action>/play-backwards''.
+	: <dfn>replay</dfn>
+	::  Corresponds to ''<animation-action>/replay''.
+	: <dfn>none</dfn>
+	::  Corresponds to ''<animation-action>/none''.
+</dl>
 
-		1. Set |trigger|.[=animation trigger state|state=] to [=animation trigger state/idle=].
-
-		1. Set |trigger|.{{AnimationTrigger/behavior}} to |options|.{{AnimationTriggerOptions/behavior}}.
-
-		1. Set [=default range=] of |trigger| using |options|.{{AnimationTriggerOptions/rangeStart}} and |options|.{{AnimationTriggerOptions/rangeEnd}},
-			following the same rules as the KeyframeAnimationOption
-			<a href="#dom-keyframeanimationoptions-rangestart">rangeStart</a> and
-			<a href="#dom-keyframeanimationoptions-rangeend">rangeEnd</a> respectively.
-
-		1. Set [=exit range=] of |trigger| using |options|.{{AnimationTriggerOptions/exitRangeStart}} and |options|.{{AnimationTriggerOptions/exitRangeEnd}},
-			following the same rules above for [=default range=], unless they are set to
-			"auto", in which case they are set to their corresponding side
-			of the [=default range=].
-
-		1. Run the procedure for [=setting timeline of animation trigger=]
-			on |trigger| passing |options|.{{AnimationTriggerOptions/timeline}} as the <var ignore>new timeline</var>.
-
-		<div dfn-type=argument class=parameters
-			dfn-for="AnimationTrigger/AnimationTrigger(options)">
-
-			: <dfn>options</dfn>
-			::  Configuration parameters for the newly-created trigger.
-
-		</div>
-
-</div>
-
-<div dfn-type=attribute class=attributes
+<div dfn-type=method class=methods
 	dfn-for="AnimationTrigger">
 
-	: <dfn>timeline</dfn>
+: <dfn lt="addAnimation(Animation animation, AnimationTriggerAction activateAction, optional AnimationTriggerAction deactivateAction)">undefined addAnimation(|animation|, |activateAction|, |deactivateAction|)</dfn>
+::
+	Perform the following steps:
+
+	1. Let |trigger| be the object the method was called on.
+
+	2. Run the steps to [=attach an animation to a trigger=] with |trigger| as the |trigger| argument,
+		|animation| as the |animation| argument, |activateAction| as the |activateAction| argument,
+		and |deactivateAction| as the |deactivateAction| argument.
+
+	<div dfn-type=argument class=parameters
+		dfn-for="AnimationTrigger/addAnimation(animation, activateBehavior, deactivateBehavior)">
+
+		: <dfn>animation</dfn>
+		::
+			The [=animation=] to attach to the trigger.
+
+		: <dfn>activateAction</dfn>
+		::
+			The {{AnimationTriggerAction}} corresponding to the <<animation-action>> which is intended for the
+			trigger to associate with [=invoke activation|activation=]
+			for {{AnimationTrigger/addAnimation(animation, activateBehavior, deactivateBehavior)/animation}}.
+
+		: <dfn>deactivateAction</dfn>
+		::
+			The {{AnimationTriggerAction}} corresponding to the <<animation-action>> which is intended the trigger
+			to associate with [=invoke deactivation|deactivation=]
+			for {{AnimationTrigger/addAnimation(animation, activateBehavior, deactivateBehavior)/animation}}.
+
+	</div>
+
+	: <dfn lt="removeAnimation(animation)">undefined removeAnimation(|animation|)</dfn>
 	::
-		Returns the [=timeline=] for this trigger
-		or `null` if this timeline is [=inactive timeline|inactive=].
+		1. Let |trigger| be the object on which this method was called.
 
-	: <dfn>behavior</dfn>
-	::
-		Returns the [=animation trigger behavior|behavior=] of this trigger.
+		1. Run the steps to [=detach an animation from a trigger=] with |trigger| as the |trigger|
+			argument and |animation| as the |animation| argument.
 
-	: <dfn>rangeStart</dfn>
-	::
-		Returns the [=default range=]’s start of this trigger.
+	<div dfn-type=argument class=parameters
+		dfn-for="AnimationTrigger/removeAnimation(animation)">
 
-	: <dfn>rangeEnd</dfn>
-	::
-		Returns the [=default range=]’s end of this trigger.
+		: <dfn>animation</dfn>
+		::
+			The animation to disassociate from the trigger.
 
-	: <dfn>exitRangeStart</dfn>
-	::
-		Returns the [=exit range=]’s start of this trigger.
+	</div>
 
-	: <dfn>exitRangeEnd</dfn>
-	::
-		Returns the [=exit range=]’s end of this trigger.
-
-</div>
-
-<h3 id="the-animationtriggeroptions-dictionary">The <code>AnimationTriggerOptions</code> dictionary</h3>
-
-<pre class='idl'>
-dictionary AnimationTriggerOptions {
-	AnimationTimeline? timeline;
-	AnimationTriggerBehavior? behavior = "once";
-	(TimelineRangeOffset or CSSNumericValue or CSSKeywordValue or DOMString) rangeStart = "normal";
-	(TimelineRangeOffset or CSSNumericValue or CSSKeywordValue or DOMString) rangeEnd = "normal";
-	(TimelineRangeOffset or CSSNumericValue or CSSKeywordValue or DOMString) exitRangeStart = "auto";
-	(TimelineRangeOffset or CSSNumericValue or CSSKeywordValue or DOMString) exitRangeEnd = "auto";
-};
-</pre>
-
-<div dfn-type=dict-member class=members
-		dfn-for="AnimationTriggerOptions">
-
-	: <dfn>timeline</dfn>
-	::
-		The timeline to which the trigger is associated.
-		If not specified, the trigger is associated with [=default document timeline=].
-
-	: <dfn>behavior</dfn>
-	::
-		The behavior of the trigger.
-		If not specified, the trigger's behavior is ''animation-trigger-type/once''.
-
-	: <dfn>rangeStart</dfn>
-	::
-		The start of the trigger’s [=default range=].
-		If not specified, the [=default range=]’s start is set to "normal".
-
-	: <dfn>rangeEnd</dfn>
-	::
-		The end of the trigger’s [=default range=].
-		If not specified, the [=default range=]’s end is set to "normal".
-
-	: <dfn>exitRangeStart</dfn>
-	::
-		The start of the trigger’s [=exit range=].
-		If not specified, the [=exit range=]’s start is set to "auto".
-
-	: <dfn>exitRangeEnd</dfn>
-	::
-		The end of the trigger’s [=exit range=].
-		If not specified, the [=exit range=]’s end is set to "auto".
-
-</div>
-
-<h3 id="the-animationtriggerbehavior-enumeration">The <code>AnimationTriggerBehavior</code> enumeration</h3>
-
-<pre class='idl'>
-enum AnimationTriggerBehavior { "once", "repeat", "alternate", "state" };
-</pre>
-
-<dl dfn-type=enum-value
-	dfn-for="AnimationTriggerBehavior">
-
-	: <dfn>once</dfn>
-	::
-		''animation-trigger-behavior/once''.
-
-	: <dfn>repeat</dfn>
-	::
-		''animation-trigger-behavior/repeat''.
-
-	: <dfn>alternate</dfn>
-	::
-		''animation-trigger-behavior/alternate''.
-
-	: <dfn>state</dfn>
-	::
-		''animation-trigger-behavior/state''.
-
-</dl>
+	</div>
 
 # Privacy Considerations # {#privacy-considerations}
 
