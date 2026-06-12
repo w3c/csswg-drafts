@@ -2658,10 +2658,8 @@ Sharing (Or Not) Random Values: the <<random-key>> value</h3>
 			It is a <<custom-ident>> that must start with the prefix <css>ua-</css>,
 			or else it is invalid.
 			When generated automatically by the user agent,
-			it will always be <css>ua-PROPERTY</css> or <css>ua-PROPERTY-INDEX</css>,
-			with the <css>PROPERTY</css> and <css>INDEX</css> parts
-			replaced with a property name or integer index,
-			like <css>ua-margin-3</css>.
+			it follows certain specific patterns;
+			see [[#random-simplify]] for details.
 
 		: <dfn lt="fixed|<number>">fixed <<number [0, 1]>></dfn>
 		:: If ''fixed <<number>>'' is specified,
@@ -2873,8 +2871,9 @@ Sharing (Or Not) Random Values: the <<random-key>> value</h3>
 			the value of the <<random-ua-ident>>, if specified/calculated;
 			otherwise null.
 		4. A nullable /element identifier/
-			uniquely identifying the {{Element}} or [=pseudo-element=]
-			the style is being applied to,
+			uniquely identifying the object the style is being applied to
+			(the {{Element}}, [=pseudo-element=],
+			or [=custom function=] evaluation's "hypothetical element"),
 			if ''random()/element-scoped'' is specified;
 			otherwise null.
 		5. A /document identifier/ identifying the {{Document}} the styles are from.
@@ -2994,6 +2993,101 @@ Simplification of <<random-key>></h4>
 		The INDEX value is based on the ordering in the parsed value,
 		before any canonicalization/reordering might occur
 		that could shuffle the values around.
+
+	In certain cases,
+	the <<random-ua-ident>> is slightly more complex:
+
+	* when evaluated inside of a [=custom function=]
+		(in a property with a type that causes evaluation,
+		such as a typed argument or a typed '@function/result'),
+		in addition to the PROPERTY and/or INDEX,
+		the function's name is captured in the ident:
+		<css>ua-FUNCTIONNAME-PROPERTY</css> or <css>ua-FUNCTIONNAME-PROPERTY-INDEX</css>.
+
+		Note: This ensures that different functions
+		that just happen to use the same internal variable names
+		don't accidentally tie their random values together.
+
+		<div class=example>
+
+			For example, given the following custom function and usage:
+
+			<xmp highlight=css>
+			@function --ex(--arg <length>) returns <length> {
+				--local: random(2px, 3px);
+				result: calc(var(--arg) + var(--local) + random(3px, 4px));
+			}
+			.foo {
+				width: --ex(random(1px, 2px));
+			}
+			</xmp>
+
+			The '--arg' is registered as a <<length>>,
+			so it's value is evaluated within the ''--arg'' property,
+			getting a <<random-ua-ident>> of ''ua---ex---arg-1''.
+
+			The '--local' is <em>not</em> registered,
+			so it doesn't evaluate the ''random()'' at all;
+			it's left as-is until substitution.
+
+			The 'result' is also registered as a <<length>>.
+			Both the ''random(2px, 3px)'' (from '--local' substitution)
+			and ''random(3px, 4px)'' (written literally)
+			evaluate within 'result',
+			getting <<random-ua-ident>>s of ''ua---ex-result-1'' and ''ua---ex-result-2''.
+		</div>
+
+		<div class=example>
+			On the other hand, in this example:
+
+			<xmp highlight=css>
+			@function --no-types(--arg) {
+				result: calc(var(--arg) + random(2px, 3px));
+			}
+			.foo {
+				width: --no-types(random(1px, 2px));
+			}
+			</xmp>
+
+			Neither the '--arg' argument nor the 'result' are typed,
+			so their values aren't evaluated within the function.
+			The function call substitutes itself with the value ''calc(random(1px, 2px) + random(2px, 3px))'',
+			which is then evaluated within 'width',
+			getting <<random-ua-ident>>s of ''ua-width-1'' and ''ua-width-2'' instead.
+		</div>
+	* when evaluated inside of an [=arbitrary substitution function=]
+		as part of the substitution process,
+		the prefix is ''ua-early-'' rather than just ''ua-''.
+		The INDEX portion, as well, is tracked across all substitutions in the property.
+
+		<div class=example>
+			For example, in this relatively complex value:
+
+			<xmp highlight=css>
+			.foo {
+				width: calc(
+					if(
+						style(random(/*eA*/) == random(/*eB*/)): random(/*lA*/);
+						else: random(/*lB*/))
+					)
+					+ if(
+						style(random(/*eC*/) > random(/*eD*/): random(/*lC*/);
+						else: random(/*lD*/))
+					)
+				);
+			}
+			</xmp>
+
+			The four ''random()''s in the ''if/style()'' tests (''eA'' through ''eD'')
+			are all evaluated
+			(since using <css>==</css> or <css>></css> provides a numeric context)
+			as part of substitution,
+			so their <<random-ua-ident>>s are ''ua-early-width-1''/''-2''/''-3''/''-4''.
+
+			Each ''if()'' will resolve to one of the "late" ''random()''s (''lA'' through ''lD''),
+			left unevaluated and substituted into the 'width',
+			giving "normal" <<random-ua-ident>>s of ''ua-width-1'' and ''ua-width-2''.
+		</div>
 
 	If the <<random-key>> contains a <<random-ua-ident>>,
 	this must not be omitted in the serialization of the value,
