@@ -3483,63 +3483,130 @@ calc-size/interpolate-size-parsing.html
 	for example.
 	But these operations are no longer possible if the size you want to adjust
 	or transition to/from
-	is a non-numeric value such as ''width/auto'' or ''width/fit-content''.
+	is a non-numeric value such as ''width/auto'' or ''width/fit-content''
+	or a [=cyclic percentage size=].
 	[[CSS-SIZING-3]]
 
 	The <dfn>calc-size()</dfn> function
-	allows math to be performed on these sizes
+	allows math and transition/animation to be performed on these sizes
 	in a safe, well-defined way.
 	Its syntax is as follows:
 
 	<pre class=prod>
 	<<calc-size()>> = calc-size( <<calc-size-basis>>, <<calc-sum>> )
-	<dfn><<calc-size-basis>></dfn> = [ <<size-keyword>> | <<calc-size()>> | any | <<calc-sum>> ]
+	<dfn><<calc-size-basis>></dfn> = [ <<size-keyword>> | <<calc-sum>> | <<calc-size()>> | any ]
 	</pre>
 
 	The first argument given is the <dfn>calc-size basis</dfn>,
 	which represents the size the ''calc-size()'' is based on,
 	and the second is the <dfn>calc-size calculation</dfn>,
-	which represents the size specified by the ''calc-size()'' function.
-	Within the [=calc-size calculation=],
-	if the [=calc-size basis=] is not ''calc-size()/any'',
-	the keyword <dfn for=calc-size() value>size</dfn> is allowed.
-	The ''calc-size()/size'' keyword is a <<length>>,
-	and resolves at [=used value=] time.
+	which represents the size that ''calc-size()'' will actually resolve to,
+	based on the [=calc-size basis=].
 
 	<div class="example">
 		Some examples:
+
 		<pre>
 			height: calc-size(auto, 0);           /* used height is zero */
 			height: calc-size(auto, 50%);         /* used height is 50% of the container */
 			height: calc-size(auto, size / 2);    /* used height is 50% of auto */
 			height: calc-size(auto, size);        /* used height is auto */
 			height: calc-size(auto, size + 10px); /* used height is auto + 10px */
+			height: calc-size(auto, round(up, size, 20px));
+			                                      /* used height is rounded up to the
+			                                         nearest multiple of 20px */
 			height: calc-size(any,  size / 2);    /* declaration is invalid */
 		</pre>
 	</div>
 
-	The <dfn>&lt;size-keyword></dfn> production
-	matches any sizing keywords allowed in the context.
-	For example, in 'width',
-	it matches ''width/auto'', ''width/min-content'', ''width/stretch'', etc.
+	The [=calc-size basis=] values are:
 
-	ISSUE: What about ''width/fit-content()''?
+	<dl dfn-type=value dfn-for="calc-size()">
+		: <dfn>&lt;size-keyword</dfn>
+		::
+			Indicates that the ''calc-size()'' is basing its size off of the specified keyword.
+			Represents any sizing keywords allowed in the context
+			where the function is used.
+			For example, in 'width',
+			it matches ''width/auto'', ''width/min-content'', ''width/stretch'', etc.
+			Also allows any related sizing functions,
+			like the ''width/fit-content()'' function in 'width'/etc.,
+			which is a variation of the ''width/fit-content'' keyword.
+			For all purposes other than actually resolving the size,
+			the ''calc-size()'' acts like this keyword.
+
+			The [=calc-size calculation=] will use the corresponding size
+			as the value of its  ''calc-size()/size'' keyword.
+
+		: <dfn><<calc-sum>></dfn>
+		::
+			Indicates that the ''calc-size()'' is basing its size off of the specified [=calculation=].
+			For all purposes other than actually resolving the size,
+			the ''calc-size()'' acts like this [=calculation=] wrapped in a ''calc()''
+			(including, for example, whether it represents a [=definite=] or [=indefinite=] size).
+
+			The [=calc-size calculation=] will use the corresponding size
+			as the value of its  ''calc-size()/size'' keyword.
+
+		: <dfn><<calc-size()>></dfn>
+		::
+			Indicates that the outer ''calc-size()'' is basing its size
+			off of this inner ''calc-size()'',
+			and will share the same behavior as it.
+
+			The [=calc-size calculation=] will use the size of the inner ''calc-size()''
+			as its ''calc-size()/size'' keyword.
+			The ''calc-size()/size'' keyword is allowed, in this case,
+			even if the inner ''calc-size()'' uses ''calc-size()/any''.
+
+			<div class=example>
+				For example, in ''calc-size(calc-size(min-content, size / 2), size + 10%)'',
+				the outer ''calc-size()'' acts as if its [=calc-size basis=] was ''width/min-content'',
+				and will calculate its own ''calc-size()/size'' 
+				using the result of the inner ''calc-size()'',
+				equivalent to ''calc-size(min-content, size / 2 + 10%)''.
+			</div>
+
+			<details class=note>
+				<summary>Why can ''calc-size()'' be nested?</summary>
+
+				Allowing ''calc-size()'' as the basis argument
+				means that authors can use a variable as the basis
+				(like ''calc-size(var(--foo), size + 20px)'')
+				and it will <em>always work</em>
+				as long as the variable was originally valid for the property.
+
+				Doing the same with just ''calc()'' doesn't work -
+				for example, if you have ''--foo: calc-size(min-content, size + 20px)'',
+				or even just ''--foo: min-content'',
+				then ''calc( (var(--foo)) + 20px )'' fails.
+
+				The nesting is simplified away during interpolation,
+				and at used-value time,
+				so the basis always ends up as a simple value
+				by the time interpolation and other effects occur;
+				see [[#simplifying-calc-size]].
+			</details>
+
+		: <dfn>any</dfn>
+		::
+			Indicates that the ''calc-size()'' does not depend on any additional information,
+			and thus can be interpolated with <em>any</em> other size.
+			The ''calc-size()'' function represents a [=definite size=].
+
+			The [=calc-size calculation=] cannot use the ''calc-size()/size'' keyword;
+			it is a syntax error for ''calc-size()/size'' to appear in the [=calc-size calculation=].
+
+			Note: ''calc-size(any, ...)'' is mostly identical to ''calc(...)'',
+			but it is automatically interpolatable with other sizing keywords,
+			regardless of the 'interpolate-size' value.
+			(It does treat percentages slightly differently,
+			if the containing block's size is not [=definite=].)
+	</dl>
 
 	For the purpose of sizing
 	(including for [=intrinsic size contributions=]),
 	''calc-size()'' resolves to the result of its [=calc-size calculation=].
-	For all purposes other than actually resolving the size, however,
-	''calc-size()'' acts like its first argument.
-	A value of <dfn for="calc-size()" value>any</dfn>, however,
-	acts as a [=definite=] size--
-	equal to its [=calc-size calculation=].
-
-	<div class=example>
-		For example,
-		a box with ''height: calc-size(auto, round(up, size, 20px))''
-		will be treated identically to a box with ''height: auto'',
-		but with its height rounded up to the nearest multiple of ''20px''.
-	</div>
 
 	For either argument,
 	if a <<calc-sum>> is given,
@@ -3551,26 +3618,11 @@ calc-size/interpolate-size-parsing.html
 	any place that wants to accept ''calc-size()''
 	must explicitly include it in its grammar.
 
-	<details class=note>
-		<summary>Why can ''calc-size()'' be nested?</summary>
-
-		Allowing ''calc-size()'' as the basis argument
-		means that authors can use a variable as the basis
-		(like ''calc-size(var(--foo), size + 20px)'')
-		and it will <em>always work</em>
-		as long as the variable was originally valid for the property.
-
-		Doing the same with just ''calc()'' doesn't work -
-		for example, if you have ''--foo: calc-size(min-content, size + 20px)'',
-		or even just ''--foo: min-content'',
-		then ''calc( (var(--foo)) + 20px )'' fails.
-
-		The nesting is simplified away during interpolation,
-		and at used-value time,
-		so the basis always ends up as a simple value
-		by the time interpolation and other effects occur;
-		see [[#simplifying-calc-size]].
-	</details>
+	Within the [=calc-size calculation=],
+	the <dfn for="calc-size(), calc()" value>size</dfn> is a <<calc-keyword>>
+	which is a <<length>>,
+	and resolves at [=used value=] time
+	to the size specified above.
 
 	<details class=note>
 		<summary>Why not just allow intrinsic keywords in ''calc()''?</summary>
