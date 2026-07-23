@@ -9,7 +9,7 @@ function deltaEOK (reference, sample) {
     let [L1, a1, b1] = reference;
 	let [L2, a2, b2] = sample;
 	let ΔL = L1 - L2;
-	let Δa = a1 - a2;
-	let Δb = b1 - b2;
+	let Δa = 2 * (a1 - a2);
+	let Δb = 2 * (b1 - b2);
 	return Math.sqrt(ΔL ** 2 + Δa ** 2 + Δb ** 2);
 }
