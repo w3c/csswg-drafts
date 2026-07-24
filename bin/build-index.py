@@ -644,6 +644,7 @@ HTML_END = """\
     });
 
     function sortRecent() {
+      window.localStorage.setItem('index-sort', 'recent');
       specList.querySelectorAll('.group-header').forEach(function(h) { h.remove(); });
       specs.sort(function(a, b) {
         return parseInt(b.dataset.ts) - parseInt(a.dataset.ts);
@@ -657,6 +658,7 @@ HTML_END = """\
     }
 
     function sortGrouped() {
+      window.localStorage.setItem('index-sort', 'grouped');
       specList.querySelectorAll('.group-header').forEach(function(h) { h.remove(); });
       specs.sort(function(a, b) {
         var c = a.dataset.shortname.localeCompare(b.dataset.shortname);
@@ -685,6 +687,9 @@ HTML_END = """\
 
     btnRecent.addEventListener('click', sortRecent);
     btnGrouped.addEventListener('click', sortGrouped);
+    if (window.localStorage.getItem('index-sort') === 'grouped') {
+      sortGrouped();
+    }
 
     // Mobile: tap spec header to expand/collapse (accordion)
     specs.forEach(function(el) {

@@ -12,8 +12,6 @@ interface SVGFilterElement : SVGElement {
   readonly attribute SVGAnimatedLength width;
   readonly attribute SVGAnimatedLength height;
 };
-
-SVGFilterElement includes SVGURIReference;
 </pre>
 
 <div dfn-type=attribute dfn-for=SVGFilterElement>

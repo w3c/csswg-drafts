@@ -64,7 +64,8 @@ def extract_title(text):
 def render_markdown(text):
     proc = subprocess.run(
         ["cmark-gfm", "--extension", "table", "--extension", "autolink",
-         "--extension", "strikethrough", "--extension", "tasklist"],
+         "--extension", "strikethrough", "--extension", "tasklist",
+         "--unsafe"],
         input=text, capture_output=True, encoding="utf-8",
     )
     if proc.returncode != 0:

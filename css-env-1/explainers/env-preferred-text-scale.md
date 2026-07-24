@@ -226,7 +226,7 @@ However, for the _few_ sites where Blink’s text autosizer ([bookmark](#bookmar
 
 #### macOS – no effect
 
-Not many native macOS apps seem to scale.
+Not many native macOS apps seem to scale. (This Settings dialog is accessed via System Settings > Accessibility > Display > Text size in Sequoia.)
 
 ![](images/existing-os-macos.png)
 
