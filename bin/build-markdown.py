@@ -74,7 +74,7 @@ def render_markdown(text):
 
 
 def main():
-    for md_file in sorted(glob.glob("*/*.md")):
+    for md_file in sorted(glob.glob("*/**/*.md", recursive=True)):
         if md_file.startswith("."):
             continue
 
