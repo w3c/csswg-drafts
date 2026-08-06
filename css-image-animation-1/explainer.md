@@ -512,4 +512,4 @@ even if there are similarities.
 Here is a short list,
 to be expanded,
 of other things that were considered but did not seem like good solutions:
-* [Media Fragments](../images-in-video#using-media-fragments)
+* [Media Fragments](https://github.com/webplatformco/project-image-animation/tree/main/images-in-video#user-content-using-media-fragments)
