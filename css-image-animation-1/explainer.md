@@ -34,7 +34,7 @@ Previous Version: [https://github.com/webplatformco/project-image-animation/blob
     3. [Other Alternatives](#other-alternatives)
 </details>
 
-## User Needs & Use Cases
+## User Needs & Use Cases <a id="user-needs--use-cases"></a>
 Animated images (as enabled by GIF, APNG, WebP) are in common use on the web,
 for a variety of reasons, such as:
 * Purely decorative design elements
@@ -97,9 +97,9 @@ But this is not always practical:
     being able to work directly with the markup's `<img>` tags
     is far easier than trying to replace them on the fly with something else.
 
-## User Research
+## User Research <a id="user-research"></a>
 
-### Developer & User Signals
+### Developer & User Signals <a id="developer--user-signals"></a>
 A few examples amongst many of people asking for that type of functionality.
 * Stack overflow:
     [1](https://stackoverflow.com/questions/20644209/play-gif-on-mouseover-and-pause-gif-on-mouse-out-without-replacing-images)
@@ -113,24 +113,24 @@ A few examples amongst many of people asking for that type of functionality.
     [1](https://old.reddit.com/r/HTML/comments/3hjccx/how_can_i_animate_and_stop_gifs_with_mouse_hover/)
     [2](https://old.reddit.com/r/FirefoxCSS/comments/1523xwr/stop_animated_gifs_play_on_hoverclick/)
 
-### Current Workarounds
+### Current Workarounds <a id="current-workarounds"></a>
 Numerous workarounds exist (further highlighting author/user  demand),
 all with a variety of downsides.
 See the [“Current Workarounds” section of the Images-in-video explainer](../images-in-video#user-content-current-workarounds) for a brief discussion.
 
-## Goals
+## Goals <a id="goals"></a>
 * Provide declarative syntax to enable/disable animation of images
-* Handle images that are part of the content as well as decorative images
+* Handle images that are part of the content as well as those injected for styling
 * Enable applying different settings to different images
 * Enable simple user interactions (e.g. click to play)
 * Work with existing markup and/or without
 
-### Non-goals
+### Non-goals <a id="non-goals"></a>
 * Turning animated images into fully fledged video player.
     (This [could be pursued separately](../images-in-video/README.md),
     but is not the focus of this explainer.)
 
-## Proposed Solution
+## Proposed Solution <a id="proposed-solution"></a>
 
 The proposed solution is a css property to control animation of images.
 At its most basic version, it would take the following form:
@@ -143,23 +143,22 @@ At its most basic version, it would take the following form:
 > Computed Value: specified keyword
 
 This property applies to:
-* **content images**, which are part of the document, as defined by the host language.
+* images which are part of the document, as defined by the host language.
     In the case of HTML, this is the `<img>` element (including its use inside the `<picture>` element).
     In the case of SVG, this is the `<imgage>` element.
-    Images injected into the page though the CSS `content` property on real (non-pseudo) elements
-    are also considered content images.
-* **decorative images**: images injected into the page via CSS,
+* images injected into the page via CSS,
     such as background images,
     border images,
-    through the `content` property on pseudo elements,
+    through the `content` property,
     or any other reference to external images.
 
 This property has no effect on other types of graphical content, such as `<video>` elements, or `<canvas>`.
 
 Issue: what about `<object>`, `<embed>`, `<svg>`, or the `<video>` element's poster image?
 
-When an element contains several decorative images (e.g. background images *and* border images),
-or if it contains both a content image *and* decorative images,
+When an element contains several images
+(e.g. background images *and* border images,
+or a replaced element showing an image *and* having border images),
 the property affects them all.
 In the case of non-animated images,
 all values have the same effect (i.e. none).
@@ -176,7 +175,7 @@ all values have the same effect (i.e. none).
     the image animation plays,
     without synchronization with any other instance of the same image on the page.
 
-### Sample Code Snippets
+### Sample Code Snippets <a id="sample-code-snippets"></a>
 Turn off all image animations on the page:
 ```css
 :root { image-animation: paused; }
@@ -222,7 +221,7 @@ Interesting effects can easily be achieved in combination with other CSS:
 .carousel img:snapped { image-animation: play; }
 ```
 
-### Beyond the Basics
+### Beyond the Basics <a id="beyond-the-basics"></a>
 
 A key limitation of the above property is encountered
 when authors want to set up a means for users
@@ -236,12 +235,12 @@ to activate the animation.
 Two approaches are being considered to complement the basic design above.
 
 
-#### High-level Approach
+#### High-level Approach <a id="high-level-solution"></a>
 
 An additional value can be added to the `image-animation` property:
 * **controlled**:
-	* on decorative images: same as **paused**
-	* on content images:
+	* on background or border images: same as **paused**
+	* on replaced elements representing an image:
         initially, the image animation does not run and the first frame is displayed.
 
         Additionally,
@@ -256,7 +255,7 @@ An additional value can be added to the `image-animation` property:
 
 With this, some common use-cases are easily handled.
 
-Turning off autoplay on all images, showing UI controls for playback on animatable content images:
+Turning off autoplay on all images, showing UI controls for playback on animatable document-based images:
 ```css
 :root { image-animation: controlled; }
 ```
@@ -270,10 +269,10 @@ Same as above, in response to a [user request for reduced motion](https://drafts
 ```
 
 
-#### Low-level Approach
+#### Low-level Approach <a id="low-level-solution"></a>
 
 The `:animated-image` pseudo-class can be introduced,
-and represents content image elements
+and represents image elements
 where a animated image has been loaded.
 
 While authors can apply `image-animation: paused` to all animated and static images alike
@@ -286,9 +285,9 @@ without having to modify the DOM to add additional markup,
 an `::overlay` pseudo-element could be added to `<img>`
 enabling generated content or other effects to be easily placed over the image.
 
-### Possible Extensions
+### Possible Extensions <a id="possible-extensions"></a>
 
-#### Control Over Iterations
+#### Control Over Iterations <a id="control-over-iterations"></a>
 Animated image formats such as GIF, WebP, or APNG include information
 about how many times the animation is supposed to run.
 This could be made into an overridable default, with alternate possibilities being specified in CSS.
@@ -325,7 +324,7 @@ when the element is focused or hovered.
 }
 ```
 
-#### Longhands And Further Controls
+#### Longhands And Further Controls <a id="longhands-and-further-controls"></a>
 The property above could be broken down into longhands
 possibly similar to those of the `animation-*` family of properties
 (`image-animation-play-state`, `image-animation-iteration-count`).
@@ -341,12 +340,12 @@ For instance,
 `loop` in `animation-iteration-count` is actually called `infinite`,
 and `once` would be `1`.
 
-#### Control Over the Paused State
+#### Control Over the Paused State <a id="control-over-the-paused-state"></a>
 The `paused` value could be extended to give control over which frame of the image is displayed when it is stopped.
 
 `paused [ first | last | last-shown | <time> | <percent> | <number> ] ?`
 
-### Accessibility Considerations
+### Accessibility Considerations <a id="accessibility-considerations"></a>
 * Web pages can already contain animated images,
     and appropriate `alt` text is already expected to be provided.
     ”Cartoon coyote being squashed by a falling anvil“
@@ -359,7 +358,7 @@ The `paused` value could be extended to give control over which frame of the ima
     Similarly, it is not expected that they would announce paused or playing images any differently,
     though they could if they wanted to.
 * Conversely, when the `controlled` value is specified
-    on an element containing an actually animated content image,
+    on a replaced element representing an actually animated image,
     the element does become focusable so that its controls can be operated,
     and screen readers should announce the element distinctly,
     similar to how they do for `<video>` elements.
@@ -368,15 +367,15 @@ The `paused` value could be extended to give control over which frame of the ima
     `overflow: auto` / `scroll` makes elements focusable,
     only when there is something to scroll.
 
-### Privacy Considerations
-With regards to decorative images,
+### Privacy Considerations <a id="privacy-considerations"></a>
+With regards to css-based images,
 this property enables control over image animation cross origin,
 without leaking any information about whether the image is actually animatable or not.
 The computed value does not change based on this information.
 The `running` value has effects that are visibly different on animatable vs non-animatable images,
 but none of these differences are observable by the page itself.
 
-With regards to of content images,
+With regards to replaced elements representing images,
 the `controlled` value causes the element to become focusable
 so that the play/pause control can be keyboard-operated without needing to change the element's tab-index.
 This effect is defined to only take effect if the image is actually animatable,
@@ -409,9 +408,9 @@ We argue that this is an acceptable trade-off:
     If implemented, it means the situation would not just be analogous,
     but that whether an image is animatable would already be knowable cross-origin anyway.
 
-## Complementary Solutions
+## Complementary Solutions <a id="complementary-solutions"></a>
 
-### Images in the `<video>` Element
+### Images in the `<video>` Element <a id="images-in-the-video-element"></a>
 See [the explainer for “Images in `<video>`”](../images-in-video/README.md).
 
 Animated images are effectively videos without a sound track.
@@ -427,21 +426,21 @@ Pursuing both would make sense.
 
 ***…insert summary table showing overlap and differences…***
 
-### What About `<img control>`?
+### What About `<img control>`? <a id="what-about-img-control"></a>
 
 ***…insert discussion of why that's not a full substitute,
 but of how both features can be made compatible with each other if that's desired…***
 
-## Rejected Alternatives
+## Rejected Alternatives <a id="rejected-alternatives"></a>
 
-### Provide this as a UA Setting
+### Provide this as a UA Setting <a id="provide-this-as-a-ua-setting"></a>
 Firefox's `about:config` has `image.animation_mode`,
 which can turn off all image animations,
 and Safari respects macOS's “auto-play animated images” setting (default on, can be turn off).
 However, such settings are too blunt an instrument to handle all cases.
 The browser doesn't know which images are decorative ones
 whose animation can be suppressed outright when users want reduced motion,
-and which are content,
+and which are genuinely part of the content,
 which should remain viewable if desired
 (but maybe upon clicking some play button or on hover).
 As it is,
@@ -476,7 +475,7 @@ More interestingly, the setting could be reinterpreted in terms of the CSS prope
 }
 ```
 
-### Reuse the Existing `animation-*` Properties
+### Reuse the Existing `animation-*` Properties <a id="reuse-the-existing-animation--properties"></a>
 Properties like `animation-play-state: running | paused`
 or `animation-iteration-count: infinite | <number [0,∞]>`
 have value space that are similar to what is proposed here.
@@ -498,18 +497,18 @@ Adding these missing values or smart intial / auto values is certainly possible,
 but making the `animation-*` properties be capable of expressing normal image behavior would require significant extensions.
 Even if that were done, unless an additional opt-in is added,
 this is certain to cause web-compatibility problems,
-as `animation-*` properties are widely used on all sorts of elements with decorative or content images,
+as `animation-*` properties are widely used on all sorts of elements with images,
 and so far without any effect.
 Turning it on would cause undesired effects in unsuspecting web-sites.
 If the regular `animation-*` properties cannot be made to apply by default and would need significant retro-fitting anyway,
 it makes little sense to try and shoehorn image animations into them,
 even if there are similarities.
 
-### Other Alternatives
+### Other Alternatives <a id="other-alternatives"></a>
 
 ***This section is a work in progress.***
 
 Here is a short list,
 to be expanded,
 of other things that were considered but did not seem like good solutions:
-* [Media Fragments](../images-in-video#using-media-fragments)
+* [Media Fragments](https://github.com/webplatformco/project-image-animation/tree/main/images-in-video#user-content-using-media-fragments)
