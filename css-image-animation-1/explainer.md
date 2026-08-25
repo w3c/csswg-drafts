@@ -127,7 +127,7 @@ See the [“Current Workarounds” section of the Images-in-video explainer](../
 
 ### Non-goals <a id="non-goals"></a>
 * Turning animated images into fully fledged video player.
-    (This [could be pursued separately](../images-in-video/README.md),
+    (This [could be pursued separately](https://github.com/webplatformco/project-image-animation/tree/main/images-in-video),
     but is not the focus of this explainer.)
 
 ## Proposed Solution <a id="proposed-solution"></a>
