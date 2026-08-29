@@ -1,4 +1,4 @@
-# [css-overflow-4] Middle Truncation
+# Middle Truncation
 
 Authors:
 
