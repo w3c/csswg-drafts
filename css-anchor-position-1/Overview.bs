@@ -2,7 +2,7 @@
 Title: CSS Anchor Positioning Module Level 1
 Shortname: css-anchor-position
 Level: 1
-Status: ED
+Status: WD
 Group: csswg
 Work Status: refining
 ED: https://drafts.csswg.org/css-anchor-position-1/
@@ -31,6 +31,7 @@ spec:css-cascade-5; type:dfn; text:property
 spec:dom; type:dfn; text:shadow tree
 spec:css-align-3; type:value; text:center
 spec:css-values-5; type:dfn; text:invalid at computed-value time
+spec:css-env-1; type:function; text:env()
 </pre>
 
 <pre class=anchors>
@@ -199,11 +200,15 @@ Creating an Anchor: the 'anchor-name' property {#name}
 
 <pre class=propdef>
 Name: anchor-name
-Value: none | <<dashed-ident>>#
+Value: none | <<anchor-name>>#
 Initial: none
 Inherited: no
 Applies to: all elements that generate a [=principal box=]
 Animation Type: discrete
+</pre>
+
+<pre class=prod>
+<dfn>&lt;anchor-name></dfn> = <<dashed-ident>>
 </pre>
 
 The 'anchor-name' property declares
@@ -216,7 +221,7 @@ Values are defined as follows:
 	: <dfn>none</dfn>
 	:: The property has no effect.
 
-	: <dfn><<dashed-ident>>#</dfn>
+	: <dfn><<anchor-name>>#</dfn>
 	:: If the element generates a [=principal box=],
 		the element is an [=anchor element=],
 		with a list of [=anchor names=] as specified.
@@ -233,7 +238,9 @@ if the usages are scoped appropriately.
 
 Note: If multiple elements share an [=anchor name=]
 and are all visible to a given positioned box,
-the [=target anchor element=] will be the last one in DOM order.
+the [=target anchor element=] will be
+the nearest ancestor (if one exists)
+or else the last one in DOM order.
 The 'anchor-scope' property can be used to further limit
 what names are visible to a given referencing box.
 
@@ -268,7 +275,7 @@ Scoping Anchor Names: the 'anchor-scope' property</h3>
 
 <pre class=propdef>
 Name: anchor-scope
-Value: none | all | <<dashed-ident>>#
+Value: none | all | <<anchor-name>>#
 Initial: none
 Applies to: all elements
 Inherited: no
@@ -302,7 +309,7 @@ Values have the following meanings:
 		to ''anchor-scope: --foo, --bar, ...'',
 		listing all relevant [=anchor names=].)
 
-	<dt><dfn><<dashed-ident>></dfn>
+	<dt><dfn><<anchor-name>></dfn>
 	<dd>
 		Specifies that a matching [=anchor name=] defined by this element or its descendants--
 		whose scope is not already limited by a descendant using 'anchor-scope'--
@@ -310,11 +317,18 @@ Values have the following meanings:
 		and limits descendants to only match these [=anchor names=]
 		to [=anchor elements=] within this subtree.
 
-		The <<dashed-ident>> represents a [=tree-scoped name/strictly matched=] [=tree-scoped name=],
+		The <<anchor-name>> represents a [=tree-scoped name/strictly matched=] [=tree-scoped name=],
 		i.e. it can only match against [=anchor names=] in the same shadow tree.[[!CSS-SCOPING-1]]
 </dl>
 
 This property has no effect on [=implicit anchor elements=].
+
+Note: Since ancestors of the positioned element are checked first,
+there's usually no need to use 'anchor-scope'
+if the desired anchor is an ancestor.
+It's only needed when the desired anchor is not an ancestor,
+or you explicitly want to "hide" an anchor
+from being referenced elsewhere in the page.
 
 <div class=example>
 	When a design pattern is re-used,
@@ -341,6 +355,8 @@ This property has no effect on [=implicit anchor elements=].
 	and so they'd all positioned themselves relative to the <em>final</em> <{li}>,
 	stacking up on top of each other.
 </div>
+
+Issue: Fix the above example, since the use-case is now automatic.
 
 <!-- Big Text: lookup
 
@@ -400,8 +416,12 @@ in anchor positioning.
 		to ensure coordination.
 
 	3. Otherwise, |anchor spec| is a <<dashed-ident>>.
-		Return the last element |el| in tree order
-		that satisfies the following conditions:
+
+		If an ancestor of |query el|
+		satisfies the following conditions,
+		return the nearest such element to |query el|.
+		Otherwise, return the last element |el| in tree order
+		that satisfies the conditions.
 
 		* |el| is an [=anchor element=] with an [=anchor name=] of |anchor spec|.
 
@@ -438,7 +458,7 @@ in anchor positioning.
 	if all of the following are true:
 
 	* |possible anchor| is either an [=element=]
-		or a fully styleable [=tree-abiding pseudo-element=].
+		or a [=fully styleable pseudo-elements=].
 
 	* |possible anchor| is in scope for |positioned el|,
 		per the effects of 'anchor-scope' on |possible anchor|
@@ -484,8 +504,8 @@ Default Anchors: the 'position-anchor' property</h3>
 
 <pre class=propdef>
 Name: position-anchor
-Value: none | auto | <<anchor-name>>
-Initial: none
+Value: normal | none | auto | <<anchor-name>> | match-parent
+Initial: normal
 Applies to: [=absolutely positioned boxes=]
 Inherited: no
 Animation type: discrete
@@ -497,6 +517,13 @@ and (by default) all [=anchor functions=] applied to this element.
 'position-anchor' is a [=reset-only sub-property=] of 'position'.
 
 <dl dfn-for=position-anchor dfn-type=value>
+	: <dfn>normal</dfn>
+	::
+		If 'position-area' is ''position-area/none'',
+		behaves as ''position-anchor/none''.
+		Otherwise,
+		behaves as ''position-anchor/auto''.
+
 	: <dfn>none</dfn>
 	::
 		The box has no [=default anchor element=].
@@ -510,11 +537,14 @@ and (by default) all [=anchor functions=] applied to this element.
 	::
 		The [=target anchor element=] selected by the specified <<anchor-name>>
 		is the box's [=default anchor element=].
-</dl>
 
-Issue(#13067): We might want to change the initial value to be slightly more magical,
-auto-choosing between ''position-anchor/none'' and ''position-anchor/auto''
-based on 'position-area' being used or not.
+	: <dfn>match-parent</dfn>
+	::
+		Uses the same [=default anchor element=] as the parent--
+		or [=originating element=], if this is a [=pseudo-element=]--
+		if any, and if that would be an [=acceptable anchor element=].
+		Otherwise, the box has no [=default anchor element=].
+</dl>
 
 The [=principal box=] of the [=default anchor element=]
 is the box's <dfn>default anchor box</dfn>.
@@ -542,6 +572,12 @@ is the box's <dfn>default anchor box</dfn>.
 	}
 	</pre>
 </div>
+
+If an element has a [=default anchor element=],
+then the [=scrollable containing block=] is used in place of the [=local containing block=]
+when the [=absolute-position containing block=] is generated by a [=scroll container=],
+so that the entire [=scrollable overflow area=] (typically) is available
+for positioning.
 
 ### Implicit Anchor Elements ### {#implicit}
 
@@ -615,7 +651,7 @@ Value: none | <<position-area>>
 Initial: none
 Inherited: no
 Applies to: positioned boxes with a [=default anchor box=]
-Animation type: TBD
+Animation type: discrete
 Computed value: the keyword ''position-area/none'' or a pair of keywords, see [[#position-area-computed]]
 </pre>
 
@@ -657,10 +693,6 @@ what area of this [=position-area grid=] to lay out the positioned box in.
 
 Values other than ''position-area/none'' have the following additional effects:
 
-* The [=scrollable containing block=] is used in place of the [=local containing block=]
-	when the [=absolute-position containing block=] is generated by a [=scroll container=],
-	so that the entire [=scrollable overflow area=] (typically) is available
-	for positioning.
 * The [=used value=] of any ''top/auto'' [=inset properties=]
 	and ''margin/auto'' [=margin properties=]
 	resolves to ''0''.
@@ -828,7 +860,6 @@ New values: <<anchor()>>
 
 <pre class=prod>
 	&lt;anchor()> = anchor( <<anchor-name>>? && <<anchor-side>>, <<length-percentage>>? )
-	<dfn><<anchor-name>></dfn> = <<dashed-ident>>
 	<dfn><<anchor-side>></dfn> = inside | outside
 			   | top | left | right | bottom
 			   | start | end | self-start | self-end
@@ -946,35 +977,46 @@ etc.
 	Because the ''anchor()'' function resolves to a <<length>>,
 	it can be used in [=math functions=] like any other length.
 
-	ISSUE(10776): Add a better example; this one can be accomplished easily with ''align-self/anchor-center''.
+	For example, in the following chart,
+	the three bars are set up as possible anchors,
+	and the min/max lines and tooltips use ''min()'' and ''max()''
+	to combine ''anchor()'' functions referring to all three
+	to find where to position themselves.
+	You can use the range inputs below each column to adjust the heights,
+	and see that the anchored lines and tooltips dynamically adjust
+	to whichever bar is the highest/lowest.
 
-	For example, the following will set up the element
-	so that its [=inset-modified containing block=]
-	is centered on the [=anchor box=]
-	and as wide as possible without overflowing the [=containing block=]:
+	<figure>
+		<iframe src="examples/calc-anchor.html" style="width: 80%; aspect-ratio: 5 / 3; margin: 1em 10%;"></iframe>
+		<figcaption><a href="examples/calc-anchor.html">Full Example</a></figcaption>
+	</figure>
 
-	<pre highlight=css>
-	.centered-message {
-		position: fixed;
-		max-width: max-content;
-		justify-self: center;
+	The important fragment of the code to accomplish this is:
 
-		--center: anchor(--x 50%);
-		--half-distance: min(
-			abs(0% - var(--center)),
-			abs(100% - var(--center))
-		);
-		left: calc(var(--center) - var(--half-distance));
-		right: calc(var(--center) - var(--half-distance));
-		bottom: anchor(--x top);
+	<xmp highlight=css>
+	#bar-1 { anchor-name: --anchor-1; }
+	#bar-2 { anchor-name: --anchor-2; }
+	#bar-3 { anchor-name: --anchor-3; }
+	.line {
+		position: absolute;
+		left: anchor(--chart left);
+		right: anchor(--chart right);
+		&.max {
+			bottom: max(
+				anchor(--anchor-1 top),
+				anchor(--anchor-2 top),
+				anchor(--anchor-3 top)
+			);
+		}
+		&.min {
+			bottom: min(
+				anchor(--anchor-1 top),
+				anchor(--anchor-2 top),
+				anchor(--anchor-3 top)
+			);
+		}
 	}
-	</pre>
-
-	This might be appropriate for an error message
-	on an <{input}> element,
-	for example,
-	as the centering will make it easier to discover
-	which input is being referred to.
+	</xmp>
 </div>
 
 <h4 id=anchor-resolution oldids=anchor-valid>
@@ -1173,6 +1215,7 @@ specifically, the [=default anchor element=]:
 			[=used value|used=] [=inset properties=] in the axis
 			refers to a [=target anchor element=]
 			with the same nearest [=scroll container=] ancestor
+			with that axis as a [=scrollable axis=]
 			as |abspos|'s [=default anchor box=].
 
 	Note: If |abspos| has a [=position options list=],
@@ -1306,7 +1349,7 @@ Centering on the Anchor: the ''anchor-center'' alignment value {#anchor-center}
 --------------------------------------------------------------
 
 <pre class=propdef>
-Name: justify-self, align-self, justify-items, align-items
+Name: justify-self, align-self
 New Values: anchor-center
 </pre>
 
@@ -1319,17 +1362,14 @@ but a common case for anchored positioning--
 centering over the [=anchor box=]--
 requires careful and somewhat complex set-up to achieve.
 
-The new <dfn value for="justify-self, align-self, justify-items, align-items">anchor-center</dfn> value
+The new <dfn value for="justify-self, align-self">anchor-center</dfn> value
 makes this case extremely simple:
 if the positioned box has a [=default anchor box=],
 then it is centered (insofar as possible)
 over the [=default anchor box=]
 in the relevant axis.
 Additionally:
-* The [=scrollable containing block=] is used in place of the [=local containing block=]
-	where applicable,
-	so that the entire [=scrollable overflow area=] (typically) is available
-	for positioning.
+
 * The [=used value=] of any ''top/auto'' [=inset properties=]
 	and ''margin/auto'' [=margin properties=]
 	resolves to ''0''.
@@ -1464,12 +1504,12 @@ or being positioned partially off screen.
 
 To ameliorate this, an [=absolutely positioned=] box
 can use the 'position-try-fallbacks' property
-to specify additional [=position options=]
+to specify additional <dfn>position options</dfn>
 (variant sets of positioning/alignment properties
 generated from the box's existing styles,
 or specified in ''@position-try'' rules)
 that the UA can try if the box overflows its initial position.
-Each is applied to the box,
+Each [=position option=] is applied to the box,
 one by one in the order specified by 'position-try-order',
 and the first that doesn't cause the box
 to overflow its [=containing block=]
@@ -1479,7 +1519,7 @@ Once an option has been chosen,
 the element keeps those styles until it overflows again,
 even if an earlier (and presumably more desirable)
 option again becomes available without causing overflow.
-(See [=remember or forget the last successful position option=].)
+(See [=record the last successful position option=].)
 
 <div class=example>
 	For example,
@@ -1523,17 +1563,18 @@ Applies to: [=absolutely positioned boxes=]
 Animation type: discrete
 </pre>
 
-This property provides a list of alternate positioning styles
-to try when the [=absolutely positioned box=]
-overflows its [=inset-modified containing block=].
-This <dfn export>position options list</dfn>
-initially contains a single [=position option=]
-generated from the element's <dfn export local-lt="base style">fallback base styles</dfn>,
-i.e. the [=computed values|computed styles=] without applying 'position-try-fallbacks'.
+This property provides a list of additional, alternative [=position options=]
+to try in order to prevent the [=absolutely positioned box=]
+from overflowing its [=inset-modified containing block=].
 
-Each comma-separated entry in the list is a separate option:
+Each comma-separated entry in the list is a separate [=position option=]:
 either the name of a ''@position-try'' block,
-or a <<try-tactic>> representing an automatic transformation of the box's existing computed style.
+or a <<try-tactic>> representing an automatic transformation
+of the box's existing computed style (its <dfn export local-lt="base style">fallback base styles</dfn>).
+Together with the [=fallback base styles=],
+these options form the <dfn export>position options list</dfn>
+from which the effective style is chosen,
+see [[#fallback-apply]].
 
 Values have the following meanings:
 
@@ -1541,7 +1582,8 @@ Values have the following meanings:
 	: <dfn>none</dfn>
 	::
 		The property has no effect;
-		the box's [=position options list=] is empty.
+		the box's [=position options list=]
+		consists only of the [=fallback base styles=].
 
 	: <dfn><<dashed-ident>></dfn>
 	::
@@ -1557,8 +1599,8 @@ Values have the following meanings:
 	::
 		Automatically creates a [=position option=]
 		by [=executing a try-tactic|executing the specified try tactic=]
-		to the box's [=base styles=],
-		then adding the constructed [=position option=]
+		on the box's [=base styles=],
+		then adding this constructed [=position option=]
 		to the box's [=position options list=].
 
 		<pre class=prod>
@@ -1645,10 +1687,10 @@ Inherited: no
 Animation Type: discrete
 </pre>
 
-This property allows an element to sort its [=position options=]
-by the available space they define,
-if it's more important for the box to have as much space as possible
-rather than strictly following the order declared in 'position-try-fallbacks'.
+This property allows an element to sort its [=position option list=]
+by the available space they produce.
+This allows the box to prioritize having more layout space
+over strictly following the order declared in 'position-try-fallbacks'.
 
 <pre class=prod>
 <dfn type><<try-size>></dfn> = most-width | most-height | most-block-size | most-inline-size
@@ -1806,11 +1848,10 @@ The ''@position-try'' Rule {#fallback-rule}
 -------------------------------
 
 The <dfn>@position-try</dfn> rule
-defines a <dfn>position option</dfn>
-with a given name,
+defines a [=position option=] with a given name,
 specifying one or more sets of positioning properties
 that can be applied to a box
-via 'position-try-fallbacks',
+via 'position-try-fallbacks'.
 
 The syntax of the ''@position-try'' rule is:
 
@@ -1823,10 +1864,10 @@ The syntax of the ''@position-try'' rule is:
 The <<dashed-ident>> specified in the prelude
 is the rule's name.
 If multiple ''@position-try'' rules are declared with the same name,
-they [=cascade=] the same as ''@keyframe'' rules do.
+they [=cascade=] (overriding each other) the same as ''@keyframes'' rules do.
 
-The ''@position-try'' rule only <dfn export lt="accepted @position-try properties">accepts</dfn>
-the following [=properties=]:
+The ''@position-try'' rule only accepts
+the following <dfn export>accepted @position-try properties</dfn>:
 
 * [=inset properties=]
 * [=margin properties=]
@@ -1915,7 +1956,8 @@ This limit must be <em>at least</em> five.
 <div algorithm="determine position fallback styles">
 	To <dfn>determine position fallback styles</dfn> for an element |abspos|:
 
-	1. Let |current styles| be the current used styles of |abspos|
+	1. Let |current styles| be the current used styles of |abspos|,
+		as derived from the [=computed base style=]
 		(which might be the result of earlier fallback).
 
 	2. [=list/For each=] |option| in the [=position options list=]:
@@ -1993,6 +2035,10 @@ and thus trigger special behavior. These <dfn>fallback-sensitive changes</dfn> i
 	* Any of the ''@position-try'' rules referenced by it
 		have been added, removed, or mutated.
 
+	For this purpose, only changes to the <dfn>computed base style</dfn> are considered,
+	i.e. the [=computed value=] ignoring any declarations originating
+	from the Transitions or Animations [=cascade origins=].
+
 <h5 id="last-successful-recording">
 Recording the [=last successful position option=]</h5>
 
@@ -2021,33 +2067,6 @@ which is determined as follows:
 	is intentionally identical to the treatment of [=last remembered sizes=].
 </div>
 
-ISSUE(13048): The following sections attempt to clarify the interaction with transitions and animations.
-
-<h5 id="suspending-fallback-transitions">
-Suspending Fallback During Transitions</h5>
-
-The UA must [=determine position fallback styles=]
-for both the start and end states of a [=transition=]
-(see [[CSS-TRANSITIONS-1]])
-that includes properties that could cause a [=fallback-sensitive change=].
-
-During a [=transition=] for properties that could cause a [=fallback-sensitive change=], however,
-[=determining position fallback styles=] and
-[=recording the last successful position option=] are suspended.
-
-<h5 id="suspending-fallback-animations">
-Suspending Fallback During Animations</h5>
-
-If an [=animation=] (see [[CSS-ANIMATIONS-1]] and [[WEB-ANIMATIONS-1]])
-affects any properties that could cause a [=fallback-sensitive change=],
-then the UA must [=determine position fallback styles=]
-for the keyframes that contain those properties (only).
-As fallback determination is order-sensitive,
-later keyframes must take into account the result of earlier keyframes.
-
-While animating between these keyframes, however,
-[=determining position fallback styles=] and
-[=recording the last successful position option=] are suspended.
 
 <h4 id="applying-options">
 Applying Position Options</h4>
@@ -2201,8 +2220,8 @@ Conditional Hiding: the 'position-visibility' property {#position-visibility}
 
 <pre class=propdef>
 Name: position-visibility
-Value: always | [ anchors-valid || anchors-visible || no-overflow ]
-Initial: anchors-visible
+Value: always | [ anchor-valid || anchor-visible || no-overflow ]
+Initial: anchor-visible
 Applies to: [=absolutely positioned boxes=]
 Percentages: n/a
 Inherited: no
@@ -2221,23 +2240,14 @@ depending on some commonly needed layout conditions.
 		(The box is displayed without regard for its anchors
 		or its overflowing status.)
 
-	: <dfn>anchors-valid</dfn>
+	: <dfn>anchor-valid</dfn>
 	::
-		If any of the box's [=required anchor references=]
-		do not resolve to a [=target anchor element=],
+		If the box references the [=default anchor box=]
+		(e.g. using 'position-area', 'anchor()' or 'anchor-size()' functions, or ''anchor-center''),
+		but the [=default anchor box=] cannot be resolved,
 		the box's 'visibility' property computes to ''force-hidden''.
 
-		Issue: What is a <dfn dfn for>required anchor reference</dfn>?
-		''anchor()'' functions that don't have a fallback value;
-		the default anchor *sometimes*?
-		Need more detail here.
-
-		Issue: <em>Any</em> anchors are missing,
-		or <em>all</em> anchors are missing?
-		I can see use-cases for either, potentially.
-		Do we want to make a decision here, or make it controllable somehow?
-
-	: <dfn>anchors-visible</dfn>
+	: <dfn>anchor-visible</dfn>
 	::
 		If the box has a [=default anchor box=]
 		but that [=anchor box=] is [=invisible=] or [=clipped by intervening boxes=],
@@ -2290,6 +2300,10 @@ depending on some commonly needed layout conditions.
 	then another abspos using it as an anchor will also be hidden,
 	rather than <em>also</em> floating in a nonsensical location.
 </div>
+
+User agents may recognize <css>anchors-valid</css> and <css>anchors-visible</css>
+as [=legacy value aliases=] of ''anchor-valid'' and ''anchor-visible''
+(but are not required to).
 
 <!-- Big Text: anim
 
@@ -2686,12 +2700,34 @@ No Privacy issues have been raised against this document.
 Changes {#changes}
 =======
 
+Significant changes since the <a href="https://www.w3.org/TR/2026/WD-css-anchor-position-1-20260327/">27 March 2026 Working Draft</a>:
+* Defined ''position-visibility/anchor-valid'' to (like ''position-visibility/anchor-valid'') only check the [=default anchor box=].
+	(<a href="https://github.com/w3c/csswg-drafts/issues/10201">Issue 10201</a>)
+* Renamed <css>anchors-valid</css> and <css>anchors-visible</css>
+	to ''position-visibility/anchor-valid'' and ''position-visibility/anchor-visible''
+	since they only reference the [=default anchor box=].
+	(<a href="https://github.com/w3c/csswg-drafts/issues/10201">Issue 10201</a>)
+
+Significant changes since the <a href="https://www.w3.org/TR/2026/WD-css-anchor-position-1-20260130/">30 January 2026 Working Draft</a>:
+* Added ''position-area/match-parent'' value to 'position-area'.
+	(<a href="https://github.com/w3c/csswg-drafts/issues/8913">Issue 8913</a>)
+* Marked 'position-area' as discretely animatable.
+	(<a href="https://github.com/w3c/csswg-drafts/issues/13577">Issue 13577</a>)
+* Removed ''anchor-center'' from 'align-items' and 'justify-items' because those properties have no effect on absolutely-positioned boxes anyway.
+	(<a href="https://github.com/w3c/csswg-drafts/issues/13514">Issue 13514</a>)
+
 Significant changes since the <a href="https://www.w3.org/TR/2025/WD-css-anchor-position-1-20251222/">22 December 2025 Working Draft</a>:
 
-* Clarify positoin fallback interaction with transitions and animation.
+* Clarify position fallback interaction with transitions and animation.
 	(<a href="https://github.com/w3c/csswg-drafts/issues/13048">Issue 13048</a>)
 * Clarify that intersection must be non-zero (when anchor box is non-zero) for ''anchors-visible''.
 	(<a href="https://github.com/w3c/csswg-drafts/issues/13176">Issue 13176</a>)
+* Change anchor-finding to first look at ancestors,
+	then only look at other elements if that fails.
+	This is more consistent with timeline name lookups.
+	(<a href="https://github.com/w3c/csswg-drafts/issues/13364">Issue 13364</a>)
+* Added ''position-anchor: normal'' as the new initial value.
+	(<a href="https://github.com/w3c/csswg-drafts/issues/13067">Issue 13067</a>)
 
 Significant changes since the <a href="https://www.w3.org/TR/2025/WD-css-anchor-position-1-20251007/">7 October 2025 Working Draft</a>:
 

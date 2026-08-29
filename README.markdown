@@ -10,7 +10,7 @@ Minutes of CSSWG discussion can be found on the public
 [www-style mailing list](https://lists.w3.org/Archives/Public/www-style/).
 
 To read the specifications in this repository, see them at the
-[index of all specifications](https://drafts.csswg.org/).
+[index of all specifications](https://drafts.csswg.org/index.html).
 
 
 Also see the related repositories:
