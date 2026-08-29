@@ -78,6 +78,14 @@
 		<input type="radio" name="algorithm" value="oriol2">
 		Oriol's variant of current spec (adding a linear factor)
 	</label>
+	<label>
+		<input type="radio" name="algorithm" value="spectrum">
+		Noam's old/new spectrum
+	</label>
+	<label>
+		<input type="radio" name="algorithm" value="spectrum2">
+		Noam's old/new spectrum, preserving circular corners
+	</label>
 </form>
 <output id="output"></output>
 <script>
@@ -101,6 +109,7 @@ const testCases = [
   {width: 200, height: 40, spread: 50, borderRadius: "0 50% / 50%"},
   {width: 0, height: 0, spread: 30, borderRadius: "50px 0px 0px 0px"},
   {width: 500, height: 500, spread: 30, borderRadius: "50px"},
+  {width: 250, height: 30, spread: 100, borderRadius: "10px"},
 ];
 
 function show({incremental = false} = {}) {
@@ -295,7 +304,7 @@ function resolve(testCase, box) {
 	}
 	else if (algorithm === "oriol") {
 		for (let corner in radii) {
-			let coverage = Math.max(
+			let coverage = Math.min(
 				2 * radii[corner][0] / testCase.width,
 				2 * radii[corner][1] / testCase.height,
 			) || 0;
@@ -310,7 +319,7 @@ function resolve(testCase, box) {
 	}
 	else if (algorithm === "oriol2") {
 		for (let corner in radii) {
-			let coverage = Math.max(
+			let coverage = Math.min(
 				2 * radii[corner][0] / testCase.width,
 				2 * radii[corner][1] / testCase.height,
 			) || 0;
@@ -320,6 +329,77 @@ function resolve(testCase, box) {
 				}
 				let r = 1 - value / testCase.spread;
 				return value + testCase.spread * (1 - r**3 * (1 - coverage));
+			});
+		}
+	}
+	else if (algorithm === "spectrum") {
+		const map_dim = (radius, dim) => {
+				// If there's no radius, there's no spread to apply.
+				if (radius === 0) {
+					return 0;
+				}
+
+				// Calculate the radius's ratio to the spread, clamping at 1.
+				const spreadRatio = 1 - Math.min(1, radius / testCase.spread);
+
+				// Calculate the diameter's ratio to the overall dimension, clamping at 1.
+				const dimRatio = Math.min(1, (2 * radius) / dim);
+
+				// These factors determine the amount of easing. They both approach 0
+				// as their respective ratios approach 1, which reduces the easing effect.
+				const spreadEasingFactor = spreadRatio ** 3;
+				const dimEasingFactor = 1 - dimRatio ** 3;
+
+				// The total reduction in spread is the product of the two easing factors.
+				const totalReduction = dimEasingFactor * spreadEasingFactor;
+
+				// Apply the reduction to the spread and add it to the original radius.
+				const easedSpread = testCase.spread * (1 - totalReduction);
+
+				return radius + easedSpread;
+		}
+
+		const map = ([h, v]) => {
+			return [map_dim(h, testCase.width), map_dim(v, testCase.height)];
+		}
+
+		r = {
+			topLeft: map(radii.topLeft),
+			topRight: map(radii.topRight),
+			bottomRight: map(radii.bottomRight),
+			bottomLeft: map(radii.bottomLeft)
+		};
+	}
+	else if (algorithm === "spectrum2") {
+		for (let corner in radii) {
+			// Calculate the min diameter's ratio to the overall dimension, clamping at 1.
+			const dimRatio = Math.min(
+				1,
+				(2 * radii[corner][0]) / testCase.width,
+				(2 * radii[corner][1]) / testCase.height,
+			);
+
+			r[corner] = radii[corner].map(radius => {
+				// If there's no radius, there's no spread to apply.
+				if (radius === 0) {
+					return 0;
+				}
+
+				// Calculate the radius's ratio to the spread, clamping at 1.
+				const spreadRatio = 1 - Math.min(1, radius / testCase.spread);
+
+				// These factors determine the amount of easing. They both approach 0
+				// as their respective ratios approach 1, which reduces the easing effect.
+				const spreadEasingFactor = spreadRatio ** 3;
+				const dimEasingFactor = 1 - dimRatio ** 3;
+
+				// The total reduction in spread is the product of the two easing factors.
+				const totalReduction = dimEasingFactor * spreadEasingFactor;
+
+				// Apply the reduction to the spread and add it to the original radius.
+				const easedSpread = testCase.spread * (1 - totalReduction);
+
+				return radius + easedSpread;
 			});
 		}
 	}

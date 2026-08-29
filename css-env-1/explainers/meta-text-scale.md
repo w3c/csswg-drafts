@@ -143,7 +143,42 @@ That means:
 
 We expect `scale` to become best practice for authors to use on all new website designs, just as they use the viewport meta tag. It allows authors to continue to use font-relative units like `rem` and `em` like they normally would and mostly avoid using `env(preferred-text-scale)`.
 
+> [!NOTE]
+> It has been pointed out that these two approaches
+> **currently behave identically** on mobile,
+> though there is a theoretical difference in the specification:
+>
+> **1. The Meta Tag Approach**
+> ```html
+> <meta name="text-scale" content="scale" />
+> ```
+>
+> **2. The CSS Approach**
+> ```css
+> :root {
+>   font-size: calc(env(preferred-text-size) * 16px);
+>   text-size-adjust: none;
+> }
+> ```
+>
+> **Theoretical Difference:**
+> * **With `<meta>`:** (r)em-based media queries **will include** the OS-level font setting.
+> * **With `:root`:** (r)em-based media queries **will NOT include** the OS-level font setting.
+>
+> *The difference is theoretical because the `env` spec says
+> [`env()` works in media queries](https://drafts.csswg.org/css-env-1/#valdef-env-preferred-text-scale:~:text=Because%20environment%20variables%20don%E2%80%99t%20depend%20on%20the%20value),
+> but no browser supports that as of 2025.
+> Consequently, there is no difference.*
+
 ### Comparison of `legacy` and `scale`
+
+<img width="693" height="374" alt="" src="https://github.com/user-attachments/assets/d5d69eec-c7ec-4df7-b326-5fb6141782ba" />
+
+_With the meta tag set to <code>legacy</code>, when the user increases their OS text scale, nothing happens to a web page._
+
+<img width="693" height="374" alt="meta-scale-comparison-after" src="https://github.com/user-attachments/assets/e7879389-f2d7-4845-bf23-ec08aa74f717" />
+
+_With the meta tag set to <code>scale</code>, when the user increases their OS text scale, the text scales up._
 
 This comparison table summarises our proposal. **`legacy`** describes current behavior. **`scale`** represents a simple way for sites to obey the OS-level text settings.
 

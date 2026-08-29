@@ -3,9 +3,8 @@ Title: CSS Viewport Module Level 1
 Level: 1
 Shortname: css-viewport
 Group: CSSWG
-Status: FPWD
-Date: 2024-01-25
-Prepare for TR: yes
+Status: ED
+Prepare for TR: no
 Work Status: Exploring
 TR: http://www.w3.org/TR/css-viewport-1/
 ED: https://drafts.csswg.org/css-viewport-1/
@@ -18,7 +17,7 @@ Former Editor: Ryan Betts, Adobe Systems, rbetts@adobe.com
 Former Editor: Øyvind Stenhaug, Opera Software, oyvinds@opera.com
 Abstract: This specification provides a way for an author to specify, in CSS, the size, zoom factor, and orientation of the viewport that is used as the base for the initial containing block.
 Issue Tracking: CSSWG GitHub https://github.com/w3c/csswg-drafts/labels/css-viewport-1
-Ignored Vars: <viewport-length>
+Ignored Vars: document, parameters, <viewport-length>
 </pre>
 
 <pre class="anchors">
@@ -33,8 +32,15 @@ spec: fenced-frames; urlPrefix: https://wicg.github.io/fenced-frame/
 </pre>
 
 <pre class=link-defaults>
-	spec:webdriver2; type:dfn; text:remote end steps
-	spec:webdriver2; type:dfn; text:error
+	spec:cssom-view; type:dfn;
+		text:scrolling area
+	spec:css2; type:dfn;
+		text:canvas
+		text:viewport
+	spec:webdriver2; type:dfn;
+		text:error
+		text:remote end steps
+		text:success
 </pre>
 
 <h2 id="intro">
@@ -80,43 +86,122 @@ Issue: Various issues about this specification and related specifications
 are listed in <a href="https://www.w3.org/Graphics/SVG/WG/wiki/Proposals/Investigation_of_APIs_for_Level_of_detail#The_issues_on_existing_APIs">this report</a>.
 </div>
 
-<h2 id="the-viewport">
-The viewport</h2>
+<h2 id="terminology">Terminology</h2>
 
-In CSS 2.1 a <a href="https://www.w3.org/TR/CSS21/visuren.html#viewport">viewport</a>
-is a feature of a user agent for [=continuous media=] and used to
+In CSS 2.1 a [=viewport=] is a feature of a user agent for [=continuous media=] and used to
 establish the initial containing block for [=continuous media=].
 For [=paged media=], the initial containing block is based on the page area.
 The page area can be set through ''@page'' rules.
 
-This specification introduces a way of overriding the size of the viewport
-provided by the user agent (UA). Because of this, we need to introduce the
-difference between the ''initial viewport'' and the ''actual viewport''.
+This specification introduces a way of overriding the size of the [=viewport=]
+provided by the user agent (UA). Because of this, we need to define
+[=initial viewport=], [=layout viewport=] and [=visual viewport=].
 
 <dl>
-	<dt><dfn>initial viewport</dfn></dt>
+	<dt><dfn export>initial viewport</dfn></dt>
 	<dd>
 		This refers to the viewport before any UA or author styles have
-		overridden the viewport given by the window or viewing area of the UA.
-		Note that the ''initial viewport'' size will change with the
-		size of the window or viewing area.</dd>
-	<dt><dfn>actual viewport</dfn></dt>
+		overridden the [=viewport=] given by the window or viewing area of the UA.
+		
+		Note: The [=initial viewport=] size will change with the size of the
+		window or viewing area.</dd>
+	<dt><dfn export>layout viewport</dfn></dt>
 	<dd>
 		This is the viewport you get after processing the viewport
 		<code>&lt;meta&gt;</code> tag.
 	</dd>
+	<dt><dfn export>visual viewport</dfn></dt>
+	<dd>
+		This is the portion of the [=layout viewport=] that is currently visible,
+		obtained by result of applying scale transform to it. This transform is
+		applied to the [=canvas=] of the [=layout viewport=] and does not affect
+		its internal coordinate space. The magnitude of the	scale transform is
+		known as the [=visual viewport=]'s <dfn export>scale factor</dfn>.
+		
+		Note: The [=visual viewport=] can be smaller than the [=layout viewport=]. 
+	</dd>
 </dl>
 
-ISSUE: Make ''actual viewport'' the layout viewport, define visual viewport.
+Note: The scale transform of the [=visual viewport=] is often referred to as
+"pinch-zoom". Conceptually, this transform changes the size of the CSS 
+[=reference pixel=] and changes the size of the [=layout viewport=] (inversally)
+proportionally so that it does not cause reflow of the page's contents.
 
-When the ''actual viewport'' cannot fit inside the window or
-viewing area, either because the ''actual viewport'' is
-larger than the ''initial viewport'' or the zoom factor
-causes only parts of the ''actual viewport'' to be visible,
+When the [=layout viewport=] cannot fit inside the window or
+viewing area, either because the [=layout viewport=] is
+larger than the [=initial viewport=] or the zoom factor
+causes only parts of the [=layout viewport=] to be visible,
 the UA should offer a scrolling or panning mechanism.
 
+Note: The [=visual viewport=]'s [=scrolling area=] is the [=layout viewport=].
+
+<style>
+	@keyframes lvmove {
+		0%, 10%, 20% { transform: translate(0, 100px); }
+		30%, 50%, 70% { transform: translate(0, 150px); }
+		80%,100% { transform: translate(0, 100px); }
+	}
+	@keyframes vvmove {
+		0%, 10% { transform: translate(70px, 150px); }
+		30%, 50% { transform: translate(70px, 250px); }
+		80%, 90% { transform: translate(70px, 100px); }
+		100% { transform: translate(70px, 150px); }
+	}
+	#lv {
+		transform: translate(0, 100px);
+		animation: lvmove linear 3s infinite;
+	}
+	#vv {
+		transform: translate(20px, 150px);
+		animation: vvmove linear 3s infinite;
+	}
+	.paused #lv {
+		animation-play-state: paused;
+	}
+	.paused #vv {
+		animation-play-state: paused;
+	}
+</style>
+<div class="example paused" id="example-vvanimation">
+	<p>
+		This animation shows an example of a zoomed in visual viewport being "panned" around (for
+		example, by a user performing a touch drag). The page is scaled so that the layout viewport
+		is larger than the visual viewport.
+	</p>
+	<p>
+		A scroll delta is applied to the visual viewport first. When the visual viewport is at its
+		extent, scroll delta will be applied to the layout viewport. This behavior is implemented by
+		the [=viewport/perform a scroll=] steps.
+	</p>
+	<svg width="300" height="400">
+		<rect width="100%" height="100%" fill="white" stroke="grey" stroke-width="3"/>
+		<text x="10" y="30" font-family="Sans" font-size="25" fill="grey">
+		Document
+	</text>
+	<g id="lv">
+		<rect y="2" x="2" width="296" height="200" stroke="blue" fill="none" stroke-width="4"/>
+		<text x="10" y="20" font-family="Sans" font-size="15" fill="blue">
+		Layout Viewport
+		</text>
+	</g>
+	<g id="vv">
+		<rect y="2" x="2" width="148" height="100" stroke="red" fill="none" stroke-width="4"/>
+		<text x="10" y="60" font-family="Sans" font-size="15" fill="red">
+		Visual Viewport
+		</text>
+	</g>
+	</svg>
+	<br>
+	<button id="vvanimationBtn">Toggle Animation</button>
+	<script>
+		document.getElementById('vvanimationBtn').onclick = () => {
+		document.getElementById('example-vvanimation').classList.toggle('paused');
+	};
+	</script>
+</div>
+
 It is recommended that initially the upper-left corners of the
-''actual viewport'' and the window or viewing area are aligned if the
+[=layout viewport=] and the window or viewing area are aligned if the
 base direction of the document is ltr. Similarly, that the upper-right
 corners are aligned when the base direction is rtl. The base direction
 for a document is defined as the computed value of the 'direction'
@@ -124,8 +209,8 @@ property for the first <code class=html>&lt;BODY&gt;</code> element of
 an HTML or XHTML document. For other document types, it is the
 computed 'direction' for the root element.
 
-<h3 id="display-feature"><dfn>Display feature</dfn> definition</h3>
-A display feature is a hardware feature that acts as a divider
+<h3 id="the-display-feature">Display feature definition</h3>
+A <dfn>Display feature</dfn> is a hardware feature that acts as a divider
 and creates logically separate region of the viewport called {{segments}}.
 It can be a fold area of a device with a foldable screen or a physical
 split occupying a logical space within the viewport for example some dual
@@ -134,10 +219,10 @@ screen models.
 Below is an illustration describing the concept of display features and how
 they divide the viewport in {{segments}}:
 
-<img src="display_features_general.svg" alt="Two images,
-showing two display feature configurations and the respective segments.
-One image is showing an vertical display feature, the other is showing
-an horizontal display feature" style="width: 70%;height: auto; margin:auto; display: flex;">
+<img src="display_features_general.svg" width="560" height="258"
+	 alt="Two images, showing two display feature configurations and the respective segments.
+	      One image is showing an vertical display feature, the other is showing
+	      an horizontal display feature" style="width: 70%;height: auto; margin:auto; display: flex;">
 
 
 <h2 id="viewport-meta">
@@ -296,8 +381,6 @@ Issue: Specify extend-to-zoom behavior by the viewport meta tag
 
 <h3 id="interactive-widget-section">''interactive-widget''</h3>
 
-Issue: Move the definition of ''visual viewport'' from CSSOM-View to this spec.
-
 The <dfn export><code>interactive-widget</code></dfn> property specifies the effect that interactive UI
 widgets have on the page's viewports. It defines whether widgets overlay a given viewport or whether
 the viewport is shrunken so that it remains fully visible while the widget is showing. Interactive
@@ -390,7 +473,7 @@ only the value previously set to it.
 An element becomes zoomed when the 'zoom' property has a positive computed value different than 1
 (or when a flat tree ancestor has zoom).
 
-To apply zoom, the [=used value=] of a CSS property (including values inside of [=path()=] strings) is pre-multiplied
+To apply zoom, the [=used value=] of a CSS property (including values inside of ''path()'' strings) is pre-multiplied
 (before any other steps in the [=used value=] stage)
 by the [=used value=] of 'zoom' for the element.
 It also multiplies the [=natural size=] of all replaced elements,
@@ -407,7 +490,7 @@ all inherited properties such as 'line-height' and 'font-size'.
 Nested values of 'zoom' multiply, resulting in additional scaling of <<length>> values.
 The [=used value=] for zoom is always its [=effective zoom=].
 
-The 'zoom' property has no effect on <<length>> property values with computed values that are 'auto' or <<percentage>>.
+The 'zoom' property has no effect on <<length>> property values with computed values that are <css>auto</css> or <<percentage>>.
 
 Note: Unlike 'transform',
 scaling the 'zoom' property affects layout.
@@ -426,7 +509,7 @@ Note: 'zoom' does not affect or prevent 'transform' scaling.
 	Percentages: Converted to <<number>>
 	Media: visual
 	Computed value: as specified, but with <<percentage>> converted to the equivalent <<number>>
-	Animation type: not animatable
+	Animation type: by computed value type
 </pre>
 
 The values of this property have the following meanings:
@@ -481,8 +564,8 @@ Negative values for 'zoom' are illegal.
 	</pre>
 
 	Here is an llustration of the before and after hover state of the message box element:
-	<img src="css_zoom_hover_example.png" alt="Two images,
-	showing the zooming effect before and after zoom has applied. The second is 1.5 larger.">
+	<img src="css_zoom_hover_example.png" width="704" height="270"
+		 alt="Two images showing the zooming effect before and after zoom has applied. The second is 1.5 larger.">
 </div>
 
 <div class="example">
@@ -554,9 +637,7 @@ partial interface Window {
 };
 </pre>
 
-<h2 id=viewport>Viewport</h2>
-
-<h3 id="the-viewport-interface">The {{Viewport}} Interface</h3>
+<h2 id="the-viewport-interface">The {{Viewport}} Interface</h2>
 
 <pre class=idl>
 [Exposed=Window]
@@ -594,23 +675,31 @@ If a viewport of 400px by 400px is split horizontally into two side-by-side segm
 
 </div>
 
+<h2 class=no-num id="privacy">Privacy Considerations</h2>
+
+No new privacy considerations have been reported on this specification.
+
+<h2 class=no-num id="security">Security Considerations</h2>
+
+No new security considerations have been reported on this specification.
+
 <h2 class="no-num" id="changes">Appendix A. Changes</h2>
 
 This appendix is <em>informative</em>.
 
-<h3 class="no-num">Since the 
+<h3 class="no-num" id="changes-20160329">Since the
 	<a href="http://www.w3.org/TR/2016/WD-css-device-adapt-1-20160329/">29 
 		March 2016 Working Draft</a>
 </h3>
 
 <ul>
-	<li>Added 'interactive-widgets' property to viewport meta</li>
-	<li>Removed @viewport rule</li>
+	<li>Added <css>interactive-widgets</css> property to viewport meta</li>
+	<li>Removed <css>@viewport</css> rule</li>
 	<li>Renamed spec from device-adapt to css-viewport</li>
 	<li>CSSViewportRule exposed to Window</li>
 </ul>
 
-<h3 class="no-num">Since the 
+<h3 class="no-num" id="changes-20110915">Since the
 	<a href="https://www.w3.org/TR/2011/WD-css-device-adapt-20110915/">15 
 		September 2011 First Public Working Draft</a>.
 </h3>
@@ -623,17 +712,16 @@ This appendix is <em>informative</em>.
 	<li>Added recommendation for when to respect orientation property.
 	<li>Dropped support for the resolution descriptor.
 	<li>Decouple width/height and zoom, introducing ''extend-to-zoom'' value for meta viewport translation.
-	<li>Made normative rules about interaction of @viewport and @media.
-	<li>Allow 0 for <<viewport-length>> and '@viewport/zoom' values
+	<li>Made normative rules about interaction of <css>@viewport</css> and ''@media''.
+	<li>Allow 0 for <css>&lt;viewport-length&gt;</css> and <css>zoom</css> values
 	<li>Removed support for device-width/height.
-	<li>Apply @viewport to top level document only.
-	<li>Extend [[!CSS3-CONDITIONAL]] rather than CSS21 for nesting in @media.
-	<li>Removed @viewport
+	<li>Apply <css>@viewport</css> to top level document only.
+	<li>Extend [[!CSS3-CONDITIONAL]] rather than CSS21 for nesting in ''@media''.
 </ul>
 
 <h2 class="no-num" id="automation">Appendix B. Automation</h2>
 
-<h3>Automation of the {{segments}} property</h3>
+<h3 id="automation-segments">Automation of the {{segments}} property</h3>
 The {{segments}} property poses a challenge to test authors, as exercising this property
 requires access to specific hardware devices. To address this challenge this document defines
 [[WEBDRIVER2]] [=extension commands=] that allow users to control how the viewport is split by
@@ -716,9 +804,8 @@ parameter.
 
 	Below is an illustration showing the various properties of a display feature:
 
-	<img src="display_features.svg" alt="Two images,
-	showing the meaning of each display feature attributes. One image is showing an
-	vertical display feature, the other is showing an horizontal display feature" style="width: 70%;height: auto; margin:auto; display: flex;">
+	<img src="display_features.svg" width="560" height="258"
+		 alt="Two images showing the meaning of each display feature attributes. One image is showing a vertical display feature, the other is showing an horizontal display feature" style="width: 70%;height: auto; margin:auto; display: flex;">
 
 	<div class="example">
 		To create a [=[[DisplayFeaturesOverride]]=] in the <a spec="WEBDRIVER2">current browsing context</a> of the [=session=] with ID 23,

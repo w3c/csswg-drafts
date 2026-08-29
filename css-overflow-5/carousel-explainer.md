@@ -263,6 +263,96 @@ ul::column::scroll-marker {
 }
 ```
 
+### Advantages of pseudo-elements
+
+One of the alternatives considered was to use regular HTML elements. Everything will be possible to build using regular HTML elements with [scroll commands](https://github.com/openui/open-ui/issues/1220#issuecomment-3497651863) and the [scroll-target-group property](https://drafts.csswg.org/css-overflow-5/#scroll-target-group). However, there are several unique advantages to supporting the generation and use of pseudo-elements for carousel components:
+
+#### Semantic content-based HTML with adaptable presentation
+
+By being able to have the buttons and markers out of the DOM, the developer can focus on the semantic content being consumed. E.g. the author can simply write the semantic DOM for a list of tracks and have the stylesheet present that appropriately for the device media with generated controls for scrolling (analogous to an advanced scrollbar).
+
+##### Example
+
+```html
+<h3>Album track list</h3>
+<ol>
+  <li><track-cover data-name="Track 1" data-image="track1.png"></track-cover></li>
+  <li><track-cover data-name="Track 2" data-image="track2.png"></track-cover></li>
+  <li><track-cover data-name="Track 3" data-image="track3.png"></track-cover></li>
+  <li><track-cover data-name="Track 4" data-image="track4.png"></track-cover></li>
+</ol>
+```
+
+Then in the CSS they can customize the presentation to be a carousel on screens, or a list otherwise (e.g. when printed):
+
+```css
+@media only screen {
+  /* On screens, the content is presented in an interactive carousel */
+  ol {
+    overflow-x: auto;
+    scroll-marker-group: after;
+    scroll-snap-type: x mandatory;
+  }
+  track-cover::scroll-marker {
+    content: "" / attr(data-name);
+    background-image: attr(data-image);
+  }
+}
+```
+
+#### Automatic linkage to related content
+
+When using pure HTML elements, the link from marker to content is implicit \- it is the owning element. A scroll marker is an auto-generated [self-link](https://github.com/w3c/csswg-drafts/issues/10498). Unlike anchor links, the author does not need to set up globally unique identifier strings and be careful to keep those in sync across the two locations. E.g. to create the same carousel as above in html, the author would need to define globally unique identifiers for each of the linked items and copy over needed data such as images in this case:
+
+##### Example
+
+```html
+<h3>Album track list carousel</h3>
+<div class=carousel>
+  <ol>
+    <li><track-cover id="track1" data-name="Track 1" data-image="track1.png"></track-cover></li>
+    <li><track-cover id="track2" data-name="Track 2" data-image="track2.png"></track-cover></li>
+    <li><track-cover id="track3" data-name="Track 3" data-image="track3.png"></track-cover></li>
+    <li><track-cover id="track4" data-name="Track 4" data-image="track4.png"></track-cover></li>
+  </ol>
+  <div class="markers">
+    <a href="#track1"><img src="track1.png"></a>
+    <a href="#track2"><img src="track2.png"></a>
+    <a href="#track3"><img src="track3.png"></a>
+    <a href="#track4"><img src="track4.png"></a>
+  </div>
+</div>
+```
+
+Note: This example does not include the necessary accessibility roles and semantics as these could be generated given new HTML elements and the semantic id linkage so it would not necessarily require additional developer work to specify.
+
+#### Automatic pagination
+
+Arguably the most unique and significant advantage is that since pseudo-elements can be generated dynamically based on layout (e.g. a marker per ::column), a developer can create a paginated interface. Currently, Javascript libraries have to add resize observers and carefully generate elements and reparent contents every time layout changes to the correct number of "page" elements. Not only is this difficult to write correctly, and slow, but there is a long history of challenges with reparenting elements without undesirable side effects (e.g. losing focus, selection, state, etc).
+
+##### Example
+
+Going back to our track list, to group the tracks into pages with CSS pseudo-element markers, the author doesn't need to change the HTML, and can add the following CSS:
+
+```css
+@media only screen {
+  /* On screens, the content is grouped into horizontal pages */
+  ol {
+    overflow-x: auto;
+    scroll-marker-group: after;
+    scroll-snap-type: x mandatory;
+    columns: 1;
+    counter-reset: --page;
+  }
+  ol::column::scroll-marker {
+    counter-increment: --page;
+    content: counter(--page) / "Page " counter(--page);
+  }
+}
+```
+
+To do this with custom HTML carousel elements, you would have to reparent the elements into their corresponding pages and change the DOM to have the correct number of marker elements to match, linked to those elements.
+
 ## Use cases
 
 ### Carousels

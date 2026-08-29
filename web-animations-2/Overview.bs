@@ -57,15 +57,17 @@ dl.switch > dt > ul > li {
 </style>
 
 <pre class='metadata'>
-Title: Web Animations Level 2
-Status: ED
-Warning: not ready
+Title: Web Animations Module Level 2
+Status: WD
+Date: 2025-11-20
+Prepare for TR: yes
 Work Status: Exploring
 Shortname: web-animations
 ED: https://drafts.csswg.org/web-animations-2/
 TR: https://www.w3.org/TR/web-animations-2/
 Version history: https://github.com/w3c/csswg-drafts/commits/main/web-animations-2
 Level: 2
+!Delta Spec: yes
 
 Group: csswg
 !Participate: <a href="https://github.com/w3c/csswg-drafts/tree/main/web-animations-2">Fix the text through GitHub</a>
@@ -86,6 +88,8 @@ Abstract: This specification defines a model for synchronization and
     features.
 Ignored Vars: auto-rewind, current direction, index, initial progress,
     timeline, new timeline, t, going forwards, did trigger
+WPT Path Prefix: web-animations
+WPT Display: open
 </pre>
 <pre class="anchors">
 urlPrefix: https://drafts.csswg.org/web-animations-1/; type: dfn; spec: web-animations-1
@@ -99,7 +103,7 @@ urlPrefix: https://drafts.csswg.org/web-animations-1/; type: dfn; spec: web-anim
     text: associated effect end
     text: before-active boundary time
     text: cancel an animation
-    text: current iteration
+    text: current iteration index
     text: current ready promise
     text: current finished promise
     text: directed progress
@@ -108,13 +112,15 @@ urlPrefix: https://drafts.csswg.org/web-animations-1/; type: dfn; spec: web-anim
     text: end delay
     text: end time
     text: fill mode
+    text: none; for: fill mode; url: fill-mode-none
+    text: both; for: fill mode; url: fill-mode-both
     text: in effect
     text: iteration count
     text: iteration duration
     text: iteration progress
     text: iteration start
     text: keyframe effect
-    text: monotonically increasing
+    text: monotonically increasing timeline
     text: not animatable
     text: overall progress
     text: pending pause task
@@ -136,13 +142,16 @@ urlPrefix: https://drafts.csswg.org/web-animations-1/; type: dfn; spec: web-anim
     text: unresolved
     text: update an animation's finished state
     text: default document timeline
+urlPrefix: https://drafts.csswg.org/web-animations-1/; type: dict-member; spec: web-animations-1
+    text: fill; for: EffectTiming; url: dom-effecttiming-fill
+    text: fill; for: OptionalEffectTiming; url: dom-optionaleffecttiming-fill
 urlPrefix: https://webidl.spec.whatwg.org/; type: dfn; spec: webidl
     text: resolve a promise; url: resolve
 urlPrefix: http://www.ecma-international.org/ecma-262/6.0/#sec-; type: dfn; spec: ecma-262
     text: code realms
     text: execution contexts
 urlPrefix: https://drafts.csswg.org/scroll-animations-1/; type: dfn; spec: scroll-animations-1
-    text: html-processing-model-event-loops
+    text: event-loop
 </pre>
 
 <pre class=link-defaults>
@@ -155,23 +164,6 @@ spec:webidl; type:dfn; text:throw
 only the differences from Web Animations Level 1 [[!WEB-ANIMATIONS-1]].
 Once the Level 1 specification is closer to complete, it will be merged
 with the additions here into a complete level 2 specification.</p>
-
-<h2 id="changes-since-level-1">Changes since level 1</h2>
-
-This specification introduces the following changes compared to the
-previous level of this specification:
-
-*   <a>group effects</a> and <a>sequence effects</a>,
-*   an <a>animation effect</a>-specific
-    [=animation effect/playback rate=],
-*   Support for non-monotonic (scroll) timelines.
-
-<div class="amendment" id=amend-CE>
-This module also includes some exploratory proposals for [[#custom-effects]],
-however there are some concerns about the design of this feature
-and it may be replaced in a future revision.
-See <a href="https://github.com/w3c/csswg-drafts/issues/6861">discussion</a>.
-</div>
 
 <h2 id="timing-model">Timing model</h2>
 
@@ -223,10 +215,28 @@ Add:
 > (e.g. scroll) timeline, the duration has a fixed upper bound. In this
 > case, the timeline is a <dfn lt="progress-based timeline">progress-based
 > timeline</dfn>, and its [=timeline duration=] is 100%.
+>
+> <dfn>minimum timeline time</dfn>
+>
+> For a [=progress-based timeline=], the minimum timeline time is the minimum
+> value that can be produced for the timeline. For a
+> [=monotonically increasing timeline=], minimum timeline time is -infinity.
+>
+> <dfn>maximum timeline time</dfn>
+>
+> For a [=progress-based timeline=], the maximum timeline time is the maximum
+> possible value producible for timeline time, and matches the
+> [=timeline duration=]. For a [=monotonically increasing timeline=]. it is
+> +infinity.
+>
+> Note: The minimum and maximum values will be the values associated with the
+> minimum and maximum scroll offsets, respectively, when using a scroll
+> timeline.
 
 <h3 id="animation-frame-loop">Animation Frames</h3>
 
-Update the note on the first step of the algorithm by adding the following bullet:
+Update the note on the first step of the algorithm by adding the following
+bullet:
 
 > *   Updating the [=animation trigger state|state=] of [=animation triggers=]
 >     by running the [=updating animation trigger state=] procedure.
@@ -418,7 +428,7 @@ With:
 > *   the animation's [=hold time=] or [=animation/start time=] is resolved.
 
 Note: an animation is not <a>ready</a> while it has no [=animation/start time=] or [=hold time=].
-For a [=scroll-driven animation=], the start-time is determined when [=html-processing-model-event-loop|updating the timeline=] if |auto align start time| is true.
+For a [=scroll-driven animation=], the start-time is determined when [=event-loop|updating the timeline=] if |auto align start time| is true.
 
 
 <h4 id='validating-a-css-numberish-time'>Validating a CSSNumberish time</h4>
@@ -431,7 +441,7 @@ value of <var>time</var> is based on the first condition that matches:
     :   If <em>all</em> of the following conditions are true:
 
         *   The animation is associated with a [=progress-based timeline=], and
-        *   <var>time</var> is not a CSSNumeric value with percent units:
+        *   <var>time</var> is not a {{CSSNumericValue}} with percent units:
 
     ::  <a>throw</a> a <span class="exceptionname">TypeError</span>.
     ::  return false;
@@ -667,8 +677,10 @@ as CSS Animations [[CSS-ANIMATIONS-1]].
 
     </dl>
 
-1.  If |has finite timeline| and |previous current time| is unresolved:
-    *   Set the flag |auto align start time| to true.
+1.  If |has finite timeline| and |auto-rewind| is true:
+
+    1.   Set the flag |auto align start time| to true.
+    1.   Set the |animation|'s <a>hold time</a> to |previous current time|.
 
     Note: If play is called for a CSS animation during style update,
     the |animation|'s [=animation/start time=] cannot be reliably calculated until post layout since the start time is to align with the start or end of the animation range (depending on the [=playback rate=]).
@@ -831,6 +843,8 @@ The procedure for <dfn export for="animation">calculating an auto-aligned start 
     1.  Set [=animation/start time=] to |start offset| if [=effective playback rate=] &ge; 0,
         and |end offset| otherwise.
 
+    1.  [=Apply any pending playback rate=] on |animation|.
+
     1.  Clear [=hold time=].
 
 
@@ -852,7 +866,7 @@ Replace:
 >        a [=time value=] that is initially [=unresolved=].
 >    1. Let |has finite timeline| be true
 >        if |animation| has an associated [=timeline=]
->        that is not [=monotonically increasing=].
+>        that is not [=monotonically increasing timeline|monotonically increasing=].
 >
 >    1. If the |animation|'s [=animation/current time=] is [=unresolved=],
 >        perform the steps according to the first matching condition below:
@@ -898,7 +912,7 @@ with:
 
 >    1. Let |has finite timeline| be true
 >        if |animation| has an associated [=timeline=]
->        that is not [=monotonically increasing=].
+>        that is not [=monotonically increasing timeline|monotonically increasing=].
 >
 >    1. If the |animation|'s [=animation/current time=] is [=unresolved=] and
 >       |has finite timeline| is false,
@@ -983,6 +997,11 @@ Add the following sentence:
 
   An animation's <dfn export for=animation>overallProgress</dfn> is the ratio of its
    [=animation/current time=] to its [=associated effect end=].
+
+   <wpt>
+    interfaces/Animation/scroll-timeline-overallProgress.tentative.html
+    interfaces/Animation/overallProgress.html
+   </wpt>
 
   <div algorithm="calculate animation overall progress">
     The [=animation/overallProgress=] of an [=animation=], |animation|, is calculated as follows:
@@ -1240,55 +1259,34 @@ condition:
 Add the following definitions to the list used in determining the phase of
 an <a>animation effect</a>.
 
-:   <dfn>at progress timeline boundary</dfn>
-::  Determined using the following procedure:
+:   <dfn>at timeline boundary</dfn>
+::  Determined based on the first matching condition:
 
-    1.  If <em>any</em> of the following conditions are true:
-        *   the associated <a>animation</a>'s timeline is not a
-            [=progress-based timeline=], or
-        *   the associated <a>animation</a>'s [=timeline duration=] is
-            unresolved or zero, or
-        *   the <a>animation</a>'s [=playback rate=] is zero
+    <dl class="switch">
+        :   If the [=minimum timeline time=] matches the
+            [=timeline current time=]:
 
-        return false
+        ::  Return true
 
-    1.  Let <var>effective start time</var> be the <a>animation</a>'s
-        [=animation/start time=] if resolved, or zero otherwise.
+        :   If the [=maximum timeline time=] matches the
+            [=timeline current time=]:
 
-    1.  Set <var>unlimited current time</var> based on the first matching
-        condition:
-
-        :   [=animation/start time=] is resolved:
-
-        ::  <code>(<var>timeline time</var> - [=animation/start time=])
-            &times; [=playback rate=]</code>
+        ::  Return true
 
         :   Otherwise
 
-        ::  <code>animation's [=animation/current time=]</code>
+        ::  Return false
+    </dl>
 
-    1.  Let <var>effective timeline time</var> be
-        <code>|unlimited current time| / <a>animation</a>'s
-        [=playback rate=] + |effective start time|</code>
-
-    1.  Let <var>effective timeline progress</var> be
-        <code><var>effective timeline time</var> / [=timeline duration=]</code>
-
-    1.  If <var>effective timeline progress</var> is 0 or 1, return true,
-        otherwise false.
-
-Issue: This procedure is not strictly correct for a paused
-animation if the <a>animation</a>'s current time is explicitly set, as this can
-introduce a lead or lag, between the <a>timeline</a>'s current time and
-<a>animation</a>'s current time.
-
-Issue: This procedure can likely be simplified, and instead determine if at a
-scrolling boundary regardless of playback rate or start time. The surprising
-behavior that this is trying to prevent is an animation becoming inactive
-precisely at the scroll limit, alleviating the need for set a fill-mode with
-a ScrollTimeline. Checking if timeline [=timeline/current time=] is
-0 or timeline duration may be sufficient.
-
+    Note: The intent of this procedure for use in phase determination is to
+    avoid the need for fill-mode when using a scroll-timeline where the active
+    timeline range spans the full scroll range, or a view-timeline where the
+    subject is aligned with the start or end of the source scroll container.
+    This algorithm is not intended to handle the general case, but rather
+    avoids complications, such as when a view timeline subject  that is not
+    aligned with either bound of the scroll container being a candidate when the
+    magnitude of the playbackRate > 1. The algorithm also doesn't handle paused
+    animations. A more general solution is potentially feasible.
 
 Replace:
 
@@ -1311,7 +1309,7 @@ with:
 >     <em>or</em>
 > 1.  the <a>animation direction</a> is "backwards" and the <a>local
 >     time</a> is equal to the <a>before-active boundary time</a>  and not
->     <a>at progress timeline boundary</a>.
+>     <a>at timeline boundary</a>.
 
 
 Replace:
@@ -1335,7 +1333,7 @@ with:
 >     time</a>, <em>or</em>
 > 1.  the <a>animation direction</a> is "forwards" and the <a>local
 >     time</a> is equal to the <a>active-after boundary time</a> and not
->     <a>at progress timeline boundary</a>.
+>     <a>at timeline boundary</a>.
 
 
 <h4 id="fill-modes">Fill modes</h4>
@@ -2135,6 +2133,14 @@ Update the description of an effect that targets a non-animated property as:
 
 <h4 id="the-effect-value-of-a-keyframe-animation-effect">The effect value of a keyframe effect</h4>
 
+Issue: The implicit keyframe generation steps in Web Animations Level 1
+need to be reconciled with the behavior defined for
+[[scroll-animations-1#named-range-keyframes|named timeline range keyframe selectors]]
+in Scroll Animations.
+Scroll Animations currently overrides those steps but that overridden behavior
+should be incorporated directly in this algorithm.
+See <a href="https://github.com/w3c/csswg-drafts/issues/14309">issue 14309</a>.
+
 The procedure for computing the <a>effect value</a> of a single property
 referenced by a <a>keyframe effect</a> as one of its <a>target properties</a>,
 for a given <var ignore=''>iteration progress</var>, <var>current iteration</var> and
@@ -2198,7 +2204,7 @@ as follows:
 :   <dfn lt="iteration composite operation replace">replace</dfn>
 ::  Each successive iteration is calculated independently of previous
     iterations.
-:   <dfn lt="iteration composite operation accumulate">accumulate
+:   <dfn lt="iteration composite operation accumulate">accumulate</dfn>
 ::  Successive iterations of the animation are <a
     lt="value accumulation">accumulated</a> with the
     final value of the previous iteration.
@@ -2236,7 +2242,7 @@ In such cases, where the provided <a>animation
 effects</a> do not provide needed functionality, an effect defined by
 script may be used.
 Such <a>custom effects</a> receive an <a>iteration
-progress</a> and <a>current iteration</a> from the timing model and
+progress</a> and [=current iteration index|current iteration=] from the timing model and
 are responsible for producing an effect corresponding to the specified
 time.
 
@@ -2301,7 +2307,7 @@ the following criteria.
             *   <strong>is <a>in effect</a>, and</strong>
             *   <strong>was not <a>in effect</a> in the previous update, or
                 was <a>in effect</a> but with a different <a>iteration
-                progress</a> or <a>current iteration</a>,</strong>
+                progress</a> or [=current iteration index|current iteration=],</strong>
 
         ::  Call the callback passing with the referencing
             <a>animation effect</a>'s current <a>iteration
@@ -2381,8 +2387,17 @@ these possible values:
 
 <dl dfn-for="animation trigger state">
   <dt><dfn>idle</dfn>
-  <dt><dfn>primary</dfn>
-  <dt><dfn>inverse</dfn>
+    <dd>
+      The [=animation effect=] associated |animation| remains in
+      its [=animation effect/before phase=] and stays at zero [=animation/current time=].
+
+    <dt><dfn>primary</dfn>
+    <dd>
+      When switched to this value the [=animation trigger state/primary=] behavior type defined by |type| is applied to |animation|.
+
+    <dt><dfn>inverse</dfn>
+    <dd>
+      When switched to this value the [=animation trigger state/inverse=] behavior type defined by |type| is applied to |animation|.
 </dl>
 
 The values of [=animation trigger state|state=] and [=did trigger=] are
@@ -2600,6 +2615,10 @@ Update the attribute type for currentTime.
 
 :   <dfn attribute for=AnimationTimeline>duration</dfn>
 ::  Returns the <a lt="timeline duration">duration</a> for this timeline.
+
+<wpt>
+    interfaces/DocumentTimeline/duration.tentative.html
+</wpt>
 
 </div>
 
@@ -2836,7 +2855,7 @@ partial dictionary OptionalEffectTiming {
 Note: In this version of the spec, duration is not settable as a
 CSSNumericValue; however, duration may be returned as a CSSNumericValue when
 resolving the duration in {{AnimationEffect/getComputedTiming()}}. Future
-versions of the spec may enable setting the duration as a CSSNumeric value,
+versions of the spec may enable setting the duration as a {{CSSNumericValue}},
 where the unit is a valid time unit or percent.
 
 <div class="attributes">
@@ -2862,6 +2881,32 @@ where the unit is a valid time unit or percent.
     > <a>animation effect</a> that may follow, for example, in a
     > <a>sequence effect</a>. The |specified end delay| is converted to an
     > <a>end delay</a> following the [=normalize specified timing=] procedure.
+
+:   The {{EffectTiming/fill}} and {{OptionalEffectTiming/fill}} members
+::  Replace:
+
+    > When performing timing calculations
+    > the special string value <code>auto</code> is expanded
+    > to [=fill mode/none=].
+
+    with:
+
+    > When performing timing calculations
+    > the special string value <code>auto</code> is expanded
+    > to one of the [=fill modes=] recognized by the timing model
+    > as follows:
+    >
+    > <dl class=switch>
+    >
+    > : If the [=animation effect=] to which the fill mode is being applied
+    >     is a [=keyframe effect=],
+    > ::
+    >     Use [=fill mode/none=] as the [=fill mode=].
+    >
+    > : Otherwise,
+    > ::  Use [=fill mode/both=] as the [=fill mode=].
+    >
+    > </dl>
 
 :   <dfn dict-member for=EffectTiming>duration</dfn><dfn dict-member
     for=OptionalEffectTiming lt=duration></dfn>
@@ -3400,6 +3445,8 @@ partial dictionary KeyframeEffectOptions {
 ::  The <a>iteration composite operation</a> used to define the way
     animation values build from iteration to iteration.
 
+</div>
+
 <h3 id="the-iterationcompositeoperation-enumeration">The IterationCompositeOperation enumeration</h3>
 
 The possible values of an <a>animation effect</a>'s
@@ -3415,7 +3462,7 @@ enum IterationCompositeOperation { "replace", "accumulate" };
     lt="iteration composite operation replace">replace</a>
     <a>iteration composite operation</a> value such that the
     <a>effect value</a> produced is independent of the
-    <a>current iteration</a>.
+    [=current iteration index|current iteration=].
 :   <code>accumulate</code>
 ::  Corresponds to the <a
     lt="iteration composite operation accumulate">accumulate</a>
@@ -3511,6 +3558,13 @@ is modified to add the following members:
         with the |auto-rewind| flag set to true.
 
 </div>
+
+<wpt>
+    interfaces/Animatable/animate-no-browsing-context.html
+    interfaces/Animatable/animate.html
+    interfaces/Animatable/getAnimations-iframe.html
+    interfaces/Animatable/getAnimations.html
+</wpt>
 
 The {{KeyframeAnimationOptions}} dictionary interface
 is modified to add the following members:
@@ -3630,6 +3684,10 @@ interface AnimationTrigger {
   attribute any exitRangeEnd;
 };
 </pre>
+
+<wpt>
+    interfaces/TimelineTrigger/constructor.html
+</wpt>
 
 <div dfn-type=constructor class=constructors dfn-for="AnimationTrigger">
   : <dfn lt="AnimationTrigger(options)">AnimationTrigger(|options|)</dfn>
@@ -3804,6 +3862,46 @@ Add:
 >
 >     Note: Need to spec this properly somewhere.
 
+</div>
+
+<h2 id="changes">Changes</h2>
+
+<h3 id="changes-since-level-1">Changes since level 1</h3>
+
+This specification introduces the following changes compared to the
+previous level of this specification:
+
+*   <a>group effects</a> and <a>sequence effects</a>,
+*   an <a>animation effect</a>-specific
+    [=animation effect/playback rate=],
+*   Support for non-monotonic (scroll) timelines.
+
+<div class="amendment" id=amend-CE>
+This module also includes some exploratory proposals for [[#custom-effects]],
+however there are some concerns about the design of this feature
+and it may be replaced in a future revision.
+See <a href="https://github.com/w3c/csswg-drafts/issues/6861">discussion</a>.
+</div>
+
+<h3 id="changes-20230221">
+Changes since the <a href="https://www.w3.org/TR/2023/WD-web-animations-2-20230221/">First Public Working Draft</a> of 21 February 2023
+</h3>
+
+<ul>
+    <!-- to  26 September 2025 -->
+    <li>Renamed animation-trigger-type to animation-trigger-behavior</li>
+    <li>Corrected mention of start time to current time</li>
+    <li>Corrected syntax of rangeStart, rangeEnd, exitRangeStart and exitRangeEnd attributes on AnimationTrigger interface (<a href="https://github.com/w3c/csswg-drafts/issues/11624">Issue 11624</a>)</li>
+    <li>Specified the animation-trigger property, added the AnimationTrigger interface <a href="https://github.com/w3c/csswg-drafts/pull/10128"></a></li>
+    <li>Changed progress to overallProgress (<a href="https://github.com/w3c/csswg-drafts/issues/8799#issuecomment-2461097047">Issue 8799</a>)</li>
+    <li>Specified Animation progress API (<a href="https://github.com/w3c/csswg-drafts/pull/9937">Issue 9937</a>)</li>
+    <li>Clarified that start time of the animation is auto-aligned with the animation range boundary when it has not been explicitly set (<a href="https://github.com/w3c/csswg-drafts/pull/9181">Issue 9181</a>)</li>
+    <li>Fixed IDL definition of KeyframeAnimationOptions</li>
+    <li>Expanded offset syntax for keyframes (<a href="https://github.com/w3c/csswg-drafts/issues/7637">Issue 7637</a>)</li>
+    <li>Added rangeStart/rangeEnd to Animatable interface (<a href="https://github.com/w3c/csswg-drafts/issues/7589">Issue 7589</a>)</li>
+    <li>Tidied up effect stack definitions (<a href="https://github.com/w3c/csswg-drafts/issues/8497">Issue 8497</a>)</li>
+</ul>
+
 Privacy Considerations {#priv}
 ===============================================
 
@@ -3813,3 +3911,165 @@ Security Considerations {#sec}
 ===============================================
 
 No security considerations have been reported on this module.
+
+
+<wpt hidden title="not explicitly marked as animtions-2, please check">
+animation-model/animation-types/accumulation-per-property-001.html
+animation-model/animation-types/accumulation-per-property-002.html
+animation-model/animation-types/addition-per-property-001.html
+animation-model/animation-types/addition-per-property-002.html
+animation-model/animation-types/discrete.html
+animation-model/animation-types/interpolation-per-property-001.html
+animation-model/animation-types/interpolation-per-property-002.html
+animation-model/animation-types/scrollbar-interpolation.html
+animation-model/animation-types/visibility.html
+animation-model/combining-effects/applying-interpolated-transform.html
+animation-model/combining-effects/applying-the-composited-result.html
+animation-model/combining-effects/effect-composition.html
+animation-model/keyframe-effects/background-shorthand.html
+animation-model/keyframe-effects/computed-keyframes-shorthands.html
+animation-model/keyframe-effects/effect-in-removed-iframe-crash.html
+animation-model/keyframe-effects/effect-on-marquee-parent-crash.html
+animation-model/keyframe-effects/effect-value-context-filling.html
+animation-model/keyframe-effects/effect-value-context.html
+animation-model/keyframe-effects/effect-value-interval-distance.html
+animation-model/keyframe-effects/effect-value-iteration-composite-operation.html
+animation-model/keyframe-effects/effect-value-opacity-replaced-effect-in-shadow-root.html
+animation-model/keyframe-effects/effect-value-opacity-replaced-effect.html
+animation-model/keyframe-effects/effect-value-overlapping-keyframes.html
+animation-model/keyframe-effects/effect-value-replaced-animations.html
+animation-model/keyframe-effects/effect-value-transformed-distance.html
+animation-model/keyframe-effects/keyframe-exceptions.html
+animation-model/keyframe-effects/transform-and-opacity-on-inline-001.html
+animation-model/side-effects-of-animations-current.html
+animation-model/side-effects-of-animations-in-effect.html
+animation-model/side-effects-of-animations-none.html
+crashtests/color-mix-crashtest.html
+crashtests/effectively-infinite-timing-parameters.html
+crashtests/get-computed-timing-crash.html
+crashtests/get-keyframe-fontsize-crash.html
+crashtests/get-timing-bad-pseudo-crash.html
+crashtests/infinite-active-duration.html
+crashtests/non-interpolable-transition.html
+crashtests/partially-overlapping-animations-one-not-current-001.html
+crashtests/reparent-animating-element-001.html
+crashtests/reparent-animating-element-002.html
+crashtests/set-timeline-undefined-progress.html
+crashtests/sibling-index-offset-crash.html
+idlharness.window.js
+interfaces/Animatable/animate-no-browsing-context.html
+interfaces/Animatable/animate.html
+interfaces/Animatable/getAnimations-iframe.html
+interfaces/Animatable/getAnimations.html
+interfaces/Animation/cancel.html
+interfaces/Animation/commitStyles-crash.html
+interfaces/Animation/commitStyles-svg-crash.html
+interfaces/Animation/commitStyles.html
+interfaces/Animation/constructor.html
+interfaces/Animation/effect.html
+interfaces/Animation/finished.html
+interfaces/Animation/id.html
+interfaces/Animation/oncancel.html
+interfaces/Animation/onfinish.html
+interfaces/Animation/onremove.html
+interfaces/Animation/overallProgress.html
+interfaces/Animation/pause.html
+interfaces/Animation/pending.html
+interfaces/Animation/persist.html
+interfaces/Animation/play.html
+interfaces/Animation/ready.html
+interfaces/Animation/startTime.html
+interfaces/Animation/style-change-events.html
+interfaces/AnimationEffect/getComputedTiming.html
+interfaces/AnimationEffect/updateTiming.html
+interfaces/AnimationPlaybackEvent/constructor.html
+interfaces/Document/timeline.html
+interfaces/DocumentOrShadowRoot/getAnimations.html
+interfaces/DocumentTimeline/constructor.html
+interfaces/DocumentTimeline/style-change-events.html
+interfaces/KeyframeEffect/composite.html
+interfaces/KeyframeEffect/constructor.html
+interfaces/KeyframeEffect/copy-constructor.html
+interfaces/KeyframeEffect/getKeyframes.html
+interfaces/KeyframeEffect/iterationComposite.html
+interfaces/KeyframeEffect/processing-a-keyframes-argument-001.html
+interfaces/KeyframeEffect/processing-a-keyframes-argument-002.html
+interfaces/KeyframeEffect/setKeyframes.html
+interfaces/KeyframeEffect/style-change-events.html
+interfaces/KeyframeEffect/target.html
+interfaces/TimelineTrigger/constructor.html
+responsive/assorted-lengths.html
+responsive/background-color-animation-plus-opacity.html
+responsive/background-position-responsive.html
+responsive/backgroundPosition.html
+responsive/backgroundSize.html
+responsive/baselineShift.html
+responsive/borderImageWidth.html
+responsive/borderRadius.html
+responsive/borderWidth.html
+responsive/box-shadow-responsive.html
+responsive/boxShadow.html
+responsive/clip.html
+responsive/columnCount.html
+responsive/columnGap.html
+responsive/d.html
+responsive/font-size-adjust.html
+responsive/fontSize.html
+responsive/fontWeight.html
+responsive/lineHeight.html
+responsive/minHeight.html
+responsive/neutral-keyframe.html
+responsive/offset-path.html
+responsive/offsetDistance.html
+responsive/offsetRotate.html
+responsive/opacity.html
+responsive/perspective.html
+responsive/rotate.html
+responsive/rowGap.html
+responsive/shapeMargin.html
+responsive/shapeOutside.html
+responsive/strokeDasharray.html
+responsive/text-size-adjust.html
+responsive/textIndent.html
+responsive/to-color-change.html
+responsive/to-inherited-change.html
+responsive/to-style-change.html
+responsive/toggle-animated-iframe-visibility.html
+responsive/transform.html
+responsive/translate.html
+responsive/verticalAlign.html
+responsive/width.html
+timing-model/animation-effects/active-time.html
+timing-model/animation-effects/current-iteration.html
+timing-model/animation-effects/local-time.html
+timing-model/animation-effects/phases-and-states.html
+timing-model/animation-effects/simple-iteration-progress.html
+timing-model/animations/canceling-an-animation.html
+timing-model/animations/document-timeline-animation.html
+timing-model/animations/finishing-an-animation.html
+timing-model/animations/infinite-duration-animation.html
+timing-model/animations/invalidating-animation-before-start-time-synced.html
+timing-model/animations/pausing-an-animation.html
+timing-model/animations/play-states.html
+timing-model/animations/playing-an-animation.html
+timing-model/animations/reverse-running-animation.html
+timing-model/animations/reversing-an-animation.html
+timing-model/animations/seamlessly-updating-the-playback-rate-of-an-animation.html
+timing-model/animations/setting-the-current-time-of-an-animation.html
+timing-model/animations/setting-the-playback-rate-of-an-animation.html
+timing-model/animations/setting-the-start-time-of-an-animation.html
+timing-model/animations/setting-the-target-effect-of-an-animation.html
+timing-model/animations/setting-the-timeline-of-an-animation.html
+timing-model/animations/start-time-compat.html
+timing-model/animations/sync-start-times.html
+timing-model/animations/the-current-time-of-an-animation.html
+timing-model/animations/update-playback-rate-fast.html
+timing-model/animations/update-playback-rate-zero.html
+timing-model/animations/updating-the-finished-state.html
+timing-model/time-transformations/transformed-progress.html
+timing-model/timelines/document-timelines.html
+timing-model/timelines/sibling-iframe-timeline.html
+timing-model/timelines/timelines.html
+timing-model/timelines/update-and-send-events-replacement.html
+timing-model/timelines/update-and-send-events.html
+</wpt>

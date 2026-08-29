@@ -1,0 +1,776 @@
+<pre class="metadata">
+Title: CSS Navigation Matching
+Status: ED
+Work Status: Exploring
+Shortname: css-navigation
+Level: 1
+Group: csswg
+ED: https://drafts.csswg.org/css-navigation-1/
+!Issue Tracking: <a href="https://github.com/w3c/csswg-drafts/issues/12594">w3c/csswg-drafts#12594</a>
+Editor: L. David Baron, Google https://www.google.com/, https://dbaron.org/, w3cid 15393
+Editor: Noam Rosenthal, Google https://www.google.com/, w3cid 121539
+Abstract: This module contains conditional CSS rules for styling
+        conditioned on the status of navigating between particular URLs.
+</pre>
+
+<pre class="link-defaults">
+spec:css-values-5; type:function; text:if()
+spec:urlpattern; type:dfn; for:/; text:pattern string
+</pre>
+
+<!-- FIXME: TEMPORARILY override non-exported definition -->
+<pre class=anchors>
+url: https://html.spec.whatwg.org/multipage/nav-history-apis.html#concept-navigationtransition-from
+    type: dfn; spec: html; text: from entry;
+url: https://html.spec.whatwg.org/multipage/nav-history-apis.html#window-navigation-api
+    type: dfn; spec: html; text: navigation API;
+url: https://html.spec.whatwg.org/multipage/nav-history-apis.html#navigation-current-entry
+    type: dfn; spec: html; text: current entry; for: navigation API;
+url: https://html.spec.whatwg.org/multipage/nav-history-apis.html#ongoing-navigate-event
+    type: dfn; spec: html; text: ongoing navigate event;
+url: https://html.spec.whatwg.org/multipage/nav-history-apis.html#concept-navigation-transition
+    type: dfn; spec: html; text: transition;
+url: https://html.spec.whatwg.org/multipage/nav-history-apis.html#navigation-activation
+    type: dfn; spec: html; text: activation;
+url: https://html.spec.whatwg.org/multipage/browsing-the-web.html#has-been-revealed
+    type: dfn; spec: html; text: has been revealed;
+url: https://html.spec.whatwg.org/multipage/browsing-the-web.html#ongoing-navigation
+    type: dfn; spec: html; text: ongoing navigation;
+url: https://html.spec.whatwg.org/multipage/nav-history-apis.html#concept-navigateevent-interception-state
+    type: dfn; spec: html; text: interception state;
+url: https://drafts.csswg.org/css-view-transitions-1/#capture-the-image
+    type: dfn; spec: css-view-transitions-1; text: capture the image;
+</pre>
+
+<h2 id="url-patterns-in-css">Defining URL patterns in CSS</h2>
+
+<h3 id="nav-location-value-type">The <<navigation-location>> value type</h3>
+
+<pre class="prod def" dfn-type="type" nohighlight>
+<dfn><<navigation-location>></dfn> = <<url>> | [ <<location-name>> | <<url-pattern()>> ]
+<dfn><<location-name>></dfn> = <<dashed-ident>>
+</pre>
+
+A <<navigation-location>> is defined to
+<dfn for="navigation-location">match</dfn> a [=/URL=]-or-null <var>input</var> if <var>input</var> is non-null,
+and the corresponding statement:
+
+<dl class=switch>
+
+: the <<navigation-location>> is a <<location-name>>
+:: The [=URL pattern=] represented by the ''@location'' rule referenced by the name [=URL pattern/match|matching=] <var>input</var>.
+
+: the <<navigation-location>> is a <<url-pattern()>>
+:: The provided [=URL pattern=][=URL pattern/match|matches=] <var>input</var>.
+
+: the <<navigation-location>> is a <<url>>
+:: The provided [=/URL=] [=url/equals=] <var>input</var>.
+
+</dl>
+
+The <css>navigation-source-url</css> represents the [=current navigation URL=] given ''from''.
+The <css>navigation-destination-url</css> represents the [=current navigation URL=] given ''to''.
+The <css>navigation-current-url</css> represents the [=current navigation URL=] given ''at''.
+
+ISSUE: bikeshed on naming these keywords.
+
+<h3 id="at-location">Declaring named URL patterns: the ''@location'' rule</h3>
+
+The <dfn at-rule id="at-ruledef-location">@location</dfn> rule
+is an at-rule that associates an author-defined name with a [=URL pattern=].
+This name can be referenced in ''@navigation'' rules
+and in '':link-to()'' pseudo-classes.
+
+The syntax of the ''@location'' rule is described by the <<location-rule>> production in:
+
+<pre class="prod def" dfn-type="type" nohighlight>
+<dfn><<location-rule>></dfn> = @location <<dashed-ident>> { <<declaration-list>> }
+</pre>
+
+This means that the rule accepts a sequence of descriptors
+that have the syntax of declarations.
+However, in valid style sheets the only descriptors must match
+the <<location-descriptor>> production below.
+Any other descriptors are ignored.
+
+<pre class="prod def" dfn-type="type" nohighlight>
+<dfn><<location-descriptor>></dfn> = <<pattern-descriptor>> |
+                     <<init-descriptor>> |
+                     <<base-descriptor>>
+<dfn><<pattern-descriptor>></dfn> = pattern : <<url-pattern()>>
+<dfn><<init-descriptor>></dfn> = <<init-descriptor-name>> : <<string>>
+<dfn><<init-descriptor-name>></dfn> = protocol | hostname | port | pathname |
+                         search | hash
+<dfn><<base-descriptor>></dfn> = base-url : stylesheet | document | <<url>>
+</pre>
+
+<!-- FIXME: What is “it” here? -->
+If two valid descriptors in a single rule have the same name,
+the last one is used and the others are ignored.
+If a rule has both a valid <<pattern-descriptor>>
+and a valid <<init-descriptor>>
+then it is ignored.
+
+The ''@location'' rule can be defined in one of two ways:
+
+: with the <code>pattern</code> descriptor
+:: in this case the URL pattern represented is
+    the result of invoking
+    [=create a URL pattern for url-pattern()=] given
+    <var>arg</var> as the argument to the ''url-pattern()'' function
+    and <var>baseURLSpecifier</var> as
+    the (optional) value of the rule's <<base-descriptor>>.
+: with the other descriptors named by <<init-descriptor-name>>
+:: In this case the URL pattern represented is the result of invoking
+    [=URL pattern/create|create a URL pattern=] given
+    <var>input</var> as {{URLPatternInit}}
+    constructed from the descriptors and their values.
+    Each dictionary member is given the value of
+    the descriptor with the same name,
+    except the <code>baseURL</code> member is given the result of
+    [=create a URL for a base descriptor=]
+    given <var>baseURLSpecifier</var> as
+    the (optional) value of the rule's <<base-descriptor>>.
+
+ISSUE: ''document'' should probably only apply in origin-clean stylesheets.
+Is this more confusing? Should we have that rather than the ordinary stylesheet-based URLs?
+
+ISSUE: Should this use <<dashed-ident>>, <<custom-ident>>, or <<ident>>
+for the location names?
+
+ISSUE: Should we use <code>base-url</code> or just <code>base</code> as the descriptor name?
+
+NOTE: The list of allowed init descriptors does not include <code>username</code>
+or <code>password</code> since they seem unlikely to be useful.
+
+<div class="issue">
+It's possible that this syntax with init descriptors in the ''@location'' rule
+would make more sense as part of the ''url-pattern()'' function
+(that is, as an alternate syntax for what goes inside the function).
+
+This would also give us the option to remove the braces from
+the syntax of the ''@location'' rule
+and make it more like ''@import'' or ''@namespace''.
+This does remove a potential future extensibility point,
+but it could also be added back later if we need it.
+</div>
+
+<div class="example">
+Either this rule:
+<pre highlight=css>
+@location --movie-list {
+  pattern: url-pattern("/movies");
+}
+</pre>
+or this rule:
+<pre highlight=css>
+@location --movie-list {
+  pathname: "/movies";
+}
+</pre>
+define an ''@location'' rule that associates
+the name <code>--movie-list</code>
+with the URL <code>"/movies"</code> resolved relative to the style sheet.
+</div>
+
+NOTE: The bracing syntax also allows for future expansion if needed.
+
+NOTE: Some of the design discussion for this feature has been in
+<a href="https://github.com/w3c/csswg-drafts/issues/12594">w3c/csswg-drafts#12594</a>.
+
+<h3 id="url-pattern-function">The ''url-pattern()'' function</h3>
+
+<!--
+
+NOTE: We may eventually want to move this to css-values.
+
+If we do, the definition of "style resource base URL" probably doesn't need to be
+exported any more, since it was exported for this definition.
+
+-->
+
+The <dfn export function>url-pattern()</dfn> function represents a [=URL pattern=],
+which can be used to match URLs.
+
+<pre class="prod def">
+<<url-pattern()>> = url-pattern( <<string>> )
+</pre>
+
+This function represents the [=URL pattern=] resulting from
+invoking [=create a URL pattern for url-pattern()=] with its string argument.
+
+The syntax used in the ''url-pattern()'' function follows that of [=URL Pattern=].
+It is a [=pattern string=] directly based on the syntax used by
+the popular <a href="https://github.com/pillarjs/path-to-regexp">path-to-regexp</a> JavaScript library.
+
+<div class="example">
+Pattern strings can contain capture groups, which by default match the shortest possible string,
+up to a component-specific separator (<code>/</code> in the pathname, <code>.</code> in the hostname).
+
+For example, the pathname pattern <code>"/movies/:id"</code>
+will match <code>"/movies/123"</code>
+but not <code>"/movies/123/cast"</code>.
+
+A regular expression enclosed in parentheses can also be used instead,
+so the pathname pattern <code>"/blog/:id(\\d+)"</code>
+will match <code>"/movies/123"</code>
+but not <code>"/movies/css"</code>.
+
+You may also omit the name of the capture group by using only a regular expression,
+for example <code>"/blog/(\\d+)"</code>.
+
+A group can also be made optional by using the <code>?</code> modifier or by wrapping it in braces.
+For example, the patterns <code>"/movies/:id?"</code> and <code>"/movies{/:id}"</code>
+will match both <code>"/movies"</code> and <code>"/movies/123"</code> (but not <code>"/movies/"</code>).
+
+A full wildcard <code>*</code> can also be used to match as much as possible,
+as in the pattern <code>"/*/movies"</code>.
+This too can be given a name, for example <code>"/*lang/movies"</code>.
+</div>
+
+The steps of the <dfn>create a URL pattern for url-pattern()</dfn> algorithm,
+given a string <var>arg</var> and
+an optional <var>baseURLSpecifier</var>
+which can be ''document'', ''stylesheet'', or a URL, are:
+
+1. Let <var>baseURL</var> be the result of
+    [=create a URL for a base descriptor=] given <var>baseURLSpecifier</var>.
+
+1. Return the result of [=URL pattern/create|create a URL pattern=] given
+    <var>arg</var>, <var>baseURL</var>, and an empty [=map=].
+
+NOTE: This function requires that its argument is quoted.
+This differs from the ''url()'' function,
+which allows its argument to be quoted or unquoted.
+
+The <dfn>create a URL for a base descriptor</dfn> algorithm, given
+an optional <var>baseURLSpecifier</var>
+which can be ''document'', ''stylesheet'', or a URL, is:
+
+<dl class=switch>
+
+: if <var>baseURLSpecifier</var> is not present or is ''stylesheet''
+:: the [=style resource base URL=] of
+    the rule or declaration block containing the ''url-pattern()'' function.
+
+: if <var>baseURLSpecifier</var> is ''document''
+:: the [=document base URL=] of the document
+
+: if <var>baseURLSpecifier</var> is a URL
+:: <var>baseURLSpecifier</var>
+
+</dl>
+
+<div class="example">
+This rule:
+<pre highlight=css>
+@location --movie-detail {
+  pattern: url-pattern("/movies/:id");
+}
+</pre>
+defines an ''@location'' rule that associates
+the name <code>--movie-detail</code>
+with any URL that matches the [=URL pattern=] <code>/movies/:id</code>.
+
+Any of the following URLs (relative to the style sheet) match:
+
+<ul>
+  <li><code>/movies/123</code></li>
+  <li><code>/movies/456</code></li>
+  <li><code>/movies/something</code></li>
+</ul>
+
+These URLs will not match:
+
+<ul>
+  <li><code>/movies/123/</code> — The trailing slash is not matched by the pattern</li>
+  <li><code>/movies/456/extra</code> — The <code>/extra</code> is not matched by the pattern</li>
+</ul>
+</div>
+
+<div class="example">
+To have the <code>--movie-details</code> location
+match only numeric <code>:id</code> values,
+define the location either as:
+
+<pre highlight=css>
+@location --movie-detail {
+  pattern: url-pattern("/movies/:id(\\d+)");
+}
+</pre>
+
+or as:
+
+<pre highlight=css>
+@location --movie-detail {
+  pattern: url-pattern("/movies/(\\d+)");
+}
+</pre>
+
+This way, <code>/movies/something</code> won’t be matched by the location.
+
+NOTE: Even though the capture groups are not currently exposed,
+it is recommended to give the capture groups a name for future use.
+</div>
+
+<div class="issue">
+Should the default always be ''stylesheet''?
+For use of ''url-pattern()'' in ''@navigation'',
+it's likely more useful for the base URL
+to be the document URL rather than the style sheet URL.
+However, it would be very awkward for ''url-pattern()''
+to be inconsistent with ''url()''.
+
+Also see other proposed uses of {{URLPattern}} in CSS
+in <w3c/csswg-drafts#10975>,
+for '':local-link''.
+</div>
+
+
+To <dfn export>serialize a ''url-pattern()'' function</dfn> <var>f</var>,
+[=serialize a function=] <var>f</var>,
+using [=serialize a string=] on the single argument
+to serialize <var>f</var>'s contents.
+
+NOTE: This is defined this way because {{URLPattern}}
+intentionally does not provide a serialization.
+
+<h2 id="link-navigation-pseudo-classes">Pseudo-classes for links</h2>
+
+<h3 id="link-to-pseudo-class">The '':link-to()'' pseudo-class</h3>
+
+This specification defines a new
+<dfn id="link-to-pseudo" selector>'':link-to()''</dfn> functional pseudo-class
+that matches link elements that link to a certain URL.
+
+<div class="example">
+A simple example of a '':link-to()'' selector is this one,
+which matches any links that link to the site's homepage:
+
+<pre highlight=css>
+:link-to(url-pattern("/")) {
+  font-weight: bold;
+}
+</pre>
+
+Passing in a named location is also possible:
+
+<pre highlight=css>
+@location --homepage {
+  pattern: url-pattern("/");
+}
+
+:link-to(--homepage) {
+  font-weight: bold;
+}
+</pre>
+
+Because there is no dynamic part in the homepage URL,
+you might be tempted to pass in a <<url>> directly:
+
+<pre highlight=css>
+:link-to(url("/")) {
+  font-weight: bold;
+}
+</pre>
+
+However, <code>url("/")</code> won't match URLs such as
+<code>/#scroll-to-here</code> or <code>/?utm_id=something</code>
+so it is recommended to use the <<url-pattern()>>
+or <<navigation-location>> variants, or use the following alternative:
+
+<pre highlight=css>
+@location --homepage {
+  pathname: "/";
+  base-url: document;
+}
+
+:link-to(--homepage) {
+  font-weight: bold;
+}
+</pre>
+</div>
+
+<div class="example">
+
+A an example of the '':link-to()'' pseudo-class
+is this example which creates a view transition between
+a item in a list that contains a link (in this document)
+and the details page for that link (in a different document).
+This transition works even when the navigation is a back/forward navigation
+and even if the user has used a language selector UI
+to change the page into a different language (and thus change the URL).
+The use of the '':link-to()'' pseudo-class ensures that
+the view transition animations from or to the correct item in the list
+by matching the relevant parts of the navigation URL to the link URL.
+
+<pre highlight=css>
+@view-transition {
+  /* allow cross-document view transitions */
+  navigation: auto;
+}
+
+@location --movie-detail {
+  /* match URLs like /en/movies/123 which is the English page
+     about a movie with ID 123.  Be careful to specify the
+     language part with a "*" but the ID part with a named
+     :id parameter so that matching will require equal IDs
+     but allow differences of language. */
+  pattern: url-pattern("/*/movies/:id");
+}
+</pre>
+
+</div>
+
+NOTE: Some of the design discussion for this feature has been in
+<a href="https://github.com/w3c/csswg-drafts/issues/13163">w3c/csswg-drafts#13163</a>.
+
+<h3 id="navigation-source-pseudo-class">The '':navigation-source'' pseudo-class</h3>
+
+This specification defines a <dfn id="navigation-source-pseudo" selector>'':navigation-source''</dfn> pseudo-class,
+matching the element that triggered the current navigation. It is a CSS reflection of the {{NavigateEvent/sourceElement}} property in the Navigation API.
+The trigger element can be an [^a^], [^area^], [^form^], a [^input/type/submit^] input, or a [^button^].
+
+The '':navigation-source'' pseudo-class matches any element <var>el</var> where
+the [=current navigation state=] is not null, and <var>el</var> is its [=navigation state/source element=].
+
+<div class="example">
+
+A simple example of a '':navigation-source'' selector is this one,
+which sets the ''view-transition-name'' for an image thumbnail that is a child of the link that triggers the current navigation.
+
+<pre highlight=css>``
+a:navigation-source .thumb {
+  view-transition-name: active-image;
+}
+</pre>
+
+The '':navigation-source'' pseudo-class can also be used for forms and submit buttons:
+
+<pre highlight=css>``
+form:navigation-source .submit,
+.submit:navigation-source {
+  outline: 3px solid green;
+}
+</pre>
+
+</div>
+
+<h2 id="conditional-navigation-queries">Conditional rules for navigation queries</h2>
+
+<h3 id="at-navigation">Navigation queries: the ''@navigation'' rule</h3>
+
+The <dfn at-rule id="at-ruledef-navigation">@navigation</dfn> rule
+is a conditional group rule
+whose condition tests
+characteristics of the current URL
+or of the state of navigation between two URLs.
+These queries are called <dfn export>navigation queries</dfn>.
+
+Authors can use it to:
+* write style sheets that apply to multiple pages
+    but behave somewhat differently between those pages,
+* write style sheets that apply to
+    single page applications
+    that change their URL over time,
+    so that style changes when the URL changes, and
+* write style sheets that declaratively start view transitions
+    (or make other appropriate style changes)
+    in response to navigations.
+
+The syntax of the condition in the ''@navigation'' rule
+is similar to that defined for
+<<supports-condition>> in [[CSS-CONDITIONAL-3]].
+Negation, conjunction, and disjunction are all needed
+so that authors can specify the interaction of multiple styles
+in ways that are most intuitive and require the simplest code.
+
+<div class="example">
+
+The ''@navigation'' rule can be used in simple cases
+to define styles that only affect a particular page:
+
+<pre highlight="css">
+@navigation (at: url-pattern("/")) {
+  /* These styles only apply to the site's homepage
+     (including any URL with a search or hash). */
+}
+</pre>
+
+</div>
+
+<div class="example">
+
+The ''@navigation'' rule can also be used to define styles
+that are used when a certain navigation is in progress.
+This is particularly useful for defining
+styles that cause [=view transitions=].
+
+<pre highlight="css">
+@location --search-results-page {
+  pattern: url-pattern("/search-results");
+}
+@location --product-page {
+  pattern: url-pattern("/product/:id");
+}
+
+@navigation (from: --search-results-page) and
+            (to: --product-page) {
+  /* These styles apply when a navigation is in progress
+     from a search results page to a product page (as
+     defined by the @location rules above), but not in the
+     reverse direction. */
+}
+
+@navigation (between: --search-results-page and --product-page) {
+  /* These styles apply when a navigation is in progress
+     between a search results page and a product page (as
+     defined by the @location rules above), in either
+     direction. */
+}
+</pre>
+
+</div>
+
+The syntax of the ''@navigation'' rule is:
+
+<pre class="prod def" nohighlight>
+@navigation <<navigation-condition>> {
+  <<rule-list>>
+}
+</pre>
+
+with <<navigation-condition>> defined as:
+
+<pre class="prod def" dfn-type="type" nohighlight>
+<dfn><<navigation-condition>></dfn> = not <<navigation-in-parens>>
+                     | <<navigation-in-parens>> [ and <<navigation-in-parens>> ]*
+                     | <<navigation-in-parens>> [ or <<navigation-in-parens>> ]*
+<dfn><<navigation-in-parens>></dfn> = ( <<navigation-condition>> ) | ( <<navigation-test>> ) | <<general-enclosed>>
+<dfn><<navigation-test>></dfn> = <<navigation-location-test>> |
+                    <<navigation-location-between-test>> |
+                    <<navigation-type-test>> |
+                    <<navigation-phase-test>>
+
+<dfn><<navigation-location-test>></dfn> = <<navigation-relation>> : <<navigation-location>>
+<dfn><<navigation-relation>></dfn> = at | from | to
+
+<dfn><<navigation-location-between-test>></dfn> =
+    between : <<navigation-location>> and <<navigation-location>>
+
+<dfn><<navigation-type-test>></dfn> = history : <<navigation-type-keyword>>
+<dfn><<navigation-type-keyword>></dfn> = traverse | back | forward | reload
+
+<dfn><<navigation-phase-test>></dfn> = phase : <<navigation-phase-keyword>>
+<dfn><<navigation-phase-keyword>></dfn> = loading | ready | committed
+</pre>
+
+ISSUE: Should we use ''at''/''from''/''to'' or ''current''/''other''/''from''/''to''?
+
+The above grammar is purposely very loose for forwards-compatibility reasons,
+since the <<general-enclosed>> production
+allows for substantial future extensibility.
+Any ''@navigation'' rule that does not parse according to the grammar above
+(that is, a rule that does not match this loose grammar
+which includes the <<general-enclosed>> production)
+is invalid.
+Style sheets <strong>must not</strong> use such a rule and
+processors <strong>must</strong> ignore such a rule (including all of its contents).
+
+Many of these grammar terms are associated with a boolean result,
+as follows:
+
+: <<navigation-condition>>
+::    : not <<navigation-in-parens>>
+    :: The result is the negation of the <<navigation-in-parens>> term.
+
+    : <<navigation-in-parens>> [ and <<navigation-in-parens>> ]*
+    ::
+        The result is true if all of the <<navigation-in-parens>> child terms are true,
+        and false otherwise.
+
+    : <<navigation-in-parens>> [ or <<navigation-in-parens>> ]*
+    ::
+        The result is false if all of the <<navigation-in-parens>> child terms are false,
+        and true otherwise.
+
+: <<navigation-in-parens>>
+:: The result is the result of the child subexpression.
+
+: <<navigation-location-test>>
+::  The result is true if
+        the <<navigation-location>> [=navigation-location/matches=] [=current navigation URL=] of the document given the <<navigation-relation>>.
+
+: <<navigation-location-between-test>>
+::    : between: <<navigation-location>> and <<navigation-location>>
+    :: The result is true if
+        the [=current navigation URL=] <var>from</var> of the document given ''from'' is non-null,
+        the [=current navigation URL=] <var>to</var> of the document ''to'' is non-null,
+        one of the two <<navigation-location>>s
+        [=navigation-location/matches=] <var>from</var>,
+        and the other of the two <<navigation-location>>s
+        [=navigation-location/matches=] <var>to</var>.
+
+: <<navigation-type-test>>
+::    : history: traverse
+    :: True if the [=current navigation type=] is {{NavigationType/traverse}}.
+    : history: back
+    :: True if the [=current navigation type=] is {{NavigationType/traverse}} and
+        the document's [=current navigation state=]'s [=navigation state/new index=] is less than its [=navigation state/old index=].
+    : history: forward
+    :: True if the [=current navigation type=] is {{NavigationType/traverse}} and
+        the document's [=current navigation state=]'s [=navigation state/new index=] is greater than its [=navigation state/old index=].
+    : history: reload
+    :: True if the [=current navigation type=] is {{NavigationType/reload}}.
+
+: <<navigation-phase-test>>
+:: The [=current navigation state=] is not null, and its [=navigation state/phase=] matches the given ''phase'' value.
+
+: <<general-enclosed>>
+::
+    The result is false.
+
+    Authors must not use <<general-enclosed>> in their stylesheets.
+    <span class='note'>It exists only for future-compatibility,
+    so that new syntax additions do not invalidate too much of a <<navigation-condition>> in older user agents.</span>
+
+The condition of the ''@navigation'' rule
+is the result of the <<navigation-condition>> in its prelude.
+
+NOTE: Some of the design discussion for this feature has been in
+<a href="https://github.com/w3c/csswg-drafts/issues/12594">w3c/csswg-drafts#12594</a>
+and
+<a href="https://github.com/w3c/csswg-drafts/issues/8209">w3c/csswg-drafts#8209</a>.
+
+<h3 id="navigation-when-function">The ''@when/navigation()'' function for ''@when''</h3>
+
+This specification defines an additional function for the ''@when'' rule:
+
+<pre class="prod">
+<dfn for="@when" function>navigation()</dfn> = navigation( <<navigation-condition>> )
+</pre>
+
+The ''@when/navigation()'' function is associated with the boolean result that
+its contained condition is associated with.
+
+<h3 id="navigation-if-function">The ''if()/navigation()'' function for ''if()''</h3>
+
+This specification defines an additional function for the ''if()'' function's
+<<if-test>> production:
+
+<pre class="prod">
+<dfn for="if()" function>navigation()</dfn> = navigation( <<navigation-condition>> )
+</pre>
+
+The ''if()/navigation()'' function is associated with the boolean result that
+its contained <<navigation-condition>> is associated with.
+
+<h2 id="processing-model">Processing model</h2>
+
+The at rules and pseudo-classes defined in this document rely on the [=current navigation state=].
+
+A <dfn>navigation state</dfn> is a [=struct=] with the following items:
+
+<dl dfn-for="navigation state">
+    : <dfn>old URL</dfn>
+    : <dfn>new URL</dfn>
+    :: a [=/URL=]
+    
+    : <dfn>type</dfn>
+    :: a {{NavigationType}}
+    
+    : <dfn>old index</dfn>
+    : <dfn>new index</dfn>
+    :: an integer
+
+    : <dfn>phase</dfn>
+    :: `loading`, `ready`, or `committed`.
+
+    : <dfn>source element</dfn>
+    :: null or an {{Element}}.
+</dl>
+
+<div algorithm>
+To get the <dfn>current navigation state</dfn> of a {{Document}} |document|:
+
+1. If |document| is not [=Document/fully active=], return null.
+
+1. Let |navigation| be |document|'s [=relevant global object=]'s [=navigation API=].
+
+1. Let |activation| be |navigation|'s {{Navigation/activation}}.
+
+1. If |document| has not [=has been revealed|been revealed=]:
+    1. If |activation| is null, return null.
+
+    1. [=Assert=]: |activation|'s {{NavigationActivation/entry}} is not null.
+
+    1. Return a new [=navigation state=] whose
+        [=navigation state/old URL=] is |activation|'s {{NavigationActivation/from}}'s {{NavigationHistoryEntry/url}},
+        [=navigation state/new URL=] is |activation|'s {{NavigationActivation/entry}}'s {{NavigationHistoryEntry/url}},
+        [=navigation state/type=] is |activation|'s {{NavigationActivation/navigationType}},
+        [=navigation state/old index=] is |activation|'s {{NavigationActivation/from}}'s {{NavigationHistoryEntry/index}},
+        [=navigation state/new index=] is |activation|'s {{NavigationActivation/entry}}'s {{NavigationHistoryEntry/index}},
+        [=navigation state/phase=] is `committed`,
+        and [=navigation state/source element=] is null.
+
+    Note: this means that navigations that occur before the page is revealed, e.g. calling {{History/pushState()}} in the head do not reflect in CSS.
+
+1. Let |navigateEvent| be the [=ongoing navigate event=] of |navigation|.
+
+1. Let |phase| be `loading`.
+
+1. If |navigateEvent| is null and |navigation|'s [=traversing navigate event=] is not null:
+    1. Set |navigateEvent| to |navigation|'s [=traversing navigate event=].
+
+    1. Set |phase| to `ready`.
+
+1. If |navigateEvent| is null, return null.
+
+1. If |navigateEvent|'s [=interception state=] is `"committed"` or `"scrolled"`, set |phase| to `committed`.
+
+1. Return a new [=navigation state=] whose
+    [=navigation state/old URL=] is |document|'s [=Document/URL=],
+    [=navigation state/new URL=] is |navigateEvent|'s {{NavigateEvent/destination}}'s {{NavigationDestination/url}},
+    [=navigation state/type=] is |ongoingNavigateEvent|'s {{NavigateEvent/navigationType}},
+    [=navigation state/old index=] is |navigation|'s [=navigation API/current entry=]'s {{NavigationHistoryEntry/index}},
+    [=navigation state/new index=] is |navigateEvent|'s {{NavigateEvent/destination}}'s {{NavigationDestination/index}},
+    [=navigation state/phase=] is |phase|,
+    and [=navigation state/source element=] is |ongoingNavigateEvent|'s {{NavigateEvent/sourceElement}}.
+
+</div>
+
+To get the <dfn>current navigation URL</dfn> given a {{Document}} |document| and a <<navigation-relation>> |relation|:
+
+1. Let |state| be |document|'s [=current navigation state=].
+1. If |state| is null, return null.
+1. Return the result of switching on |relation|:
+
+<dl class=switch>
+: ''to''
+:: |state|'s [=navigation state/new URL=].
+
+: ''from''
+:: |state|'s [=navigation state/old URL=].
+
+: ''at''
+:: |state|'s [=navigation state/new URL=] if |state|'s [=navigation state/phase=] is `committed`; Otherwise |state|'s [=navigation state/old URL=].
+
+</dl>
+
+To get the <dfn>current navigation type</dfn> of a [=/document=] |document|:
+    1. If |document|'s [=current navigation state=] is non-null, return its [=navigation state/type=].
+    1. Return null.
+
+The <dfn>traversing navigate event</dfn> is the [=ongoing navigate event=] which was reset when the [=ongoing navigation=] is set to `traversal`.
+
+
+
+ISSUE: Improve integration with the HTML standard, especially the concept of [=traversing navigate event=] and unexported definitions.
+
+<h2 class="no-num" id="privacy">Privacy Considerations</h2>
+
+ISSUE: To be written.
+
+<h2 class="no-num" id="security">Security Considerations</h2>
+
+ISSUE: To be written.
