@@ -73,7 +73,7 @@ navigation.addEventListener("navigate", event => {
       historyChange: "immediate",
       async handler(controller) {
          const transition = document.startViewTransition(() => show_preview());
-    
+
          // The restore callback will be called if the navigation is aborted, or if this document is restored from BFCache.
          controller.addRestoreCallback(() => hide_preview());
          return transition.finished;
@@ -95,23 +95,52 @@ navigation.addEventListener("navigate", event => {
 The above knobs can be very effective, but might also require expertise to get right.
 Specifically, the `addRestoreCallback` mechanism can be easily overlooked by developers and cause bad UX when BFCache is enable and the state is not cleaned up properly.
 
-As an alternative, proposing a declarative CSS-based solution, based on view-transition at rules and `@navigation` conditionals:
+As an alternative, proposing a declarative CSS-based solution, based on view-transition at rules, `@navigation` conditionals, and UA-provided view-transision types:
 
 ```css
-@navigation(preview) {
+@navigation(phase: preview) {
   #skeleton {
     display: block;
   }
 }
 
 @view-transition {
-  navigation: preview;
-  types: some-preview-types;
+  preview: always;
 }
+
+:active-view-transition-types(-ua-to-preview) {
+     .real-content .thumbnail {
+          view-transition-name: thumb-to-hero;
+     }
+}
+
+@navigation (phase: preview) {
+     .real-content .thumbnail {
+          view-transition-name: none;
+     }
+
+     :root:active-view-transition-types(-ua-to-preview) {
+          .skeleton .hero-placeholder {
+               view-transition-name: thumb-to-hero;
+          }
+     }
+
+     :root:active-view-transition-types(-ua-from-preview) {
+          & {
+               view-transition-name: none;
+          }
+          .skeleton {
+               view-transition-name: root;
+          }
+     }
+}
+
 ```
 
-The "preview" animation with its attached types would start when the navigation is initiated (but not intercepted), and would defer the commit until
-it is finished. The "new" state of the animation would be controlled by style only, using the `@navigation(preview)` conditional (which can be mixed and matches with other conditionals).
+The `@navigation (phase: preview)` conditional allows authors to define styles that apply only during the preview phase of a cross-document view-transition,
+while the two special "types" `-ua-to-preview` and `-ua-from-preview` can be used to define styles, specifically `view-transition-name`s, when going from
+the old real content to the preview state, or out from the skeleton to the new page.
+
 
 ## Pros and cons of the different solutions
 
@@ -125,7 +154,7 @@ However, the current plan is to enable that first for power users, and take lear
 
 It may expose some information about timing of a navigation, including whether a prerendered page is ready.
 It is limited to same-origin navigations.
-     
+
 2.  Do features in your specification expose the minimum amount of information
      necessary to implement the intended functionality?
 
@@ -136,7 +165,7 @@ Yes
      either?
 
 No
-    
+
 4.  How do the features in your specification deal with sensitive information?
 
 N/A
@@ -150,12 +179,12 @@ No
      that persists across browsing sessions?
 
 No
-    
+
 7.  Do the features in your specification expose information about the
      underlying platform to origins?
 
 No.
-    
+
 8.  Does this specification allow an origin to send data to the underlying platform?
 
 No
@@ -167,7 +196,7 @@ No
 10.  Do features in this specification enable new script execution/loading
      mechanisms?
 No
-     
+
 11.  Do features in this specification allow an origin to access other devices?
 
 No
@@ -188,28 +217,28 @@ None
      third-party contexts?
 
 It is only available for same-origin navigations.
-     
+
 15.  How do the features in this specification work in the context of a browser’s
      Private Browsing or Incognito mode?
 
 N/A
-     
+
 16.  Does this specification have both "Security Considerations" and "Privacy
      Considerations" sections?
 
 Yes
-     
+
 17.  Do features in your specification enable origins to downgrade default
      security protections?
 
 No
-     
+
 18.  What happens when a document that uses your feature is kept alive in BFCache
      (instead of getting destroyed) after navigation, and potentially gets reused
      on future navigations back to the document?
 
 This is handled specifically with the `addRestoreCallback` method.
-     
+
 19.  What happens when a document that uses your feature gets disconnected?
 
 The navigation gets aborted anyway.
