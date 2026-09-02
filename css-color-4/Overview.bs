@@ -141,7 +141,7 @@ spec:css-color-5; type:value; for:oklch();
 			"title": "EdgeSeeker Gamut Mapping algorithm",
 			"date": "2023",
 			"authors": ["Alexey Ardov"],
-			"href": "https://github.com/color-js/apps/tree/main/gamut-mapping/edge-seeker"
+			"href": "https://github.com/color-js/apps/tree/main/gamut-mapping/methods/edge-seeker"
 		},
 		"colorjs-RayTrace": {
 			"title": "Ray Trace Gamut Mapping",
@@ -6431,41 +6431,65 @@ Sample Pseudocode for the EdgeSeeker Gamut Mapping</h4>
 <div algorithm="to construct an EdgeSeeker lookup table">
 	To <dfn export>construct an EdgeSeeker lookup table</dfn>
 	for an RGB destination color space |destination|,
-	given a number of hue slices |N| (for example, 400):
+	given a number of hue samples per region |N| (for example, 400):
 
 <ol>
 	<li>let |cusps| and |curve| each be an empty list</li>
-	<li>for each of |N| hues |h|, evenly spaced from 0deg to 360deg inclusive:
+	<!-- sampling each 60deg region separately ensures that the six primaries and secondaries,
+	     which are the corners of the gamut boundary, are sampled exactly -->
+	<li>for each of the six 60deg hue regions
+		(0deg to 60deg, 60deg to 120deg, and so on up to 300deg to 360deg),
+		for each of |N| hues |h| evenly spaced across that region,
+		inclusive of both endpoints:
 		<ol>
 			<li>let |r|, |g| and |b| be the result of
 				converting the HSL triplet (|h|, 100%, 50%) to RGB
 				using the <a href="#hsl-to-rgb">HSL to RGB conversion</a></li>
 			<li>let |cusp| be the color with coordinates |r|, |g|, |b| in |destination|,
 				converted to the OkLCh color space</li>
-			<li>append {l: |cusp|'s Lightness, c: |cusp|'s Chroma, h: |h|} to |cusps|</li>
+			<!-- each entry is keyed by the OkLCh hue of the sampled color,
+			     which is not the HSL hue that was used to generate it;
+			     for sRGB the two differ by as much as 50deg -->
+			<li>append {l: |cusp|'s Lightness, c: |cusp|'s Chroma, h: |cusp|'s Hue} to |cusps|</li>
 			<li>let |r2|, |g2| and |b2| be the result of
 				converting the HSL triplet (|h|, 100%, 75%) to RGB
 				using the <a href="#hsl-to-rgb">HSL to RGB conversion</a></li>
 			<li>let |curvePoint| be the color with coordinates |r2|, |g2|, |b2| in |destination|,
 				converted to the OkLCh color space</li>
-			<li>append {l: |curvePoint|'s Lightness, c: |curvePoint|'s Chroma, h: |h|} to |curve|</li>
+			<li>append {l: |curvePoint|'s Lightness, c: |curvePoint|'s Chroma, h: |curvePoint|'s Hue}
+				to |curve|</li>
 		</ol>
 	</li>
+	<li>sort |cusps| and |curve| each by ascending hue,
+		discarding any duplicate entries at the region boundaries</li>
 	<!-- for each hue, work out how curved the boundary is between the cusp and the curve point -->
 	<li>let |LUT| be an empty list</li>
-	<li>for each entry |cusp| in |cusps|,
-		with the corresponding entry |curvePoint| in |curve| at the same hue:
+	<li>for each entry |cusp| in |cusps|:
 		<ol>
+			<!-- the same HSL hue does not give the same OkLCh hue at the two lightnesses
+			     (for sRGB they differ by as much as 16deg)
+			     so the curve point must be interpolated at the cusp's hue,
+			     rather than paired with the cusp sampled from the same HSL hue -->
+			<li>let |curvePoint| be the entry whose Lightness and Chroma are obtained by
+				linearly interpolating, by hue,
+				between the two entries in |curve|
+				whose hues most closely bracket |cusp|'s hue</li>
 			<li>let |curvature| be the result of
-				<b>calculating the curvature</b> for |cusp| and |curvePoint|
-				(see below)</li>
+				[=calculate the curvature|calculating the curvature=]
+				for |cusp| and |curvePoint|</li>
 			<li>append {l: |cusp|'s l, c: |cusp|'s c, h: |cusp|'s h, curvature: |curvature|} to |LUT|</li>
 		</ol>
 	</li>
-	<li>return |LUT|, sorted by ascending hue</li>
+	<!-- close the hue circle, so that every hue in [0deg, 360deg] is bracketed by two entries -->
+	<li>prepend to |LUT| an entry at hue 0deg,
+		and append to |LUT| an entry at hue 360deg,
+		both having the Lightness, Chroma and curvature
+		obtained by interpolating between the highest-hue
+		and the lowest-hue entries of |LUT| across the 360deg wrap</li>
+	<li>return |LUT|</li>
 </ol>
 
-	Note: The number of hue slices,
+	Note: The number of hue samples,
 	and any additional smoothing or filtering
 	used to correct for hue non-monotonicity introduced by sampling
 	near the corners of the destination gamut,
@@ -6474,6 +6498,12 @@ Sample Pseudocode for the EdgeSeeker Gamut Mapping</h4>
 	they do not affect the definition of the algorithm.
 	See the reference implementation [[colorjs-EdgeSeeker]]
 	for one such approach.
+
+	Note: Because the entries are keyed by OkLCh hue,
+	a monotonically increasing sequence of sampled HSL hues
+	does not always produce a monotonically increasing sequence of LUT hues.
+	Implementations need to repair or discard
+	such out-of-order entries before sorting.
 </div>
 
 <div algorithm="to calculate the curvature of a gamut boundary section">
@@ -6482,6 +6512,13 @@ Sample Pseudocode for the EdgeSeeker Gamut Mapping</h4>
 	(the OkLCh Lightness and Chroma of the point of highest chroma for a hue)
 	and a second point |curvePoint|
 	on the lighter part of the boundary at the same hue:
+
+	The boundary section is normalized into a unit square
+	in which (0, 0) is white
+	and (1, 1) is the cusp.
+	The curvature is that of the circle
+	which passes through those two points
+	and through the normalized |curvePoint|.
 
 <ol>
 	<li>let |x| be (100% − |curvePoint|'s Lightness) / (100% − |cusp|'s Lightness)</li>
@@ -6505,6 +6542,7 @@ Sample Pseudocode for the EdgeSeeker Gamut Mapping</h4>
 	<li>let |centerY| be |m1| × (|centerX| − |mid1|'s x) + |mid1|'s y</li>
 	<li>let |radius| be sqrt(|centerX|² + |centerY|²)</li>
 	<li>let |curvature| be 1 / |radius|</li>
+	<!-- a negative curvature means the boundary section bows inwards, towards the neutral axis -->
 	<li>if |centerX| is less than |centerY|, return −|curvature|</li>
 	<li>return |curvature|</li>
 </ol>
@@ -6519,18 +6557,22 @@ Sample Pseudocode for the EdgeSeeker Gamut Mapping</h4>
 
 <ol>
 	<!-- check if we need gamut mapping at all -->
-	<li>if |destination| has no gamut limits (XYZ-D65, XYZ-D50, Lab, LCH, Oklab, OkLCh) convert |origin| to |destination| and return it as the gamut mapped color
+	<li>if |destination| has no gamut limits (XYZ-D65, XYZ-D50, Lab, LCH, Oklab, OkLCh) convert |origin| to |destination| and return it as the gamut mapped color</li>
+	<!-- HSL and HWB have the sRGB gamut, so the sRGB LUT is used for them -->
+	<li>if |destination| is HSL or HWB, let |LUT| be the lookup table constructed for sRGB</li>
 	<!-- we do, so convert to OkLCh -->
 	<li>let |origin_OkLCh| be |origin| converted
 		from |origin color space| to the OkLCh color space</li>
 	<!-- constrain to SDR lightness range, which gamut maps to black or white -->
 	<li>if the Lightness of |origin_OkLCh| is greater than or equal to 100%,
 		convert `oklab(1 0 0 / origin.alpha)` to |destination| and return it as the gamut mapped color</li>
-	<li>if the Lightness of |origin_OkLCh| is less than than or equal to 0%,
+	<li>if the Lightness of |origin_OkLCh| is less than or equal to 0%,
 		convert `oklab(0 0 0 / origin.alpha)` to |destination| and return it as the gamut mapped color</li>
 	<li>let |l|, |c| and |h| be the Lightness, Chroma and Hue of |origin_OkLCh|, respectively</li>
+	<!-- an achromatic color has a missing, powerless hue; any hue will do, as the chroma is then zero -->
+	<li>if |h| is [=missing=], set |h| to 0deg</li>
 	<li>let |maxChroma| be the result of
-		<b>finding the maximum chroma</b> for |l| and |h|, using |LUT| (see below)</li>
+		[=find the maximum chroma|finding the maximum chroma=] for |l| and |h|, using |LUT|</li>
 	<li>if |c| is greater than |maxChroma|, set |c| to |maxChroma|</li>
 	<li>let |mapped| be the OkLCh color with Lightness |l|, Chroma |c|, hue |h|
 		and the same alpha as |origin|</li>
@@ -6549,44 +6591,52 @@ Sample Pseudocode for the EdgeSeeker Gamut Mapping</h4>
 	for a given OkLCh Lightness |l| and hue |h|,
 	using an EdgeSeeker lookup table |LUT|
 	(a list of entries, each with a Lightness, a Chroma, a hue and a curvature,
-	sorted by ascending hue and together spanning the full hue range):
+	sorted by ascending hue and together spanning
+	the full hue range from 0deg to 360deg inclusive):
 
 <ol>
 	<li>if |l| is less than or equal to 0%, or |l| is greater than or equal to 100%, return 0</li>
+	<!-- OkLCh hue is not restricted to a single turn, so normalize it into the range covered by the LUT -->
+	<li>set |h| to |h| modulo 360deg,
+		adding 360deg to the result if it is negative,
+		so that |h| is in the range [0deg, 360deg)</li>
 	<li>let |lower| and |upper| be the two entries in |LUT|
 		whose hues most closely bracket |h|,
 		such that |lower|'s hue is less than or equal to |h|
 		and |upper|'s hue is greater than or equal to |h|</li>
 	<li>let |t| be (|h| − |lower|'s hue) / (|upper|'s hue − |lower|'s hue),
-		or 0 if |lower| and |upper| are the same entry</li>
+		or 0 if |lower| and |upper| have the same hue</li>
 	<li>let |cuspLightness| be
 		|lower|'s Lightness + |t| × (|upper|'s Lightness − |lower|'s Lightness)</li>
 	<li>let |cuspChroma| be
 		|lower|'s Chroma + |t| × (|upper|'s Chroma − |lower|'s Chroma)</li>
 	<li>let |curvature| be
 		|lower|'s curvature + |t| × (|upper|'s curvature − |lower|'s curvature)</li>
-	<!-- the lower part of the boundary, from black to the cusp, is always a straight line -->
+	<!-- the lower part of the boundary, from black to the cusp, is approximated by a straight line -->
 	<li>if |l| is less than or equal to |cuspLightness|,
 		return (|l| / |cuspLightness|) × |cuspChroma|</li>
 	<!-- the upper part, from the cusp to white, is approximated by an arc -->
 	<li>let |x| be (100% − |l|) / (100% − |cuspLightness|)</li>
 	<li>return |cuspChroma| × the result of
-		<b>intersecting a lightness with the curved gamut boundary</b>
-		for |x| and |curvature| (see below)</li>
+		[=intersect a lightness with the curved gamut boundary|intersecting a lightness with the curved gamut boundary=]
+		for |x| and |curvature|</li>
 </ol>
 </div>
 
 <div algorithm="to intersect a lightness with the curved gamut boundary">
 	To <dfn export>intersect a lightness with the curved gamut boundary</dfn>,
 	given a normalized position |x| along the upper boundary section
-	(0 at the cusp, 1 at white)
-	and a |curvature|:
+	(1 at the cusp, 0 at white)
+	and a |curvature|,
+	returning the normalized chroma at that position:
 
 <ol>
 	<!-- curvature of 0 means the upper section is also a straight line -->
 	<li>if |curvature| is 0, return |x|</li>
 	<li>let |radius| be the absolute value of 1 / |curvature|</li>
+	<!-- the distance from the midpoint (0.5, 0.5) to either of the endpoints (0, 0) and (1, 1) -->
 	<li>let |halfDiagonal| be sqrt(0.5² + 0.5²)</li>
+	<!-- the arc passes through both endpoints, so its radius is never less than halfDiagonal -->
 	<li>let |distanceToCenter| be sqrt(|radius|² − |halfDiagonal|²)</li>
 	<li>let |offset| be |distanceToCenter| / sqrt(2)</li>
 	<li>let |centerX| be 0.5 + |offset| if |curvature| is greater than 0, otherwise 0.5 − |offset|</li>
