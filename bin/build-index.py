@@ -179,6 +179,19 @@ for entry in os.scandir("."):
         issues_files = sorted(f for f in glob.glob(os.path.join(entry.path, "issues-*.html"))
                                   if not f.endswith(".bsi.html"))
         metadata["issues"] = [os.path.basename(f) for f in issues_files]
+        # Detect explainer markdown files: files named explainer*.md, or
+        # any .md files inside an explainer(s)/ directory (case-insensitive).
+        explainer_paths = sorted(
+            os.path.relpath(os.path.join(root, f), entry.path).replace(os.sep, '/')
+            for root, _, files in os.walk(entry.path)
+            for f in files
+            if f.lower().endswith(".md") and (
+                f.lower().startswith("explainer")
+                or os.path.basename(root).lower() in ("explainer", "explainers")
+            )
+        )
+        # Link to the HTML versions (built by build-markdown.py)
+        metadata["explainers"] = [os.path.splitext(p)[0] + ".html" for p in explainer_paths]
         specgroups[metadata["shortname"]].append(metadata)
 
 # Reorder the specs with common shortname based on their level (or year, for
@@ -315,6 +328,8 @@ for shortname, specgroup in specgroups.items():
             label = fname.replace("issues-", "").replace(".html", "")
             doc_links.append((f"./{dir_name}/{fname}", label))
 
+        explainer_urls = [f"./{dir_name}/{p}" for p in spec.get("explainers", [])]
+
         all_specs.append({
             "shortname": shortname,
             "dir": dir_name,
@@ -324,6 +339,7 @@ for shortname, specgroup in specgroups.items():
             "level": spec["level"],
             "group_size": group_size,
             "doc_links": doc_links,
+            "explainer_links": explainer_urls,
         })
 
 # Sort by timestamp descending (most recent first) for default view
@@ -351,6 +367,19 @@ for spec in all_specs:
     ]
     for url, label in spec["doc_links"]:
         links.append(f'<a href="{url}">DoC: {escape_html(label)}</a>')
+    if len(spec["explainer_links"]) == 1:
+        links.append(f'<a href="{spec["explainer_links"][0]}">Explainer</a>')
+    else:
+        for url in spec["explainer_links"]:
+            html_path = url.lstrip("./")
+            title = title_from_html(html_path) if os.path.exists(html_path) else None
+            if title and title.lower().startswith("explainer"):
+                label = escape_html(title)
+            elif title:
+                label = f'Explainer: {escape_html(title)}'
+            else:
+                label = "Explainer"
+            links.append(f'<a href="{url}">{label}</a>')
     links_html = ' <span class="sep">\u00b7</span> '.join(links)
 
     spec_items.append(

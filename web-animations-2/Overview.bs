@@ -112,6 +112,8 @@ urlPrefix: https://drafts.csswg.org/web-animations-1/; type: dfn; spec: web-anim
     text: end delay
     text: end time
     text: fill mode
+    text: none; for: fill mode; url: fill-mode-none
+    text: both; for: fill mode; url: fill-mode-both
     text: in effect
     text: iteration count
     text: iteration duration
@@ -140,6 +142,9 @@ urlPrefix: https://drafts.csswg.org/web-animations-1/; type: dfn; spec: web-anim
     text: unresolved
     text: update an animation's finished state
     text: default document timeline
+urlPrefix: https://drafts.csswg.org/web-animations-1/; type: dict-member; spec: web-animations-1
+    text: fill; for: EffectTiming; url: dom-effecttiming-fill
+    text: fill; for: OptionalEffectTiming; url: dom-optionaleffecttiming-fill
 urlPrefix: https://webidl.spec.whatwg.org/; type: dfn; spec: webidl
     text: resolve a promise; url: resolve
 urlPrefix: http://www.ecma-international.org/ecma-262/6.0/#sec-; type: dfn; spec: ecma-262
@@ -210,6 +215,23 @@ Add:
 > (e.g. scroll) timeline, the duration has a fixed upper bound. In this
 > case, the timeline is a <dfn lt="progress-based timeline">progress-based
 > timeline</dfn>, and its [=timeline duration=] is 100%.
+>
+> <dfn>minimum timeline time</dfn>
+>
+> For a [=progress-based timeline=], the minimum timeline time is the minimum
+> value that can be produced for the timeline. For a
+> [=monotonically increasing timeline=], minimum timeline time is -infinity.
+>
+> <dfn>maximum timeline time</dfn>
+>
+> For a [=progress-based timeline=], the maximum timeline time is the maximum
+> possible value producible for timeline time, and matches the
+> [=timeline duration=]. For a [=monotonically increasing timeline=]. it is
+> +infinity.
+>
+> Note: The minimum and maximum values will be the values associated with the
+> minimum and maximum scroll offsets, respectively, when using a scroll
+> timeline.
 
 <h3 id="animations">Animations</h3>
 
@@ -1229,55 +1251,34 @@ condition:
 Add the following definitions to the list used in determining the phase of
 an <a>animation effect</a>.
 
-:   <dfn>at progress timeline boundary</dfn>
-::  Determined using the following procedure:
+:   <dfn>at timeline boundary</dfn>
+::  Determined based on the first matching condition:
 
-    1.  If <em>any</em> of the following conditions are true:
-        *   the associated <a>animation</a>'s timeline is not a
-            [=progress-based timeline=], or
-        *   the associated <a>animation</a>'s [=timeline duration=] is
-            unresolved or zero, or
-        *   the <a>animation</a>'s [=playback rate=] is zero
+    <dl class="switch">
+        :   If the [=minimum timeline time=] matches the
+            [=timeline current time=]:
 
-        return false
+        ::  Return true
 
-    1.  Let <var>effective start time</var> be the <a>animation</a>'s
-        [=animation/start time=] if resolved, or zero otherwise.
+        :   If the [=maximum timeline time=] matches the
+            [=timeline current time=]:
 
-    1.  Set <var>unlimited current time</var> based on the first matching
-        condition:
-
-        :   [=animation/start time=] is resolved:
-
-        ::  <code>(<var>timeline time</var> - [=animation/start time=])
-            &times; [=playback rate=]</code>
+        ::  Return true
 
         :   Otherwise
 
-        ::  <code>animation's [=animation/current time=]</code>
+        ::  Return false
+    </dl>
 
-    1.  Let <var>effective timeline time</var> be
-        <code>|unlimited current time| / <a>animation</a>'s
-        [=playback rate=] + |effective start time|</code>
-
-    1.  Let <var>effective timeline progress</var> be
-        <code><var>effective timeline time</var> / [=timeline duration=]</code>
-
-    1.  If <var>effective timeline progress</var> is 0 or 1, return true,
-        otherwise false.
-
-Issue: This procedure is not strictly correct for a paused
-animation if the <a>animation</a>'s current time is explicitly set, as this can
-introduce a lead or lag, between the <a>timeline</a>'s current time and
-<a>animation</a>'s current time.
-
-Issue: This procedure can likely be simplified, and instead determine if at a
-scrolling boundary regardless of playback rate or start time. The surprising
-behavior that this is trying to prevent is an animation becoming inactive
-precisely at the scroll limit, alleviating the need for set a fill-mode with
-a ScrollTimeline. Checking if timeline [=timeline/current time=] is
-0 or timeline duration may be sufficient.
-
+    Note: The intent of this procedure for use in phase determination is to
+    avoid the need for fill-mode when using a scroll-timeline where the active
+    timeline range spans the full scroll range, or a view-timeline where the
+    subject is aligned with the start or end of the source scroll container.
+    This algorithm is not intended to handle the general case, but rather
+    avoids complications, such as when a view timeline subject  that is not
+    aligned with either bound of the scroll container being a candidate when the
+    magnitude of the playbackRate > 1. The algorithm also doesn't handle paused
+    animations. A more general solution is potentially feasible.
 
 Replace:
 
@@ -1300,7 +1301,7 @@ with:
 >     <em>or</em>
 > 1.  the <a>animation direction</a> is "backwards" and the <a>local
 >     time</a> is equal to the <a>before-active boundary time</a>  and not
->     <a>at progress timeline boundary</a>.
+>     <a>at timeline boundary</a>.
 
 
 Replace:
@@ -1324,7 +1325,7 @@ with:
 >     time</a>, <em>or</em>
 > 1.  the <a>animation direction</a> is "forwards" and the <a>local
 >     time</a> is equal to the <a>active-after boundary time</a> and not
->     <a>at progress timeline boundary</a>.
+>     <a>at timeline boundary</a>.
 
 
 <h4 id="fill-modes">Fill modes</h4>
@@ -2124,6 +2125,14 @@ Update the description of an effect that targets a non-animated property as:
 
 <h4 id="the-effect-value-of-a-keyframe-animation-effect">The effect value of a keyframe effect</h4>
 
+Issue: The implicit keyframe generation steps in Web Animations Level 1
+need to be reconciled with the behavior defined for
+[[scroll-animations-1#named-range-keyframes|named timeline range keyframe selectors]]
+in Scroll Animations.
+Scroll Animations currently overrides those steps but that overridden behavior
+should be incorporated directly in this algorithm.
+See <a href="https://github.com/w3c/csswg-drafts/issues/14309">issue 14309</a>.
+
 The procedure for computing the <a>effect value</a> of a single property
 referenced by a <a>keyframe effect</a> as one of its <a>target properties</a>,
 for a given <var ignore=''>iteration progress</var>, <var>current iteration</var> and
@@ -2643,6 +2652,32 @@ where the unit is a valid time unit or percent.
     > <a>animation effect</a> that may follow, for example, in a
     > <a>sequence effect</a>. The |specified end delay| is converted to an
     > <a>end delay</a> following the [=normalize specified timing=] procedure.
+
+:   The {{EffectTiming/fill}} and {{OptionalEffectTiming/fill}} members
+::  Replace:
+
+    > When performing timing calculations
+    > the special string value <code>auto</code> is expanded
+    > to [=fill mode/none=].
+
+    with:
+
+    > When performing timing calculations
+    > the special string value <code>auto</code> is expanded
+    > to one of the [=fill modes=] recognized by the timing model
+    > as follows:
+    >
+    > <dl class=switch>
+    >
+    > : If the [=animation effect=] to which the fill mode is being applied
+    >     is a [=keyframe effect=],
+    > ::
+    >     Use [=fill mode/none=] as the [=fill mode=].
+    >
+    > : Otherwise,
+    > ::  Use [=fill mode/both=] as the [=fill mode=].
+    >
+    > </dl>
 
 :   <dfn dict-member for=EffectTiming>duration</dfn><dfn dict-member
     for=OptionalEffectTiming lt=duration></dfn>

@@ -892,6 +892,12 @@ Animations {#animations}
 
   </dl>
 
+  Note: Together, the [=start time=] and [=hold time=] of an animation
+  determine both its [=animation/current time=]
+  (see [[#the-current-time-of-an-animation]])
+  and its [=play state=]
+  (see [[#play-states]]).
+
   In order to establish the relative ordering of conflicting [=animations=],
   animations are appended to a <dfn export>global animation list</dfn>
   in the order in which they are created.
@@ -2278,6 +2284,48 @@ Waiting for the associated effect</h4>
   ::
       The animation has reached the natural boundary of its playback range
       and the [=animation/current time=] is no longer updating.
+
+  Since the [=animation/current time=] of an animation is determined by
+  its [=start time=] and [=hold time=]
+  (see [[#the-current-time-of-an-animation]]),
+  and since the [=play state=] is in turn determined by
+  the [=animation/current time=],
+  the four play states correspond to
+  the four combinations of those two values:
+
+  <table class=data>
+    <thead>
+      <tr>
+        <td></td>
+        <th scope=col>[=hold time=] is [=unresolved=]</th>
+        <th scope=col>[=hold time=] is [=unresolved|resolved=]</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope=row>[=start time=] is [=unresolved=]</th>
+        <td>[=play state/idle=]</td>
+        <td>[=play state/paused=]</td>
+      </tr>
+      <tr>
+        <th scope=row>[=start time=] is [=unresolved|resolved=]</th>
+        <td>[=play state/running=]</td>
+        <td>[=play state/finished=]</td>
+      </tr>
+    </tbody>
+  </table>
+
+  The above table assumes the animation has no pending task.
+  A [=pending pause task=] causes an animation to be
+  [=play state/paused=] regardless of its [=start time=] and [=hold time=],
+  while a [=pending play task=] prevents
+  both the [=idle play state=] and the [=paused play state=].
+
+  Similarly, an animation whose [=playback rate=] is zero
+  has a [=unresolved|resolved=] [=hold time=]
+  without having reached a boundary,
+  and so is [=play state/running=] with
+  a [=animation/current time=] that never changes.
 
 </div>
 
@@ -4014,6 +4062,21 @@ Keyframe effects {#keyframe-effects}
       and a [=composite operation=] of [=composite operation add|add=],
       and append it to the end of |property-specific keyframes|.
 
+  <div class=note>
+
+    Other specifications may override
+    the implicit keyframe generation behavior
+    in the preceding two steps.
+    For example, the
+    [[scroll-animations-1#named-range-keyframes|named timeline range keyframe selectors]]
+    defined by Scroll Animations
+    can cause these implicit keyframes not to be generated.
+
+    A future level of this specification should
+    incorporate the overridden behavior directly into this algorithm.
+
+  </div>
+
   1. Let |interval endpoints| be an empty sequence of keyframes.
 
   1. Populate |interval endpoints| by following the steps
@@ -4163,40 +4226,6 @@ Keyframe effects {#keyframe-effects}
     resolve against the [=computed value=]
     in the range [<code>10px</code>, <code>20px</code>]
     produced by the transition on 'font-size'.
-  </div>
-
-  <div class=issue>
-    In the presence of certain easing functions,
-    the input [=iteration progress=] to an animation effect
-    is not limited to the range [0, 1].
-    Currently, however, keyframe offsets <em>are</em> limited to the range [0, 1]
-    and property values are simply extrapolated
-    for input [=iteration progress=] values outside this range.
-
-    We have considered removing this restriction
-    since some cases exist where it is useful
-    to be able to specify non-linear changes in property values
-    at [=iteration progress=] values outside the range [0, 1].
-    One example is an animation that interpolates from green to yellow
-    but has an overshoot easing function
-    that makes it temporarily interpolate “beyond” yellow to red
-    before settling back to yellow.
-
-    While this effect could be achieved by
-    modification of the keyframes and easing function,
-    this approach seems to break the model's separation
-    of timing concerns from animation effects.
-
-    It is not clear how this effect should be achieved
-    but we note that allowing keyframe offsets outside [0, 1]
-    can make the currently specified behavior,
-    where keyframes at offset 0 and 1 are synthesized as necessary,
-    inconsistent.
-
-    See <a href="http://lists.w3.org/Archives/Public/public-fx/2013AprJun/0184.html">section 4
-    (Keyframe offsets outside [0, 1]) of minuted discussion from Tokyo 2013 F2F</a>.
-
-    <a href="https://github.com/w3c/csswg-drafts/issues/2081">&lt;https://github.com/w3c/csswg-drafts/issues/2081&gt;</a>
   </div>
 
 Combining effects {#combining-effects}
@@ -4589,6 +4618,15 @@ Programming interface {#programming-interface}
 
 </div>
 
+Exception annotations in this section list exceptions
+that originate from algorithms in this specification.
+They do not repeat exceptions produced by
+converting values according to Web IDL.
+The procedures for processing keyframes also propagate exceptions
+thrown by author-defined property accessors or iterator methods.
+Since such exceptions can be of any type,
+they are not enumerated in these annotations.
+
 Time values in the programming interface {#time-values-in-the-programming-interface}
 ----------------------------------------
 
@@ -4901,8 +4939,8 @@ The {{Animation}} interface {#the-animation-interface}
 
       : {{DOMException}} of type "{{InvalidStateError}}"
       ::
-          Raised if this animation's [=playback rate=] is zero,
-          or if this animation's [=playback rate=] is > zero
+          Raised if this animation's [=effective playback rate=] is zero,
+          or if this animation's [=effective playback rate=] is > zero
           and the [=associated effect end=] is infinity.
 
       </div>
@@ -4913,11 +4951,32 @@ The {{Animation}} interface {#the-animation-interface}
       by running the procedure to [=play an animation=]
       passing true as the value of the |auto-rewind| flag.
 
+      <div class=exceptions>
+
+      : {{DOMException}} of type "{{InvalidStateError}}"
+      ::
+          Raised if this animation's [=effective playback rate=] is negative,
+          the [=associated effect end=] is infinity,
+          and its [=animation/current time=] is unresolved
+          or less than or equal to zero.
+
+      </div>
+
   : <dfn lt="pause()">void pause()</dfn>
   ::
       Suspends the playback of this animation
       by running the procedure to [=pause an animation=]
       for this object.
+
+      <div class=exceptions>
+
+      : {{DOMException}} of type "{{InvalidStateError}}"
+      ::
+          Raised if this animation's [=animation/current time=] is unresolved,
+          its [=playback rate=] is negative,
+          and the [=associated effect end=] is infinity.
+
+      </div>
 
     <wpt>
       interfaces/Animation/pause.html
@@ -4950,6 +5009,18 @@ The {{Animation}} interface {#the-animation-interface}
       if the animation has already finished playing in the reversed direction,
       [=seeks=] to the start of the [=associated effect=].
 
+      <div class=exceptions>
+
+      : {{DOMException}} of type "{{InvalidStateError}}"
+      ::
+          Raised if this animation has no associated [=active timeline=],
+          or if its reversed [=effective playback rate=] would be negative,
+          the [=associated effect end=] is infinity,
+          and its [=animation/current time=] is unresolved
+          or less than or equal to zero.
+
+      </div>
+
   : <dfn lt="persist()">void persist()</dfn>
   ::
       Sets this animation's [=replace state=]
@@ -4965,6 +5036,19 @@ The {{Animation}} interface {#the-animation-interface}
       Unlike most other methods defined on this interface,
       calling this method <em>does</em> trigger a [=style change event=]
       (see [[#model-liveness]]).
+
+      <div class=exceptions>
+
+      : {{DOMException}} of type "{{NoModificationAllowedError}}"
+      ::
+          Raised if any [=effect target=] is not an element
+          capable of having a [=style attribute=].
+
+      : {{DOMException}} of type "{{InvalidStateError}}"
+      ::
+          Raised if any [=effect target=] is not [=being rendered=].
+
+      </div>
 
       <wpt>
         interfaces/Animation/commitStyles.html
@@ -5240,6 +5324,22 @@ The {{AnimationEffect}} interface {#the-animationeffect-interface}
 
       </div>
 
+      <div class=exceptions>
+
+      : {{TypeError}}
+      ::
+          Raised if any of the following conditions applies:
+
+          * {{EffectTiming/iterationStart}} is negative;
+          * {{EffectTiming/iterations}} is negative
+              or <code class=esvalue>NaN</code>;
+          * {{EffectTiming/duration}} is negative,
+              <code class=esvalue>NaN</code>,
+              or a string other than `auto`; or
+          * {{EffectTiming/easing}} cannot be parsed as an <<easing-function>>.
+
+      </div>
+
   </div>
 
   Issue(2082): The <code>remove()</code> method can be used to remove an effect
@@ -5308,20 +5408,11 @@ The {{AnimationEffect}} interface {#the-animationeffect-interface}
 
       When performing timing calculations
       the special string value <code>auto</code> is expanded
-      to one of the [=fill modes=] recognized by the timing model
-      as follows:
+      to [=fill mode/none=].
 
-      <dl class=switch>
-
-      : If the [=animation effect=] to which the fill mode is being applied
-          is a [=keyframe effect=],
-      ::
-          Use [=fill mode/none=] as the [=fill mode=].
-
-      : Otherwise,
-      ::  Use [=fill mode/both=] as the [=fill mode=].
-
-      </dl>
+      Note: The <code>auto</code> value exists as a forwards-compatibility
+      measure since future types of [=animation effects=] are expected to
+      produce a different computed [=fill mode=].
 
       Advisement: As described in [[#fill-behavior]],
       authors are discouraged from using indefinitely filling animations.
@@ -5486,7 +5577,8 @@ The {{AnimationEffect}} interface {#the-animationeffect-interface}
       [=throw=] a {{TypeError}} and abort this procedure.
 
   1. If the {{EffectTiming/duration}} member of |input| [=map/exists=],
-      and is less than zero or is the value <code class=esvalue>NaN</code>,
+      and is less than zero, is the value <code class=esvalue>NaN</code>,
+      or is a string other than the lowercase <code>auto</code>,
       [=throw=] a {{TypeError}} and abort this procedure.
 
   1. If the {{EffectTiming/easing}} member of |input| [=map/exists=]
@@ -5687,6 +5779,8 @@ The {{KeyframeEffect}} interface {#the-keyframeeffect-interface}
 
       Examples of the usage of this constructor are given in
       [[#creating-a-new-keyframeeffect-object]].
+
+      </div>
 
   : <dfn lt="KeyframeEffect(source)">KeyframeEffect (source)</dfn>
   ::
@@ -5956,6 +6050,18 @@ The {{KeyframeEffect}} interface {#the-keyframeeffect-interface}
           of performing the procedure to [=process a keyframes argument=].
           If that procedure throws an exception,
           this effect's [=keyframes=] are not modified.
+
+      </div>
+
+      <div class=exceptions>
+
+      : {{TypeError}}
+      ::
+          Raised if an iterable yields a value other than `undefined`, `null`,
+          or an object;
+          if the keyframes are not [=loosely sorted by offset=];
+          if a non-null [=keyframe offset=] is outside the range [0, 1];
+          or if an easing cannot be parsed as an <<easing-function>>.
 
       </div>
 
@@ -6865,6 +6971,21 @@ The <code>Animatable</code> interface mixin {#the-animatable-interface-mixin}
 
       </div>
 
+      <div class=exceptions>
+
+      : {{TypeError}}
+      ::
+          Raised under the conditions described for
+          {{AnimationEffect/updateTiming()}} or
+          {{KeyframeEffect/setKeyframes()}}.
+
+      : {{DOMException}} of type "{{SyntaxError}}"
+      ::
+          Raised if the {{KeyframeEffectOptions/pseudoElement}} option
+          is not `null` and is an invalid <<pseudo-element-selector>>.
+
+      </div>
+
   : <dfn lt="getAnimations(options)">sequence&lt;Animation&gt; getAnimations(|options|)</dfn>
   ::
       1. Let |object| be the object on which this method was called.
@@ -6902,6 +7023,15 @@ The <code>Animatable</code> interface mixin {#the-animatable-interface-mixin}
       ::
           Parameters governing the set of animations
           returned by {{Animatable/getAnimations()}}.
+
+      </div>
+
+      <div class=exceptions>
+
+      : {{DOMException}} of type "{{SyntaxError}}"
+      ::
+          Raised if the {{GetAnimationsOptions/pseudoElement}} option
+          is not `null` and is an invalid <<pseudo-element-selector>>.
 
       </div>
 
@@ -7261,29 +7391,6 @@ Integration with Media Fragments {#integration-with-media-fragments}
   As a result, temporal addressing might not be supported
   in all situations where Web Animations content is used.
 
-Interaction with page display {#interaction-with-page-display}
-=============================
-
-  HTML permits user agents to store
-  [=an entry with persisted user state|user-agent defined state=]
-  along with a [=session history entry=]
-  so that as a user navigates between pages,
-  the previous state of the page can be restored
-  including state such as scroll position [[HTML]].
-
-  User agents that pause and resume [=media elements=]
-  when the referencing document is unloaded and traversed,
-  are encouraged to apply consistent handling
-  to documents containing Web Animations content.
-  If provided, this behavior SHOULD be achieved
-  by adjusting the [=time values=] of any [=timelines=]
-  that track wallclock time.
-
-  Issue(2083): Is this at odds with
-  those [=time values=] being relative to <code>navigationStart</code>
-  and with <code>requestAnimationFrame</code> using the same time
-  as <code>document.timeline.currentTime</code>?
-
 Implementation requirements {#implementation-requirements}
 ===========================
 
@@ -7338,7 +7445,50 @@ Changes since last publication {#changes-since-last-publication}
   The following changes have been made since the
   <a href="https://www.w3.org/TR/2023/WD-web-animations-1-20230605/">5 June 2023 Working Draft</a>:
 
-  (Nothing yet)
+  * Improved definitions and cross-linking for the Web Animations model,
+      and reorganized [[#animation-effects]]
+      to introduce concepts before the procedures in
+      [[#core-animation-effect-calculations]].
+      (<a href="https://github.com/w3c/csswg-drafts/pull/8965">PR 8965</a>,
+      <a href="https://github.com/w3c/csswg-drafts/pull/8985">PR 8985</a>)
+
+  * Renamed “timing function” to “[=easing function=]” throughout
+      to match the terminology in [[CSS-EASING-1]].
+      (<a href="https://github.com/w3c/csswg-drafts/pull/9218">PR 9218</a>)
+
+  * Corrected the calculation of [=active time=]
+      for an [=animation effect=] in the [=animation effect/after phase=]
+      with a [=fill mode=] of [=fill mode/both=].
+      (<a href="https://github.com/w3c/csswg-drafts/issues/11613">Issue 11613</a>)
+
+  * Added annotations describing exceptions thrown by methods
+      in the [[#programming-interface]].
+      (<a href="https://github.com/w3c/csswg-drafts/issues/2050">Issue 2050</a>)
+
+  * Added a non-normative summary of how the [=start time=] and [=hold time=]
+      of an [=animation=] determine its [=play state=].
+      (<a href="https://github.com/w3c/csswg-drafts/issues/2047">Issue 2047</a>)
+
+  * Made {{Animation/commitStyles()}} use endpoint-inclusive timing
+      so it can commit the endpoint of a completed animation
+      without requiring a forwards [=fill mode=].
+      (<a href="https://github.com/w3c/csswg-drafts/issues/5394">Issue 5394</a>)
+
+  * Specified that updating {{EffectTiming/duration}}
+      with a string other than the lowercase `auto` throws a {{TypeError}}.
+      (<a href="https://github.com/w3c/csswg-drafts/issues/14206">Issue 14206</a>)
+
+  * Clarified that array-form keyframes can contain `null` or `undefined` entries.
+      (<a href="https://github.com/w3c/csswg-drafts/pull/11594">PR 11594</a>)
+
+  * Added the {{GetAnimationsOptions/pseudoElement}} option
+      to {{Animatable/getAnimations()}} for requesting animations
+      targeting a particular [=pseudo-element=].
+      (<a href="https://github.com/w3c/csswg-drafts/pull/11050">PR 11050</a>)
+
+  * Removed the "Interaction with page display" section since it contradicted
+     the relationship of time values to other parts of the platform and was
+     not implemented.
 
   The <a href="https://github.com/w3c/csswg-drafts/commits/main/web-animations-1">changelog</a>
   provides a more detailed history.

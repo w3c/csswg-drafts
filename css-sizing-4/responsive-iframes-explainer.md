@@ -38,7 +38,7 @@ The double opt-in preserves:
  * Privacy and security guarantees of cross-origin content
 
 The "one-shot" (only at `load` time) sizing to natural dimensions avoids:
- * Performance issues and CLS due to changing iframe sizing (To further mitigatge performance risks, limitations on levels of `<iframe>` nesting may be imposed.)
+ * Performance issues and CLS due to changing iframe sizing (To further mitigate performance risks, limitations on levels of `<iframe>` nesting may be imposed.)
  * Potential infinite layout loops
 
 ## Example:
@@ -65,7 +65,7 @@ Embedding document:
 <style>
   * { margin: 0; }
 </style>
-<meta name="responsive-embedded-sizing"></meta>
+<meta name="responsive-embedded-sizing" content="allow-origins=*"></meta>
 <div style="height: 1000px"></div>
 ```
 
