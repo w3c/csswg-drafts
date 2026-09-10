@@ -94,8 +94,13 @@ Setting a Link Parameter {#setting}
 ===================================
 
 An external resource can be accompanied by a list of [=link parameters=],
-each entry composed of a <<dashed-ident>> as a key,
-and a (possibly empty) <<declaration-value>> as the value.
+a [=struct=] composed of:
+
+<div dfn-for="link parameter" dfn-type=dfn>
+	* a <dfn>name</dfn>, usually a <<dashed-ident>>
+	* an optional <dfn>type</dfn>, a <<css-type>>
+	* a <dfn>value</dfn> (potentially empty), a CSS value
+</div>
 
 There are three ways to specify a [=link parameter=]:
 
@@ -131,35 +136,40 @@ share the same syntax for <em>defining</em> a parameter,
 using the <dfn>param()</dfn> function:
 
 <pre class=prod>
-	param() = param( <<param-name>> , <<declaration-value>>? )
-	<dfn><<param-name>></dfn> = color | accent-color | <<dashed-ident>>
+	param() = param( <<param-spec>> , <<declaration-value>>? )
+	<dfn><<param-spec>></dfn> = color | accent-color | [ <<dashed-ident>> <<css-type>>? ]
 </pre>
 
-Depending on the <<param-name>>,
-the [=link parameter=] has slightly different effects on the linked resource,
-and a different default value:
+Depending on the <<param-spec>>,
+the ''param()'' function defines a [=link parameter=] in slightly different ways:
 
-<dl dfn-type=value dfn-for="param(), <param-name>">
+<dl dfn-type=value dfn-for="param(), <param-spec>">
 	: <dfn>color</dfn>
-	:: Sets the [=initial value=] of the 'color' property on the linked resource,
-		and defaults to the value of the 'color' property on the linking element.
+	::
+		* [=link parameter/Name=]: <code>color</code>
+		* [=link parameter/Type=]: <<color>>
+		* [=link parameter/Value=]: The second argument, if specified.
+			Otherwise, the value of 'color' on the element.
 
 	: <dfn>accent-color</dfn>
-	:: Sets the [=initial value=] of the 'accent-color' property on the linked resource,
-		and defaults to the value of the 'accent-color' property on the linking element.
+	::
+		* [=link parameter/Name=]: <code>accent-color</code>
+		* [=link parameter/Type=]: <<color>>
+		* [=link parameter/Value=]: The second argument, if specified.
+			Otherwise, the value of 'accent-color' on the element.
 
 	: <dfn><<dashed-ident>></dfn>
-	:: Sets a [=custom environment variable=] of the given name on the linked resource,
-		and defaults to the value of the [=custom property=] of the same name on the linking element.
+	::
+		* [=link parameter/Name=]: the <<dashed-ident>>
+		* [=link parameter/Type=]: the <<css-type>>, if specified.
+		* [=link parameter/Value=]: The second argument, if specified.
+			Otherwise, the value of the [=custom property=] with the specified name on the element.
 </dl>
 
-The second argument, if provided, gives the value of the [=linked parameter=].
-If not specified, the [=linked parameter=]'s value is the default value.
+<div class=note>
+	Note that a completely empty second argument is valid,
+	and is indicated by specifying the comma separating it from the first argument.
 
-A completely empty second argument is valid,
-and is indicated by specifying the comma separating it from the first argument.
-
-<div class=example>
 	That is, ''param(--foo)'' indicates that the [=link parameter=] is using the default value,
 	drawing from the '--foo' [=custom property=] on the element.
 
@@ -168,6 +178,49 @@ and is indicated by specifying the comma separating it from the first argument.
 	This is similar to ''var(--foo)'' having no fallback,
 	but ''var(--foo,)'' having an empty fallback.
 </div>
+
+If the [=link parameter=] has a [=link parameter/type=],
+the [=link parameter/value=] (default or manually provided) is parsed as that type.
+If it fails to parse as the given type,
+the [=link parameter=] is invalid and ignored.
+(The ''param()'' defining it is not invalid.)
+
+Note: Authors can specify fallbacks by repeating a single ''param()'' multiple times,
+like ''param(--foo &lt;color>, blue), param(--foo &lt;color>, xztheta(1 2 3))'',
+which will use the (currently undefined) <css>xztheta()</css> color function if it's supported
+and ''blue'' in user agents that don't support that function,
+similar to specifying a property multiple times.
+
+A ''param()'' function usually has an element context from the way it's used.
+If present,
+the [=link parameter/value=] uses that context
+(and the [=link parameter/type=], if present)
+to fully resolve itself to a [=used value=]
+before being passed into the linked resource.
+If the [=link parameter/value=] <em>needs</em> an element context to fully resolve,
+but doesn't have one,
+the [=link parameter=] is invalid and ignored.
+
+<div class=note>
+	For example, ''param(--foo &lt;color>, currentcolor)'' will use the element context
+	to resolve to a specific color,
+	rather than somewhat uselessly passing as the keyword.
+
+	Even without a [=link parameter/type=],
+	[=arbitrary substitution functions=] will attempt to resolve in the [=link parameter/value=],
+	and might need an element context
+	(for example, ''var()'' and ''attr()'' both do).
+
+	Other values will be left unresolved without a [=link parameter/type=];
+	for example, ''param(--foo, currentcolor)'' will pass the ''currentcolor'' keyword itself,
+	without resolving it as a <<color>>,
+	and thus doesn't need an element context.
+</div>
+
+Similarly, if a ''param()'' doesn't provide a second argument,
+and doesn't have an element context,
+the [=link parameter=] is invalid and ignored.
+(Because the default draws on the value of a property on the element.)
 
 
 For An Entire Element: the 'link-parameters' property {#link-param-prop}
@@ -199,6 +252,16 @@ Its values are:
 	:: A list of one or more [=link parameters=].
 </dl>
 
+The ''param()'' functions used in 'link-parameters'
+use the element they're set on as the element context.
+
+Note: If there are multiple images on the given element
+(content image and/or CSS images like backgrounds),
+they'll all recieve all the values in 'link-parameters',
+even if they don't use them.
+This is generally safe, as you need to use ''env()'' to access a [=link parameter=] in the linked resource,
+tho ''param()/color'' and ''param()/accent-color'' do have additional side-effects.
+
 
 For A Single URL: the ''url()'' Function {#setting-url}
 ----------------------------------------
@@ -206,7 +269,7 @@ For A Single URL: the ''url()'' Function {#setting-url}
 While 'link-parameters' sets [=link parameters=] for <em>every</em> URL on an element,
 sometimes you want to set parameters for only one resource,
 or use the same resource multiple times on an element with different parameters.
-For this, you can use ''param()'' directly in the ''url()'' function,
+For this, you can use one or more ''param()'' functions directly in the ''url()'' function specifying the linked resource,
 as a <<url-modifier>>.
 
 <div class="example">
@@ -224,6 +287,9 @@ as a <<url-modifier>>.
 		}
 	</pre>
 </div>
+
+The ''param()'' functions used in a ''url()'' function
+use the element they're set on as the element context.
 
 
 Outside Of CSS: in the URL itself {#url-frag}
@@ -247,7 +313,7 @@ Where the <code>...</code> represents any sequence of URL codepoints and/or <l s
 After URL-decoding, the [=link parameter directive=] is then [=CSS/parsed=] as a <<param()>>.
 If it fails to parse, the directive is ignored.
 Otherwise, it's added to the embedded document's list of link parameters,
-with a name given by the <<dashed-ident>> and a value given by the <<declaration-value>>?.
+as specified in [[#param]].
 
 <div class="example">
 	For example, to set the ''env(--text-color)'' [=custom environment variable=]
@@ -255,6 +321,14 @@ with a name given by the <<dashed-ident>> and a value given by the <<declaration
 	one can reference the image with a url like
 	“<code>http://example.com/image.svg#:~:param(--text-color,blue)</code>”.
 </div>
+
+Note: Spaces, and some other characters that might be valid in CSS syntax,
+are not technically valid in URLs.
+In some contexts,
+you might need to escape those characters to form a valid URL.
+In most cases, though,
+such as HTML's <{a}> element or CSS's ''url()'' function,
+spaces are accepted and do not need to be escaped.
 
 Multiple [=link parameters=] can be passed to an image
 by appending multiple [=link parameter directives=] to the URL.
@@ -269,13 +343,40 @@ as in a URL's query parameters.
 	to set both ''env(--text-color)'' and ''env(--bg-color)''.
 </div>
 
-Note: Spaces, and some other characters that might be valid in CSS syntax,
-are not technically valid in URLs.
-In some contexts,
-you might need to escape those characters to form a valid URL.
-In most cases, though,
-such as HTML's <{a}> element or CSS's ''url()'' function,
-spaces are accepted and do not need to be escaped.
+If the URL is specified in a URL attribute on an element,
+such as <code>&lt;img src="..."></code>,
+resolving the ''param()'' values
+(as specified in [[#param]])
+uses that element as the context.
+Otherwise (for example, if navigated to directly in the URL bar)
+there is no element context.
+
+<div class=example>
+	For example,
+	''param(color)'' requires an element context
+	(to obtain the default value, taken from the 'color' property).
+
+	Using <code highlight=html>&lt;img src="example.svg#:~:param(color)"></code> in your document
+	works as expected,
+	drawing from the <{img}> element's 'color' property.
+	Navigating directly to <code>example.svg#:~:param(color)</code>
+	will instead ignore the ''param(color)'',
+	as if it weren't passed at all.
+
+	Similarly,
+	''param(color, light-dark(black, white))'' requires an element context
+	(to determine the [=color scheme=]),
+	and would work the same as above.
+
+	On the other hand,
+	''param(--foo, light-dark(black, white))''
+	<em>does not</em> require an element context,
+	as the parameter is untyped.
+	The literal value ''light-dark(black, white)'' will be passed down to the linked resource,
+	without resolving in any way,
+	whether specified in <code highlight=html>&lt;img src></code> or directly navigated to.
+</div>
+
 
 Using Link Parameters {#using}
 =====================
