@@ -6438,30 +6438,40 @@ Sample Pseudocode for the EdgeSeeker Gamut Mapping</h4>
 	<!-- sampling each 60deg region separately ensures that the six primaries and secondaries,
 	     which are the corners of the gamut boundary, are sampled exactly -->
 	<li>for each of the six 60deg hue regions
-		(0deg to 60deg, 60deg to 120deg, and so on up to 300deg to 360deg),
-		for each of |N| hues |h| evenly spaced across that region,
-		inclusive of both endpoints:
+		(0deg to 60deg, 60deg to 120deg, and so on up to 300deg to 360deg):
 		<ol>
-			<li>let |r|, |g| and |b| be the result of
-				converting the HSL triplet (|h|, 100%, 50%) to RGB
-				using the <a href="#hsl-to-rgb">HSL to RGB conversion</a></li>
-			<li>let |cusp| be the color with coordinates |r|, |g|, |b| in |destination|,
-				converted to the OkLCh color space</li>
-			<!-- each entry is keyed by the OkLCh hue of the sampled color,
-			     which is not the HSL hue that was used to generate it;
-			     for sRGB the two differ by as much as 50deg -->
-			<li>append {l: |cusp|'s Lightness, c: |cusp|'s Chroma, h: |cusp|'s Hue} to |cusps|</li>
-			<li>let |r2|, |g2| and |b2| be the result of
-				converting the HSL triplet (|h|, 100%, 75%) to RGB
-				using the <a href="#hsl-to-rgb">HSL to RGB conversion</a></li>
-			<li>let |curvePoint| be the color with coordinates |r2|, |g2|, |b2| in |destination|,
-				converted to the OkLCh color space</li>
-			<li>append {l: |curvePoint|'s Lightness, c: |curvePoint|'s Chroma, h: |curvePoint|'s Hue}
-				to |curve|</li>
+			<li>let |regionCusps| and |regionCurve| each be an empty list</li>
+			<li>for each of |N| hues |h| evenly spaced across that region,
+				inclusive of both endpoints, in increasing order:
+				<ol>
+					<li>let |r|, |g| and |b| be the result of
+						converting the HSL triplet (|h|, 100%, 50%) to RGB
+						using the <a href="#hsl-to-rgb">HSL to RGB conversion</a></li>
+					<li>let |cusp| be the color with coordinates |r|, |g|, |b| in |destination|,
+						converted to the OkLCh color space</li>
+					<!-- each entry is keyed by the OkLCh hue of the sampled color,
+					     which is not the HSL hue that was used to generate it;
+					     for sRGB the two differ by as much as 50deg -->
+					<li>append {l: |cusp|'s Lightness, c: |cusp|'s Chroma, h: |cusp|'s Hue} to |regionCusps|</li>
+					<li>let |r2|, |g2| and |b2| be the result of
+						converting the HSL triplet (|h|, 100%, 75%) to RGB
+						using the <a href="#hsl-to-rgb">HSL to RGB conversion</a></li>
+					<li>let |curvePoint| be the color with coordinates |r2|, |g2|, |b2| in |destination|,
+						converted to the OkLCh color space</li>
+					<li>append {l: |curvePoint|'s Lightness, c: |curvePoint|'s Chroma, h: |curvePoint|'s Hue}
+						to |regionCurve|</li>
+				</ol>
+			</li>
+			<!-- near blue, the OkLCh hue of the sampled cusps runs backwards for a stretch
+			     (for sRGB, from HSL hue 231.6deg to 240deg);
+			     sorting alone would interleave the two runs and make the boundary zig-zag -->
+			<li>[=remove hue folds=] from |regionCusps|, and from |regionCurve|</li>
+			<!-- the last entry of each region is the first entry of the next -->
+			<li>append every entry of |regionCusps| except the last to |cusps|,
+				and every entry of |regionCurve| except the last to |curve|</li>
 		</ol>
 	</li>
-	<li>sort |cusps| and |curve| each by ascending hue,
-		discarding any duplicate entries at the region boundaries</li>
+	<li>sort |cusps| and |curve| each by ascending hue</li>
 	<!-- for each hue, work out how curved the boundary is between the cusp and the curve point -->
 	<li>let |LUT| be an empty list</li>
 	<li>for each entry |cusp| in |cusps|:
@@ -6490,20 +6500,71 @@ Sample Pseudocode for the EdgeSeeker Gamut Mapping</h4>
 </ol>
 
 	Note: The number of hue samples,
-	and any additional smoothing or filtering
-	used to correct for hue non-monotonicity introduced by sampling
-	near the corners of the destination gamut,
+	and any pruning of entries which can be linearly interpolated
+	from their neighbors,
 	are implementation choices
 	that trade off precomputation time, memory, and accuracy;
 	they do not affect the definition of the algorithm.
 	See the reference implementation [[colorjs-EdgeSeeker]]
 	for one such approach.
+</div>
 
-	Note: Because the entries are keyed by OkLCh hue,
+<div algorithm="to remove hue folds from a list of EdgeSeeker samples">
+	To <dfn>remove hue folds</dfn> from a list |samples|
+	of OkLCh entries in order of increasing sampled HSL hue:
+
+	Because the entries are keyed by OkLCh hue,
 	a monotonically increasing sequence of sampled HSL hues
-	does not always produce a monotonically increasing sequence of LUT hues.
-	Implementations need to repair or discard
-	such out-of-order entries before sorting.
+	does not always produce a monotonically increasing sequence of OkLCh hues:
+	the boundary can fold back on itself.
+	Simply discarding each entry whose hue does not advance
+	keeps the overshoot before the fold and discards the good entries after it,
+	which is worse than doing nothing.
+	Instead, the overshoot is removed,
+	and the boundary resumes at the end of the backward run.
+
+	Here the <em>hue step</em> from hue |a| to hue |b| is
+	(|b| − |a|) modulo 360deg, in the range [0deg, 360deg),
+	and it is <em>forward</em> if it is less than or equal to 180deg.
+
+<ol>
+	<li>let |kept| be a list containing the first entry of |samples|</li>
+	<li>let |i| be 1</li>
+	<li>while |i| is less than the number of entries in |samples|:
+		<ol>
+			<li>if the hue step from |samples|[|i| − 1]'s hue to |samples|[|i|]'s hue is forward,
+				append |samples|[|i|] to |kept|, set |i| to |i| + 1,
+				and continue with the next iteration</li>
+			<!-- otherwise the boundary has folded back on itself; find the end of the backward run -->
+			<li>let |j| be |i|</li>
+			<li>while |j| is less than the index of the last entry of |samples|,
+				and the hue step from |samples|[|j|]'s hue to |samples|[|j| + 1]'s hue is not forward,
+				set |j| to |j| + 1</li>
+			<!-- the fold can run to the end of the region
+			     (it does, for sRGB and rec2020), so resume can be the last sample -->
+			<li>let |resume| be |samples|[|j|]</li>
+			<li>let |first| be the index of the first entry of |kept|
+				whose hue step to |resume|'s hue is not forward,
+				that is, the first kept entry past |resume|'s hue</li>
+			<!-- holds for the display-referred RGB color spaces;
+			     prophoto-rgb violates it -->
+			<li>Assert: there is such an entry, and |first| is at least 1</li>
+			<li>let |bridge| be the entry at hue |resume|'s hue − 0.0001deg
+				whose Lightness and Chroma are obtained by
+				linearly interpolating, by hue, between |kept|[|first| − 1] and |kept|[|first|],
+				with the interpolation factor clamped to [0, 1]</li>
+			<!-- discard the overshoot -->
+			<li>remove |kept|[|first|] and every entry after it from |kept|</li>
+			<!-- with some sample counts a kept entry already lies within 0.0001deg of resume;
+			     the bridge would then land behind it, start a new fold, and is not needed -->
+			<li>if the hue step from the hue of the last entry of |kept| to |bridge|'s hue
+				is forward and not 0deg, append |bridge| to |kept|</li>
+			<li>append |resume| to |kept|</li>
+			<li>set |i| to |j| + 1</li>
+		</ol>
+	</li>
+	<li>replace the contents of |samples| with |kept|</li>
+</ol>
 </div>
 
 <div algorithm="to calculate the curvature of a gamut boundary section">
