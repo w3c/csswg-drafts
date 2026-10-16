@@ -183,7 +183,7 @@ They both produce different types of 2D gradients. Generally, mesh gradients can
 
 The PDF specification ISO 32000-2 section 8.7.4.5.8 defines tensor-product patch mesh shadings which can be used to represent both mesh gradients and freeform gradients with bicubic colour interpolation.
 
-The CSS colour interpolation method can also supported in PDFs. This is done by providing a function for custom colour interpolation.
+The CSS colour interpolation method can also be supported in PDFs. This is done by providing a function for custom colour interpolation.
 
 The issue includes [further discussion on PDF serialisation.](https://github.com/w3c/csswg-drafts/issues/7648#issuecomment-4807416203)
 
