@@ -34,6 +34,10 @@ SPECS = [
         "publicationStatus": "WD",
     },
     {
+        "shortname": "css-image-animation-1",
+        "publicationStatus": "WD",
+    },
+    {
         "shortname": "css-fonts-4",
         "publicationStatus": "WD",
     },
