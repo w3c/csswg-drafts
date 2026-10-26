@@ -74,7 +74,7 @@ function Jzazbz_to_XYZ (Jzazbz) {
 
     let LMS = Jzazbz_to_LMS (Jzazbz);
     // modified absolute XYZ
-	let [Xm, Ym, Za] = multiplyMatrices(LMS, M);
+	let [Xm, Ym, Za] = multiplyMatrices(M, LMS);
 
     // un-modify X and Y to get D65 XYZ, relative to media white
     let Xa = (Xm + (b - 1) * Za) / b;
@@ -100,7 +100,7 @@ function Jzazbz_to_LMS (Jzazbz) {
 	let Iz = (Jz + d0) / (1 + d - d * (Jz + d0));
 
     // bring into LMS cone domain
-	let PQLMS = multiplyMatrices([Iz, az, bz], M);
+	let PQLMS = multiplyMatrices(M, [Iz, az, bz]);
 
     // convert from PQ-coded to linear-light LMS
     let LMS = (
