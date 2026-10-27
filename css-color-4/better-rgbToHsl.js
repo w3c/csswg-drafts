@@ -39,6 +39,7 @@ function rgbToHsl (red, green, blue) {
 
     if (sat <= epsilon) {
         hue = NaN;
+        sat = 0;
     }
 
     return [hue, sat * 100, light * 100];
