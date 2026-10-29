@@ -418,9 +418,9 @@ SVGFEConvolveMatrixElement includes SVGFilterPrimitiveStandardAttributes;
         : <dfn>SVG_EDGEMODE_UNKNOWN</dfn>
         :: The type is not one of predefined types. It is invalid to attempt to define a new value of this type or to attempt to switch an existing value to this type.
         : <dfn>SVG_EDGEMODE_DUPLICATE</dfn>
-        :: Corresponds to value <a attr-value>duplicate</a>.
+        :: Corresponds to value <a attr-value for=feConvolveMatrix/edgeMode>duplicate</a>.
         : <dfn>SVG_EDGEMODE_WRAP</dfn>
-        :: Corresponds to value <a attr-value>wrap</a>.
+        :: Corresponds to value <a attr-value for=feConvolveMatrix/edgeMode>wrap</a>.
         : <dfn>SVG_EDGEMODE_NONE</dfn>
         :: Corresponds to value ''feConvolveMatrix/none''.
 </div>
@@ -718,7 +718,7 @@ SVGFEGaussianBlurElement includes SVGFilterPrimitiveStandardAttributes;
         : <dfn>SVG_EDGEMODE_DUPLICATE</dfn>
         :: Corresponds to value ''duplicate''.
         : <dfn>SVG_EDGEMODE_WRAP</dfn>
-        :: Corresponds to value <a attr-value>wrap</a>.
+        :: Corresponds to value <a attr-value for=feGaussianBlur/edgeMode>wrap</a>.
         : <dfn>SVG_EDGEMODE_NONE</dfn>
         :: Corresponds to value ''feGaussianBlur/none''.
 </div>
