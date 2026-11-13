@@ -101,11 +101,11 @@ mesh-gradient( [ <color-interpolation-method> || <color> ]?,
              )
 <mesh-point> = <color> [ <mesh-absolute-position> | <mesh-relative-position> ]?
 <mesh-absolute-position> = <position> [ with <position> [ / <position> ]{0,3} ]?
-<mesh-relative-position> = by <coordinate-pair> [ with <mesh-relative-control-point> [ / <mesh-relative-control-points> ]{0,3} ]?
+<mesh-relative-position> = by <coordinate-pair> [ with <mesh-relative-control-point> [ / <mesh-relative-control-point> ]{0,3} ]?
 <mesh-relative-control-point> = <coordinate-pair> [from origin]?
 ```
 
-The syntax defines the grid in rows. Each colour stop is separated by a comma (`,`) and row is separated by a semicolon (`;`). The colour stops use the same positioning syntax as `background-position`. The bezier control points are specified after the slash (`/`). Like with other gradients, the author can specify the colour interpolation method.
+The syntax defines the grid in rows. Each colour stop is separated by a comma (`,`) and row is separated by a semicolon (`;`). The colour stops use the same positioning syntax as `background-position`. The bezier control points are specified after the slash (`/`), similar to the [`shape()` function defined in CSS Shapes 1](https://drafts.csswg.org/css-shapes-1/#funcdef-basic-shape-shape). Like with other gradients, the author can specify the colour interpolation method.
 
 The simplest example of a mesh gradient using this syntax is:
 
