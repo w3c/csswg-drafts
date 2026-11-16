@@ -1,0 +1,1310 @@
+<pre class='metadata'>
+Title: CSS Spatial Layout Module Level 1
+Shortname: css-spatial
+Level: 3
+Status: ED
+Work Status: Exploring
+Group: csswg
+ED: https://drafts.csswg.org/css-spatial-1/
+Editor: Ada Rose Cannon, Apple, adarose@apple.com, w3cid 66378
+Editor: Elika J. Etemad / fantasai, Apple, http://fantasai.inkedblade.net/contact, w3cid 35400
+Abstract: This module introduces three-dimensional layout to the CSS rendering model.
+Markup Shorthands: css yes
+</pre>
+
+<pre class='link-defaults'>
+spec:css-transforms-1; type:type; text:<transform-list>
+spec:css-transforms-2; type:dfn; text:3d rendering context
+spec:css-position-3; type:dfn; text:weaker inset
+spec:css-anchor-position-1; type:dfn; text:anchor box
+spec:css-anchor-position-1; type:dfn; text:default anchor box
+spec:css-align-3; type:value; for:<self-position>; text:center
+spec:mediaqueries-5; type:dfn; text:false in the negative range
+spec:css-syntax-3; type:dfn; text:descriptor
+</pre>
+
+<h2 id='intro'>
+Introduction</h2>
+
+	<em>This section is not normative.</em>
+
+	This module introduces spatial (3-dimensional) layout to CSS,
+	creating [=spatial contexts=] and
+	extending [=relative positioning|relative=] and [=absolute positioning|absolute=] positioning
+	to handle the <dfn lt="z-axis|z axis">z-axis</dfn> (perpendicular to the canvas).
+
+	Note: The 'z-index' property is unrelated to [=spatial positioning=],
+	it merely controls the stacking order at a given [=z-axis=] position.
+
+<h3 id="values">
+Value Definitions</h3>
+
+	This specification follows the <a href="https://www.w3.org/TR/CSS2/about.html#property-defs">CSS property definition conventions</a> from [[!CSS2]]
+	using the <a href="https://www.w3.org/TR/css-values-3/#value-defs">value definition syntax</a> from [[!CSS-VALUES-3]].
+	Value types not defined in this specification are defined in CSS Values &amp; Units [[!CSS-VALUES-3]].
+	Combination with other CSS modules may expand the definitions of these value types.
+
+	In addition to the property-specific values listed in their definitions,
+	all properties defined in this specification
+	also accept the <a>CSS-wide keywords</a> as their property value.
+	For readability they have not been repeated explicitly.
+
+<h2 id="spatial-contexts">
+Establishing Spatial Contexts</h2>
+
+<h3 id='portals'>
+Establishing Spatial Contexts and Portals: the 'spatial' property</h3>
+
+	<pre class=propdef>
+	Name: spatial
+	Value: none | page | portal
+	Initial: none
+	Inherited: no
+	Applies to: all elements except [=internal table elements=], [=internal ruby elements=], and [=inline boxes=]
+	Computed value: as specified
+	Animation type: discrete
+	</pre>
+
+	The 'spatial' property establishes a <dfn>spatial container</dfn>,
+	generating one or more [=spatial contexts=]
+	allowing 3-dimensional layout within the context.
+
+	ISSUE: This property was previously named <css>portal</css>,
+	since it would establish a shared spatial context
+	for all the boxes within it.
+	For a ''spatial: portal'' value (previously <css>portal: full</css>),
+	it's clear when you need to create a shared context vs not.
+	But for page contexts, it's less clear.
+	Do we want to encourage authors to set up shared contexts,
+	or do we prefer them setting up independent ones for each
+	thing they want to shift in the z axis?
+	This may change whether we want to require shifted content to be contained by a ''spatial: page'' box
+	or whether we want to allow such boxes to be able to shift their own z-axis position
+	(by having the border box create an implicit spatial container).
+	Relatedly, in the former case we might want to restrict this to apply to boxes that establish formatting contexts,
+	an in the latter we'd want to allow them potentially even for inline boxes.
+
+	Values have the following meanings:
+
+	<dl dfn-type=value dfn-for=spatial>
+		<dt><dfn>none</dfn>
+		<dd>
+			No effect.
+
+		<dt><dfn>page</dfn>
+		<dd>
+			Establishes a <em>limited</em> [=front spatial context=],
+			which allows [=spatial positioning=] in front of the element's plane.
+			(However, see 'front-limit' for limits on this area.)
+
+		<dt><dfn>portal</dfn>
+		<dd>
+			Establishes two spatial contexts connected by a [=portal=]
+			coinciding with the [=border box=] of the [=spatial container=]:
+			* a [=back spatial context=] behind the element
+				consisting of a 3-dimensional “world” with its own coordinate system,
+				which can be viewed <em>through</em> the [=spatial container=]'s [=portal=]
+				(which acts as a window into this “world”).
+			* a [=front spatial context=],
+				which allows [=relative spatial positioning=]
+				in front of the element's plane just like ''spatial/page'' does,
+				as well as behind it by extending through the [=portal=]
+				into the the “world” of the [=back spatial context=].
+	</dl>
+
+	All content that is not positioned using [=absolute spatial positioning=]
+	into one of these [=spatial contexts=]
+	is drawn and laid out normally in 2D--
+	effectively on the “glass” of the [=portal=] (the <dfn>portal plane</dfn>)--
+	and affects / is affected by the size of the element's box as usual.
+	Relative positioning can be used to shift content in the [=z-axis=] relative to the “glass”,
+	see [[#position-spatial-relative]].
+
+	When the element establishes a [=back spatial context=],
+	the page is cut out behind its [=principal box|principal=] [=border box=]:
+	neither its background nor any content behind the box in the normal page context is drawn.
+	Instead, the user views the contents of the [=back spatial context=].
+
+	When 'spatial' is not ''spatial/none'',
+	the box establishes a [=containing volume=] for all descendant content
+	not otherwise contained by a [=containing volume=]
+	(excepting content whose [=containing block=] would be an ancestor of this element,
+	such as [=fixed-positioned boxes=]).
+
+	Nesting a [=portal=] inside an existing [=portal=]
+	does not create a new visual context or spatial “world”,
+	it merely creates a new coordinate system within the existing [=back spatial context=],
+	establishing a new [=containing volume=] and [=portal transform=] only.
+
+	For example, nesting a <{model}> element (which establishes its own [=spatial container=])
+	inside an existing portal sizes and positions the model to its [=spatial container=],
+	but the model co-exists with the other content of the parent [=spatial container=]
+	rather than creating a new pocket of reality with its own backdrop and lighting conditions.
+
+<h3 id="spatial-layout-model">
+Spatial Contexts and the Spatial Layout Model</h3>
+
+	A <dfn>spatial context</dfn> contains 3-dimensional layout,
+	establishing a coordinate system in all three axes
+	as well [=3D rendering context=] for its content.
+	It defines:
+
+	* a <dfn>containing volume</dfn>,
+		analogous to the [=containing block=], but with the addition of a [=z-axis=],
+		into which descendant objects can be laid out using
+		[=absolute spatial positioning|absolute=] or [=relative spatial positioning|relative=]
+		[=spatial positioning=].
+	* an <dfn>allowed volume</dfn>, which limits the rendering of objects
+		by clamping and/or clipping them
+
+	The <dfn>page allowed volume</dfn> limits the rendering of objects,
+	and thus clips the [=allowed volume=] of any [=front spatial contexts=] on the page.
+	It must include the entire viewport in the X and Y axes,
+	and in front of the page it includes the volume between
+	the page [=canvas=] and the UA-defined [=front limit plane=].
+	The UA may, however, extend the [=page allowed volume=] beyond the viewport.
+
+	Note: The [=page allowed volume=] can change during the lifetime of the page.
+	For example, the UA might increase or decrease it depending on
+	the placement of the browser window in relation to the user and/or other UI,
+	the level of trust of the website,
+	whether an immersive viewing mode has been enabled,
+	whether the page has focus,
+	etc.
+
+<h4 id="spatial-context-front">
+The Front Spatial Context</h4>
+
+	The <dfn>front spatial context</dfn> of a [=spatial container=]
+	establishes a 3-dimensional coordinate system relative to the [=spatial container=] itself.
+	In the [=z-axis=],
+	the 3-dimensional box created by the [=spatial container=]’s [=border edges=],
+	[=portal plane=], and [=front limit plane=]
+	defines the <dfn>front spatial context volume</dfn>.
+
+	For [=absolute spatial positioning=],
+	the [=containing volume=] is the [=front spatial context volume=].
+	For [=relative spatial positioning=],
+	the [=containing volume=] is the [=front spatial context volume=]
+	flattened to coincide with the [=portal plane=].
+
+	The [=allowed volume=] of the [=front spatial context=] is
+	the [=page allowed volume=] clipped by the [=spatial container=]’s [=front limit plane=] in front,
+	clipped by the [=overflow clip edge=] on the sides (if 'overflow' clipping applies),
+	and in the case of a ''spatial: portal'' [=spatial container=],
+	extending infinitely into the [=back spatial context=] behind the [=portal=].
+
+	<figure>
+		<img src="./images/FSC0001.png" style="max-width: 100%; height: auto; background: transparent;">
+		<figcaption>
+			An illustration of the front spatial context:
+			the model and text have been raised off the page.
+			The pencil model is shown at it's true size in CSS units.
+			The grid layout has been kept and is usable.
+		 </figcaption>
+	</figure>
+
+<h4 id="spatial-context-back">
+The Back Spatial Context</h4>
+
+	The <dfn>back spatial context</dfn> of a [=spatial container=]
+	establishes a 3-dimensional coordinate system independent of the [=spatial container=] and its page.
+	Content positioned into this context effectively exists inside its own 3D “world”,
+	connected to the world of the page through the <dfn>portal</dfn> of the [=spatial container=],
+	which coincides with its [=border box=].
+	The [=allowed volume=] of the [=back spatial context=] is infinite and unlimited;
+	however it is not rendered except behind the [=portal plane=].
+
+	This [=portal=] itself is opaque to the page:
+	through it, the user can only see the contents of the [=back spatial context=],
+	not any content placed behind it.
+	By default, the backdrop color of the [=back spatial context=]
+	is taken from the 'background-color' property.
+	If this color is not opaque, it is first composited on top of ''Canvas''.
+	The 'background-color' is not otherwise painted,
+	however all other [=background image layers=] are painted as usual on the [=portal plane=],
+	as if drawn on the “glass” of the [=portal=].
+
+	ISSUE: Should this respond to 'color-scheme'? How exactly?
+
+	<figure>
+		<img src="./images/Back0001.png" style="max-width: 100%; height: auto; background: transparent;">
+		<figcaption>An illustration of the back spatial context, the entity-transform of the portal scales the chair model down to fit the portal.</figcaption>
+	</figure>
+
+<h4 id="spatial-context-full">
+Full Portals: Connecting the Front and Back Spatial Contexts</h4>
+
+	A ''spatial: portal'' [=spatial container=] connects the [=front spatial context|front=] and [=back spatial context|back=] spatial contexts
+	through its [=portal=],
+	as if it were a window into the [=back spatial context=]
+	and the contents of the [=front spatial context=] were attached to its window “glass”.
+
+	The [=portal=] thus connects two coordinate systems:
+	the page coordinate system (which has its own idea of <<length>> values)
+	and the [=back spatial context=] coordinate system
+	(which has its own idea of <<length>> values, see 'portal-transform').
+	Objects in the [=front spatial context=] are always positioned
+	using the page coordinate system,
+	even when they are physically positioned inside the volume of the [=back spatial context=].
+	(In other words, the [=front spatial context=] and [=back spatial context=]
+	 can coincide in physical rendering space while maintaining their independent coordinate systems.)
+
+	<figure>
+		<img src="./images/Full0001.png" style="max-width: 100%; height: auto; background: transparent;">
+		<figcaption>An illustration of the front and back spatial context together, the pencil has been rotated so that it overlaps the back spatial context. It is unaffected by the back spatial context's entity-transform.</figcaption>
+	</figure>
+
+<h3 id="portal-config">
+Configuring the Back Spatial Context</h3>
+
+	The [=back spatial context=] can have an entity transform that differs from the page.
+	The 'portal-transform' and 'portal-action' properties control this this transform,
+	called the [=portal transform=].
+
+	The [=containing volume=] of the [=back spatial context=] defaults to containing its contents;
+	however it can be explicitly configured with the 'portal-stage' property.
+
+<h4 id="stage-volume">
+Defining Stage: the 'portal-stage' property</h4>
+
+	<pre class=propdef>
+	Name: portal-stage
+	Value: [ auto | <<length>> ]{1,4} [ / [ auto | <<length>> ]{1,2} ]?
+	Initial: auto
+	Inherited: no
+	Applies to: [=spatial containers=] establishing a [=back spatial context=]
+	Computed value: as specified, but with lengths made absolute
+	Animation type: by computed value
+	</pre>
+
+	The 'portal-stage' property defines the [=containing volume=] of the [=back spatial context=].
+	Values prior to the slash (''/'') are assigned to each side as for 'margin';
+	values after the slash (''/'') are assigned to the back and front, respectively.
+
+	Note: The [=allowed volume=] of the [=back spatial context=] is infinite.
+	The [=containing volume=] is only providing the origin and
+	a reference container for ''portal-transform: auto'' and [=absolute spatial positioning=].
+
+	Values have the following meanings:
+
+	<dl dfn-type=value dfn-for=portal-stage>
+		<dt><dfn><<length>></dfn>
+		<dd>
+			The stage expands from the origin by the specified length
+			towards the indicated side.
+			Values can be negative.
+
+		<dt><dfn>auto</dfn>
+		<dd>
+			The stage expands from the origin to contain
+			the contents of the [=back spatial context=] on the indicated side.
+
+			Note: This means that ''portal-stage: auto'' will always include the world origin.
+	</dl>
+
+	Negative values
+	(including those calculated from ''portal-stage/auto'')
+	are clamped to &le; max(0, <var ignore>opposite side</var>)
+	in order to ensure a non-negative [=containing volume=].
+
+	Advisement: The combination of ''portal-stage: auto''
+	(which sizes the stage based on its contents)
+	and percentage 'inset' values
+	(which position the content based on the size of the stage)
+	can give weird results.
+
+	Note: This property is analogous to the 'object-view-box' property which applies to 2D objects.
+
+<h5 id="portal-stage-auto-volume">
+Calculating an Automatic Containing Volume</h5>
+
+	For the purpose of ''portal-stage: auto'',
+	the contents of the [=back spatial context=] are measured:
+
+	- Assuming percentages relative to the [=containing volume=] are resolved against zero.
+	- Reducing the bounding box of each object by any negative margins on the relevant side.
+	- Ignoring any transforms or clipping applied to the object.
+	- After performing [=spatial positioning=]--
+		see [[#position-spatial]].
+		For this pupose,
+		the contribution of an [=absolute spatial positioned=] item
+		in an axis constrained by both insets
+		(i.e. not ''top/auto'' and thus untethered from having a position until the [=containing volume=] is resolved)
+		is derived exclusively from their size:
+		if their outer size + insets in this dimension
+		is larger than the [=containing volume=] calculated
+		from all items that are not dual-constrained in this axis,
+		then the [=containing volume=] is increased to accommodate that size
+		in whichever direction(s) have an ''portal-stage/auto'' expansion.
+		If both directions are ''portal-stage/auto'',
+		the contribution is split equally between them.
+
+	<div class="example">
+		For example,
+		if a [=back spatial context=] with ''portal-stage: auto'' contained two 10″ cubes
+		whose centers coincided with their origins:
+		1. If they were not otherwise positioned, their origins would coincide at the world origin,
+			and their bounding boxes would each be a 10" cube centered on the world origin,
+			resulting in a [=containing volume=] that's the same.
+		2. If one cube were positioned ''left: 10in'' (which shifts it ''10in'' to the right),
+			then the [=containing volume=] would be from -5in on the left to 15in on the right,
+			with this cube placed between 5in and 15in.
+		3. If that cube instead had ''left: 10in; right: -1in; margin: -0.5in'',
+			then the [=containing volume=] would be instead from -5in on the left to 13in on the right,
+			with this cube splaced between 4.5in and 14.5in.
+		4. If that cube instead had ''left: 20%; right: 0'',
+			then we would resolve 20% to zero for the purpose of resolving the [=containing volume=],
+			thus yielding a [=containing volume=] from -5in to 5in.
+			However the cube would then be centered between -2in and 5in
+			(because overconstrained objects are centered, see [[#position-spatial-absolute]]),
+			and thus actually placed between -3.5in and 6.5in.
+	</div>
+
+<h4 id="stage-transform">
+Transforming the Stage: the 'portal-transform' property</h4>
+
+	<pre class=propdef>
+	Name: portal-transform
+	Value: none | auto | auto? <<transform-list>> | <<transform-list>> auto <<transform-list>>?
+	Initial: auto
+	Inherited: no
+	Applies to: [=spatial containers=] establishing a [=back spatial context=]
+	Computed value: as specified, but with lengths made absolute
+	Animation type: Discrete if the presence of the ''portal-transform/none'' or ''portal-transform/auto'' keyword differs; otherwise interpolate each <<transform-list>> independently, see [[css-transforms-1#interpolation-of-transforms]].
+	</pre>
+
+	This property transforms the [=back spatial context=],
+	i.e. it sets the <dfn>portal transform</dfn> (sometimes called the “entity transform”).
+	Transforms are applied in order from first to last;
+	therefore transforms listed before ''portal-transform/auto'' affect the used value of ''portal-transform/auto'',
+	whereas transforms listed after it are applied after ''portal-transform/auto''-fitting.
+
+	<dl dfn-type=value dfn-for=portal-transform>
+		<dt><dfn>none</dfn>
+		<dd>
+			The origin of the [=back spatial context=] is
+			the center of its [=border box=] on the [=portal plane=],
+			and the [=portal transform=] ensures that <<length>> values correspond
+			between the page and the [=back spatial context=]
+			(i.e. ''1cm'' in the [=back spatial context=] is ''1cm'' on the page.)
+	
+		<dt><dfn>auto</dfn>
+		<dd>
+			The matrix required to fit the [=containing volume=]
+			(or bounding sphere of the [=containing volume=], in the case of ''portal-action: orbit'')
+			of the [=back spatial context=]
+			into an axis-aligned rectangle
+			whose sides align with [=content edges=] of the [=spatial container=],
+			and front aligns with the [=portal plane=].
+			If a <<transform-list>> is specified <em>before</em> ''portal-transform/auto'',
+			then it is applied to the [=containing volume=] prior to this calculation.
+
+		<dt><dfn><<transform-list>></dfn>
+		<dd>
+			The [=back spatial context=] is transformed as specified.
+	</dl>
+
+	Note: This property has no effect on the contents of the [=front spatial context=],
+	even if they intersect with the physical space of the [=back spatial context=].
+
+	ISSUE: Using the [=content edge=] for ''portal-transform/auto'' means that
+	the [=padding=] of the [=spatial container=] insets auto-fitted content.
+	If we want to allow different amounts of 'padding' on portal content vs glass content,
+	then we can introduce a new <strong><css>portal-padding</css></strong> property--
+	taking the same syntax as 'padding'
+	but with an initial value of <css>auto</css> that just copies from the regular 'padding'
+	to provide an easy default.
+
+	<div class="issue">
+		<strong>Unit Transforms</strong>
+		There are use cases for units that aren't transformed together with 'portal-transform' inside the portal.
+		For example to maintain consistently-sized readable labels of differently-sized objects.
+		As an illustration, here are three different ways we could define the ''px'' unit:
+		* Maintain its relationship to physical units as 1/96th of ''1in'',
+			thus transforming with the stage and its contents.
+		* Maintain its relationship to page coordinates,
+			thus not transforming with 'portal-transform' alongside the physical units.
+			In other words, ''1px'' in the [=front spatial context=] would always exactly match ''1px'' in the [=back spatial context=] <em>after applying the portal transform</em>.
+		* Maintain its size as a visual angle as measured at the portal plane,
+			thus growing as it moves away from the portal.
+			In other words, ''1px'' in the [=front spatial context=] would exactly match ''1px'' in the [=back spatial context=] <em>at the portal plane</em>,
+			but as the object being styled in ''px'' units is positioned further from the portal,
+			the resolution of ''1px'' grows so that it has the same visual size as ''1px'' at the portal plane.
+
+		This question needs more consideration, and might prompt the addition of new units
+		or the re-interpretation of some existing ones
+		(e.g. transforming the physical units together with the stage,
+			but resolving ''px'' and relative units against the portal glass).
+		See [[css-values-4#lengths]] for more information on CSS length units.
+	</div>
+
+<h4 id="stage-interactivity">
+Interacting with the Stage: the 'portal-action' property</h4>
+
+	<pre class=propdef>
+	Name: portal-action
+	Value: none | orbit || [ pan | pan-inline || pan-block || pan-x || pan-y || pan-z ]
+	Initial: none
+	Inherited: no
+	Applies to: [=spatial containers=] establishing a [=back spatial context=]
+	Computed value: as specified
+	Animation type: discrete
+	</pre>
+
+	This property indicates what kinds of motions the [=back spatial context=] can accept.
+	The methods of providing the interaction are left to the user agent,
+	and may include gestures, keyboard input, context menus, etc.
+
+	Values have the following meanings:
+
+	<dl dfn-type=value dfn-for=portal-action>
+		<dt><dfn>none</dfn>
+		<dd>
+			The contents of the [=back spatial context=]
+			cannot be repositioned or rotated by the user.
+
+		<dt><dfn>orbit</dfn>
+		<dd>
+			The contents of the [=back spatial context=]
+			can be rotated around the center of the [=containing volume=]
+			by the user.
+
+			Note: This value also causes ''portal-transform: auto'' to use
+			the bounding sphere instead of the bounding box.
+
+		<dt><dfn>pan</dfn>
+		<dd>
+			The contents of the [=back spatial context=]
+			can be translated (in any direction) by the user.
+
+		<dt><dfn>pan-inline</dfn>
+		<dt><dfn>pan-block</dfn>
+		<dt><dfn>pan-x</dfn>
+		<dt><dfn>pan-y</dfn>
+		<dt><dfn>pan-z</dfn>
+		<dd>
+			The contents of the [=back spatial context=]
+			can be translated (in the specified page-aligned axis) by the user.
+	</dl>
+
+	The transform matrix introduced by these user interactions
+	is applied after any transforms applied by 'portal-transform'.
+
+	ISSUE: Better name for this property?
+
+	Note: For user gestures involving touch, the 'touch-action' property
+	can limit what sorts of gestures are propagated
+	from the element receiving the action
+	to the [=portal=].
+
+<h3 id="front-limits">
+Front Limits: how far content can be raised on the page</h3>
+
+	The <dfn>front limit</dfn> of a [=spatial container=] defines how far forward
+	content is allowed to be rendered.
+	The resulting <dfn>front limit plane</dfn> is used
+	to clamp the [=z-axis=] position of [=relatively positioned=] boxes
+	and to clip content that is transformed too far forward towards the user.
+
+	The [=UA=] is responsible for choosing a comfortable [=front limit=] for the user
+	(and defining the [=page allowed volume=] accordingly),
+	in consideration of the window context, user preferences, etc.
+	This limit may be dynamically updated during the life of the page.
+
+	The author can control the [=front limit=] effect with the the 'front-limit' property;
+	query the computed 'front-limit' of a given [=spatial container=] using {{getComputedStyle()}};
+	and query the UA-dictated [=front limit=] for a page using the '@media/front-limit' [=media query=].
+
+<h4 id="front-limit-property">
+Controlling the Front Limit: the 'front-limit' property</h4>
+
+	<pre class=propdef>
+	Name: front-limit
+	Value: <<length [0,∞]>> | max
+	Initial: TBD
+	Inherited: yes
+	Applies to: [=spatial containers=]
+	Computed Value: a computed <<length>>
+	Animation type: by computed value type
+	</pre>
+
+	This property defines the [=front limit=] of the [=spatial container=].
+	Its [=computed value=] is the specified length [=computed value|computed=]
+	and clamped by the distance from the [=portal plane=]
+	to the front plane of the [=page allowed volume=].
+
+	Matching the 'front-limit' [=media query=],
+	the computed value for 'front-limit' from {{getComputedStyle()}}
+	is not required to reflect temporary UA adjustments to the [=page allowed volume=].
+
+	<div class="example">
+		In this example we set front-limit on the root element
+		allowing it to inherit to all the [=spatial containers=] on the page.
+
+		<pre highlight="css">
+		:root {
+			front-limit: 5cm;
+		}
+		</pre>
+	</div>
+
+
+	<div class=issue>
+		What should be the initial value? It probably shouldn't be max,
+		because that will likely set us up for compat pain. And zero wouldn't be useful.
+		Some possibilities:
+		* 1rem (scales with font size),
+		* 1vmin (scales with window size),
+		* 1in (scales with zoom factor)
+	</div>
+
+<h4 id="front-limit-query">
+Querying the Front Limit: the 'front-limit' media query</h4>
+
+	<pre class='descdef mq'>
+	Name: front-limit
+	Value: <<length [0,∞]>>
+	For: @media
+	Type: range
+	</pre>
+
+	The '@media/front-limit' [=media feature=] describes
+	the [=front limit=] allowed by the [=UA=] for this page.
+	This allows authors to define style rules that depend
+	on whether and by how much objects can be placed
+	in front of the page canvas plane.
+
+	The UA may limit the responsiveness of '@media/front-limit'
+	to temporary changes to the [=page allowed volume=],
+	to avoid exposing information about the external state of the user agent.
+	In this case, its value should correspond
+	to the effective [=page allowed volume=]
+	when the page is in focus and under typical active use.
+
+	<div class="example">
+		The '@media/front-limit' [=media feature=]
+		allows for alternative design decisions
+		when there is not enough space available.
+
+		In this case when there is enough space the images
+		sit in front of the page.
+		Otherwise a portal will be added for them to have space.
+
+		<pre highlight="css">
+		.stack {
+			position: relative;
+			spatial: portal;
+			front-limit: 5cm;
+		}
+
+		.stack img {
+			rotate: calc(sibling-index() * 10deg);
+			transform-origin: -10% 110%;
+
+			position: absolute;
+			inset-back: calc(100% - sibling-index() * 1cm);
+		}
+
+		@media (front-limit >= 5cm) {
+			.stack {
+				spatial: page;
+			}
+		}
+		</pre>
+
+		<pre highlight="html">
+		&lt;div class="stack">
+			&lt;img src="photo-1.jpg" alt="First photo">
+			&lt;img src="photo-2.jpg" alt="Second photo">
+			&lt;img src="photo-3.jpg" alt="Third photo">
+		&lt;/div>
+		</pre>
+	</div>
+
+	'@media/front-limit' is <a>false in the negative range</a>.
+
+<h3 id="spatial-colors">
+Color Compositing in Spatial Contexts</h3>
+
+	Although by default colors are composited in sRGB in CSS,
+	elements positioned in a spatial context
+	are composited in a UA-chosen linear color space.
+	Thus, for example, if a <{section}> within a spatial context
+	is raised above its container using `back: 5mm`,
+	although its children will composit with its own background
+	using the usual rules applicable to flat pages,
+	the result will composite with its container and other parts of the page
+	in the linear color space used by the UA for spatial rendering.
+	
+	Note: This may result in spatial elements having slight color discrepancies
+	compared with otherwise-similar non-spatial elements.
+
+<h2 id="position-spatial">
+Spatial Positioning</h2>
+
+	Within a [=containing volume=],
+	boxes can use <dfn lt="spatial positioning | spatially positioned">spatial positioning</dfn> to position themselves in 3D
+	within their [=spatial context=].
+
+	The front of the [=spatial context=] (towards the user)
+	is considered to be the [=start=] side of the [=z-axis=].
+
+<h3 id="position-spatial-relative">
+Relative Spatial Positioning</h3>
+
+	When a box is [=relatively positioned=] within a [=portal=],
+	it gains the ability to be positioned in the [=z-axis=] using the 'inset-front' and 'inset-back' properties
+	(<dfn lt="relative spatial positioning | relatively spatial positioned">relative spatial positioning</dfn>)
+	in addition to positioning in the [=x-axis=] and [=y-axis=] using the other [=inset properties=].
+	These position the box relative to their [=containing block=]’s plane,
+	allowing the content to shift forward and backward with respect to the page canvas plane.
+
+	<div class="example">
+		Raising some text of the page by moving it 1cm from the back plane.
+
+		<pre highlight="css">
+			h1 {
+				spatial: page;
+				> span {
+					position: relative;
+					inset-back: 1cm;
+				}
+			}
+		</pre>
+
+		<pre highlight="html">
+			&lt;h1>&lt;span>My Website&lt;/span>&lt;/h1>
+		</pre>
+	</div>
+
+	A [=relatively positioned box=] that is contained by a [=spatial container=]
+	and whose 'inset-front' or 'inset-back' property is not ''inset-front/auto''
+	is [=spatially positioned=] and rendered using spatial compositing.
+	The box is otherwise composited in 2D with its [=containing block=] as normal.
+
+<h4 id="position-spatial-relative-clamping">
+Clamping Relative Spatial Positioning to the Front Limit</h4>
+
+	If the 'inset-front' and 'inset-back' properties would position the box beyond
+	the [=front limit plane=] of its [=portal=],
+	then their [=used values=] are clamped to stay within the [=front limit=].
+
+	In the case of ''spatial: page'' if
+	the 'inset-front' and 'inset-back' properties would position the box
+	below the [=portal plane=],
+	then their [=used values=] are clamped to stay in the plane of the page.
+
+	When elements' positions are clamped to the [=front limit plane=] or the [=portal plane=],
+	they are stacked and composited relative to other elements
+	as if the [=z-axis=] distance between them were compressed to an infinitesimal amount
+	(rather than flattening them into a single 2D composition).
+
+	Note: This means they will continue to be composited
+	in the linear color space used for spatial compositing.
+	See [[#spatial-colors]].
+
+<h3 id="position-spatial-absolute">
+Absolute Spatial Positioning: the ''position/spatial-absolute'' keyword for 'position'</h3>
+
+	<pre class="propdef partial">
+	Name: position
+	New Values: spatial-absolute
+	</pre>
+
+	This module introduces the <dfn value for=position>spatial-absolute</dfn> keyword to the 'position' property.
+	When contained by a [=spatial container=],
+	this value takes the now [=spatially positioned=] box [=out of flow=]
+	and positions it into the [=containing volume=] of
+	the [=back spatial context=] (in the case of ''spatial: portal''),
+	or the [=front spatial context=] (in the case of ''spatial: page'')
+	of its [=spatial container=].
+
+	This style of positioning is called <dfn lt="absolute spatial positioning | absolutely spatial positioned">absolute spatial positioning</dfn>,
+	and it uses the [=inset properties=] (including the new 'inset-back' and 'inset-front' properties)
+	very similarly to [=absolute positioning=].
+	Since it works in 3D, in place of the [=containing block=],
+	this style of positioning uses a [=containing volume=].
+
+	* When both insets in a given axis are ''top/auto'',
+		the object is positioned so that its [=origin=]
+		coincides with the [=origin=] of the [=containing volume=].
+	* When only one inset in a given axis is ''top/auto'',
+		the object is positioned as for the double-''top/auto'' case,
+		but shifted away from the origin by the specified amount,
+		<em>away</em> from the specified side.
+		For example, ''left: 5cm'' moves the object rightwards,
+		away from the left edge.
+	* When neither inset in a given axis are ''top/auto'',
+		the object is sized and aligned within an <dfn>inset-modified containing volume</dfn>
+		derived from the [=containing volume=]
+		analogously to the [=inset-modified containing block=] in ''position: absolute'' layout.
+		See [[css-position-3#abspos-insets]].
+
+	In all cases, percentage sizes
+	(including [=sizing properties=], [=inset properties=], [=margins=], and [=padding=])
+	that are defined to resolve against the [=containing block=]
+	are resolved against the [=containing volume=],
+	see 'portal-stage'.
+
+	Unlike regular [=absolute positioning=],
+	the ''align-self/normal'' value for [=self-alignment=] (the [=initial value=])
+	behaves as ''align-self/center'',
+	causing the box to use [=fit-content sizing=] for the [=automatic size=],
+	and centering the object when constrained on both sides
+	by the [=inset-modified containing volume=].
+
+	ISSUE: What should happen if there's no containing portal?
+
+<h3 id="front-back">
+Z-axis Insets: the 'inset-front' and 'inset-back' properties</h3>
+
+	<pre class=propdef>
+	Name: inset-back, inset-front
+	Value: <'top'>
+	Initial: auto
+	Inherited: no
+	Applies to: boxes contained by a [=spatial container=]
+	Percentages: for [=relative spatial positioning=], relative to the distance from the [=containing block=] to the [=front limit plane=];
+		for [=absolute spatial positioning=], relative to the [=z-axis=] size of the [=containing volume=].
+	Animation type: by computed value type
+	</pre>
+
+	These 'inset' [=sub-properties=] control the [=z-axis=] in [=spatial positioning=].
+
+	Values have the following meanings:
+
+	<dl dfn-type=value dfn-for="inset-front,inset-back">
+		<dt><dfn>auto</dfn>
+		<dd>
+			If both insets in this axis are ''inset-front/auto'',
+			then the box is positioned at its default [=z-axis=] position.
+
+			Otherwise,
+			this value defers positioning to the opposite inset,
+			see below.
+
+		<dt><dfn><<length-percentage>></dfn>
+		<dd>
+			The box’s position is inset by the specified amount
+			from the front (for 'inset-front') or back (for 'inset-back').
+	</dl>
+
+	When [=relative positioning=],
+	if 'inset-back' is ''inset-back/auto'', then it computes to the negative of the [=computed value=] of 'inset-front';
+	otherwise 'inset-front' computes to the negative of the [=computed value=] of 'inset-back'.
+
+	In case of overconstraint,
+	'inset-front' is the [=weaker inset=].
+	Boxes positioned at the same [=z-axis=] position
+	are sorted primarily by 'z-index' and secondarily by [=document order=]
+	for the purposes of painting and hit-testing.
+
+	ISSUE: Need a diagram!
+
+<h4 id="inset-aliasing">
+Inset Aliases: the 'inset-top', 'inset-right', 'inset-bottom', and 'inset-left' properties</h4>
+
+	<pre class="propdef shorthand">
+	Name: inset-top, inset-right, inset-bottom, inset-left
+	Value: <'top'>
+	</pre>
+
+	As a convenience to authors,
+	this module introduces <css>inset-</css> prefixed [=legacy name aliases=]
+	for the 'top', 'right', 'bottom', and 'left' [=inset properties=]
+	for consistency with
+	the existing 'inset-block-start', 'inset-inline-start', 'inset-block-end', 'inset-inline-end' properties
+	and the newly introduced 'inset-front' and 'inset-back' properties.
+	See [[css-position-3#coords]] and [[css-cascade-4#aliasing]].
+
+<h4 id="inset-shorthand">
+Inset Shorthand: the ''/ <'inset-back'> <'inset-front'>?'' extension to 'inset'</h4>
+
+	<pre class="propdef partial">
+	Name: inset
+	New Values: <'top'>{1, 4} / <'inset-back'> <'inset-front'>?
+	</pre>
+
+	This module extends the 'inset' [=shorthand property=] to include
+	'inset-back' and 'inset-front' as [=longhand properties=],
+	and introduces the ability to set these by specifying their values after a slash (''/'').
+	Omitted values for 'inset-front' or 'inset-back' are set to ''inset-back/auto''.
+
+<h3 id="spatial-anchor-positioning">
+Anchor-based Positioning</h3>
+
+	[=Absolute spatial positioning=] can also be used together with
+	<a href="https://www.w3.org/TR/css-anchor-position/">CSS Anchor Positioning</a>.
+	This module extends 'position-area' and the ''anchor()'' functions
+	to reference the [=z-axis=]
+	and to reference the anchor's [=origin=] in all three axes.
+
+	<div class=note>
+		To handle origin-matching between two elements, we:
+		* Re-use 'offset-anchor' to define the origin of an HTML element.
+		* Add an ''anchor-origin''' keyword to the self-alignment properties. 
+		* Add a ''position-area/origin'' keyword to 'position-area'
+		* Add a ''anchor()/origin'' keyword to ''anchor()''
+
+		Alternatives considered include:
+		* Whether 'offset-position' be able to take ''anchor()'' functions
+			and whether ''offset-path: none'' just be a point at the 'offset-position'
+			But this is built on top of transforms, not positioning, so that may cause problems
+		* Using 'position-anchor-box' rather than 'position-area'
+	</div>
+
+<h4 id="spatial-anchor-coordinates">
+Anchor-based Coordinates: the 'position-context' property</h4>
+
+	<pre class=propdef>
+	Name: position-context
+	Value: container | anchor
+	Initial: container
+	Inherited: no
+	Applies to: absolutely positioned boxes
+	Animation type: discrete
+	</pre>
+
+	This property controls whether the box is oriented in
+	the coordinate system of its [=containing block=]
+	or if it is transformed together with its [=default anchor box=].
+
+	Values have the following meanings:
+
+	<dl dfn-type=value dfn-for=position-context>
+		<dt><dfn>container</dfn>
+		<dd>
+			The [=anchor box=] of a 3-dimensional object is its axis-aligned bounding box
+			in the coordinate system of the positioned box's [=containing volume=],
+			and the [=position-area grid=] is likewise oriented
+			in the coordinate system of its [=containing volume=].
+
+		<dt><dfn>anchor</dfn>
+		<dd>
+			The positioned box is transformed together with its [=default anchor box=],
+			and the used [=anchor box=] of any 3-dimensional object is the axis-aligned bounding box
+			of the [=default anchor box=]'s coordinate system, however that has been transformed.
+			Consequently, the positioned box moves, rotates, and scales together with the [=default anchor box=],
+			and the [=position-area grid=] is oriented in the [=default anchor box=]'s coordinate system.
+	</dl>
+
+<h4 id="position-area-3d">
+Extensions to 'position-area': 3-dimensional areas</h4>
+
+	<pre class="propdef partial">
+	Name: position-area
+	New Values: [ front | center | back | span-front | span-back | span-all ]?
+	</pre>
+
+	This module extends the <<position-area>> syntax
+	to append the following to all 2-keyword values:
+
+	<pre class=prod>
+		[/ [ front | center | back | span-front | span-back | span-all ]]?
+	</pre>
+
+	This creates a 3-axis syntax that describes a 27-sector 3-dimensional grid,
+	essentially extruding the existing 9-sector 2-dimensional grid
+	by adding areas corresponding to the front, center, and back of the [=anchor box=].
+	The [=z-axis=] positioning value is specified after a slash (''/'')
+	following the 2D positioning values.
+
+	If only one keyword is specified, and it is a valid [=z-axis=] keyword,
+	then it is repeated for all three axes.
+	Otherwise, the [=z-axis=] value defaults to ''position-area/center''.
+
+<h4 id="position-area-origin">
+Extensions to 'position-area': the ''position-area/origin'' area</h4>
+
+	<pre class="propdef partial">
+	Name: position-area
+	New Values: origin
+	</pre>
+
+	This module also extends the <<position-area>> syntax
+	to allow the <dfn value for=position-area>origin</dfn> keyword
+	everywhere that ''position-area/center'' is currently allowed.
+	This value represents a (zero-sized) track
+	that coincides with the anchor's [=origin=],
+	and its [[css-anchor-position-1#position-area-alignment|area-specific default alignment]]
+	is ''anchor-origin''.
+
+<h4 id="inset-anchor-3d">
+Extensions to ''anchor()'' and ''anchor-size()''</h4>
+
+	This module extends the <<anchor()>> syntax to add
+	<dfn value for="<<anchor-side>>">front</dfn> and <dfn value for="anchor-side">back</dfn>
+	to <<anchor-side>>.
+	Together with the existing ''anchor()/start''/''anchor()/end'' keywords,
+	this allows the 'inset-front' and 'inset-back' [=inset properties=] to resolve against
+	the corresponding sides of the [=anchor box=].
+
+	Similarly, for sizing purposes, the <<anchor-size()>> syntax
+	gains a <dfn value for="<<anchor-size>>">depth</dfn> keyword
+	to represent the [=z-axis=] size of the [=anchor box=].
+
+	It also adds an <dfn value for="<<anchor-side>>">origin</dfn> keyword
+	to <<anchor-side>>,
+	which resolves against the [=origin=] of the [=anchor box=].
+
+<h4 id="z-alignment">
+Extensions to Box Alignment: the 'z-align-self' and 'z-align-items' properties</h4>
+
+	<pre class=propdef>
+	Name: z-align-self
+	Value: <'align-self'>
+	Initial: normal
+	Inherited: no
+	Applies to: spatially positioned boxes
+	Animation type: discrete
+	</pre>
+
+	<pre class=propdef>
+	Name: z-align-items
+	Value: <'align-items'>
+	Initial: auto
+	Inherited: no
+	Applies to: all elements
+	Animation type: discrete
+	</pre>
+
+	These properties are analogous to 'align-self' and 'align-items',
+	except they operate in the [=z-axis=].
+
+	They are [=sub-properties=] of the 'place-self' and 'place-items' [=shorthand properties=], respectively,
+	which are themselves extended as follows:
+
+	<pre class="propdef shorthand">
+	Name: place-self
+	Value: <'align-self'> <'justify-self'>? [ / <'z-align-self'> ]?
+	</pre>
+
+	<pre class="propdef shorthand">
+	Name: place-items
+	Value: <'align-items'> <'justify-items'>? [ / <'z-align-items'> ]?
+	</pre>
+
+	This module extends the 'place-self' and 'place-items' [=shorthand properties=]
+	to also set <'z-align-self'> and <'z-align-items'> (respectively).
+	If only one value is specified, then the shorthand sets all three axes to the same value.
+	If only the z-axis value is omitted, then it is set to its [=initial value=].
+
+<h4 id="origin-anchoring">
+Extensions to Anchor Alignment: the ''anchor-origin'' value</h4>
+
+	<pre class="propdef partial">
+	Name: justify-self, align-self, z-align-self, justify-items, align-items, z-align-items
+	New values: anchor-origin
+	</pre>
+
+	This module also introduces the new <dfn value for="<self-position>">anchor-origin</dfn> value,
+	which centers the origin of the [=alignment subject=] against the origin of its [=default anchor box=].
+	When ''align-self/anchor-origin'' is specified,
+	the [=inset properties=] behave differently in the affected axis:
+	instead of adjusting the [=inset-modified containing block=],
+	they shift the [=origin=] of the [=alignment subject=]--
+	exactly as if it were a zero-sized [=containing block=]
+	and the effective [=origin=] were the resulting [=inset-modified containing block=].
+
+	<div class=example>
+		For example,
+		if the box's horizontal origin is at 3cm,
+		and we apply ''right: 1cm''
+		(leaving 'left' as ''left/auto'')
+		then the resulting origin used for alignment is the point at 2cm.
+		If we then <em>also</em>apply ''left: 0.5cm'',
+		then the result is overconstrained,
+		and we ignore the [=weaker inset=] (the 'right' inset in ''direction: ltr''),
+		resulting in an origin point at 3.5cm instead.
+		If we instead apply ''left: -3cm'',
+		then we end up with an origin in the range [0,2cm],
+		the center of which is 1cm,
+		which gets matched with the center of the [=origin=] of the [=anchor box=].
+	</div>
+
+	Like ''anchor-center'', this value falls back to ''align-self/center''
+	when the box is not [=absolutely positioned=] or does not have a [=default anchor box=].
+
+<h4 id="object-origin">
+Defining the Origin</h4>
+
+	For 3-dimensional objects with an origin coordinate,
+	the <dfn>origin</dfn> is that coordinate.
+	Otherwise, the [=origin=] of a box
+	is the origin provided by the 'offset-anchor' property.
+
+	ISSUE: Work out the interaction among these a little better.
+	E.g. Maybe 'transform-origin' should default to a coordinate-defined object's actual origin
+	rather than to 50% 50%.
+
+<h2 id="spatial-transforms">
+Spatial Transforms</h2>
+
+	Transforms applied to [=spatially positioned=] objects--
+	whether direct children of the [=spatial container=] or not--
+	inherently participate in the [=3D rendering context=]
+	of the [=spatial context=] into which they are positioned.
+	''transform-style: preserve-3d'' can be used to extend this [=3D rendering context=]
+	further to nested elements that are not themselves [=spatially transformed=].
+
+	Because it uses the actual perpsective of the user,
+	the [=3D rendering context=] of a [=spatial container=]
+	ignores the 'perspective' and 'perspective-origin' properties.
+
+	ISSUE: We could also replace the ''perspective()'' function with the identity transform;
+	or we can let it do whatever weird thing it ends up doing once it's converted to a matrix anyway.
+
+	Note: Transforms that do not use ''transform-style/preserve-3d'' are flattened as usual.
+
+<h2 id="interactions-with-spatial-content">
+Interactions with Spatial Content</h2>
+
+	Elements which are contained in a portal continue to be part of the accessibility tree
+	and to be interactive with all ways on the web content is.
+
+	For the purposes of pointer interactions,
+	it is up to the user agent to identify the user's target.
+	However, to limit the amount of information shared about the user's location,
+	other than firing events on the correct target,
+	the UA must not transmit precise coordinates for the interaction.
+
+	Note: The restriction on coordinates is to reduce the page's ability
+	to reconstruct the ray used for interactions.
+
+<h2 id="environment-maps">
+Environment Maps</h2>
+
+	<dfn id=environment-map>Environment maps</dfn> describe the lighting surrounding the [=spatial context=].
+
+<h3 id="environment-map-definition">
+Defining Environment Maps: the ''@environment-map'' rule</h3>
+
+	[=Environment maps=] are named and defined using the <dfn>@environment-map</dfn> [=at-rule=],
+	which contains a list of environment map [=descriptor declarations=].
+	Its syntax is as follows:
+
+	<pre class=prod>
+		<<@environment-map>> = @environment-map {
+			<<declaration-list>>
+		}
+	</pre>
+
+	It accepts the '@environment-map/name', '@environment-map/format', and '@environment-map/src' [=descriptors=];
+	all other declarations are ignored.
+	As with ''@font-face'' rules,
+	when a given descriptor is declared multiple times within an ''@environment-map'' rule
+	the last one wins,
+	and if multiple ''@environment-map'' rules are declared with the same [=environment map/name=]
+	then then last one wins.
+
+	An ''@environment-map'' rule without a [=environment map/name=] is invalid;
+	and although it appears in the [[CSSOM]], it is effectively ignored.
+
+<h4 id="environment-map-names">
+Naming an Environment Map: the '@environment-map/name' descriptor</h4>
+
+	<pre class=descdef>
+	Name: name
+	For: @environment-map
+	Value: <<string>>
+	Initial: N/A
+	</pre>
+
+	The '@environment-map/name' [=descriptor=] declares the <dfn for="environment map">name</dfn> of an [=environment map=],
+	allowing it to be referenced by the 'environment' property.
+
+<h4 id="environment-map-formats">
+Environment Map Formats: the '@environment-map/format' descriptor</h4>
+
+	<pre class=descdef>
+	Name: format
+	For: @environment-map
+	Value: equirectangular | cube
+	Initial: equirectangular
+	</pre>
+
+	The '@environment-map/format' [=descriptor=] declares the <dfn for="environment map">format</dfn> of an [=environment map=],
+	which defines how the [=environment map/source=] image
+	is mapped into three dimensions.
+
+	Values have the following meanings:
+
+	<dl dfn-type=value dfn-for=format>
+		<dt><dfn>equirectangular</dfn>
+		<dd>
+			The rectangular image is mapped onto the interior of a sphere
+			(similar to a Mercator projection),
+			with the top of the image coinciding with the y-most point on the sphere,
+			the bottom of the image coinciding with the y-least point on the sphere,
+			and the center of the image at the z-least point on the sphere (directly in front of the user).
+
+			If more than one [=environment map/source=] image is provided,
+			the first one is used and all others are ignored.
+		
+		<dt><dfn>cube</dfn>
+		<dd>
+			The six images provided in the '@environment-map/src' descriptor
+			are mapped onto the interior of an axis-aligned cube,
+			see [[#cube-mapping]].
+	</dl>
+
+	ISSUE: Make sure we're happy with which side of these images faces forward.
+
+<h5 id="cube-mapping">
+Mapping Images Onto a Cube</h5>
+
+	The six [=environment map/source=] images for a ''environment-map/cube'' mapping
+	are assigned in the following order:
+		1. Top (y-most)
+		2. Ahead (z-least, i.e. in front of the the user, facing backward)
+		3. Right (x-most)
+		4. Behind (z-most, i.e. in back of the user, facing forward)
+		5. Left (x-least)
+		6. Bottom (y-least)
+	
+	For the top and bottom sides, the top of the source image is attached to the ahead edge.
+	For the right, left, ahead, and behind images, the top of the source image is attached to the top.
+
+	Omitted values are handled as follows:
+	1. If only 5 images, the left is considered omitted and is mirrored from the right.
+	2. If only 4 images, the behind is also considered omitted and is mirrored from the ahead.
+	3. If only 3 images, the middle image is stretched to wrap around all four vertical sides, centered straight ahead.
+	4. If only 2 images, the second is ignored; see 1 image.
+	5. If only 1 image, it is divided into 4 equal columns and 3 equal rows,
+		with the region in [2,2] used ahead and the others folded onto the cube
+		(ignoring the regions that don't fit).
+
+	<figure>
+		<pre class="ascii-art">
+		  TT
+		  TT  
+		LLAARRBB
+		LLAARRBB
+		  BB
+		  BB
+		</pre>
+		<figcaption>Diagram of the single-image cube fold</figcaption>
+	</figure>
+
+<h4 id="environment-map-src">
+Environment Map Images: the '@environment-map/src' descriptor</h4>
+
+	<pre class=descdef>
+	Name: src
+	For: @environment-map
+	Value: <<image>>{1,6}
+	Initial: N/A
+	</pre>
+
+	The '@environment-map/src' [=descriptor=] declares the <dfn for="environment map">sources</dfn> of an [=environment map=],
+	which are images mapped on to the geometry of the [=environment map=]
+	in accordance with the specified [=environment map/format=].
+
+<h3 id="environment-map-references">
+Applying Environment Maps</h3>
+
+	[=Environment maps=] are applied to a [=portal=]'s [=back spatial context=]
+	using the 'environment' sub-properties,
+	which form a [=coordinating list property group=]
+	with 'environment-map' as the [=coordinating list base property=].
+
+	ISSUE: What about the [=front spatial context=]?
+
+<h4 id="environment-map-property">
+Referencing an Environment Map: the 'environment-map' property</h4>
+
+	<pre class=propdef>
+	Name: environment-map
+	Value: auto | none | <<string>>#
+	Initial: auto
+	Inherited: yes
+	Applies to: elements participating in a [=back spatial context=]
+	Animation type: discrete
+	</pre>
+
+	This property applies an [=environment map=] to the [=back spatial context=] of a [=portal=] element.
+
+	Values have the following meanings:
+
+	<dl dfn-type=value dfn-for=environment-name>
+		<dt><dfn>none</dfn>
+		<dd>
+			The [=environment map=] is opaque black in all directions.
+	
+		<dt><dfn>auto</dfn>
+		<dd>
+			The [=environment map=] used is the user agent's default environment map.
+
+		<dt><dfn><<string>></dfn>
+		<dd>
+			The [=environment map=] is defined by the ''@environment-map'' rule matching the specified name
+			(if any; otherwise it is opaque black).
+	</dl>
+
+	When one or more [=environment maps=] are specified,
+	each environment map adds its own contribution:
+	each map's color value is first multiplied by its corresponding 'environment-intensity'
+	and the results are summed.
+
+	Note: These calculations should be performed in a linear color space
+	such as ''srgb-linear'' or ''display-p3-linear''
+	in order to be physically correct.
+	A gamma-corrected color space will produce inaccurate results.
+
+<h4 id="environment-map-intensity">
+Brightening and Dimming the Environment: the 'environment-intensity' property</h4>
+
+	<pre class=propdef>
+	Name: environment-intensity
+	Value: <<number [0,infinity]>>#
+	Initial: 1
+	Inherited: yes
+	Applies to: elements participating in a [=back spatial context=]
+	Animation type: by computed value type
+	</pre>
+
+	This property specifies the intensity factor
+	used when calculating the total lighting provided by the [=environment maps=] (see [[#environment-map-property]]).
+
+<h4 id="environment-map-rotate">
+Rotating the Environment: the 'environment-rotate' property</h4>
+
+	<pre class=propdef>
+	Name: environment-rotate
+	Value: <<angle>>#
+	Initial: 0deg
+	Inherited: yes
+	Applies to: elements participating in a [=back spatial context=]
+	Animation type: by computed value type
+	</pre>
+
+	This property rotates the [=environment map=] specified by 'environment-map'
+	around the [=y-axis=] by the specified amount.
+
+<h4 id="environment-shorthand">
+Declaring the Environment: the 'environment' shorthand</h4>
+
+	<pre class="propdef shorthand">
+	Name: environment
+	Value: [ <'environment-map'> || <'environment-intensity'> || <'environment-rotate'> ]#
+	</pre>
+
+	This [=shorthand property=] specifies 'environment-map', 'environment-intensity', and 'environment-rotate'
+	in a single [=declaration=].
+
+<h2 id="ua-stylesheet">
+Appendix A: Default UA Stylesheet</h2>
+
+
+	This appendix provides CSS rules for implementing
+	the behaviors of proposed spatial HTML elements.
+
+	<pre>
+	model, spatialfigure {
+		spatial: portal;
+		front-limit: 0 !important;
+	}
+	</pre>
+
+
