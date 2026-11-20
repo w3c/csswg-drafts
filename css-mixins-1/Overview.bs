@@ -198,18 +198,18 @@ Defining Custom Functions {#defining-custom-functions}
 The <dfn>@function</dfn> Rule {#function-rule}
 ----------------------------------------------
 
-The ''@function'' rule defines a <dfn>custom function</dfn>,
+The ''@function'' rule defines a <dfn export>custom function</dfn>,
 and consists of a name,
 a list of [=function parameter|parameters=],
-a <dfn for="custom function">function body</dfn>,
-and optionally a <dfn for="custom function">return type</dfn> described by a [=syntax definition=].
+a <dfn for="custom function" export>function body</dfn>,
+and optionally a <dfn for="custom function" export>return type</dfn> described by a [=syntax definition=].
 
-Each <dfn>function parameter</dfn> consists of a name (<<custom-property-name>>);
-optionally a <dfn>parameter type</dfn>, described by a [=syntax definition=];
-and optionally a <dfn>default value</dfn>.
+Each <dfn for="custom function" export>function parameter</dfn> consists of a name (<<custom-property-name>>);
+optionally a <dfn for="custom function parameter" export>parameter type</dfn>, described by a [=syntax definition=];
+and optionally a <dfn for="custom function parameter" export>default value</dfn>.
 
 <pre class="prod def" nohighlight>
-&lt;@function> = @function <<function-token>> <<function-parameter>>#? )
+&lt;@function> = @function <<function-token>> <<function-parameter>>#? ,? )
 	[ returns <<css-type>> ]?
 {
 	<<declaration-rule-list>>
@@ -217,7 +217,7 @@ and optionally a <dfn>default value</dfn>.
 
 <dfn><<function-parameter>></dfn> = <<custom-property-name>> <<css-type>>? [ : <<default-value>> ]?
 <dfn><<css-type>></dfn> = <<syntax-component>> | <<@function/type()>>
-<dfn><<default-value>></dfn> = <<declaration-value>>
+<dfn><<default-value>></dfn> = <<declaration-value>>?
 <dfn function lt="type()" for="@function">&lt;type()></dfn> = type( <<syntax>> )
 </pre>
 
@@ -231,6 +231,16 @@ If a [=default value=] and a [=parameter type=] are both provided,
 then the [=default value=] must [=CSS/parse=] successfully
 according to that [=parameter type=]'s syntax.
 Otherwise, the ''@function'' rule is invalid.
+
+Whether a [=default value=] is provided or omitted is determined by the presence or absence of the colon;
+an empty [=default value=]
+(like `@function --x(--arg:){}`)
+is perfectly valid.
+
+Note: A final trailing comma is allowed after the arguments,
+to make formatting arguments across multiple lines easier.
+
+
 
 <h4 id=function-prelude>
 The Function Prelude</h4>
@@ -312,9 +322,10 @@ Using ''var()'' functions,
 it can reference [=function parameters=], [=local variables=],
 as well as other [=custom functions=] via <<dashed-function>>s.
 
-The '@function/result' descriptor itself does not have a type,
-but its [=resolve function styles|resolved=] value is type-checked
-during the [=replace a dashed function|substitution=] of a <<dashed-function>>.
+If the [=function=] has a [=custom function/return type=],
+'@function/result' actually uses that as its grammar
+(as if it were a [=registered custom property=] with that as its syntax),
+rather than the generic value in the table above.
 
 Arguments & Local Variables {#args}
 -----------------------------------
@@ -391,6 +402,113 @@ to the '--foo' custom property from the call site.
 
 </div>
 
+<h4 id="arg-cascade">
+Argument/Local Cascading: the ''initial'' and ''inherit'' keywords</h4>
+
+<em>This section is non-normative.
+The normative definition of these concepts is in [[#evaluating-custom-functions]].</em>
+
+When evaluating a [=custom function=],
+first the [=function parameters=] are evaluated together,
+as if they were custom properties
+(registered with the appropriate syntax and initial values)
+on a hypothetical child element.
+This means they'll see the inherited values of normal [=custom properties=],
+and can reference each other in any (non-cyclic) order;
+there's no defined evaluation order of the arguments.
+
+While evaluating the parameters,
+the ''initial'' keyword resolves to the [=guaranteed-invalid value=],
+while ''inherit'' resolves to the inherited value of the same-named [=custom property=]
+in the calling context
+(usually the element being styled).
+
+After parameters are resolved,
+the [=custom function=] resolves its body styles in the same way,
+with all the parameters added as [=local variables=] at the top of the [=function body=]
+and set to their resolved value.
+In this phase, the ''initial'' keyword resolves to that resolved value,
+but ''inherit'' still resolves to the inherited value of the same-named [=custom property=]
+in the calling context.
+
+<div class=example>
+	<pre highlight=css>
+	@function --args(--one, --two: initial, --three:inherit) {
+		result: none;
+	}
+	</pre>
+
+	While evaluating the arguments,
+	--one and --two are identical in this example;
+	--one has no default value,
+	which is identical to specifically having the
+	[=guaranteed-invalid value=] as an initial value
+	like --two does.
+
+	Meanwhile, --three's default value is the value of
+	'--three' on the calling element.
+</div>
+
+<div class=example>
+	<xmp highlight=css>
+	@function --refs(
+		--one: calc(var(--two) + var(--three)),
+		--two: 5,
+		--three: calc(var(--two) + 1),
+	) returns <integer> {
+		result: var(--one);
+	}
+	</xmp>
+
+	In this example, both --one and --three refer to --two,
+	pointing both forward and backward in the argument list,
+	because order doesn't matter,
+	just like properties on an element.
+
+	Chained references are also just fine,
+	so long as they're not cyclic.
+	In this example, ''--refs()'' called with no arguments
+	will return 11.
+</div>
+
+<div class=example>
+	<xmp highlight=css>
+	@function --body(
+		--one: 10px,
+		--two: 20px,
+		--three: 30px,
+	) returns <length> {
+		--one: initial
+		--two: initial
+		--three: inherit;
+		--four: inherit;
+		result: calc(var(--one) + var(--two) + var(--three) + var(--four));
+	}
+
+	.foo {
+		--one: 1px;
+		--two: 2px;
+		--three: 3px;
+		--four: 4px;
+		width: --body(5px);
+	}
+	</xmp>
+
+	This example shows off a few more things in combination.
+
+	First, the resolved values of the parameters are
+	5px (from the passed argument for --one),
+	20px, and 30px (from the default values for --two and --three).
+
+	Then, in the body,
+	--one becomes 5px and --two becomes 20px
+	(the values resolved in the parameter phase),
+	while --three and --four become 3px and 4px
+	(the values of the [=custom properties=] on the calling element).
+	The final result is 32px.
+</div>
+
+
 
 <!-- Big Text: using
 
@@ -417,8 +535,27 @@ whose function name starts with two dashes (U+002D HYPHEN-MINUS).
 Its [=argument grammar=] is:
 
 <pre class="prod informative" nohighlight>
-	&lt;dashed-function> = --*( <<declaration-value>>#? )
+	&lt;dashed-function> = --*( [ <<declaration-value>>? ]#? ,? )
 </pre>
+
+Note: That is, a comma-separated list of anything
+(including an empty value),
+optionally with a final trailing comma.
+
+The comma-separated values provide the arguments to the function,
+matched up with the corresponding [=function parameters=].
+Each <<declaration-value>> has leading/trailing whitespace trimmed from it.
+If the final argument is empty,
+it's dropped.
+
+Note: This is similar to the JS function call (and array literal) syntax
+where a final trailing comma <em>does not</em> pass an argument (or array value),
+so you can format the function/literal across multiple lines
+and end every line with a comma.
+If you do want to pass an empty final argument,
+put <em>another</em> comma after it,
+like ''--func(1, 2,,)''
+(or ''--solo(,)'' to pass a single empty argument).
 
 A <<dashed-function>> can only be used where ''var()'' is allowed.
 
@@ -943,7 +1080,7 @@ Expect things to change frequently for now.
 <h3 id=mixin-rule>
 The <dfn>@mixin</dfn> rule</h3>
 
-The ''@mixin'' rule defines a <dfn>mixin</dfn>,
+The ''@mixin'' rule defines a <dfn export>mixin</dfn>,
 and consists of a name,
 a list of [=mixin parameters=],
 and a [=mixin body=].
@@ -952,7 +1089,7 @@ save that it lacks a [=custom function/return type=],
 and that the parameter list and enclosing parentheses are optional.)
 
 <pre class="prod def">
-	<<@mixin>> = @mixin [<<function-token>> <<function-parameter>>#? ) | <<ident-token>> ]
+	<<@mixin>> = @mixin [<<function-token>> <<function-parameter>>#? ,? ) | <<ident-token>> ]
 	{
 		<<block-contents>>
 	}
@@ -963,6 +1100,9 @@ and that the parameter list and enclosing parentheses are optional.)
 	mixins/mixin-media-query-invalidation.html
 	mixins/mixin-parameters.html
 </wpt>
+
+Note: Like ''@function'',
+a single trailing comma can be put at the end of the argument list.
 
 The [=mixin body=] is parsed as if it were a [=nested declarations rule=].
 
@@ -1227,6 +1367,9 @@ Its grammar is:
 	mixins/apply-top-level.html
 	mixins/apply-within-mixin.html
 </wpt>
+
+The ''@apply'' <<dashed-function>> syntax has the same whitespace-trimming behavior as [=custom functions=],
+and the same treatment of a final trailing comma.
 
 <div class=example>
 	For example, a [=mixin=] can be applied in any of these ways:
@@ -1772,9 +1915,10 @@ The ''@private'' rule is only valid nested as a child of a [=style rule=]
 or a [=nested group rule=].
 In any other context, it is invalid.
 
-A ''@private'' rule can only contain [=custom properties=]
-and [=nested group rules=]
-(in which case it passes this same restriction to <em>their</em> contents).
+A ''@private'' rule can only contain [=custom properties=],
+[=nested group rules=]
+(in which case it passes this same restriction to <em>their</em> contents),
+and ''@property'' rules (see [[#private-reg]]).
 Any other contents are invalid and will be ignored,
 but do not invalidate the ''@private'' rule itself.
 
@@ -1817,6 +1961,9 @@ Note: Because [=private properties=] are different from same-named [=custom prop
 (They apply to the non-private [=custom property=], instead.)
 In some cases, such as [=mixin parameters=],
 CSS can still give them a [=custom property registration=].
+A ''@property'' rule can also be used <em>directly inside</em> of a ''@private'' rule,
+creating a [=custom property registration=] that applies to that [=private property=];
+see [[#private-reg]].
 
 Applying a [=mixin=] with ''@apply'' effectively substitutes the mixin in-place,
 so a [=mixin=] sees any [=private properties=] 
@@ -2050,6 +2197,55 @@ which can interact with other properties set in other style rules.
 	and all three elements share a ''2px'' 'border-width'.
 </div>
 
+Registering Private Properties {#private-reg}
+---------------------------------------------
+
+Just like normal [=custom properties=],
+[=private properties=] are, by default, unregistered:
+they accept any syntax,
+do not interpret their values in any way,
+automatically inherit,
+etc.
+
+Also like normal [=custom properties=],
+[=private properties=] can become [=registered custom properties=]
+via the ''@property'' rule.
+While global property registrations do not apply to [=private properties=],
+a ''@property'' rule inside of a ''@private'' rule <em>does</em>.
+
+A ''@property'' rule inside of a ''@private'' rule
+defines a [=private property name=]
+for the parent [=style rule=],
+just like using the [=private property=] normally does.
+Its [=custom property registration=]
+only applies to that [=private property=],
+not any other of the same name.
+
+<div class=example>
+	For example, in the following [=mixin=],
+	both ''--one'' and ''--two'' are registered as <<color>> properties,
+	one as an argument
+	and one explicitly with a ''@property'' rule:
+
+	<xmp highlight=css>
+	@mixin --colors(--one <color>) {
+		@private {
+			@property --two <color>: blue;
+			/* Using the shorthand @property form.
+			   "blue" is the initial value, but if
+			   nothing overrides it, that's basically
+			   identical to just setting
+			   --two: blue;
+			*/
+			--three: green;
+			/* not registered, so this is just a keyword */
+		}
+		--one: 1;   /* invalid, since --one is a <color> /*
+		--two: 2;   /* ditto for --two */
+		--three: 3; /* this is valid! */
+	}
+	</xmp>
+</div>
 
 
 <!-- Big Text: cssom

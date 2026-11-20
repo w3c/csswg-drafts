@@ -343,16 +343,21 @@ function Lab_to_XYZ(Lab) {
 	var ε = 216/24389;  // 6^3/29^3
 	var f = [];
 
+	// keep L out of L+16 for near-black precision
+	var lightness116 = Lab[0]/116;
+	var a500 = Lab[1]/500;
+	var b200 = Lab[2]/200;
+
 	// compute f, starting with the luminance-related term
-	f[1] = (Lab[0] + 16)/116;
-	f[0] = Lab[1]/500 + f[1];
-	f[2] = f[1] - Lab[2]/200;
+	f[1] = lightness116 + (16/116);
+	f[0] = f[1] + a500;
+	f[2] = f[1] - b200;
 
 	// compute xyz
 	var xyz = [
-		Math.pow(f[0],3) > ε ?   Math.pow(f[0],3)            : (116*f[0]-16)/κ,
+		Math.pow(f[0],3) > ε ?   Math.pow(f[0],3)            : (lightness116 + a500) * (116/κ),
 		Lab[0] > κ * ε ?         Math.pow((Lab[0]+16)/116,3) : Lab[0]/κ,
-		Math.pow(f[2],3)  > ε ?  Math.pow(f[2],3)            : (116*f[2]-16)/κ
+		Math.pow(f[2],3) > ε ?   Math.pow(f[2],3)            : (lightness116 - b200) * (116/κ)
 	];
 
 	// Compute XYZ by scaling xyz by reference white

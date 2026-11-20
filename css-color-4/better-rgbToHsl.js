@@ -12,7 +12,7 @@ function rgbToHsl (red, green, blue) {
     let epsilon = 1 / 100000;   // max Sat is 1, in this code
 
     if (d !== 0) {
-        sat = (light === 0 || light === 1)
+        sat = (Math.abs(light) <= epsilon || Math.abs(1 - light) < epsilon)
             ? 0
             : (max - light) / Math.min(light, 1 - light);
 
@@ -39,6 +39,7 @@ function rgbToHsl (red, green, blue) {
 
     if (sat <= epsilon) {
         hue = NaN;
+        sat = 0;
     }
 
     return [hue, sat * 100, light * 100];
