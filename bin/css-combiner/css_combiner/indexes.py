@@ -334,7 +334,10 @@ def _format_prop_grammar(cells: RowCellMap) -> str:
     return ""
 
 
-def build_property_index_html(extracted_specs: list[ExtractedSpec]) -> str:
+def build_property_index_html(
+    extracted_specs: list[ExtractedSpec],
+    link_base: str = "",
+) -> str:
     """Generate the combined #property-index table sorted alphabetically with two-row entries."""
     all_rows: list[PropertyIndexRow] = []
     used_cols: set[str] = set()
@@ -370,13 +373,14 @@ def build_property_index_html(extracted_specs: list[ExtractedSpec]) -> str:
         esc_name = html.escape(row.prop_name)
         esc_spec = html.escape(row.spec_id)
         if row.orig_href and row.orig_href.startswith("#"):
-            href = html.escape(f"#{row.spec_id}:{row.orig_href[1:]}", quote=True)
+            href = html.escape(f"{link_base}#{row.spec_id}:{row.orig_href[1:]}", quote=True)
             name_html = f'<a class="css" data-link-type="property" href="{href}">{esc_name}</a>'
         else:
             name_html = f"<code>{esc_name}</code>"
 
         grammar_html = _format_prop_grammar(row.cells)
-        spec_html = f'<a href="#{esc_spec}"><code>{esc_spec}</code></a>'
+        spec_href = html.escape(f"{link_base}#{row.spec_id}", quote=True)
+        spec_html = f'<a href="{spec_href}"><code>{esc_spec}</code></a>'
         tds = [f"      <td>{html.escape(row.cells.get(col, ''))}</td>" for col in ordered_data_cols]
         entry_html = "\n".join(
             [

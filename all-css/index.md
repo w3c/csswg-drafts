@@ -12,6 +12,10 @@
 
 : [index.md](./index.md)
 
+**Property Index (standalone):**
+
+: [properties.html](./properties.html)
+
 **Repository & Issues:**
 
 : [w3c/csswg-drafts on GitHub](https://github.com/w3c/csswg-drafts)
@@ -26668,7 +26672,7 @@ Property definitions in this section supersede the definitions of properties wit
 | [Animation type:](#web-animations-1:animation-type) | repeatable list, see [§ 4.7 Interpolation of list values](#css-gaps-1:interpolation-behavior). |
 
 ```css
-<line-color-list>          = <line-color-or-repeat>#
+  <line-color-list>          = <line-color-or-repeat>#
 
 <auto-line-color-list>     = <line-color-or-repeat>#? ,
                              <auto-repeat-line-color> ,
@@ -26712,7 +26716,7 @@ This shorthand property sets `column-rule-color` and `row-rule-color` to the sam
 | [Animation type:](#web-animations-1:animation-type) | discrete |
 
 ```css
-<line-style-list>          = <line-style-or-repeat>#
+  <line-style-list>          = <line-style-or-repeat>#
 
 <auto-line-style-list>     = <line-style-or-repeat>#? ,
                              <auto-repeat-line-style> ,
@@ -55300,7 +55304,6 @@ The following stylesheet fragment provides the normative definition of these pre
     symbols: "\F20" "\F21" "\F22" "\F23" "\F24" "\F25" "\F26" "\F27" "\F28" "\F29";
     /* ༠ ༡ ༢ ༣ ༤ ༥ ༦ ༧ ༨ ༩ */
   }
-  
 ```
 
 Implementations must implement `hebrew` at least to the range specified in the `@counter-style` rule above, but may implement it to a higher range. If they do so, the corresponding `range` descriptor must reflect the implemented range.
@@ -55389,7 +55392,6 @@ The following stylesheet fragment provides the normative definition of these pre
     /* イ ロ ハ ニ ホ ヘ ト チ リ ヌ ル ヲ ワ カ ヨ タ レ ソ ツ ネ ナ ラ ム ウ ヰ ノ オ ク ヤ マ ケ フ コ エ テ ア サ キ ユ メ ミ シ ヱ ヒ モ セ ス */
     suffix: "、";
   }
-  
 ```
 
 #### 6.3.  Symbolic: `disc`, `circle`, `square`, `disclosure-open`, `disclosure-closed` {#css-counter-styles-3:simple-symbolic}
@@ -55487,7 +55489,6 @@ The following stylesheet fragment provides the normative definition of these pre
     suffix: "、";
     fallback: cjk-decimal;
   }
-  
 ```
 
 ### 7.  Complex Predefined Counter Styles {#css-counter-styles-3:complex-predefined-counters}

@@ -564,6 +564,8 @@ HTML_START = """\
     <strong>All-CSS Combined Specification:</strong>
     <a href="./all-css/">HTML</a>
     <span class="sep">·</span>
+    <a href="./all-css/properties.html">Property Index</a>
+    <span class="sep">·</span>
     <a href="./all-css/index.md">Markdown (for agents)</a>
   </div>
   <div class="search-bar">

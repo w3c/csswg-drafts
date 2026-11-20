@@ -1,4 +1,4 @@
-"""HTML document assembly for `all-css/index.html`."""
+"""HTML document assembly for `all-css/index.html` and `all-css/properties.html`."""
 
 from __future__ import annotations
 
@@ -29,60 +29,17 @@ from .models import (
 )
 from .rewriter import LinkResolver, MergedPanelsResult, rewrite_relative_asset_path
 
-COMBINER_EXTRA_CSS = """\
-/* CSS Combiner layout, metadata, and banner styles */
-.unconfigured-specs-banner {
-    position: relative;
-    margin: 1.5em 0;
-    padding: 1em 2.5em 1em 1.25em;
-    border: 2px solid #cf222e;
-    border-left-width: 6px;
-    border-radius: 6px;
-    background: var(--issue-bg, #fff5f5);
-    color: var(--text, #1f2328);
-}
-.unconfigured-specs-banner h2 {
-    margin: 0 0 0.5em;
-    font-size: 1.15em;
-    color: #cf222e;
-}
-.unconfigured-specs-banner .dismiss-btn {
-    position: absolute;
-    top: 0.75em;
-    right: 0.75em;
-    padding: 0.25em 0.6em;
-    border: 1px solid currentColor;
-    border-radius: 4px;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-    font-size: 0.85em;
-}
-.spec-section {
-    margin-top: 3.5em;
-    padding-top: 1.5em;
-    border-top: 3px solid var(--hr-border, #888);
-    counter-reset: example figure issue table;
-}
-.spec-chapter,
-.sec-priv-spec,
-.index-chunk,
-#build-errors-section {
+PROPERTY_INDEX_CSS = """\
+.index-chunk {
     content-visibility: auto;
-    contain-intrinsic-size: auto 1000px;
+    contain-intrinsic-size: auto 500px;
     /* Expand paint-containment padding box into the left margin so Bikeshed's
        margin-positioned .self-link anchors (§ / ¶) are not clipped. */
     margin-inline-start: -3.5rem;
     padding-inline-start: 3.5rem;
 }
-.index-chunk {
-    contain-intrinsic-size: auto 500px;
-}
 @media (max-width: 30em) {
-    .spec-chapter,
-    .sec-priv-spec,
-    .index-chunk,
-    #build-errors-section {
+    .index-chunk {
         margin-inline-start: 0;
         padding-inline-start: 0;
     }
@@ -140,6 +97,81 @@ COMBINER_EXTRA_CSS = """\
 .property-index-table tbody.prop-entry > tr:hover > :is(th, td) {
     background: transparent;
 }
+"""
+
+PROPERTIES_PAGE_CSS = (
+    "/* Standalone Property Index layout styles */\n"
+    + "body.properties-page {\n"
+    + "    max-width: none;\n"
+    + "}\n"
+    + PROPERTY_INDEX_CSS
+)
+
+PROPERTIES_PAGE_BOILERPLATE_STYLES: frozenset[str] = frozenset(
+    {
+        "style-autolinks",
+        "style-colors",
+        "style-selflinks",
+    },
+)
+
+COMBINER_EXTRA_CSS = (
+    """\
+/* CSS Combiner layout, metadata, and banner styles */
+.unconfigured-specs-banner {
+    position: relative;
+    margin: 1.5em 0;
+    padding: 1em 2.5em 1em 1.25em;
+    border: 2px solid #cf222e;
+    border-left-width: 6px;
+    border-radius: 6px;
+    background: var(--issue-bg, #fff5f5);
+    color: var(--text, #1f2328);
+}
+.unconfigured-specs-banner h2 {
+    margin: 0 0 0.5em;
+    font-size: 1.15em;
+    color: #cf222e;
+}
+.unconfigured-specs-banner .dismiss-btn {
+    position: absolute;
+    top: 0.75em;
+    right: 0.75em;
+    padding: 0.25em 0.6em;
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: 0.85em;
+}
+.spec-section {
+    margin-top: 3.5em;
+    padding-top: 1.5em;
+    border-top: 3px solid var(--hr-border, #888);
+    counter-reset: example figure issue table;
+}
+.spec-chapter,
+.sec-priv-spec,
+#build-errors-section {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 1000px;
+    /* Expand paint-containment padding box into the left margin so Bikeshed's
+       margin-positioned .self-link anchors (§ / ¶) are not clipped. */
+    margin-inline-start: -3.5rem;
+    padding-inline-start: 3.5rem;
+}
+@media (max-width: 30em) {
+    .spec-chapter,
+    .sec-priv-spec,
+    #build-errors-section {
+        margin-inline-start: 0;
+        padding-inline-start: 0;
+    }
+}
+"""
+    + PROPERTY_INDEX_CSS
+    + """\
 .diagnostics-wrapper {
     margin: 0.75em 0;
 }
@@ -309,6 +341,7 @@ a.source-spec-link:hover {
     color: var(--heading-text, #005a9c);
 }
 """
+)
 
 SCRIPT_ORDER_PRIORITY: tuple[str, ...] = (
     "script-dom-helper",
@@ -1384,6 +1417,8 @@ def assemble_combined_html(
             ),
             "    <dt>Markdown version (for agents):</dt>",
             '    <dd><a href="./index.md">index.md</a></dd>',
+            "    <dt>Property Index (standalone):</dt>",
+            '    <dd><a href="./properties.html">properties.html</a></dd>',
             "    <dt>Repository &amp; Issues:</dt>",
             '    <dd><a href="https://github.com/w3c/csswg-drafts">w3c/csswg-drafts on GitHub</a></dd>',
             "    <dt>Combined Specifications:</dt>",
@@ -1419,6 +1454,91 @@ def assemble_combined_html(
             diagnostics_html,
             mdn_html,
             scripts_html,
+            "</body>",
+            "</html>\n",
+        ],
+    )
+
+
+def assemble_properties_html(extracted_specs: list[ExtractedSpec]) -> str:
+    """Assemble and return the standalone `all-css/properties.html` document string."""
+    now = datetime.now(tz=UTC)
+    iso_date = now.strftime("%Y-%m-%d")
+    human_date = f"{now.day} {now.strftime('%B %Y')}"
+
+    boilerplate_styles: BoilerplateMap = {}
+    for spec in extracted_specs:
+        for bp_name, css_text in spec.boilerplate_styles.items():
+            if bp_name not in PROPERTIES_PAGE_BOILERPLATE_STYLES:
+                continue
+            boilerplate_styles.setdefault(bp_name, css_text)
+
+    head_styles: list[str] = [
+        f"<style>\n{boilerplate_styles[name]}\n</style>" for name in sorted(boilerplate_styles.keys())
+    ]
+    head_styles.append(f"<style>\n{PROPERTIES_PAGE_CSS}</style>")
+
+    prop_index_html = build_property_index_html(extracted_specs, link_base="./index.html")
+    total_entries = sum(len(spec.property_rows) for spec in extracted_specs)
+
+    return "\n".join(
+        [
+            "<!doctype html>",
+            '<html lang="en">',
+            "<head>",
+            ' <meta http-equiv="Content-Type" content="text/html; charset=utf-8">',
+            ' <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">',
+            " <title>Cascading Style Sheets — Combined Property Index</title>",
+            ' <meta name="w3c-status" content="ED">',
+            ' <meta name="color-scheme" content="dark light">',
+            ' <link rel="stylesheet" href="https://www.w3.org/StyleSheets/TR/2021/W3C-ED">',
+            (
+                ' <link rel="stylesheet" href="https://www.w3.org/StyleSheets/TR/2021/dark.css" '
+                + 'media="(prefers-color-scheme: dark)" type="text/css">'
+            ),
+            ' <link rel="icon" href="https://drafts.csswg.org/csslogo.ico">',
+            *head_styles,
+            "</head>",
+            '<body class="h-entry properties-page">',
+            ' <div class="head">',
+            (
+                '  <p data-fill-with="logo"><a class="logo" href="https://www.w3.org/">'
+                + '<img alt="W3C" height="48" src="https://www.w3.org/StyleSheets/TR/2021/logos/W3C" '
+                + 'width="72"></a></p>'
+            ),
+            '  <h1 id="title" class="p-name no-ref">Cascading Style Sheets — Combined Property Index</h1>',
+            (
+                '  <p id="w3c-state"><a href="https://www.w3.org/standards/types#ED">CSSWG Combined '
+                + f'Editor\'s Draft</a>, <time class="dt-updated" datetime="{iso_date}">{human_date}</time></p>'
+            ),
+            '  <div data-fill-with="spec-metadata">',
+            "   <dl>",
+            "    <dt>This version:</dt>",
+            (
+                '    <dd><a class="u-url" href="https://drafts.csswg.org/all-css/properties.html">'
+                + "https://drafts.csswg.org/all-css/properties.html</a></dd>"
+            ),
+            "    <dt>Full combined specification:</dt>",
+            '    <dd><a href="./index.html">index.html</a></dd>',
+            "    <dt>Markdown version (for agents):</dt>",
+            '    <dd><a href="./index.md">index.md</a></dd>',
+            "    <dt>Repository &amp; Issues:</dt>",
+            '    <dd><a href="https://github.com/w3c/csswg-drafts">w3c/csswg-drafts on GitHub</a></dd>',
+            "    <dt>Combined Specifications:</dt>",
+            f"    <dd>{len(extracted_specs)} modules ({total_entries:,} property entries)</dd>",
+            "   </dl>",
+            "  </div>",
+            (
+                '  <p class="copyright" data-fill-with="copyright">'
+                + '<a href="https://www.w3.org/policies/#copyright">Copyright</a> © '
+                + f'{now.year} <a href="https://www.w3.org/">World Wide Web Consortium</a>. '
+                + "W3C<sup>®</sup> liability, trademark and permissive document license rules apply.</p>"
+            ),
+            '  <hr title="Separator for header">',
+            " </div>",
+            " <main>",
+            prop_index_html,
+            " </main>",
             "</body>",
             "</html>\n",
         ],

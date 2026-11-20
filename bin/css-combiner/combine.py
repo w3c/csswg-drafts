@@ -13,7 +13,7 @@ from css_combiner.pipeline import run_combiner
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse command-line options for the CSS Combiner CLI."""
     parser = argparse.ArgumentParser(
-        description="Combine CSSWG specifications into all-css/index.html and all-css/index.md.",
+        description="Combine CSSWG specifications into all-css/index.html, properties.html, and index.md.",
     )
     parser.add_argument(
         "--config",

@@ -8,7 +8,7 @@ This directory contains build scripts, editor utilities, and configuration files
 | --- | --- | --- |
 | [`build-index.py`](build-index.py) | CI / Site Build | Generates the root `index.html`, unversioned/legacy symlinks, redirects, and `timestamps.json` |
 | [`build-markdown.py`](build-markdown.py) | CI / Site Build | Renders Markdown files (such as explainers) in subdirectories to HTML via `cmark-gfm` |
-| [`css-combiner/`](css-combiner/) | CI / Site Build | Builds the combined `all-css` specification (`index.html`, `index.md`, and panel JSON data) |
+| [`css-combiner/`](css-combiner/) | CI / Site Build | Builds the combined `all-css` specification (`index.html`, `properties.html`, `index.md`, and panel JSON data) |
 | [`specs-config.toml`](specs-config.toml) | Shared Config | Shared current-work level overrides and legacy path redirects for `build-index.py` and `css-combiner/` |
 | [`requirements.txt`](requirements.txt) | Shared Config | Python dependencies (`bikeshed` and vulnerability-pinned transitive packages) for CI pip caching |
 | [`xcommit.pl`](xcommit.pl) | Editor Tool | Applies working-tree diffs from one spec level to other levels of the same module and commits them |
@@ -66,6 +66,7 @@ Builds a single combined CSS mega-specification from the active modules in the r
 - **Dependencies:** Python 3.12+, `git`, and the packages in [`css-combiner/requirements.txt`](css-combiner/requirements.txt) (`bikeshed`, `lxml`).
 - **Outputs (written to `all-css/` by default):**
   - `index.html` — Combined HTML specification with disambiguated IDs (`<spec-id>:<id>`), rewritten cross-spec links and relative asset paths, merged Table of Contents, consolidated Security & Privacy section, combined Internal/External Indexes, combined Property Index, Bikeshed diagnostic appendix, and interactive definition panels / reference hints.
+  - `properties.html` — Standalone document containing only the combined Property Index tables, with property and spec links targeting `./index.html`.
   - `dfn-panels.json` and `ref-hints.json` — Sidecar JSON datasets lazy-loaded by `all-css/index.html`.
   - `index.md` — Clean Markdown serialization of the combined specification with human-only UI chrome and redundant indexes omitted.
 - **Key files inside `css-combiner/`:**

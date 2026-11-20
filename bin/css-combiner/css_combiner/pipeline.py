@@ -7,7 +7,7 @@ import sys
 import time
 from pathlib import Path
 
-from .assembler import assemble_combined_html
+from .assembler import assemble_combined_html, assemble_properties_html
 from .builder import build_all_specs
 from .config import discover_specs, load_config, load_shared_specs_config
 from .extractor import extract_spec
@@ -74,6 +74,11 @@ def run_combiner(
     html_out_path = resolved_output_dir / "index.html"
     html_out_path.write_text(combined_html, encoding="utf-8")
 
+    sys.stderr.write("Assembling standalone Property Index document...\n")
+    properties_html = assemble_properties_html(extracted_specs=extracted_specs)
+    properties_out_path = resolved_output_dir / "properties.html"
+    properties_out_path.write_text(properties_html, encoding="utf-8")
+
     # Emit interactive panel datasets as lazy-fetched sidecar JSON files so the
     # browser does not parse ~10 MB of inline JS on initial page load.
     dfn_panels_json = json.dumps(rewrite_outcome.panels.dfn_panels, ensure_ascii=False, separators=(",", ":"))
@@ -92,6 +97,7 @@ def run_combiner(
     elapsed = time.monotonic() - t_start
     sys.stderr.write(
         f"Done in {elapsed:.1f}s! Wrote {html_out_path} ({len(combined_html):,} chars), "
+        + f"{properties_out_path.name} ({len(properties_html):,} chars), "
         + f"{md_out_path} ({len(combined_md):,} chars), "
         + f"{dfn_out_path.name} ({len(dfn_panels_json):,} chars), "
         + f"and {ref_out_path.name} ({len(ref_hints_json):,} chars).\n",
