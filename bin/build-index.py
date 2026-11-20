@@ -13,6 +13,7 @@ import os
 import os.path
 import re
 import subprocess
+import tomllib
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -138,15 +139,12 @@ def escape_html(text):
             .replace('"', "&quot;"))
 
 
+with open(os.path.join(os.path.dirname(__file__), "specs-config.toml"), "rb") as _cfg_file:
+    _SHARED_SPECS_CONFIG = tomllib.load(_cfg_file)
+
 CURRENT_WORK_EXCEPTIONS = {
-    "compositing": 2,
-    "css-conditional": 5,
-    "css-easing": 2,
-    "css-grid": 2,
-    "css-snapshot": None,  # always choose the last spec
-    "css-values": 4,
-    "css-writing-modes": 4,
-    "web-animations": 2
+    k: (None if v == "last" else v)
+    for k, v in _SHARED_SPECS_CONFIG["current_work_exceptions"].items()
 }
 
 # ------------------------------------------------------------------------------
@@ -228,38 +226,12 @@ for shortname, specgroup in specgroups.items():
 with open('./timestamps.json', 'w') as f:
     json.dump(timestamps, f, indent = 2, sort_keys=True)
 
-# Legacy path redirects
+# Legacy path redirects (shared via bin/specs-config.toml)
 # These handle old URLs that were previously served by Apache RewriteRule redirects.
 # For local targets, we use symlinks. For cross-origin targets (css-houdini.org),
 # we create HTML files with meta refresh.
 
-LEGACY_REDIRECTS = {
-    # Old name -> new name (local redirects via symlink)
-    "css-anchor-1": "css-anchor-position-1",
-    "css3-grid-align": "css-grid-1",
-    "css3-text-layout": "css-writing-modes-3",
-    "css3-2d-transforms": "css-transforms",
-    "css3-3d-transforms": "css-transforms",
-    "mediaqueries3": "mediaqueries-3",
-    "mediaqueries4": "mediaqueries-4",
-    "css-namespaces-1": "css-namespaces",
-    "css-snappoints-1": "css-scroll-snap-1",
-    "css-snappoints": "css-scroll-snap",
-    "css-snap-size-1": "css-rhythm-1",
-    "css-snap-size": "css-rhythm",
-    "css-step-sizing": "css-rhythm",
-    "css-containment": "css-contain",
-    "css-logical-props": "css-logical",
-    "css-device-adapt-1": "css-viewport-1",
-    "css-device-adapt": "css-viewport",
-    "css-overscroll-behavior-1": "css-overscroll-1",
-    "css-overscroll-behavior": "css-overscroll",
-    "css-shared-element-transitions-1": "css-view-transitions-1",
-    "css-shared-element-transitions": "css-view-transitions",
-    "css-timing-1": "css-easing-1",
-    "css-timing": "css-easing",
-    "css-scoping-2": "css-cascade-6",
-}
+LEGACY_REDIRECTS = dict(_SHARED_SPECS_CONFIG["legacy_redirects"])
 
 # Cross-origin redirects need HTML meta refresh files
 CROSS_ORIGIN_REDIRECTS = {
@@ -419,6 +391,14 @@ HTML_START = """\
     a { color: #0366d6; text-decoration: none; }
     a:hover { text-decoration: underline; }
 
+    .combined-banner {
+      display: flex; align-items: center; gap: 0.5em; flex-wrap: wrap;
+      margin-bottom: 0.75em; padding: 0.55em 0.85em;
+      background: #f6f8fa; border: 1px solid #d1d5db; border-radius: 6px;
+      font-size: 0.9em;
+    }
+    .combined-banner strong { font-weight: 600; }
+
     .search-bar {
       position: sticky; top: 0; background: #fff;
       padding: 0.5em 0 0.75em; z-index: 10;
@@ -539,6 +519,7 @@ HTML_START = """\
     /* ---- Dark mode ---- */
     @media (prefers-color-scheme: dark) {
       body { background: #0d1117; color: #e6edf3; }
+      .combined-banner { background: #161b22; border-color: #30363d; }
       .search-bar { background: #0d1117; }
       .search-bar input {
         background: #161b22; border-color: #30363d; color: #e6edf3;
@@ -579,6 +560,12 @@ HTML_START = """\
 </head>
 <body>
   <h1>CSS Working Group Editor Drafts</h1>
+  <div class="combined-banner">
+    <strong>All-CSS Combined Specification:</strong>
+    <a href="./all-css/">HTML</a>
+    <span class="sep">·</span>
+    <a href="./all-css/index.md">Markdown (for agents)</a>
+  </div>
   <div class="search-bar">
     <input type="text" id="search" placeholder="Filter specifications\u2026" autofocus>
   </div>
