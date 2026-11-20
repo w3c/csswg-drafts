@@ -105,6 +105,41 @@ COMBINER_EXTRA_CSS = """\
     border-bottom: 1px solid var(--hr-border, #ccc);
     padding-bottom: 0.15em;
 }
+.property-index-table thead th {
+    text-align: left;
+}
+.property-index-table thead tr:first-child th[rowspan="2"] {
+    vertical-align: bottom;
+}
+.property-index-table thead tr + tr th {
+    border-top: 1px dotted var(--hr-border, silver);
+}
+.property-index-table tbody.prop-entry {
+    border-top: 2px solid var(--hr-border, silver);
+    border-bottom: none;
+}
+.property-index-table tbody.prop-entry:last-child {
+    border-bottom: 2px solid var(--hr-border, silver);
+}
+.property-index-table tbody.prop-entry > tr.prop-grammar-row > th {
+    vertical-align: top;
+    text-align: left;
+}
+.property-index-table tbody.prop-entry > tr.prop-grammar-row > td.prop-grammar {
+    text-align: left;
+    border-bottom: none;
+}
+.property-index-table tbody.prop-entry > tr.prop-meta-row > td {
+    border-top: 1px dotted var(--hr-border, silver);
+}
+.property-index-table tbody.prop-entry:hover {
+    background: var(--indextable-hover-bg, #f7f8f9);
+    color: var(--indextable-hover-text, inherit);
+}
+.property-index-table tbody.prop-entry > tr:hover,
+.property-index-table tbody.prop-entry > tr:hover > :is(th, td) {
+    background: transparent;
+}
 .diagnostics-wrapper {
     margin: 0.75em 0;
 }

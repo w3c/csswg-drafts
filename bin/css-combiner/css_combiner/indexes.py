@@ -14,6 +14,7 @@ from .models import (
     ExtractedSpec,
     InternalIndexItem,
     PropertyIndexRow,
+    RowCellMap,
     TocCollapsibleGroup,
     TocEntry,
     TocItem,
@@ -23,9 +24,8 @@ from .rewriter import LinkResolver, make_external_panel_id
 
 NON_ALNUM_RE = re.compile(r"[^a-z0-9]")
 HEADING_TAGS: frozenset[str] = frozenset({"h2", "h3", "h4", "h5", "h6"})
+GRAMMAR_COLUMNS: frozenset[str] = frozenset({"Value", "New values"})
 BASE_PROPERTY_COLUMNS: tuple[str, ...] = (
-    "Value",
-    "New values",
     "Initial",
     "Applies to",
     "Inh.",
@@ -321,8 +321,21 @@ def _format_prop_header(col_name: str) -> str:
     return html.escape(hyphenated.get(col_name, col_name))
 
 
+def _format_prop_grammar(cells: RowCellMap) -> str:
+    """Format a property's value grammar (Value and/or New values) for the top row."""
+    value = cells.get("Value", "")
+    new_values = cells.get("New values", "")
+    if value and new_values:
+        return f"{html.escape(value)} (<em>New values:</em> {html.escape(new_values)})"
+    if value:
+        return html.escape(value)
+    if new_values:
+        return f"<em>New values:</em> {html.escape(new_values)}"
+    return ""
+
+
 def build_property_index_html(extracted_specs: list[ExtractedSpec]) -> str:
-    """Generate the combined #property-index table sorted alphabetically with a Spec column."""
+    """Generate the combined #property-index table sorted alphabetically with two-row entries."""
     all_rows: list[PropertyIndexRow] = []
     used_cols: set[str] = set()
     for spec in extracted_specs:
@@ -341,18 +354,17 @@ def build_property_index_html(extracted_specs: list[ExtractedSpec]) -> str:
         ),
     )
 
-    ordered_data_cols: list[str] = [c for c in BASE_PROPERTY_COLUMNS if c in used_cols]
-    extra_cols = sorted(used_cols - set(ordered_data_cols))
+    non_grammar_cols = used_cols - GRAMMAR_COLUMNS
+    ordered_data_cols: list[str] = [c for c in BASE_PROPERTY_COLUMNS if c in non_grammar_cols]
+    extra_cols = sorted(non_grammar_cols - set(ordered_data_cols))
     ordered_data_cols.extend(extra_cols)
+    rest_col_count = 1 + len(ordered_data_cols)
 
-    header_ths = [
-        '     <th scope="col">Name</th>',
-        '     <th scope="col">Spec</th>',
-    ]
+    meta_header_ths = ['      <th scope="col">Spec</th>']
     for col in ordered_data_cols:
-        header_ths.append(f'     <th scope="col">{_format_prop_header(col)}</th>')
+        meta_header_ths.append(f'      <th scope="col">{_format_prop_header(col)}</th>')
 
-    rows_by_bucket: dict[IndexBucket, list[str]] = {}
+    entries_by_bucket: dict[IndexBucket, list[str]] = {}
     for row in all_rows:
         bucket = _index_letter_bucket(NON_ALNUM_RE.sub("", row.prop_name.lower()))
         esc_name = html.escape(row.prop_name)
@@ -363,21 +375,27 @@ def build_property_index_html(extracted_specs: list[ExtractedSpec]) -> str:
         else:
             name_html = f"<code>{esc_name}</code>"
 
+        grammar_html = _format_prop_grammar(row.cells)
         spec_html = f'<a href="#{esc_spec}"><code>{esc_spec}</code></a>'
-        tds = [f"     <td>{html.escape(row.cells.get(col, ''))}</td>" for col in ordered_data_cols]
-        row_html = "\n".join(
+        tds = [f"      <td>{html.escape(row.cells.get(col, ''))}</td>" for col in ordered_data_cols]
+        entry_html = "\n".join(
             [
-                "    <tr>",
-                f'     <th scope="row">{name_html}</th>',
-                f"     <td>{spec_html}</td>",
+                '    <tbody class="prop-entry">',
+                '     <tr class="prop-grammar-row">',
+                f'      <th scope="rowgroup" rowspan="2">{name_html}</th>',
+                f'      <td class="prop-grammar" colspan="{rest_col_count}">{grammar_html}</td>',
+                "     </tr>",
+                '     <tr class="prop-meta-row">',
+                f"      <td>{spec_html}</td>",
                 *tds,
-                "    </tr>",
+                "     </tr>",
+                "    </tbody>",
             ],
         )
-        rows_by_bucket.setdefault(bucket, []).append(row_html)
+        entries_by_bucket.setdefault(bucket, []).append(entry_html)
 
-    prop_buckets = list(rows_by_bucket.keys())
-    header_html = "\n".join(header_ths)
+    prop_buckets = list(entries_by_bucket.keys())
+    meta_header_html = "\n".join(meta_header_ths)
     parts: list[str] = [
         '<section id="property-index-section">',
         (
@@ -388,7 +406,7 @@ def build_property_index_html(extracted_specs: list[ExtractedSpec]) -> str:
         _render_index_jump_nav(prop_buckets, "prop-index", "Property index letters"),
     ]
     for bucket in prop_buckets:
-        body_html = "\n".join(rows_by_bucket[bucket])
+        body_html = "\n".join(entries_by_bucket[bucket])
         parts.extend(
             [
                 f' <section class="index-chunk" id="prop-index-{bucket.slug}">',
@@ -399,15 +417,17 @@ def build_property_index_html(extracted_specs: list[ExtractedSpec]) -> str:
                     + f'<a class="self-link" href="#prop-index-heading-{bucket.slug}"></a></h3>'
                 ),
                 '  <div class="big-element-wrapper">',
-                '   <table class="index">',
+                '   <table class="index property-index-table">',
                 "    <thead>",
                 "     <tr>",
-                header_html,
+                '      <th scope="col" rowspan="2">Name</th>',
+                f'      <th scope="col" colspan="{rest_col_count}">Value</th>',
+                "     </tr>",
+                "     <tr>",
+                meta_header_html,
                 "     </tr>",
                 "    </thead>",
-                "    <tbody>",
                 body_html,
-                "    </tbody>",
                 "   </table>",
                 "  </div>",
                 " </section>",

@@ -28262,7 +28262,7 @@ UAs can draw outlines (from the `outline` property) either **in-band** (painted 
 - **Editor's Draft:** [https://drafts.csswg.org/css-anchor-position-1/](https://drafts.csswg.org/css-anchor-position-1/)
 - **Published TR:** [https://www.w3.org/TR/css-anchor-position-1/](https://www.w3.org/TR/css-anchor-position-1/)
 - **W3C Status:** WD (refining)
-- **Last Edited:** 2026-09-06
+- **Last Edited:** 2026-11-19
 
 ### 1. Introduction {#css-anchor-position-1:intro}
 
@@ -29005,7 +29005,7 @@ Values have the following meanings:
 | [Canonical order:](#cssom-1:serializing-css-values) | per grammar |
 | [Animation type:](#web-animations-1:animation-type) | discrete |
 
-This property allows an element to sort its position option list by the available space they produce. This allows the box to prioritize having more layout space over strictly following the order declared in `position-try-fallbacks`.
+This property allows an element to sort its position options list by the available space they produce. This allows the box to prioritize having more layout space over strictly following the order declared in `position-try-fallbacks`.
 
 ```css
 <try-size> = most-width | most-height | most-block-size | most-inline-size
@@ -29084,7 +29084,7 @@ The `@position-try` rule only accepts the following **accepted @position-try pro
 - `position-anchor`
 - `position-area`
 
-It is invalid to use `!important` on the properties in the `<declaration-list>`. Doing so causes the property it is used on to become invalid, but does not invalidate the `@property-try` rule as a whole.
+It is invalid to use `!important` on the properties in the `<declaration-list>`. Doing so causes the property it is used on to become invalid, but does not invalidate the `@position-try` rule as a whole.
 
 All of the properties in a `@position-try` are applied to the box as part of the **Position Fallback Origin**, a new cascade origin that lies between the Author Origin and the Animation Origin.
 
@@ -49092,7 +49092,7 @@ When a `FontFaceSet` object’s `delete()` method is called with a CSS-connected
 - **Editor's Draft:** [https://drafts.csswg.org/css-text-4/](https://drafts.csswg.org/css-text-4/)
 - **Published TR:** [https://www.w3.org/TR/css-text-4/](https://www.w3.org/TR/css-text-4/)
 - **W3C Status:** ED (refining)
-- **Last Edited:** 2026-10-26
+- **Last Edited:** 2026-11-17
 
 ### 1.  Introduction {#css-text-4:intro}
 
@@ -49172,7 +49172,7 @@ The rendering characteristics of a typographic character unit divided by an elem
 
 CSS is built on [Unicode](https://www.unicode.org/versions/latest/). [UNICODE] UAs that support Unicode must adhere to all normative requirements of the Unicode Core Standard, except where explicitly overridden by CSS. UAs implemented on the basis of a non-Unicode text encoding model are still expected to fulfill the same text handling requirements by assuming an appropriate mapping and analogous behavior.
 
-For the purpose of determining adjacency for text processing (such as white space processing, text transformation, line-breaking, etc.), and thus in general within this specification, intervening inline box boundaries and out-of-flow elements must be ignored. With respect to text shaping, however, see [§ 8.7 Shaping Across Element Boundaries](#css-text-4:boundary-shaping).
+For the purpose of determining adjacency for text processing (such as white space processing, text transformation, line-breaking, etc.), and thus in general within this specification, intervening inline box boundaries and out-of-flow elements must be ignored. With respect to text shaping, however, see [§ 8.8 Shaping Across Element Boundaries](#css-text-4:boundary-shaping).
 
 ### 2.  Transforming Text {#css-text-4:transforming}
 
@@ -51312,9 +51312,7 @@ At element boundaries, the amount of extra spacing introduced between characters
 
 ##### 8.4.1.  Inter-script Spacing {#css-text-4:inter-script-spacing}
 
-The `ideograph-alpha` and `ideograph-numeric` values introduce spacing at the boundary between particular classes of characters when they are directly adjoining on a line, i.e. without any intervening non-zero margin, border, or padding or intervening characters (such as a quotation mark or a space). The amount of space introduced by these keywords is 1/8 of the CJK advance measure, i.e `0.125ic` if the used value of `font-size` is same as its computed value.
-
-> **Note:** Spacing conventions vary, but values typically range from 1/4ic to as low as 1/8ic, with 1/4ic being more common in historical contexts due to metal type limitations and 1/6ic or thinner being more common in proportional typesetting. Because these spaces are inserted by default (through the initial value, `normal`), CSS uses 1/8ic in order to be conservative in its interference. A future level of this module may introduce control over the amount of spacing.
+The `ideograph-alpha` and `ideograph-numeric` values introduce spacing at the boundary between particular classes of characters when they are directly adjoining on a line, i.e. without any intervening non-zero margin, border, or padding or intervening characters (such as a quotation mark or a space). The amount of space introduced by these keywords is given by the `text-autospace-size` property.
 
 In the context of the `text-autospace` property the following definitions apply:
 
@@ -51368,7 +51366,33 @@ Spacing introduced by `text-autospace` is inserted after [bidi reordering](#css-
 > 一些中国字♥LTR EMOS 中国字
 > ```
 
-#### 8.5.  CJK Punctuation Spacing: the `text-spacing-trim` property {#css-text-4:text-spacing-trim-property}
+#### 8.5.  Inter-script Spacing Amount: the `text-autospace-size` property {#css-text-4:text-autospace-size-property}
+
+| Field | Value |
+| --- | --- |
+| Name: | **text-autospace-size** |
+| [Value:](#css-values-4:value-defs) | `<number [0,∞]>` |
+| [Initial:](#css-cascade-6:initial-values) | 0.125 |
+| [Applies to:](#css-cascade-5:applies-to) | text |
+| [Inherited:](#css-cascade-5:inherited-property) | yes |
+| [Percentages:](#css-values-4:percentages) | N/A |
+| [Computed value:](#css-cascade-6:computed) | the specified number |
+| [Canonical order:](#cssom-1:serializing-css-values) | per grammar |
+| [Animation type:](#web-animations-1:animation-type) | by computed value type |
+
+This property specifies the amount of spacing introduced by the `ideograph-alpha` and `ideograph-numeric` values of `text-autospace` (see [§ 8.4.1 Inter-script Spacing](#css-text-4:inter-script-spacing)). The `<number [0,∞]>` value represents a proportion of the CJK advance measure at the current font size, i.e. the amount of spacing is the specified number multiplied by `1ic` if the used value of `font-size` is same as its computed value.
+
+> **Example:** With the initial value of `0.125`, spacing of 1/8 of the CJK advance measure (`0.125ic`) is introduced between ideographs and adjacent non-ideographic letters or numerals. The following increases this to 1/4 of the CJK advance measure:
+>
+> ```
+> p:lang(zh) { text-autospace-size: 0.25; }
+> ```
+
+> **Note:** Spacing conventions vary, but values typically range from 1/4ic to as low as 1/8ic, with 1/4ic being more common in historical contexts due to metal type limitations and 1/6ic or thinner being more common in proportional typesetting. Because these spaces are inserted by default (through the initial value of `text-autospace`, `normal`), the initial value of this property is 1/8ic in order to be conservative in its interference.
+
+> **Note:** This property is not set by the `text-spacing` shorthand, so that the amount of spacing can be controlled independently of which spacing features are turned on or off.
+
+#### 8.6.  CJK Punctuation Spacing: the `text-spacing-trim` property {#css-text-4:text-spacing-trim-property}
 
 | Field | Value |
 | --- | --- |
@@ -51436,7 +51460,7 @@ These keywords set the spacing behavior when fullwidth punctuation occurs at the
   >
   > Specifically, due to the lack of reliable `hanging-punctuation` support across UAs, existing content (especially ePub content) uses U+3000 ideographic space in place of `text-indent`, but omits it when the paragraph begins with punctuation that is desired to hang in the indent in order to create the hanging punctuation effect. Using `trim-both` on the first line would thus trim away the effective indent in such content and thus obscure that line’s distinction as the first line of a new paragraph.
   >
-  > Note that this typesetting practice of using ideographic spaces for indentation (sometimes and not always) is contrary to the separation of content and style offered by HTML and CSS. Using `hanging-punctuation` and `text-indent` to control paragraph formatting rather than tweaking the text content of the document preserves the text’s true semantics in the document source and allows the style sheet designer to freely switch among the various spacing/indentation styles without needing to alter the content. See [§ 8.5.4 Japanese Paragraph-start Conventions in CSS](#css-text-4:japanese-start-edges) for examples.
+  > Note that this typesetting practice of using ideographic spaces for indentation (sometimes and not always) is contrary to the separation of content and style offered by HTML and CSS. Using `hanging-punctuation` and `text-indent` to control paragraph formatting rather than tweaking the text content of the document preserves the text’s true semantics in the document source and allows the style sheet designer to freely switch among the various spacing/indentation styles without needing to alter the content. See [§ 8.6.4 Japanese Paragraph-start Conventions in CSS](#css-text-4:japanese-start-edges) for examples.
   >
   > Additionally, the behavior at the end of lines is aligned with the `normal` and `trim-start` values rather than `trim-both`, in that it only trims the glyphs if they do not otherwise fit prior to justification. While improving the typography in fewer cases, it is closer to the legacy behavior of `space-all` which reduces compatibility concerns.
 
@@ -51480,7 +51504,7 @@ These keywords set the spacing behavior when fullwidth punctuation occurs at the
 | `trim-all` | trimmed |  |  |  |
 | `auto` | user-agent specific / platform dependent |  |  |  |
 
-##### 8.5.1.  Setting Fullwidth Punctuation Spaced vs Trimmed {#css-text-4:fullwidth-kerning}
+##### 8.6.1.  Setting Fullwidth Punctuation Spaced vs Trimmed {#css-text-4:fullwidth-kerning}
 
 In order to set the text as specified by `text-spacing-trim`, the UA will need to either
 
@@ -51495,7 +51519,7 @@ Some fonts use proportional glyphs for fullwidth punctuation characters. If ther
 
 Some fonts have fullwidth punctuation characters whose blank are too small to trim (kern.) UA may choose not to trim (kern) when the UA determined the trimming (kerning) may cause glyph cut-offs, collisions, or excessive kerning through glyph bounding box, glyph metrics, or font features.
 
-##### 8.5.2.  Fullwidth Punctuation Collapsing {#css-text-4:fullwidth-collapsing}
+##### 8.6.2.  Fullwidth Punctuation Collapsing {#css-text-4:fullwidth-collapsing}
 
 If `text-spacing-trim` is `trim-all`, the UA must trim the space typically associated with such full width glyphs regardless of the context in which they appear.
 
@@ -51532,7 +51556,7 @@ Otherwise, if **collapsing fullwidth punctuation** (`trim-adjacent`) (or the fon
 > | Closing—Middle Dot | `）`+`・` | `)``・` |
 > | Closing—Ideographic Space | `）`+ | `)` |
 
-##### 8.5.3.  Text Spacing Trim Character Classes {#css-text-4:text-spacing-classes}
+##### 8.6.3.  Text Spacing Trim Character Classes {#css-text-4:text-spacing-classes}
 
 In the context of the `text-spacing-trim` property the following definitions apply:
 
@@ -51574,7 +51598,7 @@ The UA must classify fullwidth colon punctuation and fullwidth dot punctuation u
 >
 > Note that for Chinese fonts at least, the author observes that the standard convention is often not followed.
 
-##### 8.5.4.  Japanese Paragraph-start Conventions in CSS {#css-text-4:japanese-start-edges}
+##### 8.6.4.  Japanese Paragraph-start Conventions in CSS {#css-text-4:japanese-start-edges}
 
 > **Example:** Japanese has three common start-edge typesetting schemes, which are distinguished by their handling of opening brackets.
 >
@@ -51613,7 +51637,7 @@ The UA must classify fullwidth colon punctuation and fullwidth dot punctuation u
 >   }
 >   ```
 
-#### 8.6.  Character Class Spacing Shorthand: the `text-spacing` property {#css-text-4:text-spacing-property}
+#### 8.7.  Character Class Spacing Shorthand: the `text-spacing` property {#css-text-4:text-spacing-property}
 
 | Field | Value |
 | --- | --- |
@@ -51647,7 +51671,7 @@ This property is a shorthand for setting `text-spacing-trim` and `text-autospace
 
 > **Note:** As `normal` is the initial value of both `text-spacing-trim` and `text-autospace`, `text-spacing: normal` resets both to their initial values.
 
-#### 8.7.  Shaping Across Element Boundaries {#css-text-4:boundary-shaping}
+#### 8.8.  Shaping Across Element Boundaries {#css-text-4:boundary-shaping}
 
 Text shaping *must* be broken at inline box boundaries when any of the following are true for any box whose boundary separates the two typographic character units:
 
@@ -56824,7 +56848,7 @@ The `bookmark-state` may be open or closed. The user must be able to toggle the 
 - **Editor's Draft:** [https://drafts.csswg.org/css-color-4/](https://drafts.csswg.org/css-color-4/)
 - **Published TR:** [https://www.w3.org/TR/css-color-4/](https://www.w3.org/TR/css-color-4/)
 - **W3C Status:** ED (testing)
-- **Last Edited:** 2026-10-26
+- **Last Edited:** 2026-11-18
 
 ### 1.  Introduction {#css-color-4:introduction}
 
@@ -63243,14 +63267,14 @@ This specification adds a way to ensure adequate contrast for text whose backgro
 - **Editor's Draft:** [https://drafts.csswg.org/css-color-6/](https://drafts.csswg.org/css-color-6/)
 - **Published TR:** [https://www.w3.org/TR/css-color-6/](https://www.w3.org/TR/css-color-6/)
 - **W3C Status:** ED (exploring)
-- **Last Edited:** 2026-10-08
+- **Last Edited:** 2026-11-18
 - **Diff Specification Over:** [CSS Color Module Level 5 (`css-color-5`)](#css-color-5)
 
 ### 1. Introduction {#css-color-6:intro}
 
 *This section is not normative.*
 
-This module adds a\two new `<color>` functions: `contrast-color()` and `color-layers()`.
+This module adds two new `<color>` functions: `contrast-color()` and `color-layers()`.
 
 ### 2. Computing a Contrasting Color: the `contrast-color()` function {#css-color-6:colorcontrast}
 
@@ -63428,6 +63452,12 @@ Its syntax is:
 It returns a `<color>` which is the result of compositing these layers, using the [Compositing 1 § 9.1.4 Source Over](#compositing-2:porterduffcompositingoperators_srcover) compositing operator and the specified `<blend-mode>`.
 
 If no `<blend-mode>` is given, `normal` blend-mode is used.
+
+> **Issue:** [[Issue #8431]](https://github.com/w3c/csswg-drafts/issues/8431)
+
+> **Issue:** [[Issue #13254]](https://github.com/w3c/csswg-drafts/issues/13254)
+
+> **Note:** Compositing does not explicitly state which colorspace is used when blending colors. However [Non-seperable blend modes](#compositing-2:blendingnonseparable) explicitly describes red, green and blue components, and despite pointing to CSS Color 4 for the definition of `<color>`, the equations imply that all colors are in the same, RGB, colorspace. The blending equations do not work correctly outside the range 0 .. 1 so, for example, extended sRGB cannout be used to represent colors outside the gamut of sRGB.
 
 > **Example:** @@Add simple example with normal blend mode and two colors, the first of which has non-unity alpha
 
@@ -78185,8 +78215,8 @@ SVGFETurbulenceElement includes SVGFilterPrimitiveStandardAttributes;
 - **Shortname:** `filter-effects-2`
 - **Editor's Draft:** [https://drafts.csswg.org/filter-effects-2/](https://drafts.csswg.org/filter-effects-2/)
 - **Published TR:** [https://www.w3.org/TR/filter-effects-2/](https://www.w3.org/TR/filter-effects-2/)
-- **W3C Status:** ED (exploring)
-- **Last Edited:** 2026-10-02
+- **W3C Status:** FPWD (exploring)
+- **Last Edited:** 2026-11-18
 - **Diff Specification Over:** [Filter Effects Module Level 1 (`filter-effects-1`)](#filter-effects-1)
 
 ### 1. Introduction {#filter-effects-2:intro}
@@ -89484,8 +89514,9 @@ Values have the following meanings:
 
 - **Shortname:** `pointer-animations-1`
 - **Editor's Draft:** [https://drafts.csswg.org/pointer-animations-1/](https://drafts.csswg.org/pointer-animations-1/)
-- **W3C Status:** ED (exploring)
-- **Last Edited:** 2026-01-11
+- **Published TR:** [https://www.w3.org/TR/pointer-animations-1/](https://www.w3.org/TR/pointer-animations-1/)
+- **W3C Status:** FPWD (exploring)
+- **Last Edited:** 2026-11-18
 
 ### 1. Introduction {#pointer-animations-1:intro}
 
@@ -99386,7 +99417,7 @@ frame[noresize] { resize:none }
 - **Editor's Draft:** [https://drafts.csswg.org/css-forms-1/](https://drafts.csswg.org/css-forms-1/)
 - **Published TR:** [https://www.w3.org/TR/css-forms-1/](https://www.w3.org/TR/css-forms-1/)
 - **W3C Status:** ED (exploring)
-- **Last Edited:** 2026-10-08
+- **Last Edited:** 2026-11-14
 
 ### 1. Introduction {#css-forms-1:intro}
 
@@ -100139,7 +100170,7 @@ input[type=radio]::checkmark {
     content: '';
 }
 
-input[type=checkbox]:not([switch], :checked, :indeterminate)::checkmark {
+input[type=checkbox]:not([switch], :checked, :indeterminate)::checkmark,
 input[type=radio]:not(:checked)::checkmark {
     visibility: hidden;
 }
@@ -110626,7 +110657,7 @@ The **`getBounds()`** method, when invoked, must run the following algorithm:
 
 The `DOMMatrix` and `DOMMatrixReadOnly` interfaces each represent a mathematical **matrix** with the purpose of describing transformations in a graphical context. The following sections describe the details of the interface.
 
-m11m21m31m41m12m22m32m42m13m23m33m43m14m24m34m44
+m 11     m 21     m 31     m 41       m 12     m 22     m 32     m 42       m 13     m 23     m 33     m 43       m 14     m 24     m 34     m 44
 
 A **4x4 abstract matrix** with items *m11* to *m44*.
 
@@ -121627,9 +121658,17 @@ Besides the security implications of the privacy issues noted above, no addition
 
 ### Filter Effects Module Level 2 (`filter-effects-2`) {#security-privacy:filter-effects-2}
 
-#### 4. Privacy and Security Considerations {#filter-effects-2:priv-sec}
+#### Privacy Considerations {#filter-effects-2:privacy}
 
-All of the same privacy and security concerns exist for backdrop-filter as do for "standard" filters. See [Filter Effects 1 § 15.1 Tainted Filter Primitives](#filter-effects-1:tainted-filter-primitives) for more details.
+All of the same privacy concerns exist for backdrop-filter as do for "standard" filters. See [Filter Effects 1 § 15.1 Tainted Filter Primitives](#filter-effects-1:tainted-filter-primitives) for more details.
+
+No new privacy considerations have been reported on this specification.
+
+#### Security Considerations {#filter-effects-2:security}
+
+All of the same security concerns exist for backdrop-filter as do for "standard" filters. See [Filter Effects 1 § 15.1 Tainted Filter Primitives](#filter-effects-1:tainted-filter-primitives) for more details.
+
+No new security considerations have been reported on this specification.
 
 ### CSS Transforms Module Level 1 (`css-transforms-1`) {#security-privacy:css-transforms-1}
 
