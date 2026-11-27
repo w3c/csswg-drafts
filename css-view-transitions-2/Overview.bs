@@ -46,7 +46,6 @@ spec:css-view-transitions-1;
 	text: view transition name; type: dfn;
 	text: group styles rule; type: dfn;
 	text: update pseudo-element styles rule; type: dfn;
-	text: document-scoped view transition name; type: dfn;
 	text: global view transition user agent style sheet; type: dfn;
 spec:dom; type:dfn; text:document; for:/
 spec:css2; type:dfn; text:element
@@ -538,6 +537,7 @@ spec:css2; type:dfn; text:viewport
 		dictionary StartViewTransitionOptions {
 			ViewTransitionUpdateCallback? update = null;
 			sequence<DOMString>? types = null;
+			sequence<ShadowRoot> shadowRoots = [];
 		};
 
 	</xmp>
@@ -672,7 +672,15 @@ Note: An <code>element.startViewTransition()</code> call does not update
 			Note: The [=view transition=] process continues in [=setup view transition=],
 			via [=perform pending transition operations=].
 
-		1. If |callbackOptions| is a {{StartViewTransitionOptions}}, set |viewTransition|'s [=ViewTransition/active types=] to a [=list/clone=] of {{StartViewTransitionOptions/types}} as a [=/set=].
+		1. Set |viewTransition|'s [=ViewTransition/participating tree roots=] to a [=/set=] with [=this=]'s [=tree/root=].
+
+		1. If |callbackOptions| is a {{StartViewTransitionOptions}}:
+
+			1. If |callbackOptions|'s {{StartViewTransitionOptions/types}} is not null,
+				set |viewTransition|'s [=ViewTransition/active types=] to a [=list/clone=] of |callbackOptions|'s {{StartViewTransitionOptions/types}} as a [=/set=].
+
+			1. [=list/For each=] |shadowRoot| of |callbackOptions|'s {{StartViewTransitionOptions/shadowRoots}},
+				[=set/append=] |shadowRoot| to |viewTransition|'s [=ViewTransition/participating tree roots=].
 
 		1. Return |viewTransition|.
 	</div>
@@ -819,6 +827,11 @@ the active view transition of an element is exposed to script via a property on 
 		: <dfn>root element</dfn>
 		:: An {{Element}},
 			indicating which element is hosting the {{ViewTransition}}.
+			Initially [=this's=] [=relevant global object's=] [=associated document=]'s [=document element=].
+
+		: <dfn>participating tree roots</dfn>
+		:: A [=/set=] of [=nodes=] (each a {{Document}} or a {{ShadowRoot}}),
+			initially a [=/set=] with [=this's=] [=relevant global object's=] [=associated document=].
 
 		: <dfn>wait until promise count</dfn>
 		:: An integer, initially 0.
@@ -929,14 +942,20 @@ the active view transition of an element is exposed to script via a property on 
 	See [[#algorithms]] for exact details.
 
 	<div algorithm>
-	To get the <dfn>document-scoped view transition name</dfn> for an {{Element}} |element|:
+	To get the <dfn oldids="document-scoped-view-transition-name">scoped view transition name</dfn> for an {{Element}} |element| and a {{ViewTransition}} |transition|:
 
 		1. Let |scopedViewTransitionName| be the [=computed value=] of 'view-transition-name' for |element|.
 
-		1. If |scopedViewTransitionName| is associated with |element|'s [=node document=], then return |scopedViewTransitionName|.
+		1. If |scopedViewTransitionName| is associated with a [=tree/root=] in |transition|'s [=ViewTransition/participating tree roots=],
+			then return |scopedViewTransitionName|'s identifier string (without its associated [=tree/root=]).
 
 		1. Otherwise, return ''view-transition-name/none''.
 	</div>
+
+	Note: Stripping the associated [=tree/root=] once an element's 'view-transition-name' is determined to be in scope
+	means that all participating trees in a single {{ViewTransition}} share a flat namespace of names:
+	elements across different [=ViewTransition/participating tree roots=] can pair with each other if they use the same identifier,
+	and collide as duplicates if both are present in the same state.
 
 ### Rendering Consolidation ### {#named-and-transitioning}
 
@@ -1032,7 +1051,7 @@ the active view transition of an element is exposed to script via a property on 
 
 	Note: Most elements running or planning to run a [=scoped view transition=]
 	should use ''view-transition-scope: all'', to ensure that their
-	[=document-scoped view transition names=] don't accidentally interfere with
+	[=scoped view transition names=] don't accidentally interfere with
 	other [=scoped view transitions=] in the ancestor chain.
 
 ## Nested View Transition Groups: The 'view-transition-group' property ## {#view-transition-group-prop}
@@ -1049,6 +1068,7 @@ the active view transition of an element is exposed to script via a property on 
 
 	The 'view-transition-group' property can be used in conjuction with 'view-transition-name' to generate a hierarchy of [=named view transition pseudo-element=].
 	This property has no effect if 'view-transition-name' is ''view-transition-name/none''.
+	Non-''view-transition-group/normal'' values of 'view-transition-group' are [=tree-scoped names=].
 
 	<dl dfn-type=value dfn-for=view-transition-group>
 		: <dfn>normal</dfn>
@@ -1177,6 +1197,25 @@ and by applying ''view-transition-group'' to the internal element referencing th
 	[=View transitions=] whose [=ViewTransition/root element=] is the [=document element=]
 	are <em>not</em> [=scoped view transitions=].
 	They're [=global view transitions=].
+
+	By default, a [=view transition=] only discovers participating elements whose
+	'view-transition-name' is declared in the same [=node tree=] as its
+	[=ViewTransition/root element=]. Passing a list of {{ShadowRoot}}s via
+	{{StartViewTransitionOptions/shadowRoots}} allows a [=global view transition=]
+	or [=scoped view transition=] to also discover participating [=flat tree=]
+	descendants whose 'view-transition-name' (along with 'view-transition-class'
+	and 'view-transition-group') is declared in any of those [=shadow trees=].
+
+	<div class=example>
+		```js
+		customElement.startViewTransition({
+			update() {
+				// Update shadow DOM and/or light DOM children
+			},
+			shadowRoots: [customElement.shadowRoot]
+		});
+		```
+	</div>
 
 # Pseudo-elements # {#pseudo}
 
@@ -2264,7 +2303,7 @@ To resolve the [=used value=] of 'view-transition-name' for |element|:
 
 		Note: When used in a cross-document view transition, generated <css>auto</css> values never match, resulting in separate ''::view-transition-group()'' pseudo-elements, one exiting and one entering.
 
-A 'view-transition-name' generated by <css>auto</css> is a [=tree-scoped name=].
+A 'view-transition-name' generated by <css>auto</css> or <css>match-element</css> is a [=tree-scoped name=] associated with the same [=tree/root=] as the 'view-transition-name' declaration.
 
 # Algorithms # {#algorithms}
 
@@ -2567,6 +2606,9 @@ It has the following [=struct/items=]:
 			Note: We iterate in paint order to ensure that this order is cached in |namedElements|.
 			This defines the DOM order for ::view-transition-group pseudo-elements, such that the element at the bottom of the paint stack generates the first pseudo child of ::view-transition.
 
+			1. If |element| is not a [=flat tree=] [=tree/inclusive descendant=] of |transition|'s [=ViewTransition/root element=],
+				then [=continue=].
+
 			1. If any [=flat tree=] ancestor of this |element| [=skips its contents=], then [=continue=].
 
 			1. If any [=flat tree=] [=inclusive ancestor=] of this |element|,
@@ -2582,7 +2624,7 @@ It has the following [=struct/items=]:
 				Note: [=box fragment=] here does not refer to fragmentation of <a href="https://www.w3.org/TR/CSS2/visuren.html#inline-boxes">inline boxes</a> across <a href="https://www.w3.org/TR/CSS2/visuren.html#line-box">line boxes</a>.
 					Such inlines can participate in a transition.
 
-			1. Let |transitionName| be the |element|'s [=document-scoped view transition name=].
+			1. Let |transitionName| be |element|'s [=scoped view transition name=] given |transition|.
 
 			1. If |transitionName| is ''view-transition-name/none'',
 				or |element| is [=element-not-rendered|not rendered=],
@@ -2632,7 +2674,7 @@ It has the following [=struct/items=]:
 
 			1. Set |capture|'s [=captured element/old color-scheme=] to the [=computed value=] of 'color-scheme' on |element|.
 
-			1. Let |transitionName| be the [=computed value=] of 'view-transition-name' for |element|.
+			1. Let |transitionName| be |element|'s [=scoped view transition name=] given |transition|.
 
 			1. Set |namedElements|[|transitionName|] to |capture|.
 
@@ -2656,9 +2698,17 @@ It has the following [=struct/items=]:
 			and has a [=node document=] equal to |document|,
 			in [paint order](https://drafts.csswg.org/css2/#painting-order):
 
+			1. If |element| is not a [=flat tree=] [=tree/inclusive descendant=] of |transition|'s [=ViewTransition/root element=],
+				then [=continue=].
+
 			1. If any [=flat tree=] ancestor of this |element| [=skips its contents=], then [=continue=].
 
-			1. Let |transitionName| be |element|'s [=document-scoped view transition name=].
+			1. If any [=flat tree=] [=inclusive ancestor=] of this |element|,
+				up to but not including |transition|'s [=ViewTransition/root element=],
+				has ''view-transition-scope: all'',
+				[=continue=].
+
+			1. Let |transitionName| be |element|'s [=scoped view transition name=] given |transition|.
 
 			1. If |transitionName| is ''view-transition-name/none'',
 				or |element| is [=element-not-rendered|not rendered=],
@@ -3012,9 +3062,14 @@ Prepend the following step to the [=Perform pending transition operations=] algo
 ### Capturing the 'view-transition-class' ### {#vt-class-algorithms}
 
 <div algorithm="additional capture steps">
-When capturing the old or new state for an element, perform the following steps given a [=captured element=] |capture| and an [=element=] |element|:
+When capturing the old or new state for an element, perform the following steps given a [=captured element=] |capture|, a {{ViewTransition}} |transition|, and an [=element=] |element|:
 
-	1. Set |capture|'s [=captured element/class list=] to the [=computed value=] of |element|'s 'view-transition-class', if it is associated with |element|'s [=node document=].
+	1. Let |computedClasses| be the [=computed value=] of |element|'s 'view-transition-class'.
+
+	1. If |computedClasses| is not ''view-transition-class/none'' and is associated with a [=tree/root=] in |transition|'s [=ViewTransition/participating tree roots=],
+		set |capture|'s [=captured element/class list=] to the [=/list=] of identifier strings in |computedClasses| (without their associated [=tree/root=]).
+
+	1. Otherwise, set |capture|'s [=captured element/class list=] to an empty [=/list=].
 
 	Note: This is written in a monkey-patch manner, and will be merged into the algorithm once the L1 spec graduates.
 </div>
@@ -3023,11 +3078,13 @@ When capturing the old or new state for an element, perform the following steps 
 
 #### Resolving the 'view-transition-group' value #### {#vt-group-value-resolve}
 
-<div algorithm="resolve the document-scoped view-transition-group">
-To get the <dfn>document-scoped view transition group</dfn> of an {{Element}} |element|, perform the following steps:
+<div algorithm="resolve the scoped view-transition-group">
+To get the <dfn oldids="document-scoped-view-transition-group">scoped view transition group</dfn> of an {{Element}} |element| given a {{ViewTransition}} |transition|, perform the following steps:
 
-	1. Let |computedGroup| be the [=computed value=] of element's 'view-transition-group' property.
-	1. If |computedGroup| is associated with |element|'s [=node document=], return |computedGroup|.
+	1. Let |computedGroup| be the [=computed value=] of |element|'s 'view-transition-group' property.
+	1. If |computedGroup| is associated with a [=tree/root=] in |transition|'s [=ViewTransition/participating tree roots=]:
+		1. If |computedGroup| is a <<custom-ident>>, return |computedGroup|'s identifier string (without its associated [=tree/root=]).
+		1. Return |computedGroup|.
 	1. Return ''view-transition-group/normal''.
 </div>
 
@@ -3037,8 +3094,8 @@ To get the <dfn>document-scoped view transition group</dfn> of an {{Element}} |e
 
 To resolve the <dfn>nearest containing group name</dfn> of an {{Element}} |element|, perform the following steps given a {{ViewTransition}} |viewTransition|:
 	1. Assert: |element| participates in |viewTransition|.
-	1. Let |ancestorGroup| be |element|'s nearest [=flat tree=] [=tree/ancestor=] who participates in |viewTransition| and whose [=document-scoped view transition group=] is not ''view-transition-group/normal''.
-	1. If |ancestorGroup| exists, return |ancestorGroup|'s [=document-scoped view transition name=].
+	1. Let |ancestorGroup| be |element|'s nearest [=flat tree=] [=tree/ancestor=] who participates in |viewTransition| and whose [=scoped view transition group=] given |viewTransition| is not ''view-transition-group/normal''.
+	1. If |ancestorGroup| exists, return |ancestorGroup|'s [=scoped view transition name=] given |viewTransition|.
 	1. Return ''view-transition-name/none''.
 </div>
 
@@ -3048,14 +3105,14 @@ To resolve the <dfn>nearest containing group name</dfn> of an {{Element}} |eleme
 To resolve the <dfn>used group name</dfn> of an {{Element}} |element|, perform the following steps given a {{ViewTransition}} |transition|:
 
 	1. Assert: |element| participates in |transition|.
-	1. Let |group| be |element|'s [=document-scoped view transition group=].
+	1. Let |group| be |element|'s [=scoped view transition group=] given |transition|.
 	1. Let |containingGroupName| be |element|'s [=nearest containing group name=] given |transition|.
 	1. Return the first matching statement, switching on |group|:
 
 		* ''view-transition-group/normal'', ''view-transition-group/contain'': |containingGroupName|.
 			Note: an element with ''view-transition-group/contain'' becomes the [=nearest containing group name=] for its descendants.
-		* ''view-transition-group/nearest'': The [=document-scoped view transition name=] of the element's nearest [=flat tree=] ancestor which participates in the |transition|.
-		* ''view-transition-group/<custom-ident>'': |group| if the element has a [=flat tree=] [=tree/ancestor=] whose [=document-scoped view transition name=] is |group| and participates in |transition|; Otherwise |containingGroupName|.
+		* ''view-transition-group/nearest'': The [=scoped view transition name=] given |transition| of the element's nearest [=flat tree=] ancestor which participates in |transition|.
+		* A string (from ''view-transition-group/<custom-ident>''): |group| if the element has a [=flat tree=] [=tree/ancestor=] whose [=scoped view transition name=] given |transition| is |group| and participates in |transition|; Otherwise |containingGroupName|.
 </div>
 
 #### Compute the old 'view-transition-group' #### {#vt-group-capture-old}
@@ -3575,6 +3632,7 @@ This appendix is <em>informative</em>.
 Changes from <a href="https://www.w3.org/TR/2024/WD-css-view-transitions-2-20240516/">2024-05-16 Working Draft</a>
 </h3>
 
+* Add {{StartViewTransitionOptions/shadowRoots}} to {{StartViewTransitionOptions}} (<a href="https://github.com/w3c/csswg-drafts/issues/12953">#12953</a>).
 * Add description of nested view transition groups, which was partially missing.
 * Update wording to use `opacity: 0` instead of `visibility: hidden`. See <a href="https://github.com/w3c/csswg-drafts/issues/12629">issue 12629</a>.
 * Replace `contain: view-transition` with `view-transition-scope` property (<a href="https://github.com/w3c/csswg-drafts/issues/13123">pending #13123</a>)
